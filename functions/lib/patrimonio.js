@@ -91,7 +91,6 @@ exports.responderRequisicaoEdicaoBem = (0, https_1.onCall)(async (request) => {
             const bemSnap = await tx.get(bemRef);
             if (!bemSnap.exists)
                 throw new https_1.HttpsError("not-found", "Bem patrimonial não encontrado.");
-            const bem = bemSnap.data();
             const camposBem = {};
             if (req.novo_status)
                 camposBem.status = req.novo_status;

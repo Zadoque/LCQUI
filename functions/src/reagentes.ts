@@ -186,7 +186,7 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
   });
 });
 
-function calcularValidadeEfetivaNaAbertura(frasco: any, dataAbertura: Date): Date | null {
+export function calcularValidadeEfetivaNaAbertura(frasco: any, dataAbertura: Date): Date | null {
   if (frasco.validade_desconhecida) return null;
 
   const validadeFechado = frasco.validade_fechado

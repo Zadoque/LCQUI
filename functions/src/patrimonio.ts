@@ -59,6 +59,7 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
 
     if (aprovar) {
       const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(req.id_bem_patrimonial);
+      const bemSnap = await tx.get(bemRef);
       if (!bemSnap.exists) throw new HttpsError("not-found", "Bem patrimonial não encontrado.");
 
       const camposBem: Record<string, unknown> = {};
