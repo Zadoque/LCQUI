@@ -115,19 +115,37 @@ export default function ReagenteDetailsPage() {
                         <div className="text-xs text-foreground/50">{f.fornecedor}</div>
                       </td>
                       <td className="p-4">
-                        <span className={`px-2 py-1 rounded text-xs font-bold ${
-                          f.status === 'Fechado' ? 'bg-green-500/10 text-green-500' :
-                          f.status === 'Aberto' ? 'bg-amber-500/10 text-amber-500' :
-                          'bg-red-500/10 text-red-500'
-                        }`}>
-                          {f.status}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span className={`px-2 py-1 rounded w-fit text-xs font-bold ${
+                            f.estado_fisico_frasco === 'FECHADO' ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'
+                          }`}>
+                            {f.estado_fisico_frasco}
+                          </span>
+                          
+                          {f.em_quarentena && (
+                            <span className="px-2 py-1 rounded w-fit text-xs font-bold bg-red-500/10 text-red-500">
+                              QUARENTENA
+                            </span>
+                          )}
+                          
+                          {f.vencido && (
+                            <span className="px-2 py-1 rounded w-fit text-xs font-bold bg-purple-500/10 text-purple-500">
+                              VENCIDO
+                            </span>
+                          )}
+
+                          {f.disponibilidade === "EMPRESTADO" && (
+                            <span className="px-2 py-1 rounded w-fit text-xs font-bold bg-blue-500/10 text-blue-500">
+                              EM USO
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4 font-mono text-sm">
                         {f.quantidade_atual_mg_ml} / {f.quantidade_inicial_mg_ml} {f.unidade_medida}
                       </td>
                       <td className="p-4 text-right">
-                        {f.status === 'Aberto' && (
+                        {f.estado_fisico_frasco === 'ABERTO' && f.disponibilidade === 'EMPRESTADO' && !f.em_quarentena && (
                           <button 
                             onClick={() => handleDevolucao(f.id)}
                             className="text-xs font-semibold text-amber-500 hover:bg-amber-500/10 px-3 py-1 rounded"
@@ -135,7 +153,7 @@ export default function ReagenteDetailsPage() {
                             Devolver
                           </button>
                         )}
-                        {f.status === 'Fechado' && (
+                        {f.estado_fisico_frasco === 'FECHADO' && f.disponibilidade === 'DISPONIVEL' && !f.em_quarentena && (
                           <button className="text-xs font-semibold text-primary hover:bg-primary/10 px-3 py-1 rounded">
                             Retirar (Abrir)
                           </button>

@@ -11,8 +11,11 @@ export interface FrascoReagente {
   id: string;
   id_resumo_reagente: string;
   id_almoxarifado: string;
-  nome_reagente: string;
-  status: "Fechado" | "Aberto" | "Vazio" | "Quarentena";
+  estado_fisico_frasco: "FECHADO" | "ABERTO";
+  disponibilidade: "DISPONIVEL" | "EMPRESTADO";
+  vencido: boolean;
+  em_quarentena: boolean;
+  detalhe_status?: string | null;
   lote: string;
   fornecedor: string;
   quantidade_inicial_mg_ml: number;
