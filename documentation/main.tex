@@ -508,7 +508,27 @@ número de patrimônio. No PostgreSQL, isso é implementado como índice
 único parcial; no Firestore, a verificação é reimplementada na Cloud 
 Function de criação da requisição, dentro de uma transação.
 \end{regra}
+\subsection{Lock de Requisição de Patrimônio}
+\begin{entidade}{Locks\_Requisicao\_Patrimonio}
+\campo{id (docId determinístico)}{VARCHAR(100)}{PK}
+\campo{criado\_em}{TIMESTAMP}{NOT NULL}
+\end{entidade}
+
+\begin{regra}[Lock Determinístico para Unicidade de Requisição Pendente]
+O Firestore não adquire trava pessimista sobre \textbf{ausência} de documento em uma query transacional. Por isso, a garantia de que não existam duas requisições pendentes para o mesmo bem ou plaqueta \textbf{não pode} ser implementada pela consulta \texttt{WHERE status = 'pendente'} dentro de uma transação -- dois clientes simultâneos lerão conjunto vazio, ambos passarão na validação e ambos gravarão, violando RF10/RF10b.
+
+A solução é o padrão \textit{deterministic lock}: a Cloud Function tenta criar um documento cujo \textbf{docId é derivado deterministicamente} do recurso disputado. O Firestore garante que apenas uma gravação com o mesmo docId vence quando executadas concorrentemente dentro de uma transação.
+
+\begin{itemize}
+  \item Para requisição de \textbf{edição}: docId = \texttt{bem\_edicao\_\{id\_bem\_patrimonial\}}
+  \item Para requisição de \textbf{adição}: docId = \texttt{bem\_adicao\_\{numero\_patrimonio\_proposto\}}
+\end{itemize}
+
+O lock é \textbf{removido} pela função \texttt{responderRequisicao*} ao aprovar ou rejeitar. Se a Cloud Function de criação falhar após criar o lock mas antes de criar a requisição (ex.: timeout), o lock fica órfão; uma Cloud Function de limpeza agendada remove locks com mais de 24 horas.
+\end{regra}
+
 \subsection{Impressão de Etiquetas de Frasco}
+
 \begin{entidade}{Impressao\_Etiqueta\_Frasco}
 \campo{id}{SERIAL}{PK}
 \campo{gerado\_em}{TIMESTAMP}{NOT NULL}
@@ -521,12 +541,15 @@ Function de criação da requisição, dentro de uma transação.
 Esta entidade registra cada sessão de impressão de etiquetas de frasco. \textit{codigo\_inicial} e \textit{codigo\_final} referem-se aos números sequenciais dos códigos de frasco no formato \texttt{LCQUI-N} (ex.: \texttt{LCQUI-1} a \texttt{LCQUI-50}). Ver regra de geração de código em 7.2.9. A última impressão e o último código cadastrado são usados pelo modal de geração para oferecer ao gestor três opções: desde o último frasco cadastrado, desde a última impressão ou intervalo personalizado.
 \end{explicacao}
 
-\begin{entidade}{Contador\_Codigo\_Frasco}
-\campo{ultimo\_codigo\_gerado}{INTEGER}{NOT NULL}
-\end{entidade}
-
-\begin{explicacao}
-Documento singleton que armazena o maior número sequencial já atribuído a um frasco. Incrementado atomicamente via \texttt{FieldValue.increment(1)} a cada cadastro de frasco, garantindo unicidade sem \texttt{SERIAL} do PostgreSQL.
+\begin{explicacao}[Arquitetura Híbrida: Realtime Database como Microserviço de Sequenciamento]
+O código sequencial \texttt{LCQUI-N} \textbf{não} é gerado por um documento Firestore singleton. O Firebase Realtime Database é utilizado exclusivamente como microserviço de sequenciamento atômico:
+\begin{enumerate}
+  \item A Cloud Function invoca \texttt{admin.database().ref('/contadores/codigo\_frasco')\allowbreak.transaction(n => (n || 0) + 1)}.
+  \item O Realtime Database garante atomicidade sem limite prático de throughput (suporta milhares de writes/s, contra 1~write/s do Firestore por documento).
+  \item O número N retornado compõe o código \texttt{LCQUI-\{N\}} com sequência estrita (sem saltos).
+  \item O Firestore recebe o documento completo do frasco com o campo \texttt{codigo\_frasco: "LCQUI-N"} já pronto.
+\end{enumerate}
+O Firestore e o Realtime Database coexistem no mesmo projeto Firebase, compartilham o Firebase Auth e as SDKs rodam sem conflito. O nó \texttt{/contadores/codigo\_frasco} no Realtime Database substitui funcionalmente a entidade \textit{Contador\_Codigo\_Frasco} que antes era modelada como coleção Firestore.
 \end{explicacao}
 %%-----------------------------------%%
 %%        ALMOXARIFADO / REAGENTES   %%
@@ -791,10 +814,16 @@ As seguintes informações devem ser tratadas preferencialmente como \textbf{vie
 \campo{id\_professor}{INTEGER}{FK, NOT NULL}
 \campo{status}{ENUM}{Ativo, Arquivada, NOT NULL}
 \campo{nome\_turma}{VARCHAR(100)}{NOT NULL}
+\campo{ano}{INTEGER}{NOT NULL}
+\campo{semestre}{SMALLINT}{CHECK (semestre IN (1,2)), NOT NULL}
 \campo{capacidade}{INTEGER}{NOT NULL}
 \campo{codigo\_turma}{VARCHAR(20)}{UNIQUE, NOT NULL}
 \campo{data\_criacao}{TIMESTAMP}{NOT NULL}
 \end{entidade}
+
+\begin{explicacao}
+Os campos \textit{ano} e \textit{semestre} representam o per\'{i}odo letivo da turma (ex.: 2026/1). Ambos s\~{a}o exibidos na listagem de turmas arquivadas do professor -- eliminando a necessidade de parsing do \textit{nome\_turma} ou infer\^{e}ncia a partir de \textit{data\_criacao}. O modal de cria\c{c}\~{a}o de turma solicita esses dois campos al\'{e}m dos demais.
+\end{explicacao}
 
 \begin{regra}[RN-TUR-01: Controle de Capacidade da Turma]
 O ingresso de aluno por código de turma exige obrigatoriamente que a quantidade de alunos matriculados ativos seja estritamente menor que a capacidade da turma:
@@ -1179,7 +1208,7 @@ Cada linha descreve uma entidade 3FN da Seção 4, a decisão de estrutura no Fi
 
 \begin{center}
 \small
-\begin{longtable}{>{\raggedright\arraybackslash}p{0.31\textwidth} >{\raggedright\arraybackslash}p{0.20\textwidth} >{\raggedright\arraybackslash}X}
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.31\textwidth} >{\raggedright\arraybackslash}p{0.20\textwidth} >{\raggedright\arraybackslash}p{0.42\textwidth}}
 \toprule
 \textbf{Entidade 3FN} & \textbf{Estrutura Firestore} & \textbf{Justificativa / Denorm}\\
 \midrule
@@ -1187,7 +1216,7 @@ Cada linha descreve uma entidade 3FN da Seção 4, a decisão de estrutura no Fi
 \bottomrule
 \endfoot
 Usuario & Coleção raiz \texttt{Usuarios} (docId = Firebase Auth UID) & Acesso direto por auth; estrutura natural do SDK.\\
-Chefe\_Geral & Coleção raiz \texttt{Chefe\_Geral} (docId = uid) & Leitura paralela em \texttt{resolverPapeis()} junto das demais coleções de papel.\\
+Chefe\_Geral & Coleção raiz \texttt{Chefe\_Geral} (docId = uid) & Lido por \texttt{atualizarCustomClaims(uid)} para compor o claim \texttt{roles} do token JWT. Papéis n\~{a}o s\~{a}o mais relidos a cada chamada de API.\\
 Gestor\_Almoxarifado & Coleção raiz \texttt{Gestor\_Almoxarifado} (docId = uid) & Idem acima.\\
 Gestor\_Bens\_Patrimoniais & Coleção raiz \texttt{Gestor\_Bens\_Patrimoniais} (docId = uid) & Idem.\\
 Professor & Coleção raiz \texttt{Professor} (docId = uid) & Idem.\\
@@ -1894,33 +1923,48 @@ Todas as \textit{Cloud Functions} desta seção seguem a mesma regra: \textbf{qu
 
 \subsubsection{Funções de Apoio (Autorização)}
 
-\begin{lstlisting}[language=TypeScript, title={Resolução de Papéis e Escopo de Gestor}]
+\begin{lstlisting}[language=TypeScript, title={Resolução de Papéis via Custom Claims (zero leituras Firestore)}]
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
-async function resolverPapeis(uid: string): Promise<string[]> {
+// C1: Papéis lidos diretamente do JWT (Firebase Custom Claims).
+// Zero leituras extras no Firestore por chamada de API.
+// PREREQUISITO: toda mutação de papel deve chamar atualizarCustomClaims(uid).
+function resolverPapeisDoToken(auth: {token: Record<string, unknown>} | undefined): string[] {
+  if (!auth) return [];
+  const roles = auth.token["roles"];
+  if (!Array.isArray(roles)) return [];
+  return roles as string[];
+}
+
+// Chamada após TODA concessão ou remoção de papel:
+//   await atualizarCustomClaims(uid);
+// Isso invalida o token atual; o cliente deve renovar com user.getIdToken(true).
+export async function atualizarCustomClaims(uid: string): Promise<void> {
   const colecoes = ["Chefe_Geral", "Gestor_Almoxarifado", "Gestor_Bens_Patrimoniais", "Professor", "Aluno", "Bolsista"];
   const leituras = await Promise.all(
     colecoes.map((c) => admin.firestore().collection(c).doc(uid).get())
   );
-  return colecoes.filter((_, i) => leituras[i].exists);
+  const roles = colecoes.filter((_, i) => leituras[i].exists);
+  await admin.auth().setCustomUserClaims(uid, { roles });
 }
 
-async function validarPermissao(uid: string | undefined, papeisPermitidos: string[]): Promise<string[]> {
-  if (!uid) throw new HttpsError("unauthenticated", "Usuário não autenticado.");
-  const papeis = await resolverPapeis(uid);
+function validarPermissao(request: {auth?: {uid: string; token: Record<string, unknown>}}, papeisPermitidos: string[]): string[] {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Usuário não autenticado.");
+  const papeis = resolverPapeisDoToken(request.auth);
   if (!papeisPermitidos.some((p) => papeis.includes(p))) {
     throw new HttpsError("permission-denied", "Usuário sem papel autorizado para esta ação.");
   }
   return papeis;
 }
 
-async function validarGestorDoAlmoxarifado(uid: string, idAlmoxarifado: string): Promise<void> {
-  const papeis = await resolverPapeis(uid);
-  if (papeis.includes("Chefe_Geral")) return;
+async function validarGestorDoAlmoxarifado(uid: string, auth: {token: Record<string, unknown>}, idAlmoxarifado: string): Promise<void> {
+  const papeis = resolverPapeisDoToken(auth);
+  if (papeis.includes("Chefe_Geral")) return; // Chefe tem escopo global
   if (!papeis.includes("Gestor_Almoxarifado")) {
     throw new HttpsError("permission-denied", "Usuário não é Gestor de Almoxarifado.");
   }
+  // 1 leitura: o vínculo de escopo (não o papel - esse já veio do token)
   const vinculo = await admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
     .where("id_gestor_almoxarifado", "==", uid)
     .where("id_almoxarifado", "==", idAlmoxarifado)
@@ -1929,7 +1973,19 @@ async function validarGestorDoAlmoxarifado(uid: string, idAlmoxarifado: string):
     throw new HttpsError("permission-denied", "Gestor não está designado para este almoxarifado.");
   }
 }
+
+// C3: Geração de código sequencial via Realtime Database (sem limite de throughput).
+// O .transaction() do RTDB é atômico e suporta milhares de writes/s.
+async function gerarCodigoFrascoUnico(): Promise<string> {
+  const ref = admin.database().ref("/contadores/codigo_frasco");
+  const result = await ref.transaction((current: number | null) => (current ?? 0) + 1);
+  if (!result.committed || result.snapshot.val() == null) {
+    throw new HttpsError("internal", "Falha ao gerar código de frasco.");
+  }
+  return `LCQUI-${result.snapshot.val()}`;
+}
 \end{lstlisting}
+
 
 \subsubsection{Fluxo de Reagentes: Cadastro, Retirada e Devolução}
 
@@ -2010,15 +2066,19 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
 });
 \end{lstlisting}
 
-\begin{lstlisting}[language=TypeScript, title={cadastrarFrascoAberto (Opção A e Opção B da Regra 7.2.13)}]
+\begin{lstlisting}[language=TypeScript, title={cadastrarFrascoAberto com bifurcação SÓLIDO/LÍQUIDO (C5)}]
+// C5: modalidade para SÓLIDO usa ESTIMA_MASSA (não ESTIMA_VOLUME)
 interface CadastroFrascoAberto {
   idEspecificacaoReagente: string;
   idAlmoxarifado: string;
   idLote?: string;
-  modalidade: "CONHECE_TARA" | "ESTIMA_VOLUME";
-  pesoTotalBalança: number;
-  pesoFrascoVazioInformado?: number;
-  volumeAtualEstimado?: number;
+  // LIQUIDO: "CONHECE_TARA" | "ESTIMA_VOLUME"
+  // SOLIDO:  "CONHECE_TARA" | "ESTIMA_MASSA"
+  modalidade: "CONHECE_TARA" | "ESTIMA_VOLUME" | "ESTIMA_MASSA";
+  pesoTotalBalanca: number;            // sempre leitura de balança em g
+  pesoFrascoVazioInformado?: number;  // Opção A (ambos estados físicos)
+  volumeAtualEstimado?: number;        // Opção B LIQUIDO: volume visual em mL
+  massaAtualEstimada?: number;         // Opção B SOLIDO: estimativa em g
   validadeAberto?: string;
   validadeDesconhecida?: boolean;
   decisaoSeJaVencido?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
@@ -2027,22 +2087,50 @@ interface CadastroFrascoAberto {
 
 export const cadastrarFrascoAberto = onCall(async (request) => {
   const dados = request.data as CadastroFrascoAberto;
-  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Almoxarifado"]);
-  await validarGestorDoAlmoxarifado(request.auth!.uid, dados.idAlmoxarifado);
+  const papeis = validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, dados.idAlmoxarifado);
 
   const especSnap = await admin.firestore().collection("Especificacao_Reagente").doc(dados.idEspecificacaoReagente).get();
   if (!especSnap.exists) throw new HttpsError("not-found", "Especificação não encontrada.");
-  const densidade = especSnap.data()!.densidade || 1.0;
+  const especData = especSnap.data()!;
+  const estadoFisico: "SOLIDO" | "LIQUIDO" = especData.estado_fisico;
+  const densidade: number | null = especData.densidade ?? null;
 
+  // C5: bifurcação explícita por estado físico
   let pesoVazio: number;
-  let volumeAtual: number;
+  let conteudoNominal: number; // g para sólidos, mL para líquidos
 
-  if (dados.modalidade === "CONHECE_TARA") {
-    pesoVazio = dados.pesoFrascoVazioInformado!;
-    volumeAtual = (dados.pesoTotalBalança - pesoVazio) / densidade;
-  } else {
-    volumeAtual = dados.volumeAtualEstimado!;
-    pesoVazio = dados.pesoTotalBalança - (volumeAtual * densidade);
+  if (estadoFisico === "SOLIDO") {
+    // Sólidos: tudo em gramas; densidade não é usada para cálculo de volume
+    if (dados.modalidade === "CONHECE_TARA") {
+      if (dados.pesoFrascoVazioInformado == null)
+        throw new HttpsError("invalid-argument", "CONHECE_TARA exige pesoFrascoVazioInformado.");
+      pesoVazio = dados.pesoFrascoVazioInformado;
+      conteudoNominal = dados.pesoTotalBalanca - pesoVazio;
+    } else { // ESTIMA_MASSA
+      if (dados.massaAtualEstimada == null)
+        throw new HttpsError("invalid-argument", "ESTIMA_MASSA exige massaAtualEstimada.");
+      conteudoNominal = dados.massaAtualEstimada;
+      pesoVazio = dados.pesoTotalBalanca - conteudoNominal;
+    }
+    if (pesoVazio <= 0)
+      throw new HttpsError("invalid-argument", "Massa atual maior que o peso total medido na balança.");
+  } else { // LIQUIDO
+    if (!densidade || densidade <= 0)
+      throw new HttpsError("failed-precondition", "Líquido exige densidade positiva cadastrada na especificação.");
+    if (dados.modalidade === "CONHECE_TARA") {
+      if (dados.pesoFrascoVazioInformado == null)
+        throw new HttpsError("invalid-argument", "CONHECE_TARA exige pesoFrascoVazioInformado.");
+      pesoVazio = dados.pesoFrascoVazioInformado;
+      conteudoNominal = (dados.pesoTotalBalanca - pesoVazio) / densidade;
+    } else { // ESTIMA_VOLUME
+      if (dados.volumeAtualEstimado == null)
+        throw new HttpsError("invalid-argument", "ESTIMA_VOLUME exige volumeAtualEstimado.");
+      conteudoNominal = dados.volumeAtualEstimado;
+      pesoVazio = dados.pesoTotalBalanca - (conteudoNominal * densidade);
+    }
+    if (conteudoNominal <= 0 || pesoVazio <= 0)
+      throw new HttpsError("invalid-argument", "Dados de volume/peso inconsistentes com a densidade.");
   }
 
   const codigoFrasco = await gerarCodigoFrascoUnico();
@@ -2051,21 +2139,19 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
   const validadeEfetiva = dados.validadeDesconhecida ? null : validade;
   const jaVencido = Boolean(validadeEfetiva && validadeEfetiva <= agora);
 
-  if (jaVencido && !dados.decisaoSeJaVencido) {
+  if (jaVencido && !dados.decisaoSeJaVencido)
     throw new HttpsError("failed-precondition", "O frasco está vencido no cadastro e exige uma decisão do gestor.");
-  }
-  if (dados.decisaoSeJaVencido === "QUARENTENA" && !dados.detalheStatus) {
+  if (dados.decisaoSeJaVencido === "QUARENTENA" && !dados.detalheStatus)
     throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status.");
-  }
 
   const ref = await admin.firestore().collection("Frasco_Reagente").add({
     id_almoxarifado: dados.idAlmoxarifado,
     id_lote: dados.idLote ?? null,
     id_especificacao_reagente: dados.idLote ? null : dados.idEspecificacaoReagente,
     codigo_frasco: codigoFrasco,
-    conteudo_nominal: volumeAtual,
-    peso_no_cadastrado: dados.pesoTotalBalança,
-    peso_atual: dados.pesoTotalBalança,
+    conteudo_nominal: conteudoNominal,   // g (sólido) ou mL (líquido)
+    peso_no_cadastrado: dados.pesoTotalBalanca,
+    peso_atual: dados.pesoTotalBalanca,
     peso_frasco_vazio: pesoVazio,
     medida_usada: 0,
     data_abertura: agora,
@@ -2076,14 +2162,18 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
     vencido: jaVencido,
     em_quarentena: jaVencido && dados.decisaoSeJaVencido === "QUARENTENA",
     uso_vencido_autorizado: jaVencido && dados.decisaoSeJaVencido === "DISPONIVEL",
-    detalhe_status: jaVencido ? (dados.detalheStatus ?? (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE" ? "Frasco vencido aguardando processo institucional de descarte." : null)) : null,
+    detalhe_status: jaVencido
+      ? (dados.detalheStatus ?? (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE"
+          ? "Frasco vencido aguardando processo institucional de descarte." : null))
+      : null,
     cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
     cadastrado_por: request.auth!.uid,
   });
 
-  return { idFrasco: ref.id, codigoFrasco, volumeCalculado: volumeAtual, pesoVazio, venceuNoCadastro: jaVencido };
+  return { idFrasco: ref.id, codigoFrasco, conteudoNominal, pesoVazio, venceuNoCadastro: jaVencido };
 });
 \end{lstlisting}
+
 
 \begin{lstlisting}[language=TypeScript, title={Abertura e cálculo de validade efetiva no servidor}]
 function calcularValidadeEfetivaNaAbertura(frasco: any, dataAbertura: Date): Date | null {
@@ -2170,10 +2260,17 @@ interface RetiradaFrasco {
 
 export const registrarRetirada = onCall(async (request) => {
   const dados = request.data as RetiradaFrasco;
-  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
 
-  const papeisBorrower = await resolverPapeis(dados.idUsuarioRetirou);
-  if (!papeisBorrower.includes("Professor") && !papeisBorrower.includes("Bolsista")) {
+  // Verificação do papel do tomador: este UID é de outro usuário
+  // (não do requisitante), portanto Custom Claims não estão disponíveis.
+  // Leitura Firestore é necessária aqui (1 leitura, não 6).
+  const colecoesBorrower = ["Professor", "Bolsista"];
+  const [profSnap, bolsSnap] = await Promise.all([
+    admin.firestore().collection("Professor").doc(dados.idUsuarioRetirou).get(),
+    admin.firestore().collection("Bolsista").doc(dados.idUsuarioRetirou).get(),
+  ]);
+  if (!profSnap.exists && !bolsSnap.exists) {
     throw new HttpsError("failed-precondition", "Usuário selecionado não é Professor nem Bolsista.");
   }
 
@@ -2268,13 +2365,20 @@ export const registrarDevolucao = onCall(async (request) => {
     const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(emprestimo.id_frasco_reagente);
     const frascoSnap = await tx.get(frascoRef);
     const frasco = frascoSnap.data()!;
-    await validarGestorDoAlmoxarifado(request.auth!.uid, frasco.id_almoxarifado);
+    await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
 
     const densidade = await resolverDensidadeDoFrasco(frasco);
     const pesoConsumido = emprestimo.peso_saida - dados.pesoRetorno;
-    if (pesoConsumido < 0) {
-      throw new HttpsError("invalid-argument", "Peso de retorno maior que o peso de saída.");
+
+    // C5: Reagentes higroscópicos (NaOH, s\'{i}lica gel, etc.) podem ganhar massa por
+    // absorção de umidade. Permite margem de +2% da massa de saída antes de erro.
+    const MARGEM_HIGROSCOPICA = 0.02;
+    const limiteMaxRetorno = emprestimo.peso_saida * (1 + MARGEM_HIGROSCOPICA);
+    if (dados.pesoRetorno > limiteMaxRetorno) {
+      throw new HttpsError("invalid-argument",
+        `Peso de retorno (${dados.pesoRetorno}g) excede 102% da massa de saída (${emprestimo.peso_saida}g). Verifique se há contaminação ou erro na balança.`);
     }
+    const avisoHigroscopico = dados.pesoRetorno > emprestimo.peso_saida;
     const volumeUtilizado = densidade ? pesoConsumido / densidade : pesoConsumido;
 
     const agora = new Date();
@@ -2311,6 +2415,7 @@ export const registrarDevolucao = onCall(async (request) => {
       peso_retorno: dados.pesoRetorno,
       medida_utilizada: volumeUtilizado,
       unidade_medida_utilizada: densidade ? "ml" : "g",
+    ...(avisoHigroscopico && { aviso: "higroscopico_suspeito" }),
     });
     tx.update(frascoRef, atualizacaoFrasco);
 
@@ -2329,7 +2434,8 @@ export const registrarDevolucao = onCall(async (request) => {
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    return { pesoConsumido, volumeUtilizado, atrasado, frascoVencido };
+    return { pesoConsumido, volumeUtilizado, atrasado, frascoVencido,
+           avisoHigroscopico: avisoHigroscopico || false };
   });
 });
 \end{lstlisting}
@@ -2458,24 +2564,26 @@ async function atualizarContadorLote(idLote: string, delta: number) {
 
 \subsubsection{Fluxo de Bens Patrimoniais: Requisições}
 
-\begin{lstlisting}[language=TypeScript, title={Criação e Resposta de Requisição de Edição (RF10 e RF11)}]
+\begin{lstlisting}[language=TypeScript, title={Criação e Resposta de Requisição de Edição (C2: lock determinístico)}]
 export const criarRequisicaoEdicaoBem = onCall(async (request) => {
-  await validarPermissao(request.auth?.uid, ["Professor"]);
+  validarPermissao(request, ["Professor"]);
   const dados = request.data as { idBemPatrimonial: string; novoNome?: string; novoStatus?: string; novoEstadoConservacao?: string; novoIdLocal?: string; motivo: string };
 
+  // C2: Lock determinístico - elimina phantom reads em transações Firestore.
+  // Se dois professores enviarem simultaneamente, apenas um cria o lock; o outro
+  // recebe ALREADY_EXISTS da transação e falha antes de criar a requisição.
+  const lockId = `bem_edicao_${dados.idBemPatrimonial}`;
+  const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(lockId);
+  const reqRef  = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc();
+
   return admin.firestore().runTransaction(async (tx) => {
-    const pendentes = await tx.get(
-      admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial")
-        .where("id_bem_patrimonial", "==", dados.idBemPatrimonial)
-        .where("status", "==", "pendente")
-        .limit(1)
-    );
-    if (!pendentes.empty) {
+    const lockSnap = await tx.get(lockRef);
+    if (lockSnap.exists) {
       throw new HttpsError("failed-precondition", "Já existe uma requisição de edição pendente para este bem.");
     }
-
-    const ref = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc();
-    tx.set(ref, {
+    // Cria lock e requisição atomicamente
+    tx.set(lockRef, { criado_em: admin.firestore.FieldValue.serverTimestamp() });
+    tx.set(reqRef, {
       id_bem_patrimonial: dados.idBemPatrimonial,
       novo_nome: dados.novoNome ?? null,
       novo_status: dados.novoStatus ?? null,
@@ -2486,12 +2594,12 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
       feita_em: admin.firestore.FieldValue.serverTimestamp(),
       id_usuario_solicitante: request.auth!.uid,
     });
-    return { idRequisicao: ref.id };
+    return { idRequisicao: reqRef.id };
   });
 });
 
 export const responderRequisicaoEdicaoBem = onCall(async (request) => {
-  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
+  validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
   const { idRequisicao, aprovar, justificativa } = request.data as { idRequisicao: string; aprovar: boolean; justificativa: string };
   const reqRef = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc(idRequisicao);
 
@@ -2502,6 +2610,11 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
     if (req.status !== "pendente") {
       throw new HttpsError("failed-precondition", "Requisição já foi respondida.");
     }
+
+    // Remove o lock ao responder
+    const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio")
+      .doc(`bem_edicao_${req.id_bem_patrimonial}`);
+    tx.delete(lockRef);
 
     tx.update(reqRef, {
       status: aprovar ? "aprovada" : "rejeitada",
@@ -2534,9 +2647,9 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
 });
 \end{lstlisting}
 
-\begin{lstlisting}[language=TypeScript, title={responderRequisicaoAdicaoBem com criação atômica de Resumo}]
+\begin{lstlisting}[language=TypeScript, title={criarRequisicaoAdicaoBem com lock determinístico (C2)}]
 export const criarRequisicaoAdicaoBem = onCall(async (request) => {
-  await validarPermissao(request.auth?.uid, ["Professor"]);
+  validarPermissao(request, ["Professor"]);
 
   const dados = request.data as {
     numeroPatrimonioProposto: string;
@@ -2549,21 +2662,18 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
     motivo: string;
   };
 
-  return admin.firestore().runTransaction(async (tx) => {
-    const pendentes = await tx.get(
-      admin.firestore()
-        .collection("Requisicao_Adicao_Bem_Patrimonial")
-        .where("numero_patrimonio_proposto", "==", dados.numeroPatrimonioProposto)
-        .where("status", "==", "pendente")
-        .limit(1)
-    );
+  // C2: Lock determinístico por número de patrimônio proposto
+  const lockId = `bem_adicao_${dados.numeroPatrimonioProposto}`;
+  const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(lockId);
+  const reqRef  = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc();
 
-    if (!pendentes.empty) {
+  return admin.firestore().runTransaction(async (tx) => {
+    const lockSnap = await tx.get(lockRef);
+    if (lockSnap.exists) {
       throw new HttpsError("failed-precondition", "Já existe requisição pendente para este número de patrimônio.");
     }
-
-    const ref = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc();
-    tx.set(ref, {
+    tx.set(lockRef, { criado_em: admin.firestore.FieldValue.serverTimestamp() });
+    tx.set(reqRef, {
       numero_patrimonio_proposto: dados.numeroPatrimonioProposto,
       estado_conservacao_proposto: dados.estadoConservacaoProposto,
       photo_url_proposta: null,
@@ -2579,13 +2689,12 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
       respondida_em: null,
       id_usuario_respondente: null,
     });
-
-    return { idRequisicao: ref.id };
+    return { idRequisicao: reqRef.id };
   });
 });
 
 export const responderRequisicaoAdicaoBem = onCall(async (request) => {
-  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
+  validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
   const { idRequisicao, aprovar, justificativa } = request.data as { idRequisicao: string; aprovar: boolean; justificativa: string };
   const reqRef = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc(idRequisicao);
 
@@ -2594,6 +2703,11 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
     if (!reqSnap.exists) throw new HttpsError("not-found", "Requisição não encontrada.");
     const req = reqSnap.data()!;
     if (req.status !== "pendente") throw new HttpsError("failed-precondition", "Requisição já respondida.");
+
+    // C2: Remove o lock ao responder (libera possível nova requisição futura)
+    const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio")
+      .doc(`bem_adicao_${req.numero_patrimonio_proposto}`);
+    tx.delete(lockRef);
 
     let idBemCriado: string | null = null;
 
@@ -2873,6 +2987,58 @@ export const gerarRelatorioPersonalizado = onCall(async (request) => {
   return { url };
 });
 \end{lstlisting}
+
+\newpage
+% =================================================
+\section{Regras de Segurança do Firestore (Security Rules)}
+% =================================================
+
+\begin{explicacao}[Por que as Security Rules são obrigatórias]
+Toda leitura via \texttt{onSnapshot} no frontend passa \textbf{diretamente} pelo Firestore SDK, \textbf{sem} passar pelas Cloud Functions. Portanto, as Cloud Functions são a camada de autorização para escrita, mas as \textit{Security Rules} são a camada de autorização para \textbf{leitura direta}. Sem rules corretas, qualquer usuário autenticado poderia ler qualquer coleção.
+\end{explicacao}
+
+\begin{regra}[Princípio: Deny-All por Padrão]
+A regra raiz do arquivo \texttt{firestore.rules} deve ser:\\
+\texttt{allow read, write: if false;}\\
+Todas as exceções são declaradas explicitamente abaixo.
+\end{regra}
+
+\subsection{Regras por Coleção}
+
+\begin{center}
+\small
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.30\textwidth} >{\raggedright\arraybackslash}p{0.65\textwidth}}
+\toprule
+\textbf{Coleção} & \textbf{Regra}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\texttt{Usuarios/\{uid\}} & Read: \texttt{request.auth.uid == uid} (usuário lê só o próprio documento). Write: negado ao cliente (só Cloud Function).\\
+\texttt{Chefe\_Geral}, \texttt{Gestor\_Almoxarifado}, etc.~(coleções de papel) & Read: \texttt{request.auth.uid == docId} (cada usuário lê só o próprio documento de papel). Write: negado ao cliente.\\
+\texttt{Turmas/\{turmaId\}} & Read: usuário é professor da turma (\texttt{resource.data.id\_professor == request.auth.uid}) OU está na sub-coleção \texttt{Alunos}. Write: negado ao cliente.\\
+\texttt{Turmas/\{turmaId\}/Alunos} & Read: \texttt{request.auth.uid == resource.data.id\_aluno} OU professor da turma.\\
+\texttt{Turmas/\{turmaId\}/Posts} & Read: membro da turma (professor ou aluno matriculado). Write: negado.\\
+\texttt{Turmas/\{turmaId\}/Posts/\{postId\}/Comentarios} & Idem ao Post pai.\\
+\texttt{Usuarios/\{uid\}/Notificacoes} & Read: \texttt{request.auth.uid == uid}. Write: negado ao cliente.\\
+\texttt{Frasco\_Reagente} & Read: papel \texttt{roles} no token contém \texttt{Chefe\_Geral} OU \texttt{Gestor\_Almoxarifado} OU \texttt{Professor} OU \texttt{Bolsista} OU \texttt{Aluno}. Write: negado ao cliente.\\
+\texttt{Emprestimo\_Reagente} & Read: \texttt{Chefe\_Geral} OU \texttt{Gestor\_Almoxarifado} OU o próprio usuário que retirou (\texttt{resource.data.id\_usuario\_retirou == request.auth.uid}). Write: negado.\\
+\texttt{Bem\_Patrimonial} & Read: qualquer usuário autenticado (catarro público interno). Write: negado ao cliente.\\
+\texttt{Requisicao\_Edicao\_Bem\_Patrimonial} & Read: o solicitante (\texttt{resource.data.id\_usuario\_solicitante == uid}) OU gestores de bens (papel no token). Write: negado.\\
+\texttt{Requisicao\_Adicao\_Bem\_Patrimonial} & Idem acima.\\
+\texttt{Locks\_Requisicao\_Patrimonio} & Read/Write: negado ao cliente (exclusivo de Cloud Function).\\
+\texttt{Registro\_de\_Auditoria} & Read: \texttt{Chefe\_Geral} no token. Write: negado ao cliente.\\
+\texttt{Roteiro\_Experimento} & Read: \texttt{resource.data.id\_professor == uid} OU existe documento em \texttt{Roteiro\_Professor\_Compartilhado} com \texttt{id\_professor\_destino == uid}. Write: negado.\\
+\end{longtable}
+\end{center}
+
+\begin{regra}[Leitura de Custom Claims nas Security Rules]
+O papel do usuário fica disponível nas Security Rules como \texttt{request.auth.token.roles}. Exemplo:\\
+\texttt{function temPapel(papel) \{}\\
+\texttt{\quad return papel in request.auth.token.roles;}\\
+\texttt{\}}\\
+Isso garante consistência com o mesmo Custom Claim usado pelas Cloud Functions (\texttt{resolverPapeisDoToken}).
+\end{regra}
 
 \newpage
 % =================================================
