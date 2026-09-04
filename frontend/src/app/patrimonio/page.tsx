@@ -16,14 +16,22 @@ export default function PatrimonioDashboard() {
   // Filtros de banco de dados
   const [filtroStatus, setFiltroStatus] = useState<string>("");
   const [filtroResponsavel, setFiltroResponsavel] = useState<string>("");
+  const [filtroPredio, setFiltroPredio] = useState<string>("");
+  const [filtroAndar, setFiltroAndar] = useState<string>("");
 
   const searchFirestore = async () => {
+    if (!filtroStatus && !filtroResponsavel && !filtroPredio) {
+      alert("Por favor, preencha ao menos Status, Responsável ou Prédio para buscar no banco.");
+      return;
+    }
     setLoading(true);
     setHasSearched(true);
     try {
       const constraints = [];
       if (filtroStatus) constraints.push(where("status", "==", filtroStatus));
       if (filtroResponsavel) constraints.push(where("nome_responsavel_sei", "==", filtroResponsavel));
+      if (filtroPredio) constraints.push(where("predio", "==", filtroPredio));
+      if (filtroAndar) constraints.push(where("andar", "==", filtroAndar));
       
       const q = query(collection(db, "Bem_Patrimonial"), ...constraints, limit(100));
       const querySnapshot = await getDocs(q);
@@ -93,9 +101,31 @@ export default function PatrimonioDashboard() {
                 <input 
                   type="text"
                   placeholder="Nome exato..."
-                  className="bg-foreground/5 border border-foreground/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-sm w-48"
+                  className="bg-foreground/5 border border-foreground/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-sm w-40"
                   value={filtroResponsavel}
                   onChange={(e) => setFiltroResponsavel(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs mb-1 text-foreground/70">Prédio</label>
+                <input 
+                  type="text"
+                  placeholder="Ex: P5..."
+                  className="bg-foreground/5 border border-foreground/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-sm w-24"
+                  value={filtroPredio}
+                  onChange={(e) => setFiltroPredio(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs mb-1 text-foreground/70">Andar</label>
+                <input 
+                  type="text"
+                  placeholder="Ex: Térreo..."
+                  className="bg-foreground/5 border border-foreground/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-sm w-28"
+                  value={filtroAndar}
+                  onChange={(e) => setFiltroAndar(e.target.value)}
                 />
               </div>
 

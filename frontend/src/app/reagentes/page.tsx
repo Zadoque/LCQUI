@@ -15,13 +15,14 @@ export default function ReagentesDashboard() {
   // Filtros obrigatórios do Firestore (Seção 5 do main.tex)
   const [filtroLetra, setFiltroLetra] = useState<string>("");
   const [filtroEstado, setFiltroEstado] = useState<string>("");
+  const [filtroNatureza, setFiltroNatureza] = useState<string>("");
   const [hasSearched, setHasSearched] = useState(false);
 
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
   const searchFirestore = async () => {
-    if (!filtroLetra && !filtroEstado) {
-      alert("Por favor, selecione ao menos uma Letra Inicial ou Estado Físico para buscar (Regra de performance).");
+    if (!filtroLetra && !filtroEstado && !filtroNatureza) {
+      alert("Por favor, selecione ao menos uma Letra Inicial, Estado Físico ou Natureza Química para buscar (Regra de performance).");
       return;
     }
 
@@ -33,6 +34,7 @@ export default function ReagentesDashboard() {
       const constraints = [];
       if (filtroLetra) constraints.push(where("letra_inicial", "==", filtroLetra));
       if (filtroEstado) constraints.push(where("estado_fisico", "==", filtroEstado));
+      if (filtroNatureza) constraints.push(where("natureza_quimica", "==", filtroNatureza));
       
       // limit para evitar estourar leituras se houver muitos na mesma letra
       q = query(collection(db, "Resumo_Reagente"), ...constraints, limit(100));
@@ -84,7 +86,7 @@ export default function ReagentesDashboard() {
               <div>
                 <label className="block text-xs mb-1 text-foreground/70">Estado Físico</label>
                 <select 
-                  className="bg-foreground/5 border border-foreground/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-sm"
+                  className="bg-foreground/5 border border-foreground/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-sm w-32"
                   value={filtroEstado}
                   onChange={(e) => setFiltroEstado(e.target.value)}
                 >
@@ -96,9 +98,24 @@ export default function ReagentesDashboard() {
               </div>
 
               <div>
+                <label className="block text-xs mb-1 text-foreground/70">Natureza Química</label>
+                <select 
+                  className="bg-foreground/5 border border-foreground/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-sm w-40"
+                  value={filtroNatureza}
+                  onChange={(e) => setFiltroNatureza(e.target.value)}
+                >
+                  <option value="">Todas</option>
+                  <option value="ORGANICO">Orgânico</option>
+                  <option value="INORGANICO">Inorgânico</option>
+                  <option value="ELEMENTO">Elemento</option>
+                  <option value="HIBRIDO">Híbrido</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-xs mb-1 text-foreground/70">Letra Inicial</label>
                 <select 
-                  className="bg-foreground/5 border border-foreground/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-sm"
+                  className="bg-foreground/5 border border-foreground/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-sm w-24"
                   value={filtroLetra}
                   onChange={(e) => setFiltroLetra(e.target.value)}
                 >
