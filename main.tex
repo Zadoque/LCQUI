@@ -350,6 +350,8 @@ Ingressar em turma & -- & -- & -- & -- & \checkmark & \checkmark\\
 Criar/comentar posts permitidos & -- & -- & -- & \checkmark & \checkmark & \checkmark\\
 Gerenciar roteiros próprios & \checkmark & -- & -- & \checkmark & -- & --\\
 Compartilhar roteiros & \checkmark & -- & -- & \checkmark & -- & --\\
+Cadastrar/editar matérias & \checkmark & -- & -- & \checkmark & -- & --\\
+Gerar etiquetas de frasco & \checkmark & \checkmark & -- & -- & -- & --\\
 \bottomrule
 \end{tabularx}
 \end{center}
@@ -506,14 +508,26 @@ número de patrimônio. No PostgreSQL, isso é implementado como índice
 único parcial; no Firestore, a verificação é reimplementada na Cloud 
 Function de criação da requisição, dentro de uma transação.
 \end{regra}
-\subsection{Impressao\_Etiqueta}
-\begin{entidade}{Impressao\_Etiqueta}
+\subsection{Impressão de Etiquetas de Frasco}
+\begin{entidade}{Impressao\_Etiqueta\_Frasco}
 \campo{id}{SERIAL}{PK}
 \campo{gerado\_em}{TIMESTAMP}{NOT NULL}
 \campo{gerado\_por}{INTEGER}{FK, NOT NULL}
-\campo{id\_inicial}{INTEGER}{DEFAULT 0, NOT NULL}
-\campo{id\_final}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{codigo\_inicial}{INTEGER}{NOT NULL}
+\campo{codigo\_final}{INTEGER}{NOT NULL}
 \end{entidade}
+
+\begin{explicacao}
+Esta entidade registra cada sessão de impressão de etiquetas de frasco. \textit{codigo\_inicial} e \textit{codigo\_final} referem-se aos números sequenciais dos códigos de frasco no formato \texttt{LCQUI-N} (ex.: \texttt{LCQUI-1} a \texttt{LCQUI-50}). Ver regra de geração de código em 7.2.9. A última impressão e o último código cadastrado são usados pelo modal de geração para oferecer ao gestor três opções: desde o último frasco cadastrado, desde a última impressão ou intervalo personalizado.
+\end{explicacao}
+
+\begin{entidade}{Contador\_Codigo\_Frasco}
+\campo{ultimo\_codigo\_gerado}{INTEGER}{NOT NULL}
+\end{entidade}
+
+\begin{explicacao}
+Documento singleton que armazena o maior número sequencial já atribuído a um frasco. Incrementado atomicamente via \texttt{FieldValue.increment(1)} a cada cadastro de frasco, garantindo unicidade sem \texttt{SERIAL} do PostgreSQL.
+\end{explicacao}
 %%-----------------------------------%%
 %%        ALMOXARIFADO / REAGENTES   %%
 %%-----------------------------------%%
@@ -654,11 +668,13 @@ O campo \textit{unidade} é armazenado como texto livre para suportar tanto um v
 \campo{id}{SERIAL}{PK}
 \campo{id\_almoxarifado}{INTEGER}{FK, NOT NULL}
 \campo{id\_lote}{INTEGER}{FK, NULL}
+\campo{id\_especificacao\_reagente}{INTEGER}{FK, NULL}
 \campo{detalhe\_local\_armazenamento}{TEXT}{NULL}
 \campo{codigo\_frasco}{TEXT}{UNIQUE, NOT NULL}
 \campo{data\_ultima\_pesagem}{TIMESTAMP}{NULL}
-\campo{capacidade\_nominal}{NUMERIC(10,3)}{NOT NULL}
+\campo{conteudo\_nominal}{NUMERIC(10,3)}{NOT NULL}
 \campo{peso\_no\_cadastrado}{NUMERIC(10,3)}{NOT NULL}
+\campo{peso\_atual}{NUMERIC(10,3)}{NOT NULL}
 \campo{peso\_frasco\_vazio}{NUMERIC(10,3)}{NULL}
 \campo{medida\_usada}{NUMERIC(10,3)}{DEFAULT 0, NOT NULL}
 \campo{data\_abertura}{DATE}{NULL}
@@ -676,18 +692,26 @@ O campo \textit{unidade} é armazenado como texto livre para suportar tanto um v
 \campo{cadastrado\_por}{INTEGER}{FK, NOT NULL}
 \end{entidade}
 
+\begin{regra}[Constraint de Identidade Química do Frasco]
+\textit{CHECK (id\_lote IS NOT NULL OR id\_especificacao\_reagente IS NOT NULL)} -- pelo menos um dos dois deve existir. Quando \textit{id\_lote} é informado, \textit{id\_especificacao\_reagente} fica NULL (a especificação é derivável via \textit{Lote.id\_especificacao\_reagente}). Quando \textit{id\_lote} é NULL, \textit{id\_especificacao\_reagente} é obrigatório para manter o caminho até a densidade, unidade de medida e resumo do reagente.
+\end{regra}
+
 \begin{explicacao}
-Os campos \textit{peso\_no\_cadastrado}, \textit{peso\_frasco\_vazio} e \textit{medida\_usada} são sempre leituras de balança em gramas, independentemente de o conteúdo ser sólido ou líquido, já que a operação real do laboratório consiste em pesar o frasco; o volume, quando aplicável, é sempre derivado por conversão via densidade.
+\textit{conteudo\_nominal} (antigo \textit{capacidade\_nominal}) representa o conteúdo declarado no cadastro: para líquidos, é o volume nominal em mL; para sólidos, é a massa nominal em g. A renomeação elimina a ambiguidade semântica entre volume e massa.
 
-O campo \textit{unidade\_de\_medida}, antes duplicado nesta entidade, foi removido: a unidade do produto (ml ou g) é obtida via \textit{Frasco\_Reagente} $\rightarrow$ \textit{Lote} $\rightarrow$ \textit{Especificacao\_Reagente}.
+\textit{peso\_no\_cadastrado} é o peso total (frasco + conteúdo) registrado no momento do cadastro. Este campo é \textbf{imutável} após o cadastro -- nunca é sobrescrito. \textit{peso\_atual} é o peso total corrente, inicializado com o valor de \textit{peso\_no\_cadastrado} e atualizado a cada devolução de empréstimo ou pesagem de rotina.
 
-O antigo campo único \textit{status} (com valores combinados como \texttt{VENCIDO\_DISPONIVEL}, \texttt{VENCIDO\_EMPRESTADO}) foi decomposto em três dimensões ortogonais -- \textit{estado\_fisico\_frasco}, \textit{disponibilidade}, \textit{vencido} e \textit{em\_quarentena} -- evitando o crescimento combinatorial do enum e simplificando consultas e regras de notificação (ex.: perguntar ao gestor se um frasco vencido continuará em uso ou irá para quarentena passa a ser apenas alternar \textit{em\_quarentena}, sem reclassificar todo o status).
+Os campos \textit{peso\_no\_cadastrado}, \textit{peso\_atual}, \textit{peso\_frasco\_vazio} e \textit{medida\_usada} são sempre leituras de balança em gramas, independentemente de o conteúdo ser sólido ou líquido, já que a operação real do laboratório consiste em pesar o frasco; o volume, quando aplicável, é sempre derivado por conversão via densidade.
 
-O campo \textit{id\_usuario\_em\_uso} foi removido: quem está com o frasco no momento é obtido consultando \textit{Emprestimo\_Reagente} pelo empréstimo ativo (\textit{status} \texttt{EM\_USO} ou \texttt{ATRASADO}) daquele \textit{id\_frasco\_reagente}. Manter as duas informações em paralelo criava risco de dessincronia caso as duas tabelas não fossem escritas na mesma transação.
+O campo \textit{unidade\_de\_medida}, antes duplicado nesta entidade, foi removido: a unidade do produto (ml ou g) é obtida via \textit{Frasco\_Reagente} $\rightarrow$ \textit{Lote} $\rightarrow$ \textit{Especificacao\_Reagente} (ou diretamente via \textit{id\_especificacao\_reagente} quando o lote é NULL).
+
+O antigo campo único \textit{status} (com valores combinados como \texttt{VENCIDO\_DISPONIVEL}, \texttt{VENCIDO\_EMPRESTADO}) foi decomposto em dimensões ortogonais -- \textit{estado\_fisico\_frasco}, \textit{disponibilidade}, \textit{vencido} e \textit{em\_quarentena} -- evitando o crescimento combinatorial do enum e simplificando consultas e regras de notificação.
+
+O campo \textit{id\_usuario\_em\_uso} foi removido: quem está com o frasco no momento é obtido consultando \textit{Emprestimo\_Reagente} pelo empréstimo ativo (\textit{status} \texttt{EM\_USO} ou \texttt{ATRASADO}) daquele \textit{id\_frasco\_reagente}.
 
 \textit{validade\_fechado} é mantido de forma independente de \textit{Lote.data\_validade} porque \textit{id\_lote} é opcional: um frasco pode ser cadastrado sem lote associado, e mesmo quando o lote existe, o formulário apenas pré-preenche este campo a partir dele -- o valor permanece editável e não é uma cópia somente-leitura.
 
-O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre um frasco vencido que permanece apto ao uso didático e um frasco vencido que aguarda descarte. Assim, \texttt{vencido = true} não determina sozinho o destino do frasco: \texttt{em\_quarentena = true} representa retenção em quarentena; \texttt{vencido = true} e \texttt{uso\_vencido\_autorizado = false} representam a situação exibida ao gestor como \textit{PENDENTE DE DESCARTE}; e \texttt{vencido = true} e \texttt{uso\_vencido\_autorizado = true} representam uso excepcional explicitamente autorizado para práticas e demonstrações.
+O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre um frasco vencido que permanece apto ao uso didático e um frasco vencido que aguarda descarte.
 \end{explicacao}
 
 \subsection{Histórico do Frasco de Reagente / Solvente}
@@ -696,6 +720,7 @@ O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre 
 \campo{id\_frasco\_reagente}{INTEGER}{FK, NOT NULL}
 \campo{id\_almoxarifado}{INTEGER}{FK, NOT NULL}
 \campo{id\_gestor}{INTEGER}{FK, NOT NULL}
+\subcampo{Para ações automáticas do servidor (jobs de vencimento, atraso), usar o UID sentinela \_\_SISTEMA\_\_.}
 \campo{tipo}{ENUM}{
   \shortstack[l]{%
     CADASTRO, SAIU, ENTROU, FICOU\_VAZIO, QUEBROU, FOI\_DESCARTADO,\\
@@ -778,16 +803,6 @@ O ingresso de aluno por código de turma exige obrigatoriamente que a quantidade
 \]
 Caso a capacidade seja atingida, o sistema rejeita o ingresso por código. Apenas o professor responsável pode ultrapassar a capacidade mediante envio de convite nominal por e-mail, registrando justificativa em auditoria.
 \end{regra}
-
-\subsection{Horario da Turma}
-\begin{entidade}{Horario\_Turma}
-\campo{id}{SERIAL}{PK}
-\campo{id\_turma}{INTEGER}{FK, NOT NULL}
-\campo{dia\_semana}{VARCHAR(15)}{NOT NULL}
-\campo{hora\_inicio}{TIME}{NOT NULL}
-\campo{hora\_fim}{TIME}{NOT NULL}
-\campo{id\_local}{INTEGER}{FK, NOT NULL}
-\end{entidade}
 
 \subsection{Historico de Alunos na Turma}
 \begin{entidade}{Historico\_Alunos\_Turma}
@@ -890,73 +905,44 @@ A combinação \textit{email + id\_turma} não pode possuir mais de um convite \
 \textit{numero\_matricula} aqui é opcional e \textbf{não é UNIQUE}, pois serve apenas para pré-declarar a matrícula quando o professor a conhece no momento do convite. Ao aceitar o convite, o sistema cria as linhas \textit{Usuario} e \textit{Aluno} correspondentes, copiando \textit{email} e \textit{numero\_matricula} para a nova linha de \textit{Aluno}, onde a restrição \textbf{UNIQUE} é rigorosamente aplicada.
 \end{explicacao}
 
-\subsection{Notificação para Aluno}
-\begin{entidade}{Notificacao\_para\_Aluno}
+\subsection{Notificação (Unificada)}
+\begin{entidade}{Notificacao}
 \campo{id}{SERIAL}{PK}
-\campo{id\_aluno}{INTEGER}{FK, NOT NULL}
-\campo{id\_turma}{INTEGER}{FK, NOT NULL}
-\campo{tipo}{ENUM}{ADICIONADO, POST, COMENTARIO, REMOVIDO, TURMA\_ARQUIVADA, TURMA\_DESARQUIVADA, NOT NULL}
-\campo{id\_quem\_fez\_acao}{INTEGER}{FK, NOT NULL}
-\campo{entidade\_alvo}{VARCHAR(40)}{NOT NULL}
-\campo{id\_alvo}{INTEGER}{NOT NULL}
-\campo{lida}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
-\campo{lida\_em}{TIMESTAMP}{NULL}
-\campo{emitida\_em}{TIMESTAMP}{NOT NULL}
-\campo{expira\_em}{TIMESTAMP}{NOT NULL}
-\end{entidade}
-
-\subsection{Notificação para Professor}
-\begin{entidade}{Notificacao\_para\_Professor}
-\campo{id}{SERIAL}{PK}
-\campo{id\_professor}{INTEGER}{FK, NOT NULL}
-\campo{id\_turma}{INTEGER}{FK, NULL}
-\campo{tipo}{ENUM}{COMENTARIO, REQUISICAO\_BEM, DATA\_DEVOLUCAO\_REAGENTE, ROTEIRO\_COMPARTILHADO, NOT NULL}
-\campo{id\_quem\_fez\_acao}{INTEGER}{FK, NOT NULL}
-\campo{quantidade}{INTEGER}{NULL}
-\campo{entidade\_alvo}{VARCHAR(40)}{NOT NULL}
-\campo{id\_alvo}{INTEGER}{NOT NULL}
-\campo{lida}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
-\campo{lida\_em}{TIMESTAMP}{NULL}
-\campo{emitida\_em}{TIMESTAMP}{NOT NULL}
-\campo{expira\_em}{TIMESTAMP}{NOT NULL}
-\end{entidade}
-
-\subsection{Notificação para Gestor de bens Patrimoniais}
-\begin{entidade}{Notificacao\_para\_Gestor\_de\_bens\_Patrimoniais}
-\campo{id}{SERIAL}{PK}
-\campo{id\_Gestor}{INTEGER}{FK, NOT NULL}
-\campo{tipo}{ENUM}{REQUISICAO\_EDICAO\_BEM, REQUISICAO\_ADICAO\_BEM, BEM\_INSERVIVEL, NOT NULL}
-\campo{id\_quem\_fez\_acao}{INTEGER}{FK, NOT NULL}
-\campo{entidade\_alvo}{VARCHAR(40)}{NOT NULL}
-\campo{id\_alvo}{INTEGER}{NOT NULL}
-\campo{lida}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
-\campo{lida\_em}{TIMESTAMP}{NULL}
-\campo{emitida\_em}{TIMESTAMP}{NOT NULL}
-\campo{expira\_em}{TIMESTAMP}{NOT NULL}
-\end{entidade}
-
-\subsection{Notificação para Gestor de Reagentes}
-\begin{entidade}{Notificacao\_para\_Gestor\_de\_Reagentes}
-\campo{id}{SERIAL}{PK}
-\campo{id\_Gestor}{INTEGER}{FK, NOT NULL}
+\campo{id\_destinatario}{INTEGER}{FK, NOT NULL}
+\campo{papel\_destinatario}{ENUM}{
+  \shortstack[l]{%
+    Aluno, Professor, Gestor\_Bens\_Patrimoniais,\\
+    Gestor\_Almoxarifado%
+  }
+}{NOT NULL}
 \campo{tipo}{ENUM}{
-   \shortstack[l]{%
+  \shortstack[l]{%
+    ADICIONADO, POST, COMENTARIO, REMOVIDO,\\
+    TURMA\_ARQUIVADA, TURMA\_DESARQUIVADA,\\
+    REQUISICAO\_BEM, DATA\_DEVOLUCAO\_REAGENTE,\\
+    ROTEIRO\_COMPARTILHADO,\\
+    REQUISICAO\_EDICAO\_BEM, REQUISICAO\_ADICAO\_BEM,\\
+    BEM\_INSERVIVEL,\\
     ENTREGA\_ATRASADA, FRASCOS\_VAZIOS, FRASCOS\_QUEBRADOS,\\
     FRASCOS\_VENCIDOS, FRASCOS\_A\_SEREM\_PESADOS,\\
     FRASCOS\_EM\_QUARENTENA, REAGENTE\_ESCASSO%
   }
 }{NOT NULL}
-\campo{quantidade}{INTEGER}{NOT NULL}
+\campo{id\_quem\_fez\_acao}{INTEGER}{FK, NULL}
+\campo{id\_turma}{INTEGER}{FK, NULL}
+\campo{quantidade}{INTEGER}{NULL}
 \campo{entidade\_alvo}{VARCHAR(40)}{NOT NULL}
-\campo{id\_alvo}{INTEGER}{NOT NULL}
+\campo{id\_alvo}{VARCHAR(200)}{NOT NULL}
 \campo{lida}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
 \campo{lida\_em}{TIMESTAMP}{NULL}
 \campo{emitida\_em}{TIMESTAMP}{NOT NULL}
 \campo{expira\_em}{TIMESTAMP}{NOT NULL}
 \end{entidade}
 
-\begin{explicacao}[Ciclo de Vida e Leitura de Notificações]
-Todas as entidades de notificação incluem formalmente \textit{lida} e \textit{lida\_em}. A ação de ``Limpar tudo'' na interface executa uma mutação no servidor marcando \texttt{lida = true} e \texttt{lida\_em = NOW()} em todas as notificações ativas do usuário, preservando o histórico de auditoria. Os campos \textit{entidade\_alvo} e \textit{id\_alvo} viabilizam a navegação direta (\textit{deep linking}) para o objeto de origem ao clicar no aviso.
+\begin{explicacao}[Unificação das Notificações]
+As quatro tabelas de notificação anteriores (\textit{Notificacao\_para\_Aluno}, \textit{Notificacao\_para\_Professor}, \textit{Notificacao\_para\_Gestor\_de\_bens\_Patrimoniais}, \textit{Notificacao\_para\_Gestor\_de\_Reagentes}) foram consolidadas em uma única entidade \textit{Notificacao}. O campo \textit{papel\_destinatario} indica em qual contexto de papel a notificação deve ser exibida.
+
+No Firestore, esta entidade é implementada como sub-coleção \texttt{Usuarios/\{uid\}/Notificacoes}, eliminando a necessidade de queries em múltiplas coleções para usuários multi-role. A ação de ``Limpar tudo'' na interface marca \texttt{lida = true} e \texttt{lida\_em = NOW()} em todas as notificações ativas do usuário, preservando o histórico de auditoria. Os campos \textit{entidade\_alvo} e \textit{id\_alvo} viabilizam a navegação direta (\textit{deep linking}) para o objeto de origem ao clicar no aviso.
 \end{explicacao}
 
 \subsection{Tabela Aluno Turma (N para N)}
@@ -1045,8 +1031,7 @@ Especificação -- Lote & 1:N & Um lote pertence a uma única especificação.\\
 Lote -- Frasco & 1:N opcional & Um frasco pode ter lote NULL quando o lote não for conhecido.\\
 Almoxarifado -- Frasco & 1:N & Cada frasco está em exatamente um almoxarifado.\\
 Frasco -- Empréstimo & 1:N & Histórico completo; no máximo um empréstimo ativo por frasco.\\
-Turma -- Horário & 1:N & Uma turma possui um ou mais horários quando utilizados.\\
-Turma -- Aluno & N:N & Alunos podem participar de várias turmas.\\
+Turma -- Aluno & N:N & Alunos podem participar de várias turmas (via sub-coleção \\texttt{Turmas/\{id\}/Alunos}).\\
 Turma -- Post & 1:N & Cada post pertence a uma turma e ao professor autor.\\
 Post -- Comentário & 1:N & Cada comentário pertence a um post.\\
 Professor -- Matéria & N:N & A associação não pode ser duplicada.\\
@@ -1185,6 +1170,98 @@ e não cria nova requisição. Caso contrário, persiste a requisição com
 \texttt{serverTimestamp()}. A consulta e a escrita são encapsuladas
 em uma transação para evitar condição de corrida entre dois clientes
 tentando criar requisições para o mesmo número de patrimônio.
+\subsection{Mapeamento Completo de Coleções e Sub-coleções Firestore}
+\label{subsec:mapeamento-colecoes}
+
+\begin{explicacao}[Como ler esta tabela]
+Cada linha descreve uma entidade 3FN da Seção 4, a decisão de estrutura no Firestore (coleção raiz, sub-coleção ou array de maps embutido) e a justificativa. Campos FK referenciados em queries de listagem ou relatório que exigiriam um JOIN são obrigatoriamente denormalizados no documento Firestore; o símbolo \textbf{Denorm:} lista esses campos. A consistência de todos os campos denormalizados deve ser garantida por \texttt{onDocumentUpdated} na Cloud Function da entidade de origem, nunca pelo cliente.
+\end{explicacao}
+
+\begin{center}
+\small
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.31\textwidth} >{\raggedright\arraybackslash}p{0.20\textwidth} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Entidade 3FN} & \textbf{Estrutura Firestore} & \textbf{Justificativa / Denorm}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Usuario & Coleção raiz \texttt{Usuarios} (docId = Firebase Auth UID) & Acesso direto por auth; estrutura natural do SDK.\\
+Chefe\_Geral & Coleção raiz \texttt{Chefe\_Geral} (docId = uid) & Leitura paralela em \texttt{resolverPapeis()} junto das demais coleções de papel.\\
+Gestor\_Almoxarifado & Coleção raiz \texttt{Gestor\_Almoxarifado} (docId = uid) & Idem acima.\\
+Gestor\_Bens\_Patrimoniais & Coleção raiz \texttt{Gestor\_Bens\_Patrimoniais} (docId = uid) & Idem.\\
+Professor & Coleção raiz \texttt{Professor} (docId = uid) & Idem.\\
+Aluno & Coleção raiz \texttt{Aluno} (docId = uid). Denorm: \texttt{letra\_inicial} & Idem. \texttt{letra\_inicial} permite filtro de igualdade na busca.\\
+Bolsista & Coleção raiz \texttt{Bolsista} (docId = uid) & Idem.\\
+Gestor\_Almoxarifado\_x\_Almoxarifado & Coleção raiz & Query bidirecional: ``gestores de X'' e ``almoxarifados de Y''.\\
+Almoxarifado & Coleção raiz & Poucas dezenas de documentos.\\
+Local & Coleção raiz & Referenciado por múltiplas entidades; campos \texttt{predio}, \texttt{andar}, \texttt{sala} denormalizados em \texttt{Bem\_Patrimonial} via trigger.\\
+Resumo\_Bem\_Patrimonial & Coleção raiz. Denorm: \texttt{letra\_inicial\_nome} & Agrupador de bens; filtro alfabético por letra inicial.\\
+Bem\_Patrimonial & Coleção raiz. Denorm: \texttt{nome\_equipamento}, \texttt{predio}, \texttt{andar}, \texttt{sala}, \texttt{letra\_inicial\_nome} & Entidade central pesquisada diretamente; evita JOINs em listagens e relatórios.\\
+Historico\_Bem\_Patrimonial & Sub-coleção \texttt{Bem\_Patrimonial/\{id\}/Historico} & Sempre consultado a partir de um bem conhecido.\\
+Alteracao\_Bem\_Patrimonial & Campo \texttt{alteracoes} (array de maps) dentro de cada doc de \texttt{Historico} & Poucos campos por alteração; relação 1:N estreita, nunca consultada independentemente.\\
+Requisicao\_Edicao\_Bem\_Patrimonial & Coleção raiz. Denorm: \texttt{nome\_equipamento}, \texttt{numero\_patrimonio} & Listada independentemente nos painéis de gestores por qualquer filtro de status.\\
+Requisicao\_Adicao\_Bem\_Patrimonial & Coleção raiz & Mesma lógica; query por status e número de patrimônio proposto.\\
+Impressao\_Etiqueta\_Frasco & Coleção raiz & Poucas dezenas de documentos; necessário para oferecer as três opções do modal de geração.\\
+Contador\_Codigo\_Frasco & Documento singleton em \texttt{Contador\_Codigo\_Frasco/singleton} & Incrementado atomicamente via \texttt{FieldValue.increment(1)} a cada frasco cadastrado.\\
+Substancia\_Quimica & Coleção raiz & Catálogo global; raramente alterado.\\
+Resumo\_Reagente & Coleção raiz. Denorm: \texttt{letra\_inicial}, \texttt{estado\_fisico} & Catálogo de reagentes; filtros de igualdade combinados exigem ambos os campos como propriedades do documento.\\
+Especificacao\_Reagente & Sub-coleção \texttt{Resumo\_Reagente/\{id\}/Especificacoes} & Sempre acessada a partir do resumo; nunca consultada globalmente.\\
+Composicao\_Reagente & Array de maps embutido no documento de \texttt{Especificacao\_Reagente} & N pequeno e fixo (poucas substâncias por especificação); não cresce sem limite.\\
+Lote & Coleção raiz. Denorm: \texttt{id\_especificacao\_reagente}, \texttt{nome\_reagente} & Relatórios consultam todos os lotes de um período sem partir de uma especificação conhecida.\\
+Frasco\_Reagente & Coleção raiz. Denorm: \texttt{id\_especificacao\_reagente}, \texttt{id\_resumo\_reagente}, \texttt{nome\_reagente}, \texttt{unidade\_medida}, \texttt{id\_almoxarifado} & Entidade central; queries cruzadas constantes por almoxarifado, status e vencimento.\\
+Historico\_Frasco\_Reagente & Coleção raiz (não sub-coleção). Denorm: \texttt{id\_almoxarifado} & Jobs diários consultam ``todos os históricos do dia'' sem partir de um frasco conhecido; sub-coleção impossibilitaria esse padrão.\\
+Emprestimo\_Reagente & Coleção raiz. Denorm: \texttt{id\_almoxarifado}, \texttt{nome\_reagente}, \texttt{nome\_usuario\_retirou} & Relatórios por almoxarifado e por período; queries de status global (\texttt{EM\_USO}).\\
+Materia & Coleção raiz & Catálogo global; raramente alterado.\\
+Professor\_x\_Materia & Coleção raiz & Query bidirecional: ``matérias de X'' e ``professores de Y''.\\
+Turma & Coleção raiz. Denorm: \texttt{nome\_materia} & Acesso direto por \texttt{codigo\_turma}; nome da matéria necessário na listagem sem JOIN.\\
+Aluno\_x\_Turma & Sub-coleção \texttt{Turmas/\{id\}/Alunos} & Query natural: ``alunos desta turma''; contagem de capacidade trivial.\\
+Historico\_Alunos\_Turma & Sub-coleção \texttt{Turmas/\{id\}/HistoricoAlunos} & Auditoria de inclusão/exclusão sempre por turma.\\
+Post & Sub-coleção \texttt{Turmas/\{id\}/Posts} & Feed cronológico da turma; nunca consultado globalmente.\\
+Comentario & Sub-coleção \texttt{Posts/\{id\}/Comentarios} & Thread aninhada ao post.\\
+Historico\_Posts\_Turma & Sub-coleção \texttt{Posts/\{id\}/Historico} & Auditoria de edição sempre a partir do post.\\
+Historico\_Comentario & Sub-coleção \texttt{Comentarios/\{id\}/Historico} & Auditoria de edição sempre a partir do comentário.\\
+Roteiro\_Experimento & Coleção raiz & Compartilhamento cross-professor exige acesso sem partir de uma turma.\\
+Roteiro\_Professor\_Compartilhado & Coleção raiz & Query bidirecional: ``roteiros compartilhados comigo'' e ``com quem compartilhei este roteiro''.\\
+Convite\_Aluno & Coleção raiz & Query por e-mail normalizado e status independentemente de turma.\\
+Notificacao & Sub-coleção \texttt{Usuarios/\{uid\}/Notificacoes} & Query natural por usuário; funciona automaticamente para usuários multi-role sem necessidade de multiple reads.\\
+Registro\_de\_Auditoria & Coleção raiz & Log global queryável por tipo de entidade e período.\\
+Lote\_Materializado & Coleção raiz (docId = id do lote) & Atualizada por trigger \texttt{onFrascoCriado}/\texttt{onFrascoRemovido}.\\
+Resumo\_Almoxarifado\_Diario & Coleção raiz & Job agendado diário.\\
+Resumo\_Reagente\_Diario & Coleção raiz & Job agendado diário.\\
+Resumo\_Bem\_Patrimonial\_Diario & Coleção raiz & Job agendado diário.\\
+Atividade\_Gestor\_Almoxarifado\_Mensal & Coleção raiz & Job agendado diário (acumulado por mês).\\
+Atividade\_Gestor\_Bens\_Patrimoniais\_Mensal & Coleção raiz & Job agendado diário (acumulado por mês).\\
+\end{longtable}
+\end{center}
+
+\begin{regra}[Regra geral de denormalização]
+Todo campo FK referenciado em queries de listagem ou relatório que exigiria um JOIN deve ser denormalizado no documento Firestore correspondente. A consistência desse campo é mantida por um \texttt{onDocumentUpdated} na Cloud Function da entidade de origem, nunca pelo cliente. A ordem de atualização é: primeiro a entidade de origem, depois os documentos dependentes.
+\end{regra}
+
+\subsection{Estratégia de Busca Textual no Firestore}
+\label{subsec:busca-textual}
+
+\begin{explicacao}[Por que não existe \texttt{LIKE} no Firestore]
+O Firestore não oferece busca por substring (sem \texttt{LIKE}, sem \texttt{icontains}). A estratégia adotada é: aplicar \textbf{filtros obrigatórios de igualdade} no Firestore para reduzir drasticamente o conjunto de documentos retornados, e então aplicar \textbf{substring no frontend} sobre os poucos resultados restantes.
+\end{explicacao}
+
+\subsubsection{Reagentes}
+O usuário deve obrigatoriamente escolher ao menos um dos filtros: estado físico (\texttt{SOLIDO} ou \texttt{LIQUIDO}), natureza química (\texttt{ORGANICO}, \texttt{INORGANICO}, \texttt{ELEMENTO} ou \texttt{HIBRIDO}), tipo de substância (\texttt{PURA} ou \texttt{MISTURA}) e/ou letra inicial (campo \texttt{letra\_inicial} denormalizado). A query Firestore usa esses filtros de igualdade e retorna poucos documentos; o frontend aplica a busca por substring sobre o campo \texttt{nome}.
+
+\subsubsection{Bens Patrimoniais}
+Combinação obrigatória de pelo menos um: (Prédio) ou (letra inicial do nome do equipamento) ou (Status). O Firestore filtra com os campos denormalizados \texttt{predio}, \texttt{andar}, \texttt{sala}, \texttt{status} e \texttt{letra\_inicial\_nome}. O frontend aplica substring sobre \texttt{nome\_equipamento} e \texttt{numero\_patrimonio} nos resultados. Bigramas não serão implementados na V1: o filtro de (Prédio + Andar) já reduz os candidatos suficientemente.
+
+\subsubsection{Alunos}
+Busca via campo denormalizado \texttt{letra\_inicial} (filtro de igualdade). O frontend aplica substring sobre \texttt{nome} nos resultados. A \textit{range query} por prefixo (\texttt{nome >= ``A''}, \texttt{nome < ``B''}) é alternativa válida, mas não combina facilmente com outros filtros de igualdade em índice composto no Firestore; o campo \texttt{letra\_inicial} é preferível.
+
+\subsubsection{Professores}
+Poucos no sistema (dezenas). Estratégia: baixar todos via \texttt{onSnapshot} com persistência habilitada e filtrar inteiramente no frontend por substring. Cache local resolve o desempenho.
+
+\begin{regra}[Listeners com \texttt{onSnapshot} e Persistência]
+O frontend deve usar \texttt{onSnapshot} com persistência habilitada (\texttt{enableIndexedDbPersistence} ou \texttt{enableMultiTabIndexedDbPersistence} conforme o contexto) em todas as coleções listáveis pelo papel do usuário logado. Com isso, o SDK Firestore mantém cache local e trafega apenas deltas do servidor a cada reconexão, reduzindo leituras faturáveis e melhorando a experiência offline. As telas de busca se alimentam primariamente do cache; a sincronização em tempo real é transparente.
+\end{regra}
+
 \newpage
 % =================================================
 \section{Materialized (Views)}
@@ -1543,7 +1620,8 @@ Antes da área principal de busca, ele verá uma div \textit{full-width} com:
     \item Um botão "Mais" que ao clicar terá as opções:
      \begin{itemize}
          \item Novo Almoxarifado: Abre um modal para criar um almoxarifado.
-         \item Novo Gestor de Almoxarifado: Abre um modal em que ele pode escolher: transformar um aluno em gestor de almoxarifado ou criar um Usuário que é Gestor de almoxarifado. 
+         \item Novo Gestor de Almoxarifado: Abre um modal em que ele pode escolher: transformar um aluno em gestor de almoxarifado ou criar um Usuário que é Gestor de almoxarifado.
+         \item \textbf{Nova Matéria:} Abre modal com campos Nome e Código da Matéria. O código deve ser único (validado na Cloud Function).
      \end{itemize}
     \item Um botão para "Gerenciar Gestores de Almoxarifado". Esse botão abre um novo modal que:
     \begin{itemize}
@@ -1598,7 +1676,7 @@ Para o papel de Professor, a dashboard foca em organização acadêmica e gestã
 Na aba principal, abaixo do header em comum, ele verá uma div \textit{full-width} com:
 \begin{itemize}
     \item \textbf{Notificações:} Botão com ícone de sino que abre um modal \textit{dropdown} alertando sobre requisições de bens respondidas e sobre reagentes emprestados cujo prazo está atrasado, vence hoje ou vence amanhã. Inclui um botão "Limpar tudo".
-    \item \textbf{Botão Mais (+):} Abre \textit{dropdown} com: Nova Turma, Novo Aluno (bloqueado se não tiver turmas criadas), Novo Roteiro de Experimento, e Novo Pedido de Adição de Bem Patrimonial (se o usuário selecionar "Novo Local" dentro do pedido, um modal sobreposto exigirá o cadastro prévio do Prédio/Sala).
+    \item \textbf{Botão Mais (+):} Abre \textit{dropdown} com: Nova Turma, Novo Aluno (bloqueado se não tiver turmas criadas), Novo Roteiro de Experimento, Novo Pedido de Adição de Bem Patrimonial (se o usuário selecionar "Novo Local" dentro do pedido, um modal sobreposto exigirá o cadastro prévio do Prédio/Sala), e \textbf{Nova Matéria} (abre modal simples com nome e código; código deve ser único, validado pelo backend).
     \item \textbf{Gerenciar Roteiros:} Abre um modal com duas abas ("Meus" e "Compartilhados comigo"). Permite abrir para visualização ou baixar os arquivos em PDF.
     \item \textbf{Minhas Requisições:} Modal para acompanhar os pedidos feitos de adição/edição de Bens Patrimoniais (filtrando por Pendente, Aprovada, Rejeitada).
     \item \textbf{Meus Reagentes:} Modal de acompanhamento onde o professor visualiza os reagentes atualmente sob sua posse (ordenados pela data de devolução) e o histórico de uso (Padrão: últimos 30 dias). Ao clicar num reagente histórico, ele visualiza exatamente o volume (mL) que ele consumiu nesse período.
@@ -1908,9 +1986,11 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
   const ref = await admin.firestore().collection("Frasco_Reagente").add({
     id_almoxarifado: dados.idAlmoxarifado,
     id_lote: dados.idLote ?? null,
+    id_especificacao_reagente: dados.idLote ? null : dados.idEspecificacaoReagente,
     codigo_frasco: codigoFrasco,
-    capacidade_nominal: dados.volumeNominal,
+    conteudo_nominal: dados.volumeNominal,
     peso_no_cadastrado: dados.pesoTotal,
+    peso_atual: dados.pesoTotal,
     peso_frasco_vazio: pesoVazio,
     medida_usada: 0,
     estado_fisico_frasco: "FECHADO",
@@ -1940,6 +2020,9 @@ interface CadastroFrascoAberto {
   pesoFrascoVazioInformado?: number;
   volumeAtualEstimado?: number;
   validadeAberto?: string;
+  validadeDesconhecida?: boolean;
+  decisaoSeJaVencido?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
+  detalheStatus?: string;
 }
 
 export const cadastrarFrascoAberto = onCall(async (request) => {
@@ -1965,28 +2048,40 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
   const codigoFrasco = await gerarCodigoFrascoUnico();
   const agora = new Date();
   const validade = dados.validadeAberto ? new Date(dados.validadeAberto) : null;
-  const jaVencido = Boolean(validade && validade <= agora);
+  const validadeEfetiva = dados.validadeDesconhecida ? null : validade;
+  const jaVencido = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+
+  if (jaVencido && !dados.decisaoSeJaVencido) {
+    throw new HttpsError("failed-precondition", "O frasco está vencido no cadastro e exige uma decisão do gestor.");
+  }
+  if (dados.decisaoSeJaVencido === "QUARENTENA" && !dados.detalheStatus) {
+    throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status.");
+  }
 
   const ref = await admin.firestore().collection("Frasco_Reagente").add({
     id_almoxarifado: dados.idAlmoxarifado,
     id_lote: dados.idLote ?? null,
+    id_especificacao_reagente: dados.idLote ? null : dados.idEspecificacaoReagente,
     codigo_frasco: codigoFrasco,
-    capacidade_nominal: volumeAtual,
+    conteudo_nominal: volumeAtual,
     peso_no_cadastrado: dados.pesoTotalBalança,
+    peso_atual: dados.pesoTotalBalança,
     peso_frasco_vazio: pesoVazio,
     medida_usada: 0,
     data_abertura: agora,
     estado_fisico_frasco: "ABERTO",
     disponibilidade: "DISPONIVEL",
-    validade_efetiva: validade,
+    validade_efetiva: validadeEfetiva,
+    validade_desconhecida: dados.validadeDesconhecida ?? false,
     vencido: jaVencido,
-    uso_vencido_autorizado: jaVencido,
-    em_quarentena: false,
+    em_quarentena: jaVencido && dados.decisaoSeJaVencido === "QUARENTENA",
+    uso_vencido_autorizado: jaVencido && dados.decisaoSeJaVencido === "DISPONIVEL",
+    detalhe_status: jaVencido ? (dados.detalheStatus ?? (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE" ? "Frasco vencido aguardando processo institucional de descarte." : null)) : null,
     cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
     cadastrado_por: request.auth!.uid,
   });
 
-  return { idFrasco: ref.id, codigoFrasco, volumeCalculado: volumeAtual, pesoVazio };
+  return { idFrasco: ref.id, codigoFrasco, volumeCalculado: volumeAtual, pesoVazio, venceuNoCadastro: jaVencido };
 });
 \end{lstlisting}
 
@@ -2070,6 +2165,7 @@ interface RetiradaFrasco {
   dataDevolucaoPrevista: string;
   confirmarUsoVencido?: boolean;
   abrirNoEmprestimo?: boolean;
+  finalidadeUso: "PESQUISA" | "DIDATICO_DEMONSTRACAO" | "OUTRO";
 }
 
 export const registrarRetirada = onCall(async (request) => {
@@ -2114,6 +2210,8 @@ export const registrarRetirada = onCall(async (request) => {
     if (frascoVencido && !frasco.uso_vencido_autorizado && !dados.confirmarUsoVencido) {
       throw new HttpsError("failed-precondition", "Frasco vencido requer confirmação explícita de uso didático.");
     }
+    // P9: finalidade_uso vem do frontend; backend impõe DIDATICO se vencido
+    const finalidade = frascoVencido ? "DIDATICO_DEMONSTRACAO" : dados.finalidadeUso;
 
     const emprestimoRef = admin.firestore().collection("Emprestimo_Reagente").doc();
     tx.set(emprestimoRef, {
@@ -2126,7 +2224,7 @@ export const registrarRetirada = onCall(async (request) => {
       id_local_usado: dados.idLocalUsado,
       peso_saida: dados.pesoSaida,
       uso_vencido_aceito: Boolean(frascoVencido),
-      finalidade_uso: frascoVencido ? "DIDATICO_DEMONSTRACAO" : "PESQUISA",
+      finalidade_uso: finalidade,
     });
 
     tx.update(frascoRef, { disponibilidade: "EMPRESTADO" });
@@ -2192,7 +2290,7 @@ export const registrarDevolucao = onCall(async (request) => {
     const atualizacaoFrasco: Record<string, unknown> = {
       disponibilidade: "DISPONIVEL",
       data_ultima_pesagem: admin.firestore.FieldValue.serverTimestamp(),
-      peso_no_cadastrado: dados.pesoRetorno,
+      peso_atual: dados.pesoRetorno,
       medida_usada: admin.firestore.FieldValue.increment(volumeUtilizado),
       vencido: frascoVencido,
     };
@@ -2365,26 +2463,31 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
   await validarPermissao(request.auth?.uid, ["Professor"]);
   const dados = request.data as { idBemPatrimonial: string; novoNome?: string; novoStatus?: string; novoEstadoConservacao?: string; novoIdLocal?: string; motivo: string };
 
-  const pendentes = await admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial")
-    .where("id_bem_patrimonial", "==", dados.idBemPatrimonial)
-    .where("status", "==", "pendente")
-    .limit(1).get();
-  if (!pendentes.empty) {
-    throw new HttpsError("failed-precondition", "Já existe uma requisição de edição pendente para este bem.");
-  }
+  return admin.firestore().runTransaction(async (tx) => {
+    const pendentes = await tx.get(
+      admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial")
+        .where("id_bem_patrimonial", "==", dados.idBemPatrimonial)
+        .where("status", "==", "pendente")
+        .limit(1)
+    );
+    if (!pendentes.empty) {
+      throw new HttpsError("failed-precondition", "Já existe uma requisição de edição pendente para este bem.");
+    }
 
-  const ref = await admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").add({
-    id_bem_patrimonial: dados.idBemPatrimonial,
-    novo_nome: dados.novoNome ?? null,
-    novo_status: dados.novoStatus ?? null,
-    novo_estado_conservacao: dados.novoEstadoConservacao ?? null,
-    novo_id_local: dados.novoIdLocal ?? null,
-    motivo: dados.motivo,
-    status: "pendente",
-    feita_em: admin.firestore.FieldValue.serverTimestamp(),
-    id_usuario_solicitante: request.auth!.uid,
+    const ref = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc();
+    tx.set(ref, {
+      id_bem_patrimonial: dados.idBemPatrimonial,
+      novo_nome: dados.novoNome ?? null,
+      novo_status: dados.novoStatus ?? null,
+      novo_estado_conservacao: dados.novoEstadoConservacao ?? null,
+      novo_id_local: dados.novoIdLocal ?? null,
+      motivo: dados.motivo,
+      status: "pendente",
+      feita_em: admin.firestore.FieldValue.serverTimestamp(),
+      id_usuario_solicitante: request.auth!.uid,
+    });
+    return { idRequisicao: ref.id };
   });
-  return { idRequisicao: ref.id };
 });
 
 export const responderRequisicaoEdicaoBem = onCall(async (request) => {
@@ -2446,20 +2549,21 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
     motivo: string;
   };
 
-  const pendentes = await admin.firestore()
-    .collection("Requisicao_Adicao_Bem_Patrimonial")
-    .where("numero_patrimonio_proposto", "==", dados.numeroPatrimonioProposto)
-    .where("status", "==", "pendente")
-    .limit(1)
-    .get();
+  return admin.firestore().runTransaction(async (tx) => {
+    const pendentes = await tx.get(
+      admin.firestore()
+        .collection("Requisicao_Adicao_Bem_Patrimonial")
+        .where("numero_patrimonio_proposto", "==", dados.numeroPatrimonioProposto)
+        .where("status", "==", "pendente")
+        .limit(1)
+    );
 
-  if (!pendentes.empty) {
-    throw new HttpsError("failed-precondition", "Já existe requisição pendente para este número de patrimônio.");
-  }
+    if (!pendentes.empty) {
+      throw new HttpsError("failed-precondition", "Já existe requisição pendente para este número de patrimônio.");
+    }
 
-  const ref = await admin.firestore()
-    .collection("Requisicao_Adicao_Bem_Patrimonial")
-    .add({
+    const ref = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc();
+    tx.set(ref, {
       numero_patrimonio_proposto: dados.numeroPatrimonioProposto,
       estado_conservacao_proposto: dados.estadoConservacaoProposto,
       photo_url_proposta: null,
@@ -2476,7 +2580,8 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
       id_usuario_respondente: null,
     });
 
-  return { idRequisicao: ref.id };
+    return { idRequisicao: ref.id };
+  });
 });
 
 export const responderRequisicaoAdicaoBem = onCall(async (request) => {
@@ -2562,6 +2667,88 @@ export const onResumoBemPatrimonialNomeAtualizado = onDocumentUpdated(
     await batch.commit();
   }
 );
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={P13: Propagação de Local para Bem\_Patrimonial}]
+export const onLocalAtualizado = onDocumentUpdated(
+  "Local/{localId}",
+  async (event) => {
+    const antes = event.data?.before.data();
+    const depois = event.data?.after.data();
+    if (!antes || !depois) return;
+    if (antes.predio === depois.predio && antes.andar === depois.andar && antes.sala === depois.sala) return;
+
+    const bens = await admin.firestore().collection("Bem_Patrimonial")
+      .where("id_local", "==", event.params.localId)
+      .get();
+
+    const batch = admin.firestore().batch();
+    bens.docs.forEach((bem) => batch.update(bem.ref, {
+      predio: depois.predio,
+      andar: depois.andar,
+      sala: depois.sala,
+    }));
+    await batch.commit();
+  }
+);
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={P14: Validação de re-entrada de aluno por código}]
+export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
+  await validarPermissao(request.auth?.uid, ["Aluno"]);
+  const { codigoTurma } = request.data as { codigoTurma: string };
+
+  const turmaSnap = await admin.firestore().collection("Turma")
+    .where("codigo_turma", "==", codigoTurma)
+    .where("status", "==", "Ativo")
+    .limit(1).get();
+  if (turmaSnap.empty) throw new HttpsError("not-found", "Turma não encontrada ou arquivada.");
+  const turmaDoc = turmaSnap.docs[0];
+  const turma = turmaDoc.data();
+
+  return admin.firestore().runTransaction(async (tx) => {
+    // Checar capacidade
+    const alunosSnap = await tx.get(
+      turmaDoc.ref.collection("Alunos")
+    );
+    if (alunosSnap.size >= turma.capacidade) {
+      throw new HttpsError("failed-precondition", "Turma lotada.");
+    }
+
+    // Checar se já está matriculado
+    const jaMatriculado = alunosSnap.docs.some(
+      (d) => d.id === request.auth!.uid
+    );
+    if (jaMatriculado) {
+      throw new HttpsError("already-exists", "Você já está nesta turma.");
+    }
+
+    // P14: Checar se foi removido anteriormente
+    const historico = await tx.get(
+      turmaDoc.ref.collection("HistoricoAlunos")
+        .where("id_aluno", "==", request.auth!.uid)
+        .where("tipo", "==", "exclusao_aluno")
+        .limit(1)
+    );
+    if (!historico.empty) {
+      throw new HttpsError("failed-precondition",
+        "Você foi removido desta turma pelo professor. O re-ingresso requer convite explícito.");
+    }
+
+    // Matricular
+    tx.set(turmaDoc.ref.collection("Alunos").doc(request.auth!.uid), {
+      id_aluno: request.auth!.uid,
+      ingressou_em: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    tx.set(turmaDoc.ref.collection("HistoricoAlunos").doc(), {
+      id_aluno: request.auth!.uid,
+      tipo: "inclusao_aluno",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { idTurma: turmaDoc.id, nomeTurma: turma.nome_turma };
+  });
+});
 \end{lstlisting}
 
 \subsubsection{Relatórios em PDF}
@@ -2738,5 +2925,8 @@ A Regra de Cálculo de Volume e Peso (seção 6.2.13) assume que o volume é sem
 \end{itemize}
 
 O cálculo de consumo também muda: em vez de $V = \Delta m / \rho$, a estimativa correta usa a proporcionalidade entre pressão e quantidade de gás restante (lei dos gases ideais, $PV = nRT$, ou uma correlação real para gases não-ideais em alta pressão), não uma conversão por densidade. Por isso este documento não tenta encaixar gases nos campos de peso já existentes: a reintrodução de \texttt{GASOSO} deve vir acompanhada desses campos e dessa fórmula alternativa, não apenas do valor no enum.
+
+\subsection{Horários de Turma}
+A entidade \textit{Horario\_Turma} (dia da semana, hora de início/fim e local por turma) foi removida da V1 por não possuir fluxo de uso definido nas telas nem nas regras de negócio. Em versões futuras, ela pode ser reintroduzida para permitir que o sistema exiba grades horárias, detecte conflitos de sala e envie lembretes automáticos antes do início das aulas.
 
 \end{document}

@@ -24,6 +24,9 @@
           # (Útil quando o agente precisa baixar dependências dinâmicas não geridas pelo Nix)
           antigravity-fhs 
           
+          # Google Cloud CLI e ferramentas essenciais
+          google-cloud-sdk
+          
           # Outras ferramentas comuns para desenvolvimento
           git
           nodejs
@@ -33,6 +36,7 @@
         shellHook = ''
           echo "🚀 Ambiente de desenvolvimento carregado!"
           echo "Execute 'antigravity' ou 'antigravity-fhs' para iniciar a IDE."
+          echo "Google Cloud CLI disponível via comando: 'gcloud'"
         '';
       };
     };
