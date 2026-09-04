@@ -25,7 +25,8 @@ export default function BemPatrimonialDetails() {
   // Form State para Proposta de Edição
   const [novoStatus, setNovoStatus] = useState<"Ativo" | "Inservivel" | "Ja_dado_baixa" | "">("");
   const [novoResponsavel, setNovoResponsavel] = useState("");
-  const [novoConservacao, setNovoConservacao] = useState("");
+  const [novoConservacao, setNovoConservacao] = useState<"BOM" | "REGULAR" | "RUIM" | "">("");
+  const [motivo, setMotivo] = useState("");
 
   useEffect(() => {
     const fetchBem = async () => {
@@ -65,6 +66,7 @@ export default function BemPatrimonialDetails() {
         novo_status: novoStatus !== bem?.status ? novoStatus : undefined,
         novo_nome_responsavel_sei: novoResponsavel !== bem?.nome_responsavel_sei ? novoResponsavel : undefined,
         novo_estado_conservacao: novoConservacao !== bem?.estado_conservacao ? novoConservacao : undefined,
+        motivo: motivo,  // NOT NULL — obrigatório conforme Seção 4.10
       });
       
       setSuccessMsg("Requisição de alteração enviada com sucesso! Aguardando aprovação.");
@@ -214,10 +216,25 @@ export default function BemPatrimonialDetails() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Estado de Conservação Detalhado</label>
-                  <textarea 
+                  <label className="block text-sm font-medium mb-1">Estado de Conservação Proposto</label>
+                  <select 
                     value={novoConservacao} 
-                    onChange={(e) => setNovoConservacao(e.target.value)}
+                    onChange={(e) => setNovoConservacao(e.target.value as any)}
+                    className="w-full px-4 py-3 rounded-xl bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none"
+                  >
+                    <option value="BOM">Bom</option>
+                    <option value="REGULAR">Regular</option>
+                    <option value="RUIM">Ruim</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Motivo da Alteração <span className="text-red-400">*</span></label>
+                  <textarea 
+                    value={motivo} 
+                    onChange={(e) => setMotivo(e.target.value)}
+                    required
+                    placeholder="Descreva por que esta alteração é necessária..."
                     className="w-full px-4 py-3 rounded-xl bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none h-24 resize-none" 
                   />
                 </div>

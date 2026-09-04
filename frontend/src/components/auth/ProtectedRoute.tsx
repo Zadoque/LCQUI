@@ -3,6 +3,7 @@
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import Header from "@/components/layout/Header";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -49,5 +50,10 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   }
 
   // Passou no crivo: Firebase confirmou token válido e a role existe nas Claims.
-  return <>{children}</>;
+  return (
+    <>
+      <Header />
+      {children}
+    </>
+  );
 }
