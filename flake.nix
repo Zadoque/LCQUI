@@ -5,7 +5,7 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
-  outputs = { self, nixpkgs }: 
+  outputs = { self, nixpkgs }:
     let
       system = "x86_64-linux"; # Altere se estiver usando macOS (aarch64-darwin) ou ARM Linux (aarch64-linux)
       pkgs = import nixpkgs {
@@ -16,17 +16,13 @@
       };
     in {
       devShells.${system}.default = pkgs.mkShell {
-        buildInputs = with pkgs; [
-          # Pacote padrão do Antigravity
-          antigravity
-          
-          # Versão FHS do Antigravity para maior compatibilidade com binários externos
-          # (Útil quando o agente precisa baixar dependências dinâmicas não geridas pelo Nix)
-          antigravity-fhs 
-          
+                 buildInputs = with pkgs; [
+          # Versão FHS (fornece o comando 'antigravity-ide')
+          antigravity-ide-fhs
+
           # Google Cloud CLI e ferramentas essenciais
           google-cloud-sdk
-          
+
           # Outras ferramentas comuns para desenvolvimento
           git
           nodejs
@@ -35,9 +31,10 @@
 
         shellHook = ''
           echo "🚀 Ambiente de desenvolvimento carregado!"
-          echo "Execute 'antigravity' ou 'antigravity-fhs' para iniciar a IDE."
+          echo "Execute 'antigravity-ide' para iniciar a IDE (rodando em modo FHS)."
           echo "Google Cloud CLI disponível via comando: 'gcloud'"
         '';
-      };
+     };
     };
 }
+
