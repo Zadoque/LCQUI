@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/layout/Header";
+import Sidebar from "@/components/layout/Sidebar";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -51,9 +52,12 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
 
   // Passou no crivo: Firebase confirmou token válido e a role existe nas Claims.
   return (
-    <>
-      <Header />
-      {children}
-    </>
+    <div className="flex min-h-screen">
+      <Sidebar />
+      <div className="flex-1 flex flex-col min-w-0">
+        <Header />
+        {children}
+      </div>
+    </div>
   );
 }
