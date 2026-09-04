@@ -1,4 +1,16 @@
-import firebaseFunctionsTest = require('firebase-functions-test');
-
-// Inicializa o ambiente de testes offline (sem atingir o banco de dados de produção)
-export const testEnv = firebaseFunctionsTest();
+jest.mock("firebase-functions/v2/https", () => {
+  class HttpsError extends Error {
+    constructor(public code: string, message: string) {
+      super(message);
+      this.name = "HttpsError";
+    }
+  }
+  return {
+    onCall: jest.fn((optionsOrHandler, handler) => {
+      // Handle both onCall((req) => {}) and onCall({region}, (req) => {})
+      if (typeof optionsOrHandler === "function") return optionsOrHandler;
+      return handler;
+    }),
+    HttpsError,
+  };
+});

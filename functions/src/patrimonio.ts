@@ -91,6 +91,13 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
     motivo: string;
   };
 
+  const checkBem = await admin.firestore().collection("Bem_Patrimonial")
+    .where("numero_patrimonio", "==", dados.numeroPatrimonioProposto)
+    .limit(1).get();
+  if (!checkBem.empty) {
+    throw new HttpsError("failed-precondition", "Já existe um bem cadastrado com este número de patrimônio.");
+  }
+
   const lockId = `bem_adicao_${dados.numeroPatrimonioProposto}`;
   const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(lockId);
   const reqRef  = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc();
@@ -140,6 +147,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
 
     if (aprovar) {
       let idResumo = req.id_resumo_bem_patrimonial;
+      let nomeEquipamento = req.nome_resumo_proposto ?? "Equipamento";
 
       if (!idResumo && req.nome_resumo_proposto) {
         const novoResumoRef = admin.firestore().collection("Resumo_Bem_Patrimonial").doc();
@@ -153,12 +161,29 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
 
       if (!idResumo) throw new HttpsError("failed-precondition", "A aprovação exige vincular um resumo.");
 
+      const localRef = admin.firestore().collection("Local").doc(req.id_local);
+      const localSnap = await tx.get(localRef);
+      if (!localSnap.exists) throw new HttpsError("failed-precondition", "O local indicado não existe.");
+      const localData = localSnap.data()!;
+
+      if (req.id_resumo_bem_patrimonial) {
+        const resumoRef = admin.firestore().collection("Resumo_Bem_Patrimonial").doc(req.id_resumo_bem_patrimonial);
+        const resumoSnap = await tx.get(resumoRef);
+        if (!resumoSnap.exists) throw new HttpsError("failed-precondition", "Resumo de bem não encontrado.");
+        nomeEquipamento = resumoSnap.data()!.nome;
+      }
+
+      let letra = nomeEquipamento.charAt(0).toUpperCase();
+      if (!/[A-Z]/.test(letra)) letra = letra; // stays what it is
+
       const bemRef = admin.firestore().collection("Bem_Patrimonial").doc();
       idBemCriado = bemRef.id;
 
       tx.set(bemRef, {
         id_resumo_bem_patrimonial: idResumo,
-        nome_equipamento: req.nome_resumo_proposto ?? "Equipamento",
+        nome_equipamento: nomeEquipamento,
+        letra_inicial_nome: letra,
+        predio: localData.predio,
         numero_patrimonio: req.numero_patrimonio_proposto,
         estado_conservacao: req.estado_conservacao_proposto,
         id_local: req.id_local,

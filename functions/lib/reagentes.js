@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.registrarDevolucao = exports.registrarRetirada = exports.registrarAberturaFrasco = exports.cadastrarFrascoAberto = exports.cadastrarFrascoFechado = void 0;
+exports.calcularValidadeEfetivaNaAbertura = calcularValidadeEfetivaNaAbertura;
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const auth_1 = require("./auth");
