@@ -20,13 +20,13 @@ export default function LoginPage() {
   const [isLoadingForm, setIsLoadingForm] = useState(false);
   
   const router = useRouter();
-  
-  // Redirecionamento inteligente
   const { user, isLoading } = useAuth();
-  if (!isLoading && user) {
-    router.replace("/");
-    return null;
-  }
+  
+  useEffect(() => {
+    if (!isLoading && user) {
+      router.replace("/");
+    }
+  }, [user, isLoading, router]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
