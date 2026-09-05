@@ -11,7 +11,6 @@ interface NovaTurmaModalProps {
 export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
   const { user } = useAuth();
   const [nome, setNome] = useState("");
-  const [codigo, setCodigo] = useState("");
   const [ano, setAno] = useState(new Date().getFullYear());
   const [semestre, setSemestre] = useState(1);
   const [capacidade, setCapacidade] = useState(40);
@@ -38,8 +37,7 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
         nomeTurma: nome,
         ano,
         semestre,
-        capacidade,
-        codigoTurma: codigo
+        capacidade
       });
       
       onClose();
@@ -77,19 +75,6 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
               className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Ex: Química Analítica I - Turma A"
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Código de Ingresso</label>
-            <input 
-              required
-              type="text" 
-              value={codigo}
-              onChange={(e) => setCodigo(e.target.value.toUpperCase())}
-              className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary uppercase"
-              placeholder="Ex: QA1-2026"
-            />
-            <p className="text-xs text-muted-foreground mt-1">Este código será usado pelos alunos para entrar.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

@@ -81,16 +81,35 @@ exports.ingressarEmTurmaPorCodigo = (0, https_1.onCall)(async (request) => {
  */
 exports.criarTurma = (0, https_1.onCall)(async (request) => {
     (0, auth_1.validarPermissao)(request, ["Professor", "Chefe_Geral"]);
-    const { idMateria, nomeTurma, ano, semestre, capacidade, codigoTurma, nomeMateria } = request.data;
-    if (!idMateria || !nomeTurma || !ano || !semestre || !capacidade || !codigoTurma || !nomeMateria) {
+    const { idMateria, nomeTurma, ano, semestre, capacidade, nomeMateria } = request.data;
+    if (!idMateria || !nomeTurma || !ano || !semestre || !capacidade || !nomeMateria) {
         throw new https_1.HttpsError("invalid-argument", "Dados incompletos para criar a turma.");
     }
     const db = admin.firestore();
     return db.runTransaction(async (tx) => {
-        // Checar se código já existe
-        const query = await tx.get(db.collection("Turma").where("codigo_turma", "==", codigoTurma).limit(1));
-        if (!query.empty) {
-            throw new https_1.HttpsError("already-exists", "Já existe uma turma com este código.");
+        // Gerar código único de 6 caracteres (letras e números)
+        const generateCode = () => {
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            let code = "";
+            for (let i = 0; i < 6; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        };
+        let uniqueCode = "";
+        let codeIsUnique = false;
+        let attempts = 0;
+        while (!codeIsUnique && attempts < 5) {
+            const tempCode = generateCode();
+            const query = await tx.get(db.collection("Turma").where("codigo_turma", "==", tempCode).limit(1));
+            if (query.empty) {
+                uniqueCode = tempCode;
+                codeIsUnique = true;
+            }
+            attempts++;
+        }
+        if (!codeIsUnique) {
+            throw new https_1.HttpsError("internal", "Não foi possível gerar um código único. Tente novamente.");
         }
         const docRef = db.collection("Turma").doc();
         tx.set(docRef, {
@@ -102,10 +121,10 @@ exports.criarTurma = (0, https_1.onCall)(async (request) => {
             ano: parseInt(ano, 10),
             semestre: parseInt(semestre, 10),
             capacidade: parseInt(capacidade, 10),
-            codigo_turma: codigoTurma,
+            codigo_turma: uniqueCode,
             data_criacao: admin.firestore.FieldValue.serverTimestamp()
         });
-        return { id: docRef.id, codigoTurma };
+        return { id: docRef.id, codigoTurma: uniqueCode };
     });
 });
 /**
