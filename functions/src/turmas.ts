@@ -2,74 +2,94 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { validarPermissao } from "./auth";
 
+/**
+ * RN-TUR-01: Controle de Capacidade da Turma
+ * O ingresso exige que a quantidade de alunos seja estritamente menor que a capacidade.
+ */
 export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
-  validarPermissao(request, ["Aluno"]);
+  validarPermissao(request, ["Aluno", "Bolsista"]);
+  
   const { codigoTurma } = request.data as { codigoTurma: string };
+  if (!codigoTurma) throw new HttpsError("invalid-argument", "Código da turma não fornecido.");
 
-  const turmaSnap = await admin.firestore().collection("Turma")
+  const db = admin.firestore();
+
+  const turmaSnap = await db.collection("Turma")
     .where("codigo_turma", "==", codigoTurma)
-    .where("status", "==", "Ativo")
     .limit(1).get();
   
-  if (turmaSnap.empty) throw new HttpsError("not-found", "Turma não encontrada ou arquivada.");
-  const turmaDoc = turmaSnap.docs[0];
-  const turma = turmaDoc.data();
+  if (turmaSnap.empty) throw new HttpsError("not-found", "Turma não encontrada.");
+  const turmaRef = turmaSnap.docs[0].ref;
 
-  return admin.firestore().runTransaction(async (tx) => {
-    const alunosSnap = await tx.get(
-      turmaDoc.ref.collection("Alunos")
-    );
-    if (alunosSnap.size >= turma.capacidade) {
-      throw new HttpsError("failed-precondition", "Turma lotada.");
+  return db.runTransaction(async (tx) => {
+    const turmaDoc = await tx.get(turmaRef);
+    if (!turmaDoc.exists) throw new HttpsError("not-found", "Turma sumiu.");
+    const turma = turmaDoc.data()!;
+
+    if (turma.status === "Arquivada") {
+      throw new HttpsError("failed-precondition", "A turma está arquivada e não aceita novos alunos.");
     }
 
-    const jaMatriculado = alunosSnap.docs.some(
-      (d) => d.id === request.auth!.uid
-    );
-    if (jaMatriculado) {
-      throw new HttpsError("already-exists", "Você já está nesta turma.");
+    const qtdAtual = turma.qtd_alunos || 0;
+    if (qtdAtual >= turma.capacidade) {
+      throw new HttpsError("failed-precondition", "A capacidade máxima da turma foi atingida.");
     }
 
-    const historico = await tx.get(
-      turmaDoc.ref.collection("HistoricoAlunos")
+    const alunoTurmaRef = turmaRef.collection("Alunos").doc(request.auth!.uid);
+    const alunoTurmaDoc = await tx.get(alunoTurmaRef);
+    if (alunoTurmaDoc.exists) {
+      throw new HttpsError("already-exists", "Você já está matriculado nesta turma.");
+    }
+
+    const historicoSnap = await tx.get(
+      turmaRef.collection("HistoricoAlunos")
         .where("id_aluno", "==", request.auth!.uid)
         .where("tipo", "==", "exclusao_aluno")
         .limit(1)
     );
-    if (!historico.empty) {
-      throw new HttpsError("failed-precondition",
-        "Você foi removido desta turma pelo professor. O re-ingresso requer convite explícito.");
+    if (!historicoSnap.empty) {
+      throw new HttpsError("permission-denied", "Você foi removido pelo professor e não pode retornar pelo código.");
     }
 
-    tx.set(turmaDoc.ref.collection("Alunos").doc(request.auth!.uid), {
+    tx.set(alunoTurmaRef, {
       id_aluno: request.auth!.uid,
-      ingressou_em: admin.firestore.FieldValue.serverTimestamp(),
+      ingressou_em: admin.firestore.FieldValue.serverTimestamp()
     });
-    tx.set(turmaDoc.ref.collection("HistoricoAlunos").doc(), {
+
+    tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
       id_aluno: request.auth!.uid,
       tipo: "inclusao_aluno",
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    tx.update(turmaRef, {
+      qtd_alunos: admin.firestore.FieldValue.increment(1)
     });
 
     return { idTurma: turmaDoc.id, nomeTurma: turma.nome_turma };
   });
 });
 
-/**
- * Função para criar Turma garantindo unicidade do código.
- */
 export const criarTurma = onCall(async (request) => {
   validarPermissao(request, ["Professor", "Chefe_Geral"]);
 
   const { idMateria, nomeTurma, ano, semestre, capacidade, nomeMateria } = request.data;
-  if (!idMateria || !nomeTurma || !ano || !semestre || !capacidade || !nomeMateria) {
+  
+  if (!idMateria || !nomeTurma || !nomeMateria || !ano || !semestre || !capacidade) {
     throw new HttpsError("invalid-argument", "Dados incompletos para criar a turma.");
   }
+
+  const anoNum = parseInt(ano, 10);
+  const semestreNum = parseInt(semestre, 10);
+  const capacidadeNum = parseInt(capacidade, 10);
+
+  if (isNaN(anoNum) || anoNum < 2000) throw new HttpsError("invalid-argument", "Ano inválido.");
+  if (isNaN(semestreNum) || (semestreNum !== 1 && semestreNum !== 2)) throw new HttpsError("invalid-argument", "Semestre deve ser 1 ou 2.");
+  if (isNaN(capacidadeNum) || capacidadeNum <= 0) throw new HttpsError("invalid-argument", "Capacidade deve ser positiva.");
 
   const db = admin.firestore();
 
   return db.runTransaction(async (tx) => {
-    // Gerar código único de 6 caracteres (letras e números)
     const generateCode = () => {
       const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
       let code = "";
@@ -102,13 +122,14 @@ export const criarTurma = onCall(async (request) => {
     const docRef = db.collection("Turma").doc();
     tx.set(docRef, {
       id_materia: idMateria,
-      nome_materia: nomeMateria, // Denorm para evitar join
+      nome_materia: nomeMateria,
       id_professor: request.auth!.uid,
       status: "Ativo",
       nome_turma: nomeTurma,
-      ano: parseInt(ano, 10),
-      semestre: parseInt(semestre, 10),
-      capacidade: parseInt(capacidade, 10),
+      ano: anoNum,
+      semestre: semestreNum,
+      capacidade: capacidadeNum,
+      qtd_alunos: 0,
       codigo_turma: uniqueCode,
       data_criacao: admin.firestore.FieldValue.serverTimestamp()
     });
@@ -117,10 +138,95 @@ export const criarTurma = onCall(async (request) => {
   });
 });
 
-/**
- * Convida um aluno por email para ingressar em uma turma
- * Ou convite global (sem turma).
- */
+export const removerAlunoTurma = onCall(async (request) => {
+  validarPermissao(request, ["Professor", "Chefe_Geral"]);
+  
+  const { idTurma, idAluno } = request.data as { idTurma: string, idAluno: string };
+  if (!idTurma || !idAluno) throw new HttpsError("invalid-argument", "Faltam parâmetros.");
+
+  const db = admin.firestore();
+  const turmaRef = db.collection("Turma").doc(idTurma);
+
+  return db.runTransaction(async (tx) => {
+    const turmaDoc = await tx.get(turmaRef);
+    if (!turmaDoc.exists) throw new HttpsError("not-found", "Turma não encontrada.");
+    
+    if (turmaDoc.data()!.id_professor !== request.auth!.uid) {
+      const papeis = request.auth!.token["roles"] as string[];
+      if (!papeis.includes("Chefe_Geral")) {
+        throw new HttpsError("permission-denied", "Você não é o dono desta turma.");
+      }
+    }
+
+    const alunoTurmaRef = turmaRef.collection("Alunos").doc(idAluno);
+    const alunoDoc = await tx.get(alunoTurmaRef);
+    if (!alunoDoc.exists) {
+      throw new HttpsError("not-found", "O aluno não está matriculado na turma.");
+    }
+
+    tx.delete(alunoTurmaRef);
+    
+    tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
+      id_aluno: idAluno,
+      tipo: "exclusao_aluno",
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    tx.update(turmaRef, {
+      qtd_alunos: admin.firestore.FieldValue.increment(-1)
+    });
+
+    const auditRef = db.collection("Registro_de_Auditoria").doc();
+    tx.set(auditRef, {
+      id_usuario: request.auth!.uid,
+      acao: "Remover Aluno da Turma",
+      tipo_entidade_sofre_acao: "ALUNO",
+      id_do_objeto_da_entidade: idAluno,
+      acao_feita_em: admin.firestore.FieldValue.serverTimestamp(),
+      metadata: { idTurma }
+    });
+
+    return { success: true };
+  });
+});
+
+export const arquivarTurma = onCall(async (request) => {
+  validarPermissao(request, ["Professor", "Chefe_Geral"]);
+  const { idTurma } = request.data as { idTurma: string };
+  if (!idTurma) throw new HttpsError("invalid-argument", "idTurma obrigatório.");
+
+  const db = admin.firestore();
+  const turmaRef = db.collection("Turma").doc(idTurma);
+
+  return db.runTransaction(async (tx) => {
+    const turmaDoc = await tx.get(turmaRef);
+    if (!turmaDoc.exists) throw new HttpsError("not-found", "Turma não encontrada.");
+    
+    if (turmaDoc.data()!.id_professor !== request.auth!.uid) {
+      const papeis = request.auth!.token["roles"] as string[];
+      if (!papeis.includes("Chefe_Geral")) {
+        throw new HttpsError("permission-denied", "Você não é o dono desta turma.");
+      }
+    }
+
+    tx.update(turmaRef, {
+      status: "Arquivada"
+    });
+
+    const auditRef = db.collection("Registro_de_Auditoria").doc();
+    tx.set(auditRef, {
+      id_usuario: request.auth!.uid,
+      acao: "Arquivar Turma",
+      tipo_entidade_sofre_acao: "TURMA",
+      id_do_objeto_da_entidade: idTurma,
+      acao_feita_em: admin.firestore.FieldValue.serverTimestamp(),
+      metadata: {}
+    });
+
+    return { success: true };
+  });
+});
+
 export const convidarAluno = onCall(async (request) => {
   validarPermissao(request, ["Professor", "Chefe_Geral"]);
 
@@ -137,7 +243,6 @@ export const convidarAluno = onCall(async (request) => {
   const db = admin.firestore();
 
   return db.runTransaction(async (tx) => {
-    // Implementa: UNIQUE(email_normalizado, id_turma) WHERE status = 'pendente'
     let queryRef = db.collection("Convite_Aluno")
       .where("email", "==", emailNormalizado)
       .where("status", "==", "pendente");
@@ -150,12 +255,10 @@ export const convidarAluno = onCall(async (request) => {
 
     const snap = await tx.get(queryRef.limit(1));
     if (!snap.empty) {
-      throw new HttpsError("already-exists", "Já existe um convite pendente para este aluno nesta condição.");
+      throw new HttpsError("already-exists", "Já existe um convite pendente.");
     }
 
     const docRef = db.collection("Convite_Aluno").doc();
-    
-    // Prazo de 7 dias para expirar
     const expiraEm = new Date();
     expiraEm.setDate(expiraEm.getDate() + 7);
 
@@ -169,9 +272,6 @@ export const convidarAluno = onCall(async (request) => {
       numero_matricula: matricula || null
     });
 
-    return { 
-      message: "Convite registrado com sucesso! (Modo Dev: Email não enviado)",
-      id: docRef.id 
-    };
+    return { id: docRef.id };
   });
 });
