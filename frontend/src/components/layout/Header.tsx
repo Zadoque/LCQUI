@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { auth } from "@/lib/firebase/config";
 import { signOut } from "firebase/auth";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/ThemeProvider";
 import { Moon, Sun } from "lucide-react";
 
 export default function Header() {
@@ -47,15 +47,19 @@ export default function Header() {
       </div>
 
       <nav className="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
-        <a href="/reagentes" className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors">
-          Reagentes
-        </a>
-        <a href="/patrimonio" className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors">
-          Patrimônio
-        </a>
-        {(roles.includes("Chefe_Geral") || roles.includes("Professor") || roles.includes("Aluno") || roles.includes("Bolsista")) && (
+        {(roles.includes("Chefe_Geral") || roles.includes("Gestor_Almoxarifado") || roles.includes("Professor") || roles.includes("Bolsista")) && (
+          <a href="/reagentes" className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors">
+            Reagentes
+          </a>
+        )}
+        {(roles.includes("Chefe_Geral") || roles.includes("Gestor_Bens_Patrimoniais") || roles.includes("Professor") || roles.includes("Bolsista")) && (
+          <a href="/patrimonio" className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors">
+            Patrimônio
+          </a>
+        )}
+        {(roles.includes("Chefe_Geral") || roles.includes("Professor") || roles.includes("Bolsista")) && (
           <a href="/turmas" className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors">
-            Turmas Acadêmicas
+            Turmas
           </a>
         )}
       </nav>

@@ -1,0 +1,1078 @@
+\newpage
+% =================================================
+\section{Tecnologia e Relatórios (Vercel / Firebase)}
+% =================================================
+
+\subsection{Para relatórios}
+Após avaliação das restrições do ambiente \textit{serverless} (Vercel e Firebase Functions), a biblioteca escolhida para a geração de relatórios no backend é o \textbf{\textit{pdfkit}} em conjunto com o plugin \textbf{\textit{pdfkit-table}}.
+
+\textbf{Justificativa da escolha:}
+\begin{itemize}
+    \item \textbf{Baixo consumo de memória:} O \textit{pdfkit} desenha o PDF nativamente, respeitando os limites de memória da Vercel/Firebase.
+    \item \textbf{Tabelas dinâmicas:} O \textit{pdfkit-table} resolve a paginação automática de tabelas longas.
+    \item \textbf{Fluxo de Armazenamento:} A Cloud Function gera o PDF em um \textit{Buffer} de memória, faz o upload para o \textbf{Firebase Storage} e retorna uma URL assinada temporária para download.
+\end{itemize}
+
+\subsection{Princípio: nunca confiar no \textit{client-side}}
+Todas as \textit{Cloud Functions} desta seção seguem a mesma regra: \textbf{qualquer dado que o servidor consiga derivar ou verificar por conta própria é recalculado ou reconferido no servidor, nunca aceito como o cliente enviou}. Isso vale, em particular, para o papel do usuário (sempre resolvido a partir do Firestore, nunca do que o \textit{request} diz que o usuário é), para valores calculados como peso/volume/vencimento/atraso (sempre recomputados a partir dos dados brutos e da hora do servidor), para códigos gerados pelo sistema (Regra 6.2.9), e para o estado de disponibilidade de um recurso concorrente (sempre relido dentro de uma transação antes de decidir).
+
+\subsubsection{Funções de Apoio (Autorização)}
+
+\begin{lstlisting}[language=TypeScript, title={Resolução de Papéis via Custom Claims (zero leituras Firestore)}]
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import * as admin from "firebase-admin";
+
+// C1: Papéis lidos diretamente do JWT (Firebase Custom Claims).
+// Zero leituras extras no Firestore por chamada de API.
+// PREREQUISITO: toda mutação de papel deve chamar atualizarCustomClaims(uid).
+function resolverPapeisDoToken(auth: {token: Record<string, unknown>} | undefined): string[] {
+  if (!auth) return [];
+  const roles = auth.token["roles"];
+  if (!Array.isArray(roles)) return [];
+  return roles as string[];
+}
+
+// Chamada após TODA concessão ou remoção de papel:
+//   await atualizarCustomClaims(uid);
+// Isso invalida o token atual; o cliente deve renovar com user.getIdToken(true).
+export async function atualizarCustomClaims(uid: string): Promise<void> {
+  const colecoes = ["Chefe_Geral", "Gestor_Almoxarifado", "Gestor_Bens_Patrimoniais", "Professor", "Aluno", "Bolsista"];
+  const leituras = await Promise.all(
+    colecoes.map((c) => admin.firestore().collection(c).doc(uid).get())
+  );
+  const roles = colecoes.filter((_, i) => leituras[i].exists);
+  await admin.auth().setCustomUserClaims(uid, { roles });
+}
+
+function validarPermissao(request: {auth?: {uid: string; token: Record<string, unknown>}}, papeisPermitidos: string[]): string[] {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Usuário não autenticado.");
+  const papeis = resolverPapeisDoToken(request.auth);
+  if (!papeisPermitidos.some((p) => papeis.includes(p))) {
+    throw new HttpsError("permission-denied", "Usuário sem papel autorizado para esta ação.");
+  }
+  return papeis;
+}
+
+async function validarGestorDoAlmoxarifado(uid: string, auth: {token: Record<string, unknown>}, idAlmoxarifado: string): Promise<void> {
+  const papeis = resolverPapeisDoToken(auth);
+  if (papeis.includes("Chefe_Geral")) return; // Chefe tem escopo global
+  if (!papeis.includes("Gestor_Almoxarifado")) {
+    throw new HttpsError("permission-denied", "Usuário não é Gestor de Almoxarifado.");
+  }
+  // 1 leitura: o vínculo de escopo (não o papel - esse já veio do token)
+  const vinculo = await admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
+    .where("id_gestor_almoxarifado", "==", uid)
+    .where("id_almoxarifado", "==", idAlmoxarifado)
+    .limit(1).get();
+  if (vinculo.empty) {
+    throw new HttpsError("permission-denied", "Gestor não está designado para este almoxarifado.");
+  }
+}
+
+// C3: Geração de código sequencial via Realtime Database (sem limite de throughput).
+// O .transaction() do RTDB é atômico e suporta milhares de writes/s.
+async function gerarCodigoFrascoUnico(): Promise<string> {
+  const ref = admin.database().ref("/contadores/codigo_frasco");
+  const result = await ref.transaction((current: number | null) => (current ?? 0) + 1);
+  if (!result.committed || result.snapshot.val() == null) {
+    throw new HttpsError("internal", "Falha ao gerar código de frasco.");
+  }
+  return `LCQUI-${result.snapshot.val()}`;
+}
+\end{lstlisting}
+
+\subsubsection{Fluxo de Reagentes: Cadastro, Retirada e Devolução}
+
+\begin{lstlisting}[language=TypeScript, title={Cadastro de Frasco Fechado (Regra 6.2.13, item 1)}]
+interface CadastroFrascoFechado {
+  idEspecificacaoReagente: string;
+  idAlmoxarifado: string;
+  idLote?: string;
+  pesoTotal: number;
+  volumeNominal: number;
+  validadeFechado?: string;
+  validadeDesconhecida?: boolean;
+  decisaoSeJaVencido?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
+  detalheStatus?: string;
+}
+
+export const cadastrarFrascoFechado = onCall(async (request) => {
+  const dados = request.data as CadastroFrascoFechado;
+  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await validarGestorDoAlmoxarifado(request.auth!.uid, dados.idAlmoxarifado);
+
+  const especSnap = await admin.firestore().collection("Especificacao_Reagente").doc(dados.idEspecificacaoReagente).get();
+  if (!especSnap.exists) throw new HttpsError("not-found", "Especificação de reagente não encontrada.");
+  const densidade = especSnap.data()!.densidade;
+  const estadoFisico = especSnap.data()!.estado_fisico;
+
+  let pesoVazio: number;
+  if (estadoFisico === "LIQUIDO") {
+    if (!densidade || densidade <= 0) throw new HttpsError("failed-precondition", "Líquido exige densidade positiva.");
+    pesoVazio = dados.pesoTotal - (dados.volumeNominal * densidade);
+  } else {
+    pesoVazio = dados.pesoTotal - dados.volumeNominal; // g
+  }
+
+  if (pesoVazio <= 0) {
+    throw new HttpsError("invalid-argument", "Peso total incompatível com o volume nominal para esta densidade.");
+  }
+
+  const agora = new Date();
+  const validadeFechado = dados.validadeFechado ? new Date(dados.validadeFechado) : null;
+  const validadeEfetiva = dados.validadeDesconhecida ? null : validadeFechado;
+  const venceuNoCadastro = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+
+  if (venceuNoCadastro && !dados.decisaoSeJaVencido) {
+    throw new HttpsError("failed-precondition", "O frasco está vencido no cadastro e exige uma decisão do gestor.");
+  }
+
+  if (dados.decisaoSeJaVencido === "QUARENTENA" && !dados.detalheStatus) {
+    throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status.");
+  }
+
+  const codigoFrasco = await gerarCodigoFrascoUnico();
+
+  const ref = await admin.firestore().collection("Frasco_Reagente").add({
+    id_almoxarifado: dados.idAlmoxarifado,
+    id_lote: dados.idLote ?? null,
+    id_especificacao_reagente: dados.idLote ? null : dados.idEspecificacaoReagente,
+    codigo_frasco: codigoFrasco,
+    conteudo_nominal: dados.volumeNominal,
+    peso_no_cadastrado: dados.pesoTotal,
+    peso_atual: dados.pesoTotal,
+    peso_frasco_vazio: pesoVazio,
+    medida_usada: 0,
+    estado_fisico_frasco: "FECHADO",
+    disponibilidade: "DISPONIVEL",
+    validade_fechado: validadeEfetiva,
+    validade_efetiva: validadeEfetiva,
+    validade_desconhecida: dados.validadeDesconhecida ?? false,
+    vencido: venceuNoCadastro,
+    em_quarentena: venceuNoCadastro && dados.decisaoSeJaVencido === "QUARENTENA",
+    uso_vencido_autorizado: venceuNoCadastro && dados.decisaoSeJaVencido === "DISPONIVEL",
+    detalhe_status: venceuNoCadastro ? (dados.detalheStatus ?? (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE" ? "Frasco vencido aguardando processo institucional de descarte." : null)) : null,
+    cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+    cadastrado_por: request.auth!.uid,
+  });
+
+  return { idFrasco: ref.id, codigoFrasco, pesoVazioCalculado: pesoVazio, venceuNoCadastro };
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={cadastrarFrascoAberto com bifurcação SÓLIDO/LÍQUIDO (C5)}]
+// C5: modalidade para SÓLIDO usa ESTIMA_MASSA (não ESTIMA_VOLUME)
+interface CadastroFrascoAberto {
+  idEspecificacaoReagente: string;
+  idAlmoxarifado: string;
+  idLote?: string;
+  // LIQUIDO: "CONHECE_TARA" | "ESTIMA_VOLUME"
+  // SOLIDO:  "CONHECE_TARA" | "ESTIMA_MASSA"
+  modalidade: "CONHECE_TARA" | "ESTIMA_VOLUME" | "ESTIMA_MASSA";
+  pesoTotalBalanca: number;            // sempre leitura de balança em g
+  pesoFrascoVazioInformado?: number;  // Opção A (ambos estados físicos)
+  volumeAtualEstimado?: number;        // Opção B LIQUIDO: volume visual em mL
+  massaAtualEstimada?: number;         // Opção B SOLIDO: estimativa em g
+  validadeAberto?: string;
+  validadeDesconhecida?: boolean;
+  decisaoSeJaVencido?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
+  detalheStatus?: string;
+}
+
+export const cadastrarFrascoAberto = onCall(async (request) => {
+  const dados = request.data as CadastroFrascoAberto;
+  const papeis = validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, dados.idAlmoxarifado);
+
+  const especSnap = await admin.firestore().collection("Especificacao_Reagente").doc(dados.idEspecificacaoReagente).get();
+  if (!especSnap.exists) throw new HttpsError("not-found", "Especificação não encontrada.");
+  const especData = especSnap.data()!;
+  const estadoFisico: "SOLIDO" | "LIQUIDO" = especData.estado_fisico;
+  const densidade: number | null = especData.densidade ?? null;
+
+  // C5: bifurcação explícita por estado físico
+  let pesoVazio: number;
+  let conteudoNominal: number; // g para sólidos, mL para líquidos
+
+  if (estadoFisico === "SOLIDO") {
+    // Sólidos: tudo em gramas; densidade não é usada para cálculo de volume
+    if (dados.modalidade === "CONHECE_TARA") {
+      if (dados.pesoFrascoVazioInformado == null)
+        throw new HttpsError("invalid-argument", "CONHECE_TARA exige pesoFrascoVazioInformado.");
+      pesoVazio = dados.pesoFrascoVazioInformado;
+      conteudoNominal = dados.pesoTotalBalanca - pesoVazio;
+    } else { // ESTIMA_MASSA
+      if (dados.massaAtualEstimada == null)
+        throw new HttpsError("invalid-argument", "ESTIMA_MASSA exige massaAtualEstimada.");
+      conteudoNominal = dados.massaAtualEstimada;
+      pesoVazio = dados.pesoTotalBalanca - conteudoNominal;
+    }
+    if (pesoVazio <= 0)
+      throw new HttpsError("invalid-argument", "Massa atual maior que o peso total medido na balança.");
+  } else { // LIQUIDO
+    if (!densidade || densidade <= 0)
+      throw new HttpsError("failed-precondition", "Líquido exige densidade positiva cadastrada na especificação.");
+    if (dados.modalidade === "CONHECE_TARA") {
+      if (dados.pesoFrascoVazioInformado == null)
+        throw new HttpsError("invalid-argument", "CONHECE_TARA exige pesoFrascoVazioInformado.");
+      pesoVazio = dados.pesoFrascoVazioInformado;
+      conteudoNominal = (dados.pesoTotalBalanca - pesoVazio) / densidade;
+    } else { // ESTIMA_VOLUME
+      if (dados.volumeAtualEstimado == null)
+        throw new HttpsError("invalid-argument", "ESTIMA_VOLUME exige volumeAtualEstimado.");
+      conteudoNominal = dados.volumeAtualEstimado;
+      pesoVazio = dados.pesoTotalBalanca - (conteudoNominal * densidade);
+    }
+    if (conteudoNominal <= 0 || pesoVazio <= 0)
+      throw new HttpsError("invalid-argument", "Dados de volume/peso inconsistentes com a densidade.");
+  }
+
+  const codigoFrasco = await gerarCodigoFrascoUnico();
+  const agora = new Date();
+  const validade = dados.validadeAberto ? new Date(dados.validadeAberto) : null;
+  const validadeEfetiva = dados.validadeDesconhecida ? null : validade;
+  const jaVencido = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+
+  if (jaVencido && !dados.decisaoSeJaVencido)
+    throw new HttpsError("failed-precondition", "O frasco está vencido no cadastro e exige uma decisão do gestor.");
+  if (dados.decisaoSeJaVencido === "QUARENTENA" && !dados.detalheStatus)
+    throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status.");
+
+  const ref = await admin.firestore().collection("Frasco_Reagente").add({
+    id_almoxarifado: dados.idAlmoxarifado,
+    id_lote: dados.idLote ?? null,
+    id_especificacao_reagente: dados.idLote ? null : dados.idEspecificacaoReagente,
+    codigo_frasco: codigoFrasco,
+    conteudo_nominal: conteudoNominal,   // g (sólido) ou mL (líquido)
+    peso_no_cadastrado: dados.pesoTotalBalanca,
+    peso_atual: dados.pesoTotalBalanca,
+    peso_frasco_vazio: pesoVazio,
+    medida_usada: 0,
+    data_abertura: agora,
+    estado_fisico_frasco: "ABERTO",
+    disponibilidade: "DISPONIVEL",
+    validade_efetiva: validadeEfetiva,
+    validade_desconhecida: dados.validadeDesconhecida ?? false,
+    vencido: jaVencido,
+    em_quarentena: jaVencido && dados.decisaoSeJaVencido === "QUARENTENA",
+    uso_vencido_autorizado: jaVencido && dados.decisaoSeJaVencido === "DISPONIVEL",
+    detalhe_status: jaVencido
+      ? (dados.detalheStatus ?? (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE"
+          ? "Frasco vencido aguardando processo institucional de descarte." : null))
+      : null,
+    cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+    cadastrado_por: request.auth!.uid,
+  });
+
+  return { idFrasco: ref.id, codigoFrasco, conteudoNominal, pesoVazio, venceuNoCadastro: jaVencido };
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Abertura e cálculo de validade efetiva no servidor}]
+function calcularValidadeEfetivaNaAbertura(frasco: any, dataAbertura: Date): Date | null {
+  if (frasco.validade_desconhecida) return null;
+
+  const validadeFechado = frasco.validade_fechado
+    ? (typeof frasco.validade_fechado.toDate === "function"
+      ? frasco.validade_fechado.toDate()
+      : new Date(frasco.validade_fechado))
+    : null;
+  const diasDepoisDeAberto = frasco.validade_apos_aberto_dias;
+  const validadeDepoisDaAbertura = diasDepoisDeAberto != null
+    ? new Date(dataAbertura.getTime() + diasDepoisDeAberto * 24 * 60 * 60 * 1000)
+    : null;
+
+  if (validadeFechado && validadeDepoisDaAbertura) {
+    return validadeFechado <= validadeDepoisDaAbertura ? validadeFechado : validadeDepoisDaAbertura;
+  }
+  return validadeFechado ?? validadeDepoisDaAbertura;
+}
+
+interface AberturaFrasco {
+  idFrasco: string;
+  destinoSeVencerNaAbertura?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
+  detalheStatus?: string;
+}
+
+export const registrarAberturaFrasco = onCall(async (request) => {
+  const dados = request.data as AberturaFrasco;
+  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+
+  const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
+  return admin.firestore().runTransaction(async (tx) => {
+    const snap = await tx.get(frascoRef);
+    if (!snap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
+    const frasco = snap.data()!;
+    await validarGestorDoAlmoxarifado(request.auth!.uid, frasco.id_almoxarifado);
+
+    if (frasco.estado_fisico_frasco !== "FECHADO") {
+      throw new HttpsError("failed-precondition", "Somente um frasco FECHADO pode ser aberto por esta operação.");
+    }
+
+    const agora = new Date();
+    const validadeEfetiva = calcularValidadeEfetivaNaAbertura(frasco, agora);
+    const venceu = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+
+    if (venceu && !dados.destinoSeVencerNaAbertura) {
+      throw new HttpsError("failed-precondition", "A abertura tornou o frasco vencido. O gestor deve escolher o destino do frasco.");
+    }
+    if (venceu && dados.destinoSeVencerNaAbertura === "QUARENTENA" && !dados.detalheStatus) {
+      throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status.");
+    }
+
+    tx.update(frascoRef, {
+      estado_fisico_frasco: "ABERTO",
+      data_abertura: agora,
+      validade_efetiva: validadeEfetiva,
+      vencido: venceu,
+      em_quarentena: venceu && dados.destinoSeVencerNaAbertura === "QUARENTENA",
+      uso_vencido_autorizado: venceu && dados.destinoSeVencerNaAbertura === "DISPONIVEL",
+      detalhe_status: venceu
+        ? (dados.detalheStatus ?? (dados.destinoSeVencerNaAbertura === "PENDENTE_DE_DESCARTE"
+          ? "Frasco vencido aguardando processo institucional de descarte."
+          : null))
+        : null,
+    });
+
+    return { validadeEfetiva, venceu, destino: dados.destinoSeVencerNaAbertura ?? null };
+  });
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Registrar Retirada (Empréstimo)}]
+interface RetiradaFrasco {
+  idFrasco: string;
+  idUsuarioRetirou: string;
+  idLocalUsado: string;
+  pesoSaida: number;
+  dataDevolucaoPrevista: string;
+  confirmarUsoVencido?: boolean;
+  abrirNoEmprestimo?: boolean;
+  finalidadeUso: "PESQUISA" | "DIDATICO_DEMONSTRACAO" | "OUTRO";
+}
+
+export const registrarRetirada = onCall(async (request) => {
+  const dados = request.data as RetiradaFrasco;
+  validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+
+  // Verificação do papel do tomador: este UID é de outro usuário
+  // (não do requisitante), portanto Custom Claims não estão disponíveis.
+  // Leitura Firestore é necessária aqui (1 leitura, não 6).
+  const colecoesBorrower = ["Professor", "Bolsista"];
+  const [profSnap, bolsSnap] = await Promise.all([
+    admin.firestore().collection("Professor").doc(dados.idUsuarioRetirou).get(),
+    admin.firestore().collection("Bolsista").doc(dados.idUsuarioRetirou).get(),
+  ]);
+  if (!profSnap.exists && !bolsSnap.exists) {
+    throw new HttpsError("failed-precondition", "Usuário selecionado não é Professor nem Bolsista.");
+  }
+
+  const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const frascoSnap = await tx.get(frascoRef);
+    if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
+    const frasco = frascoSnap.data()!;
+
+    await validarGestorDoAlmoxarifado(request.auth!.uid, frasco.id_almoxarifado);
+    if (frasco.disponibilidade !== "DISPONIVEL") {
+      throw new HttpsError("failed-precondition", "Frasco não está disponível para retirada.");
+    }
+    if (frasco.em_quarentena) {
+      throw new HttpsError("failed-precondition", "Frasco em quarentena não pode ser retirado.");
+    }
+
+    const agora = new Date();
+    let frascoVencido = frasco.vencido;
+    let validadeEfetiva = frasco.validade_efetiva ? frasco.validade_efetiva.toDate() : null;
+
+    if (dados.abrirNoEmprestimo && frasco.estado_fisico_frasco === "FECHADO") {
+      validadeEfetiva = calcularValidadeEfetivaNaAbertura(frasco, agora);
+      frascoVencido = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+      tx.update(frascoRef, {
+        estado_fisico_frasco: "ABERTO",
+        data_abertura: agora,
+        validade_efetiva: validadeEfetiva,
+        vencido: frascoVencido,
+      });
+    }
+
+    if (frascoVencido && !frasco.uso_vencido_autorizado && !dados.confirmarUsoVencido) {
+      throw new HttpsError("failed-precondition", "Frasco vencido requer confirmação explícita de uso didático.");
+    }
+    // P9: finalidade_uso vem do frontend; backend impõe DIDATICO se vencido
+    const finalidade = frascoVencido ? "DIDATICO_DEMONSTRACAO" : dados.finalidadeUso;
+
+    const emprestimoRef = admin.firestore().collection("Emprestimo_Reagente").doc();
+    tx.set(emprestimoRef, {
+      id_frasco_reagente: dados.idFrasco,
+      id_usuario_retirou: dados.idUsuarioRetirou,
+      id_almoxarifado: frasco.id_almoxarifado,
+      status: "EM_USO",
+      data_retirada: admin.firestore.FieldValue.serverTimestamp(),
+      data_devolucao_prevista: new Date(dados.dataDevolucaoPrevista),
+      id_local_usado: dados.idLocalUsado,
+      peso_saida: dados.pesoSaida,
+      uso_vencido_aceito: Boolean(frascoVencido),
+      finalidade_uso: finalidade,
+    });
+
+    tx.update(frascoRef, { disponibilidade: "EMPRESTADO" });
+
+    const historicoRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
+    tx.set(historicoRef, {
+      id_frasco_reagente: dados.idFrasco,
+      id_almoxarifado: frasco.id_almoxarifado,
+      id_gestor: request.auth!.uid,
+      tipo: "SAIU",
+      id_emprestimo_reagente: emprestimoRef.id,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { idEmprestimo: emprestimoRef.id };
+  });
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Registrar Devolução com atualização física e histórico completo}]
+interface DevolucaoFrasco {
+  idEmprestimo: string;
+  pesoRetorno: number;
+  destinoPosDevolucao?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
+}
+
+export const registrarDevolucao = onCall(async (request) => {
+  const dados = request.data as DevolucaoFrasco;
+  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+
+  const emprestimoRef = admin.firestore().collection("Emprestimo_Reagente").doc(dados.idEmprestimo);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const emprestimoSnap = await tx.get(emprestimoRef);
+    if (!emprestimoSnap.exists) throw new HttpsError("not-found", "Empréstimo não encontrado.");
+    const emprestimo = emprestimoSnap.data()!;
+    if (emprestimo.status === "DEVOLVIDO" || emprestimo.status === "DEVOLVIDO_COM_ATRASO") {
+      throw new HttpsError("failed-precondition", "Empréstimo já foi devolvido.");
+    }
+
+    const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(emprestimo.id_frasco_reagente);
+    const frascoSnap = await tx.get(frascoRef);
+    const frasco = frascoSnap.data()!;
+    await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
+
+    const densidade = await resolverDensidadeDoFrasco(frasco);
+    const pesoConsumido = emprestimo.peso_saida - dados.pesoRetorno;
+
+    // C5: Reagentes higroscópicos (NaOH, sílica gel, etc.) podem ganhar massa por
+    // absorção de umidade. Permite margem de +2% da massa de saída antes de erro.
+    const MARGEM_HIGROSCOPICA = 0.02;
+    const limiteMaxRetorno = emprestimo.peso_saida * (1 + MARGEM_HIGROSCOPICA);
+    if (dados.pesoRetorno > limiteMaxRetorno) {
+      throw new HttpsError("invalid-argument",
+        `Peso de retorno (${dados.pesoRetorno}g) excede 102% da massa de saída (${emprestimo.peso_saida}g). Verifique se há contaminação ou erro na balança.`);
+    }
+    const avisoHigroscopico = dados.pesoRetorno > emprestimo.peso_saida;
+    const volumeUtilizado = densidade ? pesoConsumido / densidade : pesoConsumido;
+
+    const agora = new Date();
+    // Normalização: Prazo encerra-se às 23:59:59.999 do dia previsto
+    const prazoLimite = new Date(emprestimo.data_devolucao_prevista.toDate());
+    prazoLimite.setHours(23, 59, 59, 999);
+    const atrasado = agora > prazoLimite;
+
+    const validadeEfetiva = frasco.validade_efetiva?.toDate?.() ?? frasco.validade_efetiva ?? null;
+    const venceuAgora = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+    const frascoVencido = Boolean(frasco.vencido || venceuAgora);
+
+    const atualizacaoFrasco: Record<string, unknown> = {
+      disponibilidade: "DISPONIVEL",
+      data_ultima_pesagem: admin.firestore.FieldValue.serverTimestamp(),
+      peso_atual: dados.pesoRetorno,
+      medida_usada: admin.firestore.FieldValue.increment(volumeUtilizado),
+      vencido: frascoVencido,
+    };
+
+    if (frascoVencido && dados.destinoPosDevolucao === "QUARENTENA") {
+      atualizacaoFrasco.em_quarentena = true;
+      atualizacaoFrasco.uso_vencido_autorizado = false;
+      atualizacaoFrasco.detalhe_status = "Frasco vencido retido em quarentena após devolução.";
+    } else if (frascoVencido && dados.destinoPosDevolucao === "DISPONIVEL") {
+      atualizacaoFrasco.em_quarentena = false;
+      atualizacaoFrasco.uso_vencido_autorizado = true;
+    }
+
+    tx.update(emprestimoRef, {
+      status: atrasado ? "DEVOLVIDO_COM_ATRASO" : "DEVOLVIDO",
+      data_devolucao_efetuada: admin.firestore.FieldValue.serverTimestamp(),
+      id_usuario_devolveu: request.auth!.uid,
+      peso_retorno: dados.pesoRetorno,
+      medida_utilizada: volumeUtilizado,
+      unidade_medida_utilizada: densidade ? "ml" : "g",
+    ...(avisoHigroscopico && { aviso: "higroscopico_suspeito" }),
+    });
+    tx.update(frascoRef, atualizacaoFrasco);
+
+    // Registro obrigatório de devolução no histórico
+    const histRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
+    tx.set(histRef, {
+      id_frasco_reagente: emprestimo.id_frasco_reagente,
+      id_almoxarifado: frasco.id_almoxarifado,
+      id_gestor: request.auth!.uid,
+      tipo: "ENTROU",
+      id_emprestimo_reagente: emprestimoRef.id,
+      peso_anterior: emprestimo.peso_saida,
+      peso_novo: dados.pesoRetorno,
+      medida_ajustada: volumeUtilizado,
+      unidade_medida_ajustada: densidade ? "ml" : "g",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { pesoConsumido, volumeUtilizado, atrasado, frascoVencido,
+           avisoHigroscopico: avisoHigroscopico || false };
+  });
+});
+\end{lstlisting}
+
+\subsubsection{Validação síncrona de validade no cadastro e na abertura}
+A validade não depende apenas do job diário. No cadastro do frasco, a Cloud Function calcula \textit{validade\_efetiva} e compara esse valor com o relógio do servidor. Se a validade já expirou, a criação só pode prosseguir com uma decisão explícita do gestor: \texttt{QUARENTENA}, \texttt{PENDENTE\_DE\_DESCARTE} ou \texttt{DISPONIVEL} com \textit{uso\_vencido\_autorizado}. A primeira opção exige \textit{detalhe\_status}. A terceira representa uma exceção operacional deliberada: reagentes vencidos podem continuar sendo utilizados em práticas menos exigentes ou demonstrações quando o gestor registra explicitamente essa autorização.
+
+Na abertura do frasco, a função \textit{calcularValidadeEfetivaNaAbertura} aplica:
+\[
+\textit{validade\_efetiva} = \min(\textit{validade\_fechado},\; \textit{data\_abertura} + \textit{validade\_apos\_aberto\_dias}),
+\]
+quando os dois limites existem.
+
+\subsubsection{Jobs Agendados: Vencimento, Atraso e Materialização}
+
+\begin{lstlisting}[language=TypeScript, title={Vencimento e Atraso com busca preventiva de devoluções}]
+import { onSchedule } from "firebase-functions/v2/scheduler";
+import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated } from "firebase-functions/v2/firestore";
+
+export const verificarVencimentosEAtrasos = onSchedule("every day 03:00", async () => {
+  const agora = new Date();
+  const inicioHoje = inicioDoDiaInstitucional(agora);
+  const fimDeAmanha = fimDoDiaInstitucional(adicionarDias(inicioHoje, 1));
+
+  const emprestimosNaJanela = await admin.firestore().collection("Emprestimo_Reagente")
+    .where("status", "==", "EM_USO")
+    .where("data_devolucao_prevista", "<=", fimDeAmanha)
+    .get();
+
+  const batchAtrasados = admin.firestore().batch();
+  const notificacoesPreventivas: Array<{ idEmprestimo: string; idUsuario: string; quando: "HOJE" | "AMANHA" }> = [];
+
+  emprestimosNaJanela.docs.forEach((doc) => {
+    const dados = doc.data();
+    const prevista = dados.data_devolucao_prevista.toDate();
+
+    if (prevista < inicioHoje) {
+      batchAtrasados.update(doc.ref, { status: "ATRASADO" });
+      return;
+    }
+
+    if (mesmoDia(prevista, inicioHoje)) {
+      notificacoesPreventivas.push({ idEmprestimo: doc.id, idUsuario: dados.id_usuario_retirou, quando: "HOJE" });
+    } else {
+      notificacoesPreventivas.push({ idEmprestimo: doc.id, idUsuario: dados.id_usuario_retirou, quando: "AMANHA" });
+    }
+  });
+
+  await batchAtrasados.commit();
+
+  for (const item of notificacoesPreventivas) {
+    await notificarProfessorDevolucaoUmaVez(item.idUsuario, item.idEmprestimo, item.quando);
+  }
+
+  const totalAtrasados = emprestimosNaJanela.docs.filter((doc) => {
+    const prevista = doc.data().data_devolucao_prevista.toDate();
+    return prevista < inicioHoje;
+  }).length;
+  if (totalAtrasados > 0) {
+    await notificarGestoresDeReagentes("ENTREGA_ATRASADA", totalAtrasados);
+  }
+
+  const frascosVencendo = await admin.firestore().collection("Frasco_Reagente")
+    .where("vencido", "==", false)
+    .where("validade_efetiva", "<=", agora)
+    .get();
+
+  const batchVencidos = admin.firestore().batch();
+  frascosVencendo.docs.forEach((doc) => {
+    batchVencidos.update(doc.ref, { vencido: true });
+    const histRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
+    batchVencidos.set(histRef, {
+      id_frasco_reagente: doc.id,
+      id_almoxarifado: doc.data().id_almoxarifado,
+      tipo: "VENCEU",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+  await batchVencidos.commit();
+  if (!frascosVencendo.empty) {
+    await notificarGestoresDeReagentes("FRASCOS_VENCIDOS", frascosVencendo.size);
+  }
+});
+
+function adicionarDias(data: Date, dias: number): Date {
+  const result = new Date(data);
+  result.setDate(result.getDate() + dias);
+  return result;
+}
+
+function mesmoDia(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() &&
+         a.getMonth() === b.getMonth() &&
+         a.getDate() === b.getDate();
+}
+
+function inicioDoDiaInstitucional(data: Date): Date {
+  const result = new Date(data);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+function fimDoDiaInstitucional(data: Date): Date {
+  const result = new Date(data);
+  result.setHours(23, 59, 59, 999);
+  return result;
+}
+
+export const onFrascoCriado = onDocumentCreated("Frasco_Reagente/{frascoId}", async (event) => {
+  const idLote = event.data?.data().id_lote;
+  if (idLote) await atualizarContadorLote(idLote, +1);
+});
+
+export const onFrascoRemovido = onDocumentDeleted("Frasco_Reagente/{frascoId}", async (event) => {
+  const idLote = event.data?.data().id_lote;
+  if (idLote) await atualizarContadorLote(idLote, -1);
+});
+
+async function atualizarContadorLote(idLote: string, delta: number) {
+  await admin.firestore().collection("Lote_Materializado").doc(idLote).set(
+    { id_lote: idLote, qtd_frascos_cadastrados: admin.firestore.FieldValue.increment(delta) },
+    { merge: true }
+  );
+}
+\end{lstlisting}
+
+\subsubsection{Fluxo de Bens Patrimoniais: Requisições}
+
+\begin{lstlisting}[language=TypeScript, title={Criação e Resposta de Requisição de Edição (C2: lock determinístico)}]
+export const criarRequisicaoEdicaoBem = onCall(async (request) => {
+  validarPermissao(request, ["Professor"]);
+  const dados = request.data as { idBemPatrimonial: string; novoNome?: string; novoStatus?: string; novoEstadoConservacao?: string; novoIdLocal?: string; motivo: string };
+
+  // C2: Lock determinístico - elimina phantom reads em transações Firestore.
+  // Se dois professores enviarem simultaneamente, apenas um cria o lock; o outro
+  // recebe ALREADY_EXISTS da transação e falha antes de criar a requisição.
+  const lockId = `bem_edicao_${dados.idBemPatrimonial}`;
+  const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(lockId);
+  const reqRef  = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc();
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const lockSnap = await tx.get(lockRef);
+    if (lockSnap.exists) {
+      throw new HttpsError("failed-precondition", "Já existe uma requisição de edição pendente para este bem.");
+    }
+    // Cria lock e requisição atomicamente
+    tx.set(lockRef, { criado_em: admin.firestore.FieldValue.serverTimestamp() });
+    tx.set(reqRef, {
+      id_bem_patrimonial: dados.idBemPatrimonial,
+      novo_nome: dados.novoNome ?? null,
+      novo_status: dados.novoStatus ?? null,
+      novo_estado_conservacao: dados.novoEstadoConservacao ?? null,
+      novo_id_local: dados.novoIdLocal ?? null,
+      motivo: dados.motivo,
+      status: "pendente",
+      feita_em: admin.firestore.FieldValue.serverTimestamp(),
+      id_usuario_solicitante: request.auth!.uid,
+    });
+    return { idRequisicao: reqRef.id };
+  });
+});
+
+export const responderRequisicaoEdicaoBem = onCall(async (request) => {
+  validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
+  const { idRequisicao, aprovar, justificativa } = request.data as { idRequisicao: string; aprovar: boolean; justificativa: string };
+  const reqRef = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc(idRequisicao);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const reqSnap = await tx.get(reqRef);
+    if (!reqSnap.exists) throw new HttpsError("not-found", "Requisição não encontrada.");
+    const req = reqSnap.data()!;
+    if (req.status !== "pendente") {
+      throw new HttpsError("failed-precondition", "Requisição já foi respondida.");
+    }
+
+    // Remove o lock ao responder
+    const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio")
+      .doc(`bem_edicao_${req.id_bem_patrimonial}`);
+    tx.delete(lockRef);
+
+    tx.update(reqRef, {
+      status: aprovar ? "aprovada" : "rejeitada",
+      respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+      id_usuario_respondente: request.auth!.uid,
+      justificativa_resposta: justificativa,
+    });
+
+    if (aprovar) {
+      const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(req.id_bem_patrimonial);
+      const bemSnap = await tx.get(bemRef);
+      if (!bemSnap.exists) throw new HttpsError("not-found", "Bem patrimonial não encontrado.");
+      const bem = bemSnap.data()!;
+
+      const camposBem: Record<string, unknown> = {};
+      if (req.novo_status) camposBem.status = req.novo_status;
+      if (req.novo_estado_conservacao) camposBem.estado_conservacao = req.novo_estado_conservacao;
+      if (req.novo_id_local) camposBem.id_local = req.novo_id_local;
+
+      if (req.novo_nome) {
+        // Reclassificação de modelo sem afetar outros bens
+        const resumoRef = admin.firestore().collection("Resumo_Bem_Patrimonial").doc(bem.id_resumo_bem_patrimonial);
+        camposBem.nome_equipamento = req.novo_nome;
+      }
+
+      tx.update(bemRef, camposBem);
+    }
+    return { status: aprovar ? "aprovada" : "rejeitada" };
+  });
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={criarRequisicaoAdicaoBem com lock determinístico (C2)}]
+export const criarRequisicaoAdicaoBem = onCall(async (request) => {
+  validarPermissao(request, ["Professor"]);
+
+  const dados = request.data as {
+    numeroPatrimonioProposto: string;
+    estadoConservacaoProposto: string;
+    idLocal: string;
+    nomeResponsavelProposto: string;
+    idResumoBemPatrimonial?: string;
+    nomeResumoProposto?: string;
+    descricaoResumoProposta?: string;
+    motivo: string;
+  };
+
+  // C2: Lock determinístico por número de patrimônio proposto
+  const lockId = `bem_adicao_${dados.numeroPatrimonioProposto}`;
+  const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(lockId);
+  const reqRef  = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc();
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const lockSnap = await tx.get(lockRef);
+    if (lockSnap.exists) {
+      throw new HttpsError("failed-precondition", "Já existe requisição pendente para este número de patrimônio.");
+    }
+    tx.set(lockRef, { criado_em: admin.firestore.FieldValue.serverTimestamp() });
+    tx.set(reqRef, {
+      numero_patrimonio_proposto: dados.numeroPatrimonioProposto,
+      estado_conservacao_proposto: dados.estadoConservacaoProposto,
+      photo_url_proposta: null,
+      nome_responsavel_proposto: dados.nomeResponsavelProposto,
+      id_local: dados.idLocal,
+      id_resumo_bem_patrimonial: dados.idResumoBemPatrimonial ?? null,
+      nome_resumo_proposto: dados.nomeResumoProposto ?? null,
+      descricao_resumo_proposta: dados.descricaoResumoProposta ?? null,
+      motivo: dados.motivo,
+      status: "pendente",
+      feita_em: admin.firestore.FieldValue.serverTimestamp(),
+      id_usuario_solicitante: request.auth!.uid,
+      respondida_em: null,
+      id_usuario_respondente: null,
+    });
+    return { idRequisicao: reqRef.id };
+  });
+});
+
+export const responderRequisicaoAdicaoBem = onCall(async (request) => {
+  validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
+  const { idRequisicao, aprovar, justificativa } = request.data as { idRequisicao: string; aprovar: boolean; justificativa: string };
+  const reqRef = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc(idRequisicao);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const reqSnap = await tx.get(reqRef);
+    if (!reqSnap.exists) throw new HttpsError("not-found", "Requisição não encontrada.");
+    const req = reqSnap.data()!;
+    if (req.status !== "pendente") throw new HttpsError("failed-precondition", "Requisição já respondida.");
+
+    // C2: Remove o lock ao responder (libera possível nova requisição futura)
+    const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio")
+      .doc(`bem_adicao_${req.numero_patrimonio_proposto}`);
+    tx.delete(lockRef);
+
+    let idBemCriado: string | null = null;
+
+    if (aprovar) {
+      let idResumo = req.id_resumo_bem_patrimonial;
+
+      // Se não havia resumo existente, cria atômica e transacionalmente o Resumo_Bem_Patrimonial
+      if (!idResumo && req.nome_resumo_proposto) {
+        const novoResumoRef = admin.firestore().collection("Resumo_Bem_Patrimonial").doc();
+        tx.set(novoResumoRef, {
+          nome: req.nome_resumo_proposto,
+          descricao: req.descricao_resumo_proposta ?? "",
+          criado_em: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        idResumo = novoResumoRef.id;
+      }
+
+      if (!idResumo) throw new HttpsError("failed-precondition", "A aprovação exige vincular um resumo.");
+
+      const bemRef = admin.firestore().collection("Bem_Patrimonial").doc();
+      idBemCriado = bemRef.id;
+
+      tx.set(bemRef, {
+        id_resumo_bem_patrimonial: idResumo,
+        nome_equipamento: req.nome_resumo_proposto ?? "Equipamento",
+        numero_patrimonio: req.numero_patrimonio_proposto,
+        estado_conservacao: req.estado_conservacao_proposto,
+        id_local: req.id_local,
+        photo_url: req.photo_url_proposta ?? "https://placeholder",
+        documento_dado_baixa_pdf_url: null,
+        nome_responsavel_sei: req.nome_responsavel_proposto,
+        status: "Ativo",
+        cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      tx.update(reqRef, {
+        status: "aprovada",
+        respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+        id_usuario_respondente: request.auth!.uid,
+        id_bem_patrimonial_se_aprovado: idBemCriado,
+        justificativa_resposta: justificativa,
+      });
+    } else {
+      tx.update(reqRef, {
+        status: "rejeitada",
+        respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+        id_usuario_respondente: request.auth!.uid,
+        justificativa_resposta: justificativa,
+      });
+    }
+
+    return { status: aprovar ? "aprovada" : "rejeitada", idBemCriado };
+  });
+});
+
+export const onResumoBemPatrimonialNomeAtualizado = onDocumentUpdated(
+  "Resumo_Bem_Patrimonial/{resumoId}",
+  async (event) => {
+    const antes = event.data?.before.data();
+    const depois = event.data?.after.data();
+    if (!antes || !depois || antes.nome === depois.nome) return;
+
+    const bens = await admin.firestore().collection("Bem_Patrimonial")
+      .where("id_resumo_bem_patrimonial", "==", event.params.resumoId)
+      .get();
+
+    const batch = admin.firestore().batch();
+    bens.docs.forEach((bem) => batch.update(bem.ref, {
+      nome_equipamento: depois.nome,
+    }));
+    await batch.commit();
+  }
+);
+
+export const onLocalAtualizado = onDocumentUpdated(
+  "Local/{localId}",
+  async (event) => {
+    const antes = event.data?.before.data();
+    const depois = event.data?.after.data();
+    if (!antes || !depois) return;
+    if (antes.predio === depois.predio && antes.andar === depois.andar && antes.sala === depois.sala) return;
+
+    const bens = await admin.firestore().collection("Bem_Patrimonial")
+      .where("id_local", "==", event.params.localId)
+      .get();
+
+    const batch = admin.firestore().batch();
+    bens.docs.forEach((bem) => batch.update(bem.ref, {
+      predio: depois.predio,
+      andar: depois.andar,
+      sala: depois.sala,
+    }));
+    await batch.commit();
+  }
+);
+
+export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
+  await validarPermissao(request.auth?.uid, ["Aluno"]);
+  const { codigoTurma } = request.data as { codigoTurma: string };
+
+  const turmaSnap = await admin.firestore().collection("Turma")
+    .where("codigo_turma", "==", codigoTurma)
+    .where("status", "==", "Ativo")
+    .limit(1).get();
+  if (turmaSnap.empty) throw new HttpsError("not-found", "Turma não encontrada ou arquivada.");
+  const turmaDoc = turmaSnap.docs[0];
+  const turma = turmaDoc.data();
+
+  return admin.firestore().runTransaction(async (tx) => {
+    // Checar capacidade
+    const alunosSnap = await tx.get(
+      turmaDoc.ref.collection("Alunos")
+    );
+    if (alunosSnap.size >= turma.capacidade) {
+      throw new HttpsError("failed-precondition", "Turma lotada.");
+    }
+
+    // Checar se já está matriculado
+    const jaMatriculado = alunosSnap.docs.some(
+      (d) => d.id === request.auth!.uid
+    );
+    if (jaMatriculado) {
+      throw new HttpsError("already-exists", "Você já está nesta turma.");
+    }
+
+    // P14: Checar se foi removido anteriormente
+    const historico = await tx.get(
+      turmaDoc.ref.collection("HistoricoAlunos")
+        .where("id_aluno", "==", request.auth!.uid)
+        .where("tipo", "==", "exclusao_aluno")
+        .limit(1)
+    );
+    if (!historico.empty) {
+      throw new HttpsError("failed-precondition",
+        "Você foi removido desta turma pelo professor. O re-ingresso requer convite explícito.");
+    }
+
+    // Matricular
+    tx.set(turmaDoc.ref.collection("Alunos").doc(request.auth!.uid), {
+      id_aluno: request.auth!.uid,
+      ingressou_em: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    tx.set(turmaDoc.ref.collection("HistoricoAlunos").doc(), {
+      id_aluno: request.auth!.uid,
+      tipo: "inclusao_aluno",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { idTurma: turmaDoc.id, nomeTurma: turma.nome_turma };
+  });
+});
+\end{lstlisting}
+
+\subsubsection{Relatórios em PDF}
+Pseudo-códigos das funções de relatório, revisados: os nomes de campo passam a corresponder exatamente ao modelo (\textit{data\_devolucao\_efetuada}, não \textit{data\_devolucao}; filtro por \textit{id\_almoxarifado} denormalizado em \textit{Emprestimo\_Reagente}, não por um inexistente \textit{id\_local\_saida}), e \textit{gerarRelatorioAlmoxarifado} passa a checar o escopo do gestor, não apenas o papel.
+
+\begin{lstlisting}[language=TypeScript, title={Configuração Base e Relatório de Almoxarifado}]
+import PDFDocument from "pdfkit-table";
+
+interface FiltrosAlmoxarifado {
+  idAlmoxarifado: string;
+  mes: number;
+  ano: number;
+}
+
+export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
+  const { idAlmoxarifado, mes, ano } = request.data as FiltrosAlmoxarifado;
+  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await validarGestorDoAlmoxarifado(request.auth!.uid, idAlmoxarifado);
+
+  const dataInicio = new Date(ano, mes - 1, 1);
+  const dataFim = new Date(ano, mes, 0);
+
+  const devolucoesSnapshot = await admin.firestore().collection("Emprestimo_Reagente")
+    .where("id_almoxarifado", "==", idAlmoxarifado)
+    .where("data_devolucao_efetuada", ">=", dataInicio)
+    .where("data_devolucao_efetuada", "<=", dataFim)
+    .get();
+
+  const volumeTotalConsumido = devolucoesSnapshot.docs.reduce(
+    (acc, doc) => acc + (doc.data().medida_utilizada || 0), 0
+  );
+
+  const historicoSnapshot = await admin.firestore().collection("Historico_Frasco_Reagente")
+    .where("id_almoxarifado", "==", idAlmoxarifado)
+    .where("timestamp", ">=", dataInicio)
+    .where("timestamp", "<=", dataFim)
+    .orderBy("timestamp", "asc").get();
+
+  const doc = new PDFDocument({ margin: 30, size: "A4" });
+  const buffer = await buildPdfBuffer(doc, historicoSnapshot.docs, volumeTotalConsumido);
+
+  const fileName = `relatorios/almoxarifado_${idAlmoxarifado}_${mes}_${ano}_${Date.now()}.pdf`;
+  const fileRef = admin.storage().bucket().file(fileName);
+  await fileRef.save(buffer, { contentType: "application/pdf" });
+
+  const [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
+  return { url };
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Relatório Mensal de um Prédio (Filtros Compostos)}]
+interface FiltrosPredio {
+  predio: string;
+  mes: number;
+  ano: number;
+  andar?: string;
+  sala?: string;
+  estadoConservacao?: string;
+  status?: string;
+}
+
+export const gerarRelatorioBensPredio = onCall(async (request) => {
+  const filtros = request.data as FiltrosPredio;
+  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
+
+  let query = admin.firestore().collection("Bem_Patrimonial").where("predio", "==", filtros.predio);
+  if (filtros.andar) query = query.where("andar", "==", filtros.andar);
+  if (filtros.sala) query = query.where("sala", "==", filtros.sala);
+  if (filtros.estadoConservacao) query = query.where("estado_conservacao", "==", filtros.estadoConservacao);
+  if (filtros.status) query = query.where("status", "==", filtros.status);
+
+  const bensSnapshot = await query.get();
+
+  const doc = new PDFDocument({ size: "A4" });
+  const buffer = await buildPredioPdfBuffer(doc, bensSnapshot.docs, filtros);
+
+  const fileRef = admin.storage().bucket().file(`relatorios/predio_${filtros.predio}_${Date.now()}.pdf`);
+  await fileRef.save(buffer, { contentType: "application/pdf" });
+
+  const [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
+  return { url };
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Relatório Geral e Período Personalizado}]
+interface FiltrosGeralEPersonalizado {
+  dataInicio: string;
+  dataFim: string;
+  entidade: "Bens_Patrimoniais" | "Reagentes";
+  prediosSelecionados?: string[];
+}
+
+export const gerarRelatorioPersonalizado = onCall(async (request) => {
+  const { dataInicio, dataFim, entidade, prediosSelecionados } = request.data as FiltrosGeralEPersonalizado;
+  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Bens_Patrimoniais", "Gestor_Almoxarifado"]);
+
+  const dataIniObj = new Date(dataInicio);
+  const dataFimObj = new Date(dataFim);
+  let snapshot;
+
+  if (entidade === "Bens_Patrimoniais") {
+    let query = admin.firestore().collection("Historico_Bem_Patrimonial")
+      .where("timestamp", ">=", dataIniObj)
+      .where("timestamp", "<=", dataFimObj);
+    if (prediosSelecionados && prediosSelecionados.length > 0) {
+      query = query.where("predio", "in", prediosSelecionados);
+    }
+    snapshot = await query.get();
+  } else {
+    snapshot = await admin.firestore().collection("Emprestimo_Reagente")
+      .where("data_devolucao_efetuada", ">=", dataIniObj)
+      .where("data_devolucao_efetuada", "<=", dataFimObj)
+      .get();
+  }
+
+  const doc = new PDFDocument({ layout: "landscape", size: "A4" });
+  const buffer = await buildPersonalizadoPdfBuffer(doc, snapshot.docs, entidade);
+
+  const fileRef = admin.storage().bucket().file(`relatorios/personalizado_${Date.now()}.pdf`);
+  await fileRef.save(buffer, { contentType: "application/pdf" });
+  const [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
+  return { url };
+});
+\end{lstlisting}

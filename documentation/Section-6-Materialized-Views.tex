@@ -1,0 +1,120 @@
+\newpage
+% =================================================
+\section{Materialized (Views)}
+% =================================================
+\subsection{Tabela Materialized para Lote}
+\begin{entidade}{Lote\_Materializado}
+\campo{id}{SERIAL}{PK}
+\campo{id\_lote}{INTEGER}{FK, UNIQUE}
+\campo{qtd\_frascos\_cadastrados}{INTEGER}{DEFAULT 0, NOT NULL}
+\end{entidade}
+\begin{explicacao}
+Corrigido o typo \texttt{SERAIL} $\rightarrow$ \texttt{SERIAL}. \textit{id\_lote} recebeu \texttt{UNIQUE}: esta é uma tabela 1:1 com \textit{Lote} (uma linha por lote), então o par (\textit{id}, \textit{id\_lote}) sem essa restrição permitiria duas linhas materializadas divergentes para o mesmo lote. Mantida por trigger/\textit{Cloud Function} a cada frasco cadastrado ou removido daquele lote (ver seção \textit{Tecnologia e Relatórios}).
+\end{explicacao}
+
+\subsection{Tabela Resumo de Almoxarifado - Diário}
+\begin{entidade}{Resumo\_Almoxarifado\_Diario}
+\campo{id}{SERIAL}{PK}
+\campo{data}{DATE}{NOT NULL}
+\campo{id\_almoxarifado}{INTEGER}{FK, NOT NULL}
+\campo{qtd\_frascos\_fechados\_no\_fim\_do\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_frascos\_abertos\_no\_fim\_do\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_frascos\_emprestados\_no\_fim\_do\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_frascos\_cadastrados\_fechados\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_frascos\_cadastrados\_abertos\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_frascos\_emprestados\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_frascos\_devolvidos\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{volume\_total\_usado\_nos\_frascos\_devolvidos\_durante\_o\_dia}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+\campo{volume\_total\_disponivel\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+\campo{volume\_utilizado\_no\_dia\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+\campo{massa\_total\_disponivel\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+\campo{massa\_utilizada\_no\_dia\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+\campo{created\_at}{TIMESTAMP}{NOT NULL}
+\campo{updated\_at}{TIMESTAMP}{NOT NULL}
+\end{entidade}
+\newpage
+\begin{explicacao}[Separação Física Rigorosa: Massa ($g$) vs Volume ($ml$)]
+Esta tabela consolida uma distinção única e consistente entre \textbf{estoque} (\textit{...\_no\_fim\_do\_dia}, fotografia às 23h59) e \textbf{fluxo} (\textit{...\_durante\_o\_dia}, eventos ocorridos naquele dia).
+Para eliminar distorções métricas em sólidos com densidade desconhecida ou nula, as colunas agregadas de saldo e consumo são formalmente segregadas nas duas dimensões físicas fundamentais: reagentes líquidos acumulam em \textit{volume\_...\_ml} e reagentes sólidos acumulam em \textit{massa\_...\_g}. Nunca se tenta converter gravimetria de sólidos para volume sem densidade aferida.
+\end{explicacao}
+\newpage
+\subsection{Tabela Resumo de Reagente/Solvente - Diário}
+\begin{entidade}{Resumo\_Reagente\_Diario}
+\campo{id}{SERIAL}{PK}
+\campo{data}{DATE}{NOT NULL}
+\campo{id\_resumo\_reagente}{INTEGER}{FK, NOT NULL}
+\campo{id\_almoxarifado}{INTEGER}{FK, NOT NULL}
+\campo{qtd\_frascos\_fechados\_disponiveis}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_frascos\_abertos\_disponiveis}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_frascos\_em\_uso}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_frascos\_vazios}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_frascos\_descartados\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{volume\_total\_disponivel\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+\campo{volume\_utilizado\_no\_dia\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+\campo{volume\_evaporado\_no\_dia\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+\campo{massa\_total\_disponivel\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+\campo{massa\_utilizada\_no\_dia\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+\campo{massa\_evaporada\_no\_dia\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+\campo{created\_at}{TIMESTAMP}{NOT NULL}
+\campo{updated\_at}{TIMESTAMP}{NOT NULL}
+\end{entidade}
+
+\subsection{Tabela Resumo de Bens Patrimoniais - Diário}
+\begin{entidade}{Resumo\_Bem\_Patrimonial\_Diario}
+\campo{id}{SERIAL}{PK}
+\campo{data}{DATE}{NOT NULL}
+\campo{id\_local}{INTEGER}{FK, NULL}
+\campo{qtd\_bens\_ativos\_no\_fim\_do\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_bens\_inservivel\_no\_fim\_do\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_bens\_dado\_baixa\_no\_fim\_do\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_bens\_cadastrados\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_bens\_marcados\_inservivel\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_bens\_dados\_baixa\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_requisicoes\_abertas\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_requisicoes\_aprovadas\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_requisicoes\_rejeitadas\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{created\_at}{TIMESTAMP}{NOT NULL}
+\campo{updated\_at}{TIMESTAMP}{NOT NULL}
+\end{entidade}
+
+\subsection{Tabela de Atividade Mensal - Gestor de Almoxarifado}
+\begin{entidade}{Atividade\_Gestor\_Almoxarifado\_Mensal}
+\campo{id}{SERIAL}{PK}
+\campo{id\_gestor}{INTEGER}{FK, NOT NULL}
+\campo{ano}{INTEGER}{NOT NULL}
+\campo{mes}{INTEGER}{NOT NULL}
+\campo{qtd\_reagentes\_adicionados}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_frascos\_adicionados}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_movimentacoes\_registradas}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{created\_at}{TIMESTAMP}{NOT NULL}
+\campo{updated\_at}{TIMESTAMP}{NOT NULL}
+\end{entidade}
+\begin{regra}
+\textit{UNIQUE(id\_gestor, ano, mes)}.
+\end{regra}
+
+\subsection{Tabela de Atividade Mensal - Gestor de Bens Patrimoniais}
+\begin{entidade}{Atividade\_Gestor\_Bens\_Patrimoniais\_Mensal}
+\campo{id}{SERIAL}{PK}
+\campo{id\_gestor}{INTEGER}{FK, NOT NULL}
+\campo{ano}{INTEGER}{NOT NULL}
+\campo{mes}{INTEGER}{NOT NULL}
+\campo{qtd\_bens\_adicionados}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_bens\_editados}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_requisicoes\_aprovadas}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_requisicoes\_rejeitadas}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{created\_at}{TIMESTAMP}{NOT NULL}
+\campo{updated\_at}{TIMESTAMP}{NOT NULL}
+\end{entidade}
+\begin{regra}
+\textit{UNIQUE(id\_gestor, ano, mes)}.
+\end{regra}
+
+\subsection{Catálogo de Métricas Disponíveis por Domínio}
+\begin{itemize}
+    \item \textbf{\textit{Historico\_Frasco\_Reagente}} (por \textit{tipo}): frascos cadastrados, saídas, entradas, esvaziados, quebrados, descartados, vencidos, ajustes de inventário e evaporação -- por dia $\rightarrow$ alimenta \textit{Resumo\_Almoxarifado\_Diario} e \textit{Resumo\_Reagente\_Diario}; por gestor/mês $\rightarrow$ alimenta \textit{Atividade\_Gestor\_Almoxarifado\_Mensal}; contagem "agora" $\rightarrow$ \texttt{count()} direto sobre \textit{Frasco\_Reagente} filtrado por \textit{vencido = true}.
+    \item \textbf{\textit{Emprestimo\_Reagente}}: empréstimos abertos/devolvidos/atrasados por dia, volume e massa total consumida por dia $\rightarrow$ alimenta os resumos diários de reagente.
+    \item \textbf{\textit{Historico\_Bem\_Patrimonial} / \textit{Alteracao\_Bem\_Patrimonial}}: bens cadastrados, editados e baixados por dia $\rightarrow$ alimenta \textit{Resumo\_Bem\_Patrimonial\_Diario}.
+    \item \textbf{\textit{Requisicao\_Edicao\_Bem\_Patrimonial} / \textit{Requisicao\_Adicao\_Bem\_Patrimonial}}: requisições abertas/aprovadas/rejeitadas por dia $\rightarrow$ alimenta \textit{Resumo\_Bem\_Patrimonial\_Diario}.
+    \item \textbf{\textit{Registro\_de\_Auditoria}}: log genérico entre todas as entidades.
+\end{itemize}

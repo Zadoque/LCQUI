@@ -5,20 +5,25 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function Home() {
-  const { user, isLoading } = useAuth();
+  const { user, roles, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!isLoading) {
       if (user) {
-        // Se estiver logado, joga para o Dashboard de Reagentes (Página Principal)
-        router.replace("/reagentes");
+        if (roles.includes("Chefe_Geral") || roles.includes("Professor") || roles.includes("Gestor_Almoxarifado") || roles.includes("Bolsista")) {
+          router.replace("/reagentes");
+        } else if (roles.includes("Gestor_Bens_Patrimoniais")) {
+          router.replace("/patrimonio");
+        } else {
+          router.replace("/turmas");
+        }
       } else {
         // Se não estiver logado, joga para a Tela de Login
         router.replace("/login");
       }
     }
-  }, [user, isLoading, router]);
+  }, [user, roles, isLoading, router]);
 
   // Exibe um loader minimalista enquanto o AuthContext verifica o token JWT no Firebase
   return (

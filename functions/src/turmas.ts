@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { validarPermissao } from "./auth";
 
 /**
@@ -53,17 +54,17 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
 
     tx.set(alunoTurmaRef, {
       id_aluno: request.auth!.uid,
-      ingressou_em: admin.firestore.FieldValue.serverTimestamp()
+      ingressou_em: FieldValue.serverTimestamp()
     });
 
     tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
       id_aluno: request.auth!.uid,
       tipo: "inclusao_aluno",
-      timestamp: admin.firestore.FieldValue.serverTimestamp()
+      timestamp: FieldValue.serverTimestamp()
     });
 
     tx.update(turmaRef, {
-      qtd_alunos: admin.firestore.FieldValue.increment(1)
+      qtd_alunos: FieldValue.increment(1)
     });
 
     return { idTurma: turmaDoc.id, nomeTurma: turma.nome_turma };
@@ -71,71 +72,77 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
 });
 
 export const criarTurma = onCall(async (request) => {
-  validarPermissao(request, ["Professor", "Chefe_Geral"]);
+  try {
+    validarPermissao(request, ["Professor", "Chefe_Geral"]);
 
-  const { idMateria, nomeTurma, ano, semestre, capacidade, nomeMateria } = request.data;
-  
-  if (!idMateria || !nomeTurma || !nomeMateria || !ano || !semestre || !capacidade) {
-    throw new HttpsError("invalid-argument", "Dados incompletos para criar a turma.");
-  }
-
-  const anoNum = parseInt(ano, 10);
-  const semestreNum = parseInt(semestre, 10);
-  const capacidadeNum = parseInt(capacidade, 10);
-
-  if (isNaN(anoNum) || anoNum < 2000) throw new HttpsError("invalid-argument", "Ano inválido.");
-  if (isNaN(semestreNum) || (semestreNum !== 1 && semestreNum !== 2)) throw new HttpsError("invalid-argument", "Semestre deve ser 1 ou 2.");
-  if (isNaN(capacidadeNum) || capacidadeNum <= 0) throw new HttpsError("invalid-argument", "Capacidade deve ser positiva.");
-
-  const db = admin.firestore();
-
-  return db.runTransaction(async (tx) => {
-    const generateCode = () => {
-      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-      let code = "";
-      for (let i = 0; i < 6; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return code;
-    };
-
-    let uniqueCode = "";
-    let codeIsUnique = false;
-    let attempts = 0;
-
-    while (!codeIsUnique && attempts < 5) {
-      const tempCode = generateCode();
-      const query = await tx.get(
-        db.collection("Turma").where("codigo_turma", "==", tempCode).limit(1)
-      );
-      if (query.empty) {
-        uniqueCode = tempCode;
-        codeIsUnique = true;
-      }
-      attempts++;
+    const { idMateria, nomeTurma, ano, semestre, capacidade, nomeMateria } = request.data;
+    console.log("Recebido payload criarTurma:", request.data);
+    
+    if (!idMateria || !nomeTurma || !nomeMateria || !ano || !semestre || !capacidade) {
+      throw new HttpsError("invalid-argument", "Dados incompletos para criar a turma.");
     }
 
-    if (!codeIsUnique) {
-      throw new HttpsError("internal", "Não foi possível gerar um código único. Tente novamente.");
-    }
+    const anoNum = parseInt(ano, 10);
+    const semestreNum = parseInt(semestre, 10);
+    const capacidadeNum = parseInt(capacidade, 10);
 
-    const docRef = db.collection("Turma").doc();
-    tx.set(docRef, {
-      id_materia: idMateria,
-      nome_materia: nomeMateria,
-      id_professor: request.auth!.uid,
-      status: "Ativo",
-      nome_turma: nomeTurma,
-      ano: anoNum,
-      semestre: semestreNum,
-      capacidade: capacidadeNum,
-      qtd_alunos: 0,
-      codigo_turma: uniqueCode,
-      data_criacao: admin.firestore.FieldValue.serverTimestamp()
+    if (isNaN(anoNum) || anoNum < 2000) throw new HttpsError("invalid-argument", "Ano inválido.");
+    if (isNaN(semestreNum) || (semestreNum !== 1 && semestreNum !== 2)) throw new HttpsError("invalid-argument", "Semestre deve ser 1 ou 2.");
+    if (isNaN(capacidadeNum) || capacidadeNum <= 0) throw new HttpsError("invalid-argument", "Capacidade deve ser positiva.");
+
+    const db = admin.firestore();
+
+    return await db.runTransaction(async (tx) => {
+      const generateCode = () => {
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        let code = "";
+        for (let i = 0; i < 6; i++) {
+          code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return code;
+      };
+
+      let uniqueCode = "";
+      let codeIsUnique = false;
+      let attempts = 0;
+
+      while (!codeIsUnique && attempts < 5) {
+        const tempCode = generateCode();
+        const query = await tx.get(
+          db.collection("Turma").where("codigo_turma", "==", tempCode).limit(1)
+        );
+        if (query.empty) {
+          uniqueCode = tempCode;
+          codeIsUnique = true;
+        }
+        attempts++;
+      }
+
+      if (!codeIsUnique) {
+        throw new HttpsError("internal", "Não foi possível gerar um código único. Tente novamente.");
+      }
+
+      const docRef = db.collection("Turma").doc();
+      tx.set(docRef, {
+        id_materia: idMateria,
+        nome_materia: nomeMateria,
+        id_professor: request.auth!.uid,
+        status: "Ativo",
+        nome_turma: nomeTurma,
+        ano: anoNum,
+        semestre: semestreNum,
+        capacidade: capacidadeNum,
+        qtd_alunos: 0,
+        codigo_turma: uniqueCode,
+        data_criacao: FieldValue.serverTimestamp()
+      });
+
+      return { id: docRef.id, codigoTurma: uniqueCode };
     });
-
-    return { id: docRef.id, codigoTurma: uniqueCode };
-  });
+  } catch (error: any) {
+    console.error("ERRO FATAL NO BACKEND (criarTurma):", error);
+    throw new HttpsError("internal", `ERRO INTERNO: ${error?.message || error}`);
+  }
 });
 
 export const removerAlunoTurma = onCall(async (request) => {
@@ -169,11 +176,11 @@ export const removerAlunoTurma = onCall(async (request) => {
     tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
       id_aluno: idAluno,
       tipo: "exclusao_aluno",
-      timestamp: admin.firestore.FieldValue.serverTimestamp()
+      timestamp: FieldValue.serverTimestamp()
     });
 
     tx.update(turmaRef, {
-      qtd_alunos: admin.firestore.FieldValue.increment(-1)
+      qtd_alunos: FieldValue.increment(-1)
     });
 
     const auditRef = db.collection("Registro_de_Auditoria").doc();
@@ -182,7 +189,7 @@ export const removerAlunoTurma = onCall(async (request) => {
       acao: "Remover Aluno da Turma",
       tipo_entidade_sofre_acao: "ALUNO",
       id_do_objeto_da_entidade: idAluno,
-      acao_feita_em: admin.firestore.FieldValue.serverTimestamp(),
+      acao_feita_em: FieldValue.serverTimestamp(),
       metadata: { idTurma }
     });
 
@@ -219,7 +226,7 @@ export const arquivarTurma = onCall(async (request) => {
       acao: "Arquivar Turma",
       tipo_entidade_sofre_acao: "TURMA",
       id_do_objeto_da_entidade: idTurma,
-      acao_feita_em: admin.firestore.FieldValue.serverTimestamp(),
+      acao_feita_em: FieldValue.serverTimestamp(),
       metadata: {}
     });
 
@@ -265,9 +272,9 @@ export const convidarAluno = onCall(async (request) => {
     tx.set(docRef, {
       id_turma: idTurma || null,
       email: emailNormalizado,
-      convidado_em: admin.firestore.FieldValue.serverTimestamp(),
+      convidado_em: FieldValue.serverTimestamp(),
       status: "pendente",
-      expira_em: admin.firestore.Timestamp.fromDate(expiraEm),
+      expira_em: Timestamp.fromDate(expiraEm),
       convidado_por: request.auth!.uid,
       numero_matricula: matricula || null
     });

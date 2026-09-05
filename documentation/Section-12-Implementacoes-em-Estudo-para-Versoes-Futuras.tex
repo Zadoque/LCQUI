@@ -1,0 +1,54 @@
+\newpage
+% =================================================
+\section{Implementações em Estudo para Versões Futuras}
+% =================================================
+
+\begin{explicacao}[Escopo desta seção]
+Nada aqui faz parte do modelo 3FN das seções 4 e 5, nem deve ser implementado nesta primeira versão. É o registro de uma proposta para quando reagentes gasosos entrarem no almoxarifado do LCQUI -- hoje nenhum reagente gasoso está cadastrado, por isso \texttt{GASOSO} foi removido de \textit{Especificacao\_Reagente.estado\_fisico} (seção 4.17) nesta versão, em vez de deixado junto de campos pensados só para sólido/líquido.
+\end{explicacao}
+
+\subsection{Por que \texttt{GASOSO} sozinho não basta}
+
+Simplesmente devolver \texttt{GASOSO} a \textit{estado\_fisico} resolveria a classificação básica, mas um cilindro de gás carrega informação que \textbf{não} é estado físico e que não deve virar uma explosão de valores dentro do mesmo enum (\texttt{GASOSO\_COMPRIMIDO}, \texttt{GASOSO\_LIQUEFEITO}, \texttt{MISTURA\_GASOSA\_CALIBRACAO}, \ldots). São quatro dimensões independentes, que devem continuar independentes no banco:
+
+\begin{center}
+\begin{tabular}{p{0.28\textwidth}p{0.62\textwidth}}
+\toprule
+\textbf{Dimensão} & \textbf{Exemplos de valor} \\
+\midrule
+Estado físico & sólido, líquido, gasoso \\
+Forma de armazenamento & gás comprimido, gás liquefeito, gás criogênico \\
+Tipo de substância (já existe) & pura, mistura \\
+Finalidade/aplicação & reagente comum, gás de calibração, gás de processo \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Um cilindro de CO\textsubscript{2} puro, por exemplo, é \textit{estado\_fisico} = gasoso, \textit{forma\_armazenamento} = liquefeito (o CO\textsubscript{2} é mantido líquido sob pressão dentro do cilindro, embora seja gasoso em condição ambiente), \textit{tipo\_substancia} = pura. Já uma mistura de calibração (ex.: 500\,ppm de CO\textsubscript{2} balanceado em N\textsubscript{2}) é \textit{estado\_fisico} = gasoso, \textit{forma\_armazenamento} = comprimido, \textit{tipo\_substancia} = mistura, \textit{finalidade} = calibração. Tratar ``mistura gasosa de calibração'' como uma categoria física própria misturaria uma propriedade química (o que a substância é) com uma propriedade comercial/de uso (para que ela serve) -- o mesmo tipo de acoplamento indevido que a decomposição do \textit{status} de \textit{Frasco\_Reagente} (seção 4.19) já evitou para outro campo.
+
+\subsection{Proposta de campos (apenas ilustrativa)}
+
+\begin{entidade}{Especificacao\_Reagente \textit{(campos adicionais propostos)}}
+\campo{forma\_armazenamento}{ENUM}{NULL}
+\subcampo{CONVENCIONAL, GAS\_COMPRIMIDO, GAS\_LIQUEFEITO, GAS\_CRIOGENICO}
+\campo{finalidade}{ENUM}{NULL}
+\subcampo{REAGENTE, CALIBRACAO, PROCESSO, OUTRO}
+\end{entidade}
+
+Ambos ficam em \textit{Especificacao\_Reagente} -- não em \textit{Resumo\_Reagente} nem em \textit{Substancia\_Quimica} -- pelo mesmo motivo que \textit{estado\_fisico} e \textit{unidade\_de\_medida} já vivem lá: são propriedades do produto comercial específico, não da substância química abstrata nem do item de catálogo. \texttt{NULL} para itens sólidos/líquidos, onde a dimensão não se aplica.
+
+\subsection{Além do enum: medição de gases não é pesagem}
+
+A Regra de Cálculo de Volume e Peso (seção 6.2.13) assume que o volume é sempre derivado de uma leitura de balança convertida por densidade. Para cilindros de gás, a prática de laboratório mais comum é ler a \textbf{pressão} no manômetro do próprio cilindro (ainda que pesar o cilindro também seja uma alternativa viável em alguns casos). Isso implica que \textit{Frasco\_Reagente} precisaria, no mínimo, de:
+
+\begin{itemize}
+    \item \textit{pressao\_nominal\_bar} -- pressão de enchimento de fábrica.
+    \item \textit{pressao\_atual\_bar} -- última leitura do manômetro (substituindo/complementando \textit{peso\_no\_cadastrado}/\textit{medida\_usada} para este tipo de frasco).
+    \item \textit{capacidade\_litros\_cntp} -- volume de gás equivalente em CNTP (Condições Normais de Temperatura e Pressão) quando o cilindro está cheio.
+    \item \textit{tipo\_valvula} -- necessário para compatibilidade de equipamento na retirada.
+\end{itemize}
+
+O cálculo de consumo também muda: em vez de $V = \Delta m / \rho$, a estimativa correta usa a proporcionalidade entre pressão e quantidade de gás restante (lei dos gases ideais, $PV = nRT$, ou uma correlação real para gases não-ideais em alta pressão), não uma conversão por densidade. Por isso este documento não tenta encaixar gases nos campos de peso já existentes: a reintrodução de \texttt{GASOSO} deve vir acompanhada desses campos e dessa fórmula alternativa, não apenas do valor no enum.
+
+\subsection{Horários de Turma}
+A entidade \textit{Horario\_Turma} (dia da semana, hora de início/fim e local por turma) foi removida da V1 por não possuir fluxo de uso definido nas telas nem nas regras de negócio. Em versões futuras, ela pode ser reintroduzida para permitir que o sistema exiba grades horárias, detecte conflitos de sala e envie lembretes automáticos antes do início das aulas.

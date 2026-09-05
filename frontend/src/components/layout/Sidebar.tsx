@@ -73,7 +73,20 @@ interface NavGroup {
 export default function Sidebar() {
   const { roles } = useAuth();
   const pathname = usePathname();
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
+
+  // Ícones do chevron para o botão de toggle
+  const chevronLeft = (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+    </svg>
+  );
+  const chevronRight = (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+    </svg>
+  );
 
   const isChefe = roles.includes("Chefe_Geral");
   const isGestorAlmox = roles.includes("Gestor_Almoxarifado");
@@ -85,8 +98,6 @@ export default function Sidebar() {
   // Constrói grupos de navegação conforme o papel (Seção 6 do main.tex)
   const groups: NavGroup[] = [];
 
-  // ── Chefe Geral (Seção 6.3, linha 1642) ──
-  // "Abas no painel esquerdo: Almoxarifados, Bens Patrimoniais, Professores, Alunos"
   if (isChefe) {
     groups.push({
       title: "Gestão Geral",
@@ -94,13 +105,12 @@ export default function Sidebar() {
         { label: "Almoxarifados", href: "/reagentes", icon: icons.beaker },
         { label: "Bens Patrimoniais", href: "/patrimonio", icon: icons.patrimonio },
         { label: "Professores", href: "/professores", icon: icons.users },
+        { label: "Turmas", href: "/turmas", icon: icons.book },
         { label: "Alunos", href: "/alunos", icon: icons.student },
       ],
     });
   }
 
-  // ── Gestor de Almoxarifado (Seção 6.7, linha 1720) ──
-  // "Estoque (Reagentes e Frascos), Movimentações, Descartes/Alertas"
   if (isGestorAlmox && !isChefe) {
     groups.push({
       title: "Almoxarifado",
@@ -112,8 +122,6 @@ export default function Sidebar() {
     });
   }
 
-  // ── Gestor de Bens Patrimoniais (Seção 6.8, linha 1762) ──
-  // "Patrimônio Geral, Requisições de Professores, Alertas importantes"
   if (isGestorPatr && !isChefe) {
     groups.push({
       title: "Patrimônio",
@@ -125,9 +133,6 @@ export default function Sidebar() {
     });
   }
 
-  // ── Professor (Seção 6.5, linha 1697-1701) ──
-  // "Grupo 1 (Visualizar): Reagentes e Bens Patrimoniais"
-  // "Grupo 2 (Turmas): lista de turmas ativas"
   if (isProfessor && !isChefe) {
     groups.push({
       title: "Visualizar",
@@ -139,13 +144,11 @@ export default function Sidebar() {
     groups.push({
       title: "Turmas",
       items: [
-        { label: "Minhas Turmas", href: "/turmas", icon: icons.book },
+        { label: "Turmas", href: "/turmas", icon: icons.book },
       ],
     });
   }
 
-  // ── Aluno (Seção 6.9, linha 1776) ──
-  // "Minhas Turmas" + se bolsista, Grupo Visualizar com Reagentes
   if (isAluno && !isChefe && !isProfessor) {
     if (isBolsista) {
       groups.push({
@@ -158,30 +161,39 @@ export default function Sidebar() {
     groups.push({
       title: "Turmas",
       items: [
-        { label: "Minhas Turmas", href: "/turmas", icon: icons.book },
+        { label: "Turmas", href: "/turmas", icon: icons.book },
       ],
     });
   }
 
   if (groups.length === 0) return null;
 
+
+
   const sidebarContent = (
-    <nav className="flex flex-col h-full">
-      <div className="p-4 border-b border-foreground/10">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center border border-primary/20">
-            <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-            </svg>
-          </div>
-          <span className="font-bold text-foreground text-lg">LCQUI</span>
+    <nav className="flex flex-col h-full relative">
+      {/* Botão de Toggle (Apenas Desktop) */}
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="hidden lg:flex absolute -right-3.5 top-6 z-50 w-7 h-7 bg-background border border-foreground/10 rounded-full items-center justify-center text-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors shadow-sm"
+        title={isCollapsed ? "Expandir menu" : "Encolher menu"}
+      >
+        {isCollapsed ? chevronRight : chevronLeft}
+      </button>
+
+      <div className={`p-4 border-b border-foreground/10 flex items-center h-[73px] transition-all overflow-hidden ${isCollapsed ? "justify-center px-0" : "gap-3"}`}>
+        <div className="w-8 h-8 shrink-0 bg-primary/10 rounded-lg flex items-center justify-center border border-primary/20">
+          <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+          </svg>
         </div>
+        {!isCollapsed && <span className="font-bold text-foreground text-lg whitespace-nowrap animate-in fade-in duration-300">LCQUI</span>}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-6">
+      <div className="flex-1 overflow-y-auto p-3 space-y-6 overflow-x-hidden">
         {groups.map((group, gi) => (
           <div key={gi}>
-            <h3 className="text-[10px] uppercase font-bold tracking-widest text-foreground/40 px-3 mb-2">
+            <h3 className={`text-[10px] uppercase font-bold tracking-widest text-foreground/40 mb-2 whitespace-nowrap transition-all duration-300 ${isCollapsed ? "opacity-0 h-0 overflow-hidden" : "px-3 opacity-100"}`}>
               {group.title}
             </h3>
             <ul className="space-y-1">
@@ -192,14 +204,15 @@ export default function Sidebar() {
                     <Link
                       href={item.href}
                       onClick={() => setIsOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                      title={isCollapsed ? item.label : undefined}
+                      className={`flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
                         isActive
                           ? "bg-primary/10 text-primary border border-primary/20 shadow-sm"
                           : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground"
-                      }`}
+                      } ${isCollapsed ? "justify-center px-0 w-12 mx-auto" : "px-3"}`}
                     >
-                      {item.icon}
-                      {item.label}
+                      <span className="shrink-0">{item.icon}</span>
+                      {!isCollapsed && <span className="animate-in fade-in duration-300">{item.label}</span>}
                     </Link>
                   </li>
                 );
@@ -223,7 +236,7 @@ export default function Sidebar() {
       </button>
 
       {/* Sidebar Desktop — fixa à esquerda */}
-      <aside className="hidden lg:flex flex-col w-64 min-h-screen bg-background border-r border-foreground/10 sticky top-0 shrink-0">
+      <aside className={`hidden lg:flex flex-col min-h-screen bg-background border-r border-foreground/10 sticky top-0 shrink-0 transition-all duration-300 ease-in-out ${isCollapsed ? "w-20" : "w-64"}`}>
         {sidebarContent}
       </aside>
 

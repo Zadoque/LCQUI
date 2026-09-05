@@ -1,0 +1,226 @@
+% =================================================
+\section{Requisitos e Regras de Negócio}
+% =================================================
+
+\subsection{Requisitos funcionais}
+
+
+\setlength{\tabcolsep}{5pt}
+\begin{longtable}{p{0.10\textwidth} p{0.82\textwidth}}
+\toprule
+\textbf{ID} & \textbf{Requisito}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{Requisito} (continuação)\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+RF01 & O sistema deve permitir login por e-mail e senha.\\
+RF02 & O sistema deve permitir login com Google através do provedor de autenticação configurado.\\
+RF03 & O sistema deve permitir recuperação de senha.\\
+RF04 & O sistema deve permitir que um usuário possua múltiplos papéis.\\
+RF05 & O sistema deve permitir alternância de papel ativo no dashboard quando houver mais de um papel autorizado.\\
+RF06 & O sistema deve permitir cadastro e manutenção de bens patrimoniais conforme permissões.\\
+RF07 & O sistema deve manter histórico auditável de alterações patrimoniais.\\
+RF08 & O sistema deve permitir requisição de adição de patrimônio.\\
+RF09 & O sistema deve permitir requisição de edição de patrimônio.\\
+RF10 & O sistema deve impedir mais de uma requisição de edição pendente para o mesmo bem.\\
+RF11 & O sistema deve permitir aprovação ou rejeição de requisições.\\
+RF12 & O sistema deve permitir registro da baixa de um bem após o procedimento institucional.\\
+RF13 & O sistema deve permitir cadastro de almoxarifados.\\
+RF14 & O sistema deve calcular pesos e volumes de frascos de reagentes utilizando a densidade.\\
+RF15 & O sistema deve registrar empréstimo, devolução, descarte, esvaziamento e quebra de frascos.\\
+RF16 & O sistema deve permitir consulta por nome, número de patrimônio, status, local e demais filtros aplicáveis.\\
+RF17 & O sistema deve permitir criação de turmas com capacidade máxima estabelecida.\\
+RF18 & O sistema deve permitir entrada de alunos em turmas por código ou e-mail.\\
+RF19 & O sistema deve permitir criação de posts em turmas pelo professor responsável.\\
+RF20 & O sistema deve permitir comentários em posts conforme regras de acesso.\\
+RF21 & O sistema deve permitir upload de roteiros em PDF.\\
+RF22 & O sistema deve permitir compartilhamento de roteiros entre professores.\\
+RF23 & O sistema deve permitir vínculo de roteiro a turma por meio de post.\\
+RF24 & O sistema deve gerar relatórios mensais e por período, incluindo consumo em mL e massa em g.\\
+RF25 & O sistema deve manter dados históricos e de auditoria sem apagar fatos relevantes.\\
+\bottomrule
+\end{longtable}
+
+\subsection{Regras de Negócio Gerais}
+\subsubsection{Status de um frasco de reagente}
+\begin{regra}
+quando um frasco de reagente é cadastrado como em quarentena, deve ser obrigatório escrever o detalhe do status explicando o motivo dele estar em quarentena. 
+Um frasco no estado de quarentena, pode ser descastado ou voltar ao estado de disponivel (FechadoDisponivel ou AbertoDisponivel)
+\end{regra}
+\subsubsection{Seleção do tipo em Resumo de Reagente}
+\begin{regra}
+Ao cadastrar uma \textit{Especificacao\_Reagente}, o estado físico da especificação (\texttt{SOLIDO} ou \texttt{LIQUIDO}) determina quais campos operacionais de frasco serão apresentados. O tipo de substância (\texttt{PURA} ou \texttt{MISTURA}) determina as propriedades químicas obrigatórias, conforme a matriz de obrigatoriedade. O estado físico pertence à especificação e não deve ser inferido ou gravado como propriedade independente do resumo na modelagem 3FN. \\
+\end{regra}
+\subsubsection{Excluindo um Aluno de uma turma}
+\begin{regra}
+Quando o professor exclui um aluno de uma turma, ele não apga o aluno d sistema. Apenas o retira da turma. Seu histórico nos posts é mantido. Ou seja, o alunos que ainda estão na turma conseguem ver os comentários dele e também seu nome e foto de perfil nos comentários dele.
+\end{regra}
+\subsubsection{Chefe Geral}
+\begin{regra}
+O sistema pode ter mais de um chefe geral, isso não altera o sistema. 
+\end{regra}
+\subsubsection{O responsável pelo bem patrimonial não é um Usuário do sistema LCQUI}
+\begin{regra}
+Por iss que "\textit{nome\_responsavel\_sei}" é um simples texto.
+\end{regra}
+\subsubsection{Historico de Posts na Turma}
+\begin{regra}
+A entidade desse Histórico não tem o id de quem editou porque apenas o Professor da turma específica pode fazer e editar um Post. O \textit{id\_turma} não é armazenado nesta entidade 3FN porque pode ser obtido por \textit{Historico\_Posts\_Turma.id\_post} $\rightarrow$ \textit{Post.id\_turma}; se a consulta direta por turma for necessária no Firestore, esse vínculo poderá ser denormalizado na coleção de histórico. 
+\end{regra}
+\subsubsection{Não compartilhar o mesmo roteiro 2 vezes com um professor}
+\begin{regra}
+Na tabela: \textit{Roteiro Professor Compartilhado} \\
+UNIQUE(id\_roteiro\_experimento, id\_professor)
+\end{regra}
+\subsubsection{Densidade e concentração na especificação do reagente}
+\begin{regra}
+A densidade é uma propriedade da \textit{Especificacao\_Reagente}, e não do \textit{Resumo\_Reagente}. Ela deve ser informada quando obrigatória para a especificação e, após a confirmação cadastral, não pode ser alterada diretamente, pois participa dos cálculos de volume e consumo dos frascos. A concentração pertence à composição da especificação. Duas especificações com o mesmo nome comercial podem ter densidade, concentração, fabricante ou código de produto diferentes e, portanto, são especificações distintas sob o mesmo resumo quando ainda representam o mesmo item químico agrupador; não se deve criar um novo \textit{Resumo\_Reagente} apenas por haver diferença de concentração ou densidade. 
+\end{regra}
+\subsubsection{Regra para código do frasco de Reagente}
+\begin{regra}
+O código do fraso de reagente, mais especificamente "\textit{codigo\_frasco}" é gerado pelo prórpio sistema e é único, serve para identificar o frasco de reagente na sáida e na entrada. Deve haver uma pequena explicação no front-end dizendo que o código é gerado pelo sistema
+\end{regra}
+\subsubsection{Regra em Notificação para Professor}
+\begin{regra}
+O \textit{id\_turma} só é NULL quando o tipo não é de comentário. A notificação \texttt{DATA\_DEVOLUCAO\_REAGENTE} é preventiva: deve ser emitida pelo backend quando um empréstimo ainda está \texttt{EM\_USO} e sua data de devolução é hoje ou amanhã. A detecção é responsabilidade da Cloud Function; o frontend apenas apresenta e pode agrupar visualmente os registros em ``atrasados'', ``vence hoje'' e ``vence amanhã''. O frontend não decide se uma notificação deve ser criada.
+
+O job pode usar uma única consulta por \texttt{status = EM\_USO} e \texttt{data\_devolucao\_prevista <= fim\_de\_amanha}, mas deve classificar cada empréstimo no servidor antes de criar a notificação, separando a janela de atraso da janela preventiva e aplicando idempotência para não gerar a mesma notificação repetidamente.
+
+Deve aparecer na interface:
+\begin{itemize}
+    \item COMENTÁRIO: x novos comentários de Fulano de Tal na turma y;
+    \item REQUISICAO\_BEM: Nova atualização em sua requisição de Bem patrimonial;
+    \item DATA\_DEVOLUCAO\_REAGENTE: a data de devolução de um ou mais frasco(s) está expirando [amanhã, hoje];
+    \item ROTEIRO\_COMPARTILHADO: Você tem x novo(s) roteiro(s) compartilhado(s) com você.
+\end{itemize}
+\end{regra}
+
+\subsubsection{Regra para convidar um aluno que não está no sistema}
+\begin{regra}
+Quando o aluno é convidado sem especificar uma turma, id\_turma é NULL em \textit{Convite para Aluno}. Quando o professor vai convidar o aluno, ele pode ou não especificar uma turma, mas ao enviar um convite, tem que aparecer uma confirmação no caso de estar convidando um aluno sem uma turma para ele. 
+\end{regra}
+\subsubsection{Regra para registrar um patrimônio como dado baixa}
+\begin{regra}
+É preciso fazer upload do documento pdf que comprove que o bem patrimonial foi dado baixa no sistema da UENF
+\end{regra}
+\subsubsection{Cálculo de Volume e Peso de Reagentes (Padrão de Laboratório)}
+\begin{regra}[Controle de Volume via Pesagem]
+O sistema adotará a pesagem como método principal de controle de volume dos frascos, utilizando a fórmula $Volume = \frac{Peso_{total} - Peso_{vazio}}{Densidade}$. 
+
+\textbf{1. Cadastro de Frasco Fechado:}\\
+O usuário informa o Peso Total (frasco + reagente) medido na balança e o Volume Nominal (ex: 100mL impresso no rótulo). O sistema calcula e salva o peso do recipiente vazio:\\
+$Peso_{vazio} = Peso_{total} - (Volume_{nominal} \times Densidade)$
+
+\textbf{2. Cadastro de Frasco já Aberto (Opção A - Conhece o peso do recipiente):}\\
+O usuário informa o Peso do Frasco Vazio e o Peso Total atual na balança. O sistema calcula o volume atual:\\
+$Volume_{atual} = \frac{Peso_{total} - Peso_{vazio}}{Densidade}$
+
+\textbf{3. Cadastro de Frasco já Aberto (Opção B - Conhece o volume atual):}\\
+O usuário informa o Volume Atual visual e o Peso Total na balança. O sistema calcula o peso do frasco vazio para uso futuro:\\
+$Peso_{vazio} = Peso_{total} - (Volume_{atual} \times Densidade)$
+
+\textbf{4. Empréstimo e Devolução:}\\
+No empréstimo, registra-se o \textit{peso\_saida}. Na devolução, registra-se o \textit{peso\_retorno}. O consumo é documentado precisamente na tabela \textit{Emprestimo\_Reagente} como:\\
+$Volume_{utilizado} = \frac{Peso_{saida} - Peso_{retorno}}{Densidade}$
+\end{regra}
+
+\subsubsection{Exclusividade na retirada de reagentes}
+\begin{regra}
+Apenas os usuários cadastrados como \textit{Professor} ou \textit{Bolsista} têm permissão para retirar reagentes do almoxarifado (o \textit{Emprestimo\_Reagente.id\_usuario\_retirou} deve corresponder a um \textit{Usuario} com uma dessas duas linhas associadas). Demais Alunos (mesmo de iniciação científica ou TCC, sem o papel de Bolsista) não possuem autorização no sistema para esta ação. Esta regra foi corrigida para não contradizer a seção \textit{Bolsista} (3.6), que descreve explicitamente o gestor de reagentes fazendo empréstimos para usuários Bolsista.
+\end{regra}
+
+\subsubsection{Usuário Multi-role, exceto Chefe Geral}
+\begin{regra}
+Uma conta que possui o papel \textit{Chefe Geral} não pode possuir nenhum outro papel. Se a mesma pessoa exercer, na instituição, a função de Chefe Geral e também uma função representada por outro papel do sistema, deverão existir duas contas independentes, cada uma com identidade e permissões próprias. 
+\end{regra}
+\subsubsection{Usuário Multi-role, Aluno não pode ser professor}
+\begin{regra}
+O usuário que é aluno não pode ser professor. 
+\end{regra}
+\subsubsection{Usuário Multi-role, Quais multi papeis podem existir}
+\begin{regra}
+Pode haver:\\
+Professor que é Gestor de Bens Patrimoniais.\\
+Professor que é Gestor de Almoxarifado\\
+Professor que é Gestor de Bens Patrimoniais e Gestor de Almoxarifado\\
+Aluno que é Bolsista\\
+Aluno que é Bolsista e Gestor de Bens Patrimoniais\\
+Aluno que é Gestor de Almoxarifado\\
+Aluno que é Gestor de Bens Patrimoniais\\
+Aluno que é Gestor de Bens Patrimoniais e Gestor de Almoxarifado\\
+O Usuário Aluno que também é Bolsista não pode ser Gestor de Almoxarifado. Se, na vida real, um aluno é bolsista e também precisa ser Gestor de Almoxarifado, devem ser criadas duas contas para ele no sistema.\\
+No caso do Aluno que exerce algum papel de Gestor (ou ambos): o aluno pode editar bens patrimoniais e/ou reagentes, de acordo com seus papéis respectivos, porque também tem outro papel além de Aluno.
+\end{regra}
+\subsubsection{Aluno que é bolsista}
+\begin{regra}
+Apenas o chefe geral consegue colocar um aluno como bolsista. 
+\end{regra}
+\subsubsection{Status, vencimento e descarte de frascos}
+\begin{regra}
+\begin{itemize}
+    \item Um frasco \texttt{VAZIO} ou \texttt{QUEBRADO} deve ser exibido como ``Pendente de Descarte'', salvo se já estiver \texttt{DESCARTADO}.
+    \item Um frasco \texttt{VENCIDO} não é automaticamente descartado e também não é automaticamente bloqueado para uso. Para frasco vencido, o sistema mantém a decisão explícita: \texttt{em\_quarentena = true}, ou \texttt{uso\_vencido\_autorizado = true}, ou situação de \textit{PENDENTE DE DESCARTE} com \texttt{uso\_vencido\_autorizado = false}.
+    \item Em cadastro, quando a validade efetiva já tiver expirado no instante da operação, o gestor é obrigado a escolher um desses três destinos: \texttt{QUARENTENA}, \texttt{PENDENTE\_DE\_DESCARTE} ou \texttt{DISPONIVEL} com uso vencido explicitamente autorizado para práticas didáticas e demonstrações.
+    \item O frasco em quarentena não pode ser retirado; o frasco pendente de descarte não pode ser retirado; o frasco vencido com uso explicitamente autorizado pode ser retirado, mas a interface deve alertar transparentemente antes da confirmação do empréstimo.
+    \item Se um frasco vencer enquanto estiver emprestado, o empréstimo continua válido. Na devolução, o servidor deve recalcular o vencimento com a hora atual e permitir ao gestor registrar o destino pós-validade.
+\end{itemize}
+\end{regra}
+
+\subsection{Matriz formal de obrigatoriedade e dependência de campos}
+
+\small
+
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.25\textwidth} >{\raggedright\arraybackslash}p{0.27\textwidth} >{\raggedright\arraybackslash}p{0.40\textwidth}}
+\toprule
+\textbf{Entidade} & \textbf{Condição} & \textbf{Obrigatoriedade}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Entidade} & \textbf{Condição} & \textbf{Obrigatoriedade} (continuação)\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Resumo Reagente & sempre & nome, tipo, natureza e limiar de escassez positivo, expresso em quantidade de frascos.\\
+Resumo Reagente & requer pesagem frequente & frequência em dias positiva.\\
+Especificação & SOLIDO & unidade = g; densidade opcional.\\
+Especificação & LIQUIDO & unidade = ml; densidade positiva obrigatória.\\
+Especificação & MISTURA & pelo menos uma composição válida.\\
+Frasco & QUARENTENA & detalhe do status obrigatório.\\
+Frasco & validade conhecida & validade\_fechado e validade\_efetiva devem ser consistentes; se já expirada, exige decisão de destino.\\
+Frasco & validade expirada & exige destino QUARENTENA, PENDENTE\_DE\_DESCARTE ou DISPONIVEL com uso\_vencido\_autorizado.\\
+Frasco & FECHADO & capacidade nominal e peso total; peso vazio calculado.\\
+Frasco & abertura & data\_abertura e validade\_efetiva calculadas no servidor; aplicar mínimo entre validade fechada e prazo após abertura quando ambos existirem.\\
+Frasco & ABERTO & peso total e dados de estimativa conforme modalidade escolhida.\\
+Patrimônio & sempre & id\_resumo, numero\_patrimonio, estado\_conservacao, id\_local, photo\_url, nome\_responsavel\_sei e status.\\
+Patrimônio & Ja\_dado\_baixa & documento comprobatório obrigatório.\\
+Requisição edição & criação & motivo e ao menos um campo proposto.\\
+Requisição & aprovada/rejeitada & respondida\_em, respondente e justificativa obrigatórios.\\
+Convite & turma definida & e-mail normalizado + turma.\\
+Convite & sem turma & e-mail normalizado + confirmação explícita do convite global.\\
+Turma & criação & nome, capacidade positiva e professor responsável.\\
+\bottomrule
+\end{longtable}
+
+\subsection{Matriz de combinações Multi-Role}
+As únicas combinações permitidas para uma mesma conta são:
+\begin{itemize}
+    \item Professor + Gestor de Bens Patrimoniais;
+    \item Professor + Gestor de Almoxarifado;
+    \item Professor + Gestor de Bens Patrimoniais + Gestor de Almoxarifado;
+    \item Aluno + Bolsista;
+    \item Aluno + Bolsista + Gestor de Bens Patrimoniais;
+    \item Aluno + Gestor de Almoxarifado;
+    \item Aluno + Gestor de Bens Patrimoniais;
+    \item Aluno + Gestor de Bens Patrimoniais + Gestor de Almoxarifado.
+\end{itemize}
+Não são permitidos Chefe Geral combinado com qualquer outro papel, Aluno + Professor, nem Aluno + Bolsista + Gestor de Almoxarifado. A concessão ou remoção de papéis deve ser transacional e auditada.
+
+\subsection{Fluxo obrigatório para mutações críticas}
+Toda operação que altera dados relevantes segue: autenticar, resolver papéis, validar escopo, reler estado atual no servidor, validar transição e constraints, calcular derivados, persistir atomicamente quando necessário, registrar histórico/auditoria e disparar notificações/materializações. O frontend nunca é a autoridade final.

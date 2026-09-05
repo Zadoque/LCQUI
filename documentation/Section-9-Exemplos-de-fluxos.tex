@@ -1,0 +1,112 @@
+\newpage
+% =================================================
+\section{Exemplos de fluxos}
+% =================================================
+
+\subsection{Fluxos complementares e critérios de completude}
+Os fluxos são considerados completos quando descrevem ator, pré-condição, entrada, validação, mudança de estado, efeitos colaterais e resultado. As operações críticas abaixo complementam os cenários de tela já descritos.
+
+\subsubsection{Concessão do papel Bolsista}
+O Chefe Geral seleciona um usuário com papel Aluno. O backend verifica a pré-condição ($Bolsista \implies Aluno$), rejeita a operação se o usuário não for Aluno ou gerar combinação proibida (ex.: Aluno Bolsista atuando como Gestor de Almoxarifado), cria o vínculo de papel na coleção de perfis, registra auditoria e torna a nova permissão de retirada disponível imediatamente.
+
+\subsubsection{Aceitação de convite}
+O aluno apresenta um convite válido. O backend verifica e-mail normalizado, status, expiração e capacidade da turma. A aceitação é idempotente: o vínculo Aluno--Turma é criado uma única vez e o convite deixa de ser pendente. Usuário e papel Aluno são criados apenas quando ainda não existirem.
+
+\subsubsection{Arquivamento e desarquivamento de turma}
+O professor responsável altera o status da turma para Arquivada. Posts, comentários, histórico e vínculos com alunos não são apagados. O evento é auditado e notificações são emitidas quando aplicável. O desarquivamento restaura o status Ativo sem recriar a turma.
+
+\subsubsection{Retirada de reagente}
+O Gestor de Almoxarifado seleciona o frasco e o Professor ou Bolsista retirante. A transação relê o frasco, valida disponibilidade e escopo do gestor, registra o peso de saída, cria o empréstimo EM\_USO e muda a disponibilidade para EMPRESTADO. Se o frasco estiver sendo aberto pela primeira vez, sua validade é recalculada antes de aprovar. Se outro processo tiver retirado o frasco antes da confirmação, a transação falha sem criar empréstimo parcial.
+
+\subsubsection{Devolução de reagente}
+O Gestor informa o frasco e o peso de retorno. A transação verifica que o empréstimo está EM\_USO ou ATRASADO, recalcula consumo e atraso com dados do servidor (prazo encerrando às 23:59:59.999 do dia previsto), atualiza o empréstimo, grava o evento no histórico e devolve o frasco à disponibilidade adequada ou ao fluxo de descarte/quarentena se vencido ou esgotado.
+
+\begin{explicacao}[Nota sobre o Login]
+Todos os fluxos detalhados a seguir partem do princípio de que o usuário está deslogado. A primeira etapa padrão é sempre: o usuário acessa a tela de Login do LCQUI, insere suas credenciais (e-mail e senha) ou escolhe o "Login com Google". O sistema exibe um \textit{spinner} (ícone de carregamento giratório) no botão e o redireciona instantaneamente para a sua Dashboard correspondente, aplicando os privilégios do seu Papel (Role).
+\end{explicacao}
+
+\subsection{Fluxos do usuário Gestor de Bem Patrimonial}
+
+\subsubsection{Adicionando um bem patrimonial do LCQUI no sistema}
+Partindo da tela de login, o Gestor acessa o sistema. Caso possua múltiplos papéis, ele clica no botão "Gestor de Bens Patrimoniais" no header. Na dashboard, clica no botão "Mais (+)" e seleciona "Novo Bem Patrimonial". Um modal se sobrepõe à tela. Ele preenche o número do patrimônio, pesquisa um \textit{Resumo\_Bem} existente, escolhe o Local (prédio, andar, sala) via menus \textit{dropdown} e anexa a URL da foto. Ao clicar em "Salvar", um \textit{spinner} roda no botão e, em seguida, um \textit{toast} (notificação flutuante) verde surge na tela: "Bem cadastrado com sucesso". O modal fecha e a grid central é recarregada mostrando o novo item.
+
+\subsubsection{Baixando a lista de bens inservíveis para dar baixa no SEI}
+Partindo da tela de login, o Gestor acessa a dashboard e clica no botão "Gerar Relatórios" na parte superior. O modal de relatórios abre. Ele seleciona o tipo "Bens Inservíveis", confirma e clica em "Gerar PDF". O botão muda para o estado \textit{loading}. Após alguns segundos, o navegador exibe a notificação de download concluído ou abre o arquivo em uma nova aba, pronto para ser anexado ao Sistema Eletrônico de Informações (SEI) da UENF.
+
+\subsubsection{Baixando o relatório mensal Geral do Mês de Agosto}
+Após o login, na tela principal, o Gestor clica em "Gerar Relatórios". No modal que se abre, seleciona a aba "Relatório Geral". Nos seletores de data, escolhe "Agosto" e "2026". Ao clicar em "Gerar", um círculo de progresso é exibido no centro do modal. Finalizado o processo backend, o modal exibe a mensagem "PDF pronto" e inicia o download automaticamente.
+
+\subsubsection{Baixando relatório de bens materiais filtrado (Prédio P5, Andar 1)}
+Partindo da tela de login, o Gestor abre o modal de relatórios e vai até a aba "Personalizado". Ele preenche as datas (15/02/2026 a 16/07/2026) e abre o filtro avançado. Marca a \textit{checkbox} do "Prédio P5" e digita "1" no andar. Clica em "Gerar PDF". Após a barra de carregamento preencher, o sistema entrega o documento formatado apenas com os equipamentos deste andar específico.
+
+\subsubsection{Verificando requisições pendentes de professores}
+Após efetuar o login, a dashboard do Gestor já apresenta no painel central um card de "Painel de Requisições". O botão de notificações (sino) está com uma bolinha vermelha. O Gestor clica na notificação e depois na requisição desejada. A tela faz uma transição para o modo \textit{Split-screen}. Na metade esquerda da tela, ele vê os dados estáticos (antigos) do patrimônio em texto cinza. Na metade direita, ele vê os dados novos sugeridos pelo professor (ex: alteração de sala) destacados em fundo amarelo suave, para chamar a atenção à mudança.
+
+\subsubsection{Aprovando uma requisição pendente}
+Dando continuidade ao fluxo de verificação (após login e abertura da tela de \textit{Split-screen}), o Gestor avalia que a alteração de sala pedida pelo professor está correta. Ele clica no botão verde massivo "Aprovar Alteração" no rodapé. Um ícone de \textit{check} ($\checkmark$) animado aparece no centro da tela. A requisição desaparece da fila de pendentes e um \textit{toast} de sucesso no canto superior direito confirma que o banco de dados principal foi atualizado.
+
+\subsubsection{Alterando um bem patrimonial para: Dado baixa}
+Partindo da tela de login, o Gestor usa a barra de busca central e digita o número da plaqueta de um equipamento que já passou por todo o processo burocrático no SEI. A tela de detalhes do item se abre. O Gestor clica no botão "Editar Status". Um menu \textit{dropdown} aparece e ele seleciona "Ja\_dado\_baixa". Ao selecionar esse status, aparece um novo campo obrigatório para fazer upload do documento pdf que comprove seu status. Ao anexar, o sistema libera o botão para salvar a alteração. Porém, antes de salvar, o sistema exibe um modal de atenção: "\textit{Esta ação é irreversível no histórico ativo. Deseja prosseguir?}". O Gestor clica em "Confirmar". Um \textit{toast} azul confirma a baixa e o item recebe instantaneamente uma etiqueta cinza de inatividade, saindo da listagem de bens ativos.
+
+\subsection{Fluxos do usuário Professor}
+
+\subsubsection{Criando uma turma}
+Após fazer login, o Professor está na sua dashboard. Ele clica no painel lateral esquerdo em "Turmas" e depois no botão flutuante "+ Nova Turma". Um modal simples é exibido solicitando Nome da Turma e Capacidade. Ele preenche "Química Orgânica I" e "30", e clica em "Salvar". Um \textit{toast} de sucesso é disparado, um novo card desliza aparecendo no painel lateral, e o \textit{codigo\_turma} recém-criado pisca rapidamente na tela com um botão de "Copiar para a área de transferência".
+
+\subsubsection{Adicionando Alunos em uma turma}
+Com login feito, o Professor clica no card da turma recém-criada no painel lateral. A área central atualiza para a visão da disciplina. No header, ele clica no botão "Novo Aluno". No modal que surge, ele copia e cola os e-mails dos alunos separados por vírgula e clica em "Enviar Convites". Uma barra de carregamento é mostrada, seguida de um \textit{toast} verde informando que os acessos foram disparados por e-mail.
+
+\subsubsection{Criando um Post em uma turma}
+Após login, o Professor acessa a disciplina clicando nela. No topo do Feed de publicações (área central), ele clica na caixa de texto "Comece um novo post...". O componente se expande. Ele digita as orientações da aula, clica no ícone de "Clipe de Papel" (anexo), o que abre o modal da sua biblioteca de roteiros em PDF. Ele seleciona o "Roteiro\_Prática\_3.pdf" e clica em "Publicar". A tela rola suavemente para baixo e o novo card da publicação surge com um efeito de \textit{fade-in}, exibindo o texto e a prévia do PDF anexado.
+
+\subsubsection{Excluindo um Aluno de uma turma}
+O Professor loga no sistema e navega até a turma desejada. Ele clica na aba "Membros" logo acima do feed. Uma lista com nome e foto dos alunos aparece. Ao lado do nome do aluno a ser removido, ele clica no ícone vermelho de lixeira. Um modal de dupla confirmação exige que ele clique em "Sim, remover aluno". A linha do aluno desaparece da lista com uma rápida animação de encolhimento (\textit{collapse}) e um \textit{toast} avisa "Aluno removido da turma".
+
+\subsubsection{Respondendo um comentário de um aluno}
+O Professor entra no sistema e nota uma bolinha vermelha piscando no sino de Notificações. Ele clica e vê "\textit{João comentou em um Roteiro}". Ao clicar na notificação, a tela rola automaticamente até a exata postagem no feed. Ele vê a dúvida do aluno, clica na caixa de texto abaixo dizendo "Escreva uma resposta..." e aperta Enter. O comentário dele surge instantaneamente logo abaixo do aluno, com seu nome identificado com a tag "[Professor]".
+
+\subsubsection{Pesquisando Reagente Químico para checar disponibilidade}
+Partindo da tela de login, o Professor clica no atalho "Reagentes" no painel esquerdo. Na grande barra de pesquisa central, ele começa a digitar "Ácido Clori...". O sistema usa \textit{debounce} (pesquisa em tempo real) e já filtra a tabela antes mesmo do Enter. Ele encontra o item, clica sobre a linha e um modal lateral (gaveta) desliza da direita mostrando em verde "\textit{Disponível: 3 frascos fechados, 1 aberto}".
+
+\subsubsection{Pesquisando um bem patrimonial pelo Nome}
+Após login, o Professor vai à área "Bens Patrimoniais" e digita "Microscópio" na busca. A tela é atualizada mostrando uma malha de cards (Grid) com todos os equipamentos que possuem essa palavra. Ele clica em um dos cards e vê a foto e a localização exata daquele Microscópio em tela cheia.
+
+\subsubsection{Pesquisando um bem patrimonial pelo número de patrimônio}
+Professor faz login, acessa a busca de "Bens Patrimoniais" e digita exatamente "987654". O sistema detecta a correspondência exata, pula a exibição da tabela genérica e direciona o professor direto para a página exclusiva de detalhes daquele patrimônio específico.
+
+\subsubsection{Requisitando alteração de conservação (de Bom para Ruim)}
+No passo anterior, ao estar na tela de detalhes do microscópio, o Professor, após logar, percebe que a lente está trincada. Ele clica no botão amarelo "Solicitar Edição". No formulário sobreposto, ele altera o campo \textit{dropdown} "Estado de Conservação" de "Bom" para "Ruim/Inservível", preenche o campo de texto justificando ("Lente principal rachada") e envia. O botão vira um \textit{spinner} rapidamente e um \textit{toast} avisa: "Requisição enviada ao Gestor de Patrimônio".
+
+\subsubsection{Upload de Roteiro e compartilhamento com outros professores}
+Professor acessa a dashboard após login, clica em "Gerenciar Roteiros" (no header central). O modal abre na aba "Meus". Ele clica no ícone de Nuvem para upload, arrasta um PDF do seu computador para a área pontilhada e aguarda a barra de progresso encher (100\%). Em seguida, no próprio arquivo recém-subido, ele clica em "Compartilhar". Uma lista de professores do sistema aparece, ele marca 3 caixinhas de seleção e clica no botão "Autorizar Acesso". Um alerta flutuante informa que o roteiro agora está visível nas bibliotecas dos colegas.
+
+\subsection{Fluxos do usuário Chefe Geral}
+
+\subsubsection{Criando um usuário Professor e usuário Gestor de Almoxarifado}
+O Chefe Geral acessa a plataforma logando com suas credenciais. Na sua dashboard, acessa a aba "Professores" e clica no botão "+ Novo Professor". No modal, insere nome, e-mail institucional e seleciona o Centro (ex: CCT). Ao salvar, um \textit{toast} avisa do envio do convite. Da mesma forma, indo para a aba "Almoxarifados", ele clica em "Mais (+)", depois "Novo Gestor de Almoxarifado", preenche o e-mail, e um novo card de gestor é populado silenciosamente na lista do sistema, notificando o sucesso da operação.
+
+\subsection{Fluxos do usuário Aluno}
+
+\subsubsection{Ingressando em uma Turma}
+O Aluno acessa o site do LCQUI pela primeira vez, cria a senha (ou entra via Google) e faz o login. A dashboard dele é muito mais limpa e a tela central diz: "\textit{Você ainda não tem turmas}". Ele foca sua atenção no canto inferior esquerdo onde há o input "Código da Turma". Ele digita o \textit{hash} de 6 letras que o professor escreveu no quadro e clica em "Entrar". O botão gira um carregamento, o sistema verifica a capacidade máxima da turma no \textit{backend}, faz o link de tabelas, e instantaneamente um Card colorido com o nome da disciplina desliza para o centro da tela com o feedback: "\textit{Matrícula realizada com sucesso!}".
+
+\subsubsection{Baixando um roteiro e realizando um comentário}
+Logado, o aluno clica na disciplina recém-adicionada. O Feed da turma é carregado na tela. Ele rola a página e acha a postagem do professor com um arquivo. Ele clica no botão vermelho e muito visível de "Baixar PDF". O \textit{download} inicia via navegador. Logo abaixo do mesmo \textit{post}, na seção de interações, ele clica na caixa de texto vazia, digita "Professor, levaremos óculos de proteção?" e pressiona Enviar. O comentário surge na tela logo após uma animação suave de transição (\textit{fade-in}).
+
+\subsection{Fluxos do Usuário Gestor de Almoxarifado}
+
+\subsubsection{Adicionando um frasco fechado de um reagente existente}
+Partindo do login, o Gestor de Almoxarifado acessa seu painel, clica no grupo "Estoque", digita o nome de um ácido na busca e clica em "Adicionar Frasco". Ele coloca o frasco lacrado em cima da balança USB (ou lê manualmente), digita no campo "Peso Total" (ex: 610g) e no "Volume Nominal" (ex: 500mL). Ao clicar em "Salvar", o sistema calcula a tara (peso do frasco vazio), registra no banco e o modal se fecha com uma notificação verde "Frasco Fechado registrado no almoxarifado".
+
+\subsubsection{Adicionando um frasco já aberto de um novo reagente}
+Após o login, o Gestor nota que o reagente ainda não existe no sistema. Na dashboard central, ele clica em "Novo Reagente". Preenche as propriedades químicas obrigatórias, com destaque em vermelho para o campo "Densidade" quando líquido. Ao confirmar, o modal avança automaticamente para o passo "Cadastrar Frascos Vinculados". Como o frasco físico está pela metade, ele muda a chave seletora para "Informar Volume Atual (Visual)". Ele digita o peso medido agora, e estima 120mL no input visual. Salva a operação, a tela é atualizada e um aviso diz: "Estoque inicial criado e peso do frasco base arquivado".
+
+\subsubsection{Realizando empréstimo (Retirada) de um frasco}
+Com o login concluído, um Professor ou Bolsista chega no balcão. O Gestor de Almoxarifado clica rapidamente no enorme botão verde ``Registrar Retirada'' no centro da dashboard. Um modal abre solicitando a leitura do código do frasco ou pesquisa pelo nome. Localizado o item, o Gestor seleciona o usuário autorizado, informa o local de uso e pesa o frasco.
+
+Antes da confirmação, a interface bloqueia frascos em quarentena ou pendentes de descarte. Se o frasco estiver vencido e seu uso vencido tiver sido autorizado, deve aparecer um alerta explícito: ``Este frasco venceu em DD/MM/AAAA. O uso vencido está autorizado para fins didáticos. Deseja confirmar o empréstimo mesmo assim?''. A confirmação é enviada ao backend, que repete a validação; o frontend não pode ignorar essa regra. Se a operação também registrar a primeira abertura do frasco, a validade efetiva é recalculada no servidor dentro da mesma transação.
+
+\subsubsection{Devolvendo um frasco (Cálculo de Consumo)}
+O professor devolve o vidro à bancada. O Gestor faz login (se necessário) e clica no grande botão ``Registrar Devolução''. Busca o item (que está na lista de pendentes). O sistema solicita ``Peso de Retorno'', calcula o consumo e verifica a validade efetiva com o relógio do servidor (com prazo normalizado para as 23:59:59.999 do dia previsto). Se o frasco estiver vencido, ou tiver vencido enquanto permaneceu com o professor, a devolução permite registrar a decisão do gestor entre quarentena, descarte ou continuidade de uso didático.
+
+O sistema renderiza na tela em negrito e com fundo destacado: \textbf{``Volume utilizado neste empréstimo: 4.5 mL''} ou \textbf{``Peso utilizado nesse empréstimo: 22 g''}. Ao clicar em ``Finalizar'', um sinal sonoro/visual confirma que a transação de estoque, consumo, histórico e auditoria foram concluídas.

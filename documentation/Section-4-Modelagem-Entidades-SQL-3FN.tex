@@ -1,0 +1,798 @@
+%%-----------------------------------%%
+%%   MODELAGEM ENTIDADES SQL - 3FN   %%
+%%-----------------------------------%%
+\section{Modelagem Entidades SQL - 3FN}\label{sec:modelagem}
+
+\begin{explicacao}[Como ler as caixas de entidade]
+Cada caixa a seguir representa uma \textbf{tabela do PostgreSQL} na Terceira Forma Normal (3FN). Todos os atributos são \textbf{NOT NULL} por padrão, salvo quando explicitamente indicado \chave{NULL}. O nome do campo aparece à esquerda e o \textbf{tipo de dado} sugerido para o PostgreSQL aparece à direita, em cinza. Quando aplicável, um selo adicional indica \chave{PK} (chave primária), \chave{FK} (chave estrangeira) ou uma restrição como \chave{NULL} (aceita valor nulo) ou \chave{UNIQUE}.
+\end{explicacao}
+
+%%-----------------------------------%%
+%%        ENTIDADES - USUÁRIO        %%
+%%-----------------------------------%%
+\subsection{Usuario}
+\begin{entidade}{Usuario}
+\campo{id}{SERIAL}{PK}
+\campo{nome}{VARCHAR(150)}{NOT NULL}
+\campo{email}{VARCHAR(150)}{UNIQUE, NOT NULL}
+\campo{profile\_url\_photo}{TEXT}{NULL}
+\end{entidade}
+
+\subsection{Chefe Geral}
+\begin{entidade}{Chefe\_Geral}
+\campo{id\_usuario}{INTEGER}{PK, FK}
+\end{entidade}
+
+\subsection{Gestor de Almoxarifado}
+\begin{entidade}{Gestor\_Almoxarifado}
+\campo{id\_usuario}{INTEGER}{PK, FK}
+\end{entidade}
+
+\subsection{Tabela Gestor de Almoxarifado \texorpdfstring{\texorpdfstring{$\times$}{x}}{x} Almoxarifado (N para N)}
+\begin{entidade}{Gestor\_Almoxarifado\_x\_Almoxarifado}
+\campo{id\_gestor\_almoxarifado}{INTEGER}{PK, FK}
+\campo{id\_almoxarifado}{INTEGER}{PK, FK}
+\end{entidade}
+\begin{regra}
+A chave primária composta \textit{(id\_gestor\_almoxarifado, id\_almoxarifado)} impede vincular o mesmo gestor duas vezes ao mesmo almoxarifado.
+\end{regra}
+
+\subsection{Gestor de bens patrimoniais}
+\begin{entidade}{Gestor\_Bens\_Patrimoniais}
+\campo{id\_usuario}{INTEGER}{PK, FK}
+\end{entidade}
+%%-----------------------------------%%
+%%        BENS PATRIMONIAIS          %%
+%%-----------------------------------%%
+\subsection{Bem patrimonial}
+\begin{entidade}{Bem\_Patrimonial}
+\campo{id}{SERIAL}{PK}
+\campo{id\_resumo\_bem\_patrimonial}{INTEGER}{FK, NOT NULL}
+\campo{numero\_patrimonio}{VARCHAR(30)}{UNIQUE, NOT NULL}
+\campo{estado\_conservacao}{ENUM}{BOM, REGULAR, RUIM, NOT NULL}
+\campo{id\_local}{INTEGER}{FK, NOT NULL}
+\campo{photo\_url}{TEXT}{NOT NULL}
+\campo{documento\_dado\_baixa\_pdf\_url}{TEXT}{NULL}
+\campo{nome\_responsavel\_sei}{VARCHAR(150)}{NOT NULL}
+\campo{status}{ENUM}{Ativo, Inservivel, Ja\_dado\_baixa, NOT NULL}
+\campo{descricao\_complementar}{VARCHAR(200)}{NULL}
+\end{entidade}
+
+\begin{explicacao}
+\textit{id\_resumo\_bem\_patrimonial}, \textit{numero\_patrimonio}, \textit{estado\_conservacao}, \textit{id\_local}, \textit{photo\_url}, \textit{nome\_responsavel\_sei} e \textit{status} são estritamente \textbf{NOT NULL}. Apenas \textit{documento\_dado\_baixa\_pdf\_url} admite NULL (preenchido exclusivamente quando o bem atinge o status \texttt{Ja\_dado\_baixa}) e \textit{descricao\_complementar} (opcional para notas individuais daquela unidade física).
+\end{explicacao}
+
+\subsection{Resumo bem patrimonial}
+\begin{entidade}{Resumo\_Bem\_Patrimonial}
+\campo{id}{SERIAL}{PK}
+\campo{nome}{VARCHAR(150)}{NOT NULL}
+\campo{descricao}{TEXT}{NOT NULL}
+\end{entidade}
+
+\begin{explicacao}[Regra de Identidade de Bens Patrimoniais]
+\textit{Resumo\_Bem\_Patrimonial} representa o modelo catalográfico do equipamento (ex.: ``Microscópio Óptico Binocular Coleman''). Vários bens físicos compartilham o mesmo resumo. A alteração do nome do resumo é restrita ao Gestor de Bens e reflete em todos os itens do modelo. Caso um professor solicite alteração de nome para um bem individual, a operação representa reclassificação para outro resumo existente ou criação de um novo modelo, preservando a integridade dos demais equipamentos.
+\end{explicacao}
+\newpage
+\subsection{Historico bem patrimonial}
+\begin{entidade}{Historico\_Bem\_Patrimonial}
+\campo{id}{SERIAL}{PK}
+\campo{id\_bem\_patrimonial}{INTEGER}{FK, NOT NULL}
+\campo{timestamp}{TIMESTAMP}{NOT NULL}
+\campo{tipo}{ENUM}{cadastro, edicao, baixa, NOT NULL}
+\campo{id\_usuario}{INTEGER}{FK, NOT NULL}
+\end{entidade}
+
+\subsection{Alteracao bem patrimonial}
+\begin{entidade}{Alteracao\_Bem\_Patrimonial}
+\campo{id}{SERIAL}{PK}
+\campo{id\_historico}{INTEGER}{FK, NOT NULL}
+\campo{campo}{VARCHAR(60)}{NOT NULL}
+\campo{valor\_anterior}{TEXT}{NOT NULL}
+\campo{valor\_novo}{TEXT}{NOT NULL}
+\end{entidade}
+\newpage
+%%-----------------------------------%%
+%%        REQUISIÇÕES DE BEM         %%
+%%-----------------------------------%%
+\subsection{Requisicao Professor edicao Bem patrimonial}
+\begin{entidade}{Requisicao\_Edicao\_Bem\_Patrimonial}
+\campo{id}{SERIAL}{PK}
+\campo{id\_bem\_patrimonial}{INTEGER}{FK, NOT NULL}
+\campo{status}{ENUM}{pendente, aprovada, rejeitada, NOT NULL}
+\campo{feita\_em}{TIMESTAMP}{NOT NULL}
+\campo{respondida\_em}{TIMESTAMP}{NULL}
+\campo{id\_usuario\_solicitante}{INTEGER}{FK, NOT NULL}
+\campo{id\_usuario\_respondente}{INTEGER}{FK, NULL}
+\campo{novo\_nome}{VARCHAR(150)}{NULL}
+\campo{novo\_status}{ENUM}{Ativo, Inservivel, Ja\_dado\_baixa, NULL}
+\campo{novo\_estado\_conservacao}{ENUM}{BOM, REGULAR, RUIM, NULL}
+\campo{novo\_id\_local}{INTEGER}{FK, NULL}
+\campo{nova\_photo\_url}{TEXT}{NULL}
+\campo{motivo}{TEXT}{NOT NULL}
+\campo{justificativa\_resposta}{TEXT}{NULL}
+\end{entidade}
+
+\begin{regra}
+RF10: \textit{UNIQUE(id\_bem\_patrimonial) WHERE status = 'pendente'} -- impede mais de uma requisição de edição pendente simultânea para o mesmo bem patrimonial. Um índice único parcial resolve isso no PostgreSQL; no Firestore, a checagem precisa ser feita na própria \textit{Cloud Function} de criação, dentro de uma transação (ver seção \textit{Tecnologia e Relatórios}).
+\end{regra}
+\newpage
+\subsection{Requisicao Professor adicao Bem patrimonial}
+\begin{entidade}{Requisicao\_Adicao\_Bem\_Patrimonial}
+\campo{id}{SERIAL}{PK}
+\campo{numero\_patrimonio\_proposto}{VARCHAR(30)}{NOT NULL}
+\campo{status}{ENUM}{pendente, aprovada, rejeitada, NOT NULL}
+\campo{feita\_em}{TIMESTAMP}{NOT NULL}
+\campo{id\_bem\_patrimonial\_se\_aprovado}{INTEGER}{FK, NULL}
+\campo{respondida\_em}{TIMESTAMP}{NULL}
+\campo{id\_usuario\_solicitante}{INTEGER}{FK, NOT NULL}
+\campo{id\_usuario\_respondente}{INTEGER}{FK, NULL}
+\campo{estado\_conservacao\_proposto}{ENUM}{BOM, REGULAR, RUIM, NOT NULL}
+\campo{photo\_url\_proposta}{TEXT}{NULL}
+\campo{nome\_responsavel\_proposto}{VARCHAR(150)}{NOT NULL}
+\campo{id\_local}{INTEGER}{FK, NOT NULL}
+\campo{id\_resumo\_bem\_patrimonial}{INTEGER}{FK, NULL}
+\campo{nome\_resumo\_proposto}{VARCHAR(150)}{NULL}
+\campo{descricao\_resumo\_proposta}{TEXT}{NULL}
+\campo{motivo}{TEXT}{NOT NULL}
+\end{entidade}
+
+\begin{explicacao}
+Se o local desejado não existir no banco, o professor deve primeiro criar o \textit{Local} no sistema, para então vincular a respectiva FK (\textit{id\_local}) nesta requisição.
+\end{explicacao}
+\begin{regra}
+RF10b: \textit{UNIQUE(numero\_patrimonio\_proposto) WHERE status = 'pendente'} -- 
+impede mais de uma requisição de adição pendente simultânea para o mesmo 
+número de patrimônio. No PostgreSQL, isso é implementado como índice 
+único parcial; no Firestore, a verificação é reimplementada na Cloud 
+Function de criação da requisição, dentro de uma transação.
+\end{regra}
+\subsection{Lock de Requisição de Patrimônio}
+\begin{entidade}{Locks\_Requisicao\_Patrimonio}
+\campo{id (docId determinístico)}{VARCHAR(100)}{PK}
+\campo{criado\_em}{TIMESTAMP}{NOT NULL}
+\end{entidade}
+
+\begin{regra}[Lock Determinístico para Unicidade de Requisição Pendente]
+O Firestore não adquire trava pessimista sobre \textbf{ausência} de documento em uma query transacional. Por isso, a garantia de que não existam duas requisições pendentes para o mesmo bem ou plaqueta \textbf{não pode} ser implementada pela consulta \texttt{WHERE status = 'pendente'} dentro de uma transação -- dois clientes simultâneos lerão conjunto vazio, ambos passarão na validação e ambos gravarão, violando RF10/RF10b.
+
+A solução é o padrão \textit{deterministic lock}: a Cloud Function tenta criar um documento cujo \textbf{docId é derivado deterministicamente} do recurso disputado. O Firestore garante que apenas uma gravação com o mesmo docId vence quando executadas concorrentemente dentro de uma transação.
+
+\begin{itemize}
+  \item Para requisição de \textbf{edição}: docId = \texttt{bem\_edicao\_\{id\_bem\_patrimonial\}}
+  \item Para requisição de \textbf{adição}: docId = \texttt{bem\_adicao\_\{numero\_patrimonio\_proposto\}}
+\end{itemize}
+
+O lock é \textbf{removido} pela função \texttt{responderRequisicao*} ao aprovar ou rejeitar. Se a Cloud Function de criação falhar após criar o lock mas antes de criar a requisição (ex.: timeout), o lock fica órfão; uma Cloud Function de limpeza agendada remove locks com mais de 24 horas.
+\end{regra}
+
+\subsection{Impressão de Etiquetas de Frasco}
+
+\begin{entidade}{Impressao\_Etiqueta\_Frasco}
+\campo{id}{SERIAL}{PK}
+\campo{gerado\_em}{TIMESTAMP}{NOT NULL}
+\campo{gerado\_por}{INTEGER}{FK, NOT NULL}
+\campo{codigo\_inicial}{INTEGER}{NOT NULL}
+\campo{codigo\_final}{INTEGER}{NOT NULL}
+\end{entidade}
+
+\begin{explicacao}
+Esta entidade registra cada sessão de impressão de etiquetas de frasco. \textit{codigo\_inicial} e \textit{codigo\_final} referem-se aos números sequenciais dos códigos de frasco no formato \texttt{LCQUI-N} (ex.: \texttt{LCQUI-1} a \texttt{LCQUI-50}). Ver regra de geração de código em 7.2.9. A última impressão e o último código cadastrado são usados pelo modal de geração para oferecer ao gestor três opções: desde o último frasco cadastrado, desde a última impressão ou intervalo personalizado.
+\end{explicacao}
+
+\begin{explicacao}[Arquitetura Híbrida: Realtime Database como Microserviço de Sequenciamento]
+O código sequencial \texttt{LCQUI-N} \textbf{não} é gerado por um documento Firestore singleton. O Firebase Realtime Database é utilizado exclusivamente como microserviço de sequenciamento atômico:
+\begin{enumerate}
+  \item A Cloud Function invoca \texttt{admin.database().ref('/contadores/codigo\_frasco')\allowbreak.transaction(n => (n || 0) + 1)}.
+  \item O Realtime Database garante atomicidade sem limite prático de throughput (suporta milhares de writes/s, contra 1~write/s do Firestore por documento).
+  \item O número N retornado compõe o código \texttt{LCQUI-\{N\}} com sequência estrita (sem saltos).
+  \item O Firestore recebe o documento completo do frasco com o campo \texttt{codigo\_frasco: "LCQUI-N"} já pronto.
+\end{enumerate}
+O Firestore e o Realtime Database coexistem no mesmo projeto Firebase, compartilham o Firebase Auth e as SDKs rodam sem conflito. O nó \texttt{/contadores/codigo\_frasco} no Realtime Database substitui funcionalmente a entidade \textit{Contador\_Codigo\_Frasco} que antes era modelada como coleção Firestore.
+\end{explicacao}
+
+%%-----------------------------------%%
+%%        ALMOXARIFADO / REAGENTES   %%
+%%-----------------------------------%%
+\subsection{Almoxarifado}
+\begin{entidade}{Almoxarifado}
+\campo{id}{SERIAL}{PK}
+\campo{id\_local}{INTEGER}{FK, NOT NULL}
+\campo{nome}{VARCHAR(100)}{NOT NULL}
+\campo{descricao}{VARCHAR(500)}{NOT NULL}
+\end{entidade}
+
+\subsection{Substância Química}
+\begin{entidade}{Substancia\_Quimica}
+\campo{id}{SERIAL}{PK}
+\campo{nome}{VARCHAR(150)}{NOT NULL}
+\campo{cas\_number}{VARCHAR(15)}{UNIQUE, NULL}
+\campo{formula\_quimica}{VARCHAR(50)}{NULL}
+\campo{ativo}{BOOLEAN}{DEFAULT TRUE, NOT NULL}
+\end{entidade}
+
+\begin{explicacao}
+A entidade \textit{Substancia\_Quimica} representa uma substância quimicamente identificável, independentemente de fabricante, concentração, pureza, lote ou frasco.
+
+O campo \textit{cas\_number} identifica a substância e permanece \textbf{UNIQUE} (permitindo múltiplos NULL, já que algumas substâncias podem não ter CAS cadastrado). Uma mesma substância pode participar da composição de diversas especificações de reagentes diferentes.
+\end{explicacao}
+\newpage
+\subsection{Resumo do Reagente / Solvente}
+\begin{entidade}{Resumo\_Reagente}
+\campo{id}{SERIAL}{PK}
+\campo{nome}{VARCHAR(150)}{NOT NULL}
+\campo{tipo\_substancia}{ENUM}{PURA, MISTURA, NOT NULL}
+\campo{natureza\_quimica}{ENUM}{ORGANICO, INORGANICO, ELEMENTO, HIBRIDO, NOT NULL}
+\campo{requer\_pesagem\_frequente}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+\campo{qtd\_em\_que\_e\_considerado\_escasso}{INTEGER}{NOT NULL}
+\campo{frequencia\_pesagem\_dias}{INTEGER}{NULL}
+\end{entidade}
+\newpage
+\begin{explicacao}[Regra Fechada de Identidade do Resumo de Reagente]
+O \textit{Resumo\_Reagente} representa o item químico agrupador apresentado no catálogo do sistema, permitindo agrupar diferentes especificações comerciais ou formulações do mesmo reagente.
+
+Dois reagentes pertencem ao \textbf{mesmo} \textit{Resumo\_Reagente} quando compartilham a mesma identidade química nominal de catálogo (ex.: ``Ácido Clorídrico'', ``Etanol'', ``Hidróxido de Sódio'').
+\begin{itemize}
+    \item Variações de pureza (P.A., Técnico, Grau HPLC) $\implies$ \textbf{mesmo resumo}, especificações distintas.
+    \item Variações de concentração (HCl 37\%, HCl 10\%, Etanol 99.5\%, Etanol 70\%) $\implies$ \textbf{mesmo resumo}, especificações distintas.
+    \item Fabricante, código de catálogo e densidade $\implies$ atributos de especificação, \textbf{mesmo resumo}.
+\end{itemize}
+Devem ser cadastrados como \textbf{resumos diferentes}:
+\begin{itemize}
+    \item Espécies químicas distintas com fórmulas ou números CAS bases diferentes (ex.: Sulfato de Cobre II vs Sulfato de Ferro II);
+    \item Soluções formuladas consagradas com finalidade analítica própria (ex.: ``Reagente de Benedict'', ``Solução de Fehling A'', ``Solução de Lugol'') $\implies$ cada uma constitui um \textit{Resumo\_Reagente} próprio do tipo \texttt{MISTURA}.
+\end{itemize}
+
+Os campos \textit{medida\_total\_usado} e \textit{unidade\_de\_medida} foram removidos desta entidade: ambos são métricas agregadas derivadas de \textit{Frasco\_Reagente} e \textit{Emprestimo\_Reagente}, e devem existir apenas na view materializada descrita na seção \textit{Métricas Agregadas}, nunca como coluna editável de uma tabela cadastral.
+
+A unidade de medida (ml ou g) passa a ter fonte única em \textit{Especificacao\_Reagente}, evitando duplicidade e divergência entre os níveis do modelo.
+
+A densidade, o estado físico e a unidade de medida são propriedades da \textit{Especificacao\_Reagente}. Assim, HCl 37\% e HCl 10\% podem compartilhar o mesmo \textit{Resumo\_Reagente}, mas devem possuir especificações distintas. A regra de identidade do resumo é determinada pelo item químico que o catálogo pretende agrupar, e não por uma cópia de propriedades operacionais da especificação.
+
+\textit{natureza\_quimica} classifica o item do catálogo como um todo (não uma \textit{Substancia\_Quimica} individual): \texttt{ELEMENTO} para substâncias simples (não se classificam como orgânicas nem inorgânicas), \texttt{ORGANICO}/\texttt{INORGANICO} para os demais casos, e \texttt{HIBRIDO} para fluidos complexos que não se decompõem em uma lista simples de substâncias em \textit{Composicao\_Reagente} (ex.: Soro Fetal Bovino). Como \texttt{HIBRIDO} não é derivável a partir das substâncias componentes, o campo é curado no nível do resumo, e não em \textit{Substancia\_Quimica}, evitando duas fontes de verdade diferentes para itens PUROS e para MISTURA/HÍBRIDO. O rótulo exibido na interface (ex.: ``Híbrido'', ``Complexo'' ou ``Biológico'') é independente do valor salvo no banco e pode ser alterado livremente.
+
+O campo \textit{letra\_inicial}, presente em versões anteriores deste documento, foi removido do modelo 3FN: por ser derivável do próprio \textit{nome}, sua persistência aqui violaria a forma normal. Ele reaparece como uma denormalização proposital exclusiva da implementação em Firestore -- ver seção \textit{Notas de Mapeamento para Firestore}.
+\end{explicacao}
+\newpage
+\subsection{Composição do Reagente}
+\begin{entidade}{Composicao\_Reagente}
+\campo{id}{SERIAL}{PK}
+\campo{id\_especificacao\_reagente}{INTEGER}{FK, NOT NULL}
+\campo{id\_substancia\_quimica}{INTEGER}{FK, NOT NULL}
+\campo{valor\_composicao}{NUMERIC(10,5)}{NULL}
+\campo{tipo\_concentracao}{ENUM}{M\_M,V\_V,M\_V,MOL\_L,MOL\_KG,PPM,PPB}
+\campo{unidade}{VARCHAR(20)}{NULL}
+\end{entidade}
+
+\begin{explicacao}
+A entidade \textit{Composicao\_Reagente} representa a relação entre uma especificação de reagente cadastrada e as substâncias químicas que a compõem.
+
+A relação é do tipo N:N:
+
+\begin{center}
+\textit{Especificacao\_Reagente} $\leftrightarrow$ \textit{Substancia\_Quimica}
+\end{center}
+
+A composição foi movida do nível de \textit{Resumo\_Reagente} para o nível de \textit{Especificacao\_Reagente}, pois a concentração (37\%, 10\%, 1 mol/L etc.) é uma característica que varia entre especificações de um mesmo resumo, não uma propriedade do resumo em si. Vincular a composição ao resumo impediria registrar corretamente, por exemplo, HCl 37\% e HCl 10\% sob o mesmo \textit{Resumo\_Reagente} com valores de composição diferentes.
+
+Uma substância pura normalmente terá apenas uma linha associada, enquanto uma mistura poderá possuir diversas substâncias.
+
+O campo \textit{unidade} é armazenado como texto livre para suportar tanto um valor único (ex.: ``37'') quanto um intervalo no formato \texttt{"MIN-MAX"} (ex.: ``15-20''), usado quando a especificação do fabricante declara uma faixa de concentração em vez de um valor fixo. A validação desse formato (numérico simples ou \texttt{X-Y} com X < Y) é responsabilidade da camada de aplicação (\textit{frontend}); o banco não impõe \textit{constraint} de formato sobre este campo.
+\end{explicacao}
+
+\begin{regra}
+\textit{UNIQUE(id\_especificacao\_reagente, id\_substancia\_quimica)} -- impede duas linhas de composição para a mesma substância dentro da mesma especificação.
+\end{regra}
+
+\subsection{Especificação do Reagente / Solvente}
+\begin{entidade}{Especificacao\_Reagente}
+\campo{id}{SERIAL}{PK}
+\campo{id\_resumo\_reagente}{INTEGER}{FK, NOT NULL}
+\campo{descricao}{VARCHAR(150)}{NOT NULL}
+\campo{fabricante}{VARCHAR(150)}{NULL}
+\campo{codigo\_produto\_fabricante}{VARCHAR(100)}{NULL}
+\campo{grau\_pureza}{VARCHAR(30)}{NULL}
+\campo{densidade}{NUMERIC(8,4)}{NULL}
+\campo{estado\_fisico}{ENUM}{SOLIDO,LIQUIDO, NOT NULL}
+\campo{unidade\_de\_medida}{ENUM}{ml,g, NOT NULL}
+\campo{classe\_inflamabilidade}{ENUM}{NAO\_INFLAMAVEL,CLASSE\_1,CLASSE\_2,CLASSE\_3, NOT NULL}
+\campo{eh\_controlado\_pf}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+\campo{eh\_controlado\_eb}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+\campo{link\_fds\_fispq}{VARCHAR(255)}{NULL}
+\end{entidade}
+
+\begin{explicacao}
+\textit{Especificacao\_Reagente} passa a ser a única fonte de verdade para \textit{unidade\_de\_medida}. Os demais níveis (\textit{Frasco\_Reagente}, \textit{Emprestimo\_Reagente}) referenciam essa unidade por meio da cadeia de FKs, em vez de armazenar uma cópia própria.
+
+\textit{GASOSO} foi removido de \textit{estado\_fisico} nesta versão: nenhum reagente gasoso está listado para o almoxarifado atual, e reagentes gasosos precisam de campos e método de medição próprios (pressão, não peso em balança) em vez de reaproveitar os campos já pensados para sólido/líquido. O estudo detalhado para reintrodução está na seção \textit{Implementações em Estudo para Versões Futuras}.
+\end{explicacao}
+
+\subsection{Lote}
+\begin{entidade}{Lote}
+\campo{id}{SERIAL}{PK}
+\campo{id\_especificacao\_reagente}{INTEGER}{FK, NOT NULL}
+\campo{data\_aquisicao}{TIMESTAMP}{NOT NULL}
+\campo{qtd\_frascos\_comprados}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{nome\_fornecedor}{VARCHAR(80)}{NOT NULL}
+\campo{numero\_lote}{VARCHAR(100)}{NOT NULL}
+\campo{nota\_fiscal}{VARCHAR(100)}{NOT NULL}
+\campo{data\_fabricacao}{DATE}{NOT NULL}
+\campo{data\_validade}{DATE}{NOT NULL}
+\end{entidade}
+\begin{regra}
+\textit{UNIQUE(id\_especificacao\_reagente, nome\_fornecedor, numero\_lote)}.
+\end{regra}
+\begin{explicacao}
+\textit{qtd\_frascos\_comprados} é dado de entrada (o que consta na nota fiscal) e permanece nesta tabela. Já \textit{qtd\_frascos\_cadastrados} -- quantos frascos deste lote já foram individualmente registrados em \textit{Frasco\_Reagente} -- é uma contagem agregada (\texttt{COUNT(*) FROM Frasco\_Reagente WHERE id\_lote = X}) e, por isso, \textbf{não} é coluna desta tabela cadastral: ela vive exclusivamente em \textit{Lote\_Materializado} (ver seção \textit{Materialized (Views)}), mantida por mecanismo transacional a cada frasco cadastrado ou removido.
+\end{explicacao}
+\subsection{Frasco de Reagente / Solvente}
+\begin{entidade}{Frasco\_Reagente}
+\campo{id}{SERIAL}{PK}
+\campo{id\_almoxarifado}{INTEGER}{FK, NOT NULL}
+\campo{id\_lote}{INTEGER}{FK, NULL}
+\campo{id\_especificacao\_reagente}{INTEGER}{FK, NULL}
+\campo{detalhe\_local\_armazenamento}{TEXT}{NULL}
+\campo{codigo\_frasco}{TEXT}{UNIQUE, NOT NULL}
+\campo{data\_ultima\_pesagem}{TIMESTAMP}{NULL}
+\campo{conteudo\_nominal}{NUMERIC(10,3)}{NOT NULL}
+\campo{peso\_no\_cadastrado}{NUMERIC(10,3)}{NOT NULL}
+\campo{peso\_atual}{NUMERIC(10,3)}{NOT NULL}
+\campo{peso\_frasco\_vazio}{NUMERIC(10,3)}{NULL}
+\campo{medida\_usada}{NUMERIC(10,3)}{DEFAULT 0, NOT NULL}
+\campo{data\_abertura}{DATE}{NULL}
+\campo{validade\_fechado}{DATE}{NULL}
+\campo{validade\_efetiva}{DATE}{NULL}
+\campo{validade\_desconhecida}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+\campo{validade\_apos\_aberto\_dias}{INTEGER}{NULL}
+\campo{estado\_fisico\_frasco}{ENUM}{FECHADO,ABERTO,VAZIO,QUEBRADO,DESCARTADO, NOT NULL}
+\campo{disponibilidade}{ENUM}{DISPONIVEL,EMPRESTADO, NOT NULL}
+\campo{vencido}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+\campo{em\_quarentena}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+\campo{uso\_vencido\_autorizado}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+\campo{detalhe\_status}{TEXT}{NULL}
+\campo{cadastrado\_em}{TIMESTAMP}{NOT NULL}
+\campo{cadastrado\_por}{INTEGER}{FK, NOT NULL}
+\end{entidade}
+
+\begin{regra}[Constraint de Identidade Química do Frasco]
+\textit{CHECK (id\_lote IS NOT NULL OR id\_especificacao\_reagente IS NOT NULL)} -- pelo menos um dos dois deve existir. Quando \textit{id\_lote} é informado, \textit{id\_especificacao\_reagente} fica NULL (a especificação é derivável via \textit{Lote.id\_especificacao\_reagente}). Quando \textit{id\_lote} é NULL, \textit{id\_especificacao\_reagente} é obrigatório para manter o caminho até a densidade, unidade de medida e resumo do reagente.
+\end{regra}
+
+\begin{explicacao}
+\textit{conteudo\_nominal} (antigo \textit{capacidade\_nominal}) representa o conteúdo declarado no cadastro: para líquidos, é o volume nominal em mL; para sólidos, é a massa nominal em g. A renomeação elimina a ambiguidade semântica entre volume e massa.
+
+\textit{peso\_no\_cadastrado} é o peso total (frasco + conteúdo) registrado no momento do cadastro. Este campo é \textbf{imutável} após o cadastro -- nunca é sobrescrito. \textit{peso\_atual} é o peso total corrente, inicializado com o valor de \textit{peso\_no\_cadastrado} e atualizado a cada devolução de empréstimo ou pesagem de rotina.
+
+Os campos \textit{peso\_no\_cadastrado}, \textit{peso\_atual}, \textit{peso\_frasco\_vazio} e \textit{medida\_usada} são sempre leituras de balança em gramas, independentemente de o conteúdo ser sólido ou líquido, já que a operação real do laboratório consiste em pesar o frasco; o volume, quando aplicável, é sempre derivado por conversão via densidade.
+
+O campo \textit{unidade\_de\_medida}, antes duplicado nesta entidade, foi removido: a unidade do produto (ml ou g) é obtida via \textit{Frasco\_Reagente} $\rightarrow$ \textit{Lote} $\rightarrow$ \textit{Especificacao\_Reagente} (ou diretamente via \textit{id\_especificacao\_reagente} quando o lote é NULL).
+
+O antigo campo único \textit{status} (com valores combinados como \texttt{VENCIDO\_DISPONIVEL}, \texttt{VENCIDO\_EMPRESTADO}) foi decomposto em dimensões ortogonais -- \textit{estado\_fisico\_frasco}, \textit{disponibilidade}, \textit{vencido} e \textit{em\_quarentena} -- evitando o crescimento combinatorial do enum e simplificando consultas e regras de notificação.
+
+O campo \textit{id\_usuario\_em\_uso} foi removido: quem está com o frasco no momento é obtido consultando \textit{Emprestimo\_Reagente} pelo empréstimo ativo (\textit{status} \texttt{EM\_USO} ou \texttt{ATRASADO}) daquele \textit{id\_frasco\_reagente}.
+
+\textit{validade\_fechado} é mantido de forma independente de \textit{Lote.data\_validade} porque \textit{id\_lote} é opcional: um frasco pode ser cadastrado sem lote associado, e mesmo quando o lote existe, o formulário apenas pré-preenche este campo a partir dele -- o valor permanece editável e não é uma cópia somente-leitura.
+
+O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre um frasco vencido que permanece apto ao uso didático e um frasco vencido que aguarda descarte.
+\end{explicacao}
+
+\subsection{Histórico do Frasco de Reagente / Solvente}
+\begin{entidade}{Historico\_Frasco\_Reagente}
+\campo{id}{SERIAL}{PK}
+\campo{id\_frasco\_reagente}{INTEGER}{FK, NOT NULL}
+\campo{id\_almoxarifado}{INTEGER}{FK, NOT NULL}
+\campo{id\_gestor}{INTEGER}{FK, NOT NULL}
+\subcampo{Para ações automáticas do servidor (jobs de vencimento, atraso), usar o UID sentinela \_\_SISTEMA\_\_.}
+\campo{tipo}{ENUM}{
+  \shortstack[l]{%
+    CADASTRO, SAIU, ENTROU, FICOU\_VAZIO, QUEBROU, FOI\_DESCARTADO,\\
+    VENCEU, INVENTARIO\_ROTINA, EVAPORACAO, AJUSTE, CONCLUSAO,\\
+    ENTROU\_EM\_QUARENTENA, LIBERADO\_QUARENTENA, PENDENTE\_DE\_DESCARTE,\\
+    USO\_VENCIDO\_AUTORIZADO%
+  }
+}{NOT NULL}
+\campo{campo\_ajustado}{VARCHAR(30)}{NULL}
+\campo{id\_emprestimo\_reagente}{INTEGER}{FK, NULL}
+\campo{peso\_anterior}{NUMERIC(10,3)}{NULL}
+\campo{peso\_novo}{NUMERIC(10,3)}{NULL}
+\campo{medida\_ajustada}{NUMERIC(10,3)}{NULL}
+\campo{unidade\_medida\_ajustada}{ENUM}{ml,g, NOT NULL}
+\campo{timestamp}{TIMESTAMP}{NOT NULL}
+\end{entidade}
+
+\begin{explicacao}
+\textit{peso\_anterior} e \textit{peso\_novo} são sempre leituras de balança em gramas. Já \textit{unidade\_medida\_ajustada} qualifica exclusivamente \textit{medida\_ajustada}, indicando se o ajuste concluído é reportado em massa (g, sólidos) ou volume (ml, líquidos convertidos por densidade).
+\end{explicacao}
+
+\subsection{Empréstimo de Reagente / Solvente}
+\begin{entidade}{Emprestimo\_Reagente}
+\campo{id}{SERIAL}{PK}
+\campo{id\_frasco\_reagente}{INTEGER}{FK, NOT NULL}
+\campo{id\_usuario\_retirou}{INTEGER}{FK, NOT NULL}
+\campo{status}{ENUM}{EM\_USO,ATRASADO,DEVOLVIDO,DEVOLVIDO\_COM\_ATRASO, NOT NULL}
+\campo{data\_retirada}{TIMESTAMP}{NOT NULL}
+\campo{data\_devolucao\_prevista}{DATE}{NOT NULL}
+\campo{data\_devolucao\_efetuada}{TIMESTAMP}{NULL}
+\campo{id\_local\_usado}{INTEGER}{FK, NOT NULL}
+\campo{id\_usuario\_devolveu}{INTEGER}{FK, NULL}
+\campo{peso\_saida}{NUMERIC(10,3)}{NOT NULL}
+\campo{peso\_retorno}{NUMERIC(10,3)}{NULL}
+\campo{medida\_utilizada}{NUMERIC(10,3)}{NULL}
+\campo{unidade\_medida\_utilizada}{ENUM}{ml,g, NOT NULL}
+\campo{peso\_perda\_evaporacao}{NUMERIC(10,3)}{DEFAULT 0, NOT NULL}
+\campo{uso\_vencido\_aceito}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+\campo{finalidade\_uso}{ENUM}{PESQUISA, DIDATICO\_DEMONSTRACAO, OUTRO}{NOT NULL}
+\end{entidade}
+
+\begin{explicacao}
+\textit{peso\_saida} e \textit{peso\_retorno} são sempre leituras de balança em gramas. \textit{unidade\_medida\_utilizada} qualifica exclusivamente \textit{medida\_utilizada} -- o consumo calculado, reportado em massa (g) para sólidos ou em volume (ml) para líquidos, via $V = \Delta m / \rho$.
+\end{explicacao}
+
+\subsection{Métricas Agregadas do Reagente}
+\begin{explicacao}
+As seguintes informações devem ser tratadas preferencialmente como \textbf{views materializadas, consultas agregadas ou campos derivados mantidos por mecanismo transacional}:
+\begin{itemize}
+\item \textit{medida\_total\_usado} e \textit{unidade\_de\_medida} (agregados por \textit{Resumo\_Reagente});
+\item \textit{qtd\_frascos\_fechados\_disponiveis};
+\item \textit{qtd\_frascos\_abertos\_disponiveis};
+\item \textit{qtd\_frascos\_em\_uso};
+\item \textit{qtd\_frascos\_vazios};
+\item \textit{qtd\_frascos\_descartados};
+\item \textit{qtd\_frascos\_vencidos};
+\item \textit{qtd\_frascos\_quebrados}.
+\end{itemize}
+\end{explicacao}
+
+%%-----------------------------------%%
+%%        TURMAS / ROTEIROS          %%
+%%-----------------------------------%%
+\subsection{Turma}
+\begin{entidade}{Turma}
+\campo{id}{SERIAL}{PK}
+\campo{id\_materia}{INTEGER}{FK, NOT NULL}
+\campo{id\_professor}{INTEGER}{FK, NOT NULL}
+\campo{status}{ENUM}{Ativo, Arquivada, NOT NULL}
+\campo{nome\_turma}{VARCHAR(100)}{NOT NULL}
+\campo{ano}{INTEGER}{NOT NULL}
+\campo{semestre}{SMALLINT}{CHECK (semestre IN (1,2)), NOT NULL}
+\campo{capacidade}{INTEGER}{NOT NULL}
+\campo{codigo\_turma}{VARCHAR(20)}{UNIQUE, NOT NULL}
+\campo{data\_criacao}{TIMESTAMP}{NOT NULL}
+\end{entidade}
+
+\begin{explicacao}
+Os campos \textit{ano} e \textit{semestre} representam o per\'{i}odo letivo da turma (ex.: 2026/1). Ambos s\~{a}o exibidos na listagem de turmas arquivadas do professor -- eliminando a necessidade de parsing do \textit{nome\_turma} ou infer\^{e}ncia a partir de \textit{data\_criacao}. O modal de cria\c{c}\~{a}o de turma solicita esses dois campos al\'{e}m dos demais.
+\end{explicacao}
+
+\begin{regra}[RN-TUR-01: Controle de Capacidade da Turma]
+O ingresso de aluno por código de turma exige obrigatoriamente que a quantidade de alunos matriculados ativos seja estritamente menor que a capacidade da turma:
+\[
+\text{COUNT}(\text{Aluno\_x\_Turma WHERE id\_turma} = X) < \text{Turma.capacidade}
+\]
+Caso a capacidade seja atingida, o sistema rejeita o ingresso por código. Apenas o professor responsável pode ultrapassar a capacidade mediante envio de convite nominal por e-mail, registrando justificativa em auditoria.
+\end{regra}
+
+\subsection{Historico de Alunos na Turma}
+\begin{entidade}{Historico\_Alunos\_Turma}
+\campo{id}{SERIAL}{PK}
+\campo{id\_turma}{INTEGER}{FK, NOT NULL}
+\campo{tipo}{ENUM}{inclusao\_aluno, exclusao\_aluno, NOT NULL}
+\campo{id\_aluno}{INTEGER}{FK, NOT NULL}
+\campo{timestamp}{TIMESTAMP}{NOT NULL}
+\end{entidade}
+
+\subsection{Historico de Posts na Turma}
+\begin{entidade}{Historico\_Posts\_Turma}
+\campo{id}{SERIAL}{PK}
+\campo{id\_post}{INTEGER}{FK, NOT NULL}
+\campo{novo\_titulo}{VARCHAR(150)}{NULL}
+\campo{novo\_id\_roteiro}{INTEGER}{FK, NULL}
+\campo{nova\_descricao}{TEXT}{NULL}
+\campo{antigo\_titulo}{VARCHAR(150)}{NULL}
+\campo{antigo\_id\_roteiro}{INTEGER}{FK, NULL}
+\campo{antiga\_descricao}{TEXT}{NULL}
+\campo{timestamp}{TIMESTAMP}{NOT NULL}
+\end{entidade}
+
+\subsection{Historico de Comentario em um Post}
+\begin{entidade}{Historico\_Comentario}
+\campo{id}{SERIAL}{PK}
+\campo{id\_comentario}{INTEGER}{FK, NOT NULL}
+\campo{novo\_texto}{TEXT}{NOT NULL}
+\campo{texto\_antigo}{TEXT}{NOT NULL}
+\campo{editado\_em}{TIMESTAMP}{NOT NULL}
+\campo{editado\_por}{INTEGER}{FK, NOT NULL}
+\end{entidade}
+
+\subsection{Roteiro de Experimento}
+\begin{entidade}{Roteiro\_Experimento}
+\campo{id}{SERIAL}{PK}
+\campo{id\_professor\_upload}{INTEGER}{FK, NOT NULL}
+\campo{file\_url}{TEXT}{NOT NULL}
+\campo{nome}{VARCHAR(150)}{NOT NULL}
+\campo{descricao}{TEXT}{NOT NULL}
+\end{entidade}
+
+\subsection{Roteiro Professor Compartilhado}
+\begin{entidade}{Roteiro\_Professor\_Compartilhado}
+\campo{id\_roteiro\_experimento}{INTEGER}{PK, FK}
+\campo{id\_professor}{INTEGER}{PK, FK}
+\end{entidade}
+
+\subsection{Professor}
+\begin{entidade}{Professor}
+\campo{id\_usuario}{INTEGER}{PK, FK}
+\campo{centro}{ENUM}{CCT, CCTA, CBB, CCH, NOT NULL}
+\campo{laboratorio}{VARCHAR(100)}{NOT NULL}
+\end{entidade}
+
+\subsection{Materia}
+\begin{entidade}{Materia}
+\campo{id}{SERIAL}{PK}
+\campo{nome}{VARCHAR(100)}{NOT NULL}
+\campo{codigo\_materia}{VARCHAR(10)}{UNIQUE, NOT NULL}
+\end{entidade}
+
+\subsection{Tabela Professor \texorpdfstring{$\times$}{x} Materia (N para N)}
+\begin{entidade}{Professor\_x\_Materia}
+\campo{id\_professor}{INTEGER}{PK, FK}
+\campo{id\_materia}{INTEGER}{PK, FK}
+\end{entidade}
+\begin{regra}
+A chave primária composta \textit{(id\_professor, id\_materia)} impede vincular o mesmo professor duas vezes à mesma matéria.
+\end{regra}
+
+\subsection{Aluno}
+\begin{entidade}{Aluno}
+\campo{id\_usuario}{INTEGER}{PK, FK}
+\campo{numero\_matricula}{VARCHAR(20)}{UNIQUE, NOT NULL}
+\end{entidade}
+
+\subsection{Bolsista}
+\begin{entidade}{Bolsista}
+\campo{id\_usuario}{INTEGER}{PK, FK}
+\end{entidade}
+
+\subsection{Convite para Aluno}
+\begin{entidade}{Convite\_Aluno}
+\campo{id}{SERIAL}{PK}
+\campo{id\_turma}{INTEGER}{FK, NULL}
+\campo{email}{VARCHAR(150)}{NOT NULL}
+\campo{convidado\_em}{TIMESTAMP}{NOT NULL}
+\campo{status}{ENUM}{pendente, aceitado, expirado, NOT NULL}
+\campo{expira\_em}{TIMESTAMP}{NOT NULL}
+\campo{convidado\_por}{INTEGER}{FK, NOT NULL}
+\campo{numero\_matricula}{VARCHAR(20)}{NULL}
+\end{entidade}
+
+\begin{regra}
+A combinação \textit{email + id\_turma} não pode possuir mais de um convite \textit{pendente}. Um mesmo e-mail pode possuir convites para turmas diferentes e um aluno pode participar de várias turmas; por isso, o e-mail não é globalmente único nesta entidade.
+\end{regra}
+
+\begin{explicacao}
+\textit{numero\_matricula} aqui é opcional e \textbf{não é UNIQUE}, pois serve apenas para pré-declarar a matrícula quando o professor a conhece no momento do convite. Ao aceitar o convite, o sistema cria as linhas \textit{Usuario} e \textit{Aluno} correspondentes, copiando \textit{email} e \textit{numero\_matricula} para a nova linha de \textit{Aluno}, onde a restrição \textbf{UNIQUE} é rigorosamente aplicada.
+\end{explicacao}
+
+\subsection{Notificação (Unificada)}
+\begin{entidade}{Notificacao}
+\campo{id}{SERIAL}{PK}
+\campo{id\_destinatario}{INTEGER}{FK, NOT NULL}
+\campo{papel\_destinatario}{ENUM}{
+  \shortstack[l]{%
+    Aluno, Professor, Gestor\_Bens\_Patrimoniais,\\
+    Gestor\_Almoxarifado%
+  }
+}{NOT NULL}
+\campo{tipo}{ENUM}{
+  \shortstack[l]{%
+    ADICIONADO, POST, COMENTARIO, REMOVIDO,\\
+    TURMA\_ARQUIVADA, TURMA\_DESARQUIVADA,\\
+    REQUISICAO\_BEM, DATA\_DEVOLUCAO\_REAGENTE,\\
+    ROTEIRO\_COMPARTILHADO,\\
+    REQUISICAO\_EDICAO\_BEM, REQUISICAO\_ADICAO\_BEM,\\
+    BEM\_INSERVIVEL,\\
+    ENTREGA\_ATRASADA, FRASCOS\_VAZIOS, FRASCOS\_QUEBRADOS,\\
+    FRASCOS\_VENCIDOS, FRASCOS\_A\_SEREM\_PESADOS,\\
+    FRASCOS\_EM\_QUARENTENA, REAGENTE\_ESCASSO%
+  }
+}{NOT NULL}
+\campo{id\_quem\_fez\_acao}{INTEGER}{FK, NULL}
+\campo{id\_turma}{INTEGER}{FK, NULL}
+\campo{quantidade}{INTEGER}{NULL}
+\campo{entidade\_alvo}{VARCHAR(40)}{NOT NULL}
+\campo{id\_alvo}{VARCHAR(200)}{NOT NULL}
+\campo{lida}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+\campo{lida\_em}{TIMESTAMP}{NULL}
+\campo{emitida\_em}{TIMESTAMP}{NOT NULL}
+\campo{expira\_em}{TIMESTAMP}{NOT NULL}
+\end{entidade}
+
+\begin{explicacao}[Unificação das Notificações]
+As quatro tabelas de notificação anteriores (\textit{Notificacao\_para\_Aluno}, \textit{Notificacao\_para\_Professor}, \textit{Notificacao\_para\_Gestor\_de\_bens\_Patrimoniais}, \textit{Notificacao\_para\_Gestor\_de\_Reagentes}) foram consolidadas em uma única entidade \textit{Notificacao}. O campo \textit{papel\_destinatario} indica em qual contexto de papel a notificação deve ser exibida.
+
+No Firestore, esta entidade é implementada como sub-coleção \texttt{Usuarios/\{uid\}/Notificacoes}, eliminando a necessidade de queries em múltiplas coleções para usuários multi-role. A ação de ``Limpar tudo'' na interface marca \texttt{lida = true} e \texttt{lida\_em = NOW()} em todas as notificações ativas do usuário, preservando o histórico de auditoria. Os campos \textit{entidade\_alvo} e \textit{id\_alvo} viabilizam a navegação direta (\textit{deep linking}) para o objeto de origem ao clicar no aviso.
+\end{explicacao}
+
+\subsection{Tabela Aluno Turma (N para N)}
+\begin{entidade}{Aluno\_x\_Turma}
+\campo{id\_aluno}{INTEGER}{PK, FK}
+\campo{id\_turma}{INTEGER}{PK, FK}
+\end{entidade}
+\begin{regra}
+A chave primária composta \textit{(id\_aluno, id\_turma)} impede matricular o mesmo aluno duas vezes na mesma turma.
+\end{regra}
+
+\subsection{Local}
+\begin{entidade}{Local}
+\campo{id}{SERIAL}{PK}
+\campo{predio}{VARCHAR(30)}{NOT NULL}
+\campo{andar}{VARCHAR(10)}{NOT NULL}
+\campo{sala}{VARCHAR(30)}{NOT NULL}
+\campo{criado\_por}{INTEGER}{FK, NOT NULL}
+\campo{criado\_em}{TIMESTAMP}{NOT NULL}
+\end{entidade}
+\begin{regra}
+A combinação de prédio, andar e sala deve ser única (\textit{UNIQUE(predio, andar, sala)}).
+\end{regra}
+
+\subsection{Post}
+\begin{entidade}{Post}
+\campo{id}{SERIAL}{PK}
+\campo{id\_professor}{INTEGER}{FK, NOT NULL}
+\campo{id\_turma}{INTEGER}{FK, NOT NULL}
+\campo{id\_roteiro\_experimento}{INTEGER}{FK, NULL}
+\campo{titulo}{VARCHAR(150)}{NOT NULL}
+\campo{descricao}{TEXT}{NOT NULL}
+\campo{criado\_em}{TIMESTAMP}{NOT NULL}
+\end{entidade}
+
+\subsection{Comentario}
+\begin{entidade}{Comentario}
+\campo{id}{SERIAL}{PK}
+\campo{id\_post}{INTEGER}{FK, NOT NULL}
+\campo{id\_usuario}{INTEGER}{FK, NOT NULL}
+\campo{texto}{TEXT}{NOT NULL}
+\campo{criado\_em}{TIMESTAMP}{NOT NULL}
+\end{entidade}
+
+\subsection{Registro de Auditoria}
+\begin{entidade}{Registro\_de\_Auditoria}
+\campo{id}{SERIAL}{PK}
+\campo{id\_usuario}{INTEGER}{FK, NOT NULL}
+\campo{acao}{VARCHAR(200)}{NOT NULL}
+\campo{tipo\_entidade\_sofre\_acao}{ENUM}{
+  \shortstack[l]{%
+    TURMA, ALUNO, PROFESSOR, ALMOXARIFADO, RESUMO\_REAGENTE,\\
+    ESPECIFICACAO\_REAGENTE, LOTE, FRASCO\_REAGENTE,\\
+    EMPRESTIMO\_REAGENTE, BEM\_PATRIMONIAL, LOCAL, MATERIA,\\
+    COMENTARIO, POST, ROTEIRO, REQUISICAO\_ADICAO\_BEM,\\
+    REQUISICAO\_EDICAO\_BEM, USUARIO%
+  }
+}{NOT NULL}
+\campo{id\_do\_objeto\_da\_entidade}{VARCHAR(200)}{NOT NULL}
+\campo{acao\_feita\_em}{TIMESTAMP}{NOT NULL}
+\campo{metadata}{JSONB}{NOT NULL}
+\end{entidade}
+
+\begin{explicacao}
+\textit{acao} e \textit{id\_do\_objeto\_da\_entidade} tinham o tamanho \texttt{200} escrito como se fosse um selo de restrição em vez de parte do tipo; corrigido para \texttt{VARCHAR(200)}. O valor \texttt{REAGENTE} do enum era ambíguo diante da hierarquia real (\textit{Resumo\_Reagente}, \textit{Especificacao\_Reagente}, \textit{Lote}, \textit{Frasco\_Reagente} já existiam como tabelas distintas, e \textit{FRASCO\_REAGENTE} já aparecia separadamente) -- substituído pelos valores granulares correspondentes, e \textit{EMPRESTIMO\_REAGENTE}, \textit{ALMOXARIFADO} e \textit{USUARIO} foram adicionados por também serem alvo de auditoria (troca de papel, criação de almoxarifado, edição de perfil).
+\end{explicacao}
+\newpage
+
+\subsection{Especificação de Integridade do Modelo 3FN}
+Esta subseção fecha as propriedades lógicas que devem permanecer verdadeiras antes de qualquer denormalização específica do Firestore.
+
+\subsubsection{Cardinalidades}
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.36\textwidth} >{\centering\arraybackslash}p{0.14\textwidth} >{\raggedright\arraybackslash}p{0.42\textwidth}}
+\toprule
+\textbf{Relacionamento} & \textbf{Card.} & \textbf{Regra}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Relacionamento} & \textbf{Card.} & \textbf{Regra} (continuação)\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Usuario -- cada papel específico & 0..1 por papel & Um usuário pode ter no máximo uma linha em cada tabela de papel; várias tabelas de papel podem estar associadas ao mesmo usuário conforme as combinações permitidas.\\
+Gestor Almoxarifado -- Almoxarifado & N:N & A mesma associação não pode ocorrer duas vezes.\\
+Resumo Bem -- Bem Patrimonial & 1:N & Cada bem pertence a um resumo.\\
+Local -- Bem Patrimonial & 1:N & Cada bem possui um local cadastrado.\\
+Resumo Reagente -- Especificação & 1:N & Um resumo agrupa especificações; cada especificação pertence a um resumo.\\
+Especificação -- Substância & N:N & A composição liga múltiplas substâncias a múltiplas especificações.\\
+Especificação -- Lote & 1:N & Um lote pertence a uma única especificação.\\
+Lote -- Frasco & 1:N opcional & Um frasco pode ter lote NULL quando o lote não for conhecido.\\
+Almoxarifado -- Frasco & 1:N & Cada frasco está em exatamente um almoxarifado.\\
+Frasco -- Empréstimo & 1:N & Histórico completo; no máximo um empréstimo ativo por frasco.\\
+Turma -- Aluno & N:N & Alunos podem participar de várias turmas (via sub-coleção \texttt{Turmas/\{id\}/Alunos}).\\
+Turma -- Post & 1:N & Cada post pertence a uma turma e ao professor autor.\\
+Post -- Comentário & 1:N & Cada comentário pertence a um post.\\
+Professor -- Matéria & N:N & A associação não pode ser duplicada.\\
+Roteiro -- Professor & N:N & O mesmo roteiro não pode ser compartilhado duas vezes com o mesmo professor.\\
+\bottomrule
+\end{longtable}
+
+\subsubsection{Nullabilidade}
+Todo atributo é \textbf{NOT NULL} por padrão. Um campo só pode ser NULL quando isso representa uma ausência legítima do domínio. As exceções são:
+\begin{itemize}
+    \item foto de perfil;
+    \item documento de baixa antes da baixa patrimonial;
+    \item campos de resposta de requisição antes da resposta;
+    \item campos opcionais de especificação (fabricante, código do fabricante, FDS/FISPQ e demais dados não disponíveis);
+    \item CAS e fórmula química quando não cadastrados;
+    \item frequência de pesagem quando o reagente não requer pesagem frequente;
+    \item lote e dados de validade/pesagem quando desconhecidos ou ainda não aplicáveis;
+    \item validade\_efetiva antes da abertura quando sua definição depende do prazo após abertura;
+    \item dados de devolução de empréstimo antes da devolução;
+    \item id\_local da linha agregada ``Geral'' no resumo patrimonial diário;
+    \item id\_turma da notificação de professor quando o tipo não é COMENTARIO;
+    \item atributos de composição cuja ausência é necessária para representar faixa ou notação textual do fabricante.
+\end{itemize}
+
+\subsubsection{Chaves e constraints}
+\begin{itemize}
+    \item Usuario.email, Bem\_Patrimonial.numero\_patrimonio, Frasco\_Reagente.codigo\_frasco, Turma.codigo\_turma, Materia.codigo\_materia e CAS não nulo são únicos.
+    \item As tabelas associativas usam chave primária composta por suas duas FKs.
+    \item Composicao\_Reagente usa UNIQUE(id\_especificacao\_reagente, id\_substancia\_quimica).
+    \item Lote usa UNIQUE(id\_especificacao\_reagente, nome\_fornecedor, numero\_lote), evitando a identificação de dois lotes equivalentes do mesmo fornecedor e produto.
+    \item Convite\_Aluno permite o mesmo e-mail em turmas diferentes, mas impede mais de um convite PENDENTE para a mesma combinação de e-mail normalizado e turma; para convite global (\textit{id\_turma} NULL), impede mais de um convite PENDENTE para o mesmo e-mail normalizado. No PostgreSQL, isso é representado por dois índices únicos parciais: \texttt{UNIQUE(email\_normalizado, id\_turma) WHERE id\_turma IS NOT NULL AND status = 'pendente'} e \texttt{UNIQUE(email\_normalizado) WHERE id\_turma IS NULL AND status = 'pendente'}. No Firestore, a Cloud Function deve realizar a mesma validação dentro de transação.
+    \item Requisicao\_Edicao\_Bem\_Patrimonial permite no máximo uma requisição PENDENTE por bem.
+    \item Todos os valores quantitativos de massa, volume, capacidade, contagens, mês, dia de frequência e quantidades agregadas devem obedecer aos limites não negativos ou positivos definidos pelas regras do domínio.
+    \item Datas que representam intervalos devem respeitar sua ordem temporal; exemplos: fabricação <= validade e devolução >= retirada.
+\end{itemize}
+
+\subsubsection{Regras químicas fechadas}
+\begin{itemize}
+    \item \textbf{PURA} e \textbf{MISTURA} são tipos de substância do resumo. MISTURA exige composição na especificação; PURA não depende de múltiplas linhas de composição.
+    \item A concentração, quando aplicável, é atributo da composição da especificação, e não do resumo.
+    \item A densidade é atributo da especificação. É obrigatória e positiva para LIQUIDO e pode ser NULL para SOLIDO.
+    \item LIQUIDO usa ml como unidade operacional; SOLIDO usa g. O par estado/unidade deve ser sempre coerente.
+    \item Duas especificações com o mesmo nome podem coexistir sob o mesmo resumo quando diferirem em concentração, densidade, fabricante ou código do produto e representarem o mesmo item agrupador. Diferença de especificação não implica automaticamente novo resumo.
+    \item Gases estão fora do escopo da V1. Não se deve misturar sua futura regra de pressão com os campos de pesagem de sólidos e líquidos.
+\end{itemize}
+
+\subsubsection{Máquina de estados e invariantes do frasco}
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.34\textwidth} >{\raggedright\arraybackslash}p{0.58\textwidth}}
+\toprule
+\textbf{Estado/ação} & \textbf{Invariante}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Estado/ação} & \textbf{Invariante} (continuação)\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+FECHADO + DISPONIVEL & Pode ser retirado ou aberto.\\
+ABERTO + DISPONIVEL & Pode ser retirado ou ajustado por pesagem.\\
+EMPRESTADO & Deve possuir exatamente um empréstimo ativo EM\_USO ou ATRASADO.\\
+VAZIO/QUEBRADO & Não pode estar EMPRESTADO e deve aparecer como pendente de descarte.\\
+QUARENTENA & Exige detalhe de motivo e bloqueia nova retirada.\\
+VENCIDO + uso\_vencido\_autorizado = false & Exibe PENDENTE DE DESCARTE quando não estiver em quarentena; bloqueia nova retirada.\\
+VENCIDO + uso\_vencido\_autorizado = true & Pode permanecer DISPONIVEL para uso excepcional após confirmação explícita no empréstimo.\\
+DESCARTADO & É terminal; não retorna a DISPONIVEL.\\
+Devolução & Só pode ocorrer para empréstimo EM\_USO ou ATRASADO e o peso de retorno não pode exceder o peso de saída.\\
+\bottomrule
+\end{longtable}
+
+\subsubsection{Fechamento dos estados automáticos}
+\textit{vencido} é definido pelo servidor a partir da validade efetiva. Na abertura do frasco, \textit{validade\_efetiva} é recalculada conforme a regra de validade pós-abertura. \textit{ATRASADO} é promovido pelo job servidor quando a data de devolução prevista é ultrapassada. Nenhum desses estados pode ser inventado pelo frontend. O vencimento também é recalculado sincronicamente em operações críticas de cadastro e devolução, para que o resultado não dependa de o job diário já ter executado.
+
+\subsection{Checklist de Fechamento do Domínio e do Modelo}
+Os onze pontos que precisavam ser resolvidos antes da modelagem física foram consolidados da seguinte forma:
+\begin{enumerate}
+    \item \textbf{Matriz completa de permissões}: formalizada na seção de Stakeholders e referenciada como fonte normativa de autorização.
+    \item \textbf{Chefe Geral e multi-role}: Chefe Geral é exclusivo por conta; eventual dupla função institucional exige contas independentes.
+    \item \textbf{Obrigatoriedade de campos}: formalizada por contexto, estado, tipo de substância e operação.
+    \item \textbf{Densidade}: reposicionada semanticamente como propriedade de Especificacao\_Reagente e usada nos cálculos sem duplicação no resumo.
+    \item \textbf{Máquina de estados}: estados do frasco e transições de retirada, devolução, quarentena, vencimento, esvaziamento, quebra e descarte foram explicitados.
+    \item \textbf{NULL/NOT NULL}: todo campo passa a ter semântica explícita, com NULL restrito a ausências legítimas do domínio.
+    \item \textbf{Cardinalidades}: relacionamentos 1:N, N:N e especializações de papel foram consolidados.
+    \item \textbf{Constraints}: unicidades, chaves compostas, regras temporais e limites quantitativos foram formalizados, indicando quais precisarão ser simulados por transação no Firestore.
+    \item \textbf{Métricas e unidades}: limiar de escassez passa a significar quantidade de frascos; massa de balança e consumo convertido permanecem conceitos distintos.
+    \item \textbf{Gases}: explicitamente fora do escopo da V1, com a extensão futura isolada para não contaminar o modelo atual.
+    \item \textbf{Vencimento e destino}: cadastro, abertura e devolução distinguem explicitamente quarentena, pendência de descarte e uso vencido autorizado.
+\end{enumerate}
+
+\begin{explicacao}[Critério de passagem para a modelagem Firestore]
+O modelo 3FN é considerado fechado quando cada requisito funcional consegue ser rastreado até entidade, atributo, constraint e fluxo correspondente sem depender de uma suposição não documentada. A seção seguinte pode então introduzir apenas as denormalizações necessárias às consultas do Firestore, sem alterar a semântica do modelo relacional.
+\end{explicacao}

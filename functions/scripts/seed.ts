@@ -1,100 +1,75 @@
 import { initializeApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
 
+// Conectar ao emulador
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 
-const app = initializeApp({ projectId: "lcqui-dev" });
-const db = getFirestore(app);
-const auth = getAuth(app);
+initializeApp({ projectId: "lcqui-dev" });
 
 async function seed() {
-  console.log("Iniciando seed no emulador...");
+  const auth = getAuth();
+  const db = getFirestore();
 
-  // Criar Usuário Chefe
+  console.log("🌱 Iniciando seed...");
+
+  // Criar Professor
   try {
-    const user = await auth.createUser({
-      uid: "usuario123",
-      email: "chefe@uenf.br",
+    const profUser = await auth.createUser({
+      uid: "prof-teste",
+      email: "prof@lcqui.ufsc.br",
       password: "password123",
-      displayName: "Dr. Chefe Geral",
+      displayName: "Professor Teste",
     });
-    await auth.setCustomUserClaims(user.uid, { roles: ["Chefe_Geral"] });
-    console.log("Usuário chefe@uenf.br criado com sucesso!");
-  } catch (error: any) {
-    if (error.code === 'auth/email-already-exists' || error.code === 'auth/uid-already-exists') {
-      console.log("Usuário chefe@uenf.br já existe.");
-    } else {
-      console.error("Erro ao criar usuário:", error);
-    }
+    await auth.setCustomUserClaims(profUser.uid, { roles: ["Professor"] });
+    
+    await db.collection("Usuario").doc(profUser.uid).set({
+      nome: "Professor Teste",
+      email: "prof@lcqui.ufsc.br",
+      papeis: ["Professor"],
+      data_criacao: new Date()
+    });
+    
+    await db.collection("Professor").doc(profUser.uid).set({
+      id_usuario: profUser.uid,
+      departamento: "Química"
+    });
+    console.log("✅ Professor Teste criado (prof@lcqui.ufsc.br / password123)");
+  } catch (e: any) {
+    if (e.code === 'auth/uid-already-exists') console.log("Professor já existe.");
+    else console.error(e);
   }
 
-  // Almoxarifado
-  const almox = await db.collection("Almoxarifado").add({
-    nome_almoxarifado: "Almoxarifado Central",
-    predio: "P5",
-    andar: "1",
-    sala: "101"
-  });
+  // Criar Aluno
+  try {
+    const alunoUser = await auth.createUser({
+      uid: "aluno-teste",
+      email: "aluno@lcqui.ufsc.br",
+      password: "password123",
+      displayName: "Aluno Teste",
+    });
+    await auth.setCustomUserClaims(alunoUser.uid, { roles: ["Aluno"] });
 
-  // Reagente / Frasco
-  await db.collection("Resumo_Reagente").add({
-    nome: "Etanol Absoluto",
-    estado_fisico: "Líquido",
-    natureza_quimica: "ORGANICO",
-    letra_inicial: "E",
-    tipo_substancia: "PURA"
-  });
+    await db.collection("Usuario").doc(alunoUser.uid).set({
+      nome: "Aluno Teste",
+      email: "aluno@lcqui.ufsc.br",
+      papeis: ["Aluno"],
+      data_criacao: new Date()
+    });
+    
+    await db.collection("Aluno").doc(alunoUser.uid).set({
+      id_usuario: alunoUser.uid,
+      numero_matricula: "20261001",
+      curso: "Química Licenciatura"
+    });
+    console.log("✅ Aluno Teste criado (aluno@lcqui.ufsc.br / password123)");
+  } catch (e: any) {
+    if (e.code === 'auth/uid-already-exists') console.log("Aluno já existe.");
+    else console.error(e);
+  }
 
-  const esp = await db.collection("Especificacao_Reagente").add({
-    nome: "Etanol Absoluto",
-    pureza: "99%",
-    densidade: 0.789
-  });
-
-  await db.collection("Lote").add({
-    id_especificacao_reagente: esp.id,
-    nome_reagente: "Etanol Absoluto",
-    marca: "Merck",
-    validade_lote: new Date(2030, 0, 1)
-  });
-
-  await db.collection("Emprestimo_Reagente").add({
-    id_almoxarifado: almox.id,
-    medida_utilizada: 500,
-    unidade_medida_utilizada: "ml",
-    data_devolucao_efetuada: new Date(),
-    id_usuario_retirou: "usuario123",
-    finalidade_uso: "Aula Prática",
-    status: "CONCLUIDO"
-  });
-
-  // Patrimônio
-  await db.collection("Bem_Patrimonial").add({
-    numero_patrimonio: "987654",
-    nome_equipamento: "Espectrofotômetro UV-Vis",
-    predio: "P5",
-    andar: "1",
-    sala: "101",
-    status: "Ativo",
-    estado_conservacao: "Bom",
-    nome_responsavel_sei: "Prof. Silva"
-  });
-
-  await db.collection("Bem_Patrimonial").add({
-    numero_patrimonio: "987655",
-    nome_equipamento: "Agitador Magnético Quebrado",
-    predio: "P5",
-    andar: "1",
-    sala: "101",
-    status: "Inservível",
-    estado_conservacao: "Ruim",
-    nome_responsavel_sei: "Prof. Silva"
-  });
-
-  console.log("Seed concluído!");
-  process.exit(0);
+  console.log("✨ Seed finalizado!");
 }
 
 seed().catch(console.error);

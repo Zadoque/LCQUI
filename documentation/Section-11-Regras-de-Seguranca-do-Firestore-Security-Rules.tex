@@ -1,0 +1,59 @@
+\newpage
+% =================================================
+\section{Regras de Segurança do Firestore (Security Rules)}
+% =================================================
+
+\begin{explicacao}[Por que as Security Rules são obrigatórias]
+Toda leitura via \texttt{onSnapshot} no frontend passa \textbf{diretamente} pelo Firestore SDK, \textbf{sem} passar pelas Cloud Functions. Portanto, as Cloud Functions são a camada de autorização para escrita, mas as \textit{Security Rules} são a camada de autorização para \textbf{leitura direta}. Sem rules corretas, qualquer usuário autenticado poderia ler qualquer coleção.
+\end{explicacao}
+
+\begin{regra}[Princípio: Deny-All por Padrão]
+A regra raiz do arquivo \texttt{firestore.rules} deve ser:\\
+\texttt{allow read, write: if false;}\\
+Todas as exceções são declaradas explicitamente abaixo.
+\end{regra}
+
+\subsection{Regras por Coleção}
+
+\small
+
+\small
+\setlength{\tabcolsep}{5pt}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.32\textwidth} >{\raggedright\arraybackslash}p{0.62\textwidth}}
+\toprule
+\textbf{Coleção} & \textbf{Regra}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Coleção} & \textbf{Regra} (continuação)\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\nolinkurl{Usuarios/\{uid\}} & Read: \texttt{request.auth.uid == uid} (usuário lê só o próprio documento). Write: negado ao cliente (só Cloud Function).\\
+\texttt{Chefe\_Geral}, \texttt{Gestor\_Almoxarifado}, etc.~(coleções de papel) & Read: \texttt{request.auth.uid == docId} (cada usuário lê só o próprio documento de papel). Write: negado ao cliente.\\
+\nolinkurl{Turmas/\{turmaId\}} & Read: usuário é professor da turma (\texttt{resource.data.id\_professor == request.auth.uid}) OU está na sub-coleção \texttt{Alunos}. Write: negado ao cliente.\\
+\nolinkurl{Turmas/\{turmaId\}/Alunos} & Read: \texttt{request.auth.uid == resource.data.id\_aluno} OU professor da turma.\\
+\nolinkurl{Turmas/\{turmaId\}/Posts} & Read: membro da turma (professor ou aluno matriculado). Write: negado.\\
+\nolinkurl{Turmas/\{turmaId\}/Posts/\{postId\}/Comentarios} & Idem ao Post pai.\\
+\nolinkurl{Usuarios/\{uid\}/Notificacoes} & Read: \texttt{request.auth.uid == uid}. Write: negado ao cliente.\\
+\texttt{Frasco\_Reagente} & Read: papel \texttt{roles} no token contém \texttt{Chefe\_Geral} OU \texttt{Gestor\_Almoxarifado} OU \texttt{Professor} OU \texttt{Bolsista} OU \texttt{Aluno}. Write: negado ao cliente.\\
+\texttt{Emprestimo\_Reagente} & Read: \texttt{Chefe\_Geral} OU \texttt{Gestor\_Almoxarifado} OU o próprio usuário que retirou (\texttt{resource.data.id\_usuario\_retirou == request.auth.uid}). Write: negado.\\
+\texttt{Bem\_Patrimonial} & Read: qualquer usuário autenticado (catarro público interno). Write: negado ao cliente.\\
+\texttt{Requisicao\_Edicao\_Bem\_Patrimonial} & Read: o solicitante (\texttt{resource.data.id\_usuario\_solicitante == uid}) OU gestores de bens (papel no token). Write: negado.\\
+\texttt{Requisicao\_Adicao\_Bem\_Patrimonial} & Idem acima.\\
+\texttt{Locks\_Requisicao\_Patrimonio} & Read/Write: negado ao cliente (exclusivo de Cloud Function).\\
+\texttt{Registro\_de\_Auditoria} & Read: \texttt{Chefe\_Geral} no token. Write: negado ao cliente.\\
+\texttt{Roteiro\_Experimento} & Read: \texttt{resource.data.id\_professor == uid} OU existe documento em \texttt{Roteiro\_Professor\_Compartilhado} com \texttt{id\_professor\_destino == uid}. Write: negado.\\
+\end{longtable}
+
+
+\begin{regra}[Leitura de Custom Claims nas Security Rules]
+O papel do usuário fica disponível nas Security Rules como \texttt{request.auth.token.roles}. Exemplo:\\
+\texttt{function temPapel(papel) \{}\\
+\texttt{\quad return papel in request.auth.token.roles;}\\
+\texttt{\}}\\
+Isso garante consistência com o mesmo Custom Claim usado pelas Cloud Functions (\texttt{resolverPapeisDoToken}).
+\end{regra}

@@ -1,0 +1,147 @@
+\section{Notas de Mapeamento para Firestore}
+% =================================================
+
+\begin{explicacao}[Por que esta seção existe]
+A modelagem da seção anterior é deliberadamente relacional e normalizada (3FN), pensada para ser lida e avaliada como um modelo de dados independente de tecnologia. O banco real do LCQUI, porém, é o \textbf{Firestore} (Firebase), um banco de documentos sem \texttt{JOIN} e sem \texttt{LIKE}/busca por substring. Esta seção documenta as denormalizações propositais necessárias para a implementação -- nenhuma delas deve ser lida como parte do modelo 3FN, e nenhuma delas deve alterar a seção 4.
+\end{explicacao}
+
+\subsection{Reintrodução de \textit{letra\_inicial}}
+O campo \textit{letra\_inicial}, removido de \textit{Resumo\_Reagente} por ser derivável de \textit{nome} (violaria 3FN), volta a existir como campo próprio \textbf{apenas} no documento Firestore da coleção \textit{Resumo\_Reagente}. Motivo: o Firestore não tem \texttt{LIKE}/busca por substring, então a busca alfabética do catálogo precisa de um campo indexável para filtro de igualdade (ou de \textit{range query} por prefixo). Como esse filtro normalmente é combinado com outros filtros de igualdade na mesma consulta (estado físico, natureza química), um campo de igualdade simples é mais previsível dentro das limitações de índice composto do Firestore do que uma \textit{range query} de prefixo sobre \textit{nome} combinada com filtros adicionais.
+
+\begin{regra}[Consistência obrigatória]
+\textit{letra\_inicial} deve ser recalculado e reescrito pela mesma \textit{Cloud Function} que grava \textit{nome}, nunca aceito diretamente do cliente -- ver princípio ``nunca confiar no \textit{client-side}'' na seção \textit{Tecnologia e Relatórios}.
+\end{regra}
+
+\subsection{Espelhamento de \textit{estado\_fisico}}
+\textit{estado\_fisico} tem fonte única em \textit{Especificacao\_Reagente} no modelo 3FN. Se a tela de busca do catálogo (\textit{Resumo\_Reagente}) precisar filtrar por estado físico junto com \textit{natureza\_quimica} e \textit{letra\_inicial} na mesma consulta, \textit{estado\_fisico} também precisa ser espelhado como campo próprio no documento Firestore de \textit{Resumo\_Reagente} -- mesma lógica de \textit{letra\_inicial}.
+
+\subsection{Espelhamento de \textit{nome\_equipamento} e Localização em \textit{Bem\_Patrimonial}}
+No modelo 3FN, o nome do tipo de bem pertence exclusivamente a \textit{Resumo\_Bem\_Patrimonial.nome}; \textit{Bem\_Patrimonial} mantém apenas \textit{id\_resumo\_bem\_patrimonial} e \textit{id\_local}. No Firestore, porém, consultas de listagem e relatórios frequentemente partem diretamente de \textit{Bem\_Patrimonial}, sem um \textit{JOIN} para resolver o resumo ou o prédio. Por isso, o documento Firestore de \textit{Bem\_Patrimonial} deve conter os campos denormalizados \textit{nome\_equipamento}, \textit{predio}, \textit{andar} e \textit{sala}.
+
+\begin{regra}[Fonte única de verdade para o nome do patrimônio]
+\textit{nome\_equipamento} é exclusivamente um campo de leitura derivado de \textit{Resumo\_Bem\_Patrimonial.nome}. O cliente nunca pode gravá-lo diretamente. Sempre que o nome do resumo for alterado, a mesma operação transacional ou um gatilho de propagação controlado pelo servidor deve atualizar os documentos \textit{Bem\_Patrimonial} associados. Na aprovação da requisição de edição descrita na seção 10.2.5, \textit{novo\_nome} representa uma proposta de alteração do nome do resumo; o servidor atualiza primeiro a fonte de verdade e, em seguida, sincroniza \textit{nome\_equipamento}.
+\end{regra}
+
+\subsection{\textit{Composicao\_Reagente} como sub-coleção}
+A relação N:N \textit{Especificacao\_Reagente} $\leftrightarrow$ \textit{Substancia\_Quimica} não precisa de uma coleção de nível superior no Firestore: como é sempre consultada a partir de uma especificação já conhecida (nunca ``todas as composições do banco''), o caminho natural é uma sub-coleção \nolinkurl{Especificacao\_Reagente/\{id\}/Composicao} (ou um \textit{array} de mapas embutido no próprio documento, se o número de substâncias por especificação for pequeno e não crescer sem limite). A constraint \textit{UNIQUE(id\_especificacao\_reagente, id\_substancia\_quimica)} da seção 4.16, nesse caso, precisa ser reforçada na \textit{Cloud Function} de escrita (checar duplicidade antes de gravar), já que o Firestore não tem \textit{unique constraints} declarativas.
+
+\subsection{Tabelas ``Materialized'' são coleções próprias, não \textit{views} do SGBD}
+As tabelas descritas na seção \textit{Materialized (Views)} não são \textit{materialized views} no sentido de PostgreSQL (não existe \texttt{REFRESH MATERIALIZED VIEW} no Firestore). Cada uma delas é implementada como sua própria coleção Firestore, escrita por \textit{Cloud Functions} -- gatilhos de escrita (\texttt{onDocumentWritten}) para contadores que reagem a um evento pontual (ex.: \textit{Lote\_Materializado}), ou funções agendadas (\texttt{onSchedule}) para os resumos diários/mensais. Ver pseudo-código na seção \textit{Tecnologia e Relatórios}.
+
+\subsection{Unicidade de \texttt{numero\_patrimonio\_proposto} no Firestore}
+O PostgreSQL implementa a regra RF10b via índice único parcial
+\texttt{UNIQUE(numero\_patrimonio\_proposto) WHERE status = 'pendente'},
+impedindo duas requisições simultâneas para a mesma plaqueta enquanto
+o bem patrimonial ainda não existe. No Firestore não há índice parcial
+nem \emph{unique constraint} nativo, então a garantia é reimplementada
+na Cloud Function de criação da requisição de adição.
+
+A função de criação consulta a coleção
+\texttt{Requisicao\_Adicao\_Bem\_Patrimonial} filtrando por
+\texttt{numero\_patrimonio\_proposto == X} e
+\texttt{status == 'pendente'}, com \texttt{limit(1)}. Se encontrar
+algum documento, lança um \texttt{HttpsError} de \emph{failed-precondition}
+e não cria nova requisição. Caso contrário, persiste a requisição com
+\texttt{status = 'pendente'} e \texttt{feita\_em} baseado em
+\texttt{serverTimestamp()}. A consulta e a escrita são encapsuladas
+em uma transação para evitar condição de corrida entre dois clientes
+tentando criar requisições para o mesmo número de patrimônio.
+\subsection{Mapeamento Completo de Coleções e Sub-coleções Firestore}
+\label{subsec:mapeamento-colecoes}
+
+\begin{explicacao}[Como ler esta tabela]
+Cada linha descreve uma entidade 3FN da Seção 4, a decisão de estrutura no Firestore (coleção raiz, sub-coleção ou array de maps embutido) e a justificativa. Campos FK referenciados em queries de listagem ou relatório que exigiriam um JOIN são obrigatoriamente denormalizados no documento Firestore; o símbolo \textbf{Denorm:} lista esses campos. A consistência de todos os campos denormalizados deve ser garantida por \texttt{onDocumentUpdated} na Cloud Function da entidade de origem, nunca pelo cliente.
+\end{explicacao}
+
+\small
+
+\small
+\setlength{\tabcolsep}{4.5pt}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.28\textwidth} >{\raggedright\arraybackslash}p{0.26\textwidth} >{\raggedright\arraybackslash}p{0.38\textwidth}}
+\toprule
+\textbf{Entidade 3FN} & \textbf{Estrutura Firestore} & \textbf{Justificativa / Denorm}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Entidade 3FN} & \textbf{Estrutura Firestore} & \textbf{Justificativa / Denorm} (continuação)\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Usuario & Coleção raiz \texttt{Usuarios} (docId = Firebase Auth UID) & Acesso direto por auth; estrutura natural do SDK.\\
+Chefe\_Geral & Coleção raiz \texttt{Chefe\_Geral} (docId = uid) & Lido por \texttt{atualizarCustomClaims(uid)} para compor o claim \texttt{roles} do token JWT. Papéis n\~{a}o s\~{a}o mais relidos a cada chamada de API.\\
+Gestor\_Almoxarifado & Coleção raiz \texttt{Gestor\_Almoxarifado} (docId = uid) & Idem acima.\\
+Gestor\_Bens\_Patrimoniais & Coleção raiz \texttt{Gestor\_Bens\_Patrimoniais} (docId = uid) & Idem.\\
+Professor & Coleção raiz \texttt{Professor} (docId = uid) & Idem.\\
+Aluno & Coleção raiz \texttt{Aluno} (docId = uid). Denorm: \texttt{letra\_inicial} & Idem. \texttt{letra\_inicial} permite filtro de igualdade na busca.\\
+Bolsista & Coleção raiz \texttt{Bolsista} (docId = uid) & Idem.\\
+Gestor\_Almoxarifado\_x\_Almoxarifado & Coleção raiz & Query bidirecional: ``gestores de X'' e ``almoxarifados de Y''.\\
+Almoxarifado & Coleção raiz & Poucas dezenas de documentos.\\
+Local & Coleção raiz & Referenciado por múltiplas entidades; campos \texttt{predio}, \texttt{andar}, \texttt{sala} denormalizados em \texttt{Bem\_Patrimonial} via trigger.\\
+Resumo\_Bem\_Patrimonial & Coleção raiz. Denorm: \texttt{letra\_inicial\_nome} & Agrupador de bens; filtro alfabético por letra inicial.\\
+Bem\_Patrimonial & Coleção raiz. Denorm: \texttt{nome\_equipamento}, \texttt{predio}, \texttt{andar}, \texttt{sala}, \texttt{letra\_inicial\_nome} & Entidade central pesquisada diretamente; evita JOINs em listagens e relatórios.\\
+Historico\_Bem\_Patrimonial & Sub-coleção \nolinkurl{Bem\_Patrimonial/\{id\}/Historico} & Sempre consultado a partir de um bem conhecido.\\
+Alteracao\_Bem\_Patrimonial & Campo \texttt{alteracoes} (array de maps) dentro de cada doc de \texttt{Historico} & Poucos campos por alteração; relação 1:N estreita, nunca consultada independentemente.\\
+Requisicao\_Edicao\_Bem\_Patrimonial & Coleção raiz. Denorm: \texttt{nome\_equipamento}, \texttt{numero\_patrimonio} & Listada independentemente nos painéis de gestores por qualquer filtro de status.\\
+Requisicao\_Adicao\_Bem\_Patrimonial & Coleção raiz & Mesma lógica; query por status e número de patrimônio proposto.\\
+Impressao\_Etiqueta\_Frasco & Coleção raiz & Poucas dezenas de documentos; necessário para oferecer as três opções do modal de geração.\\
+Contador\_Codigo\_Frasco & Documento singleton em \nolinkurl{Contador\_Codigo\_Frasco/singleton} & Incrementado atomicamente via \texttt{FieldValue.increment(1)} a cada frasco cadastrado.\\
+Substancia\_Quimica & Coleção raiz & Catálogo global; raramente alterado.\\
+Resumo\_Reagente & Coleção raiz. Denorm: \texttt{letra\_inicial}, \texttt{estado\_fisico} & Catálogo de reagentes; filtros de igualdade combinados exigem ambos os campos como propriedades do documento.\\
+Especificacao\_Reagente & Sub-coleção \nolinkurl{Resumo\_Reagente/\{id\}/Especificacoes} & Sempre acessada a partir do resumo; nunca consultada globalmente.\\
+Composicao\_Reagente & Array de maps embutido no documento de \texttt{Especificacao\_Reagente} & N pequeno e fixo (poucas substâncias por especificação); não cresce sem limite.\\
+Lote & Coleção raiz. Denorm: \texttt{id\_especificacao\_reagente}, \texttt{nome\_reagente} & Relatórios consultam todos os lotes de um período sem partir de uma especificação conhecida.\\
+Frasco\_Reagente & Coleção raiz. Denorm: \texttt{id\_especificacao\_reagente}, \texttt{id\_resumo\_reagente}, \texttt{nome\_reagente}, \texttt{unidade\_medida}, \texttt{id\_almoxarifado} & Entidade central; queries cruzadas constantes por almoxarifado, status e vencimento.\\
+Historico\_Frasco\_Reagente & Coleção raiz (não sub-coleção). Denorm: \texttt{id\_almoxarifado} & Jobs diários consultam ``todos os históricos do dia'' sem partir de um frasco conhecido; sub-coleção impossibilitaria esse padrão.\\
+Emprestimo\_Reagente & Coleção raiz. Denorm: \texttt{id\_almoxarifado}, \texttt{nome\_reagente}, \texttt{nome\_usuario\_retirou} & Relatórios por almoxarifado e por período; queries de status global (\texttt{EM\_USO}).\\
+Materia & Coleção raiz & Catálogo global; raramente alterado.\\
+Professor\_x\_Materia & Coleção raiz & Query bidirecional: ``matérias de X'' e ``professores de Y''.\\
+Turma & Coleção raiz. Denorm: \texttt{nome\_materia} & Acesso direto por \texttt{codigo\_turma}; nome da matéria necessário na listagem sem JOIN.\\
+Aluno\_x\_Turma & Sub-coleção \nolinkurl{Turmas/\{id\}/Alunos} & Query natural: ``alunos desta turma''; contagem de capacidade trivial.\\
+Historico\_Alunos\_Turma & Sub-coleção \nolinkurl{Turmas/\{id\}/HistoricoAlunos} & Auditoria de inclusão/exclusão sempre por turma.\\
+Post & Sub-coleção \nolinkurl{Turmas/\{id\}/Posts} & Feed cronológico da turma; nunca consultado globalmente.\\
+Comentario & Sub-coleção \nolinkurl{Posts/\{id\}/Comentarios} & Thread aninhada ao post.\\
+Historico\_Posts\_Turma & Sub-coleção \nolinkurl{Posts/\{id\}/Historico} & Auditoria de edição sempre a partir do post.\\
+Historico\_Comentario & Sub-coleção \nolinkurl{Comentarios/\{id\}/Historico} & Auditoria de edição sempre a partir do comentário.\\
+Roteiro\_Experimento & Coleção raiz & Compartilhamento cross-professor exige acesso sem partir de uma turma.\\
+Roteiro\_Professor\_Compartilhado & Coleção raiz & Query bidirecional: ``roteiros compartilhados comigo'' e ``com quem compartilhei este roteiro''.\\
+Convite\_Aluno & Coleção raiz & Query por e-mail normalizado e status independentemente de turma.\\
+Notificacao & Sub-coleção \nolinkurl{Usuarios/\{uid\}/Notificacoes} & Query natural por usuário; funciona automaticamente para usuários multi-role sem necessidade de multiple reads.\\
+Registro\_de\_Auditoria & Coleção raiz & Log global queryável por tipo de entidade e período.\\
+Lote\_Materializado & Coleção raiz (docId = id do lote) & Atualizada por trigger \texttt{onFrascoCriado}/\texttt{onFrascoRemovido}.\\
+Resumo\_Almoxarifado\_Diario & Coleção raiz & Job agendado diário.\\
+Resumo\_Reagente\_Diario & Coleção raiz & Job agendado diário.\\
+Resumo\_Bem\_Patrimonial\_Diario & Coleção raiz & Job agendado diário.\\
+Atividade\_Gestor\_Almoxarifado\_Mensal & Coleção raiz & Job agendado diário (acumulado por mês).\\
+Atividade\_Gestor\_Bens\_Patrimoniais\_Mensal & Coleção raiz & Job agendado diário (acumulado por mês).\\
+\end{longtable}
+
+
+\begin{regra}[Regra geral de denormalização]
+Todo campo FK referenciado em queries de listagem ou relatório que exigiria um JOIN deve ser denormalizado no documento Firestore correspondente. A consistência desse campo é mantida por um \texttt{onDocumentUpdated} na Cloud Function da entidade de origem, nunca pelo cliente. A ordem de atualização é: primeiro a entidade de origem, depois os documentos dependentes.
+\end{regra}
+
+\subsection{Estratégia de Busca Textual no Firestore}
+\label{subsec:busca-textual}
+
+\begin{explicacao}[Por que não existe \texttt{LIKE} no Firestore]
+O Firestore não oferece busca por substring (sem \texttt{LIKE}, sem \texttt{icontains}). A estratégia adotada é: aplicar \textbf{filtros obrigatórios de igualdade} no Firestore para reduzir drasticamente o conjunto de documentos retornados, e então aplicar \textbf{substring no frontend} sobre os poucos resultados restantes.
+\end{explicacao}
+
+\subsubsection{Reagentes}
+O usuário deve obrigatoriamente escolher ao menos um dos filtros: estado físico (\texttt{SOLIDO} ou \texttt{LIQUIDO}), natureza química (\texttt{ORGANICO}, \texttt{INORGANICO}, \texttt{ELEMENTO} ou \texttt{HIBRIDO}), tipo de substância (\texttt{PURA} ou \texttt{MISTURA}) e/ou letra inicial (campo \texttt{letra\_inicial} denormalizado). A query Firestore usa esses filtros de igualdade e retorna poucos documentos; o frontend aplica a busca por substring sobre o campo \texttt{nome}.
+
+\subsubsection{Bens Patrimoniais}
+Combinação obrigatória de pelo menos um: (Prédio) ou (letra inicial do nome do equipamento) ou (Status). O Firestore filtra com os campos denormalizados \texttt{predio}, \texttt{andar}, \texttt{sala}, \texttt{status} e \texttt{letra\_inicial\_nome}. O frontend aplica substring sobre \texttt{nome\_equipamento} e \texttt{numero\_patrimonio} nos resultados. Bigramas não serão implementados na V1: o filtro de (Prédio + Andar) já reduz os candidatos suficientemente.
+
+\subsubsection{Alunos}
+Busca via campo denormalizado \texttt{letra\_inicial} (filtro de igualdade). O frontend aplica substring sobre \texttt{nome} nos resultados. A \textit{range query} por prefixo (\texttt{nome >= ``A''}, \texttt{nome < ``B''}) é alternativa válida, mas não combina facilmente com outros filtros de igualdade em índice composto no Firestore; o campo \texttt{letra\_inicial} é preferível.
+
+\subsubsection{Professores}
+Poucos no sistema (dezenas). Estratégia: baixar todos via \texttt{onSnapshot} com persistência habilitada e filtrar inteiramente no frontend por substring. Cache local resolve o desempenho.
+
+\begin{regra}[Listeners com \texttt{onSnapshot} e Persistência]
+O frontend deve usar \texttt{onSnapshot} com persistência habilitada (\texttt{enableIndexedDbPersistence} ou \texttt{enableMultiTabIndexedDbPersistence} conforme o contexto) em todas as coleções listáveis pelo papel do usuário logado. Com isso, o SDK Firestore mantém cache local e trafega apenas deltas do servidor a cada reconexão, reduzindo leituras faturáveis e melhorando a experiência offline. As telas de busca se alimentam primariamente do cache; a sincronização em tempo real é transparente.
+\end{regra}

@@ -1,0 +1,142 @@
+%%-----------------------------%%
+%%        STAKEHOLDERS         %%
+%%-----------------------------%%
+
+\section{Stakeholders}
+
+\begin{explicacao}[Importante]
+Um mesmo usuário pode possuir múltiplos papéis, observadas as combinações permitidas na Matriz de Papéis e Permissões da seção de Regras de Negócio. O papel \textit{Chefe Geral} é mutuamente exclusivo com os demais papéis para uma mesma conta. O papel \textit{Bolsista} possui como pré-condição existencial e estrutural o papel de \textit{Aluno} ($Bolsista \implies Aluno$).
+\end{explicacao}
+
+%%--------------------------------------------%%
+%%       STAKEHOLDERS - CHEFE GERAL           %%
+%%--------------------------------------------%%
+\subsection{Chefe Geral}
+Esse é o maior cargo do sistema: Esse cargo gerencia os outros cargos.
+\begin{itemize}
+    \item Poder cadastrar outros usuários e definir os papéis deles no sistema, de acordo com as regras descritas em \textit{Regras de Negócio} e na \textit{Descrição das telas}.
+    \item Pode cadastrar um Almoxarifado. 
+    \item Ao cadastrar um Gestor de Almoxarifado, pode colocá-lo responsável por mais de um almoxarifado. 
+    \item Ao cadastrar um Gestor de Almoxarifado, pode vinculá-lo imediatamente para gerenciar um ou mais almoxarifados, ou apenas cadastrar o usuário (deixando a vinculação para um momento futuro, resultando em uma dashboard sem almoxarifados ativos inicialmente).
+    \item Atribuir o papel de Bolsista a um usuário que já possua o papel Aluno.
+\end{itemize}
+
+%%-----------------------------------------------%%
+%%     STAKEHOLDERS - GESTOR DE ALMOXARIFADO     %%
+%%-----------------------------------------------%%
+\subsection{Gestor de Almoxarifado}
+Pode haver mais de um gestor, ele(s) pode(m):
+\begin{itemize}
+    \item Gerar um pdf de etiquetas de frasco 
+    \item Adicionar/alterar a quantidade de um reagente no estoque.
+    \item Pesquisar por um reagente no estoque.
+    \item Cadastrar uma nova especificação de reagente, informando os dados obrigatórios definidos pelo tipo de substância e pelo estado físico.
+    \item Marcar um reagente como removido (não exclui do banco, apenas muda o status).
+    \item Alterar o status de um reagente: marcar empréstimo, devolução (através de pesagem), descarte, vazio ou quebrado.
+    \item Autorizar expressamente o uso de frascos vencidos para fins exclusivamente didáticos e demonstrações.
+    \item Gerar relatório mensal (ou de um período específico) para um almoxarifado ou para todos.
+    \item Editar/adicionar propriedades de um reagente.
+\end{itemize}
+
+%%-----------------------------------------------%%
+%%  STAKEHOLDERS - GESTOR DE BENS PATRIMONIAIS   %%
+%%-----------------------------------------------%%
+\subsection{Gestor de Bens Patrimoniais}
+Pode haver mais de um gestor de bem patrimonial, ele(s) pode(m):
+\begin{itemize}
+    \item Visualizar as requisições dos professores para adicionar/editar um bem patrimonial.
+    \item Quando a requisição do professor é para colocar um bem como inservível e o gestor aprova, o gestor deve dar baixa do bem patrimonial através do processo da UENF (abrir processo no SEI etc.). Após esse processo, ele marca no sistema que foi dada baixa.
+    \item Adicionar um bem patrimonial e criar resumos de catálogo.
+    \item Editar um bem patrimonial e suas propriedades.
+    \item Gerar e baixar relatório de bens patrimoniais mensal (ou de período específico).
+    \item Visualizar os bens patrimoniais existentes.
+    \item Pesquisar bens patrimoniais por número de patrimônio ou nome.
+    \item Filtrar bens patrimoniais por local (prédio, andar e sala), estado de conservação ou status.
+    \item Imprimir Relatório mensal (ou período personalizado), ou sobre um Bem patrimonial específico podendo filtrar por prédio, andar, sala, Nome do responsável, etc.
+\end{itemize}
+
+%%-----------------------------------%%
+%%        STAKEHOLDERS - PROFESSOR   %%
+%%-----------------------------------%%
+\subsection{Professor}
+Com certeza haverá mais de um, eles podem:
+\begin{itemize}
+    \item Criar uma turma (especificando nome e capacidade máxima de alunos).
+    \item Copiar o código de uma turma dele.
+    \item Criar um post em uma turma (ao criar um post, o professor pode selecionar um roteiro que ele já tenha feito o upload, um roteiro que outro professor compartilhou com ele, ou ainda fazer upload de um roteiro do próprio computador -- isso abre um modal para cadastrar o roteiro).
+    \item Adicionar usuários apenas como alunos por e-mail (mandando o link para eles trocarem a senha).
+    \item Pesquisar por bens patrimoniais.
+    \item Abrir uma requisição de adição ou edição de bem patrimonial (analisada por um gestor de bens patrimoniais).
+    \item Adicionar novos Locais (Prédio, Andar e Sala) no sistema de forma autônoma (por exemplo, ao fazer uma requisição, selecionar a opção "Novo Local" e registrá-lo).
+    \item Solicitar/receber empréstimo de reagentes do almoxarifado; o registro operacional da retirada é efetuado pelo Gestor de Almoxarifado.
+    \item Adicionar um roteiro de experimento (formato PDF).
+    \item Vincular um roteiro de experimento a uma turma.
+    \item Compartilhar um roteiro de experimento com outros professores.
+    \item Acessar a aba de roteiros compartilhados (dividida em: ``Compartilhados comigo'' e ``Eu compartilhei'').
+    \item Baixar um roteiro (seja adicionado por ele mesmo ou compartilhado com ele por outro professor).
+    \item Vincular um roteiro de experimento compartilhado com ele por outro professor a uma turma dele.
+    \item Arquivar e desarquivar turmas sob sua responsabilidade.
+\end{itemize}
+
+%%-----------------------------------%%
+%%        STAKEHOLDERS - ALUNO       %%
+%%-----------------------------------%%
+\subsection{Aluno}
+Esses com certeza serão maioria. Eles podem:
+\begin{itemize}
+    \item Entrar em uma turma usando o código disponibilizado pelo professor (respeitado o limite de capacidade da turma).
+    \item Visualizar suas turmas e o professor respectivo de cada turma.
+    \item Baixar qualquer roteiro de qualquer turma da qual façam parte.
+    \item Visualizar os colegas que estão na mesma turma.
+    \item Comentar em um post (o comentário é visível tanto para o professor quanto para os colegas).
+\end{itemize}
+
+\subsection{Bolsista}
+Seja de graduação ou pós-graduação, este papel identifica um usuário que possui o papel de Aluno e uma autorização adicional para retirada de reagentes ($Bolsista \implies Aluno$). Ele é mutuamente compatível com Aluno, mas possui restrições próprias para acumulação com papéis de gestor.
+\begin{itemize}
+    \item Ele pode ver os reagentes e seus estoques assim como os professores.
+    \item O gestor de reagentes pode registrar retiradas e devoluções para esses usuários.
+    \item É mutuamente exclusivo com o papel de Gestor de Almoxarifado para uma mesma conta, em virtude do princípio de Segregação de Funções (SoD).
+\end{itemize}
+
+\subsection{Matriz de Papéis e Permissões}
+Para eliminar ambiguidades de autorização, a regra de acesso é centralizada na matriz abaixo. As permissões são do papel ativo do usuário e nunca são determinadas por um papel informado pelo cliente.
+
+
+\small
+\setlength{\tabcolsep}{4pt}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.24\textwidth}*{6}{>{\centering\arraybackslash}p{0.105\textwidth}}}
+\toprule
+\textbf{Ação} & \textbf{Chefe} & \textbf{Gestor Almox.} & \textbf{Gestor Patr.} & \textbf{Professor} & \textbf{Aluno} & \textbf{Bolsista}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Ação} & \textbf{Chefe} & \textbf{Gestor Almox.} & \textbf{Gestor Patr.} & \textbf{Professor} & \textbf{Aluno} & \textbf{Bolsista} (cont.)\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Gerenciar usuários e papéis & \checkmark & -- & -- & -- & -- & --\\
+Gerenciar almoxarifados & \checkmark & -- & -- & -- & -- & --\\
+Consultar estoque de reagentes & \checkmark & \checkmark & -- & \checkmark & \checkmark & \checkmark\\
+Cadastrar/editar reagente e frasco & \checkmark & \checkmark & -- & -- & -- & --\\
+Registrar retirada/devolução & \checkmark & \checkmark & -- & retirante & -- & retirante\\
+Gerenciar bens patrimoniais & \checkmark & -- & \checkmark & leitura & -- & --\\
+Abrir requisição de patrimônio & \checkmark & -- & -- & \checkmark & -- & --\\
+Responder requisição de patrimônio & \checkmark & -- & \checkmark & -- & -- & --\\
+Gerenciar turmas próprias & \checkmark & -- & -- & \checkmark & -- & --\\
+Ingressar em turma & -- & -- & -- & -- & \checkmark & \checkmark\\
+Criar/comentar posts permitidos & -- & -- & -- & \checkmark & \checkmark & \checkmark\\
+Gerenciar roteiros próprios & \checkmark & -- & -- & \checkmark & -- & --\\
+Compartilhar roteiros & \checkmark & -- & -- & \checkmark & -- & --\\
+Cadastrar/editar matérias & \checkmark & -- & -- & \checkmark & -- & --\\
+Gerar etiquetas de frasco & \checkmark & \checkmark & -- & -- & -- & --\\
+\bottomrule
+\end{longtable}
+
+
+\begin{explicacao}[Regra de autorização]
+A Cloud Function responsável por cada mutação deve resolver os papéis a partir dos registros persistidos e, quando aplicável, validar também o escopo do recurso. Por exemplo, um Gestor de Almoxarifado só atua sobre almoxarifados aos quais está vinculado. O frontend pode ocultar ou desabilitar ações, mas não constitui autorização.
+\end{explicacao}

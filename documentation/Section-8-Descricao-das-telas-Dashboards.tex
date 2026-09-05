@@ -1,0 +1,167 @@
+% =================================================
+\section{Descrição das telas (Dashboards)}
+% =================================================
+\subsection{Header em comum em todos os papeis}
+\begin{verbatim}
+|----------------------------------------------------------------------|
+|Olá, [Nome completo do usuário]                       [foto de perfil]| 
+|----------------------------------------------------------------------|
+\end{verbatim}
+Quando se clica na foto de perfil, aparece um modal que se arrasta da direita. Nele é possível deslogar e ir para "Perfil de usuário", que por sua vez abre um modal com as informações do usuário e botão para editar (foto, nome, etc.).
+
+\subsection{Header quando o usuário é Multi-Role}
+\begin{verbatim}
+|----------------------------------------------------------------------|
+|Olá, [Nome]  [Botão Papel 1] [Botão Papel 2]          [foto de perfil]| 
+|----------------------------------------------------------------------|
+\end{verbatim}
+Alterar os botões de papel no header modifica instantaneamente a página toda e o painel lateral para as funcionalidades daquele papel selecionado (ex: de Aluno para Gestor de Almoxarifado).
+
+\subsection{Dashboard-Chefe Geral}
+O Chefe Geral tem uma div \textit{full-width} logo abaixo do header principal, alterando conforme a aba selecionada no painel esquerdo:
+
+\subsubsection{Aba: Almoxarifados}
+Antes da área principal de busca, ele verá uma div \textit{full-width} com:
+\begin{itemize}
+    \item Um botão "Mais" que ao clicar terá as opções:
+     \begin{itemize}
+         \item Novo Almoxarifado: Abre um modal para criar um almoxarifado.
+         \item Novo Gestor de Almoxarifado: Abre um modal em que ele pode escolher: transformar um aluno em gestor de almoxarifado ou criar um Usuário que é Gestor de almoxarifado.
+         \item \textbf{Nova Matéria:} Abre modal com campos Nome e Código da Matéria. O código deve ser único (validado na Cloud Function).
+     \end{itemize}
+    \item Um botão para "Gerenciar Gestores de Almoxarifado". Esse botão abre um novo modal que:
+    \begin{itemize}
+        \item Permite pesquisar e selecionar Gestores. Ao selecionar, aparece o histórico dele nós ultimos 30 dias com: (Reagentes e frascos adicionados, movimentações registradas), caso ele queira de um mês específico, terá um modal para escolher o ano e o mês. 
+    \end{itemize}
+    \item Um botão de "Relatórios" que abre um modal com as opções para Relatórios em PDF dos almoxarifados.
+\end{itemize} 
+Abaixo, haverá uma aba de busca onde pode-se filtrar por almoxarifado, reagente (ou ambos) e pesquisar livremente um reagente pelo nome. Ao clicar em um reagente, abre-se uma tela de detalhes:
+O filtro padrão da tela de detalhes é o estado atual, mas pode ser alterado para um período específico. Ele exibe: Todas as propriedades em Resumo de reagente, inclusive as materializadas (Materialized View).
+
+\subsubsection{Aba: Bens Patrimoniais}
+Antes da aba principal de busca, ele verá uma div \textit{full-width} com:
+\begin{itemize}
+    \item Um botão "Mais" com as opções:
+     \begin{itemize}
+         \item Novo Gestor de Bens Patrimoniais. 
+     \end{itemize}
+    \item Um botão para "Gerenciar Gestores de Bens Patrimoniais", abrindo um modal que:
+    \begin{itemize}
+        \item Permite pesquisar (por nome) um gestor. Ao selecionar, visualiza-se o histórico dos últimos 30 dias, ou um mês e ano esepecífico que for escolhido (requisições aprovadas/rejeitadas, bens adicionados, edições feitas).
+    \end{itemize}
+    \item Um botão de "Relatórios" para gerar os PDFs de bens patrimoniais (mensal, por prédio, geral). 
+\end{itemize} 
+Abaixo, a aba de busca permite filtrar por responsável do bem, estado de conservação, e pesquisa livre pelo número/nome do bem. Ao clicar em um patrimônio, abre-se o detalhamento:
+Mostra o estado atual, quantos itens existem daquele tipo cadastrados, a divisão por status (Ativo, Inservível, Baixado) e a lista completa desses itens exibindo o número de patrimônio e o respectivo responsável logado no Sistema da UENF.
+
+Ao clicar em um número de patrimônio especifico, abre um modal com as propriedades desse patrimônio, ao mudar o status dele para já dado baixa, é preciso fazer o upload do documento pdf que comprove isso. 
+\subsubsection{Aba: Professores}
+Antes da aba de busca, uma div \textit{full-width} com:
+\begin{itemize}
+    \item Um botão para "Novo Professor".
+\end{itemize} 
+Na área principal ele pode pesquisar Professores pelo nome, filtrar por Matéria lecionada, Prédio, ou número da sala (inclusive combinando múltiplos filtros). Ao clicar em um professor, abre-se um modal para gerenciar a conta daquele docente, ver seu histórico de ações e a lista de turmas que ele administra.
+
+\subsubsection{Aba: Alunos}
+Antes da aba de busca, uma div \textit{full-width} com:
+\begin{itemize}
+    \item Um botão para "Novo Aluno".
+\end{itemize} 
+Na área principal ele pesquisa Aluno pelo nome, podendo filtrar por Matéria que cursa ou número de matrícula. Ao clicar no Aluno, abre-se um modal de gerenciamento exibindo seu histórico e as turmas em que está matriculado.
+
+\subsection{Dashboard-Professor}
+Para o papel de Professor, a dashboard foca em organização acadêmica e gestão de recursos em uso:
+\begin{itemize}
+    \item \textbf{Painel Lateral:} Fica do lado esquerdo, podendo ser expandido ou mantido em modo compacto. Contém dois grupos:
+    \begin{itemize}
+        \item \textbf{Grupo 1 (Visualizar):} Opções para acessar a área de "Reagentes" e "Bens Patrimoniais".
+        \item \textbf{Grupo 2 (Turmas):} Lista navegável de todas as turmas ativas dele. Abaixo da lista, um botão "Turmas Arquivadas" (abre um modal com as turmas passadas exibindo Nome, Ano/Semestre e botão para Desarquivar). Ao desarquivar, a turma volta para a lista de turmas tanto do professor, quanto dos alunos que fazem parte dela.
+    \end{itemize}
+\end{itemize}
+
+Na aba principal, abaixo do header em comum, ele verá uma div \textit{full-width} com:
+\begin{itemize}
+    \item \textbf{Notificações:} Botão com ícone de sino que abre um modal \textit{dropdown} alertando sobre requisições de bens respondidas e sobre reagentes emprestados cujo prazo está atrasado, vence hoje ou vence amanhã. Inclui um botão "Limpar tudo".
+    \item \textbf{Botão Mais (+):} Abre \textit{dropdown} com: Nova Turma, Novo Aluno (bloqueado se não tiver turmas criadas), Novo Roteiro de Experimento, Novo Pedido de Adição de Bem Patrimonial (se o usuário selecionar "Novo Local" dentro do pedido, um modal sobreposto exigirá o cadastro prévio do Prédio/Sala), e \textbf{Nova Matéria} (abre modal simples com nome e código; código deve ser único, validado pelo backend).
+    \item \textbf{Gerenciar Roteiros:} Abre um modal com duas abas ("Meus" e "Compartilhados comigo"). Permite abrir para visualização ou baixar os arquivos em PDF.
+    \item \textbf{Minhas Requisições:} Modal para acompanhar os pedidos feitos de adição/edição de Bens Patrimoniais (filtrando por Pendente, Aprovada, Rejeitada).
+    \item \textbf{Meus Reagentes:} Modal de acompanhamento onde o professor visualiza os reagentes atualmente sob sua posse (ordenados pela data de devolução) e o histórico de uso (Padrão: últimos 30 dias). Ao clicar num reagente histórico, ele visualiza exatamente o volume (mL) que ele consumiu nesse período.
+\end{itemize} 
+
+\textbf{Área Central (Feed da Turma):}
+Ao acessar a dashboard inicialmente, uma mensagem dirá: "\textit{Selecione uma turma ao lado para começarmos}". 
+Ao clicar em uma turma no painel lateral, a área central exibe o Feed dessa disciplina. Existe um bloco fixo superior para criar novos posts (podendo anexar PDFs novos ou selecioná-los da sua biblioteca/compartilhados). O feed lista os posts em ordem cronológica e cada post contém a área de comentários integrada para interação direta com os alunos.
+
+\subsection{Dashboard-Gestor de Almoxarifado}
+Para o perfil de Gestor de Almoxarifado, a interface é desenhada para a velocidade de atendimento de balcão e auditoria rigorosa de insumos:
+\begin{itemize}
+    \item \textbf{Painel Lateral:} Grupos de navegação para "Estoque" (Reagentes e Frascos), "Movimentações" (Empréstimos/Retornos), e "Descartes/Alertas".
+\end{itemize}
+
+Na aba principal, uma div \textit{full-width} com botões rápidos essenciais:
+\begin{itemize}
+    \item \textbf{Alertas de Gestor (Notificações):} Sino de avisos exclusivo exibindo pendências críticas: frascos declarados como vazios, vencidos ou quebrados, ou seja, aguardando mudança para o estado DESCARTADO, e reagentes que atingiram nível de escassez no estoque, frascos que precisam de pesagem de rotina, frascos que estão em quarentena.
+    \item \textbf{Botão Mais (+):}
+    \begin{itemize}
+        \item Novo Reagente -> Abre modal exigindo Nome,CAS, Concentração, grau de pureza( em \%), a quantidade em que ele é considerado escasso para alertas futuros, fórmula química , se é controlado pela pf ou pela eb, a classe de inflamabilidade, link da ficha de segurança, tipo (sólido ou líquido: pede densidade, pergunta se requer pesagem frequente, se sim, pede a frequencia em dias). 
+        Tem um seletor para escolher entre sólido e líquido (em temperatura ambiente):
+        \begin{itemize}
+            \item Para tipo sólido -> Sempre que for adicionar um frasco -> o tipo de medida é gramas (g) (setado pelo sistema)
+            \item Para tipo líquido -> Sempre que for adicionar um frasco -> o tipo de medida é mililitros (ml) (setado pelo sistema)
+        \end{itemize}
+        Tem um seletor para a Natureza do Reagente: Orgânico, Inorgânico, Elemento ou Híbrido
+        
+        \item Adicionar Frasco: abre um modal para escolher o reagente a ser adicionado, o reagente pode ser pesquisado, por: nome, cas e formula química (deve ter um seletor para escolher, isso serve para não precisar pesquisar em todas as categorias de uma vez). Após selecionar o reagente a ser adcionado, fecha o modal de escolher reagente e passa a preencher o formulário para adicionar o frasco de reagente, o fórmulário deve conter:
+         Selecionar o almoxarifao em que esse frasco vai ficar;\\
+         Escrever o detalhamento do local (como: Segunda prateleira, na direita, etc) \\
+         O número do lote em que esse frasco pertence. \\
+         Pergunta o status dele: Fechado, Aberto, Quarentena (em caso de quarente, aparece um campo em texto para ser escrito explicando o motivo de estar em quarentena)
+         O campo "tipo" em Resumo de reagente que determina os campos a serem pedidos abaixo (sólido ou líquido) \\
+        líquido ->
+\begin{itemize}
+    \item Se é do tipo fechado, pede apenas a volume do líquido e o peso total com o frasco. (calcula o peso do frasco, mostra o peso do frasco mas não pode ser editado.)
+    \item Se é do tipo Aberto, pede o peso do frasco, ...
+\end{itemize} 
+        sólido -> pede peso 
+         
+    \end{itemize}
+    \item \textbf{Ações de Bancada (Destacados no centro):} 
+    \begin{itemize}
+        \item \textbf{Registrar Retirada:} Modal para escanear/buscar o frasco, selecionar o usuário retirante (Professor ou Bolsista, conforme as regras de autorização) e anotar o Peso Inicial.
+        \item \textbf{Registrar Devolução:} Modal crucial. O gestor informa o frasco retornado e insere o \textbf{Peso de Retorno} da balança. O sistema faz a diferença, aplica a densidade (se for líquido), e mostra em negrito o \textit{Volume Ultilizado em mL}, ou então o \textit{Peso Ultizado em gramas}, atualizando medida no frasco e seus status automaticamente antes de fechar o modal.
+    \end{itemize}
+    \item \textbf{Relatórios:} Acesso à geração de PDFs mensais.
+\end{itemize}
+\textbf{Área Central de Busca:} Tabela geral pesquisável por nome do reagente, status do frasco ou almoxarifado físico. Ao clicar no reagente, o modal apresenta o dashboard do químico: volume total disponível, gráfico de consumo acumulado, e lista dos frascos com localização exata e status atual.
+
+\subsection{Dashboard-Gestor de Bens Patrimoniais}
+Para o Gestor de Bens Patrimoniais, o foco é em auditoria, análise comparativa e suporte processual institucional:
+\begin{itemize}
+    \item \textbf{Painel Lateral:} Grupos divididos em "Patrimônio Geral", "Requisições de Professores" e "Alertas importantes" (em alertas ele vai ter os patrimônios que estão em estado inservível para poder dar baixa- isso é externo ao sistema.)
+\end{itemize}
+Na div \textit{full-width} superior:
+\begin{itemize}
+    \item \textbf{Notificações:} Alerta sempre que um professor abrir uma requisição de adição de bem novo ou alteração do estado de um bem existente.
+    \item \textbf{Botão Mais (+):} Adição direta de bens (ignorando requisição) e cadastro de novas descrições/resumos de itens ou Gestores (se tiver permissão).
+    \item \textbf{Analisar Requisições (Destaque):} Abre uma interface de tela dividida (Split-screen). Do lado esquerdo, os dados e foto do bem como estão atualmente no banco de dados. Do lado direito, os novos dados propostos pelo professor destacado em cores (ex: Estado de Conservação passando de Bom para Ruim). No rodapé, botões massivos de "Aprovar Alteração" ou "Rejeitar" (exigindo campo de texto com justificativa).
+    \item \textbf{Gerar Relatórios:} Modal para compilação e download de PDF. Foco em permitir gerar o relatório de "Baixa de Bens Inservíveis" (contendo responsáveis) para anexar diretamente no processo interno (SEI) da Universidade.
+\end{itemize}
+\textbf{Área Central de Busca:} Pesquisa altamente filtrável (Prédio, Andar, Sala, Nome, Responsável, Status). O clique no bem patrimonial exibe, além das propriedades atuais do equipamento (foto, conservação, etc.), um histórico de auditoria vertical, listando quem modificou, a hora e quais campos foram alterados ao longo do tempo. Também é possível modificar manualmente um equipamento para "Ja\_dado\_baixa" caso o trâmite no SEI tenha finalizado.
+
+\subsection{Dashboard-Aluno}
+Para o perfil de Aluno, a interface remove completamente as complexidades de gestão, focando apenas no acesso aos materiais acadêmicos:
+\begin{itemize}
+    \item \textbf{Painel Lateral:} Um visual limpo apresentando a lista de "Minhas Turmas". No rodapé desse painel, um input text estilizado e claro dizendo "Código da Turma" com um botão "Entrar", permitindo vínculo imediato a uma nova disciplina sem modais complexos. Quando o aluno também for um bolsista, ele vai ter o mesmo grupo 1 que o professor: (Visualizar), mas apenas com a opção "Reagentes".
+    
+\end{itemize}
+Na aba principal, abaixo do header:
+\begin{itemize}
+    \item \textbf{Notificações:} Sino simples indicando novos roteiros de práticas postados, ou professores que responderam às dúvidas deixadas nos comentários.
+\end{itemize}
+\textbf{Área Central (Visualização da Disciplina):}
+\begin{itemize}
+    \item Caso nenhuma turma esteja selecionada no menu lateral, a área exibe um aviso centralizado e amigável: "\textit{Selecione uma turma ao lado para ver as postagens}".
+    \item Ao clicar numa turma, a tela exibe o Feed do aluno. Os posts feitos pelo professor aparecem em forma de \textit{cards} cronológicos.
+    \item Se o post contém um Roteiro de Experimento anexado, um ícone de PDF chamativo aparece ao lado do nome do arquivo com um botão de ação "Baixar" (Download direto).
+    \item Abaixo de cada post, a seção de comentários. O aluno vê um campo simples de \textit{input} para digitar uma dúvida ou observação, que, ao ser enviada, fica visível imediatamente na \textit{thread} daquele post para o professor e demais colegas da sala.
+\end{itemize}
