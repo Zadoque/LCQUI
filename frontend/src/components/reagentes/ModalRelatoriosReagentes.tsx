@@ -220,7 +220,17 @@ export default function ModalRelatoriosReagentes({ isOpen, onClose, uid, isChefe
                   />
                 </div>
               </div>
-              <p className="text-xs text-foreground/50 mt-2">
+              <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl">
+                <p className="text-sm font-medium text-primary/80 flex items-start gap-2">
+                  <span className="text-lg">ℹ️</span>
+                  <span>
+                    <strong>Importante:</strong> O período personalizado permite no <strong>máximo 31 dias corridos</strong>.
+                    <br />
+                    <em>Nota: A formatação visual (dd/mm/aaaa ou mm/dd/aaaa) varia automaticamente conforme o idioma do seu sistema ou navegador.</em>
+                  </span>
+                </p>
+              </div>
+              <p className="text-xs text-foreground/50 mt-2 text-center">
                 O relatório personalizado buscará todos os empréstimos e devoluções dentro do período selecionado, sem restringir a um único almoxarifado.
               </p>
             </div>

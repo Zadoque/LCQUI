@@ -43,4 +43,6 @@ __exportStar(require("./reagentes"), exports);
 __exportStar(require("./patrimonio"), exports);
 __exportStar(require("./relatorios"), exports);
 __exportStar(require("./turmas"), exports);
+__exportStar(require("./materias"), exports);
+__exportStar(require("./posts"), exports);
 //# sourceMappingURL=index.js.map

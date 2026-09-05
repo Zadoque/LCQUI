@@ -7,3 +7,5 @@ export * from "./reagentes";
 export * from "./patrimonio";
 export * from "./relatorios";
 export * from "./turmas";
+export * from "./materias";
+export * from "./posts";

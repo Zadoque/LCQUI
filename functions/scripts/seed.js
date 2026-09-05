@@ -36,103 +36,122 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var admin = require("firebase-admin");
-// Conecta ao emulador
-process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
+var app_1 = require("firebase-admin/app");
+var firestore_1 = require("firebase-admin/firestore");
+var auth_1 = require("firebase-admin/auth");
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
-admin.initializeApp({
-    projectId: "lcqui-dev"
-});
-var db = admin.firestore();
+process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
+var app = (0, app_1.initializeApp)({ projectId: "lcqui-dev" });
+var db = (0, firestore_1.getFirestore)(app);
+var auth = (0, auth_1.getAuth)(app);
 function seed() {
     return __awaiter(this, void 0, void 0, function () {
-        var email, password, user, error_1, reagenteRef, frascoRef, bemRef, error_2;
+        var user, error_1, almox, esp;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    console.log("Iniciando o Seeding de dados...");
+                    console.log("Iniciando seed no emulador...");
                     _a.label = 1;
                 case 1:
-                    _a.trys.push([1, 11, , 12]);
-                    email = "chefe@uenf.br";
-                    password = "password123";
-                    user = void 0;
-                    _a.label = 2;
-                case 2:
-                    _a.trys.push([2, 4, , 6]);
-                    return [4 /*yield*/, admin.auth().getUserByEmail(email)];
-                case 3:
-                    user = _a.sent();
-                    console.log("Usuário já existe:", user.uid);
-                    return [3 /*break*/, 6];
-                case 4:
-                    error_1 = _a.sent();
-                    return [4 /*yield*/, admin.auth().createUser({
-                            email: email,
-                            password: password,
+                    _a.trys.push([1, 4, , 5]);
+                    return [4 /*yield*/, auth.createUser({
+                            uid: "usuario123",
+                            email: "chefe@uenf.br",
+                            password: "password123",
                             displayName: "Dr. Chefe Geral",
                         })];
-                case 5:
+                case 2:
                     user = _a.sent();
-                    console.log("Usuário criado com sucesso:", user.uid);
-                    return [3 /*break*/, 6];
-                case 6: 
-                // Definir a Custom Claim para passar pelo ProtectedRoute
-                return [4 /*yield*/, admin.auth().setCustomUserClaims(user.uid, { roles: ["Chefe_Geral"] })];
-                case 7:
-                    // Definir a Custom Claim para passar pelo ProtectedRoute
+                    return [4 /*yield*/, auth.setCustomUserClaims(user.uid, { roles: ["Chefe_Geral"] })];
+                case 3:
                     _a.sent();
-                    console.log("Custom Claim [Chefe_Geral] injetada no token!");
-                    reagenteRef = db.collection("Resumo_Reagente").doc("SEED_R1");
-                    return [4 /*yield*/, reagenteRef.set({
-                            nome_reagente: "Ácido Sulfúrico",
-                            formula_quimica: "H2SO4",
+                    console.log("Usuário chefe@uenf.br criado com sucesso!");
+                    return [3 /*break*/, 5];
+                case 4:
+                    error_1 = _a.sent();
+                    if (error_1.code === 'auth/email-already-exists') {
+                        console.log("Usuário chefe@uenf.br já existe.");
+                    }
+                    else {
+                        console.error("Erro ao criar usuário:", error_1);
+                    }
+                    return [3 /*break*/, 5];
+                case 5: return [4 /*yield*/, db.collection("Almoxarifado").add({
+                        nome_almoxarifado: "Almoxarifado Central",
+                        predio: "P5",
+                        andar: "1",
+                        sala: "101"
+                    })];
+                case 6:
+                    almox = _a.sent();
+                    // Reagente / Frasco
+                    return [4 /*yield*/, db.collection("Resumo_Reagente").add({
+                            nome: "Etanol Absoluto",
                             estado_fisico: "Líquido",
-                            periculosidade: ["Corrosivo", "Tóxico"],
-                            quantidade_total_mg_ml: 1000,
-                            unidade_medida: "mL"
+                            natureza_quimica: "ORGANICO",
+                            letra_inicial: "E",
+                            tipo_substancia: "PURA"
+                        })];
+                case 7:
+                    // Reagente / Frasco
+                    _a.sent();
+                    return [4 /*yield*/, db.collection("Especificacao_Reagente").add({
+                            nome: "Etanol Absoluto",
+                            pureza: "99%",
+                            densidade: 0.789
                         })];
                 case 8:
-                    _a.sent();
-                    frascoRef = db.collection("Frasco_Reagente").doc("SEED_F1");
-                    return [4 /*yield*/, frascoRef.set({
-                            id_resumo_reagente: "SEED_R1",
-                            estado_fisico_frasco: "FECHADO",
-                            disponibilidade: "DISPONIVEL",
-                            vencido: false,
-                            em_quarentena: false,
-                            lote: "LOTE-123",
-                            quantidade_atual_mg_ml: 1000,
-                            quantidade_inicial_mg_ml: 1000,
-                            unidade_medida: "mL",
-                            fornecedor: "Sigma Aldrich"
+                    esp = _a.sent();
+                    return [4 /*yield*/, db.collection("Lote").add({
+                            id_especificacao_reagente: esp.id,
+                            nome_reagente: "Etanol Absoluto",
+                            marca: "Merck",
+                            validade_lote: new Date(2030, 0, 1)
                         })];
                 case 9:
                     _a.sent();
-                    bemRef = db.collection("Bem_Patrimonial").doc("SEED_P1");
-                    return [4 /*yield*/, bemRef.set({
-                            nome_equipamento: "Microscópio Óptico Binocular",
-                            numero_patrimonio: "987654",
-                            estado_conservacao: "Bom estado, manutenção em dia",
-                            predio: "P5",
-                            andar: "Térreo",
-                            sala: "Laboratório 102",
-                            nome_responsavel_sei: "Prof. Alberto",
-                            status: "Ativo"
+                    return [4 /*yield*/, db.collection("Emprestimo_Reagente").add({
+                            id_almoxarifado: almox.id,
+                            medida_utilizada: 500,
+                            unidade_medida_utilizada: "ml",
+                            data_devolucao_efetuada: new Date(),
+                            id_usuario_retirou: "usuario123",
+                            finalidade_uso: "Aula Prática",
+                            status: "CONCLUIDO"
                         })];
                 case 10:
                     _a.sent();
-                    console.log("Mock Data populado no Firestore Emulator com sucesso!");
-                    process.exit(0);
-                    return [3 /*break*/, 12];
+                    // Patrimônio
+                    return [4 /*yield*/, db.collection("Bem_Patrimonial").add({
+                            numero_patrimonio: "LCQUI-001",
+                            nome_equipamento: "Espectrofotômetro UV-Vis",
+                            predio: "P5",
+                            andar: "1",
+                            sala: "101",
+                            status: "Ativo",
+                            estado_conservacao: "Bom",
+                            nome_responsavel_sei: "Prof. Silva"
+                        })];
                 case 11:
-                    error_2 = _a.sent();
-                    console.error("Erro durante o seeding:", error_2);
-                    process.exit(1);
-                    return [3 /*break*/, 12];
-                case 12: return [2 /*return*/];
+                    // Patrimônio
+                    _a.sent();
+                    return [4 /*yield*/, db.collection("Bem_Patrimonial").add({
+                            numero_patrimonio: "LCQUI-002",
+                            nome_equipamento: "Agitador Magnético Quebrado",
+                            predio: "P5",
+                            andar: "1",
+                            sala: "101",
+                            status: "Inservível",
+                            estado_conservacao: "Ruim",
+                            nome_responsavel_sei: "Prof. Silva"
+                        })];
+                case 12:
+                    _a.sent();
+                    console.log("Seed concluído!");
+                    process.exit(0);
+                    return [2 /*return*/];
             }
         });
     });
 }
-seed();
+seed().catch(console.error);

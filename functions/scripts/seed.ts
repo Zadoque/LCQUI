@@ -23,7 +23,7 @@ async function seed() {
     await auth.setCustomUserClaims(user.uid, { roles: ["Chefe_Geral"] });
     console.log("Usuário chefe@uenf.br criado com sucesso!");
   } catch (error: any) {
-    if (error.code === 'auth/email-already-exists') {
+    if (error.code === 'auth/email-already-exists' || error.code === 'auth/uid-already-exists') {
       console.log("Usuário chefe@uenf.br já existe.");
     } else {
       console.error("Erro ao criar usuário:", error);
@@ -44,7 +44,7 @@ async function seed() {
     estado_fisico: "Líquido",
     natureza_quimica: "ORGANICO",
     letra_inicial: "E",
-    tipo_substancia: "Solvente"
+    tipo_substancia: "PURA"
   });
 
   const esp = await db.collection("Especificacao_Reagente").add({
@@ -72,7 +72,7 @@ async function seed() {
 
   // Patrimônio
   await db.collection("Bem_Patrimonial").add({
-    numero_patrimonio: "LCQUI-001",
+    numero_patrimonio: "987654",
     nome_equipamento: "Espectrofotômetro UV-Vis",
     predio: "P5",
     andar: "1",
@@ -83,7 +83,7 @@ async function seed() {
   });
 
   await db.collection("Bem_Patrimonial").add({
-    numero_patrimonio: "LCQUI-002",
+    numero_patrimonio: "987655",
     nome_equipamento: "Agitador Magnético Quebrado",
     predio: "P5",
     andar: "1",

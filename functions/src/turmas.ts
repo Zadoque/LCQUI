@@ -54,3 +54,102 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
     return { idTurma: turmaDoc.id, nomeTurma: turma.nome_turma };
   });
 });
+
+/**
+ * Função para criar Turma garantindo unicidade do código.
+ */
+export const criarTurma = onCall(async (request) => {
+  validarPermissao(request, ["Professor", "Chefe_Geral"]);
+
+  const { idMateria, nomeTurma, ano, semestre, capacidade, codigoTurma, nomeMateria } = request.data;
+  if (!idMateria || !nomeTurma || !ano || !semestre || !capacidade || !codigoTurma || !nomeMateria) {
+    throw new HttpsError("invalid-argument", "Dados incompletos para criar a turma.");
+  }
+
+  const db = admin.firestore();
+
+  return db.runTransaction(async (tx) => {
+    // Checar se código já existe
+    const query = await tx.get(
+      db.collection("Turma").where("codigo_turma", "==", codigoTurma).limit(1)
+    );
+    if (!query.empty) {
+      throw new HttpsError("already-exists", "Já existe uma turma com este código.");
+    }
+
+    const docRef = db.collection("Turma").doc();
+    tx.set(docRef, {
+      id_materia: idMateria,
+      nome_materia: nomeMateria, // Denorm para evitar join
+      id_professor: request.auth!.uid,
+      status: "Ativo",
+      nome_turma: nomeTurma,
+      ano: parseInt(ano, 10),
+      semestre: parseInt(semestre, 10),
+      capacidade: parseInt(capacidade, 10),
+      codigo_turma: codigoTurma,
+      data_criacao: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    return { id: docRef.id, codigoTurma };
+  });
+});
+
+/**
+ * Convida um aluno por email para ingressar em uma turma
+ * Ou convite global (sem turma).
+ */
+export const convidarAluno = onCall(async (request) => {
+  validarPermissao(request, ["Professor", "Chefe_Geral"]);
+
+  const { email, idTurma, matricula } = request.data as {
+    email: string;
+    idTurma?: string;
+    matricula?: string;
+  };
+
+  if (!email) {
+    throw new HttpsError("invalid-argument", "Email é obrigatório.");
+  }
+  const emailNormalizado = email.toLowerCase().trim();
+  const db = admin.firestore();
+
+  return db.runTransaction(async (tx) => {
+    // Implementa: UNIQUE(email_normalizado, id_turma) WHERE status = 'pendente'
+    let queryRef = db.collection("Convite_Aluno")
+      .where("email", "==", emailNormalizado)
+      .where("status", "==", "pendente");
+      
+    if (idTurma) {
+      queryRef = queryRef.where("id_turma", "==", idTurma);
+    } else {
+      queryRef = queryRef.where("id_turma", "==", null);
+    }
+
+    const snap = await tx.get(queryRef.limit(1));
+    if (!snap.empty) {
+      throw new HttpsError("already-exists", "Já existe um convite pendente para este aluno nesta condição.");
+    }
+
+    const docRef = db.collection("Convite_Aluno").doc();
+    
+    // Prazo de 7 dias para expirar
+    const expiraEm = new Date();
+    expiraEm.setDate(expiraEm.getDate() + 7);
+
+    tx.set(docRef, {
+      id_turma: idTurma || null,
+      email: emailNormalizado,
+      convidado_em: admin.firestore.FieldValue.serverTimestamp(),
+      status: "pendente",
+      expira_em: admin.firestore.Timestamp.fromDate(expiraEm),
+      convidado_por: request.auth!.uid,
+      numero_matricula: matricula || null
+    });
+
+    return { 
+      message: "Convite registrado com sucesso! (Modo Dev: Email não enviado)",
+      id: docRef.id 
+    };
+  });
+});
