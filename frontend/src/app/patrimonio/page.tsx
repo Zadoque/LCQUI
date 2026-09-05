@@ -6,13 +6,15 @@ import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Link from "next/link";
-import { BemPatrimonial } from "@/types/patrimonio";
+import { ResumoBemPatrimonial } from "@/types/patrimonio";
+import ModalRelatoriosPatrimonio from "@/components/patrimonio/ModalRelatoriosPatrimonio";
 
 export default function PatrimonioDashboard() {
-  const { roles } = useAuth();
-  const [bens, setBens] = useState<BemPatrimonial[]>([]);
+  const { roles, user } = useAuth();
+  const [bens, setBens] = useState<ResumoBemPatrimonial[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isRelatoriosOpen, setIsRelatoriosOpen] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
   // Filtros obrigatórios (Seção 5.2 do main.tex):
@@ -59,7 +61,7 @@ export default function PatrimonioDashboard() {
       const lista = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      })) as BemPatrimonial[];
+      })) as ResumoBemPatrimonial[];
 
       setBens(lista);
     } catch (error) {
@@ -106,11 +108,6 @@ export default function PatrimonioDashboard() {
                   Gerenciar Gestores de Bens
                 </button>
 
-                {/* Relatórios (linha 1674) */}
-                <button className="px-4 py-2 rounded-lg bg-foreground/5 text-sm font-medium hover:bg-foreground/10 transition-colors flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                  Relatórios
-                </button>
               </div>
               <span className="text-[10px] uppercase tracking-widest font-bold text-indigo-400/60">Ações de Chefe Geral</span>
             </div>
@@ -137,7 +134,10 @@ export default function PatrimonioDashboard() {
                 </button>
 
                 {/* Gerar Relatórios (linha 1769) */}
-                <button className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 transition-colors flex items-center gap-2">
+                <button 
+                  onClick={() => setIsRelatoriosOpen(true)}
+                  className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 transition-colors flex items-center gap-2"
+                >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                   Gerar Relatórios
                 </button>
@@ -380,6 +380,15 @@ export default function PatrimonioDashboard() {
               {filteredBens.length} {filteredBens.length === 1 ? "resultado" : "resultados"}
               {searchQuery && ` (filtrados de ${bens.length} do banco)`}
             </div>
+          )}
+
+          {/* Modal Relatorios Patrimonio */}
+          {user && (
+            <ModalRelatoriosPatrimonio 
+              isOpen={isRelatoriosOpen} 
+              onClose={() => setIsRelatoriosOpen(false)} 
+              uid={user.uid} 
+            />
           )}
 
         </div>

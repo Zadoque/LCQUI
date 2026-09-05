@@ -7,12 +7,14 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 import { ResumoReagente } from "@/types/reagentes";
+import ModalRelatoriosReagentes from "@/components/reagentes/ModalRelatoriosReagentes";
 
 export default function GestorAlmoxarifadoDashboard() {
-  const { roles } = useAuth();
+  const { roles, user } = useAuth();
   const [reagentes, setReagentes] = useState<ResumoReagente[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isRelatoriosOpen, setIsRelatoriosOpen] = useState(false);
   
   // Filtros obrigatórios do Firestore (Seção 5 do main.tex)
   const [filtroLetra, setFiltroLetra] = useState<string>("");
@@ -95,11 +97,6 @@ export default function GestorAlmoxarifadoDashboard() {
                   Gerenciar Gestores de Almoxarifado
                 </button>
 
-                {/* Relatórios (linha 1658) */}
-                <button className="px-4 py-2 rounded-lg bg-foreground/5 text-sm font-medium hover:bg-foreground/10 transition-colors flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                  Relatórios
-                </button>
               </div>
               <span className="text-[10px] uppercase tracking-widest font-bold text-indigo-400/60">Ações de Chefe Geral</span>
             </div>
@@ -128,6 +125,14 @@ export default function GestorAlmoxarifadoDashboard() {
                 <button className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
                   Adicionar Frasco
+                </button>
+                <div className="h-4 w-px bg-foreground/20 hidden sm:block mx-1"></div>
+                <button 
+                  onClick={() => setIsRelatoriosOpen(true)}
+                  className="px-4 py-2 rounded-lg bg-indigo-500/10 text-indigo-400 text-sm font-medium hover:bg-indigo-500/20 transition-colors flex items-center gap-2 border border-indigo-500/20"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                  Relatórios
                 </button>
               </div>
             </div>
@@ -283,6 +288,16 @@ export default function GestorAlmoxarifadoDashboard() {
               </table>
             </div>
           </div>
+
+          {/* Modal Relatorios Reagentes */}
+          {user && (
+            <ModalRelatoriosReagentes 
+              isOpen={isRelatoriosOpen} 
+              onClose={() => setIsRelatoriosOpen(false)} 
+              uid={user.uid} 
+              isChefe={isChefe}
+            />
+          )}
 
         </div>
       </main>

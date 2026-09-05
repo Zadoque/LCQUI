@@ -114,6 +114,8 @@ exports.cadastrarFrascoAberto = (0, https_1.onCall)(async (request) => {
     let pesoVazio;
     let conteudoNominal;
     if (estadoFisico === "SOLIDO") {
+        if (dados.modalidade === "ESTIMA_VOLUME")
+            throw new https_1.HttpsError("invalid-argument", "Apenas LÍQUIDOS podem usar ESTIMA_VOLUME.");
         if (dados.modalidade === "CONHECE_TARA") {
             if (dados.pesoFrascoVazioInformado == null)
                 throw new https_1.HttpsError("invalid-argument", "CONHECE_TARA exige pesoFrascoVazioInformado.");
@@ -130,6 +132,8 @@ exports.cadastrarFrascoAberto = (0, https_1.onCall)(async (request) => {
             throw new https_1.HttpsError("invalid-argument", "Massa atual maior que o peso total medido na balança.");
     }
     else {
+        if (dados.modalidade === "ESTIMA_MASSA")
+            throw new https_1.HttpsError("invalid-argument", "Apenas SÓLIDOS podem usar ESTIMA_MASSA.");
         if (!densidade || densidade <= 0)
             throw new https_1.HttpsError("failed-precondition", "Líquido exige densidade positiva cadastrada na especificação.");
         if (dados.modalidade === "CONHECE_TARA") {
@@ -219,6 +223,9 @@ exports.registrarAberturaFrasco = (0, https_1.onCall)(async (request) => {
         await (0, auth_1.validarGestorDoAlmoxarifado)(request.auth.uid, request.auth.token, frasco.id_almoxarifado);
         if (frasco.estado_fisico_frasco !== "FECHADO") {
             throw new https_1.HttpsError("failed-precondition", "Somente um frasco FECHADO pode ser aberto por esta operação.");
+        }
+        if (frasco.disponibilidade !== "DISPONIVEL") {
+            throw new https_1.HttpsError("failed-precondition", "Somente frascos DISPONIVEL podem ser abertos.");
         }
         const agora = new Date();
         const validadeEfetiva = calcularValidadeEfetivaNaAbertura(frasco, agora);

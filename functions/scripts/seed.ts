@@ -1,89 +1,100 @@
-import * as admin from 'firebase-admin';
+import { initializeApp } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
+import { getAuth } from "firebase-admin/auth";
 
-// Conecta ao emulador
-process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
+process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 
-admin.initializeApp({
-  projectId: "lcqui-dev"
-});
-
-const db = admin.firestore();
+const app = initializeApp({ projectId: "lcqui-dev" });
+const db = getFirestore(app);
+const auth = getAuth(app);
 
 async function seed() {
-  console.log("Iniciando o Seeding de dados...");
+  console.log("Iniciando seed no emulador...");
 
+  // Criar Usuário Chefe
   try {
-    // 1. Criar um usuário Chefe Geral no Firebase Auth Emulator
-    const email = "chefe@uenf.br";
-    const password = "password123";
-    let user;
-    
-    try {
-      user = await admin.auth().getUserByEmail(email);
-      console.log("Usuário já existe:", user.uid);
-    } catch (error) {
-      user = await admin.auth().createUser({
-        email,
-        password,
-        displayName: "Dr. Chefe Geral",
-      });
-      console.log("Usuário criado com sucesso:", user.uid);
+    const user = await auth.createUser({
+      uid: "usuario123",
+      email: "chefe@uenf.br",
+      password: "password123",
+      displayName: "Dr. Chefe Geral",
+    });
+    await auth.setCustomUserClaims(user.uid, { roles: ["Chefe_Geral"] });
+    console.log("Usuário chefe@uenf.br criado com sucesso!");
+  } catch (error: any) {
+    if (error.code === 'auth/email-already-exists') {
+      console.log("Usuário chefe@uenf.br já existe.");
+    } else {
+      console.error("Erro ao criar usuário:", error);
     }
-
-    // Definir a Custom Claim para passar pelo ProtectedRoute
-    await admin.auth().setCustomUserClaims(user.uid, { roles: ["Chefe_Geral"] });
-    console.log("Custom Claim [Chefe_Geral] injetada no token!");
-
-    // 2. Popular o Banco (Reagentes e Patrimônio)
-    
-    // Reagentes
-    const reagenteRef = db.collection("Resumo_Reagente").doc("SEED_R1");
-    await reagenteRef.set({
-      nome: "Ácido Sulfúrico",
-      letra_inicial: "A",
-      natureza_quimica: "INORGANICO",
-      formula_quimica: "H2SO4",
-      estado_fisico: "Líquido",
-      riscos: ["Corrosivo", "Tóxico"],
-      quantidade_total_mg_ml: 1000,
-      unidade_medida: "mL"
-    });
-
-    const frascoRef = db.collection("Frasco_Reagente").doc("SEED_F1");
-    await frascoRef.set({
-      id_resumo_reagente: "SEED_R1",
-      estado_fisico_frasco: "FECHADO",
-      disponibilidade: "DISPONIVEL",
-      vencido: false,
-      em_quarentena: false,
-      lote: "LOTE-123",
-      quantidade_atual_mg_ml: 1000,
-      quantidade_inicial_mg_ml: 1000,
-      unidade_medida: "mL",
-      fornecedor: "Sigma Aldrich"
-    });
-
-    // Patrimônio
-    const bemRef = db.collection("Bem_Patrimonial").doc("SEED_P1");
-    await bemRef.set({
-      nome_equipamento: "Microscópio Óptico Binocular",
-      numero_patrimonio: "987654",
-      estado_conservacao: "Bom",
-      predio: "P5",
-      andar: "Térreo",
-      sala: "Laboratório 102",
-      nome_responsavel_sei: "Prof. Alberto",
-      status: "Ativo"
-    });
-
-    console.log("Mock Data populado no Firestore Emulator com sucesso!");
-    process.exit(0);
-
-  } catch (error) {
-    console.error("Erro durante o seeding:", error);
-    process.exit(1);
   }
+
+  // Almoxarifado
+  const almox = await db.collection("Almoxarifado").add({
+    nome_almoxarifado: "Almoxarifado Central",
+    predio: "P5",
+    andar: "1",
+    sala: "101"
+  });
+
+  // Reagente / Frasco
+  await db.collection("Resumo_Reagente").add({
+    nome: "Etanol Absoluto",
+    estado_fisico: "Líquido",
+    natureza_quimica: "ORGANICO",
+    letra_inicial: "E",
+    tipo_substancia: "Solvente"
+  });
+
+  const esp = await db.collection("Especificacao_Reagente").add({
+    nome: "Etanol Absoluto",
+    pureza: "99%",
+    densidade: 0.789
+  });
+
+  await db.collection("Lote").add({
+    id_especificacao_reagente: esp.id,
+    nome_reagente: "Etanol Absoluto",
+    marca: "Merck",
+    validade_lote: new Date(2030, 0, 1)
+  });
+
+  await db.collection("Emprestimo_Reagente").add({
+    id_almoxarifado: almox.id,
+    medida_utilizada: 500,
+    unidade_medida_utilizada: "ml",
+    data_devolucao_efetuada: new Date(),
+    id_usuario_retirou: "usuario123",
+    finalidade_uso: "Aula Prática",
+    status: "CONCLUIDO"
+  });
+
+  // Patrimônio
+  await db.collection("Bem_Patrimonial").add({
+    numero_patrimonio: "LCQUI-001",
+    nome_equipamento: "Espectrofotômetro UV-Vis",
+    predio: "P5",
+    andar: "1",
+    sala: "101",
+    status: "Ativo",
+    estado_conservacao: "Bom",
+    nome_responsavel_sei: "Prof. Silva"
+  });
+
+  await db.collection("Bem_Patrimonial").add({
+    numero_patrimonio: "LCQUI-002",
+    nome_equipamento: "Agitador Magnético Quebrado",
+    predio: "P5",
+    andar: "1",
+    sala: "101",
+    status: "Inservível",
+    estado_conservacao: "Ruim",
+    nome_responsavel_sei: "Prof. Silva"
+  });
+
+  console.log("Seed concluído!");
+  process.exit(0);
 }
 
-seed();
+seed().catch(console.error);

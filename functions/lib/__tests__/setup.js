@@ -1,7 +1,21 @@
 "use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.testEnv = void 0;
-const firebaseFunctionsTest = require("firebase-functions-test");
-// Inicializa o ambiente de testes offline (sem atingir o banco de dados de produção)
-exports.testEnv = firebaseFunctionsTest();
+jest.mock("firebase-functions/v2/https", () => {
+    class HttpsError extends Error {
+        code;
+        constructor(code, message) {
+            super(message);
+            this.code = code;
+            this.name = "HttpsError";
+        }
+    }
+    return {
+        onCall: jest.fn((optionsOrHandler, handler) => {
+            // Handle both onCall((req) => {}) and onCall({region}, (req) => {})
+            if (typeof optionsOrHandler === "function")
+                return optionsOrHandler;
+            return handler;
+        }),
+        HttpsError,
+    };
+});
 //# sourceMappingURL=setup.js.map
