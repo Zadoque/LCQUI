@@ -24,6 +24,7 @@
     "pdfkit-table": "^0.1.99"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@types/bwip-js": "^3.2.3",
     "@types/jest": "^29.5.12",
     "@types/pdfkit": "^0.13.9",

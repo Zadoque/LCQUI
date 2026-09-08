@@ -1,0 +1,128 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Funções Auxiliares ---
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasRole(role) {
+      // A role é passada como Custom Claim no token (ex: request.auth.token.professor == true)
+      return isAuthenticated() && request.auth.token.get(role, false) == true;
+    }
+
+    function isAdmin() {
+      return hasRole('chefe') || hasRole('admin');
+    }
+
+    // --- Default Fechado ---
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Usuarios ---
+    match /Usuarios/{uid} {
+      // Usuário lê a si mesmo, chefe/admin lê todos
+      allow read: if isOwner(uid) || isAdmin();
+      // Escrita principal é feita via Cloud Function, mas permitimos ao próprio usuário alterar seu perfil básico
+      allow write: if isOwner(uid) || isAdmin();
+
+      match /Turmas/{turmaId} {
+        allow read: if isOwner(uid) || isAdmin();
+        // Gerenciamento de turmas do aluno feito por CF ou Professor (admin)
+        allow write: if false; 
+      }
+    }
+
+    // --- Turmas e Materias ---
+    match /Materias/{materiaId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /Turmas/{turmaId} {
+      allow read: if isAuthenticated();
+      // Professor e admin/chefe podem criar/alterar
+      allow write: if isAdmin() || hasRole('professor');
+
+      match /Alunos/{alunoId} {
+        allow read: if isAuthenticated();
+        // O próprio aluno pode se inscrever (write = create), e admin/professor gerenciam
+        allow write: if isAdmin() || hasRole('professor') || isOwner(alunoId);
+      }
+
+      match /Posts/{postId} {
+        allow read: if isAuthenticated();
+        allow write: if isAdmin() || hasRole('professor');
+      }
+
+      match /Comentarios/{comentarioId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated();
+      }
+    }
+
+    // --- Patrimonio ---
+    match /Patrimonio/{itemId} {
+      // Professores precisam ler para consultar itens; Gestor gere
+      allow read: if isAdmin() || hasRole('gestorPatrimonio') || hasRole('professor');
+      allow write: if isAdmin() || hasRole('gestorPatrimonio');
+    }
+
+    match /Requisicoes/{reqId} {
+      // Professores podem ler e criar requisições de patrimônio
+      allow read: if isAdmin() || hasRole('gestorPatrimonio') || hasRole('professor');
+      allow create: if isAdmin() || hasRole('gestorPatrimonio') || hasRole('professor');
+      // Somente Gestor e Admin podem editar/aprovar/rejeitar
+      allow update, delete: if isAdmin() || hasRole('gestorPatrimonio');
+    }
+
+    // --- Reagentes / Almoxarifado ---
+    match /Almoxarifados/{almId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /Reagentes/{reagenteId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || hasRole('gestorAlmoxarifado');
+    }
+
+    match /Frascos/{frascoId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || hasRole('gestorAlmoxarifado');
+    }
+
+    match /Emprestimos/{empId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || hasRole('gestorAlmoxarifado') || hasRole('professor');
+    }
+
+    // --- Roteiros ---
+    match /Roteiros/{roteiroId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || hasRole('professor');
+    }
+
+    // --- Auditoria ---
+    match /Auditoria/{auditId} {
+      allow read: if isAdmin();
+      // Auditoria é gravada 100% pelo Backend (Cloud Functions)
+      allow write: if false; 
+    }
+
+    // --- Notificacoes ---
+    match /Notificacoes/{notifId} {
+      allow read: if isOwner(resource.data.userId);
+      allow update: if isOwner(resource.data.userId); 
+      allow delete: if isOwner(resource.data.userId);
+      allow create: if false; // Backend quem cria
+    }
+  }
+}
