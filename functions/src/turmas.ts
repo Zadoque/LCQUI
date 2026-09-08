@@ -52,7 +52,7 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
       throw new HttpsError("permission-denied", "Você foi removido pelo professor e não pode retornar pelo código.");
     }
 
-    const userRef = db.collection("Usuarios").doc(request.auth!.uid);
+    const userRef = db.collection("Aluno").doc(request.auth!.uid);
     const userDoc = await tx.get(userRef);
     const userData = userDoc.exists ? userDoc.data()! : {};
 
@@ -302,7 +302,7 @@ export const convidarAluno = onCall(async (request) => {
       if (!convitesMat.empty) {
         throw new HttpsError("already-exists", "Esta matrícula já possui um convite pendente.");
       }
-      const usuariosMat = await tx.get(db.collection("Usuarios").where("numero_matricula", "==", matricula).limit(1));
+      const usuariosMat = await tx.get(db.collection("Aluno").where("numero_matricula", "==", matricula).limit(1));
       if (!usuariosMat.empty) {
         throw new HttpsError("already-exists", "Esta matrícula já está cadastrada no sistema.");
       }
@@ -323,5 +323,117 @@ export const convidarAluno = onCall(async (request) => {
     });
 
     return { id: docRef.id };
+  });
+});
+
+interface DadosAdicionarAluno {
+  idTurma: string;
+  idAluno: string;
+}
+
+export const adicionarAlunoExistenteTurma = onCall(async (request) => {
+  const papeis = validarPermissao(request, ["Chefe_Geral", "Professor"]);
+  const { idTurma, idAluno } = request.data as DadosAdicionarAluno;
+
+  if (!idTurma || !idAluno) {
+    throw new HttpsError("invalid-argument", "idTurma e idAluno são obrigatórios.");
+  }
+
+  const db = admin.firestore();
+  const turmaRef = db.collection("Turma").doc(idTurma);
+  const alunoRef = db.collection("Aluno").doc(idAluno); // NOTE: we fetch from Usuarios to get name/email
+
+  return db.runTransaction(async (tx) => {
+    // 1. Valida existência da turma
+    const turmaSnap = await tx.get(turmaRef);
+    if (!turmaSnap.exists) {
+      throw new HttpsError("not-found", "Turma não encontrada.");
+    }
+    const turma = turmaSnap.data()!;
+
+    // 2. Valida se o professor é o dono da turma (ou Chefe Geral)
+    if (!papeis.includes("Chefe_Geral") && turma.id_professor !== request.auth!.uid) {
+      throw new HttpsError("permission-denied", "Você não é o professor responsável por esta disciplina.");
+    }
+
+    if (turma.status === "Arquivada") {
+      throw new HttpsError("failed-precondition", "Não é possível adicionar alunos em turmas arquivadas.");
+    }
+
+    // 3. Valida existência do aluno
+    const alunoSnap = await tx.get(alunoRef);
+    if (!alunoSnap.exists) {
+      throw new HttpsError("not-found", "Aluno não encontrado no sistema.");
+    }
+    const alunoData = alunoSnap.data()!;
+
+    // 4. Checa se o aluno já está matriculado
+    const matriculaRef = turmaRef.collection("Alunos").doc(idAluno);
+    const matriculaSnap = await tx.get(matriculaRef);
+    if (matriculaSnap.exists) {
+      throw new HttpsError("already-exists", "Este aluno já faz parte desta turma.");
+    }
+
+    // 5. Checa capacidade da turma (RN-TUR-01)
+    const alunosAtuaisSnap = await tx.get(turmaRef.collection("Alunos"));
+    if (alunosAtuaisSnap.size >= turma.capacidade) {
+      throw new HttpsError("failed-precondition", `A turma atingiu a capacidade máxima de ${turma.capacidade} alunos.`);
+    }
+
+    const agora = FieldValue.serverTimestamp();
+
+    // 6. Persistência atômica nos 3 pontos de dados:
+    // A) Visão da Turma
+    tx.set(matriculaRef, {
+      id_aluno: idAluno,
+      nome: alunoData.nome || "Sem nome",
+      email: alunoData.email || "",
+      numero_matricula: alunoData.numero_matricula || "",
+      ingressou_em: agora,
+      adicionado_por_professor: true,
+    });
+
+    // B) Visão do Aluno (Espelho para busca em tempo real)
+    const alunoTurmaRef = db.collection("Usuarios").doc(idAluno).collection("Turmas").doc(idTurma);
+    tx.set(alunoTurmaRef, {
+      id_turma: idTurma,
+      nome_turma: turma.nome_turma,
+      nome_materia: turma.nome_materia,
+      ano: turma.ano,
+      semestre: turma.semestre,
+      id_professor: turma.id_professor,
+      ingressou_em: agora,
+    });
+
+    // C) Histórico da Turma
+    const histRef = turmaRef.collection("HistoricoAlunos").doc();
+    tx.set(histRef, {
+      id_aluno: idAluno,
+      tipo: "inclusao_aluno",
+      responsavel_uid: request.auth!.uid,
+      timestamp: agora,
+    });
+
+    // D) Notificação para o Aluno (Seção 4.36)
+    const notifRef = db.collection("Usuarios").doc(idAluno).collection("Notificacoes").doc();
+    tx.set(notifRef, {
+      id_destinatario: idAluno,
+      papel_destinatario: "Aluno",
+      tipo: "ADICIONADO",
+      id_quem_fez_acao: request.auth!.uid,
+      id_turma: idTurma,
+      entidade_alvo: "TURMA",
+      id_alvo: idTurma,
+      lida: false,
+      emitida_em: agora,
+      expira_em: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), // 30 dias
+    });
+
+    // Atualiza contagem na turma
+    tx.update(turmaRef, {
+      qtd_alunos: FieldValue.increment(1)
+    });
+
+    return { sucesso: true, idAluno, idTurma };
   });
 });

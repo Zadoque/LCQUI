@@ -33,7 +33,8 @@ export const criarPost = onCall(async (request) => {
     throw new HttpsError("permission-denied", "Apenas o professor responsável pela turma pode criar posts.");
   }
 
-  const userRef = db.collection("Usuarios").doc(request.auth!.uid);
+  const papelCollection = request.auth?.token.roles?.includes("Chefe_Geral") ? "Chefe_Geral" : "Professor";
+  const userRef = db.collection(papelCollection).doc(request.auth!.uid);
   const userDoc = await userRef.get();
   const nomeProfessor = userDoc.exists ? userDoc.data()?.nome || "Professor" : "Professor";
 
@@ -89,7 +90,9 @@ export const adicionarComentario = onCall(async (request) => {
     }
   }
 
-  const userRef = db.collection("Usuarios").doc(request.auth!.uid);
+  const authRolesParaComentario = request.auth?.token.roles || [];
+  const papelCollection = authRolesParaComentario.includes("Aluno") ? "Aluno" : (authRolesParaComentario.includes("Professor") ? "Professor" : "Chefe_Geral");
+  const userRef = db.collection(papelCollection).doc(request.auth!.uid);
   const userDoc = await userRef.get();
   const nomeUsuario = userDoc.exists ? userDoc.data()?.nome || "Usuário" : "Usuário";
 

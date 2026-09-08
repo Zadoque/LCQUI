@@ -57,9 +57,14 @@ exports.criarPost = (0, https_1.onCall)(async (request) => {
     if (turmaSnap.data()?.id_professor !== request.auth.uid) {
         throw new https_1.HttpsError("permission-denied", "Apenas o professor responsável pela turma pode criar posts.");
     }
+    const papelCollection = request.auth?.token.roles?.includes("Chefe_Geral") ? "Chefe_Geral" : "Professor";
+    const userRef = db.collection(papelCollection).doc(request.auth.uid);
+    const userDoc = await userRef.get();
+    const nomeProfessor = userDoc.exists ? userDoc.data()?.nome || "Professor" : "Professor";
     const postRef = turmaRef.collection("Posts").doc();
     await postRef.set({
         id_professor: request.auth.uid,
+        nome_professor: nomeProfessor,
         id_turma: idTurma,
         id_roteiro_experimento: idRoteiroExperimento || null,
         titulo,
@@ -97,10 +102,16 @@ exports.adicionarComentario = (0, https_1.onCall)(async (request) => {
             throw new https_1.HttpsError("permission-denied", "Você não é o professor responsável desta turma.");
         }
     }
+    const authRolesParaComentario = request.auth?.token.roles || [];
+    const papelCollection = authRolesParaComentario.includes("Aluno") ? "Aluno" : (authRolesParaComentario.includes("Professor") ? "Professor" : "Chefe_Geral");
+    const userRef = db.collection(papelCollection).doc(request.auth.uid);
+    const userDoc = await userRef.get();
+    const nomeUsuario = userDoc.exists ? userDoc.data()?.nome || "Usuário" : "Usuário";
     const comentarioRef = db.collection("Turma").doc(idTurma).collection("Posts").doc(idPost).collection("Comentarios").doc();
     await comentarioRef.set({
         id_post: idPost,
         id_usuario: request.auth.uid,
+        nome_usuario: nomeUsuario,
         texto,
         criado_em: firestore_1.FieldValue.serverTimestamp()
     });
