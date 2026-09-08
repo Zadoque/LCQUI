@@ -1,6 +1,8 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { validatePayload } from "./utils/validation";
+import { CriarMateriaSchema } from "./schemas/materias.schema";
 
 /**
  * Função para criar uma Matéria garantindo que o código da matéria seja único.
@@ -15,17 +17,7 @@ export const criarMateria = onCall(async (request) => {
     );
   }
 
-  const { nome, codigoMateria } = request.data as {
-    nome: string;
-    codigoMateria: string;
-  };
-
-  if (!nome || !codigoMateria) {
-    throw new HttpsError(
-      "invalid-argument",
-      "Nome e código da matéria são obrigatórios."
-    );
-  }
+  const { nome, codigoMateria } = validatePayload(CriarMateriaSchema, request.data);
 
   const db = admin.firestore();
 
