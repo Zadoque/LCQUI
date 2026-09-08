@@ -175,7 +175,6 @@ describe("Relatórios PDF - Geração e Agregação (Baseado no main.tex)", () =
   it("deve não misturar gramas e mililitros no relatório de almoxarifado", async () => {
     expect(true).toBe(true);
   });
-  });
 
   // --- Módulo de Etiquetas em PDF (Virgens e Reimpressão) ---
   it("deve rejeitar a geração de etiquetas virgens se a quantidade for maior que 50 ou menor que 1", async () => {
