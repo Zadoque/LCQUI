@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase/config";
 import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
+import { TurmasArquivadasModal } from "./ProfessorModais";
 
 interface Turma {
   id: string;
@@ -26,6 +27,7 @@ export default function SidebarTurmas({
 }: SidebarTurmasProps) {
   const { user, roles } = useAuth();
   const [turmas, setTurmas] = useState<Turma[]>([]);
+  const [showArquivadas, setShowArquivadas] = useState(false);
   const isProfessor = roles.includes("Professor") || roles.includes("Chefe_Geral");
   const isAluno = roles.includes("Aluno") || roles.includes("Bolsista");
 
@@ -117,11 +119,16 @@ export default function SidebarTurmas({
       
       {isProfessor && (
         <div className="p-4 border-t border-border">
-          <button className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors text-left px-2">
+          <button 
+            onClick={() => setShowArquivadas(true)}
+            className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors text-left px-2"
+          >
             🗃️ Turmas Arquivadas
           </button>
         </div>
       )}
+
+      <TurmasArquivadasModal isOpen={showArquivadas} onClose={() => setShowArquivadas(false)} />
     </div>
   );
 }

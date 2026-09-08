@@ -273,7 +273,17 @@ exports.convidarAluno = (0, https_1.onCall)(async (request) => {
         }
         const snap = await tx.get(queryRef.limit(1));
         if (!snap.empty) {
-            throw new https_1.HttpsError("already-exists", "Já existe um convite pendente.");
+            throw new https_1.HttpsError("already-exists", "Já existe um convite pendente para este email e turma.");
+        }
+        if (matricula) {
+            const convitesMat = await tx.get(db.collection("Convite_Aluno").where("numero_matricula", "==", matricula).limit(1));
+            if (!convitesMat.empty) {
+                throw new https_1.HttpsError("already-exists", "Esta matrícula já possui um convite pendente.");
+            }
+            const usuariosMat = await tx.get(db.collection("Usuarios").where("numero_matricula", "==", matricula).limit(1));
+            if (!usuariosMat.empty) {
+                throw new https_1.HttpsError("already-exists", "Esta matrícula já está cadastrada no sistema.");
+            }
         }
         const docRef = db.collection("Convite_Aluno").doc();
         const expiraEm = new Date();

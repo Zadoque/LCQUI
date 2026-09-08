@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -76,6 +76,19 @@ export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
 
+  useEffect(() => {
+    const saved = localStorage.getItem("sidebarCollapsed");
+    if (saved !== null) setIsCollapsed(saved === "true");
+  }, []);
+
+  const toggleSidebar = () => {
+    setIsCollapsed(prev => {
+      const newState = !prev;
+      localStorage.setItem("sidebarCollapsed", String(newState));
+      return newState;
+    });
+  };
+
   // Ícones do chevron para o botão de toggle
   const chevronLeft = (
     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -147,6 +160,12 @@ export default function Sidebar() {
         { label: "Turmas", href: "/turmas", icon: icons.book },
       ],
     });
+    groups.push({
+      title: "Alunos",
+      items: [
+        { label: "Alunos", href: "/alunos", icon: icons.student },
+      ],
+    });
   }
 
   if (isAluno && !isChefe && !isProfessor) {
@@ -174,7 +193,7 @@ export default function Sidebar() {
     <nav className="flex flex-col h-full relative">
       {/* Botão de Toggle (Apenas Desktop) */}
       <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
+        onClick={toggleSidebar}
         className="hidden lg:flex absolute -right-3.5 top-6 z-50 w-7 h-7 bg-background border border-foreground/10 rounded-full items-center justify-center text-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors shadow-sm"
         title={isCollapsed ? "Expandir menu" : "Encolher menu"}
       >
@@ -205,11 +224,10 @@ export default function Sidebar() {
                       href={item.href}
                       onClick={() => setIsOpen(false)}
                       title={isCollapsed ? item.label : undefined}
-                      className={`flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
-                        isActive
+                      className={`flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${isActive
                           ? "bg-primary/10 text-primary border border-primary/20 shadow-sm"
                           : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground"
-                      } ${isCollapsed ? "justify-center px-0 w-12 mx-auto" : "px-3"}`}
+                        } ${isCollapsed ? "justify-center px-0 w-12 mx-auto" : "px-3"}`}
                     >
                       <span className="shrink-0">{item.icon}</span>
                       {!isCollapsed && <span className="animate-in fade-in duration-300">{item.label}</span>}

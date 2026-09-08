@@ -62,6 +62,11 @@ export default function Header() {
             Turmas
           </a>
         )}
+        {(roles.includes("Chefe_Geral") || roles.includes("Professor")) && (
+          <a href="/alunos" className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors">
+            Alunos
+          </a>
+        )}
       </nav>
 
       <div className="flex items-center gap-4 relative">

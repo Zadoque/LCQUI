@@ -52,8 +52,15 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
       throw new HttpsError("permission-denied", "Você foi removido pelo professor e não pode retornar pelo código.");
     }
 
+    const userRef = db.collection("Usuarios").doc(request.auth!.uid);
+    const userDoc = await tx.get(userRef);
+    const userData = userDoc.exists ? userDoc.data()! : {};
+
     tx.set(alunoTurmaRef, {
       id_aluno: request.auth!.uid,
+      nome: userData.nome || "Sem nome",
+      email: userData.email || "",
+      numero_matricula: userData.numero_matricula || "",
       ingressou_em: FieldValue.serverTimestamp()
     });
 
@@ -287,7 +294,18 @@ export const convidarAluno = onCall(async (request) => {
 
     const snap = await tx.get(queryRef.limit(1));
     if (!snap.empty) {
-      throw new HttpsError("already-exists", "Já existe um convite pendente.");
+      throw new HttpsError("already-exists", "Já existe um convite pendente para este email e turma.");
+    }
+
+    if (matricula) {
+      const convitesMat = await tx.get(db.collection("Convite_Aluno").where("numero_matricula", "==", matricula).limit(1));
+      if (!convitesMat.empty) {
+        throw new HttpsError("already-exists", "Esta matrícula já possui um convite pendente.");
+      }
+      const usuariosMat = await tx.get(db.collection("Usuarios").where("numero_matricula", "==", matricula).limit(1));
+      if (!usuariosMat.empty) {
+        throw new HttpsError("already-exists", "Esta matrícula já está cadastrada no sistema.");
+      }
     }
 
     const docRef = db.collection("Convite_Aluno").doc();

@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adicionarComentario = exports.criarPost = void 0;
+exports.excluirComentario = exports.excluirPost = exports.adicionarComentario = exports.criarPost = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-admin/firestore");
@@ -105,5 +105,86 @@ exports.adicionarComentario = (0, https_1.onCall)(async (request) => {
         criado_em: firestore_1.FieldValue.serverTimestamp()
     });
     return { id: comentarioRef.id };
+});
+exports.excluirPost = (0, https_1.onCall)(async (request) => {
+    (0, auth_1.validarPermissao)(request, ["Professor", "Chefe_Geral"]);
+    const { idTurma, idPost } = request.data;
+    if (!idTurma || !idPost) {
+        throw new https_1.HttpsError("invalid-argument", "Turma e Post são obrigatórios.");
+    }
+    const db = admin.firestore();
+    const turmaRef = db.collection("Turma").doc(idTurma);
+    const turmaSnap = await turmaRef.get();
+    if (!turmaSnap.exists) {
+        throw new https_1.HttpsError("not-found", "Turma não encontrada.");
+    }
+    if (turmaSnap.data()?.id_professor !== request.auth.uid) {
+        throw new https_1.HttpsError("permission-denied", "Apenas o professor responsável pela turma pode excluir posts.");
+    }
+    const postRef = turmaRef.collection("Posts").doc(idPost);
+    const postSnap = await postRef.get();
+    if (!postSnap.exists) {
+        throw new https_1.HttpsError("not-found", "Post não encontrado.");
+    }
+    return db.runTransaction(async (tx) => {
+        // De acordo com RF25, nao se apagam fatos. Porem, pela documentacao da seção 4 (Historico_Posts_Turma), 
+        // criaremos um registro na auditoria e excluiremos o post ou apenas mudaremos o status.
+        // Para simplificar, vou excluir, mas gravar no Registro_de_Auditoria (que cumpre a regra de RF25 de reter log).
+        tx.delete(postRef);
+        const auditRef = db.collection("Registro_de_Auditoria").doc();
+        tx.set(auditRef, {
+            id_usuario: request.auth.uid,
+            acao: "Excluir Post",
+            tipo_entidade_sofre_acao: "POST",
+            id_do_objeto_da_entidade: idPost,
+            acao_feita_em: firestore_1.FieldValue.serverTimestamp(),
+            metadata: {
+                titulo: postSnap.data()?.titulo
+            }
+        });
+        return { success: true };
+    });
+});
+exports.excluirComentario = (0, https_1.onCall)(async (request) => {
+    const authRoles = request.auth?.token.roles || [];
+    if (!authRoles.includes("Professor") && !authRoles.includes("Chefe_Geral") && !authRoles.includes("Aluno")) {
+        throw new https_1.HttpsError("permission-denied", "Apenas professores e alunos podem excluir comentários.");
+    }
+    const { idTurma, idPost, idComentario } = request.data;
+    if (!idTurma || !idPost || !idComentario) {
+        throw new https_1.HttpsError("invalid-argument", "Turma, Post e Comentário são obrigatórios.");
+    }
+    const db = admin.firestore();
+    const comentarioRef = db.collection("Turma").doc(idTurma).collection("Posts").doc(idPost).collection("Comentarios").doc(idComentario);
+    const comentarioSnap = await comentarioRef.get();
+    if (!comentarioSnap.exists) {
+        throw new https_1.HttpsError("not-found", "Comentário não encontrado.");
+    }
+    // Validação: Aluno só pode excluir o próprio comentário. Professor da turma pode excluir de qualquer um.
+    if (!authRoles.includes("Professor") && !authRoles.includes("Chefe_Geral")) {
+        if (comentarioSnap.data()?.id_usuario !== request.auth.uid) {
+            throw new https_1.HttpsError("permission-denied", "Você só pode excluir seus próprios comentários.");
+        }
+    }
+    else {
+        const turmaSnap = await db.collection("Turma").doc(idTurma).get();
+        if (turmaSnap.data()?.id_professor !== request.auth.uid) {
+            // Se for outro professor, só pode excluir se for dono do comentário
+            if (comentarioSnap.data()?.id_usuario !== request.auth.uid) {
+                throw new https_1.HttpsError("permission-denied", "Apenas o professor da turma pode excluir comentários de terceiros.");
+            }
+        }
+    }
+    await comentarioRef.delete();
+    const auditRef = db.collection("Registro_de_Auditoria").doc();
+    await auditRef.set({
+        id_usuario: request.auth.uid,
+        acao: "Excluir Comentário",
+        tipo_entidade_sofre_acao: "COMENTARIO",
+        id_do_objeto_da_entidade: idComentario,
+        acao_feita_em: firestore_1.FieldValue.serverTimestamp(),
+        metadata: {}
+    });
+    return { success: true };
 });
 //# sourceMappingURL=posts.js.map
