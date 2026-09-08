@@ -2,6 +2,13 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { validarPermissao } from "./auth";
+import { validatePayload } from "./utils/validation";
+import { 
+  CriarPostSchema, 
+  AdicionarComentarioSchema, 
+  ExcluirPostSchema, 
+  ExcluirComentarioSchema 
+} from "./schemas/posts.schema";
 
 /**
  * Função para criar um Post.
@@ -10,16 +17,7 @@ import { validarPermissao } from "./auth";
 export const criarPost = onCall(async (request) => {
   validarPermissao(request, ["Professor", "Chefe_Geral"]);
 
-  const { idTurma, titulo, descricao, idRoteiroExperimento } = request.data as {
-    idTurma: string;
-    titulo: string;
-    descricao: string;
-    idRoteiroExperimento?: string;
-  };
-
-  if (!idTurma || !titulo || !descricao) {
-    throw new HttpsError("invalid-argument", "Turma, título e descrição são obrigatórios.");
-  }
+  const { idTurma, titulo, descricao, idRoteiroExperimento } = validatePayload(CriarPostSchema, request.data);
 
   const db = admin.firestore();
 
@@ -63,15 +61,7 @@ export const adicionarComentario = onCall(async (request) => {
     throw new HttpsError("permission-denied", "Apenas professores e alunos podem comentar.");
   }
 
-  const { idTurma, idPost, texto } = request.data as {
-    idTurma: string;
-    idPost: string;
-    texto: string;
-  };
-
-  if (!idTurma || !idPost || !texto) {
-    throw new HttpsError("invalid-argument", "Turma, Post e texto são obrigatórios.");
-  }
+  const { idTurma, idPost, texto } = validatePayload(AdicionarComentarioSchema, request.data);
 
   const db = admin.firestore();
 
@@ -112,14 +102,7 @@ export const adicionarComentario = onCall(async (request) => {
 export const excluirPost = onCall(async (request) => {
   validarPermissao(request, ["Professor", "Chefe_Geral"]);
 
-  const { idTurma, idPost } = request.data as {
-    idTurma: string;
-    idPost: string;
-  };
-
-  if (!idTurma || !idPost) {
-    throw new HttpsError("invalid-argument", "Turma e Post são obrigatórios.");
-  }
+  const { idTurma, idPost } = validatePayload(ExcluirPostSchema, request.data);
 
   const db = admin.firestore();
   const turmaRef = db.collection("Turma").doc(idTurma);
@@ -166,15 +149,7 @@ export const excluirComentario = onCall(async (request) => {
     throw new HttpsError("permission-denied", "Apenas professores e alunos podem excluir comentários.");
   }
 
-  const { idTurma, idPost, idComentario } = request.data as {
-    idTurma: string;
-    idPost: string;
-    idComentario: string;
-  };
-
-  if (!idTurma || !idPost || !idComentario) {
-    throw new HttpsError("invalid-argument", "Turma, Post e Comentário são obrigatórios.");
-  }
+  const { idTurma, idPost, idComentario } = validatePayload(ExcluirComentarioSchema, request.data);
 
   const db = admin.firestore();
   const comentarioRef = db.collection("Turma").doc(idTurma).collection("Posts").doc(idPost).collection("Comentarios").doc(idComentario);
