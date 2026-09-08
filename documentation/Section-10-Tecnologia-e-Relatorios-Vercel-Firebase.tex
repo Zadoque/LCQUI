@@ -78,15 +78,20 @@ async function validarGestorDoAlmoxarifado(uid: string, auth: {token: Record<str
   }
 }
 
-// C3: Geração de código sequencial via Realtime Database (sem limite de throughput).
-// O .transaction() do RTDB é atômico e suporta milhares de writes/s.
-async function gerarCodigoFrascoUnico(): Promise<string> {
-  const ref = admin.database().ref("/contadores/codigo_frasco");
-  const result = await ref.transaction((current: number | null) => (current ?? 0) + 1);
-  if (!result.committed || result.snapshot.val() == null) {
-    throw new HttpsError("internal", "Falha ao gerar código de frasco.");
-  }
-  return `LCQUI-${result.snapshot.val()}`;
+// Geração atômica sequencial no Firestore via Documento Singleton (Seção 5.7)
+// Executado estritamente dentro da transação de cadastro do frasco
+async function obterProximoCodigoFrascoTx(
+  tx: FirebaseFirestore.Transaction
+): Promise<{ proximoNumero: number; novoCodigo: string }> {
+  const contadorRef = admin.firestore().collection("Contador_Codigo_Frasco").doc("singleton");
+  const contadorSnap = await tx.get(contadorRef);
+
+  const ultimoCodigo = contadorSnap.data()?.ultimo_codigo_gerado || 0;
+  const proximoNumero = ultimoCodigo + 1;
+
+  tx.set(contadorRef, { ultimo_codigo_gerado: proximoNumero }, { merge: true });
+
+  return { proximoNumero, novoCodigo: `LCQUI-${proximoNumero}` };
 }
 \end{lstlisting}
 
@@ -140,32 +145,40 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status.");
   }
 
-  const codigoFrasco = await gerarCodigoFrascoUnico();
+  // Execução atômica no Firestore: Sequenciamento + Cadastro do Frasco
+  return admin.firestore().runTransaction(async (tx) => {
+    // 1. Gera o código sequencial estrito LCQUI-N
+    const { novoCodigo } = await obterProximoCodigoFrascoTx(tx);
 
-  const ref = await admin.firestore().collection("Frasco_Reagente").add({
-    id_almoxarifado: dados.idAlmoxarifado,
-    id_lote: dados.idLote ?? null,
-    id_especificacao_reagente: dados.idLote ? null : dados.idEspecificacaoReagente,
-    codigo_frasco: codigoFrasco,
-    conteudo_nominal: dados.volumeNominal,
-    peso_no_cadastrado: dados.pesoTotal,
-    peso_atual: dados.pesoTotal,
-    peso_frasco_vazio: pesoVazio,
-    medida_usada: 0,
-    estado_fisico_frasco: "FECHADO",
-    disponibilidade: "DISPONIVEL",
-    validade_fechado: validadeEfetiva,
-    validade_efetiva: validadeEfetiva,
-    validade_desconhecida: dados.validadeDesconhecida ?? false,
-    vencido: venceuNoCadastro,
-    em_quarentena: venceuNoCadastro && dados.decisaoSeJaVencido === "QUARENTENA",
-    uso_vencido_autorizado: venceuNoCadastro && dados.decisaoSeJaVencido === "DISPONIVEL",
-    detalhe_status: venceuNoCadastro ? (dados.detalheStatus ?? (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE" ? "Frasco vencido aguardando processo institucional de descarte." : null)) : null,
-    cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
-    cadastrado_por: request.auth!.uid,
+    // 2. Persiste o frasco com o código gerado
+    const frascoRef = admin.firestore().collection("Frasco_Reagente").doc();
+    tx.set(frascoRef, {
+      id_almoxarifado: dados.idAlmoxarifado,
+      id_lote: dados.idLote ?? null,
+      id_especificacao_reagente: dados.idLote ? null : dados.idEspecificacaoReagente,
+      codigo_frasco: novoCodigo,
+      conteudo_nominal: dados.volumeNominal,
+      peso_no_cadastrado: dados.pesoTotal,
+      peso_atual: dados.pesoTotal,
+      peso_frasco_vazio: pesoVazio,
+      medida_usada: 0,
+      estado_fisico_frasco: "FECHADO",
+      disponibilidade: "DISPONIVEL",
+      validade_fechado: validadeEfetiva,
+      validade_efetiva: validadeEfetiva,
+      validade_desconhecida: dados.validadeDesconhecida ?? false,
+      vencido: venceuNoCadastro,
+      em_quarentena: venceuNoCadastro && dados.decisaoSeJaVencido === "QUARENTENA",
+      uso_vencido_autorizado: venceuNoCadastro && dados.decisaoSeJaVencido === "DISPONIVEL",
+      detalhe_status: venceuNoCadastro
+        ? dados.detalheStatus ?? (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE" ? "Frasco vencido aguardando processo institucional de descarte." : null)
+        : null,
+      cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+      cadastrado_por: request.auth!.uid,
+    });
+
+    return { idFrasco: frascoRef.id, codigoFrasco: novoCodigo, pesoVazioCalculado: pesoVazio, venceuNoCadastro };
   });
-
-  return { idFrasco: ref.id, codigoFrasco, pesoVazioCalculado: pesoVazio, venceuNoCadastro };
 });
 \end{lstlisting}
 
@@ -236,7 +249,6 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
       throw new HttpsError("invalid-argument", "Dados de volume/peso inconsistentes com a densidade.");
   }
 
-  const codigoFrasco = await gerarCodigoFrascoUnico();
   const agora = new Date();
   const validade = dados.validadeAberto ? new Date(dados.validadeAberto) : null;
   const validadeEfetiva = dados.validadeDesconhecida ? null : validade;
@@ -247,33 +259,38 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
   if (dados.decisaoSeJaVencido === "QUARENTENA" && !dados.detalheStatus)
     throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status.");
 
-  const ref = await admin.firestore().collection("Frasco_Reagente").add({
-    id_almoxarifado: dados.idAlmoxarifado,
-    id_lote: dados.idLote ?? null,
-    id_especificacao_reagente: dados.idLote ? null : dados.idEspecificacaoReagente,
-    codigo_frasco: codigoFrasco,
-    conteudo_nominal: conteudoNominal,   // g (sólido) ou mL (líquido)
-    peso_no_cadastrado: dados.pesoTotalBalanca,
-    peso_atual: dados.pesoTotalBalanca,
-    peso_frasco_vazio: pesoVazio,
-    medida_usada: 0,
-    data_abertura: agora,
-    estado_fisico_frasco: "ABERTO",
-    disponibilidade: "DISPONIVEL",
-    validade_efetiva: validadeEfetiva,
-    validade_desconhecida: dados.validadeDesconhecida ?? false,
-    vencido: jaVencido,
-    em_quarentena: jaVencido && dados.decisaoSeJaVencido === "QUARENTENA",
-    uso_vencido_autorizado: jaVencido && dados.decisaoSeJaVencido === "DISPONIVEL",
-    detalhe_status: jaVencido
-      ? (dados.detalheStatus ?? (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE"
-          ? "Frasco vencido aguardando processo institucional de descarte." : null))
-      : null,
-    cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
-    cadastrado_por: request.auth!.uid,
-  });
+  return admin.firestore().runTransaction(async (tx) => {
+    const { novoCodigo } = await obterProximoCodigoFrascoTx(tx);
+    const frascoRef = admin.firestore().collection("Frasco_Reagente").doc();
 
-  return { idFrasco: ref.id, codigoFrasco, conteudoNominal, pesoVazio, venceuNoCadastro: jaVencido };
+    tx.set(frascoRef, {
+      id_almoxarifado: dados.idAlmoxarifado,
+      id_lote: dados.idLote ?? null,
+      id_especificacao_reagente: dados.idLote ? null : dados.idEspecificacaoReagente,
+      codigo_frasco: novoCodigo,
+      conteudo_nominal: conteudoNominal,   // g (sólido) ou mL (líquido)
+      peso_no_cadastrado: dados.pesoTotalBalanca,
+      peso_atual: dados.pesoTotalBalanca,
+      peso_frasco_vazio: pesoVazio,
+      medida_usada: 0,
+      data_abertura: agora,
+      estado_fisico_frasco: "ABERTO",
+      disponibilidade: "DISPONIVEL",
+      validade_efetiva: validadeEfetiva,
+      validade_desconhecida: dados.validadeDesconhecida ?? false,
+      vencido: jaVencido,
+      em_quarentena: jaVencido && dados.decisaoSeJaVencido === "QUARENTENA",
+      uso_vencido_autorizado: jaVencido && dados.decisaoSeJaVencido === "DISPONIVEL",
+      detalhe_status: jaVencido
+        ? (dados.detalheStatus ?? (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE"
+            ? "Frasco vencido aguardando processo institucional de descarte." : null))
+        : null,
+      cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+      cadastrado_por: request.auth!.uid,
+    });
+
+    return { idFrasco: frascoRef.id, codigoFrasco: novoCodigo, conteudoNominal, pesoVazio, venceuNoCadastro: jaVencido };
+  });
 });
 \end{lstlisting}
 
