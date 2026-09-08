@@ -20,7 +20,7 @@ Todos os relatórios gerados pelo backend injetam um rodapé contendo um Hash Ca
 Devido aos limites impostos pelas cláusulas \textit{in} ou \textit{getAll} no Firestore (limite de itens por array), as rotinas de agregação de relatórios implementam um padrão de resolução de referências agrupada (Chunking). Os arrays de \textit{refs} são subdivididos em lotes de 200 itens através do utilitário \texttt{chunkArray} garantindo resiliência perante alta volumetria.
 
 \subsubsection{Módulo de Geração de Etiquetas (PDF)}
-Para a identificação física dos frascos, o backend também utiliza o \textbf{pdfkit} para desenhar uma matriz (Grid Visual de Offset 3×10) em tamanho A4, com etiquetas de 65,0 mm × 26,5 mm. O código de barras no formato Code 128 é gerado ativamente em memória via biblioteca \textbf{bwip-js} e embutido no buffer do PDF, garantindo alta definição na impressão e dispensa de fontes especiais no client.
+Para a identificação física dos frascos, o backend também utiliza o \textbf{pdfkit} para desenhar uma matriz (Grid Visual de Offset 3×10) em tamanho A4, com etiquetas de 65,0 mm × 26,5 mm. O código de barras no formato Code 128 é gerado ativamente em memória via biblioteca \textbf{bwip-js} e embutido no buffer do PDF, garantindo alta definição na impressão e dispensa de fontes especiais no client. Para frascos já cadastrados (2ª via), o backend gera folhas individuais A4 contendo a Ficha de Conferência e Rastreabilidade com histórico recente de 10 movimentações e 1 única etiqueta de reposição centralizada no rodapé.
 
 \subsection{Princípio: nunca confiar no \textit{client-side}}
 Todas as \textit{Cloud Functions} desta seção seguem a mesma regra: \textbf{qualquer dado que o servidor consiga derivar ou verificar por conta própria é recalculado ou reconferido no servidor, nunca aceito como o cliente enviou}. Isso vale, em particular, para o papel do usuário (sempre resolvido a partir do Firestore, nunca do que o \textit{request} diz que o usuário é), para valores calculados como peso/volume/vencimento/atraso (sempre recomputados a partir dos dados brutos e da hora do servidor), para códigos gerados pelo sistema (Regra 6.2.9), e para o estado de disponibilidade de um recurso concorrente (sempre relido dentro de uma transação antes de decidir).
@@ -1102,3 +1102,89 @@ export const gerarRelatorioPersonalizado = onCall(async (request) => {
   return { url };
 });
 \end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Módulo de Etiquetas em PDF: Virgens e Reimpressão}]
+// ============================================================================
+// GERAÇÃO DE ETIQUETAS VIRGENS (NOVOS FRASCOS) - ABA 1
+// ============================================================================
+interface DadosEtiquetasVirgens {
+  codigoInicial: number;
+  codigoFinal: number;
+  startRow?: number; // 1 a 10 (Grid A4)
+  startCol?: number; // 1 a 3
+}
+
+export const gerarPdfEtiquetasVirgens = onCall(async (request) => {
+  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  const dados = request.data as DadosEtiquetasVirgens;
+
+  const total = dados.codigoFinal - dados.codigoInicial + 1;
+  if (total <= 0 || total > 50) {
+    throw new HttpsError("invalid-argument", "O lote deve conter entre 1 e 50 etiquetas por impressão.");
+  }
+
+  // Audita a sessão de geração de etiquetas virgens (Seção 4.13)
+  await admin.firestore().collection("Impressao_Etiqueta_Frasco").add({
+    gerado_em: admin.firestore.FieldValue.serverTimestamp(),
+    gerado_por: request.auth!.uid,
+    codigo_inicial: dados.codigoInicial,
+    codigo_final: dados.codigoFinal,
+  });
+
+  const codigos = Array.from({ length: total }, (_, i) => `LCQUI-${dados.codigoInicial + i}`);
+  const buffer = await gerarPdfEtiquetasNovosFrascos(codigos, dados.startRow || 1, dados.startCol || 1);
+
+  const fileName = `etiquetas/virgens_${dados.codigoInicial}_a_${dados.codigoFinal}_${Date.now()}.pdf`;
+  const fileRef = admin.storage().bucket().file(fileName);
+  await fileRef.save(buffer, { contentType: "application/pdf" });
+  const [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
+
+  return { url };
+});
+
+// ============================================================================
+// REIMPRESSÃO E FICHA DE CONFERÊNCIA (FRASCOS JÁ CADASTRADOS) - ABA 2
+// ============================================================================
+interface DadosReimpressao {
+  frascoIds: string[]; // Máximo 10 frascos
+}
+
+export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
+  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  const { frascoIds } = request.data as DadosReimpressao;
+
+  // Regra 7.2.10: Teto rígido de segurança química
+  if (!frascoIds || frascoIds.length === 0 || frascoIds.length > 10) {
+    throw new HttpsError("invalid-argument", "Selecione entre 1 e 10 frascos por sessão de reimpressão.");
+  }
+
+  // 1. Busca dados completos, histórico recente e último empréstimo dos frascos
+  const dadosFrascos = await buscarDadosCompletosParaConferencia(frascoIds);
+
+  // 2. Registra auditoria individual de 2ª via para cada frasco (Seção 4.41)
+  const batch = admin.firestore().batch();
+  for (const frascoId of frascoIds) {
+    const auditRef = admin.firestore().collection("Registro_de_Auditoria").doc();
+    batch.set(auditRef, {
+      id_usuario: request.auth!.uid,
+      acao: "REIMPRESSAO_ETIQUETA",
+      tipo_entidade_sofre_acao: "FRASCO_REAGENTE",
+      id_do_objeto_da_entidade: frascoId,
+      acao_feita_em: admin.firestore.FieldValue.serverTimestamp(),
+      metadata: { motivo: "segunda_via_conferencia" },
+    });
+  }
+  await batch.commit();
+
+  // 3. Gera PDF com Ficha de Conferência + 1 Etiqueta Centralizada por frasco
+  const buffer = await gerarPdfFrascosCadastrados(dadosFrascos);
+
+  const fileName = `etiquetas/reimpressao_${Date.now()}.pdf`;
+  const fileRef = admin.storage().bucket().file(fileName);
+  await fileRef.save(buffer, { contentType: "application/pdf" });
+  const [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
+
+  return { url };
+});
+\end{lstlisting}
+
