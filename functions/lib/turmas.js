@@ -96,10 +96,19 @@ exports.ingressarEmTurmaPorCodigo = (0, https_1.onCall)(async (request) => {
 exports.criarTurma = (0, https_1.onCall)(async (request) => {
     try {
         (0, auth_1.validarPermissao)(request, ["Professor", "Chefe_Geral"]);
-        const { idMateria, nomeTurma, ano, semestre, capacidade, nomeMateria } = request.data;
+        const { idMateria, nomeTurma, ano, semestre, capacidade, nomeMateria, idProfessor } = request.data;
         console.log("Recebido payload criarTurma:", request.data);
         if (!idMateria || !nomeTurma || !nomeMateria || !ano || !semestre || !capacidade) {
             throw new https_1.HttpsError("invalid-argument", "Dados incompletos para criar a turma.");
+        }
+        const authRoles = request.auth?.token.roles || [];
+        const isChefeGeral = authRoles.includes("Chefe_Geral");
+        let id_professor = request.auth.uid;
+        if (isChefeGeral && idProfessor) {
+            if (idProfessor === request.auth.uid) {
+                throw new https_1.HttpsError("invalid-argument", "O chefe geral não pode criar uma turma para si mesmo.");
+            }
+            id_professor = idProfessor;
         }
         const anoNum = parseInt(ano, 10);
         const semestreNum = parseInt(semestre, 10);
@@ -139,7 +148,7 @@ exports.criarTurma = (0, https_1.onCall)(async (request) => {
             tx.set(docRef, {
                 id_materia: idMateria,
                 nome_materia: nomeMateria,
-                id_professor: request.auth.uid,
+                id_professor: id_professor,
                 status: "Ativo",
                 nome_turma: nomeTurma,
                 ano: anoNum,

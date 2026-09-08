@@ -45,4 +45,5 @@ __exportStar(require("./relatorios"), exports);
 __exportStar(require("./turmas"), exports);
 __exportStar(require("./materias"), exports);
 __exportStar(require("./posts"), exports);
+__exportStar(require("./usuarios"), exports);
 //# sourceMappingURL=index.js.map

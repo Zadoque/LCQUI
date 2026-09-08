@@ -770,9 +770,9 @@ exports.gerarPdfReimpressaoFrascos = (0, https_1.onCall)(async (request) => {
                 const data = h.data();
                 return {
                     ...data,
-                    timestamp: data.timestamp ? data.timestamp.toDate().toLocaleString("pt-BR") : "-",
+                    timestamp: data.timestamp ? data.timestamp.toDate().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "-",
                 };
-            }).reverse();
+            });
             // Buscar último empréstimo
             const empSnap = await db.collection("Emprestimo_Reagente")
                 .where("id_frasco_reagente", "==", frascoId)
@@ -783,17 +783,17 @@ exports.gerarPdfReimpressaoFrascos = (0, https_1.onCall)(async (request) => {
                 const emp = empSnap.docs[0].data();
                 frasco.ultimo_emprestimo = {
                     usuario: emp.nome_usuario_retirou || "Usuário não identificado",
-                    data_retirada: emp.data_retirada ? emp.data_retirada.toDate().toLocaleString("pt-BR") : "-",
+                    data_retirada: emp.data_retirada ? emp.data_retirada.toDate().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "-",
                     status: emp.status,
                 };
             }
             // Preparação visual dos campos (fallback e data formatada)
-            frasco.cadastrado_em = frasco.cadastrado_em ? frasco.cadastrado_em.toDate().toLocaleDateString("pt-BR") : "";
+            frasco.cadastrado_em = frasco.cadastrado_em ? frasco.cadastrado_em.toDate().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "";
             if (frasco.validade_efetiva) {
                 // No banco é um string "YYYY-MM-DD" se for date.
                 // O SDK transforma Timestamp ou a string formatamos:
                 if (frasco.validade_efetiva.toDate) {
-                    frasco.validade_efetiva = frasco.validade_efetiva.toDate().toLocaleDateString("pt-BR");
+                    frasco.validade_efetiva = frasco.validade_efetiva.toDate().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
                 }
             }
             frasco.status = frasco.estado_fisico_frasco;
