@@ -1,32 +1,78 @@
 rules_version = '2';
+
 service firebase.storage {
   match /b/{bucket}/o {
-    
+
+    // --- Funções Auxiliares ---
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && request.auth.token.get(role, false) == true;
+    }
+
+    function isAdmin() {
+      return hasRole('chefe') || hasRole('admin');
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function isPdf() {
+      return request.resource.contentType == 'application/pdf';
+    }
+
+    function isSizeLessThan(mb) {
+      // mb param em Megabytes -> bytes
+      return request.resource.size < mb * 1024 * 1024;
+    }
+
+    // --- Default Fechado ---
     match /{allPaths=**} {
-      allow read, write: if false; // Deny default
+      allow read, write: if false;
     }
 
-    match /relatorios/{fileName} {
-      allow read: if true; // Liberado para o emulador ler via window.open (Nova Aba)
+    // --- 1. Fotos de Perfil ---
+    match /fotos_perfil/{userId}/{fileName} {
+      // Qualquer usuário autenticado lê (catálogo interno)
+      allow read: if isAuthenticated();
+      allow write: if (isOwner(userId) || isAdmin()) && isImage() && isSizeLessThan(5);
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
-    match /etiquetas/{fileName} {
-      allow read: if true; // Liberado para o emulador ler via window.open (Nova Aba)
+    // --- 2. Fotos do Patrimônio e Requisições ---
+    match /patrimonio/{itemId}/{fileName} {
+      // Catálogo público interno (Seção 11 da doc)
+      allow read: if isAuthenticated();
+      allow write: if (hasRole('gestorPatrimonio') || isAdmin()) && isImage() && isSizeLessThan(5);
+      allow delete: if hasRole('gestorPatrimonio') || isAdmin();
+    }
+    
+    match /requisicoes/{reqId}/{fileName} {
+      allow read: if isAuthenticated();
+      // Professores também podem submeter fotos nas suas requisições
+      allow write: if (hasRole('professor') || hasRole('gestorPatrimonio') || isAdmin()) && isImage() && isSizeLessThan(5);
+      allow delete: if hasRole('professor') || hasRole('gestorPatrimonio') || isAdmin();
     }
 
-    match /roteiros/{userId}/{fileName} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null 
-                   && ('Professor' in request.auth.token.roles || 'Chefe_Geral' in request.auth.token.roles)
-                   && request.auth.uid == userId
-                   && request.resource.contentType.matches('application/pdf');
+    // --- 3. Documentos de Baixa Patrimonial ---
+    match /baixas_patrimoniais/{itemId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if (hasRole('gestorPatrimonio') || isAdmin()) && isPdf() && isSizeLessThan(10);
+      allow delete: if hasRole('gestorPatrimonio') || isAdmin();
     }
 
-    match /baixas_patrimoniais/{fileName} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-                   && ('Chefe_Geral' in request.auth.token.roles || 'Gestor_Bens_Patrimoniais' in request.auth.token.roles)
-                   && request.resource.contentType.matches('application/pdf');
+    // --- 4. Roteiros (PDF) ---
+    match /roteiros/{roteiroId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if (hasRole('professor') || isAdmin()) && isPdf() && isSizeLessThan(15);
+      allow delete: if hasRole('professor') || isAdmin();
     }
   }
 }
