@@ -109,7 +109,7 @@ Emprestimo\_Reagente & Coleção raiz. Denorm: \texttt{id\_almoxarifado}, \textt
 Materia & Coleção raiz & Catálogo global; raramente alterado.\\
 Professor\_x\_Materia & Coleção raiz & Query bidirecional: ``matérias de X'' e ``professores de Y''.\\
 Turma & Coleção raiz. Denorm: \texttt{nome\_materia} & Acesso direto por \texttt{codigo\_turma}; nome da matéria necessário na listagem sem JOIN.\\
-Aluno\_x\_Turma & Sub-coleção \nolinkurl{Turmas/\{id\}/Alunos} & Query natural: ``alunos desta turma''; contagem de capacidade trivial.\\
+\textbf{\texttt{Aluno\_x\_Turma}} & \textbf{Subcoleção dupla (espelhada):}\newline 1. \nolinkurl{Turmas/\{id\}/Alunos}\newline 2. \nolinkurl{Usuarios/\{uid\}/Turmas} & \textbf{1. \nolinkurl{Turmas/\{id\}/Alunos}:} Visão da disciplina; contagem de capacidade e listagem de chamada para o professor.\newline \textbf{2. \nolinkurl{Usuarios/\{uid\}/Turmas}:} Visão do aluno; viabiliza o feed em tempo real no menu lateral de ``Minhas Turmas'' com segurança isolada por UID e zero leituras $N+1$. Consistência garantida via transação nas Cloud Functions de matrícula/exclusão.\\
 Historico\_Alunos\_Turma & Sub-coleção \nolinkurl{Turmas/\{id\}/HistoricoAlunos} & Auditoria de inclusão/exclusão sempre por turma.\\
 Post & Sub-coleção \nolinkurl{Turmas/\{id\}/Posts} & Feed cronológico da turma; nunca consultado globalmente.\\
 Comentario & Sub-coleção \nolinkurl{Posts/\{id\}/Comentarios} & Thread aninhada ao post.\\
@@ -155,3 +155,13 @@ Poucos no sistema (dezenas). Estratégia: baixar todos via \texttt{onSnapshot} c
 \begin{regra}[Listeners com \texttt{onSnapshot} e Persistência]
 O frontend deve usar \texttt{onSnapshot} com persistência habilitada (\texttt{enableIndexedDbPersistence} ou \texttt{enableMultiTabIndexedDbPersistence} conforme o contexto) em todas as coleções listáveis pelo papel do usuário logado. Com isso, o SDK Firestore mantém cache local e trafega apenas deltas do servidor a cada reconexão, reduzindo leituras faturáveis e melhorando a experiência offline. As telas de busca se alimentam primariamente do cache; a sincronização em tempo real é transparente.
 \end{regra}
+
+\subsection{Espelhamento Bidirecional da Associação Aluno--Turma}
+\begin{itemize}
+    \item \textbf{Justificativa NoSQL:} No modelo 3FN, a tabela associativa \texttt{Aluno\_x\_Turma} responde bidirecionalmente às consultas via chave composta. No Firestore, como subcoleções não podem ser filtradas a partir da coleção pai (\texttt{Turma}), e regras de segurança não atuam como filtros de busca, a relação $N:N$ é intencionalmente denormalizada e espelhada em duas estruturas complementares:
+    \begin{enumerate}
+        \item \textbf{\nolinkurl{Turmas/\{turmaId\}/Alunos/\{alunoId\}} (Visão da Turma):} Utilizada pelo professor para gerenciar os matriculados e validar a regra de capacidade máxima (\texttt{COUNT < Turma.capacidade}).
+        \item \textbf{\nolinkurl{Usuarios/\{uid\}/Turmas/\{turmaId\}} (Visão do Aluno):} Utilizada exclusivamente pelo frontend do Aluno para alimentar o painel lateral de ``Minhas Turmas'' via listener em tempo real (\texttt{onSnapshot}), contendo os metadados essenciais (\texttt{nome\_turma}, \texttt{nome\_materia}, \texttt{ano}, \texttt{semestre}, \texttt{id\_professor}).
+    \end{enumerate}
+    \item \textbf{Consistência Transacional:} A criação e a remoção desse espelho são executadas de forma estritamente atômica pelo backend nas Cloud Functions. Na matrícula (\texttt{ingressarEmTurmaPorCodigo}), o espelho é criado. Na remoção (\texttt{removerAlunoTurma}), a transação deve abranger: exclusão de \nolinkurl{Turmas/\{id\}/Alunos/\{uid\}}, exclusão de \nolinkurl{Usuarios/\{uid\}/Turmas/\{turmaId\}}, gravação no histórico da turma, decremento do contador de vagas e gravação da auditoria.
+\end{itemize}

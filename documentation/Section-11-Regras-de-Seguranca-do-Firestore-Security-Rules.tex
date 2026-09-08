@@ -33,6 +33,7 @@ Todas as exceções são declaradas explicitamente abaixo.
 \bottomrule
 \endfoot
 \nolinkurl{Usuarios/\{uid\}} & Read: \texttt{request.auth.uid == uid} (usuário lê só o próprio documento). Write: negado ao cliente (só Cloud Function).\\
+\nolinkurl{Usuarios/\{uid\}/Turmas/\{turmaId\}} & Read: \texttt{request.auth.uid == uid} (o aluno lê em tempo real apenas as turmas em que está matriculado). Write: negado ao cliente (gerenciada exclusivamente pelas Cloud Functions).\\
 \texttt{Chefe\_Geral}, \texttt{Gestor\_Almoxarifado}, etc.~(coleções de papel) & Read: \texttt{request.auth.uid == docId} (cada usuário lê só o próprio documento de papel). Write: negado ao cliente.\\
 \nolinkurl{Turmas/\{turmaId\}} & Read: usuário é professor da turma (\texttt{resource.data.id\_professor == request.auth.uid}) OU está na sub-coleção \texttt{Alunos}. Write: negado ao cliente.\\
 \nolinkurl{Turmas/\{turmaId\}/Alunos} & Read: \texttt{request.auth.uid == resource.data.id\_aluno} OU professor da turma.\\

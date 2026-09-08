@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase/config";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
 
 interface Turma {
   id: string;
   nome_turma: string;
-  codigo_turma: string;
-  status: string;
+  codigo_turma?: string;
+  nome_materia?: string;
+  status?: string;
 }
 
 interface SidebarTurmasProps {
@@ -49,21 +50,18 @@ export default function SidebarTurmas({
         setTurmas(turmasData);
       });
     } else if (isAluno) {
-      // Aluno: A princípio, para recuperar turmas do aluno em tempo real, 
-      // precisamos buscar as turmas onde ele está na subcoleção, o que não é possível com query simples no Firestore.
-      // Solução V1: Buscar todas as turmas que ele está matriculado seria com um array-contains no documento da Turma,
-      // ou usando uma Collection Group Query. Para simplificar e manter a segurança, 
-      // o aluno deve ter os IDs das turmas salvos no documento de Aluno, ou buscamos na Collection Group "Alunos".
-      
       const q = query(
-        collection(db, "Turma") // Placeholder até resolver a busca de turmas de aluno
+        collection(db, "Usuarios", user.uid, "Turmas"),
+        orderBy("ingressou_em", "desc")
       );
       
-      // Implementação da view de turmas de aluno:
-      // O Firestore permite 'collectionGroup' query se indexado
-      const alunosGroupQ = query(
-        collection(db, "Alunos") // Se estivéssemos usando collection group
-      );
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const turmasData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Turma[];
+        setTurmas(turmasData);
+      });
     }
 
     return () => unsubscribe();
@@ -108,7 +106,7 @@ export default function SidebarTurmas({
                 >
                   <p className="font-medium truncate">{turma.nome_turma}</p>
                   <p className={`text-xs ${turmaSelecionada?.id === turma.id ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                    {turma.codigo_turma}
+                    {turma.codigo_turma || turma.nome_materia}
                   </p>
                 </button>
               </li>

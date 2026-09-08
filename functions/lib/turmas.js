@@ -82,6 +82,16 @@ exports.ingressarEmTurmaPorCodigo = (0, https_1.onCall)(async (request) => {
             id_aluno: request.auth.uid,
             ingressou_em: firestore_1.FieldValue.serverTimestamp()
         });
+        const alunoTurmaMirrorRef = db.collection("Usuarios").doc(request.auth.uid).collection("Turmas").doc(turmaDoc.id);
+        tx.set(alunoTurmaMirrorRef, {
+            id_turma: turmaDoc.id,
+            nome_turma: turma.nome_turma,
+            nome_materia: turma.nome_materia,
+            ano: turma.ano,
+            semestre: turma.semestre,
+            id_professor: turma.id_professor,
+            ingressou_em: firestore_1.FieldValue.serverTimestamp()
+        });
         tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
             id_aluno: request.auth.uid,
             tipo: "inclusao_aluno",
@@ -189,6 +199,8 @@ exports.removerAlunoTurma = (0, https_1.onCall)(async (request) => {
             throw new https_1.HttpsError("not-found", "O aluno não está matriculado na turma.");
         }
         tx.delete(alunoTurmaRef);
+        const alunoTurmaMirrorRef = db.collection("Usuarios").doc(idAluno).collection("Turmas").doc(idTurma);
+        tx.delete(alunoTurmaMirrorRef);
         tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
             id_aluno: idAluno,
             tipo: "exclusao_aluno",
