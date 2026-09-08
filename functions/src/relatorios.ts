@@ -8,6 +8,15 @@ import { addFooterAndHash } from "./relatorios/pdfFooter";
 import { chunkArray } from "./utils/chunk";
 import { FONTS } from "./relatorios/pdfStyles";
 import * as bwipjs from "bwip-js";
+import { validatePayload } from "./utils/validation";
+import { 
+  FiltrosAlmoxarifadoSchema, 
+  FiltrosPredioSchema, 
+  FiltrosGeralEPersonalizadoSchema, 
+  DadosEtiquetasVirgensSchema, 
+  DadosReimpressaoSchema 
+} from "./schemas/relatorios.schema";
+
 async function buildPdfBuffer(doc: any, builderCallback: (doc: any) => Promise<void> | void): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const buffers: Buffer[] = [];
@@ -33,14 +42,8 @@ async function buildPdfBuffer(doc: any, builderCallback: (doc: any) => Promise<v
 // -------------------------------------------------------------
 // RELATÓRIOS ALMOXARIFADO
 // -------------------------------------------------------------
-interface FiltrosAlmoxarifado {
-  idAlmoxarifado: string;
-  mes: number;
-  ano: number;
-}
-
 export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
-  const { idAlmoxarifado, mes, ano } = request.data as FiltrosAlmoxarifado;
+  const { idAlmoxarifado, mes, ano } = validatePayload(FiltrosAlmoxarifadoSchema, request.data);
   
   const hoje = new Date();
   if (ano > hoje.getFullYear()) {
@@ -240,18 +243,8 @@ export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
 // -------------------------------------------------------------
 // RELATÓRIOS BENS PATRIMONIAIS
 // -------------------------------------------------------------
-interface FiltrosPredio {
-  predio?: string;
-  mes?: number;
-  ano?: number;
-  andar?: string;
-  sala?: string;
-  estadoConservacao?: string;
-  status?: string;
-}
-
 export const gerarRelatorioBensPredio = onCall(async (request) => {
-  const filtros = request.data as FiltrosPredio;
+  const filtros = validatePayload(FiltrosPredioSchema, request.data);
   validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
 
   let query: admin.firestore.Query = admin.firestore().collection("Bem_Patrimonial");
@@ -317,14 +310,8 @@ export const gerarRelatorioBensPredio = onCall(async (request) => {
 // -------------------------------------------------------------
 // RELATÓRIO GERAL E PERSONALIZADO
 // -------------------------------------------------------------
-interface FiltrosGeralEPersonalizado {
-  dataInicio: string;
-  dataFim: string;
-  entidade: "Bens_Patrimoniais" | "Reagentes";
-}
-
 export const gerarRelatorioPersonalizado = onCall(async (request) => {
-  const { dataInicio, dataFim, entidade } = request.data as FiltrosGeralEPersonalizado;
+  const { dataInicio, dataFim, entidade } = validatePayload(FiltrosGeralEPersonalizadoSchema, request.data);
   
   const dataIniObj = new Date(dataInicio);
   const dataFimObj = new Date(dataFim);
@@ -420,13 +407,6 @@ export const gerarRelatorioPersonalizado = onCall(async (request) => {
 // ============================================================================
 // GERAÇÃO DE ETIQUETAS VIRGENS (NOVOS FRASCOS) - ABA 1
 // ============================================================================
-interface DadosEtiquetasVirgens {
-  codigoInicial: number;
-  codigoFinal: number;
-  startRow?: number; // 1 a 10 (Grid A4)
-  startCol?: number; // 1 a 3
-}
-
 // Conversão mm -> pt (1 mm = 2.83465 pt)
 const mmToPt = (mm: number) => mm * 2.83465;
 
@@ -529,7 +509,7 @@ async function renderBarcodesGrid(doc: any, codigos: string[], startRow: number,
 export const gerarPdfEtiquetasVirgens = onCall(async (request) => {
   try {
     validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
-    const dados = request.data as DadosEtiquetasVirgens;
+    const dados = validatePayload(DadosEtiquetasVirgensSchema, request.data);
 
     const total = dados.codigoFinal - dados.codigoInicial + 1;
     if (total <= 0 || total > 50) {
@@ -571,10 +551,6 @@ export const gerarPdfEtiquetasVirgens = onCall(async (request) => {
 // ============================================================================
 // REIMPRESSÃO E FICHA DE CONFERÊNCIA (FRASCOS JÁ CADASTRADOS) - ABA 2
 // ============================================================================
-interface DadosReimpressao {
-  frascoIds: string[]; // Máximo 10 frascos
-}
-
 async function desenharEtiquetaReposicao(doc: any, x: number, y: number, frasco: any) {
   const labelWidth = mmToPt(65.0);
   const labelHeight = mmToPt(26.5);
@@ -811,7 +787,7 @@ async function gerarBufferFichaConferencia(frascos: any[]): Promise<Buffer> {
 export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
   try {
     validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
-    const { frascoIds } = request.data as DadosReimpressao;
+    const { frascoIds } = validatePayload(DadosReimpressaoSchema, request.data);
 
     if (!frascoIds || frascoIds.length === 0 || frascoIds.length > 10) {
       throw new HttpsError("invalid-argument", "Selecione entre 1 e 10 frascos por sessão de reimpressão.");
