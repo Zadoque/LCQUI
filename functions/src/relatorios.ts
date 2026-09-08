@@ -575,6 +575,239 @@ interface DadosReimpressao {
   frascoIds: string[]; // Máximo 10 frascos
 }
 
+async function desenharEtiquetaReposicao(doc: any, x: number, y: number, frasco: any) {
+  const labelWidth = mmToPt(65.0);
+  const labelHeight = mmToPt(26.5);
+  const paddingX = mmToPt(2.5);
+  const paddingY = mmToPt(2.0);
+  const printableWidth = labelWidth - paddingX * 2;
+
+  // Borda guia para corte
+  doc.rect(x, y, labelWidth, labelHeight).lineWidth(0.5).strokeColor("#B0B0B0").stroke();
+
+  // Linha 1: Código do frasco e Data de Cadastro original
+  doc.font("Helvetica-Bold").fontSize(9.5).fillColor("#000000");
+  doc.text(frasco.codigo_frasco, x + paddingX, y + paddingY, {
+    width: printableWidth * 0.55,
+    align: "left",
+    lineBreak: false,
+  });
+
+  doc.font("Helvetica").fontSize(6.5).fillColor("#555555");
+  const dataFormatada = frasco.cadastrado_em || "__/__/____";
+  doc.text(`Cad: ${dataFormatada}`, x + paddingX + printableWidth * 0.55, y + paddingY + 1.8, {
+    width: printableWidth * 0.45,
+    align: "right",
+    lineBreak: false,
+  });
+
+  // Linha 2: Nome do Reagente / Concentração (já impresso)
+  doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#111111");
+  doc.text(frasco.nome_reagente, x + paddingX, y + paddingY + 12, {
+    width: printableWidth,
+    align: "center",
+    lineBreak: false,
+    ellipsis: true,
+  });
+
+  // Linha 3: Código de Barras Code 128
+  const barcodeBuffer = await gerarBufferBarcode(frasco.codigo_frasco);
+  const barcodeWidth = mmToPt(42);
+  const barcodeHeight = mmToPt(7.5);
+  const barcodeX = x + (labelWidth - barcodeWidth) / 2;
+  const barcodeY = y + labelHeight - barcodeHeight - paddingY;
+
+  doc.image(barcodeBuffer, barcodeX, barcodeY, {
+    width: barcodeWidth,
+    height: barcodeHeight,
+  });
+}
+
+async function gerarBufferFichaConferencia(frascos: any[]): Promise<Buffer> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: "A4",
+        margin: 36, // 0.5 polegada (~12.7mm)
+        autoFirstPage: false,
+      });
+
+      const buffers: Buffer[] = [];
+      doc.on("data", (chunk: any) => buffers.push(chunk));
+      doc.on("end", () => resolve(Buffer.concat(buffers)));
+
+      for (let i = 0; i < frascos.length; i++) {
+        const frasco = frascos[i];
+        doc.addPage({ size: "A4", margin: 36 });
+
+        const margin = 36;
+        const pageWidth = doc.page.width;
+        const contentWidth = pageWidth - margin * 2;
+        let y = margin;
+
+        // 1. CABEÇALHO INSTITUCIONAL
+        doc.font("Helvetica-Bold").fontSize(10).fillColor("#1A365D");
+        doc.text("UENF - UNIVERSIDADE ESTADUAL DO NORTE FLUMINENSE DARCY RIBEIRO", margin, y, { align: "center" });
+        y += 13;
+        doc.font("Helvetica").fontSize(8.5).fillColor("#4A5568");
+        doc.text("CCT | LCQUI - Laboratório de Ciências Químicas - Almoxarifado", margin, y, { align: "center" });
+        y += 14;
+
+        doc.rect(margin, y, contentWidth, 22).fillAndStroke("#EBF8FF", "#BEE3F8");
+        doc.font("Helvetica-Bold").fontSize(11).fillColor("#2B6CB0");
+        doc.text(`FICHA DE CONFERÊNCIA E REPOSIÇÃO - FRASCO: ${frasco.codigo_frasco}`, margin, y + 6, {
+          align: "center",
+          width: contentWidth,
+        });
+        y += 30;
+
+        // 2. IDENTIFICAÇÃO DO REAGENTE E LOCALIZAÇÃO
+        doc.rect(margin, y, contentWidth, 58).lineWidth(0.5).strokeColor("#CBD5E0").stroke();
+        doc.font("Helvetica-Bold").fontSize(8).fillColor("#2D3748").text("DADOS CADASTRAIS DO ITEM", margin + 8, y + 6);
+
+        const col1X = margin + 8;
+        const col2X = margin + contentWidth * 0.52;
+
+        doc.font("Helvetica-Bold").fontSize(8).fillColor("#4A5568");
+        doc.text("Reagente: ", col1X, y + 20, { continued: true })
+          .font("Helvetica").fillColor("#1A202C").text(frasco.nome_reagente);
+
+        doc.font("Helvetica-Bold").fillColor("#4A5568");
+        doc.text("Especificação: ", col1X, y + 32, { continued: true })
+          .font("Helvetica").fillColor("#1A202C").text(frasco.especificacao || "Padrão");
+
+        doc.font("Helvetica-Bold").fillColor("#4A5568");
+        doc.text("Localização: ", col1X, y + 44, { continued: true })
+          .font("Helvetica").fillColor("#1A202C").text(frasco.localizacao || "Não informada");
+
+        doc.font("Helvetica-Bold").fillColor("#4A5568");
+        doc.text("Lote: ", col2X, y + 20, { continued: true })
+          .font("Helvetica").fillColor("#1A202C").text(frasco.numero_lote || "Sem Lote Vinculado");
+
+        doc.font("Helvetica-Bold").fillColor("#4A5568");
+        doc.text("Validade Efetiva: ", col2X, y + 32, { continued: true })
+          .font("Helvetica").fillColor("#1A202C").text(frasco.validade_efetiva || "Indeterminada");
+
+        doc.font("Helvetica-Bold").fillColor("#4A5568");
+        doc.text("Status Atual: ", col2X, y + 44, { continued: true })
+          .font("Helvetica").fillColor(frasco.status === "DISPONIVEL" ? "#22543D" : "#742A2A").text(frasco.status || "DISPONIVEL");
+
+        y += 66;
+
+        // 3. ESTADO GRAVIMÉTRICO & ÚLTIMO EMPRÉSTIMO
+        const boxWidth = (contentWidth - 10) / 2;
+
+        // Caixa Esquerda
+        doc.rect(margin, y, boxWidth, 54).lineWidth(0.5).strokeColor("#CBD5E0").stroke();
+        doc.font("Helvetica-Bold").fontSize(8).fillColor("#2D3748").text("CONTROLE GRAVIMÉTRICO (BALANÇA)", margin + 6, y + 6);
+        doc.font("Helvetica-Bold").fontSize(8).fillColor("#4A5568");
+        doc.text("Último Peso Medido: ", margin + 6, y + 20, { continued: true })
+          .font("Helvetica-Bold").fillColor("#2B6CB0").text(`${frasco.peso_atual} g`);
+        doc.font("Helvetica-Bold").fillColor("#4A5568");
+        doc.text("Peso Frasco Vazio (Tara): ", margin + 6, y + 32, { continued: true })
+          .font("Helvetica").fillColor("#1A202C").text(frasco.peso_frasco_vazio ? `${frasco.peso_frasco_vazio} g` : "Não registrado");
+        doc.font("Helvetica-Bold").fillColor("#4A5568");
+        doc.text("Conteúdo Declarado: ", margin + 6, y + 44, { continued: true })
+          .font("Helvetica").fillColor("#1A202C").text(`${frasco.conteudo_nominal} ${frasco.unidade_medida || "mL"}`);
+
+        // Caixa Direita
+        doc.rect(margin + boxWidth + 10, y, boxWidth, 54).lineWidth(0.5).strokeColor("#CBD5E0").stroke();
+        doc.font("Helvetica-Bold").fontSize(8).fillColor("#2D3748").text("ÚLTIMO EMPRÉSTIMO REGISTRADO", margin + boxWidth + 16, y + 6);
+        if (frasco.ultimo_emprestimo) {
+          doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#4A5568");
+          doc.text("Tomador: ", margin + boxWidth + 16, y + 20, { continued: true })
+            .font("Helvetica").fillColor("#1A202C").text(frasco.ultimo_emprestimo.usuario);
+          doc.font("Helvetica-Bold").fillColor("#4A5568");
+          doc.text("Retirado em: ", margin + boxWidth + 16, y + 32, { continued: true })
+            .font("Helvetica").fillColor("#1A202C").text(frasco.ultimo_emprestimo.data_retirada);
+          doc.font("Helvetica-Bold").fillColor("#4A5568");
+          doc.text("Situação: ", margin + boxWidth + 16, y + 44, { continued: true })
+            .font("Helvetica-Bold").fillColor("#C53030").text(frasco.ultimo_emprestimo.status);
+        } else {
+          doc.font("Helvetica-Oblique").fontSize(8).fillColor("#718096");
+          doc.text("Nenhum histórico de empréstimo anterior.", margin + boxWidth + 16, y + 25);
+        }
+
+        y += 62;
+
+        // 4. TABELA DE HISTÓRICO
+        doc.font("Helvetica-Bold").fontSize(8.5).fillColor("#1A202C").text("HISTÓRICO RECENTE DO FRASCO (ÚLTIMAS 10 MOVIMENTAÇÕES)", margin, y);
+        y += 12;
+
+        const tableTop = y;
+        const rowHeight = 15;
+        const cData = { width: 90, align: "left" };
+        const cEvento = { width: 110, align: "left" };
+        const cGestor = { width: 120, align: "left" };
+        const cPesoAnt = { width: 65, align: "right" };
+        const cPesoNovo = { width: 65, align: "right" };
+        const cAjuste = { width: 73, align: "right" };
+
+        doc.rect(margin, tableTop, contentWidth, rowHeight).fill("#EDF2F7");
+        let hX = margin + 4;
+        doc.font("Helvetica-Bold").fontSize(7).fillColor("#2D3748");
+        doc.text("Data / Hora", hX, tableTop + 4, { width: cData.width - 6, align: "left" }); hX += cData.width;
+        doc.text("Evento", hX, tableTop + 4, { width: cEvento.width - 6, align: "left" }); hX += cEvento.width;
+        doc.text("Gestor", hX, tableTop + 4, { width: cGestor.width - 6, align: "left" }); hX += cGestor.width;
+        doc.text("Peso Ant.", hX, tableTop + 4, { width: cPesoAnt.width - 6, align: "right" }); hX += cPesoAnt.width;
+        doc.text("Peso Novo", hX, tableTop + 4, { width: cPesoNovo.width - 6, align: "right" }); hX += cPesoNovo.width;
+        doc.text("Ajuste / Consumo", hX, tableTop + 4, { width: cAjuste.width - 6, align: "right" });
+        y += rowHeight;
+
+        const eventos = frasco.historico && frasco.historico.length > 0 ? frasco.historico.slice(0, 10) : [];
+        if (eventos.length === 0) {
+          doc.rect(margin, y, contentWidth, 20).lineWidth(0.5).strokeColor("#E2E8F0").stroke();
+          doc.font("Helvetica-Oblique").fontSize(7.5).fillColor("#718096").text("Nenhuma movimentação registrada no histórico.", margin, y + 6, { align: "center", width: contentWidth });
+          y += 24;
+        } else {
+          eventos.forEach((ev: any, idx: number) => {
+            const bg = idx % 2 === 0 ? "#FFFFFF" : "#F7FAFC";
+            doc.rect(margin, y, contentWidth, rowHeight).fill(bg);
+            let rowX = margin + 4;
+            doc.font("Helvetica").fontSize(6.8).fillColor("#1A202C");
+
+            doc.text(ev.timestamp || "-", rowX, y + 4, { width: cData.width - 6, align: "left" }); rowX += cData.width;
+            
+            doc.font("Helvetica-Bold").fillColor(ev.tipo === "SAIU" ? "#C53030" : ev.tipo === "ENTROU" ? "#22543D" : "#2D3748");
+            doc.text(ev.tipo || "-", rowX, y + 4, { width: cEvento.width - 6, align: "left" }); rowX += cEvento.width;
+            
+            doc.font("Helvetica").fillColor("#1A202C");
+            doc.text(ev.gestor || "Sistema", rowX, y + 4, { width: cGestor.width - 6, align: "left", ellipsis: true }); rowX += cGestor.width;
+            
+            doc.text(ev.peso_anterior != null ? `${ev.peso_anterior}g` : "-", rowX, y + 4, { width: cPesoAnt.width - 6, align: "right" }); rowX += cPesoAnt.width;
+            doc.text(ev.peso_novo != null ? `${ev.peso_novo}g` : "-", rowX, y + 4, { width: cPesoNovo.width - 6, align: "right" }); rowX += cPesoNovo.width;
+            
+            const consumoTexto = ev.medida_ajustada != null ? `${ev.medida_ajustada} ${ev.unidade || "mL"}` : "-";
+            doc.font("Helvetica-Bold").text(consumoTexto, rowX, y + 4, { width: cAjuste.width - 6, align: "right" });
+            y += rowHeight;
+          });
+        }
+
+        // 5. DIVISÓRIA DE CORTE & ETIQUETAS
+        const bottomSectionY = doc.page.height - margin - mmToPt(38);
+        doc.save();
+        doc.dash(3, { space: 3 });
+        doc.moveTo(margin, bottomSectionY - 14).lineTo(pageWidth - margin, bottomSectionY - 14).strokeColor("#718096").stroke();
+        doc.restore();
+
+        doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#718096");
+        doc.text("✂  RECORTE A ETIQUETA DE REPOSIÇÃO ABAIXO E FIXE COM FITA ADESIVA TRANSPARENTE (DUREX)  ✂", margin, bottomSectionY - 10, {
+          align: "center",
+          width: contentWidth,
+        });
+        
+        const etiquetaW = mmToPt(65.0);
+        const xCentralizado = margin + (contentWidth - etiquetaW) / 2;
+        await desenharEtiquetaReposicao(doc, xCentralizado, bottomSectionY + 4, frasco);
+      }
+
+      doc.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
 export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
   try {
     validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
@@ -584,15 +817,16 @@ export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
       throw new HttpsError("invalid-argument", "Selecione entre 1 e 10 frascos por sessão de reimpressão.");
     }
 
-    // Auditing
-    const batch = admin.firestore().batch();
     const db = admin.firestore();
+    const batch = db.batch();
     
-    const frascosData: any[] = [];
-    for (const frascoId of frascoIds) {
+    // Obter dados enriquecidos em paralelo
+    const frascosData: any[] = await Promise.all(frascoIds.map(async (frascoId) => {
       const snap = await db.collection("Frasco_Reagente").doc(frascoId).get();
-      if (snap.exists) frascosData.push({ id: snap.id, ...snap.data() });
+      if (!snap.exists) return null;
+      const frasco = { id: snap.id, ...snap.data() } as any;
 
+      // Auditoria
       const auditRef = db.collection("Registro_de_Auditoria").doc();
       batch.set(auditRef, {
         id_usuario: request.auth!.uid,
@@ -602,41 +836,75 @@ export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
         acao_feita_em: FieldValue.serverTimestamp(),
         metadata: { motivo: "segunda_via_conferencia" },
       });
+
+      // Se tiver lote, busca o numero_lote
+      if (frasco.id_lote) {
+        const loteSnap = await db.collection("Lote").doc(frasco.id_lote).get();
+        if (loteSnap.exists) {
+          frasco.numero_lote = loteSnap.data()?.numero_lote;
+        }
+      }
+
+      // Buscar Especificação (se aplicável, para o campo especificacao visual da ficha)
+      if (frasco.id_especificacao_reagente || (frasco.id_lote && !frasco.id_especificacao_reagente)) {
+        // A especificação é denormalizada no nome e unidade. O campo visual "especificação" pode exibir a descricao.
+        // Opcional: ignorado por ora se não tivermos a descricao denormalizada, usamos "Padrão"
+      }
+
+      // Buscar Top 10 Históricos
+      const histSnap = await db.collection("Historico_Frasco_Reagente")
+        .where("id_frasco_reagente", "==", frascoId)
+        .orderBy("timestamp", "desc")
+        .limit(10)
+        .get();
+      
+      frasco.historico = histSnap.docs.map(h => {
+        const data = h.data();
+        return {
+          ...data,
+          timestamp: data.timestamp ? data.timestamp.toDate().toLocaleString("pt-BR") : "-",
+        };
+      }).reverse();
+
+      // Buscar último empréstimo
+      const empSnap = await db.collection("Emprestimo_Reagente")
+        .where("id_frasco_reagente", "==", frascoId)
+        .orderBy("data_retirada", "desc")
+        .limit(1)
+        .get();
+      
+      if (!empSnap.empty) {
+        const emp = empSnap.docs[0].data();
+        frasco.ultimo_emprestimo = {
+          usuario: emp.nome_usuario_retirou || "Usuário não identificado",
+          data_retirada: emp.data_retirada ? emp.data_retirada.toDate().toLocaleString("pt-BR") : "-",
+          status: emp.status,
+        };
+      }
+
+      // Preparação visual dos campos (fallback e data formatada)
+      frasco.cadastrado_em = frasco.cadastrado_em ? frasco.cadastrado_em.toDate().toLocaleDateString("pt-BR") : "";
+      if (frasco.validade_efetiva) {
+        // No banco é um string "YYYY-MM-DD" se for date.
+        // O SDK transforma Timestamp ou a string formatamos:
+        if (frasco.validade_efetiva.toDate) {
+          frasco.validade_efetiva = frasco.validade_efetiva.toDate().toLocaleDateString("pt-BR");
+        }
+      }
+      frasco.status = frasco.estado_fisico_frasco;
+      frasco.localizacao = frasco.detalhe_local_armazenamento;
+
+      return frasco;
+    }));
+
+    const validFrascos = frascosData.filter(f => f !== null);
+    if (validFrascos.length === 0) {
+      throw new HttpsError("not-found", "Nenhum dos frascos solicitados foi encontrado.");
     }
+
     await batch.commit();
 
-    const doc = new PDFDocument({ size: "A4", margin: 40 });
-    const buffer = await buildPdfBuffer(doc, async (d) => {
-      for (let i = 0; i < frascosData.length; i++) {
-        if (i > 0) d.addPage();
-        const f = frascosData[i];
-        d.fontSize(16).text("Ficha de Conferência e Rastreabilidade", { align: "center" });
-        d.moveDown();
-        d.fontSize(12).text(`Frasco ID: ${f.id}`);
-        d.text(`Código LCQUI: ${f.codigo_frasco}`);
-        d.text(`Conteúdo Nominal: ${f.conteudo_nominal}`);
-        d.text(`Peso Atual: ${f.peso_atual}g`);
-        d.text(`Estado Físico do Frasco: ${f.estado_fisico_frasco}`);
-        d.text(`Disponibilidade: ${f.disponibilidade}`);
-        d.text(`Vencido: ${f.vencido ? 'Sim' : 'Não'}`);
-        
-        d.moveDown(4);
-        d.text("Etiqueta de Reposição:", { align: "center" });
-        d.moveDown(1);
-        
-        const pngBuffer = await bwipjs.toBuffer({
-          bcid: 'code128',
-          text: f.codigo_frasco,
-          scale: 3,
-          height: 10,
-          includetext: true,
-          textxalign: 'center',
-        });
-        
-        // Draw centered at the bottom
-        d.image(pngBuffer, (d.page.width - 150) / 2, d.y, { width: 150 });
-      }
-    });
+    const buffer = await gerarBufferFichaConferencia(validFrascos);
 
     const fileName = `etiquetas/reimpressao_${Date.now()}.pdf`;
     const fileRef = admin.storage().bucket().file(fileName);
