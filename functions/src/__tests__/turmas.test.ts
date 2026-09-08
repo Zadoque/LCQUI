@@ -38,7 +38,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
       nomeTurma: "Química", ano: 2026, semestre: 1, capacidade: 30, nomeMateria: "Química I"
     }, "prof1");
     
-    await expect(wrapped(req)).rejects.toThrow(/Dados incompletos/);
+    await expect(wrapped(req)).rejects.toThrow(/idMateria.*expected string/i);
   });
 
   it("deve falhar se ano for invalido", async () => {
@@ -46,7 +46,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     const req = mockRequest({
       idMateria: "mat1", nomeTurma: "Q1", ano: "abc", semestre: 1, capacidade: 30, nomeMateria: "Q1"
     }, "prof1");
-    await expect(wrapped(req)).rejects.toThrow(/Ano inválido/);
+    await expect(wrapped(req)).rejects.toThrow(/ano.*expected number/i);
   });
 
   it("deve falhar se semestre for fora de 1 e 2", async () => {
@@ -54,7 +54,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     const req = mockRequest({
       idMateria: "mat1", nomeTurma: "Q1", ano: 2026, semestre: 3, capacidade: 30, nomeMateria: "Q1"
     }, "prof1");
-    await expect(wrapped(req)).rejects.toThrow(/Semestre deve ser 1 ou 2/);
+    await expect(wrapped(req)).rejects.toThrow(/O semestre deve ser 1 ou 2/i);
   });
 
   it("deve rejeitar payload com capacidade negativa na criação de turma", async () => {
@@ -62,7 +62,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     const req = mockRequest({
       idMateria: "mat1", nomeTurma: "Q1", ano: 2026, semestre: 1, capacidade: -5, nomeMateria: "Q1"
     }, "prof1");
-    await expect(wrapped(req)).rejects.toThrow(/Capacidade deve ser positiva/);
+    await expect(wrapped(req)).rejects.toThrow(/A capacidade deve ser um número inteiro positivo/i);
   });
 
   it("deve garantir a unicidade do codigo_turma via lock transacional determinístico e criar a turma", async () => {

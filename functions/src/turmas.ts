@@ -171,6 +171,9 @@ export const criarTurma = onCall(async (request) => {
     });
   } catch (error: any) {
     console.error("ERRO FATAL NO BACKEND (criarTurma):", error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
     throw new HttpsError("internal", `ERRO INTERNO: ${error?.message || error}`);
   }
 });

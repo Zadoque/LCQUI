@@ -2,35 +2,13 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { FieldValue } from "firebase-admin/firestore";
 import * as admin from "firebase-admin";
 import { validarPermissao, atualizarCustomClaims } from "./auth";
+import { validatePayload } from "./utils/validation";
+import { ConvidarUsuarioSchema } from "./schemas/usuarios.schema";
 
 export const convidarUsuario = onCall(async (request) => {
   validarPermissao(request, ["Chefe_Geral"]);
 
-  const { email, nome, papel, centro, laboratorio, materias } = request.data as {
-    email: string;
-    nome: string;
-    papel: string;
-    centro?: string;
-    laboratorio?: string;
-    materias?: string[];
-  };
-
-  if (!email || !nome || !papel) {
-    throw new HttpsError("invalid-argument", "Email, nome e papel são obrigatórios.");
-  }
-
-  const papeisValidos = [
-    "Chefe_Geral",
-    "Gestor_Almoxarifado",
-    "Gestor_Bens_Patrimoniais",
-    "Professor",
-    "Aluno",
-    "Bolsista"
-  ];
-
-  if (!papeisValidos.includes(papel)) {
-    throw new HttpsError("invalid-argument", "Papel inválido.");
-  }
+  const { email, nome, papel, centro, laboratorio, materias } = validatePayload(ConvidarUsuarioSchema, request.data);
 
   const db = admin.firestore();
   

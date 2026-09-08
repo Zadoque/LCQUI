@@ -2,21 +2,17 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { validarPermissao, validarGestorDoAlmoxarifado } from "./auth";
-
-interface CadastroFrascoFechado {
-  idEspecificacaoReagente: string;
-  idAlmoxarifado: string;
-  idLote?: string;
-  pesoTotal: number;
-  volumeNominal: number;
-  validadeFechado?: string;
-  validadeDesconhecida?: boolean;
-  decisaoSeJaVencido?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
-  detalheStatus?: string;
-}
+import { validatePayload } from "./utils/validation";
+import { 
+  CadastroFrascoFechadoSchema, 
+  CadastroFrascoAbertoSchema, 
+  AberturaFrascoSchema, 
+  RetiradaFrascoSchema, 
+  DevolucaoFrascoSchema 
+} from "./schemas/reagentes.schema";
 
 export const cadastrarFrascoFechado = onCall(async (request) => {
-  const dados = request.data as CadastroFrascoFechado;
+  const dados = validatePayload(CadastroFrascoFechadoSchema, request.data);
   validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
   await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, dados.idAlmoxarifado);
 
@@ -86,23 +82,8 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
   });
 });
 
-interface CadastroFrascoAberto {
-  idEspecificacaoReagente: string;
-  idAlmoxarifado: string;
-  idLote?: string;
-  modalidade: "CONHECE_TARA" | "ESTIMA_VOLUME" | "ESTIMA_MASSA";
-  pesoTotalBalanca: number;
-  pesoFrascoVazioInformado?: number;
-  volumeAtualEstimado?: number;
-  massaAtualEstimada?: number;
-  validadeAberto?: string;
-  validadeDesconhecida?: boolean;
-  decisaoSeJaVencido?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
-  detalheStatus?: string;
-}
-
 export const cadastrarFrascoAberto = onCall(async (request) => {
-  const dados = request.data as CadastroFrascoAberto;
+  const dados = validatePayload(CadastroFrascoAbertoSchema, request.data);
   validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
   await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, dados.idAlmoxarifado);
 
@@ -208,14 +189,8 @@ export function calcularValidadeEfetivaNaAbertura(frasco: any, dataAbertura: Dat
   return validadeFechado ?? validadeDepoisDaAbertura;
 }
 
-interface AberturaFrasco {
-  idFrasco: string;
-  destinoSeVencerNaAbertura?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
-  detalheStatus?: string;
-}
-
 export const registrarAberturaFrasco = onCall(async (request) => {
-  const dados = request.data as AberturaFrasco;
+  const dados = validatePayload(AberturaFrascoSchema, request.data);
   validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
 
   const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
@@ -261,19 +236,8 @@ export const registrarAberturaFrasco = onCall(async (request) => {
   });
 });
 
-interface RetiradaFrasco {
-  idFrasco: string;
-  idUsuarioRetirou: string;
-  idLocalUsado: string;
-  pesoSaida: number;
-  dataDevolucaoPrevista: string;
-  confirmarUsoVencido?: boolean;
-  abrirNoEmprestimo?: boolean;
-  finalidadeUso: "PESQUISA" | "DIDATICO_DEMONSTRACAO" | "OUTRO";
-}
-
 export const registrarRetirada = onCall(async (request) => {
-  const dados = request.data as RetiradaFrasco;
+  const dados = validatePayload(RetiradaFrascoSchema, request.data);
   validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
 
   const [profSnap, bolsSnap] = await Promise.all([
@@ -360,14 +324,8 @@ async function resolverDensidadeDoFrasco(frasco: any): Promise<number | null> {
   return especSnap.exists ? especSnap.data()?.densidade ?? null : null;
 }
 
-interface DevolucaoFrasco {
-  idEmprestimo: string;
-  pesoRetorno: number;
-  destinoPosDevolucao?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
-}
-
 export const registrarDevolucao = onCall(async (request) => {
-  const dados = request.data as DevolucaoFrasco;
+  const dados = validatePayload(DevolucaoFrascoSchema, request.data);
   validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
 
   const emprestimoRef = admin.firestore().collection("Emprestimo_Reagente").doc(dados.idEmprestimo);

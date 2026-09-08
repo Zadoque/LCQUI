@@ -4,10 +4,12 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { validarPermissao } from "./auth";
+import { validatePayload } from "./utils/validation";
+import { CriarRequisicaoEdicaoBemSchema, ResponderRequisicaoBemSchema, CriarRequisicaoAdicaoBemSchema } from "./schemas/patrimonio.schema";
 
 export const criarRequisicaoEdicaoBem = onCall(async (request) => {
   validarPermissao(request, ["Professor"]);
-  const dados = request.data as { idBemPatrimonial: string; novoNome?: string; novoStatus?: string; novoEstadoConservacao?: string; novoIdLocal?: string; motivo: string };
+  const dados = validatePayload(CriarRequisicaoEdicaoBemSchema, request.data);
 
   const lockId = `bem_edicao_${dados.idBemPatrimonial}`;
   const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(lockId);
@@ -36,7 +38,7 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
 
 export const responderRequisicaoEdicaoBem = onCall(async (request) => {
   validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
-  const { idRequisicao, aprovar, justificativa } = request.data as { idRequisicao: string; aprovar: boolean; justificativa: string };
+  const { idRequisicao, aprovar, justificativa } = validatePayload(ResponderRequisicaoBemSchema, request.data);
   const reqRef = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc(idRequisicao);
 
   return admin.firestore().runTransaction(async (tx) => {
@@ -81,16 +83,7 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
 export const criarRequisicaoAdicaoBem = onCall(async (request) => {
   validarPermissao(request, ["Professor"]);
 
-  const dados = request.data as {
-    numeroPatrimonioProposto: string;
-    estadoConservacaoProposto: string;
-    idLocal: string;
-    nomeResponsavelProposto: string;
-    idResumoBemPatrimonial?: string;
-    nomeResumoProposto?: string;
-    descricaoResumoProposta?: string;
-    motivo: string;
-  };
+  const dados = validatePayload(CriarRequisicaoAdicaoBemSchema, request.data);
 
   const checkBem = await admin.firestore().collection("Bem_Patrimonial")
     .where("numero_patrimonio", "==", dados.numeroPatrimonioProposto)
@@ -131,7 +124,7 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
 
 export const responderRequisicaoAdicaoBem = onCall(async (request) => {
   validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
-  const { idRequisicao, aprovar, justificativa } = request.data as { idRequisicao: string; aprovar: boolean; justificativa: string };
+  const { idRequisicao, aprovar, justificativa } = validatePayload(ResponderRequisicaoBemSchema, request.data);
   const reqRef = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc(idRequisicao);
 
   return admin.firestore().runTransaction(async (tx) => {
