@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { validarPermissao } from "./auth";
 
 /**
@@ -40,7 +41,7 @@ export const criarPost = onCall(async (request) => {
     id_roteiro_experimento: idRoteiroExperimento || null,
     titulo,
     descricao,
-    criado_em: admin.firestore.FieldValue.serverTimestamp()
+    criado_em: FieldValue.serverTimestamp()
   });
 
   return { id: postRef.id, titulo };
@@ -89,7 +90,7 @@ export const adicionarComentario = onCall(async (request) => {
     id_post: idPost,
     id_usuario: request.auth!.uid,
     texto,
-    criado_em: admin.firestore.FieldValue.serverTimestamp()
+    criado_em: FieldValue.serverTimestamp()
   });
 
   return { id: comentarioRef.id };

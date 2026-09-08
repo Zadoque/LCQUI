@@ -245,12 +245,9 @@ describe("Auth Module (40+ Tests)", () => {
             await (0, auth_1.atualizarCustomClaims)("uid_1");
             expect(mockSetCustomUserClaims).toHaveBeenCalledWith("uid_1", { roles: ["Aluno", "Bolsista"] });
         });
-        it("37. deve definir todos os roles se o usuário for super", async () => {
+        it("37. deve rejeitar se o usuário tentar acumular todos os roles (Multi-Role Error)", async () => {
             mockGet.mockResolvedValue({ exists: true });
-            await (0, auth_1.atualizarCustomClaims)("uid_1");
-            expect(mockSetCustomUserClaims).toHaveBeenCalledWith("uid_1", {
-                roles: ["Chefe_Geral", "Gestor_Almoxarifado", "Gestor_Bens_Patrimoniais", "Professor", "Aluno", "Bolsista"]
-            });
+            await expect((0, auth_1.atualizarCustomClaims)("uid_1")).rejects.toThrow("Chefe Geral não pode possuir nenhum outro papel.");
         });
         it("38. deve consultar coleções específicas usando os nomes exatos do projeto", async () => {
             const mockDoc = jest.fn().mockReturnValue({ get: mockGet });

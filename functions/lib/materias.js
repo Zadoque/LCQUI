@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.criarMateria = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
+const firestore_1 = require("firebase-admin/firestore");
 /**
  * Função para criar uma Matéria garantindo que o código da matéria seja único.
  * Papéis permitidos: Chefe_Geral ou Professor
@@ -60,7 +61,7 @@ exports.criarMateria = (0, https_1.onCall)(async (request) => {
         tx.set(docRef, {
             nome,
             codigo_materia: codigoMateria,
-            criado_em: admin.firestore.FieldValue.serverTimestamp(),
+            criado_em: firestore_1.FieldValue.serverTimestamp(),
             criado_por: request.auth?.uid
         });
         return { id: docRef.id, nome, codigoMateria };

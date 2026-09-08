@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.adicionarComentario = exports.criarPost = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
+const firestore_1 = require("firebase-admin/firestore");
 const auth_1 = require("./auth");
 /**
  * Função para criar um Post.
@@ -63,7 +64,7 @@ exports.criarPost = (0, https_1.onCall)(async (request) => {
         id_roteiro_experimento: idRoteiroExperimento || null,
         titulo,
         descricao,
-        criado_em: admin.firestore.FieldValue.serverTimestamp()
+        criado_em: firestore_1.FieldValue.serverTimestamp()
     });
     return { id: postRef.id, titulo };
 });
@@ -101,7 +102,7 @@ exports.adicionarComentario = (0, https_1.onCall)(async (request) => {
         id_post: idPost,
         id_usuario: request.auth.uid,
         texto,
-        criado_em: admin.firestore.FieldValue.serverTimestamp()
+        criado_em: firestore_1.FieldValue.serverTimestamp()
     });
     return { id: comentarioRef.id };
 });

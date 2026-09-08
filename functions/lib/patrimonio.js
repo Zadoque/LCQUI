@@ -38,6 +38,7 @@ const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const admin = __importStar(require("firebase-admin"));
+const firestore_2 = require("firebase-admin/firestore");
 const auth_1 = require("./auth");
 exports.criarRequisicaoEdicaoBem = (0, https_1.onCall)(async (request) => {
     (0, auth_1.validarPermissao)(request, ["Professor"]);
@@ -50,7 +51,7 @@ exports.criarRequisicaoEdicaoBem = (0, https_1.onCall)(async (request) => {
         if (lockSnap.exists) {
             throw new https_1.HttpsError("failed-precondition", "Já existe uma requisição de edição pendente para este bem.");
         }
-        tx.set(lockRef, { criado_em: admin.firestore.FieldValue.serverTimestamp() });
+        tx.set(lockRef, { criado_em: firestore_2.FieldValue.serverTimestamp() });
         tx.set(reqRef, {
             id_bem_patrimonial: dados.idBemPatrimonial,
             novo_nome: dados.novoNome ?? null,
@@ -59,7 +60,7 @@ exports.criarRequisicaoEdicaoBem = (0, https_1.onCall)(async (request) => {
             novo_id_local: dados.novoIdLocal ?? null,
             motivo: dados.motivo,
             status: "pendente",
-            feita_em: admin.firestore.FieldValue.serverTimestamp(),
+            feita_em: firestore_2.FieldValue.serverTimestamp(),
             id_usuario_solicitante: request.auth.uid,
         });
         return { idRequisicao: reqRef.id };
@@ -82,7 +83,7 @@ exports.responderRequisicaoEdicaoBem = (0, https_1.onCall)(async (request) => {
         tx.delete(lockRef);
         tx.update(reqRef, {
             status: aprovar ? "aprovada" : "rejeitada",
-            respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+            respondida_em: firestore_2.FieldValue.serverTimestamp(),
             id_usuario_respondente: request.auth.uid,
             justificativa_resposta: justificativa,
         });
@@ -123,7 +124,7 @@ exports.criarRequisicaoAdicaoBem = (0, https_1.onCall)(async (request) => {
         if (lockSnap.exists) {
             throw new https_1.HttpsError("failed-precondition", "Já existe requisição pendente para este número de patrimônio.");
         }
-        tx.set(lockRef, { criado_em: admin.firestore.FieldValue.serverTimestamp() });
+        tx.set(lockRef, { criado_em: firestore_2.FieldValue.serverTimestamp() });
         tx.set(reqRef, {
             numero_patrimonio_proposto: dados.numeroPatrimonioProposto,
             estado_conservacao_proposto: dados.estadoConservacaoProposto,
@@ -135,7 +136,7 @@ exports.criarRequisicaoAdicaoBem = (0, https_1.onCall)(async (request) => {
             descricao_resumo_proposta: dados.descricaoResumoProposta ?? null,
             motivo: dados.motivo,
             status: "pendente",
-            feita_em: admin.firestore.FieldValue.serverTimestamp(),
+            feita_em: firestore_2.FieldValue.serverTimestamp(),
             id_usuario_solicitante: request.auth.uid,
             respondida_em: null,
             id_usuario_respondente: null,
@@ -166,7 +167,7 @@ exports.responderRequisicaoAdicaoBem = (0, https_1.onCall)(async (request) => {
                 tx.set(novoResumoRef, {
                     nome: req.nome_resumo_proposto,
                     descricao: req.descricao_resumo_proposta ?? "",
-                    criado_em: admin.firestore.FieldValue.serverTimestamp(),
+                    criado_em: firestore_2.FieldValue.serverTimestamp(),
                 });
                 idResumo = novoResumoRef.id;
             }
@@ -201,11 +202,11 @@ exports.responderRequisicaoAdicaoBem = (0, https_1.onCall)(async (request) => {
                 documento_dado_baixa_pdf_url: null,
                 nome_responsavel_sei: req.nome_responsavel_proposto,
                 status: "Ativo",
-                cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+                cadastrado_em: firestore_2.FieldValue.serverTimestamp(),
             });
             tx.update(reqRef, {
                 status: "aprovada",
-                respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+                respondida_em: firestore_2.FieldValue.serverTimestamp(),
                 id_usuario_respondente: request.auth.uid,
                 id_bem_patrimonial_se_aprovado: idBemCriado,
                 justificativa_resposta: justificativa,
@@ -214,7 +215,7 @@ exports.responderRequisicaoAdicaoBem = (0, https_1.onCall)(async (request) => {
         else {
             tx.update(reqRef, {
                 status: "rejeitada",
-                respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+                respondida_em: firestore_2.FieldValue.serverTimestamp(),
                 id_usuario_respondente: request.auth.uid,
                 justificativa_resposta: justificativa,
             });

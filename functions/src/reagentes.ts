@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { validarPermissao, validarGestorDoAlmoxarifado } from "./auth";
 
 interface CadastroFrascoFechado {
@@ -77,7 +78,7 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
       em_quarentena: venceuNoCadastro && dados.decisaoSeJaVencido === "QUARENTENA",
       uso_vencido_autorizado: venceuNoCadastro && dados.decisaoSeJaVencido === "DISPONIVEL",
       detalhe_status: venceuNoCadastro ? (dados.detalheStatus ?? (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE" ? "Frasco vencido aguardando processo institucional de descarte." : null)) : null,
-      cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+      cadastrado_em: FieldValue.serverTimestamp(),
       cadastrado_por: request.auth!.uid,
     });
 
@@ -180,7 +181,7 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
         ? (dados.detalheStatus ?? (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE"
             ? "Frasco vencido aguardando processo institucional de descarte." : null))
         : null,
-      cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+      cadastrado_em: FieldValue.serverTimestamp(),
       cadastrado_por: request.auth!.uid,
     });
 
@@ -324,7 +325,7 @@ export const registrarRetirada = onCall(async (request) => {
       id_usuario_retirou: dados.idUsuarioRetirou,
       id_almoxarifado: frasco.id_almoxarifado,
       status: "EM_USO",
-      data_retirada: admin.firestore.FieldValue.serverTimestamp(),
+      data_retirada: FieldValue.serverTimestamp(),
       data_devolucao_prevista: new Date(dados.dataDevolucaoPrevista),
       id_local_usado: dados.idLocalUsado,
       peso_saida: dados.pesoSaida,
@@ -341,7 +342,7 @@ export const registrarRetirada = onCall(async (request) => {
       id_gestor: request.auth!.uid,
       tipo: "SAIU",
       id_emprestimo_reagente: emprestimoRef.id,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
     });
 
     return { idEmprestimo: emprestimoRef.id };
@@ -408,7 +409,7 @@ export const registrarDevolucao = onCall(async (request) => {
 
     const atualizacaoFrasco: Record<string, unknown> = {
       disponibilidade: "DISPONIVEL",
-      data_ultima_pesagem: admin.firestore.FieldValue.serverTimestamp(),
+      data_ultima_pesagem: FieldValue.serverTimestamp(),
       peso_atual: dados.pesoRetorno,
       medida_usada: admin.firestore.FieldValue.increment(volumeUtilizado),
       vencido: frascoVencido,
@@ -425,7 +426,7 @@ export const registrarDevolucao = onCall(async (request) => {
 
     tx.update(emprestimoRef, {
       status: atrasado ? "DEVOLVIDO_COM_ATRASO" : "DEVOLVIDO",
-      data_devolucao_efetuada: admin.firestore.FieldValue.serverTimestamp(),
+      data_devolucao_efetuada: FieldValue.serverTimestamp(),
       id_usuario_devolveu: request.auth!.uid,
       peso_retorno: dados.pesoRetorno,
       medida_utilizada: volumeUtilizado,
@@ -445,7 +446,7 @@ export const registrarDevolucao = onCall(async (request) => {
       peso_novo: dados.pesoRetorno,
       medida_ajustada: volumeUtilizado,
       unidade_medida_ajustada: densidade ? "ml" : "g",
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
     });
 
     return { pesoConsumido, volumeUtilizado, atrasado, frascoVencido,

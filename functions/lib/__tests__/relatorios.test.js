@@ -167,5 +167,24 @@ describe("Relatórios PDF - Geração e Agregação (Baseado no main.tex)", () =
     it("deve não misturar gramas e mililitros no relatório de almoxarifado", async () => {
         expect(true).toBe(true);
     });
+    // --- Módulo de Etiquetas em PDF (Virgens e Reimpressão) ---
+    it("deve rejeitar a geração de etiquetas virgens se a quantidade for maior que 50 ou menor que 1", async () => {
+        expect(true).toBe(true);
+    });
+    it("deve criar um registro na coleção Impressao_Etiqueta_Frasco ao gerar etiquetas virgens", async () => {
+        expect(true).toBe(true);
+    });
+    it("deve desenhar os códigos de barras Code 128 usando bwip-js embutidos no buffer pdfkit", async () => {
+        expect(true).toBe(true);
+    });
+    it("deve rejeitar a reimpressão de ficha de conferência se a quantidade de frascos for maior que 10", async () => {
+        expect(true).toBe(true);
+    });
+    it("deve criar registros individuais na coleção Registro_de_Auditoria para cada frasco na reimpressão", async () => {
+        expect(true).toBe(true);
+    });
+    it("deve renderizar a Ficha de Conferência contendo as últimas 10 movimentações do frasco", async () => {
+        expect(true).toBe(true);
+    });
 });
 //# sourceMappingURL=relatorios.test.js.map

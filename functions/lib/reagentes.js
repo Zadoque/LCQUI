@@ -37,6 +37,7 @@ exports.registrarDevolucao = exports.registrarRetirada = exports.registrarAbertu
 exports.calcularValidadeEfetivaNaAbertura = calcularValidadeEfetivaNaAbertura;
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
+const firestore_1 = require("firebase-admin/firestore");
 const auth_1 = require("./auth");
 exports.cadastrarFrascoFechado = (0, https_1.onCall)(async (request) => {
     const dados = request.data;
@@ -95,7 +96,7 @@ exports.cadastrarFrascoFechado = (0, https_1.onCall)(async (request) => {
             em_quarentena: venceuNoCadastro && dados.decisaoSeJaVencido === "QUARENTENA",
             uso_vencido_autorizado: venceuNoCadastro && dados.decisaoSeJaVencido === "DISPONIVEL",
             detalhe_status: venceuNoCadastro ? (dados.detalheStatus ?? (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE" ? "Frasco vencido aguardando processo institucional de descarte." : null)) : null,
-            cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+            cadastrado_em: firestore_1.FieldValue.serverTimestamp(),
             cadastrado_por: request.auth.uid,
         });
         return { idFrasco: frascoRef.id, codigoFrasco, pesoVazioCalculado: pesoVazio, venceuNoCadastro };
@@ -188,7 +189,7 @@ exports.cadastrarFrascoAberto = (0, https_1.onCall)(async (request) => {
                 ? (dados.detalheStatus ?? (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE"
                     ? "Frasco vencido aguardando processo institucional de descarte." : null))
                 : null,
-            cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+            cadastrado_em: firestore_1.FieldValue.serverTimestamp(),
             cadastrado_por: request.auth.uid,
         });
         return { idFrasco: frascoRef.id, codigoFrasco, conteudoNominal, pesoVazio, venceuNoCadastro: jaVencido };
@@ -298,7 +299,7 @@ exports.registrarRetirada = (0, https_1.onCall)(async (request) => {
             id_usuario_retirou: dados.idUsuarioRetirou,
             id_almoxarifado: frasco.id_almoxarifado,
             status: "EM_USO",
-            data_retirada: admin.firestore.FieldValue.serverTimestamp(),
+            data_retirada: firestore_1.FieldValue.serverTimestamp(),
             data_devolucao_prevista: new Date(dados.dataDevolucaoPrevista),
             id_local_usado: dados.idLocalUsado,
             peso_saida: dados.pesoSaida,
@@ -313,7 +314,7 @@ exports.registrarRetirada = (0, https_1.onCall)(async (request) => {
             id_gestor: request.auth.uid,
             tipo: "SAIU",
             id_emprestimo_reagente: emprestimoRef.id,
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            timestamp: firestore_1.FieldValue.serverTimestamp(),
         });
         return { idEmprestimo: emprestimoRef.id };
     });
@@ -365,7 +366,7 @@ exports.registrarDevolucao = (0, https_1.onCall)(async (request) => {
         const frascoVencido = Boolean(frasco.vencido || venceuAgora);
         const atualizacaoFrasco = {
             disponibilidade: "DISPONIVEL",
-            data_ultima_pesagem: admin.firestore.FieldValue.serverTimestamp(),
+            data_ultima_pesagem: firestore_1.FieldValue.serverTimestamp(),
             peso_atual: dados.pesoRetorno,
             medida_usada: admin.firestore.FieldValue.increment(volumeUtilizado),
             vencido: frascoVencido,
@@ -381,7 +382,7 @@ exports.registrarDevolucao = (0, https_1.onCall)(async (request) => {
         }
         tx.update(emprestimoRef, {
             status: atrasado ? "DEVOLVIDO_COM_ATRASO" : "DEVOLVIDO",
-            data_devolucao_efetuada: admin.firestore.FieldValue.serverTimestamp(),
+            data_devolucao_efetuada: firestore_1.FieldValue.serverTimestamp(),
             id_usuario_devolveu: request.auth.uid,
             peso_retorno: dados.pesoRetorno,
             medida_utilizada: volumeUtilizado,
@@ -400,7 +401,7 @@ exports.registrarDevolucao = (0, https_1.onCall)(async (request) => {
             peso_novo: dados.pesoRetorno,
             medida_ajustada: volumeUtilizado,
             unidade_medida_ajustada: densidade ? "ml" : "g",
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            timestamp: firestore_1.FieldValue.serverTimestamp(),
         });
         return { pesoConsumido, volumeUtilizado, atrasado, frascoVencido,
             avisoHigroscopico: avisoHigroscopico || false };

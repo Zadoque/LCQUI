@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 import { ResumoReagente } from "@/types/reagentes";
 import ModalRelatoriosReagentes from "@/components/reagentes/ModalRelatoriosReagentes";
+import ModalEtiquetasReagentes from "@/components/reagentes/ModalEtiquetasReagentes";
 
 export default function GestorAlmoxarifadoDashboard() {
   const { roles, user } = useAuth();
@@ -15,6 +16,7 @@ export default function GestorAlmoxarifadoDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [isRelatoriosOpen, setIsRelatoriosOpen] = useState(false);
+  const [isEtiquetasOpen, setIsEtiquetasOpen] = useState(false);
 
   // Filtros obrigatórios do Firestore (Seção 5 do main.tex)
   const [filtroLetra, setFiltroLetra] = useState<string>("");
@@ -125,6 +127,13 @@ export default function GestorAlmoxarifadoDashboard() {
                   <button className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 flex items-center gap-2">
                     <svg className="hidden sm:inline w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
                     Adicionar Frasco
+                  </button>
+                  <button
+                    onClick={() => setIsEtiquetasOpen(true)}
+                    className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 flex items-center gap-2 border border-foreground/20"
+                  >
+                    <svg className="hidden sm:inline w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                    Imprimir Etiquetas
                   </button>
                   <div className="h-4 w-px bg-foreground/20 hidden sm:block mx-1"></div>
                   <button
@@ -301,6 +310,12 @@ export default function GestorAlmoxarifadoDashboard() {
               isChefe={isChefe}
             />
           )}
+
+          {/* Modal Etiquetas */}
+          <ModalEtiquetasReagentes 
+            isOpen={isEtiquetasOpen} 
+            onClose={() => setIsEtiquetasOpen(false)} 
+          />
 
         </div>
       </main>

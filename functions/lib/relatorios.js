@@ -36,15 +36,17 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.gerarRelatorioPersonalizado = exports.gerarRelatorioBensPredio = exports.gerarRelatorioAlmoxarifado = void 0;
+exports.gerarPdfReimpressaoFrascos = exports.gerarPdfEtiquetasVirgens = exports.gerarRelatorioPersonalizado = exports.gerarRelatorioBensPredio = exports.gerarRelatorioAlmoxarifado = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
+const firestore_1 = require("firebase-admin/firestore");
 const pdfkit_table_1 = __importDefault(require("pdfkit-table"));
 const auth_1 = require("./auth");
 const pdfHeader_1 = require("./relatorios/pdfHeader");
 const pdfFooter_1 = require("./relatorios/pdfFooter");
 const chunk_1 = require("./utils/chunk");
 const pdfStyles_1 = require("./relatorios/pdfStyles");
+const bwipjs = __importStar(require("bwip-js"));
 async function buildPdfBuffer(doc, builderCallback) {
     return new Promise((resolve, reject) => {
         const buffers = [];
@@ -392,5 +394,201 @@ exports.gerarRelatorioPersonalizado = (0, https_1.onCall)(async (request) => {
         [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
     }
     return { url };
+});
+// Conversão mm -> pt (1 mm = 2.83465 pt)
+const mmToPt = (mm) => mm * 2.83465;
+// Grid de 3 colunas x 10 linhas em folha A4 (210 x 297 mm)
+const GRID_A4_VIRGEM = {
+    cols: 3,
+    rows: 10,
+    labelWidth: mmToPt(65.0),
+    labelHeight: mmToPt(26.5),
+    marginLeft: mmToPt(7.5),
+    marginTop: mmToPt(16.0),
+};
+async function gerarBufferBarcode(texto) {
+    return await bwipjs.toBuffer({
+        bcid: "code128",
+        text: texto,
+        scale: 2,
+        height: 8.0,
+        includetext: false,
+        textxalign: "center",
+    });
+}
+async function renderBarcodesGrid(doc, codigos, startRow, startCol) {
+    let slotAtual = (startRow - 1) * GRID_A4_VIRGEM.cols + (startCol - 1);
+    for (const codigo of codigos) {
+        if (slotAtual >= GRID_A4_VIRGEM.cols * GRID_A4_VIRGEM.rows) {
+            doc.addPage({ size: "A4", margin: 0 });
+            slotAtual = 0;
+        }
+        const r = Math.floor(slotAtual / GRID_A4_VIRGEM.cols);
+        const c = slotAtual % GRID_A4_VIRGEM.cols;
+        const x = GRID_A4_VIRGEM.marginLeft + c * GRID_A4_VIRGEM.labelWidth;
+        const y = GRID_A4_VIRGEM.marginTop + r * GRID_A4_VIRGEM.labelHeight;
+        // 1. LINHA DE GUIA DE CORTE (Cinza claro)
+        doc
+            .rect(x, y, GRID_A4_VIRGEM.labelWidth, GRID_A4_VIRGEM.labelHeight)
+            .lineWidth(0.4)
+            .strokeColor("#D5D5D5")
+            .stroke();
+        const paddingX = mmToPt(2.5);
+        const paddingY = mmToPt(2.0);
+        const printableWidth = GRID_A4_VIRGEM.labelWidth - paddingX * 2;
+        // 2. LINHA 1 (TOPO): Código à esquerda e Data manual à direita
+        doc.font("Helvetica-Bold").fontSize(9.5).fillColor("#000000");
+        doc.text(codigo, x + paddingX, y + paddingY, {
+            width: printableWidth * 0.50,
+            align: "left",
+            lineBreak: false,
+        });
+        const larguraData = mmToPt(24);
+        const xData = x + GRID_A4_VIRGEM.labelWidth - paddingX - larguraData;
+        doc.font("Helvetica").fontSize(6.5).fillColor("#444444");
+        doc.text("Cad: ___/___/___", xData, y + paddingY + 1.8, {
+            width: larguraData,
+            align: "right",
+            lineBreak: false,
+        });
+        // 3. LINHA 2 (MEIO): Rótulo "Reagente:" e linha contínua para escrita
+        const yReagente = y + paddingY + 12;
+        doc.font("Helvetica-Bold").fontSize(7.0).fillColor("#333333");
+        doc.text("Reagente:", x + paddingX, yReagente, {
+            lineBreak: false,
+        });
+        const xInicioLinha = x + paddingX + mmToPt(14);
+        const xFimLinha = x + GRID_A4_VIRGEM.labelWidth - paddingX;
+        doc
+            .moveTo(xInicioLinha, yReagente + 7.5)
+            .lineTo(xFimLinha, yReagente + 7.5)
+            .lineWidth(0.5)
+            .strokeColor("#AAAAAA")
+            .stroke();
+        // 4. LINHA 3 (BASE): Código de Barras Code 128
+        const barcodeBuffer = await gerarBufferBarcode(codigo);
+        const barcodeWidth = mmToPt(42);
+        const barcodeHeight = mmToPt(7.5);
+        const barcodeX = x + (GRID_A4_VIRGEM.labelWidth - barcodeWidth) / 2;
+        const barcodeY = y + GRID_A4_VIRGEM.labelHeight - barcodeHeight - paddingY;
+        doc.image(barcodeBuffer, barcodeX, barcodeY, {
+            width: barcodeWidth,
+            height: barcodeHeight,
+        });
+        slotAtual++;
+    }
+}
+exports.gerarPdfEtiquetasVirgens = (0, https_1.onCall)(async (request) => {
+    try {
+        (0, auth_1.validarPermissao)(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+        const dados = request.data;
+        const total = dados.codigoFinal - dados.codigoInicial + 1;
+        if (total <= 0 || total > 50) {
+            throw new https_1.HttpsError("invalid-argument", "O lote deve conter entre 1 e 50 etiquetas por impressão.");
+        }
+        await admin.firestore().collection("Impressao_Etiqueta_Frasco").add({
+            gerado_em: firestore_1.FieldValue.serverTimestamp(),
+            gerado_por: request.auth.uid,
+            codigo_inicial: dados.codigoInicial,
+            codigo_final: dados.codigoFinal,
+        });
+        const codigos = Array.from({ length: total }, (_, i) => `LCQUI-${dados.codigoInicial + i}`);
+        const doc = new pdfkit_table_1.default({ size: "A4", margin: 0 });
+        const buffer = await buildPdfBuffer(doc, async (d) => {
+            await renderBarcodesGrid(d, codigos, dados.startRow || 1, dados.startCol || 1);
+        });
+        const fileName = `etiquetas/virgens_${dados.codigoInicial}_a_${dados.codigoFinal}_${Date.now()}.pdf`;
+        const fileRef = admin.storage().bucket().file(fileName);
+        await fileRef.save(buffer, { contentType: "application/pdf" });
+        let url = "";
+        if (process.env.FUNCTIONS_EMULATOR === "true") {
+            url = `http://127.0.0.1:9199/v0/b/${admin.storage().bucket().name}/o/${encodeURIComponent(fileName)}?alt=media`;
+        }
+        else {
+            [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
+        }
+        return { url };
+    }
+    catch (error) {
+        console.error("Erro em gerarPdfEtiquetasVirgens:", error);
+        if (error instanceof https_1.HttpsError)
+            throw error;
+        throw new https_1.HttpsError("internal", `Erro interno na geração do PDF: ${error.message}`);
+    }
+});
+exports.gerarPdfReimpressaoFrascos = (0, https_1.onCall)(async (request) => {
+    try {
+        (0, auth_1.validarPermissao)(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+        const { frascoIds } = request.data;
+        if (!frascoIds || frascoIds.length === 0 || frascoIds.length > 10) {
+            throw new https_1.HttpsError("invalid-argument", "Selecione entre 1 e 10 frascos por sessão de reimpressão.");
+        }
+        // Auditing
+        const batch = admin.firestore().batch();
+        const db = admin.firestore();
+        const frascosData = [];
+        for (const frascoId of frascoIds) {
+            const snap = await db.collection("Frasco_Reagente").doc(frascoId).get();
+            if (snap.exists)
+                frascosData.push({ id: snap.id, ...snap.data() });
+            const auditRef = db.collection("Registro_de_Auditoria").doc();
+            batch.set(auditRef, {
+                id_usuario: request.auth.uid,
+                acao: "REIMPRESSAO_ETIQUETA",
+                tipo_entidade_sofre_acao: "FRASCO_REAGENTE",
+                id_do_objeto_da_entidade: frascoId,
+                acao_feita_em: firestore_1.FieldValue.serverTimestamp(),
+                metadata: { motivo: "segunda_via_conferencia" },
+            });
+        }
+        await batch.commit();
+        const doc = new pdfkit_table_1.default({ size: "A4", margin: 40 });
+        const buffer = await buildPdfBuffer(doc, async (d) => {
+            for (let i = 0; i < frascosData.length; i++) {
+                if (i > 0)
+                    d.addPage();
+                const f = frascosData[i];
+                d.fontSize(16).text("Ficha de Conferência e Rastreabilidade", { align: "center" });
+                d.moveDown();
+                d.fontSize(12).text(`Frasco ID: ${f.id}`);
+                d.text(`Código LCQUI: ${f.codigo_frasco}`);
+                d.text(`Conteúdo Nominal: ${f.conteudo_nominal}`);
+                d.text(`Peso Atual: ${f.peso_atual}g`);
+                d.text(`Estado Físico do Frasco: ${f.estado_fisico_frasco}`);
+                d.text(`Disponibilidade: ${f.disponibilidade}`);
+                d.text(`Vencido: ${f.vencido ? 'Sim' : 'Não'}`);
+                d.moveDown(4);
+                d.text("Etiqueta de Reposição:", { align: "center" });
+                d.moveDown(1);
+                const pngBuffer = await bwipjs.toBuffer({
+                    bcid: 'code128',
+                    text: f.codigo_frasco,
+                    scale: 3,
+                    height: 10,
+                    includetext: true,
+                    textxalign: 'center',
+                });
+                // Draw centered at the bottom
+                d.image(pngBuffer, (d.page.width - 150) / 2, d.y, { width: 150 });
+            }
+        });
+        const fileName = `etiquetas/reimpressao_${Date.now()}.pdf`;
+        const fileRef = admin.storage().bucket().file(fileName);
+        await fileRef.save(buffer, { contentType: "application/pdf" });
+        let url = "";
+        if (process.env.FUNCTIONS_EMULATOR === "true") {
+            url = `http://127.0.0.1:9199/v0/b/${admin.storage().bucket().name}/o/${encodeURIComponent(fileName)}?alt=media`;
+        }
+        else {
+            [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
+        }
+        return { url };
+    }
+    catch (error) {
+        console.error("Erro em gerarPdfReimpressaoFrascos:", error);
+        if (error instanceof https_1.HttpsError)
+            throw error;
+        throw new https_1.HttpsError("internal", `Erro interno na reimpressão: ${error.message}`);
+    }
 });
 //# sourceMappingURL=relatorios.js.map

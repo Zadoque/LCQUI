@@ -2,6 +2,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { validarPermissao } from "./auth";
 
 export const criarRequisicaoEdicaoBem = onCall(async (request) => {
@@ -17,7 +18,7 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
     if (lockSnap.exists) {
       throw new HttpsError("failed-precondition", "Já existe uma requisição de edição pendente para este bem.");
     }
-    tx.set(lockRef, { criado_em: admin.firestore.FieldValue.serverTimestamp() });
+    tx.set(lockRef, { criado_em: FieldValue.serverTimestamp() });
     tx.set(reqRef, {
       id_bem_patrimonial: dados.idBemPatrimonial,
       novo_nome: dados.novoNome ?? null,
@@ -26,7 +27,7 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
       novo_id_local: dados.novoIdLocal ?? null,
       motivo: dados.motivo,
       status: "pendente",
-      feita_em: admin.firestore.FieldValue.serverTimestamp(),
+      feita_em: FieldValue.serverTimestamp(),
       id_usuario_solicitante: request.auth!.uid,
     });
     return { idRequisicao: reqRef.id };
@@ -52,7 +53,7 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
 
     tx.update(reqRef, {
       status: aprovar ? "aprovada" : "rejeitada",
-      respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+      respondida_em: FieldValue.serverTimestamp(),
       id_usuario_respondente: request.auth!.uid,
       justificativa_resposta: justificativa,
     });
@@ -107,7 +108,7 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
     if (lockSnap.exists) {
       throw new HttpsError("failed-precondition", "Já existe requisição pendente para este número de patrimônio.");
     }
-    tx.set(lockRef, { criado_em: admin.firestore.FieldValue.serverTimestamp() });
+    tx.set(lockRef, { criado_em: FieldValue.serverTimestamp() });
     tx.set(reqRef, {
       numero_patrimonio_proposto: dados.numeroPatrimonioProposto,
       estado_conservacao_proposto: dados.estadoConservacaoProposto,
@@ -119,7 +120,7 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
       descricao_resumo_proposta: dados.descricaoResumoProposta ?? null,
       motivo: dados.motivo,
       status: "pendente",
-      feita_em: admin.firestore.FieldValue.serverTimestamp(),
+      feita_em: FieldValue.serverTimestamp(),
       id_usuario_solicitante: request.auth!.uid,
       respondida_em: null,
       id_usuario_respondente: null,
@@ -154,7 +155,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
         tx.set(novoResumoRef, {
           nome: req.nome_resumo_proposto,
           descricao: req.descricao_resumo_proposta ?? "",
-          criado_em: admin.firestore.FieldValue.serverTimestamp(),
+          criado_em: FieldValue.serverTimestamp(),
         });
         idResumo = novoResumoRef.id;
       }
@@ -191,12 +192,12 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
         documento_dado_baixa_pdf_url: null,
         nome_responsavel_sei: req.nome_responsavel_proposto,
         status: "Ativo",
-        cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+        cadastrado_em: FieldValue.serverTimestamp(),
       });
 
       tx.update(reqRef, {
         status: "aprovada",
-        respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+        respondida_em: FieldValue.serverTimestamp(),
         id_usuario_respondente: request.auth!.uid,
         id_bem_patrimonial_se_aprovado: idBemCriado,
         justificativa_resposta: justificativa,
@@ -204,7 +205,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
     } else {
       tx.update(reqRef, {
         status: "rejeitada",
-        respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+        respondida_em: FieldValue.serverTimestamp(),
         id_usuario_respondente: request.auth!.uid,
         justificativa_resposta: justificativa,
       });

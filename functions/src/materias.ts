@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 /**
  * Função para criar uma Matéria garantindo que o código da matéria seja único.
@@ -45,7 +46,7 @@ export const criarMateria = onCall(async (request) => {
     tx.set(docRef, {
       nome,
       codigo_materia: codigoMateria,
-      criado_em: admin.firestore.FieldValue.serverTimestamp(),
+      criado_em: FieldValue.serverTimestamp(),
       criado_por: request.auth?.uid
     });
 
