@@ -16,12 +16,11 @@
       };
     in {
       devShells.${system}.default = pkgs.mkShell {
-                 buildInputs = with pkgs; [
-          # Versão FHS (fornece o comando 'antigravity-ide')
-          antigravity-ide-fhs
+        buildInputs = with pkgs; [
 
-          # Google Cloud CLI e ferramentas essenciais
-          google-cloud-sdk
+
+          # Ferramentas de containers
+          docker-client
 
           # Outras ferramentas comuns para desenvolvimento
           git
@@ -31,8 +30,7 @@
 
         shellHook = ''
           echo "🚀 Ambiente de desenvolvimento carregado!"
-          echo "Execute 'antigravity-ide' para iniciar a IDE (rodando em modo FHS)."
-          echo "Google Cloud CLI disponível via comando: 'gcloud'"
+          echo "Docker CLI disponível via comando: 'docker'"
         '';
      };
     };

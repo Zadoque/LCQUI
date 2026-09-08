@@ -176,18 +176,7 @@ O lock é \textbf{removido} pela função \texttt{responderRequisicao*} ao aprov
 \end{entidade}
 
 \begin{explicacao}
-Esta entidade registra cada sessão de impressão de etiquetas de frasco. \textit{codigo\_inicial} e \textit{codigo\_final} referem-se aos números sequenciais dos códigos de frasco no formato \texttt{LCQUI-N} (ex.: \texttt{LCQUI-1} a \texttt{LCQUI-50}). Ver regra de geração de código em 7.2.9. A última impressão e o último código cadastrado são usados pelo modal de geração para oferecer ao gestor três opções: desde o último frasco cadastrado, desde a última impressão ou intervalo personalizado.
-\end{explicacao}
-
-\begin{explicacao}[Arquitetura Híbrida: Realtime Database como Microserviço de Sequenciamento]
-O código sequencial \texttt{LCQUI-N} \textbf{não} é gerado por um documento Firestore singleton. O Firebase Realtime Database é utilizado exclusivamente como microserviço de sequenciamento atômico:
-\begin{enumerate}
-  \item A Cloud Function invoca \texttt{admin.database().ref('/contadores/codigo\_frasco')\allowbreak.transaction(n => (n || 0) + 1)}.
-  \item O Realtime Database garante atomicidade sem limite prático de throughput (suporta milhares de writes/s, contra 1~write/s do Firestore por documento).
-  \item O número N retornado compõe o código \texttt{LCQUI-\{N\}} com sequência estrita (sem saltos).
-  \item O Firestore recebe o documento completo do frasco com o campo \texttt{codigo\_frasco: "LCQUI-N"} já pronto.
-\end{enumerate}
-O Firestore e o Realtime Database coexistem no mesmo projeto Firebase, compartilham o Firebase Auth e as SDKs rodam sem conflito. O nó \texttt{/contadores/codigo\_frasco} no Realtime Database substitui funcionalmente a entidade \textit{Contador\_Codigo\_Frasco} que antes era modelada como coleção Firestore.
+Esta entidade audita de forma isolada as sessões de geração em lote de etiquetas virgens contínuas. \textit{codigo\_inicial} e \textit{codigo\_final} referem-se aos números sequenciais gerados (ex.: \texttt{LCQUI-1} a \texttt{LCQUI-50}). Não há vínculo de chave estrangeira com a tabela \textit{Frasco\_Reagente}, dado que a impressão em branco é puramente utilitária e não cria reservas de ID. A transação e consolidação final do código só ocorrem no banco no momento do cadastro físico.
 \end{explicacao}
 
 %%-----------------------------------%%
@@ -674,7 +663,8 @@ A combinação de prédio, andar e sala deve ser única (\textit{UNIQUE(predio, 
 \end{entidade}
 
 \begin{explicacao}
-\textit{acao} e \textit{id\_do\_objeto\_da\_entidade} tinham o tamanho \texttt{200} escrito como se fosse um selo de restrição em vez de parte do tipo; corrigido para \texttt{VARCHAR(200)}. O valor \texttt{REAGENTE} do enum era ambíguo diante da hierarquia real (\textit{Resumo\_Reagente}, \textit{Especificacao\_Reagente}, \textit{Lote}, \textit{Frasco\_Reagente} já existiam como tabelas distintas, e \textit{FRASCO\_REAGENTE} já aparecia separadamente) -- substituído pelos valores granulares correspondentes, e \textit{EMPRESTIMO\_REAGENTE}, \textit{ALMOXARIFADO} e \textit{USUARIO} foram adicionados por também serem alvo de auditoria (troca de papel, criação de almoxarifado, edição de perfil).
+\textit{acao} e \textit{id\_do\_objeto\_da\_entidade} tinham o tamanho \texttt{200} escrito como se fosse um selo de restrição em vez de parte do tipo; corrigido para \texttt{VARCHAR(200)}. O valor \texttt{REAGENTE} do enum foi substituído por valores granulares. 
+\textbf{Nota sobre Impressão:} A reimpressão avulsa (2ª via) de um frasco já cadastrado é auditada diretamente aqui (\texttt{tipo = FRASCO\_REAGENTE}, \texttt{acao = REIMPRESSAO\_ETIQUETA}) em vez de usar a entidade \textit{Impressao\_Etiqueta\_Frasco}.
 \end{explicacao}
 \newpage
 

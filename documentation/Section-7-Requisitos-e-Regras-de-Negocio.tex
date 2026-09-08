@@ -82,7 +82,12 @@ A densidade é uma propriedade da \textit{Especificacao\_Reagente}, e não do \t
 \end{regra}
 \subsubsection{Regra para código do frasco de Reagente}
 \begin{regra}
-O código do fraso de reagente, mais especificamente "\textit{codigo\_frasco}" é gerado pelo prórpio sistema e é único, serve para identificar o frasco de reagente na sáida e na entrada. Deve haver uma pequena explicação no front-end dizendo que o código é gerado pelo sistema
+O código do frasco de reagente (formato \texttt{LCQUI-N}) é gerado e garantido exclusivamente no momento do cadastro do frasco via transação atômica. A impressão de etiquetas virgens prévias fornece identificadores sugeridos para colar fisicamente, mas não cria frascos no sistema nem garante a reserva do código.
+\end{regra}
+
+\subsubsection{Segurança na Reimpressão de Frascos Cadastrados}
+\begin{regra}
+Para evitar a clonagem acidental de etiquetas na bancada e risco de trocas químicas, a reimpressão de segunda via é limitada a no máximo 10 frascos por sessão. O documento impresso deve conter a Ficha de Conferência e Rastreabilidade completa e 1 única etiqueta de reposição por frasco.
 \end{regra}
 \subsubsection{Regra em Notificação para Professor}
 \begin{regra}
@@ -168,6 +173,11 @@ Apenas o chefe geral consegue colocar um aluno como bolsista.
     \item O frasco em quarentena não pode ser retirado; o frasco pendente de descarte não pode ser retirado; o frasco vencido com uso explicitamente autorizado pode ser retirado, mas a interface deve alertar transparentemente antes da confirmação do empréstimo.
     \item Se um frasco vencer enquanto estiver emprestado, o empréstimo continua válido. Na devolução, o servidor deve recalcular o vencimento com a hora atual e permitir ao gestor registrar o destino pós-validade.
 \end{itemize}
+\end{regra}
+
+\subsubsection{Limites de Geração de Relatórios}
+\begin{regra}
+Para proteger o sistema contra execuções exaustivas e travamentos em ambiente \textit{serverless}, os relatórios personalizados possuem limite de período de no máximo 31 dias corridos. Além disso, nenhuma data de início ou término pode ser superior ao dia atual, e o mês/ano de relatórios fechados não podem estar no futuro.
 \end{regra}
 
 \subsection{Matriz formal de obrigatoriedade e dependência de campos}

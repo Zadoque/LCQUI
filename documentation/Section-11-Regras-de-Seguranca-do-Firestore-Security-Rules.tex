@@ -47,6 +47,7 @@ Todas as exceções são declaradas explicitamente abaixo.
 \texttt{Locks\_Requisicao\_Patrimonio} & Read/Write: negado ao cliente (exclusivo de Cloud Function).\\
 \texttt{Registro\_de\_Auditoria} & Read: \texttt{Chefe\_Geral} no token. Write: negado ao cliente.\\
 \texttt{Roteiro\_Experimento} & Read: \texttt{resource.data.id\_professor == uid} OU existe documento em \texttt{Roteiro\_Professor\_Compartilhado} com \texttt{id\_professor\_destino == uid}. Write: negado.\\
+\texttt{Contador\_Codigo\_Frasco} & Read: \texttt{request.auth != null} (qualquer logado lê). Write: negado ao cliente (só Cloud Function atualiza o sequenciador).\\
 \end{longtable}
 
 

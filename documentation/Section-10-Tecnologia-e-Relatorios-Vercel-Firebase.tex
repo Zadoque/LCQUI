@@ -13,6 +13,15 @@ Após avaliação das restrições do ambiente \textit{serverless} (Vercel e Fir
     \item \textbf{Fluxo de Armazenamento:} A Cloud Function gera o PDF em um \textit{Buffer} de memória, faz o upload para o \textbf{Firebase Storage} e retorna uma URL assinada temporária para download.
 \end{itemize}
 
+\subsubsection{Assinatura Lógica de Relatórios (Hash Canônico)}
+Todos os relatórios gerados pelo backend injetam um rodapé contendo um Hash Canônico. Este hash compila os parâmetros da requisição (ID, datas e registros consultados) concatenados com o Timestamp (\texttt{Date.now()}), garantindo a unicidade e a rastreabilidade do documento impresso, além de mitigar colisão de cache no \textit{Storage}.
+
+\subsubsection{Prevenção de Limites de Leitura Firestore (N+1)}
+Devido aos limites impostos pelas cláusulas \textit{in} ou \textit{getAll} no Firestore (limite de itens por array), as rotinas de agregação de relatórios implementam um padrão de resolução de referências agrupada (Chunking). Os arrays de \textit{refs} são subdivididos em lotes de 200 itens através do utilitário \texttt{chunkArray} garantindo resiliência perante alta volumetria.
+
+\subsubsection{Módulo de Geração de Etiquetas (PDF)}
+Para a identificação física dos frascos, o backend também utiliza o \textbf{pdfkit} para desenhar uma matriz (Grid Visual de Offset 3×10) em tamanho A4, com etiquetas de 65,0 mm × 26,5 mm. O código de barras no formato Code 128 é gerado ativamente em memória via biblioteca \textbf{bwip-js} e embutido no buffer do PDF, garantindo alta definição na impressão e dispensa de fontes especiais no client.
+
 \subsection{Princípio: nunca confiar no \textit{client-side}}
 Todas as \textit{Cloud Functions} desta seção seguem a mesma regra: \textbf{qualquer dado que o servidor consiga derivar ou verificar por conta própria é recalculado ou reconferido no servidor, nunca aceito como o cliente enviou}. Isso vale, em particular, para o papel do usuário (sempre resolvido a partir do Firestore, nunca do que o \textit{request} diz que o usuário é), para valores calculados como peso/volume/vencimento/atraso (sempre recomputados a partir dos dados brutos e da hora do servidor), para códigos gerados pelo sistema (Regra 6.2.9), e para o estado de disponibilidade de um recurso concorrente (sempre relido dentro de uma transação antes de decidir).
 

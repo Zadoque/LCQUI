@@ -27,6 +27,7 @@ Antes da área principal de busca, ele verá uma div \textit{full-width} com:
      \begin{itemize}
          \item Novo Almoxarifado: Abre um modal para criar um almoxarifado.
          \item Novo Gestor de Almoxarifado: Abre um modal em que ele pode escolher: transformar um aluno em gestor de almoxarifado ou criar um Usuário que é Gestor de almoxarifado.
+         \item Imprimir Etiquetas: Modal bifurcado em duas abas. A Aba 1 (Novos Frascos / Virgens) oferece opções de intervalo e um Grid Visual de Offset 3×10 para escolha da célula inicial na folha A4. A Aba 2 (Frascos Cadastrados / 2ª Via) permite busca por reagente/código e seleção de até 10 frascos, gerando a respectiva Ficha de Conferência.
          \item \textbf{Nova Matéria:} Abre modal com campos Nome e Código da Matéria. O código deve ser único (validado na Cloud Function).
      \end{itemize}
     \item Um botão para "Gerenciar Gestores de Almoxarifado". Esse botão abre um novo modal que:
@@ -116,13 +117,17 @@ Na aba principal, uma div \textit{full-width} com botões rápidos essenciais:
          Escrever o detalhamento do local (como: Segunda prateleira, na direita, etc) \\
          O número do lote em que esse frasco pertence. \\
          Pergunta o status dele: Fechado, Aberto, Quarentena (em caso de quarente, aparece um campo em texto para ser escrito explicando o motivo de estar em quarentena)
+         
+         \textbf{Feedback de Sucesso:} Ao salvar, exibe: "\textit{Frasco cadastrado sob o código LCQUI-XX (Reagente: YY, Data: DD/MM/AAAA). Localize a etiqueta física correspondente na folha de bancada, preencha os dados à caneta e aplique no frasco com fita adesiva.}"
          O campo "tipo" em Resumo de reagente que determina os campos a serem pedidos abaixo (sólido ou líquido) \\
         líquido ->
 \begin{itemize}
     \item Se é do tipo fechado, pede apenas a volume do líquido e o peso total com o frasco. (calcula o peso do frasco, mostra o peso do frasco mas não pode ser editado.)
     \item Se é do tipo Aberto, pede o peso do frasco, ...
-\end{itemize} 
+        \end{itemize} 
         sólido -> pede peso 
+        
+        \item Imprimir Etiquetas: Modal bifurcado em duas abas. A Aba 1 (Novos Frascos / Virgens) oferece opções de intervalo (a partir do último cadastrado, após última impressão ou personalizado) e um Grid Visual de Offset 3×10 para escolha da célula inicial. A Aba 2 (Frascos Cadastrados / 2ª Via) permite busca por reagente/código e seleção de até 10 frascos, gerando a respectiva Ficha de Conferência.
          
     \end{itemize}
     \item \textbf{Ações de Bancada (Destacados no centro):} 

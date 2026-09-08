@@ -46,6 +46,16 @@ e não cria nova requisição. Caso contrário, persiste a requisição com
 \texttt{serverTimestamp()}. A consulta e a escrita são encapsuladas
 em uma transação para evitar condição de corrida entre dois clientes
 tentando criar requisições para o mesmo número de patrimônio.
+
+\subsection{Mecanismo de Sequenciamento Atômico via Documento Singleton (\textit{Contador\_Codigo\_Frasco})}
+A coleção \texttt{Contador\_Codigo\_Frasco} não existe no modelo 3FN porque bancos relacionais possuem primitivas de \texttt{SEQUENCE/SERIAL}. Para gerar o identificador atômico \texttt{LCQUI-X}, utiliza-se o documento singleton \texttt{Contador\_Codigo\_Frasco/singleton} com o campo \texttt{ultimo\_codigo\_gerado}, operado atomicamente via \texttt{runTransaction} no backend. Isso garante unicidade estrita sem limites pesados de cota, visto que o \textit{throughput} manual da bancada é perfeitamente atendido pelo limite de 1 \textit{write/s} do Firestore.
+
+\subsection{Índices Compostos Obrigatórios}
+Para garantir a integridade das \textit{queries} e ordenações cruciais, os seguintes índices compostos devem ser criados explicitamente no console do Firestore:
+\begin{enumerate}
+    \item \texttt{Historico\_Frasco\_Reagente}: \texttt{id\_frasco\_reagente (ASC)} + \texttt{timestamp (DESC)}.
+    \item \texttt{Emprestimo\_Reagente}: \texttt{id\_frasco\_reagente (ASC)} + \texttt{data\_retirada (DESC)}.
+\end{enumerate}
 \subsection{Mapeamento Completo de Coleções e Sub-coleções Firestore}
 \label{subsec:mapeamento-colecoes}
 
@@ -86,8 +96,8 @@ Historico\_Bem\_Patrimonial & Sub-coleção \nolinkurl{Bem\_Patrimonial/\{id\}/H
 Alteracao\_Bem\_Patrimonial & Campo \texttt{alteracoes} (array de maps) dentro de cada doc de \texttt{Historico} & Poucos campos por alteração; relação 1:N estreita, nunca consultada independentemente.\\
 Requisicao\_Edicao\_Bem\_Patrimonial & Coleção raiz. Denorm: \texttt{nome\_equipamento}, \texttt{numero\_patrimonio} & Listada independentemente nos painéis de gestores por qualquer filtro de status.\\
 Requisicao\_Adicao\_Bem\_Patrimonial & Coleção raiz & Mesma lógica; query por status e número de patrimônio proposto.\\
-Impressao\_Etiqueta\_Frasco & Coleção raiz & Poucas dezenas de documentos; necessário para oferecer as três opções do modal de geração.\\
-Contador\_Codigo\_Frasco & Documento singleton em \nolinkurl{Contador\_Codigo\_Frasco/singleton} & Incrementado atomicamente via \texttt{FieldValue.increment(1)} a cada frasco cadastrado.\\
+Impressao\_Etiqueta\_Frasco & Coleção raiz & Refere-se a impressão em lote (virgens). Reimpressões avulsas de frascos já cadastrados usam o Registro de Auditoria.\\
+Contador\_Codigo\_Frasco & Documento singleton em \nolinkurl{Contador\_Codigo\_Frasco/singleton} & Sequenciador atômico operado via \texttt{runTransaction} para gerar o \texttt{LCQUI-X}.\\
 Substancia\_Quimica & Coleção raiz & Catálogo global; raramente alterado.\\
 Resumo\_Reagente & Coleção raiz. Denorm: \texttt{letra\_inicial}, \texttt{estado\_fisico} & Catálogo de reagentes; filtros de igualdade combinados exigem ambos os campos como propriedades do documento.\\
 Especificacao\_Reagente & Sub-coleção \nolinkurl{Resumo\_Reagente/\{id\}/Especificacoes} & Sempre acessada a partir do resumo; nunca consultada globalmente.\\
