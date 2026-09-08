@@ -76,7 +76,7 @@ export default function ComentariosPost({ turmaId, postId }: ComentariosPostProp
               </div>
               <div className="flex-1 bg-background/50 p-3 rounded-xl border border-border/50 relative group">
                 <div className="flex justify-between items-start mb-1">
-                  <span className="font-semibold">Usuário {c.id_usuario.substring(0, 5)}</span>
+                  <span className="font-semibold">{c.nome_usuario || `Usuário ${c.id_usuario.substring(0, 5)}`}</span>
                   <span className="text-xs text-muted-foreground">
                     {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
