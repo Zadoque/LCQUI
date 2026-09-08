@@ -21,7 +21,8 @@
     "firebase-admin": "^12.0.0",
     "firebase-functions": "^5.0.0",
     "pdfkit": "^0.20.2",
-    "pdfkit-table": "^0.1.99"
+    "pdfkit-table": "^0.1.99",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",

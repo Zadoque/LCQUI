@@ -2,6 +2,15 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { validarPermissao } from "./auth";
+import { validatePayload } from "./utils/validation";
+import { 
+  IngressarTurmaPorCodigoSchema, 
+  CriarTurmaSchema, 
+  RemoverAlunoTurmaSchema, 
+  ArquivarTurmaSchema, 
+  ConvidarAlunoSchema, 
+  AdicionarAlunoExistenteTurmaSchema 
+} from "./schemas/turmas.schema";
 
 /**
  * RN-TUR-01: Controle de Capacidade da Turma
@@ -10,8 +19,7 @@ import { validarPermissao } from "./auth";
 export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
   validarPermissao(request, ["Aluno", "Bolsista"]);
   
-  const { codigoTurma } = request.data as { codigoTurma: string };
-  if (!codigoTurma) throw new HttpsError("invalid-argument", "Código da turma não fornecido.");
+  const { codigoTurma } = validatePayload(IngressarTurmaPorCodigoSchema, request.data);
 
   const db = admin.firestore();
 
@@ -93,12 +101,9 @@ export const criarTurma = onCall(async (request) => {
   try {
     validarPermissao(request, ["Professor", "Chefe_Geral"]);
 
-    const { idMateria, nomeTurma, ano, semestre, capacidade, nomeMateria, idProfessor } = request.data;
-    console.log("Recebido payload criarTurma:", request.data);
-    
-    if (!idMateria || !nomeTurma || !nomeMateria || !ano || !semestre || !capacidade) {
-      throw new HttpsError("invalid-argument", "Dados incompletos para criar a turma.");
-    }
+    const payload = validatePayload(CriarTurmaSchema, request.data);
+    const { idMateria, nomeTurma, ano, semestre, capacidade, nomeMateria, idProfessor } = payload;
+    console.log("Recebido payload criarTurma:", payload);
 
     const authRoles = request.auth?.token.roles || [];
     const isChefeGeral = authRoles.includes("Chefe_Geral");
@@ -111,13 +116,9 @@ export const criarTurma = onCall(async (request) => {
       id_professor = idProfessor;
     }
 
-    const anoNum = parseInt(ano, 10);
-    const semestreNum = parseInt(semestre, 10);
-    const capacidadeNum = parseInt(capacidade, 10);
-
-    if (isNaN(anoNum) || anoNum < 2000) throw new HttpsError("invalid-argument", "Ano inválido.");
-    if (isNaN(semestreNum) || (semestreNum !== 1 && semestreNum !== 2)) throw new HttpsError("invalid-argument", "Semestre deve ser 1 ou 2.");
-    if (isNaN(capacidadeNum) || capacidadeNum <= 0) throw new HttpsError("invalid-argument", "Capacidade deve ser positiva.");
+    const anoNum = ano;
+    const semestreNum = semestre;
+    const capacidadeNum = capacidade;
 
     const db = admin.firestore();
 
@@ -177,8 +178,7 @@ export const criarTurma = onCall(async (request) => {
 export const removerAlunoTurma = onCall(async (request) => {
   validarPermissao(request, ["Professor", "Chefe_Geral"]);
   
-  const { idTurma, idAluno } = request.data as { idTurma: string, idAluno: string };
-  if (!idTurma || !idAluno) throw new HttpsError("invalid-argument", "Faltam parâmetros.");
+  const { idTurma, idAluno } = validatePayload(RemoverAlunoTurmaSchema, request.data);
 
   const db = admin.firestore();
   const turmaRef = db.collection("Turma").doc(idTurma);
@@ -231,8 +231,7 @@ export const removerAlunoTurma = onCall(async (request) => {
 
 export const arquivarTurma = onCall(async (request) => {
   validarPermissao(request, ["Professor", "Chefe_Geral"]);
-  const { idTurma } = request.data as { idTurma: string };
-  if (!idTurma) throw new HttpsError("invalid-argument", "idTurma obrigatório.");
+  const { idTurma } = validatePayload(ArquivarTurmaSchema, request.data);
 
   const db = admin.firestore();
   const turmaRef = db.collection("Turma").doc(idTurma);
@@ -269,15 +268,7 @@ export const arquivarTurma = onCall(async (request) => {
 export const convidarAluno = onCall(async (request) => {
   validarPermissao(request, ["Professor", "Chefe_Geral"]);
 
-  const { email, idTurma, matricula } = request.data as {
-    email: string;
-    idTurma?: string;
-    matricula?: string;
-  };
-
-  if (!email) {
-    throw new HttpsError("invalid-argument", "Email é obrigatório.");
-  }
+  const { email, idTurma, matricula } = validatePayload(ConvidarAlunoSchema, request.data);
   const emailNormalizado = email.toLowerCase().trim();
   const db = admin.firestore();
 
@@ -326,18 +317,9 @@ export const convidarAluno = onCall(async (request) => {
   });
 });
 
-interface DadosAdicionarAluno {
-  idTurma: string;
-  idAluno: string;
-}
-
 export const adicionarAlunoExistenteTurma = onCall(async (request) => {
   const papeis = validarPermissao(request, ["Chefe_Geral", "Professor"]);
-  const { idTurma, idAluno } = request.data as DadosAdicionarAluno;
-
-  if (!idTurma || !idAluno) {
-    throw new HttpsError("invalid-argument", "idTurma e idAluno são obrigatórios.");
-  }
+  const { idTurma, idAluno } = validatePayload(AdicionarAlunoExistenteTurmaSchema, request.data);
 
   const db = admin.firestore();
   const turmaRef = db.collection("Turma").doc(idTurma);
