@@ -1105,7 +1105,7 @@ export const gerarRelatorioPersonalizado = onCall(async (request) => {
 
 \begin{lstlisting}[language=TypeScript, title={Módulo de Etiquetas em PDF: Virgens e Reimpressão}]
 // ============================================================================
-// GERAÇÃO DE ETIQUETAS VIRGENS (NOVOS FRASCOS) - ABA 1
+// GERACAO DE ETIQUETAS VIRGENS (NOVOS FRASCOS) - ABA 1
 // ============================================================================
 interface DadosEtiquetasVirgens {
   codigoInicial: number;
@@ -1123,7 +1123,7 @@ export const gerarPdfEtiquetasVirgens = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "O lote deve conter entre 1 e 50 etiquetas por impressão.");
   }
 
-  // Audita a sessão de geração de etiquetas virgens (Seção 4.13)
+  // Audita a sessao de geracao de etiquetas virgens (Secao 4.13)
   await admin.firestore().collection("Impressao_Etiqueta_Frasco").add({
     gerado_em: admin.firestore.FieldValue.serverTimestamp(),
     gerado_por: request.auth!.uid,
@@ -1143,7 +1143,7 @@ export const gerarPdfEtiquetasVirgens = onCall(async (request) => {
 });
 
 // ============================================================================
-// REIMPRESSÃO E FICHA DE CONFERÊNCIA (FRASCOS JÁ CADASTRADOS) - ABA 2
+// REIMPRESSAO E FICHA DE CONFERENCIA (FRASCOS JA CADASTRADOS) - ABA 2
 // ============================================================================
 interface DadosReimpressao {
   frascoIds: string[]; // Máximo 10 frascos
@@ -1153,15 +1153,15 @@ export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
   await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Almoxarifado"]);
   const { frascoIds } = request.data as DadosReimpressao;
 
-  // Regra 7.2.10: Teto rígido de segurança química
+  // Regra 7.2.10: Teto rigido de seguranca quimica
   if (!frascoIds || frascoIds.length === 0 || frascoIds.length > 10) {
-    throw new HttpsError("invalid-argument", "Selecione entre 1 e 10 frascos por sessão de reimpressão.");
+    throw new HttpsError("invalid-argument", "Selecione entre 1 e 10 frascos por sessao de reimpressao.");
   }
 
-  // 1. Busca dados completos, histórico recente e último empréstimo dos frascos
+  // 1. Busca dados completos, historico recente e ultimo emprestimo dos frascos
   const dadosFrascos = await buscarDadosCompletosParaConferencia(frascoIds);
 
-  // 2. Registra auditoria individual de 2ª via para cada frasco (Seção 4.41)
+  // 2. Registra auditoria individual de 2a via para cada frasco (Secao 4.41)
   const batch = admin.firestore().batch();
   for (const frascoId of frascoIds) {
     const auditRef = admin.firestore().collection("Registro_de_Auditoria").doc();
@@ -1176,7 +1176,7 @@ export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
   }
   await batch.commit();
 
-  // 3. Gera PDF com Ficha de Conferência + 1 Etiqueta Centralizada por frasco
+  // 3. Gera PDF com Ficha de Conferencia + 1 Etiqueta Centralizada por frasco
   const buffer = await gerarPdfFrascosCadastrados(dadosFrascos);
 
   const fileName = `etiquetas/reimpressao_${Date.now()}.pdf`;

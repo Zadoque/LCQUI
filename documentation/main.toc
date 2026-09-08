@@ -167,12 +167,12 @@
 \contentsline {subsubsection}{\numberline {10.2.2}Fluxo de Reagentes: Cadastro, Retirada e Devolução}{79}{subsubsection.10.2.2}%
 \contentsline {subsubsection}{\numberline {10.2.3}Validação síncrona de validade no cadastro e na abertura}{92}{subsubsection.10.2.3}%
 \contentsline {subsubsection}{\numberline {10.2.4}Jobs Agendados: Vencimento, Atraso e Materialização}{92}{subsubsection.10.2.4}%
-\contentsline {subsubsection}{\numberline {10.2.5}Fluxo de Bens Patrimoniais: Requisições}{95}{subsubsection.10.2.5}%
-\contentsline {subsubsection}{\numberline {10.2.6}Relatórios em PDF}{103}{subsubsection.10.2.6}%
-\contentsline {section}{\numberline {11}Regras de Segurança do Firestore (Security Rules)}{108}{section.11}%
-\contentsline {subsection}{\numberline {11.1}Regras por Coleção}{108}{subsection.11.1}%
-\contentsline {section}{\numberline {12}Implementações em Estudo para Versões Futuras}{110}{section.12}%
-\contentsline {subsection}{\numberline {12.1}Por que \texttt {GASOSO} sozinho não basta}{110}{subsection.12.1}%
-\contentsline {subsection}{\numberline {12.2}Proposta de campos (apenas ilustrativa)}{110}{subsection.12.2}%
-\contentsline {subsection}{\numberline {12.3}Além do enum: medição de gases não é pesagem}{111}{subsection.12.3}%
-\contentsline {subsection}{\numberline {12.4}Horários de Turma}{111}{subsection.12.4}%
+\contentsline {subsubsection}{\numberline {10.2.5}Fluxo de Bens Patrimoniais: Requisições}{96}{subsubsection.10.2.5}%
+\contentsline {subsubsection}{\numberline {10.2.6}Relatórios em PDF}{104}{subsubsection.10.2.6}%
+\contentsline {section}{\numberline {11}Regras de Segurança do Firestore (Security Rules)}{111}{section.11}%
+\contentsline {subsection}{\numberline {11.1}Regras por Coleção}{111}{subsection.11.1}%
+\contentsline {section}{\numberline {12}Implementações em Estudo para Versões Futuras}{113}{section.12}%
+\contentsline {subsection}{\numberline {12.1}Por que \texttt {GASOSO} sozinho não basta}{113}{subsection.12.1}%
+\contentsline {subsection}{\numberline {12.2}Proposta de campos (apenas ilustrativa)}{113}{subsection.12.2}%
+\contentsline {subsection}{\numberline {12.3}Além do enum: medição de gases não é pesagem}{114}{subsection.12.3}%
+\contentsline {subsection}{\numberline {12.4}Horários de Turma}{114}{subsection.12.4}%

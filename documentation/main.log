@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025/nixos.org) (preloaded format=pdflatex 1980.1.1)  8 SEP 2026 09:58
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025/nixos.org) (preloaded format=pdflatex 1980.1.1)  8 SEP 2026 10:15
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1326,10 +1326,30 @@ ignored error: Infinite glue shrinkage found in box being split [60])
 [73] [74]) (./Section-10-Tecnologia-e-Relatorios-Vercel-Firebase.tex [75]
 [76] [77] [78] [79] [80] [81] [82] [83] [84] [85] [86] [87] [88] [89] [90]
 [91] [92] [93] [94] [95] [96] [97] [98] [99] [100] [101] [102] [103] [104]
-[105] [106]) (./Section-11-Regras-de-Seguranca-do-Firestore-Security-Rules.tex
+[105] [106]
+Overfull \hbox (15.88602pt too wide) in paragraph at lines 1107--1108
+[][][][] 
+ []
+
+
+Overfull \hbox (15.88602pt too wide) in paragraph at lines 1109--1110
+[][][][] 
+ []
+
 [107]
-ignored error: Infinite glue shrinkage found in box being split [108])
-(./Section-12-Implementacoes-em-Estudo-para-Versoes-Futuras.tex [109]
+Overfull \hbox (15.88602pt too wide) in paragraph at lines 1145--1146
+[][][][] 
+ []
+
+
+Overfull \hbox (15.88602pt too wide) in paragraph at lines 1147--1148
+[][][][] 
+ []
+
+[108] [109]) (./Section-11-Regras-de-Seguranca-do-Firestore-Security-Rules.tex
+[110]
+ignored error: Infinite glue shrinkage found in box being split [111])
+(./Section-12-Implementacoes-em-Estudo-para-Versoes-Futuras.tex [112]
 Underfull \hbox (badness 1584) in paragraph at lines 21--21
 []|\T1/lmr/m/n/10.95 (+20) Tipo de subs-tân-cia (já
  []
@@ -1344,7 +1364,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 33--33
 _
  []
 
-[110]) [111] 
+[113]) [114] 
 enddocument/afterlastpage (AED): lastpage setting LastPage.
 (./main.aux)
  ***********
@@ -1353,10 +1373,10 @@ L3 programming layer <2026-01-19>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 34149 strings out of 467535
- 661306 string characters out of 5388798
- 1500615 words of memory out of 5000000
- 60813 multiletter control sequences out of 15000+600000
+ 34282 strings out of 467535
+ 663522 string characters out of 5388798
+ 1494615 words of memory out of 5000000
+ 60843 multiletter control sequences out of 15000+600000
  747271 words of font info for 297 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  98i,12n,108p,1040b,2159s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -1395,10 +1415,10 @@ e1/public/lm/lmtt8.pfb></nix/store/ff99w9369azw8z5njzjs1zs86s18znyq-texlive-202
 5-r78234-final-env-texmfdist/fonts/type1/public/lm/lmtti10.pfb></nix/store/ff99
 w9369azw8z5njzjs1zs86s18znyq-texlive-2025-r78234-final-env-texmfdist/fonts/type
 1/public/amsfonts/symbols/msam10.pfb>
-Output written on main.pdf (111 pages, 866600 bytes).
+Output written on main.pdf (114 pages, 876941 bytes).
 PDF statistics:
- 2942 PDF objects out of 2984 (max. 8388607)
- 2751 compressed objects within 28 object streams
- 1327 named destinations out of 1440 (max. 500000)
+ 3078 PDF objects out of 3580 (max. 8388607)
+ 2883 compressed objects within 29 object streams
+ 1430 named destinations out of 1440 (max. 500000)
  64405 words of extra memory for PDF output out of 74296 (max. 10000000)
 
