@@ -550,3 +550,227 @@ INFO: Detected non-HTTP/2 connection.
 [debug] [2026-09-09T02:03:21.996Z] Sep 08, 2026 11:03:21 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected non-HTTP/2 connection.
  {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 08, 2026 11:03:21 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T02:59:18.854Z] ----------------------------------------------------------------------
+[debug] [2026-09-09T02:59:18.858Z] Command:       /nix/store/2gd4h12irmnanhg33md2rpjygrsj5ypb-nodejs-slim-22.23.2/bin/node /nix/store/zwyflcwvvi8w7im39dcargg0fzd6awqf-firebase-tools-15.28.2/lib/node_modules/firebase-tools/lib/bin/firebase.js emulators:start
+[debug] [2026-09-09T02:59:18.858Z] CLI Version:   15.28.2
+[debug] [2026-09-09T02:59:18.858Z] Platform:      linux
+[debug] [2026-09-09T02:59:18.858Z] Node Version:  v22.23.2
+[debug] [2026-09-09T02:59:18.859Z] Detected Agent: antigravity
+[debug] [2026-09-09T02:59:18.859Z] Time:          Tue Sep 08 2026 23:59:18 GMT-0300 (Brasilia Standard Time)
+[debug] [2026-09-09T02:59:18.859Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-09-09T02:59:20.191Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-09-09T02:59:20.577Z] Running auto auth
+[debug] [2026-09-09T02:59:20.652Z] openjdk version "21.0.12" 2026-07-21
+
+[debug] [2026-09-09T02:59:20.653Z] OpenJDK Runtime Environment (build 21.0.12+8-nixos)
+OpenJDK 64-Bit Server VM (build 21.0.12+8-nixos, mixed mode, sharing)
+
+[debug] [2026-09-09T02:59:20.664Z] Parsed Java major version: 21
+[info] i  emulators: Starting emulators: auth, functions, firestore, storage, extensions {"metadata":{"emulator":{"name":"hub"},"message":"Starting emulators: auth, functions, firestore, storage, extensions"}}
+[debug] [2026-09-09T02:59:20.671Z] No OAuth tokens found
+[debug] [2026-09-09T02:59:20.673Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/lcqui-uenf/services/cloudresourcemanager.googleapis.com [none]
+[debug] [2026-09-09T02:59:20.673Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/lcqui-uenf/services/cloudresourcemanager.googleapis.com  x-goog-user-project=lcqui-uenf
+[debug] [2026-09-09T02:59:22.029Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/lcqui-uenf/services/cloudresourcemanager.googleapis.com 200
+[debug] [2026-09-09T02:59:22.031Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/lcqui-uenf/services/cloudresourcemanager.googleapis.com [omitted]
+[debug] [2026-09-09T02:59:22.037Z] No OAuth tokens found
+[debug] [2026-09-09T02:59:22.037Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/lcqui-uenf [none]
+[debug] [2026-09-09T02:59:23.540Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/lcqui-uenf 200
+[debug] [2026-09-09T02:59:23.540Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/lcqui-uenf {"projectNumber":"498756424864","projectId":"lcqui-uenf","lifecycleState":"ACTIVE","name":"LCQUI","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2026-09-04T02:41:02.977Z"}
+[debug] [2026-09-09T02:59:23.549Z] [logging] Logging Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2026-09-09T02:59:23.549Z] [auth] Authentication Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2026-09-09T02:59:23.549Z] [firestore] Firestore Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2026-09-09T02:59:23.549Z] [firestore.websocket] websocket server for firestore only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2026-09-09T02:59:23.550Z] [storage] Storage Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2026-09-09T02:59:23.550Z] assigned listening specs for emulators {"user":{"hub":[{"address":"127.0.0.1","family":"IPv4","port":4400},{"address":"::1","family":"IPv6","port":4400}],"ui":[{"address":"127.0.0.1","family":"IPv4","port":4000},{"address":"::1","family":"IPv6","port":4000}],"logging":[{"address":"127.0.0.1","family":"IPv4","port":4500}],"auth":[{"address":"127.0.0.1","family":"IPv4","port":9099}],"firestore":[{"address":"127.0.0.1","family":"IPv4","port":8080}],"firestore.websocket":[{"address":"127.0.0.1","family":"IPv4","port":9150}],"storage":[{"address":"127.0.0.1","family":"IPv4","port":9199}]},"metadata":{"message":"assigned listening specs for emulators"}}
+[debug] [2026-09-09T02:59:23.554Z] Found emulator hub locator: {"version":"15.28.2","origins":["http://127.0.0.1:4400","http://[::1]:4400"],"pid":124804}
+[debug] [2026-09-09T02:59:23.555Z] Write emulator hub locator at /tmp/hub-lcqui-uenf.json
+[debug] [2026-09-09T02:59:23.560Z] [Extensions] Started Extensions emulator, this is a noop.
+[debug] [2026-09-09T02:59:23.562Z] [functions] Functions Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2026-09-09T02:59:23.562Z] [eventarc] Eventarc Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2026-09-09T02:59:23.562Z] [tasks] Cloud Tasks Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2026-09-09T02:59:23.562Z] late-assigned ports for functions and eventarc emulators {"user":{"hub":[{"address":"127.0.0.1","family":"IPv4","port":4400},{"address":"::1","family":"IPv6","port":4400}],"ui":[{"address":"127.0.0.1","family":"IPv4","port":4000},{"address":"::1","family":"IPv6","port":4000}],"logging":[{"address":"127.0.0.1","family":"IPv4","port":4500}],"auth":[{"address":"127.0.0.1","family":"IPv4","port":9099}],"firestore":[{"address":"127.0.0.1","family":"IPv4","port":8080}],"firestore.websocket":[{"address":"127.0.0.1","family":"IPv4","port":9150}],"storage":[{"address":"127.0.0.1","family":"IPv4","port":9199}],"functions":[{"address":"127.0.0.1","family":"IPv4","port":5001}],"eventarc":[{"address":"127.0.0.1","family":"IPv4","port":9299}],"tasks":[{"address":"127.0.0.1","family":"IPv4","port":9499}]},"metadata":{"message":"late-assigned ports for functions and eventarc emulators"}}
+[warn] ⚠  functions: The following emulators are not running, calls to these services from the Functions emulator will affect production: apphosting, database, hosting, pubsub, dataconnect {"metadata":{"emulator":{"name":"functions"},"message":"The following emulators are not running, calls to these services from the Functions emulator will affect production: apphosting, database, hosting, pubsub, dataconnect"}}
+[warn] ⚠  functions: Application Default Credentials detected. Non-emulated services will access production using these credentials. Be careful! {"metadata":{"emulator":{"name":"functions"},"message":"Application Default Credentials detected. Non-emulated services will access production using these credentials. Be careful!"}}
+[debug] [2026-09-09T02:59:24.886Z] No OAuth tokens found
+[debug] [2026-09-09T02:59:24.886Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/lcqui-uenf/adminSdkConfig [none]
+[debug] [2026-09-09T02:59:25.352Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/lcqui-uenf/adminSdkConfig 200
+[debug] [2026-09-09T02:59:25.353Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/lcqui-uenf/adminSdkConfig {"projectId":"lcqui-uenf","storageBucket":"lcqui-uenf.firebasestorage.app"}
+[debug] [2026-09-09T02:59:25.370Z] Ignoring unsupported arg: auto_download {"metadata":{"emulator":{"name":"firestore"},"message":"Ignoring unsupported arg: auto_download"}}
+[debug] [2026-09-09T02:59:25.370Z] Ignoring unsupported arg: single_project_mode_error {"metadata":{"emulator":{"name":"firestore"},"message":"Ignoring unsupported arg: single_project_mode_error"}}
+[debug] [2026-09-09T02:59:25.370Z] Starting Firestore Emulator with command {"binary":"java","args":["-Dgoogle.cloud_firestore.debug_log_level=FINE","-Duser.language=en","-jar","/home/dock/.cache/firebase/emulators/cloud-firestore-emulator-v1.22.0.jar","--host","127.0.0.1","--port",8080,"--websocket_port",9150,"--database-edition","standard","--project_id","lcqui-uenf","--rules","/home/dock/dev/LCQUI/firestore.rules","--single_project_mode",true,"--functions_emulator","127.0.0.1:5001"],"optionalArgs":["port","webchannel_port","host","rules","websocket_port","database-edition","functions_emulator","seed_from_export","project_id","single_project_mode"],"joinArgs":false,"shell":false,"port":8080} {"metadata":{"emulator":{"name":"firestore"},"message":"Starting Firestore Emulator with command {\"binary\":\"java\",\"args\":[\"-Dgoogle.cloud_firestore.debug_log_level=FINE\",\"-Duser.language=en\",\"-jar\",\"/home/dock/.cache/firebase/emulators/cloud-firestore-emulator-v1.22.0.jar\",\"--host\",\"127.0.0.1\",\"--port\",8080,\"--websocket_port\",9150,\"--database-edition\",\"standard\",\"--project_id\",\"lcqui-uenf\",\"--rules\",\"/home/dock/dev/LCQUI/firestore.rules\",\"--single_project_mode\",true,\"--functions_emulator\",\"127.0.0.1:5001\"],\"optionalArgs\":[\"port\",\"webchannel_port\",\"host\",\"rules\",\"websocket_port\",\"database-edition\",\"functions_emulator\",\"seed_from_export\",\"project_id\",\"single_project_mode\"],\"joinArgs\":false,\"shell\":false,\"port\":8080}"}}
+[info] i  firestore: Firestore Emulator logging to firestore-debug.log {"metadata":{"emulator":{"name":"firestore"},"message":"Firestore Emulator logging to firestore-debug.log"}}
+[debug] [2026-09-09T02:59:26.888Z] Sep 08, 2026 11:59:26 PM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketServer start
+INFO: Started WebSocket server on ws://127.0.0.1:9150
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 08, 2026 11:59:26 PM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketServer start\nINFO: Started WebSocket server on ws://127.0.0.1:9150\n"}}
+[debug] [2026-09-09T02:59:26.935Z] 
+API endpoint: http://127.0.0.1:8080 {"metadata":{"emulator":{"name":"firestore"},"message":"\nAPI endpoint: http://127.0.0.1:8080"}}
+[debug] [2026-09-09T02:59:26.936Z] 
+Database Edition: STANDARD
+Database Mode: CLOUD_FIRESTORE
+
+If you are using a library that supports the FIRESTORE_EMULATOR_HOST environment variable, run:
+
+   export FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
+
+If you are running a Firestore in Datastore Mode project, run:
+
+   export DATASTORE_EMULATOR_HOST=127.0.0.1:8080
+
+Note: Support for Datastore Mode is in preview. If you encounter any bugs please file at https://github.com/firebase/firebase-tools/issues.
+Dev App Server is now running.
+
+ {"metadata":{"emulator":{"name":"firestore"},"message":"\nDatabase Edition: STANDARD\nDatabase Mode: CLOUD_FIRESTORE\n\nIf you are using a library that supports the FIRESTORE_EMULATOR_HOST environment variable, run:\n\n   export FIRESTORE_EMULATOR_HOST=127.0.0.1:8080\n\nIf you are running a Firestore in Datastore Mode project, run:\n\n   export DATASTORE_EMULATOR_HOST=127.0.0.1:8080\n\nNote: Support for Datastore Mode is in preview. If you encounter any bugs please file at https://github.com/firebase/firebase-tools/issues.\nDev App Server is now running.\n\n"}}
+[info] ✔  firestore: Firestore Emulator was started in standard edition. {"metadata":{"emulator":{"name":"firestore"},"message":"Firestore Emulator was started in standard edition."}}
+[info] ✔  firestore: Firestore Emulator UI websocket is running on 9150. {"metadata":{"emulator":{"name":"firestore"},"message":"Firestore Emulator UI websocket is running on 9150."}}
+[debug] [2026-09-09T02:59:37.879Z] Ignoring unsupported arg: port {"metadata":{"emulator":{"name":"storage"},"message":"Ignoring unsupported arg: port"}}
+[debug] [2026-09-09T02:59:39.085Z] Temp file directory for storage emulator: /tmp/firebase/storage/blobs {"metadata":{"emulator":{"name":"storage"},"message":"Temp file directory for storage emulator: /tmp/firebase/storage/blobs"}}
+[debug] [2026-09-09T02:59:39.107Z] [Extensions] Connecting Extensions emulator, this is a noop.
+[info] i  functions: Watching "/home/dock/dev/LCQUI/functions" for Cloud Functions... {"metadata":{"emulator":{"name":"functions"},"message":"Watching \"/home/dock/dev/LCQUI/functions\" for Cloud Functions..."}}
+[debug] [2026-09-09T02:59:39.111Z] Validating nodejs source
+[warn] ⚠  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[warn] ⚠  functions: Please note that there will be breaking changes when you upgrade. 
+[debug] [2026-09-09T02:59:40.001Z] > [functions] package.json contents: {
+  "name": "functions",
+  "scripts": {
+    "lint": "eslint \"src/**/*\"",
+    "build": "tsc && cp -r assets lib/assets || true",
+    "build:watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "main": "lib/index.js",
+  "dependencies": {
+    "bwip-js": "^4.11.4",
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^5.0.0",
+    "pdfkit": "^0.20.2",
+    "pdfkit-table": "^0.1.99",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "@types/bwip-js": "^3.2.3",
+    "@types/jest": "^29.5.12",
+    "@types/pdfkit": "^0.13.9",
+    "firebase-functions-test": "^3.1.0",
+    "firebase-tools": "^15.29.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "tsx": "^4.23.13",
+    "typescript": "^5.3.3"
+  },
+  "private": true
+}
+[debug] [2026-09-09T02:59:40.001Z] Building nodejs source
+[debug] [2026-09-09T02:59:40.002Z] Failed to find version of module node: reached end of search path /home/dock/dev/LCQUI/functions/node_modules
+[warn] ⚠  functions: Your requested "node" version "20" doesn't match your global version "22". Using node@22 from host. 
+[debug] [2026-09-09T02:59:40.005Z] Could not find functions.yaml. Must use http discovery
+[debug] [2026-09-09T02:59:40.010Z] Found firebase-functions binary at '/home/dock/dev/LCQUI/functions/node_modules/.bin/firebase-functions'
+[debug] [2026-09-09T02:59:40.079Z] Sep 08, 2026 11:59:40 PM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel
+INFO: Connected to new websocket client
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 08, 2026 11:59:40 PM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel\nINFO: Connected to new websocket client\n"}}
+[info] Serving at port 8871
+
+[debug] [2026-09-09T02:59:40.632Z] Got response from /__/functions.yaml {"endpoints":{"cadastrarFrascoFechado":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"cadastrarFrascoFechado"},"cadastrarFrascoAberto":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"cadastrarFrascoAberto"},"registrarAberturaFrasco":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"registrarAberturaFrasco"},"registrarRetirada":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"registrarRetirada"},"registrarDevolucao":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"registrarDevolucao"},"criarRequisicaoEdicaoBem":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"criarRequisicaoEdicaoBem"},"responderRequisicaoEdicaoBem":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"responderRequisicaoEdicaoBem"},"criarRequisicaoAdicaoBem":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"criarRequisicaoAdicaoBem"},"responderRequisicaoAdicaoBem":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"responderRequisicaoAdicaoBem"},"onResumoBemPatrimonialNomeAtualizado":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.updated","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"Resumo_Bem_Patrimonial/{resumoId}"},"retry":false},"entryPoint":"onResumoBemPatrimonialNomeAtualizado"},"onLocalAtualizado":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.updated","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"Local/{localId}"},"retry":false},"entryPoint":"onLocalAtualizado"},"limparLocksOrfaos":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetrySeconds":null,"minBackoffSeconds":null,"maxBackoffSeconds":null},"timeZone":null},"entryPoint":"limparLocksOrfaos"},"gerarRelatorioAlmoxarifado":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"gerarRelatorioAlmoxarifado"},"gerarRelatorioBensPredio":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"gerarRelatorioBensPredio"},"gerarRelatorioPersonalizado":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"gerarRelatorioPersonalizado"},"gerarPdfEtiquetasVirgens":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"gerarPdfEtiquetasVirgens"},"gerarPdfReimpressaoFrascos":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"gerarPdfReimpressaoFrascos"},"ingressarEmTurmaPorCodigo":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"ingressarEmTurmaPorCodigo"},"criarTurma":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"criarTurma"},"removerAlunoTurma":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"removerAlunoTurma"},"arquivarTurma":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"arquivarTurma"},"convidarAluno":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"convidarAluno"},"adicionarAlunoExistenteTurma":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"adicionarAlunoExistenteTurma"},"criarMateria":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"criarMateria"},"criarPost":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"criarPost"},"adicionarComentario":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"adicionarComentario"},"excluirPost":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"excluirPost"},"excluirComentario":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"excluirComentario"},"convidarUsuario":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"convidarUsuario"}},"specVersion":"v1alpha1","requiredAPIs":[{"api":"cloudscheduler.googleapis.com","reason":"Needed for scheduled functions."}],"extensions":{}}
+[warn] ⚠  functions: Application Default Credentials detected. Non-emulated services will access production using these credentials. Be careful! {"metadata":{"emulator":{"name":"functions"},"message":"Application Default Credentials detected. Non-emulated services will access production using these credentials. Be careful!"}}
+[info] ✔  functions: Loaded functions definitions from source: cadastrarFrascoFechado, cadastrarFrascoAberto, registrarAberturaFrasco, registrarRetirada, registrarDevolucao, criarRequisicaoEdicaoBem, responderRequisicaoEdicaoBem, criarRequisicaoAdicaoBem, responderRequisicaoAdicaoBem, onResumoBemPatrimonialNomeAtualizado, onLocalAtualizado, limparLocksOrfaos, gerarRelatorioAlmoxarifado, gerarRelatorioBensPredio, gerarRelatorioPersonalizado, gerarPdfEtiquetasVirgens, gerarPdfReimpressaoFrascos, ingressarEmTurmaPorCodigo, criarTurma, removerAlunoTurma, arquivarTurma, convidarAluno, adicionarAlunoExistenteTurma, criarMateria, criarPost, adicionarComentario, excluirPost, excluirComentario, convidarUsuario. {"metadata":{"emulator":{"name":"functions"},"message":"Loaded functions definitions from source: cadastrarFrascoFechado, cadastrarFrascoAberto, registrarAberturaFrasco, registrarRetirada, registrarDevolucao, criarRequisicaoEdicaoBem, responderRequisicaoEdicaoBem, criarRequisicaoAdicaoBem, responderRequisicaoAdicaoBem, onResumoBemPatrimonialNomeAtualizado, onLocalAtualizado, limparLocksOrfaos, gerarRelatorioAlmoxarifado, gerarRelatorioBensPredio, gerarRelatorioPersonalizado, gerarPdfEtiquetasVirgens, gerarPdfReimpressaoFrascos, ingressarEmTurmaPorCodigo, criarTurma, removerAlunoTurma, arquivarTurma, convidarAluno, adicionarAlunoExistenteTurma, criarMateria, criarPost, adicionarComentario, excluirPost, excluirComentario, convidarUsuario."}}
+[info] ✔  functions[us-central1-cadastrarFrascoFechado]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/cadastrarFrascoFechado). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/cadastrarFrascoFechado)."}}
+[info] ✔  functions[us-central1-cadastrarFrascoAberto]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/cadastrarFrascoAberto). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/cadastrarFrascoAberto)."}}
+[info] ✔  functions[us-central1-registrarAberturaFrasco]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/registrarAberturaFrasco). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/registrarAberturaFrasco)."}}
+[info] ✔  functions[us-central1-registrarRetirada]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/registrarRetirada). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/registrarRetirada)."}}
+[info] ✔  functions[us-central1-registrarDevolucao]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/registrarDevolucao). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/registrarDevolucao)."}}
+[info] ✔  functions[us-central1-criarRequisicaoEdicaoBem]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/criarRequisicaoEdicaoBem). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/criarRequisicaoEdicaoBem)."}}
+[info] ✔  functions[us-central1-responderRequisicaoEdicaoBem]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/responderRequisicaoEdicaoBem). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/responderRequisicaoEdicaoBem)."}}
+[info] ✔  functions[us-central1-criarRequisicaoAdicaoBem]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/criarRequisicaoAdicaoBem). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/criarRequisicaoAdicaoBem)."}}
+[info] ✔  functions[us-central1-responderRequisicaoAdicaoBem]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/responderRequisicaoAdicaoBem). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/responderRequisicaoAdicaoBem)."}}
+[debug] [2026-09-09T02:59:43.695Z] Found a v2 firestore trigger.
+[debug] [2026-09-09T02:59:43.696Z] addFirestoreTrigger "{\"eventType\":\"google.cloud.firestore.document.v1.updated\",\"database\":\"(default)\",\"namespace\":\"(default)\",\"document\":{\"value\":\"Resumo_Bem_Patrimonial/{resumoId}\",\"matchType\":\"PATH_PATTERN\"}}"
+[debug] [2026-09-09T02:59:43.696Z] >>> [apiv2][query] POST http://127.0.0.1:8080/emulator/v1/projects/lcqui-uenf/eventarcTrigger?eventarcTriggerId=us-central1-onResumoBemPatrimonialNomeAtualizado-0 [none]
+[debug] [2026-09-09T02:59:43.696Z] >>> [apiv2][body] POST http://127.0.0.1:8080/emulator/v1/projects/lcqui-uenf/eventarcTrigger?eventarcTriggerId=us-central1-onResumoBemPatrimonialNomeAtualizado-0 "{\"eventType\":\"google.cloud.firestore.document.v1.updated\",\"database\":\"(default)\",\"namespace\":\"(default)\",\"document\":{\"value\":\"Resumo_Bem_Patrimonial/{resumoId}\",\"matchType\":\"PATH_PATTERN\"}}"
+[debug] [2026-09-09T02:59:43.710Z] Sep 08, 2026 11:59:43 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 08, 2026 11:59:43 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T02:59:43.902Z] Sep 08, 2026 11:59:43 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 08, 2026 11:59:43 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected HTTP/2 connection.\n"}}
+[debug] [2026-09-09T02:59:45.118Z] <<< [apiv2][status] POST http://127.0.0.1:8080/emulator/v1/projects/lcqui-uenf/eventarcTrigger?eventarcTriggerId=us-central1-onResumoBemPatrimonialNomeAtualizado-0 200
+[debug] [2026-09-09T02:59:45.118Z] <<< [apiv2][body] POST http://127.0.0.1:8080/emulator/v1/projects/lcqui-uenf/eventarcTrigger?eventarcTriggerId=us-central1-onResumoBemPatrimonialNomeAtualizado-0 {"eventType":"google.cloud.firestore.document.v1.updated","database":"(default)","namespace":"(default)","document":{"value":"Resumo_Bem_Patrimonial/{resumoId}","matchType":"PATH_PATTERN"}}
+[info] ✔  functions[us-central1-onResumoBemPatrimonialNomeAtualizado]: firestore function initialized. {"metadata":{"emulator":{"name":"functions"},"message":"firestore function initialized."}}
+[debug] [2026-09-09T02:59:45.118Z] Found a v2 firestore trigger.
+[debug] [2026-09-09T02:59:45.119Z] addFirestoreTrigger "{\"eventType\":\"google.cloud.firestore.document.v1.updated\",\"database\":\"(default)\",\"namespace\":\"(default)\",\"document\":{\"value\":\"Local/{localId}\",\"matchType\":\"PATH_PATTERN\"}}"
+[debug] [2026-09-09T02:59:45.119Z] >>> [apiv2][query] POST http://127.0.0.1:8080/emulator/v1/projects/lcqui-uenf/eventarcTrigger?eventarcTriggerId=us-central1-onLocalAtualizado-0 [none]
+[debug] [2026-09-09T02:59:45.119Z] >>> [apiv2][body] POST http://127.0.0.1:8080/emulator/v1/projects/lcqui-uenf/eventarcTrigger?eventarcTriggerId=us-central1-onLocalAtualizado-0 "{\"eventType\":\"google.cloud.firestore.document.v1.updated\",\"database\":\"(default)\",\"namespace\":\"(default)\",\"document\":{\"value\":\"Local/{localId}\",\"matchType\":\"PATH_PATTERN\"}}"
+[debug] [2026-09-09T02:59:45.141Z] Sep 08, 2026 11:59:45 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 08, 2026 11:59:45 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T02:59:45.159Z] <<< [apiv2][status] POST http://127.0.0.1:8080/emulator/v1/projects/lcqui-uenf/eventarcTrigger?eventarcTriggerId=us-central1-onLocalAtualizado-0 200
+[debug] [2026-09-09T02:59:45.159Z] <<< [apiv2][body] POST http://127.0.0.1:8080/emulator/v1/projects/lcqui-uenf/eventarcTrigger?eventarcTriggerId=us-central1-onLocalAtualizado-0 {"eventType":"google.cloud.firestore.document.v1.updated","database":"(default)","namespace":"(default)","document":{"value":"Local/{localId}","matchType":"PATH_PATTERN"}}
+[info] ✔  functions[us-central1-onLocalAtualizado]: firestore function initialized. {"metadata":{"emulator":{"name":"functions"},"message":"firestore function initialized."}}
+[info] i  functions[us-central1-limparLocksOrfaos]: function ignored because the pubsub emulator does not exist or is not running. {"metadata":{"emulator":{"name":"functions"},"message":"function ignored because the pubsub emulator does not exist or is not running."}}
+[info] ✔  functions[us-central1-gerarRelatorioAlmoxarifado]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/gerarRelatorioAlmoxarifado). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/gerarRelatorioAlmoxarifado)."}}
+[info] ✔  functions[us-central1-gerarRelatorioBensPredio]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/gerarRelatorioBensPredio). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/gerarRelatorioBensPredio)."}}
+[info] ✔  functions[us-central1-gerarRelatorioPersonalizado]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/gerarRelatorioPersonalizado). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/gerarRelatorioPersonalizado)."}}
+[info] ✔  functions[us-central1-gerarPdfEtiquetasVirgens]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/gerarPdfEtiquetasVirgens). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/gerarPdfEtiquetasVirgens)."}}
+[info] ✔  functions[us-central1-gerarPdfReimpressaoFrascos]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/gerarPdfReimpressaoFrascos). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/gerarPdfReimpressaoFrascos)."}}
+[info] ✔  functions[us-central1-ingressarEmTurmaPorCodigo]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/ingressarEmTurmaPorCodigo). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/ingressarEmTurmaPorCodigo)."}}
+[info] ✔  functions[us-central1-criarTurma]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/criarTurma). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/criarTurma)."}}
+[info] ✔  functions[us-central1-removerAlunoTurma]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/removerAlunoTurma). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/removerAlunoTurma)."}}
+[info] ✔  functions[us-central1-arquivarTurma]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/arquivarTurma). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/arquivarTurma)."}}
+[info] ✔  functions[us-central1-convidarAluno]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/convidarAluno). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/convidarAluno)."}}
+[info] ✔  functions[us-central1-adicionarAlunoExistenteTurma]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/adicionarAlunoExistenteTurma). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/adicionarAlunoExistenteTurma)."}}
+[info] ✔  functions[us-central1-criarMateria]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/criarMateria). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/criarMateria)."}}
+[info] ✔  functions[us-central1-criarPost]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/criarPost). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/criarPost)."}}
+[info] ✔  functions[us-central1-adicionarComentario]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/adicionarComentario). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/adicionarComentario)."}}
+[info] ✔  functions[us-central1-excluirPost]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/excluirPost). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/excluirPost)."}}
+[info] ✔  functions[us-central1-excluirComentario]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/excluirComentario). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/excluirComentario)."}}
+[info] ✔  functions[us-central1-convidarUsuario]: http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/convidarUsuario). {"metadata":{"emulator":{"name":"functions"},"message":"http function initialized (http://127.0.0.1:5001/lcqui-uenf/us-central1/convidarUsuario)."}}
+[info] 
+┌─────────────────────────────────────────────────────────────┐
+│ ✔  All emulators ready! It is now safe to connect your app. │
+│ i  View Emulator UI at http://127.0.0.1:4000/               │
+└─────────────────────────────────────────────────────────────┘
+
+┌────────────────┬────────────────┬──────────────────────────────────┐
+│ Emulator       │ Host:Port      │ View in Emulator UI              │
+├────────────────┼────────────────┼──────────────────────────────────┤
+│ Authentication │ 127.0.0.1:9099 │ http://127.0.0.1:4000/auth       │
+├────────────────┼────────────────┼──────────────────────────────────┤
+│ Functions      │ 127.0.0.1:5001 │ http://127.0.0.1:4000/functions  │
+├────────────────┼────────────────┼──────────────────────────────────┤
+│ Firestore      │ 127.0.0.1:8080 │ http://127.0.0.1:4000/firestore  │
+├────────────────┼────────────────┼──────────────────────────────────┤
+│ Storage        │ 127.0.0.1:9199 │ http://127.0.0.1:4000/storage    │
+├────────────────┼────────────────┼──────────────────────────────────┤
+│ Extensions     │ 127.0.0.1:5001 │ http://127.0.0.1:4000/extensions │
+└────────────────┴────────────────┴──────────────────────────────────┘
+  Emulator Hub host: 127.0.0.1 port: 4400
+  Other reserved ports: 4500, 9150
+┌─────────────────────────┬───────────────┬─────────────────────┐
+│ Extension Instance Name │ Extension Ref │ View in Emulator UI │
+└─────────────────────────┴───────────────┴─────────────────────┘
+Issues? Report them at https://github.com/firebase/firebase-tools/issues and attach the *-debug.log files.
+ 
+[debug] [2026-09-09T03:00:17.264Z] Sep 09, 2026 12:00:17 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler channelClosed
+INFO: Websocket client disconnected
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:00:17 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler channelClosed\nINFO: Websocket client disconnected\n"}}
+[debug] [2026-09-09T03:00:17.673Z] Sep 09, 2026 12:00:17 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel
+INFO: Connected to new websocket client
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:00:17 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel\nINFO: Connected to new websocket client\n"}}
+[debug] [2026-09-09T03:00:54.192Z] Sep 09, 2026 12:00:54 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:00:54 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T03:00:57.031Z] Sep 09, 2026 12:00:57 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler channelClosed
+INFO: Websocket client disconnected
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:00:57 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler channelClosed\nINFO: Websocket client disconnected\n"}}
+[debug] [2026-09-09T03:00:57.461Z] Sep 09, 2026 12:00:57 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel
+INFO: Connected to new websocket client
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:00:57 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel\nINFO: Connected to new websocket client\n"}}

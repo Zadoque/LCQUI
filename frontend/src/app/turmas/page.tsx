@@ -20,10 +20,7 @@ export default function TurmasPage() {
   // Professor Modal states
   const [showNovoAluno, setShowNovoAluno] = useState(false);
   const [showNovoRoteiro, setShowNovoRoteiro] = useState(false);
-  const [showNovoPedidoBP, setShowNovoPedidoBP] = useState(false);
   const [showGerenciarRoteiros, setShowGerenciarRoteiros] = useState(false);
-  const [showMinhasRequisicoes, setShowMinhasRequisicoes] = useState(false);
-  const [showMeusReagentes, setShowMeusReagentes] = useState(false);
 
   return (
     <ProtectedRoute allowedRoles={["Chefe_Geral", "Professor", "Aluno", "Bolsista"]}>
