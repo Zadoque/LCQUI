@@ -1,11 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CadastroLoteSchema = exports.CadastroEspecificacaoSchema = exports.ComposicaoSchema = exports.CadastroResumoReagenteSchema = void 0;
+exports.CadastroLoteSchema = exports.CadastroEspecificacaoSchema = exports.ComposicaoSchema = exports.CadastroResumoReagenteSchema = exports.CadastroSubstanciaQuimicaSchema = void 0;
 const zod_1 = require("zod");
+exports.CadastroSubstanciaQuimicaSchema = zod_1.z.object({
+    nome: zod_1.z.string().min(1, "Nome é obrigatório."),
+    casNumber: zod_1.z.string().optional(),
+    formulaQuimica: zod_1.z.string().optional(),
+    ativo: zod_1.z.boolean().default(true),
+});
 exports.CadastroResumoReagenteSchema = zod_1.z.object({
     nome: zod_1.z.string().min(1, "Nome é obrigatório."),
     tipoSubstancia: zod_1.z.enum(["PURA", "MISTURA"]),
     naturezaQuimica: zod_1.z.enum(["ORGANICO", "INORGANICO", "ELEMENTO", "HIBRIDO"]),
+    estadoFisico: zod_1.z.enum(["SOLIDO", "LIQUIDO", "GASOSO"]),
     requerPesagemFrequente: zod_1.z.boolean(),
     qtdEmQueEConsideradoEscasso: zod_1.z.number().int().positive("A quantidade de escassez deve ser positiva."),
     frequenciaPesagemDias: zod_1.z.number().int().positive().nullable().optional(),
@@ -30,20 +37,12 @@ exports.CadastroEspecificacaoSchema = zod_1.z.object({
     codigoProdutoFabricante: zod_1.z.string().optional(),
     grauPureza: zod_1.z.string().optional(),
     densidade: zod_1.z.number().positive().optional(),
-    estadoFisico: zod_1.z.enum(["SOLIDO", "LIQUIDO"]),
-    unidadeDeMedida: zod_1.z.enum(["ml", "g"]),
     classeInflamabilidade: zod_1.z.enum(["NAO_INFLAMAVEL", "CLASSE_1", "CLASSE_2", "CLASSE_3"]),
     ehControladoPf: zod_1.z.boolean(),
     ehControladoEb: zod_1.z.boolean(),
     linkFdsFispq: zod_1.z.string().optional(),
-    composicao: zod_1.z.array(exports.ComposicaoSchema).optional(),
-}).refine(data => {
-    if (data.estadoFisico === "LIQUIDO" && !data.densidade)
-        return false;
-    return true;
-}, {
-    message: "Densidade é obrigatória para reagentes líquidos.",
-    path: ["densidade"]
+    idSubstanciaQuimica: zod_1.z.string().optional(), // Para substâncias PURAS
+    composicao: zod_1.z.array(exports.ComposicaoSchema).optional(), // Para MISTURAS
 });
 exports.CadastroLoteSchema = zod_1.z.object({
     idResumoReagente: zod_1.z.string().min(1, "O ID do resumo é obrigatório."),

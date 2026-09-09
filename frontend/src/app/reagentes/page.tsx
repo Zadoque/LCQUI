@@ -15,7 +15,8 @@ import {
   ModalNovoReagente,
   ModalRegistrarRetirada,
   ModalNovaEspecificacao,
-  ModalNovoLote
+  ModalNovoLote,
+  ModalNovaSubstancia
 } from "@/components/reagentes/ModaisReagentes";
 import { NovaMateriaModal } from "@/components/materias/NovaMateriaModal";
 
@@ -235,6 +236,8 @@ export default function GestorAlmoxarifadoDashboard() {
   const [isEtiquetasOpen, setIsEtiquetasOpen] = useState(false);
   const [isMateriaModalOpen, setIsMateriaModalOpen] = useState(false);
   const [isNovoReagenteOpen, setIsNovoReagenteOpen] = useState(false);
+  const [isNovaSubstanciaOpen, setIsNovaSubstanciaOpen] = useState(false);
+  const [isCadastroMenuOpen, setIsCadastroMenuOpen] = useState(false);
   const [isRetiradaOpen, setIsRetiradaOpen] = useState(false);
   const [isDevolucaoOpen, setIsDevolucaoOpen] = useState(false);
 
@@ -351,10 +354,50 @@ export default function GestorAlmoxarifadoDashboard() {
                   </button>
                   <div className="h-8 w-px bg-foreground/20 hidden sm:block"></div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <button onClick={() => setIsNovoReagenteOpen(true)} className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                      <span className="hidden sm:inline">Novo Reagente (Catálogo)</span>
-                    </button>
+                    <div className="relative">
+                      <button onClick={() => setIsCadastroMenuOpen(!isCadastroMenuOpen)} className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                        <span className="hidden sm:inline">Cadastrar Reagente</span>
+                        <svg className="w-3 h-3 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                      </button>
+                      
+                      {isCadastroMenuOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setIsCadastroMenuOpen(false)}></div>
+                          <div className="absolute top-full left-0 mt-2 w-64 bg-background border border-foreground/10 rounded-xl shadow-xl z-50 overflow-hidden">
+                            <div className="p-1">
+                              <button onClick={() => { setIsNovaSubstanciaOpen(true); setIsCadastroMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm hover:bg-foreground/5 rounded-lg flex items-center gap-2">
+                                <span className="w-6 h-6 rounded bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">1</span>
+                                <div>
+                                  <div className="font-bold">Substância Química Base</div>
+                                  <div className="text-[10px] text-foreground/50">Crie o registro base (ex: NaCl)</div>
+                                </div>
+                              </button>
+                              <button onClick={() => { setIsNovoReagenteOpen(true); setIsCadastroMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm hover:bg-foreground/5 rounded-lg flex items-center gap-2">
+                                <span className="w-6 h-6 rounded bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">2</span>
+                                <div>
+                                  <div className="font-bold">Resumo de Reagente</div>
+                                  <div className="text-[10px] text-foreground/50">Item agrupador de catálogo</div>
+                                </div>
+                              </button>
+                              <button onClick={() => { 
+                                  setSelectedResumo(null); 
+                                  setIsNovaEspecOpen(true); 
+                                  setIsCadastroMenuOpen(false); 
+                                }} 
+                                className="w-full text-left px-4 py-3 text-sm hover:bg-foreground/5 rounded-lg flex items-center gap-2"
+                              >
+                                <span className="w-6 h-6 rounded bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">3</span>
+                                <div>
+                                  <div className="font-bold">Especificação Comercial</div>
+                                  <div className="text-[10px] text-foreground/50">Produto físico (ex: NaCl P.A. 99%)</div>
+                                </div>
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                     <button onClick={() => setIsEtiquetasOpen(true)} className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 flex items-center gap-2 border border-foreground/20">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                       <span className="hidden sm:inline">Imprimir Etiquetas</span>
@@ -475,6 +518,7 @@ export default function GestorAlmoxarifadoDashboard() {
           {user && <ModalRelatoriosReagentes isOpen={isRelatoriosOpen} onClose={() => setIsRelatoriosOpen(false)} uid={user.uid} isChefe={isChefe} />}
           {isEtiquetasOpen && <ModalEtiquetasReagentes isOpen={isEtiquetasOpen} onClose={() => setIsEtiquetasOpen(false)} />}
           <NovaMateriaModal isOpen={isMateriaModalOpen} onClose={() => setIsMateriaModalOpen(false)} />
+          <ModalNovaSubstancia isOpen={isNovaSubstanciaOpen} onClose={() => setIsNovaSubstanciaOpen(false)} onSuccess={() => {}} />
           <ModalNovoReagente isOpen={isNovoReagenteOpen} onClose={() => setIsNovoReagenteOpen(false)} onSuccess={searchFirestore} />
           
           <ModalNovaEspecificacao isOpen={isNovaEspecOpen} onClose={() => setIsNovaEspecOpen(false)} onSuccess={() => {}} idResumoReagente={selectedResumo?.id} tipoSubstanciaResumo={selectedResumo?.tipo_substancia} />
