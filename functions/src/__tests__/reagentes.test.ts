@@ -7,7 +7,6 @@ import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { 
   cadastrarFrascoFechado, 
-  cadastrarFrascoAberto, 
   registrarAberturaFrasco, 
   registrarRetirada, 
   registrarDevolucao 
@@ -167,7 +166,7 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
     // validadeEfetiva must be approx +10 days from now
     const validadeEsperada = new Date();
     validadeEsperada.setDate(validadeEsperada.getDate() + 10);
-    expect(resultAbrir.validadeEfetiva.getTime()).toBeCloseTo(validadeEsperada.getTime(), -4); 
+    expect(resultAbrir.validadeEfetiva!.getTime()).toBeCloseTo(validadeEsperada.getTime(), -4); 
   });
 
   it("deve proibir retirada (empréstimo) de frasco em QUARENTENA", async () => {

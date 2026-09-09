@@ -12,3 +12,4 @@ export * from "./posts";
 export * from "./usuarios";
 export * from "./notificacoes";
 export * from "./roteiros";
+export * from "./reagentes_base";

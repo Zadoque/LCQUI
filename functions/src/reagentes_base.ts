@@ -1,6 +1,5 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
 import { validarPermissao } from "./auth";
 import { validatePayload } from "./utils/validation";
 import {
@@ -96,17 +95,50 @@ export const cadastrarLote = onCall(async (request) => {
   validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
 
   return admin.firestore().runTransaction(async (tx) => {
-    // 1. Busca a especificação
-    // A especificação está dentro de Resumo_Reagente/{id}/Especificacoes/{id}
-    // Como recebemos apenas idEspecificacao, poderíamos usar um collectionGroup
-    // Mas o Firestore runTransaction não aceita query sem ser por referência direta.
-    // O Lote no modelo 3FN possui "id_especificacao_reagente".
-    // Precisamos do "id_resumo_reagente" para denormalizar o "nome_reagente" no Lote (conforme Seção 5).
-    // Como a coleção é aninhada, precisamos da ref correta.
-    // Portanto, é melhor a query de validação ser fora ou obtermos o idResumo.
-    // Vamos fazer a query fora, ler o resumo_id, e usar transaction para o uniqueness do Lote.
-    
-    // Isso deve ser validado. Firestore não permite transaction read de queries.
-    // Podemos mudar o frontend para mandar o idResumo ou podemos buscar antes.
+    // 1. Verifica duplicidade
+    const lotesRef = admin.firestore().collection("Lote");
+    const snapshot = await tx.get(
+      lotesRef
+        .where("id_especificacao_reagente", "==", dados.idEspecificacaoReagente)
+        .where("nome_fornecedor", "==", dados.nomeFornecedor)
+        .where("numero_lote", "==", dados.numeroLote)
+        .limit(1)
+    );
+
+    if (!snapshot.empty) {
+      throw new HttpsError("already-exists", "Já existe um lote com este número e fornecedor para esta especificação.");
+    }
+
+    // 2. Busca o nome do reagente para denormalização (Section 5)
+    const resumoRef = admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente);
+    const resumoSnap = await tx.get(resumoRef);
+    if (!resumoSnap.exists) {
+      throw new HttpsError("not-found", "Resumo do reagente não encontrado.");
+    }
+
+    const especRef = resumoRef.collection("Especificacoes").doc(dados.idEspecificacaoReagente);
+    const especSnap = await tx.get(especRef);
+    if (!especSnap.exists) {
+      throw new HttpsError("not-found", "Especificação de reagente não encontrada.");
+    }
+
+    const nomeReagente = resumoSnap.data()!.nome;
+
+    const loteRef = admin.firestore().collection("Lote").doc();
+    tx.set(loteRef, {
+      id_especificacao_reagente: dados.idEspecificacaoReagente,
+      nome_reagente: nomeReagente, // Denormalizado para buscas eficientes
+      data_aquisicao: new Date(dados.dataAquisicao),
+      qtd_frascos_comprados: dados.qtdFrascosComprados,
+      nome_fornecedor: dados.nomeFornecedor,
+      numero_lote: dados.numeroLote,
+      nota_fiscal: dados.notaFiscal,
+      data_fabricacao: new Date(dados.dataFabricacao),
+      data_validade: new Date(dados.dataValidade),
+      cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+      cadastrado_por: request.auth!.uid,
+    });
+
+    return { idLote: loteRef.id };
   });
 });

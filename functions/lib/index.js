@@ -46,4 +46,7 @@ __exportStar(require("./turmas"), exports);
 __exportStar(require("./materias"), exports);
 __exportStar(require("./posts"), exports);
 __exportStar(require("./usuarios"), exports);
+__exportStar(require("./notificacoes"), exports);
+__exportStar(require("./roteiros"), exports);
+__exportStar(require("./reagentes_base"), exports);
 //# sourceMappingURL=index.js.map

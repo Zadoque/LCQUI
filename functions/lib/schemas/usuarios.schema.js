@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ConvidarUsuarioSchema = exports.PapeisUsuariosSchema = void 0;
+exports.RevogarUsuarioPapelSchema = exports.ConvidarUsuarioSchema = exports.PapeisUsuariosSchema = void 0;
 const zod_1 = require("zod");
 exports.PapeisUsuariosSchema = zod_1.z.enum([
     "Chefe_Geral",
@@ -17,5 +17,10 @@ exports.ConvidarUsuarioSchema = zod_1.z.object({
     centro: zod_1.z.string().optional(),
     laboratorio: zod_1.z.string().optional(),
     materias: zod_1.z.array(zod_1.z.string()).optional()
+});
+exports.RevogarUsuarioPapelSchema = zod_1.z.object({
+    email: zod_1.z.string().email("O e-mail fornecido não é válido."),
+    papel: exports.PapeisUsuariosSchema,
+    motivo: zod_1.z.string().optional()
 });
 //# sourceMappingURL=usuarios.schema.js.map

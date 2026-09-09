@@ -4,6 +4,7 @@ exports.DevolucaoFrascoSchema = exports.RetiradaFrascoSchema = exports.AberturaF
 const zod_1 = require("zod");
 exports.DecisaoFrascoVencidoSchema = zod_1.z.enum(["QUARENTENA", "PENDENTE_DE_DESCARTE", "DISPONIVEL"]);
 exports.CadastroFrascoFechadoSchema = zod_1.z.object({
+    idResumoReagente: zod_1.z.string().min(1, "O ID do resumo é obrigatório."),
     idEspecificacaoReagente: zod_1.z.string().min(1, "A especificação do reagente é obrigatória."),
     idAlmoxarifado: zod_1.z.string().min(1, "O almoxarifado é obrigatório."),
     idLote: zod_1.z.string().optional(),
@@ -15,6 +16,7 @@ exports.CadastroFrascoFechadoSchema = zod_1.z.object({
     detalheStatus: zod_1.z.string().optional(),
 });
 exports.CadastroFrascoAbertoSchema = zod_1.z.object({
+    idResumoReagente: zod_1.z.string().min(1, "O ID do resumo é obrigatório."),
     idEspecificacaoReagente: zod_1.z.string().min(1, "A especificação do reagente é obrigatória."),
     idAlmoxarifado: zod_1.z.string().min(1, "O almoxarifado é obrigatório."),
     idLote: zod_1.z.string().optional(),

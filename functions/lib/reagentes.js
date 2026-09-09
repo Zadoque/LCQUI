@@ -45,7 +45,7 @@ exports.cadastrarFrascoFechado = (0, https_1.onCall)(async (request) => {
     const dados = (0, validation_1.validatePayload)(reagentes_schema_1.CadastroFrascoFechadoSchema, request.data);
     (0, auth_1.validarPermissao)(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
     await (0, auth_1.validarGestorDoAlmoxarifado)(request.auth.uid, request.auth.token, dados.idAlmoxarifado);
-    const especSnap = await admin.firestore().collection("Especificacao_Reagente").doc(dados.idEspecificacaoReagente).get();
+    const especSnap = await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).collection("Especificacoes").doc(dados.idEspecificacaoReagente).get();
     if (!especSnap.exists)
         throw new https_1.HttpsError("not-found", "Especificação de reagente não encontrada.");
     const densidade = especSnap.data().densidade;
@@ -82,6 +82,7 @@ exports.cadastrarFrascoFechado = (0, https_1.onCall)(async (request) => {
         tx.set(frascoRef, {
             id_almoxarifado: dados.idAlmoxarifado,
             id_lote: dados.idLote ?? null,
+            id_resumo_reagente: dados.idResumoReagente,
             id_especificacao_reagente: dados.idLote ? null : dados.idEspecificacaoReagente,
             codigo_frasco: codigoFrasco,
             conteudo_nominal: dados.volumeNominal,
@@ -108,7 +109,7 @@ exports.cadastrarFrascoAberto = (0, https_1.onCall)(async (request) => {
     const dados = (0, validation_1.validatePayload)(reagentes_schema_1.CadastroFrascoAbertoSchema, request.data);
     (0, auth_1.validarPermissao)(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
     await (0, auth_1.validarGestorDoAlmoxarifado)(request.auth.uid, request.auth.token, dados.idAlmoxarifado);
-    const especSnap = await admin.firestore().collection("Especificacao_Reagente").doc(dados.idEspecificacaoReagente).get();
+    const especSnap = await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).collection("Especificacoes").doc(dados.idEspecificacaoReagente).get();
     if (!especSnap.exists)
         throw new https_1.HttpsError("not-found", "Especificação não encontrada.");
     const especData = especSnap.data();
@@ -172,6 +173,7 @@ exports.cadastrarFrascoAberto = (0, https_1.onCall)(async (request) => {
         tx.set(frascoRef, {
             id_almoxarifado: dados.idAlmoxarifado,
             id_lote: dados.idLote ?? null,
+            id_resumo_reagente: dados.idResumoReagente,
             id_especificacao_reagente: dados.idLote ? null : dados.idEspecificacaoReagente,
             codigo_frasco: codigoFrasco,
             conteudo_nominal: conteudoNominal,

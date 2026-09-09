@@ -3,6 +3,7 @@ import { z } from "zod";
 export const DecisaoFrascoVencidoSchema = z.enum(["QUARENTENA", "PENDENTE_DE_DESCARTE", "DISPONIVEL"]);
 
 export const CadastroFrascoFechadoSchema = z.object({
+  idResumoReagente: z.string().min(1, "O ID do resumo é obrigatório."),
   idEspecificacaoReagente: z.string().min(1, "A especificação do reagente é obrigatória."),
   idAlmoxarifado: z.string().min(1, "O almoxarifado é obrigatório."),
   idLote: z.string().optional(),
@@ -15,6 +16,7 @@ export const CadastroFrascoFechadoSchema = z.object({
 });
 
 export const CadastroFrascoAbertoSchema = z.object({
+  idResumoReagente: z.string().min(1, "O ID do resumo é obrigatório."),
   idEspecificacaoReagente: z.string().min(1, "A especificação do reagente é obrigatória."),
   idAlmoxarifado: z.string().min(1, "O almoxarifado é obrigatório."),
   idLote: z.string().optional(),

@@ -16,7 +16,7 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
   validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
   await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, dados.idAlmoxarifado);
 
-  const especSnap = await admin.firestore().collection("Especificacao_Reagente").doc(dados.idEspecificacaoReagente).get();
+  const especSnap = await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).collection("Especificacoes").doc(dados.idEspecificacaoReagente).get();
   if (!especSnap.exists) throw new HttpsError("not-found", "Especificação de reagente não encontrada.");
   const densidade = especSnap.data()!.densidade;
   const estadoFisico = especSnap.data()!.estado_fisico;
@@ -58,6 +58,7 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
     tx.set(frascoRef, {
       id_almoxarifado: dados.idAlmoxarifado,
       id_lote: dados.idLote ?? null,
+      id_resumo_reagente: dados.idResumoReagente,
       id_especificacao_reagente: dados.idLote ? null : dados.idEspecificacaoReagente,
       codigo_frasco: codigoFrasco,
       conteudo_nominal: dados.volumeNominal,
@@ -87,7 +88,7 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
   validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
   await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, dados.idAlmoxarifado);
 
-  const especSnap = await admin.firestore().collection("Especificacao_Reagente").doc(dados.idEspecificacaoReagente).get();
+  const especSnap = await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).collection("Especificacoes").doc(dados.idEspecificacaoReagente).get();
   if (!especSnap.exists) throw new HttpsError("not-found", "Especificação não encontrada.");
   const especData = especSnap.data()!;
   const estadoFisico: "SOLIDO" | "LIQUIDO" = especData.estado_fisico;
@@ -143,6 +144,7 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
     tx.set(frascoRef, {
       id_almoxarifado: dados.idAlmoxarifado,
       id_lote: dados.idLote ?? null,
+      id_resumo_reagente: dados.idResumoReagente,
       id_especificacao_reagente: dados.idLote ? null : dados.idEspecificacaoReagente,
       codigo_frasco: codigoFrasco,
       conteudo_nominal: conteudoNominal,

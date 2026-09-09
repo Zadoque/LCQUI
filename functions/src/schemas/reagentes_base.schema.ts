@@ -45,6 +45,7 @@ export const CadastroEspecificacaoSchema = z.object({
 });
 
 export const CadastroLoteSchema = z.object({
+  idResumoReagente: z.string().min(1, "O ID do resumo é obrigatório."),
   idEspecificacaoReagente: z.string().min(1, "A especificação do reagente é obrigatória."),
   dataAquisicao: z.string().min(1, "Data de aquisição é obrigatória."),
   qtdFrascosComprados: z.number().int().nonnegative(),
