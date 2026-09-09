@@ -31,7 +31,7 @@ service cloud.firestore {
       // Usuário lê a si mesmo, chefe lê todos
       allow read: if isOwner(uid) || isAdmin();
       // Escrita principal é feita via Cloud Function
-      allow write: if isOwner(uid) || isAdmin();
+      allow write: if isAdmin();
 
       match /Turmas/{turmaId} {
         allow read: if isOwner(uid) || isAdmin();
@@ -78,22 +78,27 @@ service cloud.firestore {
 
     match /Turma/{turmaId} {
       allow read: if isAuthenticated();
-      // Professor e admin/chefe podem criar/alterar
-      allow write: if isAdmin() || hasRole('Professor');
+      // Professor só atualiza a própria turma, criação via Cloud Function
+      allow update: if isAdmin() || (hasRole('Professor') && resource.data.id_professor == request.auth.uid);
+      allow create: if false;
 
       match /Alunos/{alunoId} {
         allow read: if isAuthenticated();
-        // O próprio aluno pode se inscrever (write = create), e admin/professor gerenciam
-        allow write: if isAdmin() || hasRole('Professor') || isOwner(alunoId);
+        // A inscrição é gerenciada por Cloud Function (transação)
+        allow write: if false;
       }
 
       match /Posts/{postId} {
         allow read: if isAuthenticated();
-        allow write: if isAdmin() || hasRole('Professor');
+        allow create: if isAdmin() || (hasRole('Professor') && get(/databases/$(database)/documents/Turma/$(turmaId)).data.id_professor == request.auth.uid);
+        allow update, delete: if isAdmin() || (hasRole('Professor') && resource.data.id_autor == request.auth.uid);
         
         match /Comentarios/{comentarioId} {
           allow read: if isAuthenticated();
-          allow write: if isAuthenticated();
+          allow create: if isAdmin() || 
+            (hasRole('Professor') && get(/databases/$(database)/documents/Turma/$(turmaId)).data.id_professor == request.auth.uid) || 
+            exists(/databases/$(database)/documents/Turma/$(turmaId)/Alunos/$(request.auth.uid));
+          allow update, delete: if isAdmin() || resource.data.id_autor == request.auth.uid;
         }
       }
     }
@@ -148,17 +153,17 @@ service cloud.firestore {
 
     match /Especificacao_Reagente/{reagenteId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || hasRole('Gestor_Almoxarifado');
+      allow write: if false;
     }
 
     match /Frasco_Reagente/{frascoId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || hasRole('Gestor_Almoxarifado');
+      allow write: if false;
     }
 
     match /Lote/{loteId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || hasRole('Gestor_Almoxarifado');
+      allow write: if false;
     }
 
     match /Contador_Codigo_Frasco/{contId} {
@@ -168,7 +173,7 @@ service cloud.firestore {
 
     match /Emprestimo_Reagente/{empId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || hasRole('Gestor_Almoxarifado') || hasRole('Professor');
+      allow write: if false;
     }
 
     match /Historico_Frasco_Reagente/{histId} {
@@ -178,13 +183,14 @@ service cloud.firestore {
 
     match /Impressao_Etiqueta_Frasco/{impId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || hasRole('Gestor_Almoxarifado');
+      allow write: if false;
     }
 
     // --- Roteiros ---
     match /Roteiro_Experimento/{roteiroId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || hasRole('Professor');
+      allow create: if hasRole('Professor') && request.resource.data.id_professor == request.auth.uid;
+      allow update, delete: if isAdmin() || (hasRole('Professor') && resource.data.id_professor == request.auth.uid);
     }
 
     // --- Auditoria ---
