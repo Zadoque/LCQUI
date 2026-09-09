@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/lib/firebase/config";
+import { openPdfFromBase64 } from "@/lib/pdf";
 import { FileText, Loader2, X, Download } from "lucide-react";
 
 interface ModalRelatoriosProps {
@@ -36,14 +37,13 @@ export default function ModalRelatoriosPatrimonio({ isOpen, onClose, uid }: Moda
         if (status) filtros.status = status;
         
         const res = await gerarRelatorioBensPredio(filtros);
-        const data = res.data as { url: string };
-        window.open(data.url, "_blank");
-      } else {
-        // Aba de bens inservíveis é apenas um atalho para gerarRelatorioBensPredio com status "Inservível"
+        const data = res.data as { base64: string };
+        openPdfFromBase64(data.base64);
+      } else if (activeTab === "inserviveis") {
         const gerarRelatorioBensPredio = httpsCallable(functions, "gerarRelatorioBensPredio");
         const res = await gerarRelatorioBensPredio({ status: "Inservível" });
-        const data = res.data as { url: string };
-        window.open(data.url, "_blank");
+        const data = res.data as { base64: string };
+        openPdfFromBase64(data.base64);
       }
     } catch (error: any) {
       console.error(error);

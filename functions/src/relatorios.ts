@@ -227,17 +227,7 @@ export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
     addFooterAndHash(doc, canonicalString);
   });
 
-  const fileName = `relatorios/almoxarifado_${idAlmoxarifado}_${mes}_${ano}_${Date.now()}.pdf`;
-  const fileRef = admin.storage().bucket().file(fileName);
-  await fileRef.save(buffer, { contentType: "application/pdf" });
-
-  let url = "";
-  if (process.env.FUNCTIONS_EMULATOR === "true") {
-    url = `http://127.0.0.1:9199/v0/b/${admin.storage().bucket().name}/o/${encodeURIComponent(fileName)}?alt=media`;
-  } else {
-    [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
-  }
-  return { url };
+  return { base64: buffer.toString("base64") };
 });
 
 // -------------------------------------------------------------
@@ -294,17 +284,7 @@ export const gerarRelatorioBensPredio = onCall(async (request) => {
     addFooterAndHash(doc, canonicalString);
   });
 
-  const fileName = `relatorios/bens_${Date.now()}.pdf`;
-  const fileRef = admin.storage().bucket().file(fileName);
-  await fileRef.save(buffer, { contentType: "application/pdf" });
-
-  let url = "";
-  if (process.env.FUNCTIONS_EMULATOR === "true") {
-    url = `http://127.0.0.1:9199/v0/b/${admin.storage().bucket().name}/o/${encodeURIComponent(fileName)}?alt=media`;
-  } else {
-    [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
-  }
-  return { url };
+  return { base64: buffer.toString("base64") };
 });
 
 // -------------------------------------------------------------
@@ -391,17 +371,7 @@ export const gerarRelatorioPersonalizado = onCall(async (request) => {
     addFooterAndHash(doc, canonicalString);
   });
 
-  const fileName = `relatorios/personalizado_${Date.now()}.pdf`;
-  const fileRef = admin.storage().bucket().file(fileName);
-  await fileRef.save(buffer, { contentType: "application/pdf" });
-  
-  let url = "";
-  if (process.env.FUNCTIONS_EMULATOR === "true") {
-    url = `http://127.0.0.1:9199/v0/b/${admin.storage().bucket().name}/o/${encodeURIComponent(fileName)}?alt=media`;
-  } else {
-    [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
-  }
-  return { url };
+  return { base64: buffer.toString("base64") };
 });
 
 // ============================================================================
@@ -530,17 +500,7 @@ export const gerarPdfEtiquetasVirgens = onCall(async (request) => {
       await renderBarcodesGrid(d, codigos, dados.startRow || 1, dados.startCol || 1);
     });
 
-    const fileName = `etiquetas/virgens_${dados.codigoInicial}_a_${dados.codigoFinal}_${Date.now()}.pdf`;
-    const fileRef = admin.storage().bucket().file(fileName);
-    await fileRef.save(buffer, { contentType: "application/pdf" });
-
-    let url = "";
-    if (process.env.FUNCTIONS_EMULATOR === "true") {
-      url = `http://127.0.0.1:9199/v0/b/${admin.storage().bucket().name}/o/${encodeURIComponent(fileName)}?alt=media`;
-    } else {
-      [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
-    }
-    return { url };
+    return { base64: buffer.toString("base64") };
   } catch (error: any) {
     console.error("Erro em gerarPdfEtiquetasVirgens:", error);
     if (error instanceof HttpsError) throw error;
@@ -882,17 +842,7 @@ export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
 
     const buffer = await gerarBufferFichaConferencia(validFrascos);
 
-    const fileName = `etiquetas/reimpressao_${Date.now()}.pdf`;
-    const fileRef = admin.storage().bucket().file(fileName);
-    await fileRef.save(buffer, { contentType: "application/pdf" });
-
-    let url = "";
-    if (process.env.FUNCTIONS_EMULATOR === "true") {
-      url = `http://127.0.0.1:9199/v0/b/${admin.storage().bucket().name}/o/${encodeURIComponent(fileName)}?alt=media`;
-    } else {
-      [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
-    }
-    return { url };
+    return { base64: buffer.toString("base64") };
   } catch (error: any) {
     console.error("Erro em gerarPdfReimpressaoFrascos:", error);
     if (error instanceof HttpsError) throw error;

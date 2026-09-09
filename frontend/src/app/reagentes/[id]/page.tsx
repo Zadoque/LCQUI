@@ -111,8 +111,8 @@ export default function ReagenteDetailsPage() {
                   {frascos.map((f) => (
                     <tr key={f.id} className="hover:bg-foreground/5 transition-colors">
                       <td className="p-4">
-                        <div className="font-medium">{f.lote}</div>
-                        <div className="text-xs text-foreground/50">{f.fornecedor}</div>
+                        <div className="font-medium">{f.codigo_frasco}</div>
+                        <div className="text-xs text-foreground/50">{f.id_lote ? "Lote Vinculado" : "Sem Lote"}</div>
                       </td>
                       <td className="p-4">
                         <div className="flex flex-col gap-1">
@@ -142,7 +142,7 @@ export default function ReagenteDetailsPage() {
                         </div>
                       </td>
                       <td className="p-4 font-mono text-sm">
-                        {f.quantidade_atual_mg_ml} / {f.quantidade_inicial_mg_ml} {f.unidade_medida}
+                        {f.peso_atual} / {f.peso_no_cadastrado} g
                       </td>
                       <td className="p-4 text-right">
                         {f.estado_fisico_frasco === 'ABERTO' && f.disponibilidade === 'EMPRESTADO' && !f.em_quarentena && (

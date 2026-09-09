@@ -39,8 +39,10 @@ const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-admin/firestore");
 const auth_1 = require("./auth");
+const validation_1 = require("./utils/validation");
+const reagentes_schema_1 = require("./schemas/reagentes.schema");
 exports.cadastrarFrascoFechado = (0, https_1.onCall)(async (request) => {
-    const dados = request.data;
+    const dados = (0, validation_1.validatePayload)(reagentes_schema_1.CadastroFrascoFechadoSchema, request.data);
     (0, auth_1.validarPermissao)(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
     await (0, auth_1.validarGestorDoAlmoxarifado)(request.auth.uid, request.auth.token, dados.idAlmoxarifado);
     const especSnap = await admin.firestore().collection("Especificacao_Reagente").doc(dados.idEspecificacaoReagente).get();
@@ -103,7 +105,7 @@ exports.cadastrarFrascoFechado = (0, https_1.onCall)(async (request) => {
     });
 });
 exports.cadastrarFrascoAberto = (0, https_1.onCall)(async (request) => {
-    const dados = request.data;
+    const dados = (0, validation_1.validatePayload)(reagentes_schema_1.CadastroFrascoAbertoSchema, request.data);
     (0, auth_1.validarPermissao)(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
     await (0, auth_1.validarGestorDoAlmoxarifado)(request.auth.uid, request.auth.token, dados.idAlmoxarifado);
     const especSnap = await admin.firestore().collection("Especificacao_Reagente").doc(dados.idEspecificacaoReagente).get();
@@ -213,7 +215,7 @@ function calcularValidadeEfetivaNaAbertura(frasco, dataAbertura) {
     return validadeFechado ?? validadeDepoisDaAbertura;
 }
 exports.registrarAberturaFrasco = (0, https_1.onCall)(async (request) => {
-    const dados = request.data;
+    const dados = (0, validation_1.validatePayload)(reagentes_schema_1.AberturaFrascoSchema, request.data);
     (0, auth_1.validarPermissao)(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
     const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
     return admin.firestore().runTransaction(async (tx) => {
@@ -254,7 +256,7 @@ exports.registrarAberturaFrasco = (0, https_1.onCall)(async (request) => {
     });
 });
 exports.registrarRetirada = (0, https_1.onCall)(async (request) => {
-    const dados = request.data;
+    const dados = (0, validation_1.validatePayload)(reagentes_schema_1.RetiradaFrascoSchema, request.data);
     (0, auth_1.validarPermissao)(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
     const [profSnap, bolsSnap] = await Promise.all([
         admin.firestore().collection("Professor").doc(dados.idUsuarioRetirou).get(),
@@ -332,7 +334,7 @@ async function resolverDensidadeDoFrasco(frasco) {
     return especSnap.exists ? especSnap.data()?.densidade ?? null : null;
 }
 exports.registrarDevolucao = (0, https_1.onCall)(async (request) => {
-    const dados = request.data;
+    const dados = (0, validation_1.validatePayload)(reagentes_schema_1.DevolucaoFrascoSchema, request.data);
     (0, auth_1.validarPermissao)(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
     const emprestimoRef = admin.firestore().collection("Emprestimo_Reagente").doc(dados.idEmprestimo);
     return admin.firestore().runTransaction(async (tx) => {

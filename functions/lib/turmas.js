@@ -38,15 +38,15 @@ const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-admin/firestore");
 const auth_1 = require("./auth");
+const validation_1 = require("./utils/validation");
+const turmas_schema_1 = require("./schemas/turmas.schema");
 /**
  * RN-TUR-01: Controle de Capacidade da Turma
  * O ingresso exige que a quantidade de alunos seja estritamente menor que a capacidade.
  */
 exports.ingressarEmTurmaPorCodigo = (0, https_1.onCall)(async (request) => {
     (0, auth_1.validarPermissao)(request, ["Aluno", "Bolsista"]);
-    const { codigoTurma } = request.data;
-    if (!codigoTurma)
-        throw new https_1.HttpsError("invalid-argument", "Código da turma não fornecido.");
+    const { codigoTurma } = (0, validation_1.validatePayload)(turmas_schema_1.IngressarTurmaPorCodigoSchema, request.data);
     const db = admin.firestore();
     const turmaSnap = await db.collection("Turma")
         .where("codigo_turma", "==", codigoTurma)
@@ -112,11 +112,9 @@ exports.ingressarEmTurmaPorCodigo = (0, https_1.onCall)(async (request) => {
 exports.criarTurma = (0, https_1.onCall)(async (request) => {
     try {
         (0, auth_1.validarPermissao)(request, ["Professor", "Chefe_Geral"]);
-        const { idMateria, nomeTurma, ano, semestre, capacidade, nomeMateria, idProfessor } = request.data;
-        console.log("Recebido payload criarTurma:", request.data);
-        if (!idMateria || !nomeTurma || !nomeMateria || !ano || !semestre || !capacidade) {
-            throw new https_1.HttpsError("invalid-argument", "Dados incompletos para criar a turma.");
-        }
+        const payload = (0, validation_1.validatePayload)(turmas_schema_1.CriarTurmaSchema, request.data);
+        const { idMateria, nomeTurma, ano, semestre, capacidade, nomeMateria, idProfessor } = payload;
+        console.log("Recebido payload criarTurma:", payload);
         const authRoles = request.auth?.token.roles || [];
         const isChefeGeral = authRoles.includes("Chefe_Geral");
         let id_professor = request.auth.uid;
@@ -126,15 +124,9 @@ exports.criarTurma = (0, https_1.onCall)(async (request) => {
             }
             id_professor = idProfessor;
         }
-        const anoNum = parseInt(ano, 10);
-        const semestreNum = parseInt(semestre, 10);
-        const capacidadeNum = parseInt(capacidade, 10);
-        if (isNaN(anoNum) || anoNum < 2000)
-            throw new https_1.HttpsError("invalid-argument", "Ano inválido.");
-        if (isNaN(semestreNum) || (semestreNum !== 1 && semestreNum !== 2))
-            throw new https_1.HttpsError("invalid-argument", "Semestre deve ser 1 ou 2.");
-        if (isNaN(capacidadeNum) || capacidadeNum <= 0)
-            throw new https_1.HttpsError("invalid-argument", "Capacidade deve ser positiva.");
+        const anoNum = ano;
+        const semestreNum = semestre;
+        const capacidadeNum = capacidade;
         const db = admin.firestore();
         return await db.runTransaction(async (tx) => {
             const generateCode = () => {
@@ -179,14 +171,15 @@ exports.criarTurma = (0, https_1.onCall)(async (request) => {
     }
     catch (error) {
         console.error("ERRO FATAL NO BACKEND (criarTurma):", error);
+        if (error instanceof https_1.HttpsError) {
+            throw error;
+        }
         throw new https_1.HttpsError("internal", `ERRO INTERNO: ${error?.message || error}`);
     }
 });
 exports.removerAlunoTurma = (0, https_1.onCall)(async (request) => {
     (0, auth_1.validarPermissao)(request, ["Professor", "Chefe_Geral"]);
-    const { idTurma, idAluno } = request.data;
-    if (!idTurma || !idAluno)
-        throw new https_1.HttpsError("invalid-argument", "Faltam parâmetros.");
+    const { idTurma, idAluno } = (0, validation_1.validatePayload)(turmas_schema_1.RemoverAlunoTurmaSchema, request.data);
     const db = admin.firestore();
     const turmaRef = db.collection("Turma").doc(idTurma);
     return db.runTransaction(async (tx) => {
@@ -229,9 +222,7 @@ exports.removerAlunoTurma = (0, https_1.onCall)(async (request) => {
 });
 exports.arquivarTurma = (0, https_1.onCall)(async (request) => {
     (0, auth_1.validarPermissao)(request, ["Professor", "Chefe_Geral"]);
-    const { idTurma } = request.data;
-    if (!idTurma)
-        throw new https_1.HttpsError("invalid-argument", "idTurma obrigatório.");
+    const { idTurma } = (0, validation_1.validatePayload)(turmas_schema_1.ArquivarTurmaSchema, request.data);
     const db = admin.firestore();
     const turmaRef = db.collection("Turma").doc(idTurma);
     return db.runTransaction(async (tx) => {
@@ -261,10 +252,7 @@ exports.arquivarTurma = (0, https_1.onCall)(async (request) => {
 });
 exports.convidarAluno = (0, https_1.onCall)(async (request) => {
     (0, auth_1.validarPermissao)(request, ["Professor", "Chefe_Geral"]);
-    const { email, idTurma, matricula } = request.data;
-    if (!email) {
-        throw new https_1.HttpsError("invalid-argument", "Email é obrigatório.");
-    }
+    const { email, idTurma, matricula } = (0, validation_1.validatePayload)(turmas_schema_1.ConvidarAlunoSchema, request.data);
     const emailNormalizado = email.toLowerCase().trim();
     const db = admin.firestore();
     return db.runTransaction(async (tx) => {
@@ -308,10 +296,7 @@ exports.convidarAluno = (0, https_1.onCall)(async (request) => {
 });
 exports.adicionarAlunoExistenteTurma = (0, https_1.onCall)(async (request) => {
     const papeis = (0, auth_1.validarPermissao)(request, ["Chefe_Geral", "Professor"]);
-    const { idTurma, idAluno } = request.data;
-    if (!idTurma || !idAluno) {
-        throw new https_1.HttpsError("invalid-argument", "idTurma e idAluno são obrigatórios.");
-    }
+    const { idTurma, idAluno } = (0, validation_1.validatePayload)(turmas_schema_1.AdicionarAlunoExistenteTurmaSchema, request.data);
     const db = admin.firestore();
     const turmaRef = db.collection("Turma").doc(idTurma);
     const alunoRef = db.collection("Aluno").doc(idAluno); // NOTE: we fetch from Usuarios to get name/email

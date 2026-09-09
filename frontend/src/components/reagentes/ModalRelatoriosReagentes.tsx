@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { httpsCallable } from "firebase/functions";
 import { collection, getDocs, query, where, documentId } from "firebase/firestore";
 import { functions, db } from "@/lib/firebase/config";
+import { openPdfFromBase64 } from "@/lib/pdf";
 import { FileText, Loader2, X, Download } from "lucide-react";
 
 interface ModalRelatoriosProps {
@@ -105,8 +106,8 @@ export default function ModalRelatoriosReagentes({ isOpen, onClose, uid, isChefe
       if (activeTab === "mensal") {
         const gerarRelatorioAlmoxarifado = httpsCallable(functions, "gerarRelatorioAlmoxarifado");
         const res = await gerarRelatorioAlmoxarifado({ idAlmoxarifado, mes: Number(mes), ano: Number(ano) });
-        const data = res.data as { url: string };
-        window.open(data.url, "_blank");
+        const data = res.data as { base64: string };
+        openPdfFromBase64(data.base64);
       } else {
         const gerarRelatorioPersonalizado = httpsCallable(functions, "gerarRelatorioPersonalizado");
         const res = await gerarRelatorioPersonalizado({ 
@@ -114,8 +115,8 @@ export default function ModalRelatoriosReagentes({ isOpen, onClose, uid, isChefe
           dataFim: dataFim + "T23:59:59", 
           entidade: "Reagentes" 
         });
-        const data = res.data as { url: string };
-        window.open(data.url, "_blank");
+        const data = res.data as { base64: string };
+        openPdfFromBase64(data.base64);
       }
     } catch (error: any) {
       console.error(error);

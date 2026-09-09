@@ -13,12 +13,12 @@ service cloud.firestore {
     }
 
     function hasRole(role) {
-      // A role é passada como Custom Claim no token (ex: request.auth.token.professor == true)
-      return isAuthenticated() && request.auth.token.get(role, false) == true;
+      // A role é passada como Custom Claim no token na array 'roles'
+      return isAuthenticated() && request.auth.token.get('roles', []).hasAny([role]);
     }
 
     function isAdmin() {
-      return hasRole('chefe') || hasRole('admin');
+      return hasRole('Chefe_Geral');
     }
 
     // --- Default Fechado ---
@@ -28,101 +28,139 @@ service cloud.firestore {
 
     // --- Usuarios ---
     match /Usuarios/{uid} {
-      // Usuário lê a si mesmo, chefe/admin lê todos
+      // Usuário lê a si mesmo, chefe lê todos
       allow read: if isOwner(uid) || isAdmin();
-      // Escrita principal é feita via Cloud Function, mas permitimos ao próprio usuário alterar seu perfil básico
+      // Escrita principal é feita via Cloud Function
       allow write: if isOwner(uid) || isAdmin();
 
       match /Turmas/{turmaId} {
         allow read: if isOwner(uid) || isAdmin();
-        // Gerenciamento de turmas do aluno feito por CF ou Professor (admin)
         allow write: if false; 
+      }
+      match /Notificacoes/{notifId} {
+        allow read: if isOwner(uid);
+        allow update, delete: if isOwner(uid); 
+        allow create: if false; // Backend quem cria
       }
     }
 
     // --- Turmas e Materias ---
-    match /Materias/{materiaId} {
+    match /Materia/{materiaId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
-    match /Turmas/{turmaId} {
+    match /Turma/{turmaId} {
       allow read: if isAuthenticated();
       // Professor e admin/chefe podem criar/alterar
-      allow write: if isAdmin() || hasRole('professor');
+      allow write: if isAdmin() || hasRole('Professor');
 
       match /Alunos/{alunoId} {
         allow read: if isAuthenticated();
         // O próprio aluno pode se inscrever (write = create), e admin/professor gerenciam
-        allow write: if isAdmin() || hasRole('professor') || isOwner(alunoId);
+        allow write: if isAdmin() || hasRole('Professor') || isOwner(alunoId);
       }
 
       match /Posts/{postId} {
         allow read: if isAuthenticated();
-        allow write: if isAdmin() || hasRole('professor');
-      }
-
-      match /Comentarios/{comentarioId} {
-        allow read: if isAuthenticated();
-        allow write: if isAuthenticated();
+        allow write: if isAdmin() || hasRole('Professor');
+        
+        match /Comentarios/{comentarioId} {
+          allow read: if isAuthenticated();
+          allow write: if isAuthenticated();
+        }
       }
     }
 
     // --- Patrimonio ---
-    match /Patrimonio/{itemId} {
-      // Professores precisam ler para consultar itens; Gestor gere
-      allow read: if isAdmin() || hasRole('gestorPatrimonio') || hasRole('professor');
-      allow write: if isAdmin() || hasRole('gestorPatrimonio');
+    match /Bem_Patrimonial/{itemId} {
+      allow read: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais') || hasRole('Professor');
+      allow write: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais');
     }
 
-    match /Requisicoes/{reqId} {
-      // Professores podem ler e criar requisições de patrimônio
-      allow read: if isAdmin() || hasRole('gestorPatrimonio') || hasRole('professor');
-      allow create: if isAdmin() || hasRole('gestorPatrimonio') || hasRole('professor');
-      // Somente Gestor e Admin podem editar/aprovar/rejeitar
-      allow update, delete: if isAdmin() || hasRole('gestorPatrimonio');
+    match /Resumo_Bem_Patrimonial/{itemId} {
+      allow read: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais') || hasRole('Professor');
+      allow write: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais');
+    }
+
+    match /Local/{itemId} {
+      allow read: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais') || hasRole('Professor');
+      allow write: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais');
+    }
+
+    match /Requisicao_Adicao_Bem_Patrimonial/{reqId} {
+      allow read: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais') || hasRole('Professor');
+      allow create: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais') || hasRole('Professor');
+      allow update, delete: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais');
+    }
+
+    match /Requisicao_Edicao_Bem_Patrimonial/{reqId} {
+      allow read: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais') || hasRole('Professor');
+      allow create: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais') || hasRole('Professor');
+      allow update, delete: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais');
+    }
+
+    match /Locks_Requisicao_Patrimonio/{lockId} {
+      allow read, write: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais');
+    }
+
+    match /Historico_Bem_Patrimonial/{histId} {
+      allow read: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais');
+      allow write: if false; // Cloud Functions
     }
 
     // --- Reagentes / Almoxarifado ---
-    match /Almoxarifados/{almId} {
+    match /Almoxarifado/{almId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
-    match /Reagentes/{reagenteId} {
+    match /Especificacao_Reagente/{reagenteId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || hasRole('gestorAlmoxarifado');
+      allow write: if isAdmin() || hasRole('Gestor_Almoxarifado');
     }
 
-    match /Frascos/{frascoId} {
+    match /Frasco_Reagente/{frascoId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || hasRole('gestorAlmoxarifado');
+      allow write: if isAdmin() || hasRole('Gestor_Almoxarifado');
     }
 
-    match /Emprestimos/{empId} {
+    match /Lote/{loteId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || hasRole('gestorAlmoxarifado') || hasRole('professor');
+      allow write: if isAdmin() || hasRole('Gestor_Almoxarifado');
+    }
+
+    match /Contador_Codigo_Frasco/{contId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Cloud Function only
+    }
+
+    match /Emprestimo_Reagente/{empId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || hasRole('Gestor_Almoxarifado') || hasRole('Professor');
+    }
+
+    match /Historico_Frasco_Reagente/{histId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Cloud Function
+    }
+
+    match /Impressao_Etiqueta_Frasco/{impId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || hasRole('Gestor_Almoxarifado');
     }
 
     // --- Roteiros ---
-    match /Roteiros/{roteiroId} {
+    match /Roteiro_Experimento/{roteiroId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() || hasRole('professor');
+      allow write: if isAdmin() || hasRole('Professor');
     }
 
     // --- Auditoria ---
-    match /Auditoria/{auditId} {
+    match /Registro_de_Auditoria/{auditId} {
       allow read: if isAdmin();
       // Auditoria é gravada 100% pelo Backend (Cloud Functions)
       allow write: if false; 
-    }
-
-    // --- Notificacoes ---
-    match /Notificacoes/{notifId} {
-      allow read: if isOwner(resource.data.userId);
-      allow update: if isOwner(resource.data.userId); 
-      allow delete: if isOwner(resource.data.userId);
-      allow create: if false; // Backend quem cria
     }
   }
 }

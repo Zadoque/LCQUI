@@ -47,6 +47,8 @@ const pdfFooter_1 = require("./relatorios/pdfFooter");
 const chunk_1 = require("./utils/chunk");
 const pdfStyles_1 = require("./relatorios/pdfStyles");
 const bwipjs = __importStar(require("bwip-js"));
+const validation_1 = require("./utils/validation");
+const relatorios_schema_1 = require("./schemas/relatorios.schema");
 async function buildPdfBuffer(doc, builderCallback) {
     return new Promise((resolve, reject) => {
         const buffers = [];
@@ -69,8 +71,11 @@ async function buildPdfBuffer(doc, builderCallback) {
         }
     });
 }
+// -------------------------------------------------------------
+// RELATÓRIOS ALMOXARIFADO
+// -------------------------------------------------------------
 exports.gerarRelatorioAlmoxarifado = (0, https_1.onCall)(async (request) => {
-    const { idAlmoxarifado, mes, ano } = request.data;
+    const { idAlmoxarifado, mes, ano } = (0, validation_1.validatePayload)(relatorios_schema_1.FiltrosAlmoxarifadoSchema, request.data);
     const hoje = new Date();
     if (ano > hoje.getFullYear()) {
         throw new Error("O ano do relatório não pode ser no futuro.");
@@ -236,20 +241,13 @@ exports.gerarRelatorioAlmoxarifado = (0, https_1.onCall)(async (request) => {
         // Adicionar rodapé em todas as páginas (hash canônico)
         (0, pdfFooter_1.addFooterAndHash)(doc, canonicalString);
     });
-    const fileName = `relatorios/almoxarifado_${idAlmoxarifado}_${mes}_${ano}_${Date.now()}.pdf`;
-    const fileRef = admin.storage().bucket().file(fileName);
-    await fileRef.save(buffer, { contentType: "application/pdf" });
-    let url = "";
-    if (process.env.FUNCTIONS_EMULATOR === "true") {
-        url = `http://127.0.0.1:9199/v0/b/${admin.storage().bucket().name}/o/${encodeURIComponent(fileName)}?alt=media`;
-    }
-    else {
-        [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
-    }
-    return { url };
+    return { base64: buffer.toString("base64") };
 });
+// -------------------------------------------------------------
+// RELATÓRIOS BENS PATRIMONIAIS
+// -------------------------------------------------------------
 exports.gerarRelatorioBensPredio = (0, https_1.onCall)(async (request) => {
-    const filtros = request.data;
+    const filtros = (0, validation_1.validatePayload)(relatorios_schema_1.FiltrosPredioSchema, request.data);
     (0, auth_1.validarPermissao)(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
     let query = admin.firestore().collection("Bem_Patrimonial");
     if (filtros.predio)
@@ -298,20 +296,13 @@ exports.gerarRelatorioBensPredio = (0, https_1.onCall)(async (request) => {
         }
         (0, pdfFooter_1.addFooterAndHash)(doc, canonicalString);
     });
-    const fileName = `relatorios/bens_${Date.now()}.pdf`;
-    const fileRef = admin.storage().bucket().file(fileName);
-    await fileRef.save(buffer, { contentType: "application/pdf" });
-    let url = "";
-    if (process.env.FUNCTIONS_EMULATOR === "true") {
-        url = `http://127.0.0.1:9199/v0/b/${admin.storage().bucket().name}/o/${encodeURIComponent(fileName)}?alt=media`;
-    }
-    else {
-        [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
-    }
-    return { url };
+    return { base64: buffer.toString("base64") };
 });
+// -------------------------------------------------------------
+// RELATÓRIO GERAL E PERSONALIZADO
+// -------------------------------------------------------------
 exports.gerarRelatorioPersonalizado = (0, https_1.onCall)(async (request) => {
-    const { dataInicio, dataFim, entidade } = request.data;
+    const { dataInicio, dataFim, entidade } = (0, validation_1.validatePayload)(relatorios_schema_1.FiltrosGeralEPersonalizadoSchema, request.data);
     const dataIniObj = new Date(dataInicio);
     const dataFimObj = new Date(dataFim);
     dataFimObj.setHours(23, 59, 59, 999);
@@ -383,18 +374,11 @@ exports.gerarRelatorioPersonalizado = (0, https_1.onCall)(async (request) => {
         }
         (0, pdfFooter_1.addFooterAndHash)(doc, canonicalString);
     });
-    const fileName = `relatorios/personalizado_${Date.now()}.pdf`;
-    const fileRef = admin.storage().bucket().file(fileName);
-    await fileRef.save(buffer, { contentType: "application/pdf" });
-    let url = "";
-    if (process.env.FUNCTIONS_EMULATOR === "true") {
-        url = `http://127.0.0.1:9199/v0/b/${admin.storage().bucket().name}/o/${encodeURIComponent(fileName)}?alt=media`;
-    }
-    else {
-        [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
-    }
-    return { url };
+    return { base64: buffer.toString("base64") };
 });
+// ============================================================================
+// GERAÇÃO DE ETIQUETAS VIRGENS (NOVOS FRASCOS) - ABA 1
+// ============================================================================
 // Conversão mm -> pt (1 mm = 2.83465 pt)
 const mmToPt = (mm) => mm * 2.83465;
 // Grid de 3 colunas x 10 linhas em folha A4 (210 x 297 mm)
@@ -481,7 +465,7 @@ async function renderBarcodesGrid(doc, codigos, startRow, startCol) {
 exports.gerarPdfEtiquetasVirgens = (0, https_1.onCall)(async (request) => {
     try {
         (0, auth_1.validarPermissao)(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
-        const dados = request.data;
+        const dados = (0, validation_1.validatePayload)(relatorios_schema_1.DadosEtiquetasVirgensSchema, request.data);
         const total = dados.codigoFinal - dados.codigoInicial + 1;
         if (total <= 0 || total > 50) {
             throw new https_1.HttpsError("invalid-argument", "O lote deve conter entre 1 e 50 etiquetas por impressão.");
@@ -497,17 +481,7 @@ exports.gerarPdfEtiquetasVirgens = (0, https_1.onCall)(async (request) => {
         const buffer = await buildPdfBuffer(doc, async (d) => {
             await renderBarcodesGrid(d, codigos, dados.startRow || 1, dados.startCol || 1);
         });
-        const fileName = `etiquetas/virgens_${dados.codigoInicial}_a_${dados.codigoFinal}_${Date.now()}.pdf`;
-        const fileRef = admin.storage().bucket().file(fileName);
-        await fileRef.save(buffer, { contentType: "application/pdf" });
-        let url = "";
-        if (process.env.FUNCTIONS_EMULATOR === "true") {
-            url = `http://127.0.0.1:9199/v0/b/${admin.storage().bucket().name}/o/${encodeURIComponent(fileName)}?alt=media`;
-        }
-        else {
-            [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
-        }
-        return { url };
+        return { base64: buffer.toString("base64") };
     }
     catch (error) {
         console.error("Erro em gerarPdfEtiquetasVirgens:", error);
@@ -516,6 +490,9 @@ exports.gerarPdfEtiquetasVirgens = (0, https_1.onCall)(async (request) => {
         throw new https_1.HttpsError("internal", `Erro interno na geração do PDF: ${error.message}`);
     }
 });
+// ============================================================================
+// REIMPRESSÃO E FICHA DE CONFERÊNCIA (FRASCOS JÁ CADASTRADOS) - ABA 2
+// ============================================================================
 async function desenharEtiquetaReposicao(doc, x, y, frasco) {
     const labelWidth = mmToPt(65.0);
     const labelHeight = mmToPt(26.5);
@@ -726,7 +703,7 @@ async function gerarBufferFichaConferencia(frascos) {
 exports.gerarPdfReimpressaoFrascos = (0, https_1.onCall)(async (request) => {
     try {
         (0, auth_1.validarPermissao)(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
-        const { frascoIds } = request.data;
+        const { frascoIds } = (0, validation_1.validatePayload)(relatorios_schema_1.DadosReimpressaoSchema, request.data);
         if (!frascoIds || frascoIds.length === 0 || frascoIds.length > 10) {
             throw new https_1.HttpsError("invalid-argument", "Selecione entre 1 e 10 frascos por sessão de reimpressão.");
         }
@@ -806,17 +783,7 @@ exports.gerarPdfReimpressaoFrascos = (0, https_1.onCall)(async (request) => {
         }
         await batch.commit();
         const buffer = await gerarBufferFichaConferencia(validFrascos);
-        const fileName = `etiquetas/reimpressao_${Date.now()}.pdf`;
-        const fileRef = admin.storage().bucket().file(fileName);
-        await fileRef.save(buffer, { contentType: "application/pdf" });
-        let url = "";
-        if (process.env.FUNCTIONS_EMULATOR === "true") {
-            url = `http://127.0.0.1:9199/v0/b/${admin.storage().bucket().name}/o/${encodeURIComponent(fileName)}?alt=media`;
-        }
-        else {
-            [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
-        }
-        return { url };
+        return { base64: buffer.toString("base64") };
     }
     catch (error) {
         console.error("Erro em gerarPdfReimpressaoFrascos:", error);

@@ -38,23 +38,11 @@ const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-admin/firestore");
 const admin = __importStar(require("firebase-admin"));
 const auth_1 = require("./auth");
+const validation_1 = require("./utils/validation");
+const usuarios_schema_1 = require("./schemas/usuarios.schema");
 exports.convidarUsuario = (0, https_1.onCall)(async (request) => {
     (0, auth_1.validarPermissao)(request, ["Chefe_Geral"]);
-    const { email, nome, papel, centro, laboratorio, materias } = request.data;
-    if (!email || !nome || !papel) {
-        throw new https_1.HttpsError("invalid-argument", "Email, nome e papel são obrigatórios.");
-    }
-    const papeisValidos = [
-        "Chefe_Geral",
-        "Gestor_Almoxarifado",
-        "Gestor_Bens_Patrimoniais",
-        "Professor",
-        "Aluno",
-        "Bolsista"
-    ];
-    if (!papeisValidos.includes(papel)) {
-        throw new https_1.HttpsError("invalid-argument", "Papel inválido.");
-    }
+    const { email, nome, papel, centro, laboratorio, materias } = (0, validation_1.validatePayload)(usuarios_schema_1.ConvidarUsuarioSchema, request.data);
     const db = admin.firestore();
     let userRecord;
     try {

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { functions, db } from "@/lib/firebase/config";
+import { openPdfFromBase64 } from "@/lib/pdf";
 import { Printer, Loader2, X, Plus, Trash2, Search } from "lucide-react";
 
 interface ModalEtiquetasProps {
@@ -126,8 +127,8 @@ export default function ModalEtiquetasReagentes({ isOpen, onClose }: ModalEtique
           startRow,
           startCol
         });
-        const data = res.data as { url: string };
-        window.open(data.url, "_blank");
+        const data = res.data as { base64: string };
+        openPdfFromBase64(data.base64);
       } else {
         if (selectedFrascos.length === 0) {
           alert("Adicione pelo menos um frasco.");
@@ -136,8 +137,8 @@ export default function ModalEtiquetasReagentes({ isOpen, onClose }: ModalEtique
         }
         const gerarPdfReimpressaoFrascos = httpsCallable(functions, "gerarPdfReimpressaoFrascos");
         const res = await gerarPdfReimpressaoFrascos({ frascoIds: selectedFrascos.map(f => f.id) });
-        const data = res.data as { url: string };
-        window.open(data.url, "_blank");
+        const data = res.data as { base64: string };
+        openPdfFromBase64(data.base64);
       }
     } catch (error: any) {
       console.error(error);

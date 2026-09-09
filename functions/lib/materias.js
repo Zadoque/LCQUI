@@ -37,6 +37,8 @@ exports.criarMateria = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-admin/firestore");
+const validation_1 = require("./utils/validation");
+const materias_schema_1 = require("./schemas/materias.schema");
 /**
  * Função para criar uma Matéria garantindo que o código da matéria seja único.
  * Papéis permitidos: Chefe_Geral ou Professor
@@ -46,10 +48,7 @@ exports.criarMateria = (0, https_1.onCall)(async (request) => {
     if (!authRoles.includes("Chefe_Geral") && !authRoles.includes("Professor")) {
         throw new https_1.HttpsError("permission-denied", "Apenas o Chefe Geral ou Professor podem criar matérias.");
     }
-    const { nome, codigoMateria } = request.data;
-    if (!nome || !codigoMateria) {
-        throw new https_1.HttpsError("invalid-argument", "Nome e código da matéria são obrigatórios.");
-    }
+    const { nome, codigoMateria } = (0, validation_1.validatePayload)(materias_schema_1.CriarMateriaSchema, request.data);
     const db = admin.firestore();
     // Transação para garantir unicidade do código
     return db.runTransaction(async (tx) => {

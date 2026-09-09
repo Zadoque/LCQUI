@@ -40,9 +40,11 @@ const scheduler_1 = require("firebase-functions/v2/scheduler");
 const admin = __importStar(require("firebase-admin"));
 const firestore_2 = require("firebase-admin/firestore");
 const auth_1 = require("./auth");
+const validation_1 = require("./utils/validation");
+const patrimonio_schema_1 = require("./schemas/patrimonio.schema");
 exports.criarRequisicaoEdicaoBem = (0, https_1.onCall)(async (request) => {
     (0, auth_1.validarPermissao)(request, ["Professor"]);
-    const dados = request.data;
+    const dados = (0, validation_1.validatePayload)(patrimonio_schema_1.CriarRequisicaoEdicaoBemSchema, request.data);
     const lockId = `bem_edicao_${dados.idBemPatrimonial}`;
     const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(lockId);
     const reqRef = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc();
@@ -68,7 +70,7 @@ exports.criarRequisicaoEdicaoBem = (0, https_1.onCall)(async (request) => {
 });
 exports.responderRequisicaoEdicaoBem = (0, https_1.onCall)(async (request) => {
     (0, auth_1.validarPermissao)(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
-    const { idRequisicao, aprovar, justificativa } = request.data;
+    const { idRequisicao, aprovar, justificativa } = (0, validation_1.validatePayload)(patrimonio_schema_1.ResponderRequisicaoBemSchema, request.data);
     const reqRef = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc(idRequisicao);
     return admin.firestore().runTransaction(async (tx) => {
         const reqSnap = await tx.get(reqRef);
@@ -109,7 +111,7 @@ exports.responderRequisicaoEdicaoBem = (0, https_1.onCall)(async (request) => {
 });
 exports.criarRequisicaoAdicaoBem = (0, https_1.onCall)(async (request) => {
     (0, auth_1.validarPermissao)(request, ["Professor"]);
-    const dados = request.data;
+    const dados = (0, validation_1.validatePayload)(patrimonio_schema_1.CriarRequisicaoAdicaoBemSchema, request.data);
     const checkBem = await admin.firestore().collection("Bem_Patrimonial")
         .where("numero_patrimonio", "==", dados.numeroPatrimonioProposto)
         .limit(1).get();
@@ -146,7 +148,7 @@ exports.criarRequisicaoAdicaoBem = (0, https_1.onCall)(async (request) => {
 });
 exports.responderRequisicaoAdicaoBem = (0, https_1.onCall)(async (request) => {
     (0, auth_1.validarPermissao)(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
-    const { idRequisicao, aprovar, justificativa } = request.data;
+    const { idRequisicao, aprovar, justificativa } = (0, validation_1.validatePayload)(patrimonio_schema_1.ResponderRequisicaoBemSchema, request.data);
     const reqRef = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc(idRequisicao);
     return admin.firestore().runTransaction(async (tx) => {
         const reqSnap = await tx.get(reqRef);

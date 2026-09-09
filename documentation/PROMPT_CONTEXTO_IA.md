@@ -24,7 +24,7 @@ O controle completo dessas etapas está presente no arquivo `documentation/MATRI
 - **Erros:** Retorne os erros oficiais corretos como `invalid-argument`, `permission-denied`, `not-found`, etc. (e não apenas `internal` para tudo).
 
 ## O que foi concluído?
-(A IA deve ler rapidamente o `documentation/STATUS_ATUAL.md` para se alinhar ao iniciar a sessão). Já terminamos as regras básicas do Firestore (Fase 1) e ajustamos a organização estrutural.
+(A IA deve ler rapidamente o `documentation/STATUS_ATUAL.md` para se alinhar ao iniciar a sessão). Já concluímos a **Fase 1** (fechamento do Firestore Security Rules), a **Fase 2** (Storage Security e proteção de metadata.owner) e a **Fase 3** (blindagem completa de inputs com Zod nas Cloud Functions, e geração de PDFs em base64 sem persistir no Storage).
 
 ## Como você deve agir nesta sessão
 1. Leia o `documentation/STATUS_ATUAL.md` para entender onde paramos.

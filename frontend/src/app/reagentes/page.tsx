@@ -319,6 +319,7 @@ export default function GestorAlmoxarifadoDashboard() {
           {/* Modal Etiquetas */}
           {isEtiquetasOpen && (
           <ModalEtiquetasReagentes
+            isOpen={isEtiquetasOpen}
             onClose={() => setIsEtiquetasOpen(false)}
           />
         )}

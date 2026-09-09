@@ -109,12 +109,7 @@ export default function PatrimonioInbox() {
                             <dd className="font-bold text-amber-500">{req.novo_status.replace("_", " ")}</dd>
                           </div>
                         )}
-                        {req.novo_nome_responsavel_sei && (
-                          <div className="bg-background/50 p-3 rounded-lg border border-foreground/5">
-                            <dt className="text-xs text-foreground/50">Novo Responsável</dt>
-                            <dd className="font-medium text-foreground">{req.novo_nome_responsavel_sei}</dd>
-                          </div>
-                        )}
+
                         {req.novo_estado_conservacao && (
                           <div className="bg-background/50 p-3 rounded-lg border border-foreground/5 col-span-full">
                             <dt className="text-xs text-foreground/50">Novo Estado de Conservação</dt>

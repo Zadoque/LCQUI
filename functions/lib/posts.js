@@ -38,16 +38,15 @@ const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-admin/firestore");
 const auth_1 = require("./auth");
+const validation_1 = require("./utils/validation");
+const posts_schema_1 = require("./schemas/posts.schema");
 /**
  * Função para criar um Post.
  * Papéis permitidos: Professor
  */
 exports.criarPost = (0, https_1.onCall)(async (request) => {
     (0, auth_1.validarPermissao)(request, ["Professor", "Chefe_Geral"]);
-    const { idTurma, titulo, descricao, idRoteiroExperimento } = request.data;
-    if (!idTurma || !titulo || !descricao) {
-        throw new https_1.HttpsError("invalid-argument", "Turma, título e descrição são obrigatórios.");
-    }
+    const { idTurma, titulo, descricao, idRoteiroExperimento } = (0, validation_1.validatePayload)(posts_schema_1.CriarPostSchema, request.data);
     const db = admin.firestore();
     const turmaRef = db.collection("Turma").doc(idTurma);
     const turmaSnap = await turmaRef.get();
@@ -82,10 +81,7 @@ exports.adicionarComentario = (0, https_1.onCall)(async (request) => {
     if (!authRoles.includes("Professor") && !authRoles.includes("Chefe_Geral") && !authRoles.includes("Aluno")) {
         throw new https_1.HttpsError("permission-denied", "Apenas professores e alunos podem comentar.");
     }
-    const { idTurma, idPost, texto } = request.data;
-    if (!idTurma || !idPost || !texto) {
-        throw new https_1.HttpsError("invalid-argument", "Turma, Post e texto são obrigatórios.");
-    }
+    const { idTurma, idPost, texto } = (0, validation_1.validatePayload)(posts_schema_1.AdicionarComentarioSchema, request.data);
     const db = admin.firestore();
     // Validar se o usuário pode acessar a turma (se é o professor ou se é aluno matriculado)
     if (!authRoles.includes("Professor") && !authRoles.includes("Chefe_Geral")) {
@@ -119,10 +115,7 @@ exports.adicionarComentario = (0, https_1.onCall)(async (request) => {
 });
 exports.excluirPost = (0, https_1.onCall)(async (request) => {
     (0, auth_1.validarPermissao)(request, ["Professor", "Chefe_Geral"]);
-    const { idTurma, idPost } = request.data;
-    if (!idTurma || !idPost) {
-        throw new https_1.HttpsError("invalid-argument", "Turma e Post são obrigatórios.");
-    }
+    const { idTurma, idPost } = (0, validation_1.validatePayload)(posts_schema_1.ExcluirPostSchema, request.data);
     const db = admin.firestore();
     const turmaRef = db.collection("Turma").doc(idTurma);
     const turmaSnap = await turmaRef.get();
@@ -161,10 +154,7 @@ exports.excluirComentario = (0, https_1.onCall)(async (request) => {
     if (!authRoles.includes("Professor") && !authRoles.includes("Chefe_Geral") && !authRoles.includes("Aluno")) {
         throw new https_1.HttpsError("permission-denied", "Apenas professores e alunos podem excluir comentários.");
     }
-    const { idTurma, idPost, idComentario } = request.data;
-    if (!idTurma || !idPost || !idComentario) {
-        throw new https_1.HttpsError("invalid-argument", "Turma, Post e Comentário são obrigatórios.");
-    }
+    const { idTurma, idPost, idComentario } = (0, validation_1.validatePayload)(posts_schema_1.ExcluirComentarioSchema, request.data);
     const db = admin.firestore();
     const comentarioRef = db.collection("Turma").doc(idTurma).collection("Posts").doc(idPost).collection("Comentarios").doc(idComentario);
     const comentarioSnap = await comentarioRef.get();

@@ -393,17 +393,17 @@ A criação da notificação deve permanecer responsabilidade do backend.
 | Firestore/modelagem |   **72%** |
 | Backend             |   **66%** |
 | Frontend            |   **59%** |
-| Security Rules      |   **45%** |
-| Testes reais        |   **35%** |
+| Security Rules      |   **100%** |
+| Testes reais        |   **45%** |
 | Infra/release       |   **55%** |
 
 Aplicando pesos maiores para funcionalidade, segurança, testes e integração:
 
-# **Prontidão geral atual: ~63%**
+# **Prontidão geral atual: ~72%**
 
 Esse é o valor que eu adotaria oficialmente:
 
-# **LCQUI = 63% de prontidão**
+# **LCQUI = 72% de prontidão**
 
 ---
 
@@ -500,7 +500,7 @@ Nenhum RF, RN ou fluxo deve ficar fora dessa matriz.
 
 ---
 
-# FASE 1 — Fechar Firestore Security Rules
+# FASE 1 — Fechar Firestore Security Rules (✅ CONCLUÍDA)
 
 ## Passo 1.1
 
@@ -544,7 +544,7 @@ usuário fora do almoxarifado → negar
 
 ---
 
-# FASE 2 — Fechar Storage Security
+# FASE 2 — Fechar Storage Security (✅ CONCLUÍDA)
 
 Revisar:
 
@@ -570,7 +570,7 @@ namespace
 
 ---
 
-# FASE 3 — Validação de entrada no backend
+# FASE 3 — Validação de entrada no backend (✅ CONCLUÍDA)
 
 Eliminar dependência de:
 

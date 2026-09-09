@@ -6,12 +6,12 @@ import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Link from "next/link";
-import { ResumoBemPatrimonial } from "@/types/patrimonio";
+import { BemPatrimonial } from "@/types/patrimonio";
 import ModalRelatoriosPatrimonio from "@/components/patrimonio/ModalRelatoriosPatrimonio";
 
 export default function PatrimonioDashboard() {
   const { roles, user } = useAuth();
-  const [bens, setBens] = useState<ResumoBemPatrimonial[]>([]);
+  const [bens, setBens] = useState<BemPatrimonial[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [isRelatoriosOpen, setIsRelatoriosOpen] = useState(false);
@@ -61,7 +61,7 @@ export default function PatrimonioDashboard() {
       const lista = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      })) as ResumoBemPatrimonial[];
+      })) as BemPatrimonial[];
 
       setBens(lista);
     } catch (error) {
