@@ -64,7 +64,7 @@ Esta matriz rastreia a implementação completa de todos os Requisitos Funcionai
 |:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|
 | **FLOW01** | Login -> Dashboard -> Multi-role | Várias | Várias | Auth | `Usuarios` | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | VALIDADO |
 | **FLOW02** | Professor -> Cria turma -> Aluno entra -> Post -> Comentário | Várias | Várias | `criarTurma`, `entrarTurma`| `Turmas`, `Posts` | IMPLEMENTADO | — | — | Pendente | PARCIAL |
-| **FLOW03** | Gestor -> Reagente -> Frasco -> Retira -> Devolve -> Consumo | Várias | Várias | `movimentarFrasco` | `Frascos`, `Reagentes`| IMPLEMENTADO | — | — | Pendente | PARCIAL |
-| **FLOW04** | Professor -> Requisição Patrimônio -> Gestor Aprova -> Bem criado | Várias | Várias | `processarRequisicao` | `Requisicoes`, `Patrimonio`| IMPLEMENTADO | — | — | Pendente | PARCIAL |
-| **FLOW05** | Patrimônio -> Baixa -> PDF -> Auditoria | Várias | Várias | `baixarPatrimonio` | `Patrimonio`, `Auditoria`| IMPLEMENTADO | — | — | Pendente | PARCIAL |
+| **FLOW03** | Gestor -> Reagente -> Frasco -> Retira -> Devolve -> Consumo | Várias | Várias | `movimentarFrasco` | `Frascos`, `Reagentes`| IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | Pendente | PARCIAL |
+| **FLOW04** | Professor -> Requisição Patrimônio -> Gestor Aprova -> Bem criado | Várias | Várias | `processarRequisicao` | `Requisicoes`, `Patrimonio`| IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | Pendente | PARCIAL |
+| **FLOW05** | Patrimônio -> Baixa -> PDF -> Auditoria | Várias | Várias | `baixarPatrimonio` | `Patrimonio`, `Auditoria`| IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | Pendente | PARCIAL |
 | **FLOW06** | Chefe -> Cria Usuário -> Atribui Papel -> Claims -> Dashboard | Várias | Várias | `convidarUsuario` / `revogar` | `Usuarios` | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | VALIDADO |
