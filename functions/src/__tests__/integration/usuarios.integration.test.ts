@@ -70,4 +70,55 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
     const professorDoc = await db.collection("Professor").doc(userRecord.uid).get();
     expect(professorDoc.exists).toBe(false);
   });
+
+  it("deve desativar o usuário ao revogar seu último papel e manter em Usuarios com ativo = false", async () => {
+    const { revogarUsuarioPapel } = require("../../usuarios");
+    const wrapped = testEnv.wrap(revogarUsuarioPapel);
+    
+    const userEmail = "aluno_revogar_unico@example.com";
+    
+    let userRecord;
+    try {
+      userRecord = await admin.auth().getUserByEmail(userEmail);
+    } catch(e) {
+      userRecord = await admin.auth().createUser({
+        email: userEmail,
+        displayName: "Aluno Para Revogar"
+      });
+    }
+
+    // O usuário é APENAS Aluno
+    await db.collection("Aluno").doc(userRecord.uid).set({
+      nome: "Aluno Para Revogar",
+      email: userEmail
+    });
+
+    // Simulando que ele também existe na coleção central Usuarios
+    await db.collection("Usuarios").doc(userRecord.uid).set({
+      nome: "Aluno Para Revogar",
+      email: userEmail,
+      ativo: true
+    });
+
+    const req = mockRequest({
+      email: userEmail,
+      papel: "Aluno",
+      motivo: "Fim do curso"
+    }, "chefe123");
+
+    const result = await wrapped(req);
+
+    // O retorno deve indicar que a conta foi desativada (ativo: false)
+    expect(result.ativo).toBe(false);
+    expect(result.uid).toBe(userRecord.uid);
+
+    // Verifica que apagou da coleção do Papel
+    const alunoDoc = await db.collection("Aluno").doc(userRecord.uid).get();
+    expect(alunoDoc.exists).toBe(false);
+
+    // Verifica que a identidade permaneceu em Usuarios, mas inativa
+    const usuarioCentralDoc = await db.collection("Usuarios").doc(userRecord.uid).get();
+    expect(usuarioCentralDoc.exists).toBe(true);
+    expect(usuarioCentralDoc.data()?.ativo).toBe(false);
+  });
 });
