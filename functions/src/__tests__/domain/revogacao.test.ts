@@ -1,4 +1,4 @@
-import { validarRevogacaoChefeGeral, validarRevogacaoGestorAlmoxarifado, validarRevogacaoGestorPatrimonial } from "../domain/revogarPapel";
+import { validarRevogacaoChefeGeral, validarRevogacaoGestorPatrimonial } from "../../domain/revogarPapel";
 import { HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
@@ -19,11 +19,9 @@ jest.mock("firebase-admin", () => {
 
 describe("Domain: Regras de Revogação de Papéis", () => {
   let mockGet: jest.Mock;
-  let mockWhere: jest.Mock;
 
   beforeEach(() => {
     mockGet = admin.firestore().collection("").get as jest.Mock;
-    mockWhere = admin.firestore().collection("").where as jest.Mock;
     jest.clearAllMocks();
   });
 
