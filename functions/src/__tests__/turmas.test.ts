@@ -5,7 +5,7 @@ process.env.FUNCTIONS_EMULATOR = "true";
 
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
-import { criarTurma, ingressarEmTurmaPorCodigo, removerAlunoTurma, arquivarTurma } from "../turmas";
+import { criarTurma, ingressarEmTurmaPorCodigo, removerAlunoTurma, arquivarTurma, adicionarAlunoExistenteTurma, convidarAluno } from "../turmas";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -195,7 +195,59 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     expect(auditSnap.empty).toBe(false);
   });
 
-  for(let i = 13; i <= 45; i++) {
-    it(`deve validar outras restrições do módulo acadêmico ${i} (Baseado no main.tex)`, async () => { expect(true).toBe(true); });
-  }
+  it("deve permitir que o professor adicione aluno existente via adicionarAlunoExistenteTurma e crie notificacao", async () => {
+    const wrappedCriar = testEnv.wrap(criarTurma);
+    const reqCriar = mockRequest({
+      idMateria: "mat_add", nomeTurma: "Turma Add", ano: 2026, semestre: 1, capacidade: 5, nomeMateria: "Add"
+    }, "prof_add");
+    const turma = await wrappedCriar(reqCriar);
+
+    await db.collection("Aluno").doc("aluno_add").set({
+      nome: "Aluno Add", email: "add@ufsc.br", numero_matricula: "21100000"
+    });
+
+    const wrappedAdd = testEnv.wrap(adicionarAlunoExistenteTurma);
+    await wrappedAdd(mockRequest({ idTurma: turma.id, idAluno: "aluno_add" }, "prof_add"));
+
+    const matriculaSnap = await db.collection("Turma").doc(turma.id).collection("Alunos").doc("aluno_add").get();
+    expect(matriculaSnap.exists).toBe(true);
+
+    const notifSnap = await db.collection("Usuarios").doc("aluno_add").collection("Notificacoes").where("tipo", "==", "ADICIONADO").get();
+    expect(notifSnap.empty).toBe(false);
+  });
+
+  it("deve falhar ao adicionar aluno se a turma ja estiver cheia", async () => {
+    const wrappedCriar = testEnv.wrap(criarTurma);
+    const reqCriar = mockRequest({
+      idMateria: "mat_full", nomeTurma: "Turma Full", ano: 2026, semestre: 1, capacidade: 1, nomeMateria: "Full"
+    }, "prof_full");
+    const turma = await wrappedCriar(reqCriar);
+
+    await db.collection("Aluno").doc("aluno_f1").set({ nome: "A1", email: "a1@ufsc.br" });
+    await db.collection("Aluno").doc("aluno_f2").set({ nome: "A2", email: "a2@ufsc.br" });
+
+    const wrappedAdd = testEnv.wrap(adicionarAlunoExistenteTurma);
+    await wrappedAdd(mockRequest({ idTurma: turma.id, idAluno: "aluno_f1" }, "prof_full"));
+
+    await expect(wrappedAdd(mockRequest({ idTurma: turma.id, idAluno: "aluno_f2" }, "prof_full"))).rejects.toThrow(/atingiu a capacidade/);
+  });
+
+  it("deve criar um convite na colecao Convite_Aluno com validade ao usar convidarAluno", async () => {
+    const wrappedConvidar = testEnv.wrap(convidarAluno);
+    const reqConvidar = mockRequest({ email: "convite@ufsc.br", idTurma: "turma_c1", matricula: "123" }, "prof_c1");
+    
+    const result = await wrappedConvidar(reqConvidar);
+    
+    const conviteDoc = await db.collection("Convite_Aluno").doc(result.id).get();
+    expect(conviteDoc.exists).toBe(true);
+    expect(conviteDoc.data()?.email).toBe("convite@ufsc.br");
+    expect(conviteDoc.data()?.status).toBe("pendente");
+  });
+
+  it("nao deve permitir convite duplicado para a mesma turma", async () => {
+    const wrappedConvidar = testEnv.wrap(convidarAluno);
+    await wrappedConvidar(mockRequest({ email: "dup@ufsc.br", idTurma: "turma_dup" }, "prof_dup"));
+    
+    await expect(wrappedConvidar(mockRequest({ email: "dup@ufsc.br", idTurma: "turma_dup" }, "prof_dup"))).rejects.toThrow(/pendente para este email e turma/);
+  });
 });

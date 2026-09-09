@@ -31,8 +31,8 @@ Esta matriz rastreia a implementação completa de todos os Requisitos Funcionai
 | **RF14** | Cálculo peso/volume/densidade | — | — | `calcularConsumo` | `Frascos` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
 | **RF15** | Empréstimo/devolução/descarte | `/estoque` | `MovimentacaoForm` | `movimentarFrasco` | `Frascos` / `Auditoria`| IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
 | **RF16** | Consulta e filtros | Todas | `SearchBar` / `Filters`| — | Várias | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RF17** | Criação de turma/capacidade | `/turmas/nova` | `TurmaForm` | `criarTurma` | `Turmas` | IMPLEMENTADO | Parcial | Pendente | Pendente | PARCIAL |
-| **RF18** | Entrada por código/e-mail | `/turmas/entrar` | `JoinTurma` | `entrarTurma` | `Turmas` / `Usuarios` | IMPLEMENTADO | Parcial | Pendente | Pendente | PARCIAL |
+| **RF17** | Criação de turma/capacidade | `/turmas/nova` | `TurmaForm` | `criarTurma` | `Turmas` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
+| **RF18** | Entrada por código/e-mail | `/turmas/entrar` | `JoinTurma` | `entrarTurma` | `Turmas` / `Usuarios` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
 | **RF19** | Posts pelo professor | `/turmas/:id` | `PostForm` | — | `Posts` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
 | **RF20** | Comentários | `/turmas/:id` | `CommentSection` | — | `Comentarios` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
 | **RF21** | Upload roteiro PDF | `/roteiros` | `UploadRoteiro` | — | `Roteiros` / Storage | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
