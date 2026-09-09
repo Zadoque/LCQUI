@@ -18,8 +18,8 @@ Esta matriz rastreia a implementação completa de todos os Requisitos Funcionai
 | **RF01** | Login e-mail/senha | `/login` | `LoginForm` | Auth | — | N/A | Pendente | Pendente | Pendente | PARCIAL |
 | **RF02** | Login Google | `/login` | `GoogleLoginButton` | Auth | — | N/A | Pendente | Pendente | Pendente | PARCIAL |
 | **RF03** | Recuperação de senha | `/forgot-password` | `RecoverPassword` | Auth | — | N/A | Pendente | Pendente | Pendente | PARCIAL |
-| **RF04** | Multi-role | Dashboard | `RoleSelector` | `setCustomClaims` | `Usuarios` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RF05** | Alternância de papel | Header | `RoleSwitcher` | `switchRole` | `Usuarios` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
+| **RF04** | Multi-role | Dashboard | `RoleSelector` | `setCustomClaims` | `Usuarios` | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | VALIDADO |
+| **RF05** | Alternância de papel | Header | `RoleSwitcher` | `switchRole` | `Usuarios` | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | VALIDADO |
 | **RF06** | Cadastro/manutenção patrimonial | `/patrimonio` | `PatrimonioForm` | — | `Patrimonio` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
 | **RF07** | Histórico patrimonial auditável | `/patrimonio/:id` | `HistoricoPatrimonio` | `logAudit` | `Auditoria` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
 | **RF08** | Requisição de adição | `/patrimonio/novo` | `RequisicaoForm` | — | `Requisicoes` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
@@ -47,9 +47,9 @@ Esta matriz rastreia a implementação completa de todos os Requisitos Funcionai
 
 | ID | Descrição | Tela | Componente | Cloud Function | Coleção Firestore | Security Rule | Teste unitário | Teste integração | Teste E2E | Status |
 |:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|
-| **RN01** | Chefe Geral não pode possuir outro papel | — | — | `setCustomClaims` | `Usuarios` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RN02** | Aluno não pode ser Professor | — | — | `setCustomClaims` | `Usuarios` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RN03** | Bolsista não acumula Gestor Almoxarifado | — | — | `setCustomClaims` | `Usuarios` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
+| **RN01** | Chefe Geral não pode possuir outro papel | — | — | `convidarUsuario` / `revogar` | `Usuarios` | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | VALIDADO |
+| **RN02** | Aluno não pode ser Professor | — | — | `convidarUsuario` / `revogar` | `Usuarios` | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | VALIDADO |
+| **RN03** | Bolsista não acumula Gestor Almoxarifado | — | — | `convidarUsuario` / `revogar` | `Usuarios` | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | VALIDADO |
 | **RN04** | Densidade/peso/volume regras de sinal | — | — | `validarFrasco` | `Frascos` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
 | **RN05** | Frasco em quarentena exige detalhe | — | — | `atualizarFrasco` | `Frascos` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
 | **RN06** | Preservar erros internos (invalid-argument, etc) | — | — | Todas | — | — | Pendente | Pendente | Pendente | PARCIAL |
@@ -62,9 +62,9 @@ Esta matriz rastreia a implementação completa de todos os Requisitos Funcionai
 
 | ID | Descrição | Tela | Componente | Cloud Function | Coleção Firestore | Security Rule | Teste unitário | Teste integração | Teste E2E | Status |
 |:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|
-| **FLOW01** | Login -> Dashboard -> Multi-role | Várias | Várias | Auth | `Usuarios` | IMPLEMENTADO | — | — | Pendente | PARCIAL |
+| **FLOW01** | Login -> Dashboard -> Multi-role | Várias | Várias | Auth | `Usuarios` | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | VALIDADO |
 | **FLOW02** | Professor -> Cria turma -> Aluno entra -> Post -> Comentário | Várias | Várias | `criarTurma`, `entrarTurma`| `Turmas`, `Posts` | IMPLEMENTADO | — | — | Pendente | PARCIAL |
 | **FLOW03** | Gestor -> Reagente -> Frasco -> Retira -> Devolve -> Consumo | Várias | Várias | `movimentarFrasco` | `Frascos`, `Reagentes`| IMPLEMENTADO | — | — | Pendente | PARCIAL |
 | **FLOW04** | Professor -> Requisição Patrimônio -> Gestor Aprova -> Bem criado | Várias | Várias | `processarRequisicao` | `Requisicoes`, `Patrimonio`| IMPLEMENTADO | — | — | Pendente | PARCIAL |
 | **FLOW05** | Patrimônio -> Baixa -> PDF -> Auditoria | Várias | Várias | `baixarPatrimonio` | `Patrimonio`, `Auditoria`| IMPLEMENTADO | — | — | Pendente | PARCIAL |
-| **FLOW06** | Chefe -> Cria Usuário -> Atribui Papel -> Claims -> Dashboard | Várias | Várias | `setCustomClaims` | `Usuarios` | IMPLEMENTADO | — | — | Pendente | PARCIAL |
+| **FLOW06** | Chefe -> Cria Usuário -> Atribui Papel -> Claims -> Dashboard | Várias | Várias | `convidarUsuario` / `revogar` | `Usuarios` | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | VALIDADO |
