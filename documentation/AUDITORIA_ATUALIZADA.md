@@ -27,16 +27,16 @@ Não considero a simples existência de um arquivo ou função como implementaç
 | RF03 | Recuperação de senha | ✅ | ✅ | — | ✅ | ⚠️ | 🟢 |
 | RF04 | Multi-role | ✅ | ✅ | ✅ | ✅ | ⚠️ | 🟢 |
 | RF05 | Alternância de papel | ✅ | 🟡 | ✅ | ✅ | ❌ | 🟡 |
-| RF06 | Cadastro/manutenção patrimonial | ✅ | 🟡 | ✅ | ✅ | ⚠️ | 🟡 |
-| RF07 | Histórico patrimonial auditável | ✅ | 🟡 | ✅ | ✅ | ⚠️ | 🟡 |
-| RF08 | Requisição de adição | ✅ | 🟡 | ✅ | ✅ | ⚠️ | 🟡 |
-| RF09 | Requisição de edição | ✅ | 🟡 | ✅ | ✅ | ⚠️ | 🟡 |
-| RF10 | Apenas 1 edição pendente/bem | ✅ | 🟡 | ✅ | ✅ | ⚠️ | 🟡 |
-| RF11 | Aprovar/rejeitar requisições | ✅ | 🟡 | ✅ | ✅ | ⚠️ | 🟡 |
-| RF12 | Baixa patrimonial | ✅ | ✅ | ✅ | 🟡 | ⚠️ | 🟡 |
+| RF06 | Cadastro/manutenção patrimonial | ✅ | ✅ | ✅ | ✅ | ⚠️ | 🟡 |
+| RF07 | Histórico patrimonial auditável | ✅ | ✅ | ✅ | ✅ | ⚠️ | 🟡 |
+| RF08 | Requisição de adição | ✅ | ✅ | ✅ | ✅ | ⚠️ | 🟡 |
+| RF09 | Requisição de edição | ✅ | ✅ | ✅ | ✅ | ⚠️ | 🟡 |
+| RF10 | Apenas 1 edição pendente/bem | ✅ | ✅ | ✅ | ✅ | ⚠️ | 🟡 |
+| RF11 | Aprovar/rejeitar requisições | ✅ | ✅ | ✅ | ✅ | ⚠️ | 🟡 |
+| RF12 | Baixa patrimonial | ✅ | ✅ | ✅ | ✅ | ⚠️ | 🟡 |
 | RF13 | Cadastro de almoxarifados | ✅ | ✅ | ✅ | ✅ | ⚠️ | 🟢/🟡 |
 | RF14 | Cálculo peso/volume/densidade | ✅ | ✅ | ✅ | ✅ | ⚠️ | 🟡 |
-| RF15 | Empréstimo/devolução/descarte etc. | ✅ | 🟡 | ✅ | ✅ | ⚠️ | 🟡 |
+| RF15 | Empréstimo/devolução/descarte etc. | ✅ | ✅ | ✅ | ✅ | ⚠️ | 🟡 |
 | RF16 | Consulta e filtros | 🟡 | 🟡 | 🟡 | ✅ | ❌ | 🟡 |
 | RF17 | Criação de turma/capacidade | ✅ | ✅ | ✅ | ✅ | 🟢 | 🟢 |
 | RF18 | Entrada por código/e-mail | ✅ | ✅ | ✅ | ✅ | 🟢 | 🟢* |
