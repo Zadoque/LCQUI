@@ -139,6 +139,11 @@ service cloud.firestore {
     }
 
     // --- Reagentes / Almoxarifado ---
+    match /Substancia_Quimica/{substId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Cloud Functions
+    }
+
     match /Almoxarifado/{almId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();

@@ -1,9 +1,17 @@
 import { z } from "zod";
 
+export const CadastroSubstanciaQuimicaSchema = z.object({
+  nome: z.string().min(1, "Nome é obrigatório."),
+  casNumber: z.string().optional(),
+  formulaQuimica: z.string().optional(),
+  ativo: z.boolean().default(true),
+});
+
 export const CadastroResumoReagenteSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório."),
   tipoSubstancia: z.enum(["PURA", "MISTURA"]),
   naturezaQuimica: z.enum(["ORGANICO", "INORGANICO", "ELEMENTO", "HIBRIDO"]),
+  estadoFisico: z.enum(["SOLIDO", "LIQUIDO", "GASOSO"]),
   requerPesagemFrequente: z.boolean(),
   qtdEmQueEConsideradoEscasso: z.number().int().positive("A quantidade de escassez deve ser positiva."),
   frequenciaPesagemDias: z.number().int().positive().nullable().optional(),
@@ -29,19 +37,12 @@ export const CadastroEspecificacaoSchema = z.object({
   codigoProdutoFabricante: z.string().optional(),
   grauPureza: z.string().optional(),
   densidade: z.number().positive().optional(),
-  estadoFisico: z.enum(["SOLIDO", "LIQUIDO"]),
-  unidadeDeMedida: z.enum(["ml", "g"]),
   classeInflamabilidade: z.enum(["NAO_INFLAMAVEL", "CLASSE_1", "CLASSE_2", "CLASSE_3"]),
   ehControladoPf: z.boolean(),
   ehControladoEb: z.boolean(),
   linkFdsFispq: z.string().optional(),
-  composicao: z.array(ComposicaoSchema).optional(),
-}).refine(data => {
-  if (data.estadoFisico === "LIQUIDO" && !data.densidade) return false;
-  return true;
-}, {
-  message: "Densidade é obrigatória para reagentes líquidos.",
-  path: ["densidade"]
+  idSubstanciaQuimica: z.string().optional(), // Para substâncias PURAS
+  composicao: z.array(ComposicaoSchema).optional(), // Para MISTURAS
 });
 
 export const CadastroLoteSchema = z.object({
