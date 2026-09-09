@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebase/config";
+import { collection, getDocs, query, limit } from "firebase/firestore";
+import { functions, db } from "@/lib/firebase/config";
 
 interface ModalProps {
   isOpen: boolean;
@@ -133,10 +134,83 @@ export function ModalDevolucaoFrasco({ isOpen, onClose, frascoId, onSuccess }: M
   );
 }
 
+export function ModalNovaSubstancia({ isOpen, onClose, onSuccess }: ModalProps) {
+  const [nome, setNome] = useState("");
+  const [casNumber, setCasNumber] = useState("");
+  const [formulaQuimica, setFormulaQuimica] = useState("");
+  const [ativo, setAtivo] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg("");
+    try {
+      const cadastrarSubstanciaQuimica = httpsCallable(functions, 'cadastrarSubstanciaQuimica');
+      await cadastrarSubstanciaQuimica({
+        nome,
+        casNumber: casNumber || undefined,
+        formulaQuimica: formulaQuimica || undefined,
+        ativo
+      });
+      if (onSuccess) onSuccess();
+      onClose();
+    } catch (err: any) {
+      setErrorMsg(err.message || "Erro interno.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
+      <div className="glass-panel w-full max-w-lg p-6 rounded-2xl shadow-xl my-8">
+        <h2 className="text-xl font-bold mb-4">Nova Substância Química Base</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Nome da Substância</label>
+            <input type="text" required value={nome} onChange={(e) => setNome(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Número CAS (Opcional)</label>
+              <input type="text" value={casNumber} onChange={(e) => setCasNumber(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Fórmula Química (Opcional)</label>
+              <input type="text" value={formulaQuimica} onChange={(e) => setFormulaQuimica(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none" />
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2 mt-4">
+            <input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} className="rounded text-primary focus:ring-primary" />
+            <span className="text-sm font-medium">Ativo (visível para uso)</span>
+          </div>
+
+          {errorMsg && <div className="text-red-500 text-sm bg-red-500/10 p-2 rounded">{errorMsg}</div>}
+          <div className="flex justify-end gap-3 mt-6">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg hover:bg-foreground/5 transition-colors">Cancelar</button>
+            <button type="submit" disabled={loading} className="px-4 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 disabled:opacity-50">
+              {loading ? "Salvando..." : "Salvar Substância"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
   const [nome, setNome] = useState("");
   const [tipoSubstancia, setTipoSubstancia] = useState("PURA");
   const [naturezaQuimica, setNaturezaQuimica] = useState("ORGANICO");
+  const [estadoFisico, setEstadoFisico] = useState("SOLIDO");
   const [requerPesagemFrequente, setRequerPesagemFrequente] = useState(false);
   const [frequenciaPesagemDias, setFrequenciaPesagemDias] = useState("");
   const [qtdEscasso, setQtdEscasso] = useState("");
@@ -155,6 +229,7 @@ export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
         nome,
         tipoSubstancia,
         naturezaQuimica,
+        estadoFisico,
         requerPesagemFrequente,
         frequenciaPesagemDias: requerPesagemFrequente && frequenciaPesagemDias ? Number(frequenciaPesagemDias) : undefined,
         qtdEmQueEConsideradoEscasso: Number(qtdEscasso)
@@ -198,6 +273,16 @@ export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
               </select>
             </div>
           </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Estado Físico</label>
+            <select value={estadoFisico} onChange={(e) => setEstadoFisico(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none">
+              <option value="SOLIDO">Sólido</option>
+              <option value="LIQUIDO">Líquido</option>
+              <option value="GASOSO">Gasoso</option>
+            </select>
+          </div>
           
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col justify-center">
@@ -232,22 +317,58 @@ export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
   );
 }
 
-export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSuccess, tipoSubstanciaResumo }: ModalProps & { tipoSubstanciaResumo: string }) {
+export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSuccess }: ModalProps) {
+  const [resumos, setResumos] = useState<any[]>([]);
+  const [substancias, setSubstancias] = useState<any[]>([]);
+  
+  const [selectedResumoId, setSelectedResumoId] = useState(idResumoReagente || "");
+  
   const [descricao, setDescricao] = useState("");
   const [fabricante, setFabricante] = useState("");
   const [densidade, setDensidade] = useState("");
-  const [estadoFisico, setEstadoFisico] = useState("SOLIDO");
-  const [unidadeDeMedida, setUnidadeDeMedida] = useState("g");
   const [classeInflamabilidade, setClasseInflamabilidade] = useState("NAO_INFLAMAVEL");
   const [ehControladoPf, setEhControladoPf] = useState(false);
   const [ehControladoEb, setEhControladoEb] = useState(false);
+  
+  const [idSubstanciaPura, setIdSubstanciaPura] = useState("");
   const [composicoes, setComposicoes] = useState([{ idSubstanciaQuimica: "", valorComposicao: "", tipoConcentracao: "M_M", unidade: "" }]);
+  
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
+  useEffect(() => {
+    if (isOpen) {
+      if (!idResumoReagente) {
+        getDocs(query(collection(db, "Resumo_Reagente"), limit(200))).then(snap => {
+          setResumos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+      }
+      getDocs(query(collection(db, "Substancia_Quimica"), limit(200))).then(snap => {
+        setSubstancias(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+    }
+  }, [isOpen, idResumoReagente]);
+
+  useEffect(() => {
+    if (isOpen && idResumoReagente) {
+      setSelectedResumoId(idResumoReagente);
+    }
+  }, [isOpen, idResumoReagente]);
+
   if (!isOpen) return null;
 
-  const isMistura = tipoSubstanciaResumo === "MISTURA";
+  // Derivar propriedades do resumo selecionado
+  const selectedResumoData = resumos.find(r => r.id === selectedResumoId) || (idResumoReagente ? { tipo_substancia: "PURA", estado_fisico: "SOLIDO" } : null);
+  // Nota: se o modal for aberto com idResumoReagente via prop (a partir da tabela que expande o resumo já existente),
+  // ele não irá buscar todos os resumos. Mas como o tipo_substancia agora precisa ser conhecido, precisamos
+  // de uma forma de saber se é PURA ou MISTURA e o estado fisico.
+  // Como o idResumoReagente é fornecido, na verdade o parent tem esses dados. 
+  // Na props de ModalProps já não passa tipoSubstancia, mas podemos buscar O ResumoEspecifico.
+  // Vou fazer um fetch do resumo especifico se houver idResumoReagente mas ele não estiver em "resumos".
+  
+  const isMistura = selectedResumoData?.tipo_substancia === "MISTURA";
+  const estadoFisico = selectedResumoData?.estado_fisico || "SOLIDO";
+  const unidadeDeMedida = (estadoFisico === "LIQUIDO" || estadoFisico === "GASOSO") ? "ml" : "g";
 
   const handleAddComposicao = () => {
     setComposicoes([...composicoes, { idSubstanciaQuimica: "", valorComposicao: "", tipoConcentracao: "M_M", unidade: "" }]);
@@ -264,6 +385,8 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSu
     setLoading(true);
     setErrorMsg("");
     try {
+      if (!selectedResumoId) throw new Error("Selecione um Resumo de Reagente.");
+      
       const cadastrarEspecificacao = httpsCallable(functions, 'cadastrarEspecificacao');
       const compData = isMistura ? composicoes.map(c => ({
         ...c,
@@ -271,15 +394,14 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSu
       })) : undefined;
 
       await cadastrarEspecificacao({
-        idResumoReagente,
+        idResumoReagente: selectedResumoId,
         descricao,
         fabricante,
-        estadoFisico,
-        unidadeDeMedida,
         densidade: estadoFisico === "LIQUIDO" ? Number(densidade) : undefined,
         classeInflamabilidade,
         ehControladoPf,
         ehControladoEb,
+        idSubstanciaQuimica: !isMistura ? idSubstanciaPura : undefined,
         composicao: compData
       });
       if (onSuccess) onSuccess();
@@ -294,8 +416,22 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSu
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
       <div className="glass-panel w-full max-w-2xl p-6 rounded-2xl shadow-xl my-8">
-        <h2 className="text-xl font-bold mb-4">Nova Especificação</h2>
+        <h2 className="text-xl font-bold mb-4">Nova Especificação Comercial</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
+          
+          {!idResumoReagente && (
+            <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl mb-4">
+              <label className="block text-sm font-bold mb-1 text-primary">Selecione o Resumo de Reagente</label>
+              <select required value={selectedResumoId} onChange={(e) => setSelectedResumoId(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-background border border-primary/20 focus:ring-2 focus:ring-primary outline-none">
+                <option value="">(Selecione o Reagente)</option>
+                {resumos.map(r => (
+                  <option key={r.id} value={r.id}>{r.nome} ({r.estado_fisico}) - {r.tipo_substancia}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Descrição Comercial</label>
@@ -311,24 +447,18 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSu
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Estado Físico</label>
-              <select value={estadoFisico} onChange={(e) => setEstadoFisico(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none">
-                <option value="SOLIDO">Sólido</option>
-                <option value="LIQUIDO">Líquido</option>
-              </select>
+              <label className="block text-sm font-medium mb-1 text-foreground/50">Estado Físico (Herdado)</label>
+              <input type="text" disabled value={selectedResumoId ? estadoFisico : ""}
+                className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 outline-none opacity-50 font-bold" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Unidade</label>
-              <select value={unidadeDeMedida} onChange={(e) => setUnidadeDeMedida(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none">
-                <option value="g">g</option>
-                <option value="ml">ml</option>
-              </select>
+              <label className="block text-sm font-medium mb-1 text-foreground/50">Unidade (Herdada)</label>
+              <input type="text" disabled value={selectedResumoId ? unidadeDeMedida : ""}
+                className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 outline-none opacity-50 font-bold" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Densidade (g/ml)</label>
-              <input type="number" step="0.0001" required={estadoFisico === "LIQUIDO"} disabled={estadoFisico === "SOLIDO"} value={densidade} onChange={(e) => setDensidade(e.target.value)}
+              <input type="number" step="0.0001" required={estadoFisico === "LIQUIDO"} disabled={estadoFisico !== "LIQUIDO" || !selectedResumoId} value={densidade} onChange={(e) => setDensidade(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none disabled:opacity-50" />
             </div>
           </div>
@@ -358,30 +488,50 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSu
             </div>
           </div>
 
-          {isMistura && (
+          {selectedResumoId && (
             <div className="mt-4 p-4 border border-foreground/10 rounded-xl bg-foreground/5">
-              <h3 className="font-bold mb-2">Composição (Obrigatório para Mistura)</h3>
-              {composicoes.map((comp, idx) => (
-                <div key={idx} className="grid grid-cols-4 gap-2 mb-2">
-                  <input type="text" placeholder="Substância (ex: ID123)" value={comp.idSubstanciaQuimica} onChange={(e) => handleComposicaoChange(idx, "idSubstanciaQuimica", e.target.value)} className="px-2 py-1 text-sm rounded bg-background border border-foreground/10" required />
-                  <input type="number" step="0.01" placeholder="Valor" value={comp.valorComposicao} onChange={(e) => handleComposicaoChange(idx, "valorComposicao", e.target.value)} className="px-2 py-1 text-sm rounded bg-background border border-foreground/10" required />
-                  <select value={comp.tipoConcentracao} onChange={(e) => handleComposicaoChange(idx, "tipoConcentracao", e.target.value)} className="px-2 py-1 text-sm rounded bg-background border border-foreground/10">
-                    <option value="M_M">% m/m</option>
-                    <option value="V_V">% v/v</option>
-                    <option value="M_V">% m/v</option>
-                    <option value="MOL_L">mol/L</option>
+              <h3 className="font-bold mb-2 text-primary">{isMistura ? "Composição (Mistura)" : "Substância Química Base (Pura)"}</h3>
+              
+              {!isMistura ? (
+                <div>
+                  <select required value={idSubstanciaPura} onChange={(e) => setIdSubstanciaPura(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-background border border-foreground/10 focus:ring-2 focus:ring-primary outline-none text-sm">
+                    <option value="">(Selecione a Substância Base)</option>
+                    {substancias.map(s => (
+                      <option key={s.id} value={s.id}>{s.nome} {s.cas_number ? `(CAS: ${s.cas_number})` : ''}</option>
+                    ))}
                   </select>
-                  <input type="text" placeholder="Unidade (Opc)" value={comp.unidade} onChange={(e) => handleComposicaoChange(idx, "unidade", e.target.value)} className="px-2 py-1 text-sm rounded bg-background border border-foreground/10" />
                 </div>
-              ))}
-              <button type="button" onClick={handleAddComposicao} className="text-sm text-primary hover:underline">+ Adicionar Substância</button>
+              ) : (
+                <div>
+                  {composicoes.map((comp, idx) => (
+                    <div key={idx} className="grid grid-cols-4 gap-2 mb-2">
+                      <select required value={comp.idSubstanciaQuimica} onChange={(e) => handleComposicaoChange(idx, "idSubstanciaQuimica", e.target.value)} 
+                        className="px-2 py-1 text-xs rounded bg-background border border-foreground/10 w-full col-span-2">
+                        <option value="">(Selecione a Substância)</option>
+                        {substancias.map(s => (
+                          <option key={s.id} value={s.id}>{s.nome}</option>
+                        ))}
+                      </select>
+                      <input type="number" step="0.01" placeholder="Valor" value={comp.valorComposicao} onChange={(e) => handleComposicaoChange(idx, "valorComposicao", e.target.value)} className="px-2 py-1 text-xs rounded bg-background border border-foreground/10" required />
+                      <select value={comp.tipoConcentracao} onChange={(e) => handleComposicaoChange(idx, "tipoConcentracao", e.target.value)} className="px-2 py-1 text-xs rounded bg-background border border-foreground/10">
+                        <option value="M_M">% m/m</option>
+                        <option value="V_V">% v/v</option>
+                        <option value="M_V">% m/v</option>
+                        <option value="MOL_L">mol/L</option>
+                      </select>
+                    </div>
+                  ))}
+                  <button type="button" onClick={handleAddComposicao} className="text-xs text-primary hover:underline font-bold">+ Adicionar Substância na Mistura</button>
+                </div>
+              )}
             </div>
           )}
 
           {errorMsg && <div className="text-red-500 text-sm bg-red-500/10 p-2 rounded">{errorMsg}</div>}
           <div className="flex justify-end gap-3 mt-6">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg hover:bg-foreground/5 transition-colors">Cancelar</button>
-            <button type="submit" disabled={loading} className="px-4 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 disabled:opacity-50">
+            <button type="submit" disabled={loading || !selectedResumoId} className="px-4 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 disabled:opacity-50">
               {loading ? "Salvando..." : "Salvar Especificação"}
             </button>
           </div>

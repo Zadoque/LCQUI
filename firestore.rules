@@ -144,6 +144,11 @@ service cloud.firestore {
       allow write: if false; // Cloud Functions
     }
 
+    match /Resumo_Reagente/{resumoId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
     match /Almoxarifado/{almId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
