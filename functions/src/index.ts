@@ -10,3 +10,5 @@ export * from "./turmas";
 export * from "./materias";
 export * from "./posts";
 export * from "./usuarios";
+export * from "./notificacoes";
+export * from "./roteiros";

@@ -6,6 +6,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { validarPermissao } from "./auth";
 import { validatePayload } from "./utils/validation";
 import { CriarRequisicaoEdicaoBemSchema, ResponderRequisicaoBemSchema, CriarRequisicaoAdicaoBemSchema } from "./schemas/patrimonio.schema";
+import { adicionarNotificacaoTx } from "./notificacoes";
 
 export const criarRequisicaoEdicaoBem = onCall(async (request) => {
   validarPermissao(request, ["Professor"]);
@@ -20,6 +21,9 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
     if (lockSnap.exists) {
       throw new HttpsError("failed-precondition", "Já existe uma requisição de edição pendente para este bem.");
     }
+
+    const gestoresSnap = await tx.get(admin.firestore().collection("Gestor_Bens_Patrimoniais"));
+    
     tx.set(lockRef, { criado_em: FieldValue.serverTimestamp() });
     tx.set(reqRef, {
       id_bem_patrimonial: dados.idBemPatrimonial,
@@ -32,6 +36,18 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
       feita_em: FieldValue.serverTimestamp(),
       id_usuario_solicitante: request.auth!.uid,
     });
+
+    gestoresSnap.docs.forEach(gestor => {
+      adicionarNotificacaoTx(tx, admin.firestore(), {
+        id_destinatario: gestor.id,
+        papel_destinatario: "Gestor_Bens_Patrimoniais",
+        tipo: "REQUISICAO_EDICAO_BEM",
+        id_quem_fez_acao: request.auth!.uid,
+        entidade_alvo: "Bem_Patrimonial",
+        id_alvo: dados.idBemPatrimonial,
+      });
+    });
+
     return { idRequisicao: reqRef.id };
   });
 });
@@ -58,6 +74,16 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
       respondida_em: FieldValue.serverTimestamp(),
       id_usuario_respondente: request.auth!.uid,
       justificativa_resposta: justificativa,
+    });
+
+    adicionarNotificacaoTx(tx, admin.firestore(), {
+      id_destinatario: req.id_usuario_solicitante,
+      papel_destinatario: "Professor",
+      tipo: aprovar ? "REQUISICAO_APROVADA" : "REQUISICAO_REJEITADA",
+      id_quem_fez_acao: request.auth!.uid,
+      entidade_alvo: "Requisicao_Edicao_Bem_Patrimonial",
+      id_alvo: idRequisicao,
+      mensagem_customizada: justificativa,
     });
 
     if (aprovar) {
@@ -101,6 +127,8 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
     if (lockSnap.exists) {
       throw new HttpsError("failed-precondition", "Já existe requisição pendente para este número de patrimônio.");
     }
+    const gestoresSnap = await tx.get(admin.firestore().collection("Gestor_Bens_Patrimoniais"));
+
     tx.set(lockRef, { criado_em: FieldValue.serverTimestamp() });
     tx.set(reqRef, {
       numero_patrimonio_proposto: dados.numeroPatrimonioProposto,
@@ -118,6 +146,18 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
       respondida_em: null,
       id_usuario_respondente: null,
     });
+
+    gestoresSnap.docs.forEach(gestor => {
+      adicionarNotificacaoTx(tx, admin.firestore(), {
+        id_destinatario: gestor.id,
+        papel_destinatario: "Gestor_Bens_Patrimoniais",
+        tipo: "REQUISICAO_ADICAO_BEM",
+        id_quem_fez_acao: request.auth!.uid,
+        entidade_alvo: "Requisicao_Adicao_Bem_Patrimonial",
+        id_alvo: reqRef.id,
+      });
+    });
+
     return { idRequisicao: reqRef.id };
   });
 });
@@ -203,6 +243,16 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
         justificativa_resposta: justificativa,
       });
     }
+
+    adicionarNotificacaoTx(tx, admin.firestore(), {
+      id_destinatario: req.id_usuario_solicitante,
+      papel_destinatario: "Professor",
+      tipo: aprovar ? "REQUISICAO_APROVADA" : "REQUISICAO_REJEITADA",
+      id_quem_fez_acao: request.auth!.uid,
+      entidade_alvo: "Requisicao_Adicao_Bem_Patrimonial",
+      id_alvo: idRequisicao,
+      mensagem_customizada: justificativa,
+    });
 
     return { status: aprovar ? "aprovada" : "rejeitada", idBemCriado };
   });
