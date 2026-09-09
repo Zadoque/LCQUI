@@ -44,6 +44,32 @@ service cloud.firestore {
       }
     }
 
+    // --- Coleções de Papéis (Identidade) ---
+    match /Professor/{uid} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Gerenciado via Cloud Function
+    }
+    match /Aluno/{uid} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Gerenciado via Cloud Function
+    }
+    match /Chefe_Geral/{uid} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Gerenciado via Cloud Function
+    }
+    match /Gestor_Almoxarifado/{uid} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Gerenciado via Cloud Function
+    }
+    match /Gestor_Bens_Patrimoniais/{uid} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Gerenciado via Cloud Function
+    }
+    match /Bolsista/{uid} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Gerenciado via Cloud Function
+    }
+
     // --- Turmas e Materias ---
     match /Materia/{materiaId} {
       allow read: if isAuthenticated();
@@ -111,6 +137,11 @@ service cloud.firestore {
 
     // --- Reagentes / Almoxarifado ---
     match /Almoxarifado/{almId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /Gestor_Almoxarifado_x_Almoxarifado/{junctionId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }

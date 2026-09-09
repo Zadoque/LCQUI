@@ -30,6 +30,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     // onIdTokenChanged é o gatilho perfeito: aciona no login, logout e quando o token expira/renova
+    const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
       if (currentUser) {
         try {
           // Sempre busca o JWT em memória e extrai os custom claims. 
