@@ -26,23 +26,23 @@ exports.CadastroResumoReagenteSchema = zod_1.z.object({
 });
 exports.ComposicaoSchema = zod_1.z.object({
     idSubstanciaQuimica: zod_1.z.string().min(1, "Substância é obrigatória."),
-    valorComposicao: zod_1.z.number().optional(),
-    tipoConcentracao: zod_1.z.enum(["M_M", "V_V", "M_V", "MOL_L", "MOL_KG", "PPM", "PPB"]).optional(),
-    unidade: zod_1.z.string().optional(),
+    valorComposicao: zod_1.z.number().nullish(),
+    tipoConcentracao: zod_1.z.enum(["M_M", "V_V", "M_V", "MOL_L", "MOL_KG", "PPM", "PPB"]).nullish(),
+    unidade: zod_1.z.string().nullish(),
 });
 exports.CadastroEspecificacaoSchema = zod_1.z.object({
     idResumoReagente: zod_1.z.string().min(1, "O ID do resumo é obrigatório."),
     descricao: zod_1.z.string().min(1, "Descrição é obrigatória."),
-    fabricante: zod_1.z.string().optional(),
-    codigoProdutoFabricante: zod_1.z.string().optional(),
-    grauPureza: zod_1.z.string().optional(),
-    densidade: zod_1.z.number().positive().optional(),
+    fabricante: zod_1.z.string().nullish(),
+    codigoProdutoFabricante: zod_1.z.string().nullish(),
+    grauPureza: zod_1.z.string().nullish(),
+    densidade: zod_1.z.number().positive().nullish(),
     classeInflamabilidade: zod_1.z.enum(["NAO_INFLAMAVEL", "CLASSE_1", "CLASSE_2", "CLASSE_3"]),
     ehControladoPf: zod_1.z.boolean(),
     ehControladoEb: zod_1.z.boolean(),
-    linkFdsFispq: zod_1.z.string().optional(),
-    idSubstanciaQuimica: zod_1.z.string().optional(), // Para substâncias PURAS
-    composicao: zod_1.z.array(exports.ComposicaoSchema).optional(), // Para MISTURAS
+    linkFdsFispq: zod_1.z.string().nullish(),
+    idSubstanciaQuimica: zod_1.z.string().nullish(), // Para substâncias PURAS
+    composicao: zod_1.z.array(exports.ComposicaoSchema).nullish(), // Para MISTURAS
 });
 exports.CadastroLoteSchema = zod_1.z.object({
     idResumoReagente: zod_1.z.string().min(1, "O ID do resumo é obrigatório."),

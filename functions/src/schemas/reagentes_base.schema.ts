@@ -25,24 +25,24 @@ export const CadastroResumoReagenteSchema = z.object({
 
 export const ComposicaoSchema = z.object({
   idSubstanciaQuimica: z.string().min(1, "Substância é obrigatória."),
-  valorComposicao: z.number().optional(),
-  tipoConcentracao: z.enum(["M_M", "V_V", "M_V", "MOL_L", "MOL_KG", "PPM", "PPB"]).optional(),
-  unidade: z.string().optional(),
+  valorComposicao: z.number().nullish(),
+  tipoConcentracao: z.enum(["M_M", "V_V", "M_V", "MOL_L", "MOL_KG", "PPM", "PPB"]).nullish(),
+  unidade: z.string().nullish(),
 });
 
 export const CadastroEspecificacaoSchema = z.object({
   idResumoReagente: z.string().min(1, "O ID do resumo é obrigatório."),
   descricao: z.string().min(1, "Descrição é obrigatória."),
-  fabricante: z.string().optional(),
-  codigoProdutoFabricante: z.string().optional(),
-  grauPureza: z.string().optional(),
-  densidade: z.number().positive().optional(),
+  fabricante: z.string().nullish(),
+  codigoProdutoFabricante: z.string().nullish(),
+  grauPureza: z.string().nullish(),
+  densidade: z.number().positive().nullish(),
   classeInflamabilidade: z.enum(["NAO_INFLAMAVEL", "CLASSE_1", "CLASSE_2", "CLASSE_3"]),
   ehControladoPf: z.boolean(),
   ehControladoEb: z.boolean(),
-  linkFdsFispq: z.string().optional(),
-  idSubstanciaQuimica: z.string().optional(), // Para substâncias PURAS
-  composicao: z.array(ComposicaoSchema).optional(), // Para MISTURAS
+  linkFdsFispq: z.string().nullish(),
+  idSubstanciaQuimica: z.string().nullish(), // Para substâncias PURAS
+  composicao: z.array(ComposicaoSchema).nullish(), // Para MISTURAS
 });
 
 export const CadastroLoteSchema = z.object({
