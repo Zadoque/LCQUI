@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { httpsCallable } from "firebase/functions";
-import { collection, getDocs, query, limit } from "firebase/firestore";
+import { collection, getDocs, query, limit, where } from "firebase/firestore";
 import { functions, db } from "@/lib/firebase/config";
 
 interface ModalProps {
@@ -333,21 +333,39 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSu
   const [idSubstanciaPura, setIdSubstanciaPura] = useState("");
   const [composicoes, setComposicoes] = useState([{ idSubstanciaQuimica: "", valorComposicao: "", tipoConcentracao: "M_M", unidade: "" }]);
   
+  const [filtroEstado, setFiltroEstado] = useState("");
+  const [filtroNatureza, setFiltroNatureza] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState("");
+  const [loadingBusca, setLoadingBusca] = useState(false);
+  
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
+  const handleBuscarResumos = async () => {
+    setLoadingBusca(true);
+    try {
+      let q = query(collection(db, "Resumo_Reagente"), limit(50));
+      if (filtroEstado) q = query(q, where("estado_fisico", "==", filtroEstado));
+      if (filtroNatureza) q = query(q, where("natureza_quimica", "==", filtroNatureza));
+      if (filtroTipo) q = query(q, where("tipo_substancia", "==", filtroTipo));
+      
+      const snap = await getDocs(q);
+      setResumos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingBusca(false);
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
-      if (!idResumoReagente) {
-        getDocs(query(collection(db, "Resumo_Reagente"), limit(200))).then(snap => {
-          setResumos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        });
-      }
+      // Carrega apenas as substâncias base. Resumos são carregados sob demanda ou via id prop.
       getDocs(query(collection(db, "Substancia_Quimica"), limit(200))).then(snap => {
         setSubstancias(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       });
     }
-  }, [isOpen, idResumoReagente]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && idResumoReagente) {
@@ -420,11 +438,36 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSu
         <form onSubmit={handleSubmit} className="space-y-4">
           
           {!idResumoReagente && (
-            <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl mb-4">
-              <label className="block text-sm font-bold mb-1 text-primary">Selecione o Resumo de Reagente</label>
+            <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl mb-4 space-y-3">
+              <label className="block text-sm font-bold text-primary">Buscar Resumo de Reagente (Catálogo)</label>
+              
+              <div className="flex gap-2">
+                <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="w-1/3 px-2 py-1.5 text-sm rounded bg-background border border-primary/20 outline-none">
+                  <option value="">Qualquer Estado Físico</option>
+                  <option value="SOLIDO">Sólido</option>
+                  <option value="LIQUIDO">Líquido</option>
+                  <option value="GASOSO">Gasoso</option>
+                </select>
+                <select value={filtroNatureza} onChange={(e) => setFiltroNatureza(e.target.value)} className="w-1/3 px-2 py-1.5 text-sm rounded bg-background border border-primary/20 outline-none">
+                  <option value="">Qualquer Natureza</option>
+                  <option value="ORGANICO">Orgânico</option>
+                  <option value="INORGANICO">Inorgânico</option>
+                  <option value="ELEMENTO">Elemento</option>
+                  <option value="HIBRIDO">Híbrido</option>
+                </select>
+                <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} className="w-1/3 px-2 py-1.5 text-sm rounded bg-background border border-primary/20 outline-none">
+                  <option value="">Qualquer Tipo</option>
+                  <option value="PURA">Pura</option>
+                  <option value="MISTURA">Mistura</option>
+                </select>
+                <button type="button" onClick={handleBuscarResumos} disabled={loadingBusca} className="px-3 py-1.5 bg-primary text-white text-sm font-medium rounded hover:bg-primary/90 disabled:opacity-50">
+                  {loadingBusca ? "Buscando..." : "Buscar"}
+                </button>
+              </div>
+
               <select required value={selectedResumoId} onChange={(e) => setSelectedResumoId(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-background border border-primary/20 focus:ring-2 focus:ring-primary outline-none">
-                <option value="">(Selecione o Reagente)</option>
+                className="w-full px-3 py-2 rounded-lg bg-background border border-primary/20 focus:ring-2 focus:ring-primary outline-none mt-2">
+                <option value="">{resumos.length === 0 ? "(Realize uma busca acima primeiro)" : "(Selecione o Reagente)"}</option>
                 {resumos.map(r => (
                   <option key={r.id} value={r.id}>{r.nome} ({r.estado_fisico}) - {r.tipo_substancia}</option>
                 ))}
