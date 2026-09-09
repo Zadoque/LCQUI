@@ -20,26 +20,26 @@ Esta matriz rastreia a implementação completa de todos os Requisitos Funcionai
 | **RF03** | Recuperação de senha | `/forgot-password` | `RecoverPassword` | Auth | — | N/A | Pendente | Pendente | Pendente | PARCIAL |
 | **RF04** | Multi-role | Dashboard | `RoleSelector` | `setCustomClaims` | `Usuarios` | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | VALIDADO |
 | **RF05** | Alternância de papel | Header | `RoleSwitcher` | `switchRole` | `Usuarios` | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | VALIDADO |
-| **RF06** | Cadastro/manutenção patrimonial | `/patrimonio` | `PatrimonioForm` | — | `Patrimonio` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RF07** | Histórico patrimonial auditável | `/patrimonio/:id` | `HistoricoPatrimonio` | `logAudit` | `Auditoria` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RF08** | Requisição de adição | `/patrimonio/novo` | `RequisicaoForm` | — | `Requisicoes` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RF09** | Requisição de edição | `/patrimonio/editar` | `RequisicaoForm` | — | `Requisicoes` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RF10** | Apenas 1 edição pendente/bem | — | — | `validarEdicao` | `Requisicoes` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RF11** | Aprovar/rejeitar requisições | `/requisicoes` | `ApproveReject` | `processarRequisicao`| `Requisicoes` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RF12** | Baixa patrimonial | `/patrimonio/baixa` | `BaixaForm` | — | `Patrimonio` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RF13** | Cadastro de almoxarifados | `/almoxarifados` | `AlmoxarifadoForm` | — | `Almoxarifados` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RF14** | Cálculo peso/volume/densidade | — | — | `calcularConsumo` | `Frascos` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RF15** | Empréstimo/devolução/descarte | `/estoque` | `MovimentacaoForm` | `movimentarFrasco` | `Frascos` / `Auditoria`| IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
+| **RF06** | Cadastro/manutenção patrimonial | `/patrimonio` | `PatrimonioForm` | — | `Patrimonio` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
+| **RF07** | Histórico patrimonial auditável | `/patrimonio/:id` | `HistoricoPatrimonio` | `logAudit` | `Auditoria` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
+| **RF08** | Requisição de adição | `/patrimonio/novo` | `RequisicaoForm` | — | `Requisicoes` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
+| **RF09** | Requisição de edição | `/patrimonio/editar` | `RequisicaoForm` | — | `Requisicoes` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
+| **RF10** | Apenas 1 edição pendente/bem | — | — | `validarEdicao` | `Requisicoes` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
+| **RF11** | Aprovar/rejeitar requisições | `/requisicoes` | `ApproveReject` | `processarRequisicao`| `Requisicoes` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
+| **RF12** | Baixa patrimonial | `/patrimonio/baixa` | `BaixaForm` | — | `Patrimonio` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
+| **RF13** | Cadastro de almoxarifados | `/almoxarifados` | `AlmoxarifadoForm` | — | `Almoxarifados` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
+| **RF14** | Cálculo peso/volume/densidade | — | — | `calcularConsumo` | `Frascos` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
+| **RF15** | Empréstimo/devolução/descarte | `/estoque` | `MovimentacaoForm` | `movimentarFrasco` | `Frascos` / `Auditoria`| IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
 | **RF16** | Consulta e filtros | Todas | `SearchBar` / `Filters`| — | Várias | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
 | **RF17** | Criação de turma/capacidade | `/turmas/nova` | `TurmaForm` | `criarTurma` | `Turmas` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
 | **RF18** | Entrada por código/e-mail | `/turmas/entrar` | `JoinTurma` | `entrarTurma` | `Turmas` / `Usuarios` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
-| **RF19** | Posts pelo professor | `/turmas/:id` | `PostForm` | — | `Posts` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RF20** | Comentários | `/turmas/:id` | `CommentSection` | — | `Comentarios` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RF21** | Upload roteiro PDF | `/roteiros` | `UploadRoteiro` | — | `Roteiros` / Storage | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RF22** | Compartilhamento de roteiro | `/roteiros` | `ShareModal` | — | `Roteiros` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RF23** | Associar roteiro a post/turma | `/turmas/:id` | `SelectRoteiro` | — | `Posts` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RF24** | Relatórios mensais/período | `/relatorios` | `RelatorioView` | `gerarRelatorio` | Várias | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RF25** | Histórico sem apagar fatos | — | — | — | `Auditoria` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
+| **RF19** | Posts pelo professor | `/turmas/:id` | `PostForm` | — | `Posts` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
+| **RF20** | Comentários | `/turmas/:id` | `CommentSection` | — | `Comentarios` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
+| **RF21** | Upload roteiro PDF | `/roteiros` | `UploadRoteiro` | — | `Roteiros` / Storage | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
+| **RF22** | Compartilhamento de roteiro | `/roteiros` | `ShareModal` | — | `Roteiros` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
+| **RF23** | Associar roteiro a post/turma | `/turmas/:id` | `SelectRoteiro` | — | `Posts` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
+| **RF24** | Relatórios mensais/período | `/relatorios` | `RelatorioView` | `gerarRelatorio` | Várias | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
+| **RF25** | Histórico sem apagar fatos | — | — | — | `Auditoria` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
 
 ---
 
@@ -50,8 +50,8 @@ Esta matriz rastreia a implementação completa de todos os Requisitos Funcionai
 | **RN01** | Chefe Geral não pode possuir outro papel | — | — | `convidarUsuario` / `revogar` | `Usuarios` | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | VALIDADO |
 | **RN02** | Aluno não pode ser Professor | — | — | `convidarUsuario` / `revogar` | `Usuarios` | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | VALIDADO |
 | **RN03** | Bolsista não acumula Gestor Almoxarifado | — | — | `convidarUsuario` / `revogar` | `Usuarios` | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | IMPLEMENTADO | VALIDADO |
-| **RN04** | Densidade/peso/volume regras de sinal | — | — | `validarFrasco` | `Frascos` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
-| **RN05** | Frasco em quarentena exige detalhe | — | — | `atualizarFrasco` | `Frascos` | IMPLEMENTADO | Pendente | Pendente | Pendente | PARCIAL |
+| **RN04** | Densidade/peso/volume regras de sinal | — | — | `validarFrasco` | `Frascos` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
+| **RN05** | Frasco em quarentena exige detalhe | — | — | `atualizarFrasco` | `Frascos` | IMPLEMENTADO | IMPLEMENTADO | Pendente | Pendente | PARCIAL |
 | **RN06** | Preservar erros internos (invalid-argument, etc) | — | — | Todas | — | — | Pendente | Pendente | Pendente | PARCIAL |
 
 *(Adicionar demais regras conforme aprofundamento)*

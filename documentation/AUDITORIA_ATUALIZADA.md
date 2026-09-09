@@ -628,7 +628,7 @@ Depois transformar cada regra em teste.
 
 ---
 
-# FASE 5 — Turmas
+# FASE 5 — Turmas (✅ CONCLUÍDA)
 
 ## Passo 5.1
 
@@ -664,7 +664,7 @@ Garantir que Professor e Aluno consultem a estrutura definitiva.
 
 ---
 
-# FASE 6 — Reagentes
+# FASE 6 — Reagentes (✅ CONCLUÍDA)
 
 Implementar e validar:
 
@@ -704,7 +704,7 @@ E também todas as fórmulas de massa, volume e consumo.
 
 ---
 
-# FASE 7 — Patrimônio
+# FASE 7 — Patrimônio (✅ CONCLUÍDA)
 
 Fechar:
 
@@ -741,7 +741,7 @@ responsável
 
 ---
 
-# FASE 8 — Notificações
+# FASE 8 — Notificações (✅ CONCLUÍDA)
 
 Implementar definitivamente o scheduler:
 
@@ -766,7 +766,7 @@ Testar com datas controladas.
 
 ---
 
-# FASE 9 — Roteiros
+# FASE 9 — Roteiros (✅ CONCLUÍDA)
 
 Completar:
 
