@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { FieldValue } from "firebase-admin/firestore";
 import * as admin from "firebase-admin";
-import { validarPermissao, atualizarCustomClaims } from "./auth";
+import { validarPermissao, atualizarCustomClaims, validarMatrizPapeis } from "./auth";
 import { validatePayload } from "./utils/validation";
 import { ConvidarUsuarioSchema } from "./schemas/usuarios.schema";
 
@@ -27,6 +27,23 @@ export const convidarUsuario = onCall(async (request) => {
   }
 
   const uid = userRecord.uid;
+
+  // Validação Prévia da Matriz de Multi-Role
+  const colecoes = [
+    "Chefe_Geral",
+    "Gestor_Almoxarifado",
+    "Gestor_Bens_Patrimoniais",
+    "Professor",
+    "Aluno",
+    "Bolsista"
+  ];
+  const leiturasAtuais = await Promise.all(
+    colecoes.map((c) => db.collection(c).doc(uid).get())
+  );
+  const rolesAtuais = colecoes.filter((_, i) => leiturasAtuais[i].exists);
+  const novasRoles = Array.from(new Set([...rolesAtuais, papel]));
+
+  validarMatrizPapeis(novasRoles);
 
   // Add user to the corresponding collection
   const dataToSave: any = {

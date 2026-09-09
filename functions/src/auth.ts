@@ -78,16 +78,23 @@ export async function atualizarCustomClaims(uid: string): Promise<void> {
 
   const roles = colecoes.filter((_, i) => leituras[i].exists);
 
-  // Validação da Matriz de Multi-Role
+  validarMatrizPapeis(roles);
+
+  await admin.auth().setCustomUserClaims(uid, { roles });
+}
+
+/**
+ * Valida a compatibilidade de múltiplos papéis (Multi-Role) para um usuário.
+ * Lança um HttpsError (failed-precondition) se a combinação de papéis for inválida.
+ */
+export function validarMatrizPapeis(roles: string[]): void {
   if (roles.includes("Chefe_Geral") && roles.length > 1) {
     throw new HttpsError("failed-precondition", "Chefe Geral não pode possuir nenhum outro papel.");
   }
   if (roles.includes("Aluno") && roles.includes("Professor")) {
     throw new HttpsError("failed-precondition", "O usuário que é aluno não pode ser professor.");
   }
-  if (roles.includes("Aluno") && roles.includes("Bolsista") && roles.includes("Gestor_Almoxarifado")) {
-    throw new HttpsError("failed-precondition", "O usuário Aluno que também é Bolsista não pode ser Gestor de Almoxarifado.");
+  if (roles.includes("Bolsista") && roles.includes("Gestor_Almoxarifado")) {
+    throw new HttpsError("failed-precondition", "O usuário Bolsista não pode ser Gestor de Almoxarifado.");
   }
-
-  await admin.auth().setCustomUserClaims(uid, { roles });
 }
