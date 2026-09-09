@@ -21,15 +21,18 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
       if (!user) {
         // Usuário anônimo => Redireciona para login
         router.replace("/login");
+      } else if (roles.length === 0 && ativo === false) {
+        // Usuário autenticado mas sem papéis e explicitamente inativo
+        router.replace("/desativado");
       } else if (allowedRoles && allowedRoles.length > 0) {
-        // Tem usuário, mas precisamos validar o papel exigido.
+        // Tem usuário e está ativo, mas precisamos validar o papel exigido.
         const hasPermission = roles.some((role) => allowedRoles.includes(role));
         if (!hasPermission) {
           router.replace("/nao-autorizado");
         }
       }
     }
-  }, [isLoading, user, roles, allowedRoles, router]);
+  }, [isLoading, user, roles, ativo, allowedRoles, router]);
 
   // Bloqueio Anti-Flash: 
   // Enquanto estiver carregando, OBRIGATORIAMENTE renderizamos Skeleton/Spinner.

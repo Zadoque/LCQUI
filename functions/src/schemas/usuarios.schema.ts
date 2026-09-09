@@ -17,3 +17,9 @@ export const ConvidarUsuarioSchema = z.object({
   laboratorio: z.string().optional(),
   materias: z.array(z.string()).optional()
 });
+
+export const RevogarUsuarioPapelSchema = z.object({
+  email: z.string().email("O e-mail fornecido não é válido."),
+  papel: PapeisUsuariosSchema,
+  motivo: z.string().optional()
+});
