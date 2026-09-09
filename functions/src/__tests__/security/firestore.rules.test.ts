@@ -112,39 +112,17 @@ describe("Firestore Security Rules", () => {
     });
 
     describe("Posts e Comentários", () => {
-      it("apenas o professor da turma pode criar um post", async () => {
-        await testEnv.withSecurityRulesDisabled(async (context) => {
-          const dbAdmin = context.firestore();
-          await dbAdmin.collection("Turma").doc("turmaProf1").set({ id_professor: "prof1" });
-        });
-
+      it("nenhum usuário pode criar post diretamente via client (apenas via Cloud Function)", async () => {
         const dbProf1 = authedDb("prof1", ["Professor"]);
-        const dbProf2 = authedDb("prof2", ["Professor"]);
-
-        // Prof 1 cria post na sua turma
-        await assertSucceeds(dbProf1.collection("Turma").doc("turmaProf1").collection("Posts").add({ titulo: "Aula 1", id_autor: "prof1" }));
-        
-        // Prof 2 cria post na turma do Prof 1
-        await assertFails(dbProf2.collection("Turma").doc("turmaProf1").collection("Posts").add({ titulo: "Hacked", id_autor: "prof2" }));
+        // Prof 1 tenta criar post na sua turma via client (deve falhar)
+        await assertFails(dbProf1.collection("Turma").doc("turmaProf1").collection("Posts").add({ titulo: "Aula 1", id_autor: "prof1" }));
       });
 
-      it("apenas alunos da turma e o professor da turma podem comentar", async () => {
+      it("nenhum usuário pode comentar diretamente via client (apenas via Cloud Function)", async () => {
         const dbAlunoMatriculado = authedDb("aluno1", ["Aluno"]);
-        const dbAlunoNaoMatriculado = authedDb("aluno2", ["Aluno"]);
-
-        // Setup: matricular aluno1 e criar turma e post
-        await testEnv.withSecurityRulesDisabled(async (context) => {
-          const dbAdmin = context.firestore();
-          await dbAdmin.collection("Turma").doc("turmaProf1").set({ id_professor: "prof1" });
-          await dbAdmin.collection("Turma").doc("turmaProf1").collection("Alunos").doc("aluno1").set({ ativo: true });
-          await dbAdmin.collection("Turma").doc("turmaProf1").collection("Posts").doc("post1").set({ titulo: "Aula 1" });
-        });
         
-        // Aluno 1 comenta (deve passar)
-        await assertSucceeds(dbAlunoMatriculado.collection("Turma").doc("turmaProf1").collection("Posts").doc("post1").collection("Comentarios").add({ texto: "Dúvida", id_autor: "aluno1" }));
-        
-        // Aluno 2 comenta (deve falhar)
-        await assertFails(dbAlunoNaoMatriculado.collection("Turma").doc("turmaProf1").collection("Posts").doc("post1").collection("Comentarios").add({ texto: "Hacked", id_autor: "aluno2" }));
+        // Aluno 1 tenta comentar via client (deve falhar)
+        await assertFails(dbAlunoMatriculado.collection("Turma").doc("turmaProf1").collection("Posts").doc("post1").collection("Comentarios").add({ texto: "Dúvida", id_autor: "aluno1" }));
       });
     });
   });

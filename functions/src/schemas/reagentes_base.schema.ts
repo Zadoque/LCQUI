@@ -6,7 +6,7 @@ export const CadastroResumoReagenteSchema = z.object({
   naturezaQuimica: z.enum(["ORGANICO", "INORGANICO", "ELEMENTO", "HIBRIDO"]),
   requerPesagemFrequente: z.boolean(),
   qtdEmQueEConsideradoEscasso: z.number().int().positive("A quantidade de escassez deve ser positiva."),
-  frequenciaPesagemDias: z.number().int().positive().optional(),
+  frequenciaPesagemDias: z.number().int().positive().nullable().optional(),
 }).refine(data => {
   if (data.requerPesagemFrequente && !data.frequenciaPesagemDias) return false;
   return true;

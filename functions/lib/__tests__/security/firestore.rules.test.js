@@ -75,9 +75,16 @@ describe("Firestore Security Rules", () => {
             const db = authedDb("alice");
             await (0, rules_unit_testing_1.assertFails)(db.collection("Usuarios").doc("bob").get());
         });
-        it("deve permitir que o chefe leia qualquer usuário", async () => {
+        it("não deve permitir que o usuário modifique o próprio perfil se não for admin", async () => {
+            const db = authedDb("alice");
+            // A escrita agora requer admin (as atualizações devem ser feitas por Cloud Function)
+            await (0, rules_unit_testing_1.assertFails)(db.collection("Usuarios").doc("alice").update({ roles: ["Chefe_Geral"] }));
+            await (0, rules_unit_testing_1.assertFails)(db.collection("Usuarios").doc("alice").set({ nome: "Alice 2" }));
+        });
+        it("deve permitir que o chefe leia e escreva qualquer usuário", async () => {
             const db = authedDb("boss", ["Chefe_Geral"]);
             await (0, rules_unit_testing_1.assertSucceeds)(db.collection("Usuarios").doc("alice").get());
+            await (0, rules_unit_testing_1.assertSucceeds)(db.collection("Usuarios").doc("alice").set({ nome: "Alice Alterada" }));
         });
     });
     describe("Turmas", () => {
@@ -89,9 +96,40 @@ describe("Firestore Security Rules", () => {
             const db = authedDb("aluno1", ["Aluno"]);
             await (0, rules_unit_testing_1.assertFails)(db.collection("Turma").add({ nome: "Nova Turma" }));
         });
-        it("deve permitir que um professor crie uma turma", async () => {
+        it("não deve permitir que um professor crie uma turma diretamente", async () => {
             const db = authedDb("prof1", ["Professor"]);
-            await (0, rules_unit_testing_1.assertSucceeds)(db.collection("Turma").add({ nome: "Turma do Prof" }));
+            // Criação deve ser via Cloud Function
+            await (0, rules_unit_testing_1.assertFails)(db.collection("Turma").add({ nome: "Turma do Prof", id_professor: "prof1" }));
+        });
+        it("deve permitir que um professor altere apenas sua própria turma", async () => {
+            // Setup da turma burlando as regras (já que a criação normal seria por Cloud Function)
+            await testEnv.withSecurityRulesDisabled(async (context) => {
+                const dbAdmin = context.firestore();
+                await dbAdmin.collection("Turma").doc("turmaProf1").set({ nome: "Turma do Prof 1", id_professor: "prof1" });
+            });
+            const dbProf1 = authedDb("prof1", ["Professor"]);
+            const dbProf2 = authedDb("prof2", ["Professor"]);
+            // Prof 1 atualiza sua própria turma (deve passar)
+            await (0, rules_unit_testing_1.assertSucceeds)(dbProf1.collection("Turma").doc("turmaProf1").update({ nome: "Novo Nome" }));
+            // Prof 2 tenta atualizar a turma do Prof 1 (deve falhar)
+            await (0, rules_unit_testing_1.assertFails)(dbProf2.collection("Turma").doc("turmaProf1").update({ nome: "Hacked" }));
+        });
+        it("não deve permitir que um aluno se inscreva diretamente em uma turma", async () => {
+            const dbAluno = authedDb("aluno1", ["Aluno"]);
+            // A inscrição é gerenciada via Cloud Function
+            await (0, rules_unit_testing_1.assertFails)(dbAluno.collection("Turma").doc("turmaProf1").collection("Alunos").doc("aluno1").set({ matricula: "123" }));
+        });
+        describe("Posts e Comentários", () => {
+            it("nenhum usuário pode criar post diretamente via client (apenas via Cloud Function)", async () => {
+                const dbProf1 = authedDb("prof1", ["Professor"]);
+                // Prof 1 tenta criar post na sua turma via client (deve falhar)
+                await (0, rules_unit_testing_1.assertFails)(dbProf1.collection("Turma").doc("turmaProf1").collection("Posts").add({ titulo: "Aula 1", id_autor: "prof1" }));
+            });
+            it("nenhum usuário pode comentar diretamente via client (apenas via Cloud Function)", async () => {
+                const dbAlunoMatriculado = authedDb("aluno1", ["Aluno"]);
+                // Aluno 1 tenta comentar via client (deve falhar)
+                await (0, rules_unit_testing_1.assertFails)(dbAlunoMatriculado.collection("Turma").doc("turmaProf1").collection("Posts").doc("post1").collection("Comentarios").add({ texto: "Dúvida", id_autor: "aluno1" }));
+            });
         });
     });
     describe("Patrimônio", () => {
@@ -118,11 +156,12 @@ describe("Firestore Security Rules", () => {
             const db = authedDb("aluno1", ["Aluno"]);
             await (0, rules_unit_testing_1.assertSucceeds)(db.collection("Frasco_Reagente").get());
         });
-        it("apenas gestor almoxarifado (ou admin) pode criar frascos", async () => {
+        it("apenas admin pode criar frascos diretamente; gestor deve usar Cloud Function", async () => {
             const dbAluno = authedDb("aluno1", ["Aluno"]);
             await (0, rules_unit_testing_1.assertFails)(dbAluno.collection("Frasco_Reagente").add({ nome: "NaCl" }));
             const dbGestor = authedDb("gestorAlm", ["Gestor_Almoxarifado"]);
-            await (0, rules_unit_testing_1.assertSucceeds)(dbGestor.collection("Frasco_Reagente").add({ nome: "NaCl" }));
+            // Gestor não pode mais criar frasco diretamente via client, apenas Cloud Function
+            await (0, rules_unit_testing_1.assertFails)(dbGestor.collection("Frasco_Reagente").add({ nome: "NaCl" }));
         });
     });
     describe("Auditoria", () => {
@@ -135,6 +174,17 @@ describe("Firestore Security Rules", () => {
             await (0, rules_unit_testing_1.assertFails)(dbProf.collection("Registro_de_Auditoria").get());
             const dbAdmin = authedDb("boss", ["Chefe_Geral"]);
             await (0, rules_unit_testing_1.assertSucceeds)(dbAdmin.collection("Registro_de_Auditoria").get());
+        });
+    });
+    describe("Roteiros de Experimento", () => {
+        it("não deve permitir que um professor altere o roteiro de outro", async () => {
+            const dbProf1 = authedDb("prof1", ["Professor"]);
+            const dbProf2 = authedDb("prof2", ["Professor"]);
+            // Prof 1 cria o roteiro
+            const roteiroRef = dbProf1.collection("Roteiro_Experimento").doc("rot1");
+            await (0, rules_unit_testing_1.assertSucceeds)(roteiroRef.set({ titulo: "Roteiro", id_professor: "prof1" }));
+            // Prof 2 tenta deletar o roteiro do Prof 1
+            await (0, rules_unit_testing_1.assertFails)(dbProf2.collection("Roteiro_Experimento").doc("rot1").delete());
         });
     });
 });

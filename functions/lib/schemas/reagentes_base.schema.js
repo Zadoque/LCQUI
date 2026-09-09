@@ -8,7 +8,7 @@ exports.CadastroResumoReagenteSchema = zod_1.z.object({
     naturezaQuimica: zod_1.z.enum(["ORGANICO", "INORGANICO", "ELEMENTO", "HIBRIDO"]),
     requerPesagemFrequente: zod_1.z.boolean(),
     qtdEmQueEConsideradoEscasso: zod_1.z.number().int().positive("A quantidade de escassez deve ser positiva."),
-    frequenciaPesagemDias: zod_1.z.number().int().positive().optional(),
+    frequenciaPesagemDias: zod_1.z.number().int().positive().nullable().optional(),
 }).refine(data => {
     if (data.requerPesagemFrequente && !data.frequenciaPesagemDias)
         return false;

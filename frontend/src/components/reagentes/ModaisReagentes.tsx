@@ -156,7 +156,7 @@ export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
         tipoSubstancia,
         naturezaQuimica,
         requerPesagemFrequente,
-        frequenciaPesagemDias: requerPesagemFrequente ? Number(frequenciaPesagemDias) : undefined,
+        frequenciaPesagemDias: requerPesagemFrequente && frequenciaPesagemDias ? Number(frequenciaPesagemDias) : undefined,
         qtdEmQueEConsideradoEscasso: Number(qtdEscasso)
       });
       if (onSuccess) onSuccess();

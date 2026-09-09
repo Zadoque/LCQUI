@@ -90,15 +90,13 @@ service cloud.firestore {
 
       match /Posts/{postId} {
         allow read: if isAuthenticated();
-        allow create: if isAdmin() || (hasRole('Professor') && get(/databases/$(database)/documents/Turma/$(turmaId)).data.id_professor == request.auth.uid);
-        allow update, delete: if isAdmin() || (hasRole('Professor') && resource.data.id_autor == request.auth.uid);
+        // A criação, edição e deleção de posts é feita inteiramente via Cloud Functions (posts.ts)
+        allow write: if false;
         
         match /Comentarios/{comentarioId} {
           allow read: if isAuthenticated();
-          allow create: if isAdmin() || 
-            (hasRole('Professor') && get(/databases/$(database)/documents/Turma/$(turmaId)).data.id_professor == request.auth.uid) || 
-            exists(/databases/$(database)/documents/Turma/$(turmaId)/Alunos/$(request.auth.uid));
-          allow update, delete: if isAdmin() || resource.data.id_autor == request.auth.uid;
+          // A criação, edição e deleção de comentários é feita inteiramente via Cloud Functions (posts.ts)
+          allow write: if false;
         }
       }
     }
