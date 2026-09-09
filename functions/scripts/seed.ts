@@ -16,74 +16,95 @@ async function seed() {
 
   // 1. Criar Papéis de Gestão e Administrativos
   const roles = [
-    { uid: "chefe-1", email: "chefe@lcqui.uenf.br", nome: "Chefe Geral", role: "Chefe_Geral" },
-    { uid: "gestor-almox-1", email: "almoxarifado@lcqui.uenf.br", nome: "Gestor Almoxarifado", role: "Gestor_Almoxarifado" },
-    { uid: "gestor-patr-1", email: "patrimonio@lcqui.uenf.br", nome: "Gestor Bens Patrimoniais", role: "Gestor_Bens_Patrimoniais" },
-    { uid: "bolsista-1", email: "bolsista@lcqui.uenf.br", nome: "Bolsista", role: "Bolsista" },
+    { email: "chefe@lcqui.uenf.br", nome: "Chefe Geral", role: "Chefe_Geral" },
+    { email: "almoxarifado@lcqui.uenf.br", nome: "Gestor Almoxarifado", role: "Gestor_Almoxarifado" },
+    { email: "patrimonio@lcqui.uenf.br", nome: "Gestor Bens Patrimoniais", role: "Gestor_Bens_Patrimoniais" },
+    { email: "bolsista@lcqui.uenf.br", nome: "Bolsista", role: "Bolsista" },
   ];
 
   for (const r of roles) {
+    let uid;
     try {
-      await auth.createUser({ uid: r.uid, email: r.email, password: "password123", displayName: r.nome });
-      await auth.setCustomUserClaims(r.uid, { roles: [r.role] });
-      await db.collection("Usuario").doc(r.uid).set({
-        nome: r.nome, email: r.email, papeis: [r.role], data_criacao: new Date()
-      });
-      await db.collection(r.role).doc(r.uid).set({
-        id_usuario: r.uid, 
-        ...(r.role === 'Gestor_Almoxarifado' ? { departamento: "Química" } : {})
-      });
-      console.log(`✅ ${r.role} criado (${r.email})`);
+      const user = await auth.createUser({ email: r.email, password: "password123", displayName: r.nome });
+      uid = user.uid;
+      console.log(`✅ ${r.role} criado (${r.email} / senha: password123)`);
     } catch (e: any) {
-      if (e.code === 'auth/uid-already-exists') console.log(`ℹ️ ${r.role} já existe.`);
-      else console.error(e);
+      if (e.code === 'auth/email-already-exists') {
+        const user = await auth.getUserByEmail(r.email);
+        uid = user.uid;
+        console.log(`ℹ️ ${r.role} já existe (${r.email}).`);
+      } else {
+        console.error(e);
+        continue;
+      }
     }
+
+    await auth.setCustomUserClaims(uid, { roles: [r.role] });
+    await db.collection("Usuarios").doc(uid).set({
+      nome: r.nome, email: r.email, papeis: [r.role], data_criacao: new Date()
+    });
+    await db.collection(r.role).doc(uid).set({
+      id_usuario: uid, 
+      ...(r.role === 'Gestor_Almoxarifado' ? { departamento: "Química" } : {})
+    });
   }
 
   // 2. Criar 3 Professores
   const professores = [];
   for (let i = 1; i <= 3; i++) {
-    const uid = `prof-${i}`;
     const email = `prof${i}@lcqui.uenf.br`;
+    let uid;
     try {
-      await auth.createUser({ uid, email, password: "password123", displayName: `Professor ${i}` });
-      await auth.setCustomUserClaims(uid, { roles: ["Professor"] });
-      await db.collection("Usuario").doc(uid).set({
-        nome: `Professor ${i}`, email, papeis: ["Professor"], data_criacao: new Date()
-      });
-      await db.collection("Professor").doc(uid).set({ id_usuario: uid, departamento: "Química" });
-      professores.push(uid);
-      console.log(`✅ Professor ${i} criado (${email})`);
+      const user = await auth.createUser({ email, password: "password123", displayName: `Professor ${i}` });
+      uid = user.uid;
+      console.log(`✅ Professor ${i} criado (${email} / senha: password123)`);
     } catch (e: any) {
-      if (e.code === 'auth/uid-already-exists') {
-        professores.push(uid);
+      if (e.code === 'auth/email-already-exists') {
+        const user = await auth.getUserByEmail(email);
+        uid = user.uid;
         console.log(`ℹ️ Professor ${i} já existe.`);
-      } else console.error(e);
+      } else {
+        console.error(e);
+        continue;
+      }
     }
+
+    professores.push(uid);
+    await auth.setCustomUserClaims(uid, { roles: ["Professor"] });
+    await db.collection("Usuarios").doc(uid).set({
+      nome: `Professor ${i}`, email, papeis: ["Professor"], data_criacao: new Date()
+    });
+    await db.collection("Professor").doc(uid).set({ id_usuario: uid, departamento: "Química" });
   }
 
   // 3. Criar 6 Alunos
   const alunos = [];
   for (let i = 1; i <= 6; i++) {
-    const uid = `aluno-${i}`;
     const email = `aluno${i}@lcqui.uenf.br`;
+    let uid;
     try {
-      await auth.createUser({ uid, email, password: "password123", displayName: `Aluno ${i}` });
-      await auth.setCustomUserClaims(uid, { roles: ["Aluno"] });
-      await db.collection("Usuario").doc(uid).set({
-        nome: `Aluno ${i}`, email, papeis: ["Aluno"], data_criacao: new Date()
-      });
-      await db.collection("Aluno").doc(uid).set({
-        id_usuario: uid, numero_matricula: `2026${i.toString().padStart(4, '0')}`, curso: "Química"
-      });
-      alunos.push(uid);
-      console.log(`✅ Aluno ${i} criado (${email})`);
+      const user = await auth.createUser({ email, password: "password123", displayName: `Aluno ${i}` });
+      uid = user.uid;
+      console.log(`✅ Aluno ${i} criado (${email} / senha: password123)`);
     } catch (e: any) {
-      if (e.code === 'auth/uid-already-exists') {
-        alunos.push(uid);
+      if (e.code === 'auth/email-already-exists') {
+        const user = await auth.getUserByEmail(email);
+        uid = user.uid;
         console.log(`ℹ️ Aluno ${i} já existe.`);
-      } else console.error(e);
+      } else {
+        console.error(e);
+        continue;
+      }
     }
+
+    alunos.push(uid);
+    await auth.setCustomUserClaims(uid, { roles: ["Aluno"] });
+    await db.collection("Usuarios").doc(uid).set({
+      nome: `Aluno ${i}`, email, papeis: ["Aluno"], data_criacao: new Date()
+    });
+    await db.collection("Aluno").doc(uid).set({
+      id_usuario: uid, numero_matricula: `2026${i.toString().padStart(4, '0')}`, curso: "Química"
+    });
   }
 
   // 4. Criar 3 Turmas para cada Professor
