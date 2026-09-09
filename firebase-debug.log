@@ -774,3 +774,83 @@ INFO: Websocket client disconnected
 [debug] [2026-09-09T03:00:57.461Z] Sep 09, 2026 12:00:57 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel
 INFO: Connected to new websocket client
  {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:00:57 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel\nINFO: Connected to new websocket client\n"}}
+[debug] [2026-09-09T03:01:48.565Z] Sep 09, 2026 12:01:48 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler channelClosed
+INFO: Websocket client disconnected
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:01:48 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler channelClosed\nINFO: Websocket client disconnected\n"}}
+[debug] [2026-09-09T03:01:48.943Z] Sep 09, 2026 12:01:48 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel
+INFO: Connected to new websocket client
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:01:48 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel\nINFO: Connected to new websocket client\n"}}
+[debug] [2026-09-09T03:05:50.947Z] >>> [apiv2][query] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast [none]
+[debug] [2026-09-09T03:05:50.948Z] >>> [apiv2][body] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast {"eventId":"224fe84d-250f-4741-9f12-312f8366e548","eventType":"providers/firebase.auth/eventTypes/user.create","resource":{"name":"projects/lcqui-uenf","service":"firebaseauth.googleapis.com"},"params":{},"timestamp":"2026-09-09T03:05:50.946Z","data":{"uid":"yyTyLh2Y71MxP4RSujjIKtYW4YZT","email":"chefe@uenf.br","emailVerified":false,"displayName":"Chefe Geral (Admin)","metadata":{"creationTime":"2026-09-09T03:05:50.944Z","lastSignInTime":"2026-09-09T03:05:50.944Z"},"customClaims":{},"providerData":[{"rawId":"chefe@uenf.br","providerId":"password","displayName":"Chefe Geral (Admin)","email":"chefe@uenf.br","federatedId":"chefe@uenf.br"}]}}
+[debug] [2026-09-09T03:05:50.961Z] <<< [apiv2][status] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast 200
+[debug] [2026-09-09T03:05:50.962Z] <<< [apiv2][body] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast {"status":"multicast_acknowledged"}
+[debug] [2026-09-09T03:05:51.387Z] Sep 09, 2026 12:05:51 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:05:51 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected HTTP/2 connection.\n"}}
+[debug] [2026-09-09T03:05:51.695Z] >>> [apiv2][query] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast [none]
+[debug] [2026-09-09T03:05:51.696Z] >>> [apiv2][body] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast {"eventId":"b8248976-8420-4208-8a77-5ddf06ba262c","eventType":"providers/firebase.auth/eventTypes/user.create","resource":{"name":"projects/lcqui-uenf","service":"firebaseauth.googleapis.com"},"params":{},"timestamp":"2026-09-09T03:05:51.695Z","data":{"uid":"FDUCOky5MTmyqOAL92lwJAykAAre","email":"prof@uenf.br","emailVerified":false,"displayName":"Professor Teste","metadata":{"creationTime":"2026-09-09T03:05:51.694Z","lastSignInTime":"2026-09-09T03:05:51.694Z"},"customClaims":{},"providerData":[{"rawId":"prof@uenf.br","providerId":"password","displayName":"Professor Teste","email":"prof@uenf.br","federatedId":"prof@uenf.br"}]}}
+[debug] [2026-09-09T03:05:51.718Z] <<< [apiv2][status] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast 200
+[debug] [2026-09-09T03:05:51.724Z] <<< [apiv2][body] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast {"status":"multicast_acknowledged"}
+[debug] [2026-09-09T03:05:51.817Z] >>> [apiv2][query] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast [none]
+[debug] [2026-09-09T03:05:51.820Z] >>> [apiv2][body] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast {"eventId":"80d431f3-033f-4254-8bfd-38f08917c98f","eventType":"providers/firebase.auth/eventTypes/user.create","resource":{"name":"projects/lcqui-uenf","service":"firebaseauth.googleapis.com"},"params":{},"timestamp":"2026-09-09T03:05:51.817Z","data":{"uid":"RQQ0IeSQ5SCEgUKZE2QDLevMb9CG","email":"almoxarifado@uenf.br","emailVerified":false,"displayName":"Gestor Almoxarifado","metadata":{"creationTime":"2026-09-09T03:05:51.817Z","lastSignInTime":"2026-09-09T03:05:51.817Z"},"customClaims":{},"providerData":[{"rawId":"almoxarifado@uenf.br","providerId":"password","displayName":"Gestor Almoxarifado","email":"almoxarifado@uenf.br","federatedId":"almoxarifado@uenf.br"}]}}
+[debug] [2026-09-09T03:05:51.854Z] <<< [apiv2][status] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast 200
+[debug] [2026-09-09T03:05:51.854Z] <<< [apiv2][body] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast {"status":"multicast_acknowledged"}
+[debug] [2026-09-09T03:05:51.897Z] >>> [apiv2][query] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast [none]
+[debug] [2026-09-09T03:05:51.897Z] >>> [apiv2][body] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast {"eventId":"cba45740-680f-4187-afb1-a372c15ffe25","eventType":"providers/firebase.auth/eventTypes/user.create","resource":{"name":"projects/lcqui-uenf","service":"firebaseauth.googleapis.com"},"params":{},"timestamp":"2026-09-09T03:05:51.896Z","data":{"uid":"PxzFNm5u5ektPbUv511FlmWAiz1Q","email":"patrimonio@uenf.br","emailVerified":false,"displayName":"Gestor Patrimônio","metadata":{"creationTime":"2026-09-09T03:05:51.896Z","lastSignInTime":"2026-09-09T03:05:51.896Z"},"customClaims":{},"providerData":[{"rawId":"patrimonio@uenf.br","providerId":"password","displayName":"Gestor Patrimônio","email":"patrimonio@uenf.br","federatedId":"patrimonio@uenf.br"}]}}
+[debug] [2026-09-09T03:05:51.902Z] <<< [apiv2][status] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast 200
+[debug] [2026-09-09T03:05:51.902Z] <<< [apiv2][body] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast {"status":"multicast_acknowledged"}
+[debug] [2026-09-09T03:05:51.950Z] >>> [apiv2][query] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast [none]
+[debug] [2026-09-09T03:05:51.953Z] >>> [apiv2][body] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast {"eventId":"2c28ef15-3f8f-499e-baf4-1fd776f064d8","eventType":"providers/firebase.auth/eventTypes/user.create","resource":{"name":"projects/lcqui-uenf","service":"firebaseauth.googleapis.com"},"params":{},"timestamp":"2026-09-09T03:05:51.949Z","data":{"uid":"7dyEdG9R9fHyzFmQoZoqcsFLPoEZ","email":"aluno@uenf.br","emailVerified":false,"displayName":"Aluno Teste","metadata":{"creationTime":"2026-09-09T03:05:51.949Z","lastSignInTime":"2026-09-09T03:05:51.949Z"},"customClaims":{},"providerData":[{"rawId":"aluno@uenf.br","providerId":"password","displayName":"Aluno Teste","email":"aluno@uenf.br","federatedId":"aluno@uenf.br"}]}}
+[debug] [2026-09-09T03:05:51.960Z] <<< [apiv2][status] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast 200
+[debug] [2026-09-09T03:05:51.963Z] <<< [apiv2][body] POST http://127.0.0.1:5001/functions/projects/lcqui-uenf/trigger_multicast {"status":"multicast_acknowledged"}
+[debug] [2026-09-09T03:06:42.582Z] Sep 09, 2026 12:06:42 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler channelClosed
+INFO: Websocket client disconnected
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:06:42 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler channelClosed\nINFO: Websocket client disconnected\n"}}
+[debug] [2026-09-09T03:06:42.990Z] Sep 09, 2026 12:06:42 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel
+INFO: Connected to new websocket client
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:06:42 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel\nINFO: Connected to new websocket client\n"}}
+[debug] [2026-09-09T03:07:34.124Z] Sep 09, 2026 12:07:34 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:07:34 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T03:07:34.739Z] Sep 09, 2026 12:07:34 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:07:34 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T03:07:35.725Z] Sep 09, 2026 12:07:35 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:07:35 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T03:07:35.809Z] Sep 09, 2026 12:07:35 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:07:35 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T03:07:36.939Z] Sep 09, 2026 12:07:36 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:07:36 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T03:07:37.011Z] Sep 09, 2026 12:07:37 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:07:37 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T03:07:39.275Z] Sep 09, 2026 12:07:39 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:07:39 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T03:07:39.365Z] Sep 09, 2026 12:07:39 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:07:39 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T03:07:40.165Z] Sep 09, 2026 12:07:40 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:07:40 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T03:07:40.410Z] Sep 09, 2026 12:07:40 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:07:40 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T03:07:40.748Z] Sep 09, 2026 12:07:40 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:07:40 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T03:07:40.798Z] Sep 09, 2026 12:07:40 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:07:40 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T03:08:25.844Z] Sep 09, 2026 12:08:25 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:08:25 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T03:08:40.727Z] Sep 09, 2026 12:08:40 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:08:40 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2026-09-09T03:08:40.740Z] Sep 09, 2026 12:08:40 AM com.google.cloud.datastore.emulator.firestore.webchannel.FirestoreV1WebChannelAdapter$FirestoreListenHandler onClose
+INFO: channel closed
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Sep 09, 2026 12:08:40 AM com.google.cloud.datastore.emulator.firestore.webchannel.FirestoreV1WebChannelAdapter$FirestoreListenHandler onClose\nINFO: channel closed\n"}}
