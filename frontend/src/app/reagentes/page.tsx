@@ -9,6 +9,12 @@ import Link from "next/link";
 import { ResumoReagente } from "@/types/reagentes";
 import ModalRelatoriosReagentes from "@/components/reagentes/ModalRelatoriosReagentes";
 import ModalEtiquetasReagentes from "@/components/reagentes/ModalEtiquetasReagentes";
+import { 
+  ModalEntradaFrasco, 
+  ModalDevolucaoFrasco,
+  ModalNovoReagente,
+  ModalRegistrarRetirada
+} from "@/components/reagentes/ModaisReagentes";
 import { NovaMateriaModal } from "@/components/materias/NovaMateriaModal";
 
 export default function GestorAlmoxarifadoDashboard() {
@@ -19,6 +25,12 @@ export default function GestorAlmoxarifadoDashboard() {
   const [isRelatoriosOpen, setIsRelatoriosOpen] = useState(false);
   const [isEtiquetasOpen, setIsEtiquetasOpen] = useState(false);
   const [isMateriaModalOpen, setIsMateriaModalOpen] = useState(false);
+  
+  // Novos estados de modais
+  const [isNovoReagenteOpen, setIsNovoReagenteOpen] = useState(false);
+  const [isAdicionarFrascoOpen, setIsAdicionarFrascoOpen] = useState(false);
+  const [isRetiradaOpen, setIsRetiradaOpen] = useState(false);
+  const [isDevolucaoOpen, setIsDevolucaoOpen] = useState(false);
 
   // Filtros obrigatórios do Firestore (Seção 5 do main.tex)
   const [filtroLetra, setFiltroLetra] = useState<string>("");
@@ -126,11 +138,11 @@ export default function GestorAlmoxarifadoDashboard() {
                   <div className="h-8 w-px bg-foreground/20 hidden sm:block"></div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <button className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 flex items-center gap-2">
+                    <button onClick={() => setIsNovoReagenteOpen(true)} className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 flex items-center gap-2">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
                       <span className="hidden sm:inline">Novo Reagente</span>
                     </button>
-                    <button className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 flex items-center gap-2">
+                    <button onClick={() => setIsAdicionarFrascoOpen(true)} className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 flex items-center gap-2">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
                       <span className="hidden sm:inline">Adicionar Frasco</span>
                     </button>
@@ -156,11 +168,11 @@ export default function GestorAlmoxarifadoDashboard() {
               <div>
                 {/* Ações Centrais de Bancada */}
                 <div className="flex gap-3 w-full lg:w-auto">
-                  <button className="flex-1 lg:flex-none px-6 py-3 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2">
+                  <button onClick={() => setIsRetiradaOpen(true)} className="flex-1 lg:flex-none px-6 py-3 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2">
                     <svg className="hidden sm:inline w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
                     Registrar Retirada
                   </button>
-                  <button className="flex-1 lg:flex-none px-6 py-3 rounded-xl bg-green-500 text-white font-bold hover:bg-green-600 transition-colors shadow-lg shadow-green-500/20 flex items-center justify-center gap-2">
+                  <button onClick={() => setIsDevolucaoOpen(true)} className="flex-1 lg:flex-none px-6 py-3 rounded-xl bg-green-500 text-white font-bold hover:bg-green-600 transition-colors shadow-lg shadow-green-500/20 flex items-center justify-center gap-2">
                     <svg className="hidden sm:inline w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     Registrar Devolução
                   </button>
@@ -328,6 +340,28 @@ export default function GestorAlmoxarifadoDashboard() {
           <NovaMateriaModal
             isOpen={isMateriaModalOpen}
             onClose={() => setIsMateriaModalOpen(false)}
+          />
+
+          <ModalNovoReagente 
+            isOpen={isNovoReagenteOpen} 
+            onClose={() => setIsNovoReagenteOpen(false)} 
+            onSuccess={searchFirestore} 
+          />
+
+          <ModalEntradaFrasco 
+            isOpen={isAdicionarFrascoOpen} 
+            onClose={() => setIsAdicionarFrascoOpen(false)} 
+          />
+
+          <ModalRegistrarRetirada 
+            isOpen={isRetiradaOpen} 
+            onClose={() => setIsRetiradaOpen(false)} 
+          />
+
+          <ModalDevolucaoFrasco 
+            isOpen={isDevolucaoOpen} 
+            onClose={() => setIsDevolucaoOpen(false)} 
+            frascoId=""
           />
 
         </div>

@@ -8,6 +8,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Link from "next/link";
 import { BemPatrimonial } from "@/types/patrimonio";
 import ModalRelatoriosPatrimonio from "@/components/patrimonio/ModalRelatoriosPatrimonio";
+import { ModalNovoBem, ModalNotificacoesPatrimonio } from "@/components/patrimonio/ModaisPatrimonio";
 
 export default function PatrimonioDashboard() {
   const { roles, user } = useAuth();
@@ -16,6 +17,10 @@ export default function PatrimonioDashboard() {
   const [loading, setLoading] = useState(false);
   const [isRelatoriosOpen, setIsRelatoriosOpen] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  
+  // Novos estados de modais
+  const [isNovoBemOpen, setIsNovoBemOpen] = useState(false);
+  const [isNotificacoesOpen, setIsNotificacoesOpen] = useState(false);
 
   // Filtros obrigatórios (Seção 5.2 do main.tex):
   // "Combinação obrigatória de pelo menos um: (Prédio) ou (letra_inicial_nome) ou (Status)"
@@ -118,7 +123,7 @@ export default function PatrimonioDashboard() {
             <div className="flex flex-col lg:flex-row gap-4 items-center justify-between p-5 bg-foreground/5 rounded-2xl border border-foreground/10">
               <div className="flex items-center gap-3 flex-wrap">
                 {/* Notificações: alerta de requisições (linha 1766) */}
-                <button className="relative p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors" title="Notificações — Requisições de professores (adição/edição de bens)">
+                <button onClick={() => setIsNotificacoesOpen(true)} className="relative p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors" title="Notificações — Requisições de professores (adição/edição de bens)">
                   <svg className="w-6 h-6 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                   </svg>
@@ -128,7 +133,7 @@ export default function PatrimonioDashboard() {
                 <div className="h-10 w-px bg-foreground/20 hidden sm:block"></div>
 
                 {/* Botão Mais (+): Adição direta de bens (linha 1767) */}
-                <button className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 transition-colors flex items-center gap-2">
+                <button onClick={() => setIsNovoBemOpen(true)} className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 transition-colors flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
                   Adicionar Bem (+)
                 </button>
@@ -145,10 +150,12 @@ export default function PatrimonioDashboard() {
 
               {/* Analisar Requisições — destaque (linha 1768) */}
               <div className="flex gap-3 w-full lg:w-auto">
-                <button className="flex-1 lg:flex-none px-6 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-                  Analisar Requisições
-                </button>
+                <Link href="/patrimonio/requisicoes" className="flex-1 lg:flex-none">
+                  <button className="w-full px-6 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                    Analisar Requisições
+                  </button>
+                </Link>
               </div>
             </div>
           )}
@@ -390,6 +397,17 @@ export default function PatrimonioDashboard() {
               uid={user.uid} 
             />
           )}
+
+          <ModalNovoBem 
+            isOpen={isNovoBemOpen}
+            onClose={() => setIsNovoBemOpen(false)}
+            onSuccess={searchFirestore}
+          />
+
+          <ModalNotificacoesPatrimonio 
+            isOpen={isNotificacoesOpen}
+            onClose={() => setIsNotificacoesOpen(false)}
+          />
 
         </div>
       </main>
