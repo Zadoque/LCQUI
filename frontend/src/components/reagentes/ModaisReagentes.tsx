@@ -342,6 +342,11 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSu
   const [errorMsg, setErrorMsg] = useState("");
 
   const handleBuscarResumos = async () => {
+    if (!filtroEstado || !filtroNatureza || !filtroTipo) {
+      setErrorMsg("Por favor, selecione Estado Físico, Natureza e Tipo para buscar.");
+      return;
+    }
+    setErrorMsg("");
     setLoadingBusca(true);
     try {
       let q = query(collection(db, "Resumo_Reagente"), limit(50));
@@ -460,10 +465,16 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSu
                   <option value="PURA">Pura</option>
                   <option value="MISTURA">Mistura</option>
                 </select>
-                <button type="button" onClick={handleBuscarResumos} disabled={loadingBusca} className="px-3 py-1.5 bg-primary text-white text-sm font-medium rounded hover:bg-primary/90 disabled:opacity-50">
+                <button type="button" onClick={handleBuscarResumos} disabled={loadingBusca || !filtroEstado || !filtroNatureza || !filtroTipo} className="px-3 py-1.5 bg-primary text-white text-sm font-medium rounded hover:bg-primary/90 disabled:opacity-50 transition-opacity">
                   {loadingBusca ? "Buscando..." : "Buscar"}
                 </button>
               </div>
+
+              {(!filtroEstado || !filtroNatureza || !filtroTipo) && (
+                <div className="text-[10px] text-foreground/50 italic">
+                  * Selecione os 3 filtros acima para habilitar a busca de resumos.
+                </div>
+              )}
 
               <select required value={selectedResumoId} onChange={(e) => setSelectedResumoId(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-background border border-primary/20 focus:ring-2 focus:ring-primary outline-none mt-2">
