@@ -89,10 +89,11 @@ describe("Firestore Security Rules", () => {
     });
 
     it("deve permitir que um professor altere apenas sua própria turma", async () => {
-      const dbAdmin = authedDb("boss", ["Chefe_Geral"]);
-      // Setup da turma usando um admin
-      const turmaRef = dbAdmin.collection("Turma").doc("turmaProf1");
-      await turmaRef.set({ nome: "Turma do Prof 1", id_professor: "prof1" });
+      // Setup da turma burlando as regras (já que a criação normal seria por Cloud Function)
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const dbAdmin = context.firestore();
+        await dbAdmin.collection("Turma").doc("turmaProf1").set({ nome: "Turma do Prof 1", id_professor: "prof1" });
+      });
 
       const dbProf1 = authedDb("prof1", ["Professor"]);
       const dbProf2 = authedDb("prof2", ["Professor"]);
@@ -112,6 +113,11 @@ describe("Firestore Security Rules", () => {
 
     describe("Posts e Comentários", () => {
       it("apenas o professor da turma pode criar um post", async () => {
+        await testEnv.withSecurityRulesDisabled(async (context) => {
+          const dbAdmin = context.firestore();
+          await dbAdmin.collection("Turma").doc("turmaProf1").set({ id_professor: "prof1" });
+        });
+
         const dbProf1 = authedDb("prof1", ["Professor"]);
         const dbProf2 = authedDb("prof2", ["Professor"]);
 
@@ -126,9 +132,13 @@ describe("Firestore Security Rules", () => {
         const dbAlunoMatriculado = authedDb("aluno1", ["Aluno"]);
         const dbAlunoNaoMatriculado = authedDb("aluno2", ["Aluno"]);
 
-        // Setup: matricular aluno1
-        const dbAdmin = authedDb("boss", ["Chefe_Geral"]);
-        await dbAdmin.collection("Turma").doc("turmaProf1").collection("Alunos").doc("aluno1").set({ ativo: true });
+        // Setup: matricular aluno1 e criar turma e post
+        await testEnv.withSecurityRulesDisabled(async (context) => {
+          const dbAdmin = context.firestore();
+          await dbAdmin.collection("Turma").doc("turmaProf1").set({ id_professor: "prof1" });
+          await dbAdmin.collection("Turma").doc("turmaProf1").collection("Alunos").doc("aluno1").set({ ativo: true });
+          await dbAdmin.collection("Turma").doc("turmaProf1").collection("Posts").doc("post1").set({ titulo: "Aula 1" });
+        });
         
         // Aluno 1 comenta (deve passar)
         await assertSucceeds(dbAlunoMatriculado.collection("Turma").doc("turmaProf1").collection("Posts").doc("post1").collection("Comentarios").add({ texto: "Dúvida", id_autor: "aluno1" }));
