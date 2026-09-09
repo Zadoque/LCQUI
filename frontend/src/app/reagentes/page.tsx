@@ -88,7 +88,7 @@ export default function GestorAlmoxarifadoDashboard() {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
                   Novo Gestor de Almoxarifado
                 </button>
-                <button 
+                <button
                   onClick={() => setIsMateriaModalOpen(true)}
                   className="px-4 py-2 rounded-lg bg-indigo-500/10 text-indigo-400 text-sm font-medium hover:bg-indigo-500/20 transition-colors flex items-center gap-2 border border-indigo-500/20"
                 >
@@ -113,58 +113,58 @@ export default function GestorAlmoxarifadoDashboard() {
           {/* BARRA DO GESTOR DE ALMOXARIFADO — Seção 6.7, linhas 1723-1756 */}
           {/* ============================================================ */}
           {hasManagementAccess && (
-            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between p-6 bg-foreground/5 rounded-2xl border border-foreground/10">
-              <div className="flex items-center gap-4">
-                <button className="relative p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors" title="Notificações e Alertas (Vencimentos, Quarentena, Escassez)">
-                  <svg className="w-6 h-6 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                  <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-background animate-pulse"></span>
-                </button>
+            <div className="flex flex-col min-[1572px]:flex-row gap-4 items-center justify-between p-5 bg-foreground/5 rounded-2xl border border-foreground/10">
+              <div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button className="relative p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors" title="Notificações e Alertas (Vencimentos, Quarentena, Escassez)">
+                    <svg className="w-6 h-6 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-background animate-pulse"></span>
+                  </button>
 
-                <div className="h-10 w-px bg-foreground/20 hidden sm:block"></div>
+                  <div className="h-8 w-px bg-foreground/20 hidden sm:block"></div>
 
-                <div className="flex gap-2">
-                  <button className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 flex items-center gap-2">
-                    <svg className="hidden sm:inlinew-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                    Novo Reagente
-                  </button>
-                  <button className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 flex items-center gap-2">
-                    <svg className="hidden sm:inline w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                    Adicionar Frasco
-                  </button>
-                  <button
-                    onClick={() => setIsEtiquetasOpen(true)}
-                    className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 flex items-center gap-2 border border-foreground/20"
-                  >
-                    <svg className="hidden sm:inline w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                    Imprimir Etiquetas
-                  </button>
-                  <div className="h-4 w-px bg-foreground/20 hidden sm:block mx-1"></div>
-                  <button
-                    onClick={() => setIsRelatoriosOpen(true)}
-                    className="px-4 py-2 rounded-lg bg-indigo-500/10 text-indigo-400 text-sm font-medium hover:bg-indigo-500/20 transition-colors flex items-center gap-2 border border-indigo-500/20"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                    <div className="flex items-center">
-                      <span>Rel</span>
-                      <span className="hidden sm:inline">atórios</span>
-                    </div>
-
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                      <span className="hidden sm:inline">Novo Reagente</span>
+                    </button>
+                    <button className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                      <span className="hidden sm:inline">Adicionar Frasco</span>
+                    </button>
+                    <button
+                      onClick={() => setIsEtiquetasOpen(true)}
+                      className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 flex items-center gap-2 border border-foreground/20"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                      <span className="hidden sm:inline">Imprimir Etiquetas</span>
+                    </button>
+                    <div className="h-4 w-px bg-foreground/20 hidden sm:block mx-1"></div>
+                    <button
+                      onClick={() => setIsRelatoriosOpen(true)}
+                      className="px-4 py-2 rounded-lg bg-indigo-500/10 text-indigo-400 text-sm font-medium hover:bg-indigo-500/20 transition-colors flex items-center gap-2 border border-indigo-500/20"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      <span className="hidden sm:inline">Relatórios</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Ações Centrais de Bancada */}
-              <div className="flex gap-3 w-full lg:w-auto">
-                <button className="flex-1 lg:flex-none px-6 py-3 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2">
-                  <svg className="hidden sm:inline w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-                  Registrar Retirada
-                </button>
-                <button className="flex-1 lg:flex-none px-6 py-3 rounded-xl bg-green-500 text-white font-bold hover:bg-green-600 transition-colors shadow-lg shadow-green-500/20 flex items-center justify-center gap-2">
-                  <svg className="hidden sm:inline w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  Registrar Devolução
-                </button>
+              <div>
+                {/* Ações Centrais de Bancada */}
+                <div className="flex gap-3 w-full lg:w-auto">
+                  <button className="flex-1 lg:flex-none px-6 py-3 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2">
+                    <svg className="hidden sm:inline w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                    Registrar Retirada
+                  </button>
+                  <button className="flex-1 lg:flex-none px-6 py-3 rounded-xl bg-green-500 text-white font-bold hover:bg-green-600 transition-colors shadow-lg shadow-green-500/20 flex items-center justify-center gap-2">
+                    <svg className="hidden sm:inline w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Registrar Devolução
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -318,17 +318,17 @@ export default function GestorAlmoxarifadoDashboard() {
 
           {/* Modal Etiquetas */}
           {isEtiquetasOpen && (
-          <ModalEtiquetasReagentes
-            isOpen={isEtiquetasOpen}
-            onClose={() => setIsEtiquetasOpen(false)}
-          />
-        )}
+            <ModalEtiquetasReagentes
+              isOpen={isEtiquetasOpen}
+              onClose={() => setIsEtiquetasOpen(false)}
+            />
+          )}
 
-        {/* Modal de Nova Matéria */}
-        <NovaMateriaModal 
-          isOpen={isMateriaModalOpen}
-          onClose={() => setIsMateriaModalOpen(false)}
-        />
+          {/* Modal de Nova Matéria */}
+          <NovaMateriaModal
+            isOpen={isMateriaModalOpen}
+            onClose={() => setIsMateriaModalOpen(false)}
+          />
 
         </div>
       </main>
