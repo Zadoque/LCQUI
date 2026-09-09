@@ -37,12 +37,10 @@ export default function SidebarTurmas({
     let unsubscribe = () => {};
 
     if (isProfessor) {
-      // Professor: buscar turmas onde id_professor == user.uid
-      const q = query(
-        collection(db, "Turma"),
-        where("id_professor", "==", user.uid),
-        where("status", "==", "Ativo")
-      );
+      // Se for Chefe Geral, ele vê todas as turmas ativas
+      const q = roles.includes("Chefe_Geral")
+        ? query(collection(db, "Turma"), where("status", "==", "Ativo"))
+        : query(collection(db, "Turma"), where("id_professor", "==", user.uid), where("status", "==", "Ativo"));
       
       unsubscribe = onSnapshot(q, (snapshot) => {
         const turmasData = snapshot.docs.map(doc => ({
