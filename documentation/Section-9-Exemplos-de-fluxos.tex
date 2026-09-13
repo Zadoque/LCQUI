@@ -7,7 +7,7 @@
 Os fluxos são considerados completos quando descrevem ator, pré-condição, entrada, validação, mudança de estado, efeitos colaterais e resultado. As operações críticas abaixo complementam os cenários de tela já descritos.
 
 \subsubsection{Concessão do papel Bolsista}
-O Chefe Geral seleciona um usuário com papel Aluno. O backend verifica a pré-condição ($Bolsista \implies Aluno$), rejeita a operação se o usuário não for Aluno ou gerar combinação proibida (ex.: Aluno Bolsista atuando como Gestor de Almoxarifado), cria o vínculo de papel na coleção de perfis, registra auditoria e torna a nova permissão de retirada disponível imediatamente.
+O Chefe Geral seleciona um usuário com papel Aluno. O backend verifica a pré-condição ($Bolsista \implies Aluno$), rejeita a operação se o usuário não for Aluno ou gerar combinação proibida (ex.: Aluno Bolsista atuando como Gestor de Almoxarifado), cria o vínculo de papel na coleção de perfis, registra auditoria e sincroniza claims e só então anuncia a permissão disponível após renovação do token.
 
 \subsubsection{Aceitação de convite}
 O aluno apresenta um convite válido. O backend verifica e-mail normalizado, status, expiração e capacidade da turma. A aceitação é idempotente: o vínculo Aluno--Turma é criado uma única vez e o convite deixa de ser pendente. Usuário e papel Aluno são criados apenas quando ainda não existirem.
@@ -22,7 +22,7 @@ O Gestor de Almoxarifado seleciona o frasco e o Professor ou Bolsista retirante.
 O Gestor informa o frasco e o peso de retorno. A transação verifica que o empréstimo está EM\_USO ou ATRASADO, recalcula consumo e atraso com dados do servidor (prazo encerrando às 23:59:59.999 do dia previsto), atualiza o empréstimo, grava o evento no histórico e devolve o frasco à disponibilidade adequada ou ao fluxo de descarte/quarentena se vencido ou esgotado.
 
 \begin{explicacao}[Nota sobre o Login]
-Todos os fluxos detalhados a seguir partem do princípio de que o usuário está deslogado. A primeira etapa padrão é sempre: o usuário acessa a tela de Login do LCQUI, insere suas credenciais (e-mail e senha) ou escolhe o "Login com Google". O sistema exibe um \textit{spinner} (ícone de carregamento giratório) no botão e o redireciona instantaneamente para a sua Dashboard correspondente, aplicando os privilégios do seu Papel (Role).
+Quando não houver sessão válida, a etapa inicial é COM-01: o usuário acessa a tela de Login do LCQUI, insere suas credenciais (e-mail e senha) ou escolhe o "Login com Google". O sistema exibe um \textit{spinner} (ícone de carregamento giratório) no botão e carrega conta ativa e permissões antes de abrir a dashboard correspondente. Na mesma sessão, os fluxos seguintes não exigem repetir login.
 \end{explicacao}
 
 \subsection{Fluxos do usuário Gestor de Bem Patrimonial}
@@ -37,7 +37,7 @@ Partindo da tela de login, o Gestor acessa a dashboard e clica no botão "Gerar 
 Após o login, na tela principal, o Gestor clica em "Gerar Relatórios". No modal que se abre, seleciona a aba "Relatório Geral". Nos seletores de data, escolhe "Agosto" e "2026". Ao clicar em "Gerar", um círculo de progresso é exibido no centro do modal. Finalizado o processo backend, o modal exibe a mensagem "PDF pronto" e inicia o download automaticamente.
 
 \subsubsection{Baixando relatório de bens materiais filtrado (Prédio P5, Andar 1)}
-Partindo da tela de login, o Gestor abre o modal de relatórios e vai até a aba "Personalizado". Ele preenche as datas (15/02/2026 a 16/07/2026) e abre o filtro avançado. Marca a \textit{checkbox} do "Prédio P5" e digita "1" no andar. Clica em "Gerar PDF". Após a barra de carregamento preencher, o sistema entrega o documento formatado apenas com os equipamentos deste andar específico.
+Partindo da tela de login, o Gestor abre o modal de relatórios e vai até a aba "Personalizado". Ele preenche as datas (15/06/2026 a 15/07/2026) e abre o filtro avançado. Marca a \textit{checkbox} do "Prédio P5" e digita "1" no andar. Clica em "Gerar PDF". Após a barra de carregamento preencher, o sistema entrega o documento formatado apenas com os equipamentos deste andar específico.
 
 \subsubsection{Verificando requisições pendentes de professores}
 Após efetuar o login, a dashboard do Gestor já apresenta no painel central um card de "Painel de Requisições". O botão de notificações (sino) está com uma bolinha vermelha. O Gestor clica na notificação e depois na requisição desejada. A tela faz uma transição para o modo \textit{Split-screen}. Na metade esquerda da tela, ele vê os dados estáticos (antigos) do patrimônio em texto cinza. Na metade direita, ele vê os dados novos sugeridos pelo professor (ex: alteração de sala) destacados em fundo amarelo suave, para chamar a atenção à mudança.
@@ -51,13 +51,13 @@ Partindo da tela de login, o Gestor usa a barra de busca central e digita o núm
 \subsection{Fluxos do usuário Professor}
 
 \subsubsection{Criando uma turma}
-Após fazer login, o Professor está na sua dashboard. Ele clica no painel lateral esquerdo em "Turmas" e depois no botão flutuante "+ Nova Turma". Um modal simples é exibido solicitando Nome da Turma e Capacidade. Ele preenche "Química Orgânica I" e "30", e clica em "Salvar". Um \textit{toast} de sucesso é disparado, um novo card desliza aparecendo no painel lateral, e o \textit{codigo\_turma} recém-criado pisca rapidamente na tela com um botão de "Copiar para a área de transferência".
+Após fazer login, o Professor está na sua dashboard. Ele clica no painel lateral esquerdo em "Turmas" e depois no botão flutuante "+ Nova Turma". Um modal simples é exibido solicitando Nome da Turma, Matéria, Ano, Semestre e Capacidade. Ele preenche "Química Orgânica I", seleciona a matéria correspondente, informa ano 2026, semestre 2 e capacidade 30, e clica em "Salvar". Um \textit{toast} de sucesso é disparado, um novo card desliza aparecendo no painel lateral, e o \textit{codigo\_turma} recém-criado pisca rapidamente na tela com um botão de "Copiar para a área de transferência".
 
 \subsubsection{Adicionando Alunos em uma turma}
 Com login feito, o Professor clica no card da turma recém-criada no painel lateral. A área central atualiza para a visão da disciplina. No header, ele clica no botão "Novo Aluno". No modal que surge, ele copia e cola os e-mails dos alunos separados por vírgula e clica em "Enviar Convites". Uma barra de carregamento é mostrada, seguida de um \textit{toast} verde informando que os acessos foram disparados por e-mail.
 
 \subsubsection{Criando um Post em uma turma}
-Após login, o Professor acessa a disciplina clicando nela. No topo do Feed de publicações (área central), ele clica na caixa de texto "Comece um novo post...". O componente se expande. Ele digita as orientações da aula, clica no ícone de "Clipe de Papel" (anexo), o que abre o modal da sua biblioteca de roteiros em PDF. Ele seleciona o "Roteiro\_Prática\_3.pdf" e clica em "Publicar". A tela rola suavemente para baixo e o novo card da publicação surge com um efeito de \textit{fade-in}, exibindo o texto e a prévia do PDF anexado.
+Após login, o Professor acessa a disciplina clicando nela. No topo do Feed de publicações (área central), ele clica na caixa de texto "Comece um novo post...". O componente se expande. Ele preenche título e orientações da aula, clica no ícone de "Clipe de Papel" (anexo), o que abre o modal da sua biblioteca de roteiros em PDF. Ele seleciona o "Roteiro\_Prática\_3.pdf" e clica em "Publicar". A tela rola suavemente para baixo e o novo card da publicação surge com um efeito de \textit{fade-in}, exibindo o texto e a prévia do PDF anexado.
 
 \subsubsection{Excluindo um Aluno de uma turma}
 O Professor loga no sistema e navega até a turma desejada. Ele clica na aba "Membros" logo acima do feed. Uma lista com nome e foto dos alunos aparece. Ao lado do nome do aluno a ser removido, ele clica no ícone vermelho de lixeira. Um modal de dupla confirmação exige que ele clique em "Sim, remover aluno". A linha do aluno desaparece da lista com uma rápida animação de encolhimento (\textit{collapse}) e um \textit{toast} avisa "Aluno removido da turma".
@@ -66,16 +66,16 @@ O Professor loga no sistema e navega até a turma desejada. Ele clica na aba "Me
 O Professor entra no sistema e nota uma bolinha vermelha piscando no sino de Notificações. Ele clica e vê "\textit{João comentou em um Roteiro}". Ao clicar na notificação, a tela rola automaticamente até a exata postagem no feed. Ele vê a dúvida do aluno, clica na caixa de texto abaixo dizendo "Escreva uma resposta..." e aperta Enter. O comentário dele surge instantaneamente logo abaixo do aluno, com seu nome identificado com a tag "[Professor]".
 
 \subsubsection{Pesquisando Reagente Químico para checar disponibilidade}
-Partindo da tela de login, o Professor clica no atalho "Reagentes" no painel esquerdo. Na grande barra de pesquisa central, ele começa a digitar "Ácido Clori...". O sistema usa \textit{debounce} (pesquisa em tempo real) e já filtra a tabela antes mesmo do Enter. Ele encontra o item, clica sobre a linha e um modal lateral (gaveta) desliza da direita mostrando em verde "\textit{Disponível: 3 frascos fechados, 1 aberto}".
+Partindo da tela de login, o Professor clica no atalho "Reagentes" no painel esquerdo. Na grande barra de pesquisa central, ele começa a digitar "Ácido Clori...". Após selecionar ao menos um filtro obrigatório (UI-04), o sistema usa \textit{debounce} e já filtra a tabela antes mesmo do Enter. Ele encontra o item, clica sobre a linha e um modal lateral (gaveta) desliza da direita mostrando em verde "\textit{Disponível: 3 frascos fechados, 1 aberto}".
 
 \subsubsection{Pesquisando um bem patrimonial pelo Nome}
-Após login, o Professor vai à área "Bens Patrimoniais" e digita "Microscópio" na busca. A tela é atualizada mostrando uma malha de cards (Grid) com todos os equipamentos que possuem essa palavra. Ele clica em um dos cards e vê a foto e a localização exata daquele Microscópio em tela cheia.
+Após login, o Professor vai à área "Bens Patrimoniais" e digita "Microscópio" na busca. A tela é atualizada mostrando os equipamentos carregados que correspondem ao texto, após filtro obrigatório, com paginação (UI-04). Ele clica em um dos cards e vê a foto e a localização exata daquele Microscópio em tela cheia.
 
 \subsubsection{Pesquisando um bem patrimonial pelo número de patrimônio}
 Professor faz login, acessa a busca de "Bens Patrimoniais" e digita exatamente "987654". O sistema detecta a correspondência exata, pula a exibição da tabela genérica e direciona o professor direto para a página exclusiva de detalhes daquele patrimônio específico.
 
 \subsubsection{Requisitando alteração de conservação (de Bom para Ruim)}
-No passo anterior, ao estar na tela de detalhes do microscópio, o Professor, após logar, percebe que a lente está trincada. Ele clica no botão amarelo "Solicitar Edição". No formulário sobreposto, ele altera o campo \textit{dropdown} "Estado de Conservação" de "Bom" para "Ruim/Inservível", preenche o campo de texto justificando ("Lente principal rachada") e envia. O botão vira um \textit{spinner} rapidamente e um \textit{toast} avisa: "Requisição enviada ao Gestor de Patrimônio".
+No passo anterior, ao estar na tela de detalhes do microscópio, o Professor, após logar, percebe que a lente está trincada. Ele clica no botão amarelo "Solicitar Edição". No formulário sobreposto, ele altera o campo \textit{dropdown} "Estado de Conservação" de "Bom" para "RUIM" (conservação); Inservivel é outro campo, de status, preenche o campo de texto justificando ("Lente principal rachada") e envia. O botão vira um \textit{spinner} rapidamente e um \textit{toast} avisa: "Requisição enviada ao Gestor de Patrimônio".
 
 \subsubsection{Upload de Roteiro e compartilhamento com outros professores}
 Professor acessa a dashboard após login, clica em "Gerenciar Roteiros" (no header central). O modal abre na aba "Meus". Ele clica no ícone de Nuvem para upload, arrasta um PDF do seu computador para a área pontilhada e aguarda a barra de progresso encher (100\%). Em seguida, no próprio arquivo recém-subido, ele clica em "Compartilhar". Uma lista de professores do sistema aparece, ele marca 3 caixinhas de seleção e clica no botão "Autorizar Acesso". Um alerta flutuante informa que o roteiro agora está visível nas bibliotecas dos colegas.
@@ -83,12 +83,12 @@ Professor acessa a dashboard após login, clica em "Gerenciar Roteiros" (no head
 \subsection{Fluxos do usuário Chefe Geral}
 
 \subsubsection{Criando um usuário Professor e usuário Gestor de Almoxarifado}
-O Chefe Geral acessa a plataforma logando com suas credenciais. Na sua dashboard, acessa a aba "Professores" e clica no botão "+ Novo Professor". No modal, insere nome, e-mail institucional e seleciona o Centro (ex: CCT). Ao salvar, um \textit{toast} avisa do envio do convite. Da mesma forma, indo para a aba "Almoxarifados", ele clica em "Mais (+)", depois "Novo Gestor de Almoxarifado", preenche o e-mail, e um novo card de gestor é populado silenciosamente na lista do sistema, notificando o sucesso da operação.
+O Chefe Geral acessa a plataforma logando com suas credenciais. Na sua dashboard, acessa a aba "Professores" e clica no botão "+ Novo Professor". No modal, insere nome, e-mail institucional, laboratório e seleciona o Centro (ex: CCT). Ao salvar, um \textit{toast} avisa do envio do convite. Da mesma forma, indo para a aba "Almoxarifados", ele clica em "Mais (+)", depois "Novo Gestor de Almoxarifado", preenche o e-mail, e um novo card de gestor é populado silenciosamente na lista do sistema, notificando o sucesso da operação.
 
 \subsection{Fluxos do usuário Aluno}
 
 \subsubsection{Ingressando em uma Turma}
-O Aluno acessa o site do LCQUI pela primeira vez, cria a senha (ou entra via Google) e faz o login. A dashboard dele é muito mais limpa e a tela central diz: "\textit{Você ainda não tem turmas}". Ele foca sua atenção no canto inferior esquerdo onde há o input "Código da Turma". Ele digita o \textit{hash} de 6 letras que o professor escreveu no quadro e clica em "Entrar". O botão gira um carregamento, o sistema verifica a capacidade máxima da turma no \textit{backend}, faz o link de tabelas, e instantaneamente um Card colorido com o nome da disciplina desliza para o centro da tela com o feedback: "\textit{Matrícula realizada com sucesso!}".
+O Aluno acessa o site do LCQUI pela primeira vez, cria a senha (ou entra via Google) e faz o login. A dashboard dele é muito mais limpa e a tela central diz: "\textit{Você ainda não tem turmas}". Ele foca sua atenção no canto inferior esquerdo onde há o input "Código da Turma". Ele digita o \textit{código} de até 20 caracteres que o professor escreveu no quadro e clica em "Entrar". O botão gira um carregamento, o sistema verifica a capacidade máxima da turma no \textit{backend}, faz o link de tabelas, e instantaneamente um Card colorido com o nome da disciplina desliza para o centro da tela com o feedback: "\textit{Matrícula realizada com sucesso!}".
 
 \subsubsection{Baixando um roteiro e realizando um comentário}
 Logado, o aluno clica na disciplina recém-adicionada. O Feed da turma é carregado na tela. Ele rola a página e acha a postagem do professor com um arquivo. Ele clica no botão vermelho e muito visível de "Baixar PDF". O \textit{download} inicia via navegador. Logo abaixo do mesmo \textit{post}, na seção de interações, ele clica na caixa de texto vazia, digita "Professor, levaremos óculos de proteção?" e pressiona Enviar. O comentário surge na tela logo após uma animação suave de transição (\textit{fade-in}).
@@ -110,3 +110,113 @@ Antes da confirmação, a interface bloqueia frascos em quarentena ou pendentes 
 O professor devolve o vidro à bancada. O Gestor faz login (se necessário) e clica no grande botão ``Registrar Devolução''. Busca o item (que está na lista de pendentes). O sistema solicita ``Peso de Retorno'', calcula o consumo e verifica a validade efetiva com o relógio do servidor (com prazo normalizado para as 23:59:59.999 do dia previsto). Se o frasco estiver vencido, ou tiver vencido enquanto permaneceu com o professor, a devolução permite registrar a decisão do gestor entre quarentena, descarte ou continuidade de uso didático.
 
 O sistema renderiza na tela em negrito e com fundo destacado: \textbf{``Volume utilizado neste empréstimo: 4.5 mL''} ou \textbf{``Peso utilizado nesse empréstimo: 22 g''}. Ao clicar em ``Finalizar'', um sinal sonoro/visual confirma que a transação de estoque, consumo, histórico e auditoria foram concluídas.
+
+
+\subsection{Cobertura operacional por papel e ação}
+\label{sec:fluxos-completos}
+Cada fluxo parte de sessão ativa validada por COM-01 e usa os campos/estados do contrato UI referenciado na seção 8. Os nomes de coleções e os efeitos descritos seguem o dicionário da seção 5.9. Não repetir login entre ações da mesma sessão. A coluna de resultado inclui persistência e falhas relevantes.
+
+\subsubsection{COM-01 --- Todos: Login, recuperar senha, perfil, sair e alternar papel}
+\textbf{Contrato:} UI-01. Login ou foto do header; preencher credenciais/perfil ou escolher papel autorizado. Auth e Usuarios determinam sessão; renovar permissões antes da dashboard. Cancelamento preserva sessão anterior; revogação limpa dados e redireciona.
+
+\subsubsection{CHE-01 --- Chefe: Criar usuário e atribuir Bolsista ou outro papel}
+\textbf{Contrato:} UI-02. Aba Pessoas > Novo > selecionar existente/convidar > preencher dados do papel > revisar > confirmar. Validar combinações e identidade, gravar perfil e auditoria, sincronizar Auth; lista atualiza após confirmação, falha de claims aparece como pendência.
+
+\subsubsection{CHE-02 --- Chefe: Revogar papel ou autorrevogar chefia}
+\textbf{Contrato:} UI-02. Pessoa > Papéis > Revogar > justificar > revisar conjunto restante. Transação verifica último chefe/gestor e vínculos; rejeição mantém papéis e audita tentativa. Último papel removido desativa conta e encerra acesso.
+
+\subsubsection{CHE-03 --- Chefe: Criar/ativar almoxarifado e vincular gestores}
+\textbf{Contrato:} UI-03. Almoxarifados > Mais > Novo > nome/descrição/local/gestores > Salvar. Criar local antes se necessário. Persistir almoxarifado e vínculos; ativo exige gestor. Gerenciar gestores permite trocar responsáveis sem deixar almoxarifado ativo órfão.
+
+\subsubsection{CHE-04 --- Chefe: Consultar pessoas, turmas e atividade mensal}
+\textbf{Contrato:} UI-02. Selecionar aba, filtro e pessoa > Atividade/Turmas > período. Ler perfis mínimos e agregados por autor/mês; abrir eventos paginados. Sem atividade exibe zero registros, sem confundir com erro de autorização.
+
+\subsubsection{CHE-05 --- Chefe: Operar catálogo, patrimônio, matéria, etiquetas e relatórios}
+\textbf{Contrato:} UI-03 a UI-09 e UI-12. Usar as mesmas entradas dos fluxos ALM/PAT/MAT abaixo com escopo global. Poder administrativo não dispensa campos, comprovante de baixa, destino de vencidos ou auditoria. Gestão de turmas/roteiros de terceiros requer Q13; não simular propriedade.
+
+\subsubsection{MAT-01 --- Professor/Chefe: Cadastrar e editar matéria}
+\textbf{Contrato:} UI-03. Mais > Nova Matéria ou detalhe > Editar > nome/código > confirmar. Reservar código único e persistir Materia; atualizar projeções e manter vínculos por ID. Código em uso retorna erro no campo.
+
+\subsubsection{PRO-01 --- Professor: Criar turma e copiar código}
+\textbf{Contrato:} UI-10. Turmas > Nova > nome/matéria/ano/semestre/capacidade > Salvar. Criar Turma e código único; selecionar turma e Copiar. Falha da área de transferência não recria turma.
+
+\subsubsection{PRO-02 --- Professor: Arquivar e desarquivar turma}
+\textbf{Contrato:} UI-10. Turma própria > Arquivar > confirmar; ou Turmas Arquivadas > selecionar > Desarquivar. Alterar status mantendo posts/membros; propagar espelhos e notificações. Até Q08, arquivos ficam em leitura.
+
+\subsubsection{PRO-03 --- Professor: Convidar aluno com ou sem turma}
+\textbf{Contrato:} UI-10. Mais/Novo Aluno > e-mails e matrícula opcional > turma opcional > confirmar ausência de turma ou justificar exceção de capacidade > Enviar. Persistir convites sem conceder papel diferente de Aluno; resultado por destinatário. Aceitação é ALU-01.
+
+\subsubsection{PRO-04 --- Professor: Gerenciar membros e remover aluno}
+\textbf{Contrato:} UI-10. Turma própria > Membros > selecionar > Remover > confirmar. Servidor remove vínculo e espelho, atualiza contador e grava histórico/auditoria; comentários permanecem. Nova entrada por código bloqueada, retorno exige convite.
+
+\subsubsection{PRO-05 --- Professor: Cadastrar, visualizar e baixar roteiro}
+\textbf{Contrato:} UI-11. Mais > Novo Roteiro ou Gerenciar Roteiros > upload > nome/descrição/PDF > registrar. Servidor valida objeto e autoria. Biblioteca > Visualizar/Baixar revalida acesso e entrega arquivo; upload falho não cria roteiro utilizável.
+
+\subsubsection{PRO-06 --- Professor: Compartilhar, acompanhar e revogar compartilhamento}
+\textbf{Contrato:} UI-11. Biblioteca > Meus > Compartilhar > professores > confirmar. Criar vínculo único e notificação; Eu compartilhei mostra destinatários. Revogar exige confirmação e tratamento de posts existentes conforme Q09; recebido não autoriza redistribuição pelo destinatário.
+
+\subsubsection{PRO-07 --- Professor: Publicar/editar post e vincular roteiro próprio ou recebido}
+\textbf{Contrato:} UI-11. Turma própria > compositor/Editar > título/descrição > clipe > escolher roteiro ou cadastrar novo > Publicar. Revalidar acesso ao PDF e turma; persistir Post/histórico, notificar membros e atualizar feed. Falha mantém rascunho na sessão.
+
+\subsubsection{PRO-08 --- Professor: Responder comentário e navegar por notificação}
+\textbf{Contrato:} UI-11 e UI-12. Sino > aviso > post alvo > escrever comentário > Enviar. Revalidar propriedade da turma, persistir Comentario e notificar interessados; mostrar resposta no mesmo post, sem pressupor threads hierárquicas.
+
+\subsubsection{PRO-09 --- Professor: Consultar reagentes, receber empréstimo e acompanhar consumo}
+\textbf{Contrato:} UI-04, UI-07 e UI-12. Visualizar > Reagentes > filtros > detalhe > procurar gestor para retirada ALM-04. Meus Reagentes mostra empréstimos próprios e consumo histórico; somente gestor confirma movimentação. Consulta não cria reserva de estoque.
+
+\subsubsection{PRO-10 --- Professor: Pesquisar patrimônio e requisitar adição/edição}
+\textbf{Contrato:} UI-04 e UI-09. Bens > filtros/número > detalhe > Solicitar Edição, ou Mais > Pedido de Adição. Preencher proposta/motivo, criar Local se ausente, enviar. Lock e requisição são atômicos; Minhas Requisições acompanha resposta PAT-03.
+
+\subsubsection{ALU-01 --- Aluno: Aceitar convite ou ingressar por código}
+\textbf{Contrato:} UI-10. Convite > autenticar e verificar e-mail > completar nome/matrícula > Aceitar; ou painel > código > Entrar. Servidor verifica validade, combinações, turma e capacidade/exceção; cria vínculo/espelho/histórico uma vez. Convite inválido ou lotação não cria matrícula parcial.
+
+\subsubsection{ALU-02 --- Aluno: Visualizar turmas, colegas, posts e baixar roteiro}
+\textbf{Contrato:} UI-10 e UI-11. Minhas Turmas > turma > Feed/Membros > post > PDF. Ler somente turma com vínculo atual, colegas com dados mínimos e roteiro vinculado. Remoção invalida consultas e acesso ao arquivo; não confiar em espelho/cache antigo.
+
+\subsubsection{ALU-03 --- Aluno: Comentar e ler notificações}
+\textbf{Contrato:} UI-11 e UI-12. Post de turma matriculada > texto > Enviar; ou Sino > aviso > post. Validar vínculo e texto, persistir comentário e apresentar confirmação; Limpar tudo marca avisos lidos sem apagar fatos.
+
+\subsubsection{ALU-04 --- Aluno: Consultar estoque sem retirar}
+\textbf{Contrato:} UI-04. Visualizar > Reagentes > filtro obrigatório > detalhes de catálogo. Leitura conforme matriz da seção 3, sem identidade de retirantes nem botões de movimentação; concessão de Bolsista não pode ser feita pelo próprio aluno.
+
+\subsubsection{BOL-01 --- Bolsista: Ações acadêmicas, consulta e retirada/devolução como destinatário}
+\textbf{Contrato:} UI-04, UI-07, UI-10 a UI-12. Executar ALU-01 a ALU-04 pelo papel Aluno. Consultar reagente, comparecer ao balcão e informar finalidade/local/prazo ao gestor; ALM-04/05 registram saída/retorno. Acompanhar empréstimos próprios; nunca executar mutação de gestor nem acumular Gestor de Almoxarifado.
+
+\subsubsection{ALM-01 --- Gestor Almox.: Cadastrar/editar resumo, substância, especificação e lote}
+\textbf{Contrato:} UI-05. Estoque > Novo Reagente > reutilizar/criar resumo > composição/especificação > lote opcional. Validar identidade e unidades, persistir cada etapa com IDs retornados; densidade confirmada exige nova especificação. Não duplicar resumo por concentração.
+
+\subsubsection{ALM-02 --- Gestor Almox.: Cadastrar frasco fechado ou aberto}
+\textbf{Contrato:} UI-06. Estoque > Adicionar Frasco > especificação > almoxarifado/local/lote > modalidade e pesos > validade/destino > revisar > salvar. Transação gera LCQUI-N e grava frasco/histórico; código retornado guia etiqueta física. Repetição da requisição não gera segundo frasco.
+
+\subsubsection{ALM-03 --- Gestor Almox.: Pesquisar, editar localização, abrir e ajustar estoque por pesagem}
+\textbf{Contrato:} UI-04 e UI-06. Estoque > filtros > frasco > ação. Abrir recalcula validade; editar localização mantém identidade; pesar exige leitura e motivo, produz histórico de ajuste/evaporação. Conflito com empréstimo obriga recarregar; não sobrescrever peso inicial.
+
+\subsubsection{ALM-04 --- Gestor Almox.: Registrar retirada e autorizar uso didático de vencido}
+\textbf{Contrato:} UI-07. Registrar Retirada > código > Professor/Bolsista > local/peso/prazo/finalidade > revisão. Vencido só segue com autorização já registrada e ciência explícita para finalidade didática. Transação valida disponibilidade e escopo, cria empréstimo e histórico; concorrente perdedor não retira.
+
+\subsubsection{ALM-05 --- Gestor Almox.: Receber devolução de empréstimo próprio ou de outro gestor}
+\textbf{Contrato:} UI-07. Registrar Devolução > frasco/pendência > peso/quem devolveu > destino se vencido > confirmar. Servidor calcula consumo e atraso, encerra empréstimo e atualiza frasco/histórico. Peso incompatível exige revisão; qualquer gestor vinculado pode receber.
+
+\subsubsection{ALM-06 --- Gestor Almox.: Tratar alertas, quarentena, vazio, quebra, descarte e remoção lógica}
+\textbf{Contrato:} UI-07. Alertas > categoria > frasco > ação/motivo > confirmar. Validar transição e empréstimo ativo; gravar evento, manter identidade e invalidar saldo/alerta. Descarte é terminal; política de remoção lógica em Q07.
+
+\subsubsection{ALM-07 --- Gestor Almox.: Imprimir etiquetas virgens ou segunda via}
+\textbf{Contrato:} UI-08. Mais > Imprimir > aba > intervalo/célula ou 1--10 frascos > Gerar > Baixar. Conferir código, imprimir em 100% e colar somente após confirmar cadastro. Virgens não reservam IDs; segunda via audita cada frasco e produz uma etiqueta por ficha.
+
+\subsubsection{ALM-08 --- Gestor Almox.: Gerar relatório de um ou todos os almoxarifados autorizados}
+\textbf{Contrato:} UI-12. Relatórios > mensal/período > escopo/filtros > revisar > Gerar/Baixar. Servidor valida 31 dias e permissões, separa g/ml e usa fontes históricas adequadas; erro não anuncia PDF pronto.
+
+\subsubsection{PAT-01 --- Gestor Patr.: Criar resumo, cadastrar e editar bem}
+\textbf{Contrato:} UI-09. Patrimônio > Mais > Novo Resumo/Bem, ou detalhe > Editar > preencher/revisar > Salvar. Validar plaqueta única, local, foto e responsável; alteração de nome global exige ação no resumo, reclassificação individual altera referência. Histórico preserva antes/depois.
+
+\subsubsection{PAT-02 --- Gestor Patr.: Pesquisar, filtrar e consultar histórico}
+\textbf{Contrato:} UI-04. Patrimônio > prédio/status/letra e filtros opcionais > resumo > plaqueta > detalhe/histórico. Consultar itens e eventos por cursor; mostrar conservação e status distintos, sem substituir histórico pela localização atual.
+
+\subsubsection{PAT-03 --- Gestor Patr.: Analisar, aprovar ou rejeitar pedido}
+\textbf{Contrato:} UI-09. Fila/Sino > requisição pendente > comparação > completar dados obrigatórios > justificativa > Aprovar/Rejeitar. Transação confere versão, persiste decisão, altera/cria bem se aprovado e libera lock; notifica solicitante. Segundo respondente recebe conflito, sem dupla aprovação.
+
+\subsubsection{PAT-04 --- Gestor Patr.: Gerar relação de inservíveis e registrar baixa após SEI}
+\textbf{Contrato:} UI-09 e UI-12. Alertas/Relatórios > Inservíveis > filtros > PDF para procedimento externo. Após conclusão no SEI: bem > Baixa > upload comprovante > confirmar. Somente confirmação persistida altera status; histórico e arquivo permanecem disponíveis.
+
+\subsubsection{PAT-05 --- Gestor Patr.: Gerar relatório mensal, personalizado ou individual}
+\textbf{Contrato:} UI-12. Relatórios ou detalhe do bem > tipo/período/filtros > Gerar > Baixar/Imprimir. Validar intervalo e datas; documento identifica filtros e instante. Mês em aberto é parcial; erro ou dados ausentes têm retorno distinto.

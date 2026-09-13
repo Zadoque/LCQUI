@@ -140,10 +140,10 @@ RF10: \textit{UNIQUE(id\_bem\_patrimonial) WHERE status = 'pendente'} -- impede 
 Se o local desejado não existir no banco, o professor deve primeiro criar o \textit{Local} no sistema, para então vincular a respectiva FK (\textit{id\_local}) nesta requisição.
 \end{explicacao}
 \begin{regra}
-RF10b: \textit{UNIQUE(numero\_patrimonio\_proposto) WHERE status = 'pendente'} -- 
-impede mais de uma requisição de adição pendente simultânea para o mesmo 
-número de patrimônio. No PostgreSQL, isso é implementado como índice 
-único parcial; no Firestore, a verificação é reimplementada na Cloud 
+RF10b: \textit{UNIQUE(numero\_patrimonio\_proposto) WHERE status = 'pendente'} --
+impede mais de uma requisição de adição pendente simultânea para o mesmo
+número de patrimônio. No PostgreSQL, isso é implementado como índice
+único parcial; no Firestore, a verificação é reimplementada na Cloud
 Function de criação da requisição, dentro de uma transação.
 \end{regra}
 \subsection{Lock de Requisição de Patrimônio}
@@ -162,7 +162,7 @@ A solução é o padrão \textit{deterministic lock}: a Cloud Function tenta cri
   \item Para requisição de \textbf{adição}: docId = \texttt{bem\_adicao\_\{numero\_patrimonio\_proposto\}}
 \end{itemize}
 
-O lock é \textbf{removido} pela função \texttt{responderRequisicao*} ao aprovar ou rejeitar. Se a Cloud Function de criação falhar após criar o lock mas antes de criar a requisição (ex.: timeout), o lock fica órfão; uma Cloud Function de limpeza agendada remove locks com mais de 24 horas.
+O lock é removido na transação de aprovação/rejeição. Lock e requisição são criados atomicamente; não há commit parcial dessa transação. Limpeza verifica o vínculo e jamais remove um lock apenas porque a requisição pendente tem mais de 24 horas.
 \end{regra}
 
 \subsection{Impressão de Etiquetas de Frasco}
@@ -265,7 +265,7 @@ A composição foi movida do nível de \textit{Resumo\_Reagente} para o nível d
 
 Uma substância pura normalmente terá apenas uma linha associada, enquanto uma mistura poderá possuir diversas substâncias.
 
-O campo \textit{unidade} é armazenado como texto livre para suportar tanto um valor único (ex.: ``37'') quanto um intervalo no formato \texttt{"MIN-MAX"} (ex.: ``15-20''), usado quando a especificação do fabricante declara uma faixa de concentração em vez de um valor fixo. A validação desse formato (numérico simples ou \texttt{X-Y} com X < Y) é responsabilidade da camada de aplicação (\textit{frontend}); o banco não impõe \textit{constraint} de formato sobre este campo.
+O campo \textit{unidade} é armazenado como texto livre para suportar tanto um valor único (ex.: ``37'') quanto um intervalo no formato \texttt{"MIN-MAX"} (ex.: ``15-20''), usado quando a especificação do fabricante declara uma faixa de concentração em vez de um valor fixo. A validação desse formato (numérico simples ou \texttt{X-Y} com X < Y) é responsabilidade da aplicação (frontend e servidor); o banco não impõe \textit{constraint} de formato sobre este campo.
 \end{explicacao}
 
 \begin{regra}
@@ -663,7 +663,7 @@ A combinação de prédio, andar e sala deve ser única (\textit{UNIQUE(predio, 
 \end{entidade}
 
 \begin{explicacao}
-\textit{acao} e \textit{id\_do\_objeto\_da\_entidade} tinham o tamanho \texttt{200} escrito como se fosse um selo de restrição em vez de parte do tipo; corrigido para \texttt{VARCHAR(200)}. O valor \texttt{REAGENTE} do enum foi substituído por valores granulares. 
+\textit{acao} e \textit{id\_do\_objeto\_da\_entidade} tinham o tamanho \texttt{200} escrito como se fosse um selo de restrição em vez de parte do tipo; corrigido para \texttt{VARCHAR(200)}. O valor \texttt{REAGENTE} do enum foi substituído por valores granulares.
 \textbf{Nota sobre Impressão:} A reimpressão avulsa (2ª via) de um frasco já cadastrado é auditada diretamente aqui (\texttt{tipo = FRASCO\_REAGENTE}, \texttt{acao = REIMPRESSAO\_ETIQUETA}) em vez de usar a entidade \textit{Impressao\_Etiqueta\_Frasco}.
 \end{explicacao}
 \newpage
@@ -693,7 +693,7 @@ Especificação -- Lote & 1:N & Um lote pertence a uma única especificação.\\
 Lote -- Frasco & 1:N opcional & Um frasco pode ter lote NULL quando o lote não for conhecido.\\
 Almoxarifado -- Frasco & 1:N & Cada frasco está em exatamente um almoxarifado.\\
 Frasco -- Empréstimo & 1:N & Histórico completo; no máximo um empréstimo ativo por frasco.\\
-Turma -- Aluno & N:N & Alunos podem participar de várias turmas (via sub-coleção \texttt{Turmas/\{id\}/Alunos}).\\
+Turma -- Aluno & N:N & Alunos podem participar de várias turmas (via sub-coleção \texttt{Turma/\{id\}/Alunos}).\\
 Turma -- Post & 1:N & Cada post pertence a uma turma e ao professor autor.\\
 Post -- Comentário & 1:N & Cada comentário pertence a um post.\\
 Professor -- Matéria & N:N & A associação não pode ser duplicada.\\

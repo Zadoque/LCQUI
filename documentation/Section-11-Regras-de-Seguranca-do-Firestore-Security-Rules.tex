@@ -35,19 +35,19 @@ Todas as exceções são declaradas explicitamente abaixo.
 \nolinkurl{Usuarios/\{uid\}} & Read: \texttt{request.auth.uid == uid} (usuário lê só o próprio documento). Write: negado ao cliente (só Cloud Function).\\
 \nolinkurl{Usuarios/\{uid\}/Turmas/\{turmaId\}} & Read: \texttt{request.auth.uid == uid} (o aluno lê em tempo real apenas as turmas em que está matriculado). Write: negado ao cliente (gerenciada exclusivamente pelas Cloud Functions).\\
 \texttt{Chefe\_Geral}, \texttt{Gestor\_Almoxarifado}, etc.~(coleções de papel) & Read: \texttt{request.auth.uid == docId} (cada usuário lê só o próprio documento de papel). Write: negado ao cliente.\\
-\nolinkurl{Turmas/\{turmaId\}} & Read: usuário é professor da turma (\texttt{resource.data.id\_professor == request.auth.uid}) OU está na sub-coleção \texttt{Alunos}. Write: negado ao cliente.\\
-\nolinkurl{Turmas/\{turmaId\}/Alunos} & Read: \texttt{request.auth.uid == resource.data.id\_aluno} OU professor da turma.\\
-\nolinkurl{Turmas/\{turmaId\}/Posts} & Read: membro da turma (professor ou aluno matriculado). Write: negado.\\
-\nolinkurl{Turmas/\{turmaId\}/Posts/\{postId\}/Comentarios} & Idem ao Post pai.\\
+\nolinkurl{Turma/\{turmaId\}} & Read: usuário é professor da turma (\texttt{resource.data.id\_professor == request.auth.uid}) OU está na sub-coleção \texttt{Alunos}. Write: negado ao cliente.\\
+\nolinkurl{Turma/\{turmaId\}/Alunos} & Read: \texttt{request.auth.uid == resource.data.id\_aluno} OU membro ativo da mesma turma, apenas em projeção mínima sem matrícula/e-mail.\\
+\nolinkurl{Turma/\{turmaId\}/Posts} & Read: membro da turma (professor ou aluno matriculado). Write: negado.\\
+\nolinkurl{Turma/\{turmaId\}/Posts/\{postId\}/Comentarios} & Idem ao Post pai.\\
 \nolinkurl{Usuarios/\{uid\}/Notificacoes} & Read: \texttt{request.auth.uid == uid}. Write: negado ao cliente.\\
 \texttt{Frasco\_Reagente} & Read: papel \texttt{roles} no token contém \texttt{Chefe\_Geral} OU \texttt{Gestor\_Almoxarifado} OU \texttt{Professor} OU \texttt{Bolsista} OU \texttt{Aluno}. Write: negado ao cliente.\\
 \texttt{Emprestimo\_Reagente} & Read: \texttt{Chefe\_Geral} OU \texttt{Gestor\_Almoxarifado} OU o próprio usuário que retirou (\texttt{resource.data.id\_usuario\_retirou == request.auth.uid}). Write: negado.\\
-\texttt{Bem\_Patrimonial} & Read: qualquer usuário autenticado (catarro público interno). Write: negado ao cliente.\\
+\texttt{Bem\_Patrimonial} & Read: Chefe Geral, Gestor de Bens Patrimoniais ou Professor. Write: negado ao cliente.\\
 \texttt{Requisicao\_Edicao\_Bem\_Patrimonial} & Read: o solicitante (\texttt{resource.data.id\_usuario\_solicitante == uid}) OU gestores de bens (papel no token). Write: negado.\\
 \texttt{Requisicao\_Adicao\_Bem\_Patrimonial} & Idem acima.\\
 \texttt{Locks\_Requisicao\_Patrimonio} & Read/Write: negado ao cliente (exclusivo de Cloud Function).\\
 \texttt{Registro\_de\_Auditoria} & Read: \texttt{Chefe\_Geral} no token. Write: negado ao cliente.\\
-\texttt{Roteiro\_Experimento} & Read: \texttt{resource.data.id\_professor == uid} OU existe documento em \texttt{Roteiro\_Professor\_Compartilhado} com \texttt{id\_professor\_destino == uid}. Write: negado.\\
+\texttt{Roteiro\_Experimento} & Read: \texttt{resource.data.id\_professor\_upload == uid} OU existe documento em \texttt{Roteiro\_Professor\_Compartilhado} com \texttt{id\_professor\_destino == uid}. Write: negado.\\
 \texttt{Contador\_Codigo\_Frasco} & Read: \texttt{request.auth != null} (qualquer logado lê). Write: negado ao cliente (só Cloud Function atualiza o sequenciador).\\
 \end{longtable}
 
@@ -59,3 +59,16 @@ O papel do usuário fica disponível nas Security Rules como \texttt{request.aut
 \texttt{\}}\\
 Isso garante consistência com o mesmo Custom Claim usado pelas Cloud Functions (\texttt{resolverPapeisDoToken}).
 \end{regra}
+
+
+\subsection{Contrato de acesso para os fluxos detalhados}
+\label{sec:acesso-detalhado}
+Além do papel, toda operação verifica conta ativa, versão de permissões e escopo atual. Atualizar Custom Claims não invalida imediatamente um token já emitido. A aplicação deve renovar o token após sincronização e o backend/Rules deve rejeitar versão desatualizada ou conta inativa consultando o controle persistido. Preferência de papel no cliente só altera apresentação.
+
+Leituras de membros, posts, comentários e PDFs de turma exigem professor responsável ou vínculo ativo; colegas recebem projeção mínima, sem e-mail/matrícula. Requisições são visíveis ao solicitante, gestor patrimonial e Chefe. Empréstimos completos são visíveis ao retirante, gestor vinculado ao almoxarifado e Chefe; demais leitores do catálogo recebem somente disponibilidade. Histórico operacional segue o mesmo escopo, e auditoria global fica com a chefia. Diretórios usados em seletores devem ter endpoints/projeções mínimas autorizadas, não leitura irrestrita de Usuarios.
+
+Mutações de domínio e locks são exclusivas do servidor, inclusive marcar notificações lidas; não permitir delete de notificações para implementar Limpar tudo. Regras devem cobrir explicitamente Resumo\_Reagente/id/Especificacoes, Turma e suas subcoleções e Bem\_Patrimonial/id/Historico. Consultas collection-group exigem regras/índices próprios. Contador, unicidade e controles de papéis são técnicos; somente resposta mínima autorizada é exposta ao operador.
+
+Storage valida dono, caminho, tipo e tamanho: foto inferior a 5 MiB, baixa inferior a 10 MiB e roteiro inferior a 15 MiB. Backend verifica arquivo existente e assinatura de conteúdo antes de referenciar; metadados não bastam para provar formato. Leitura de roteiro exige propriedade, compartilhamento ou post de turma acessível. Comprovante de baixa segue escopo patrimonial e não pode ser removido após vinculação. Não conceder leitura de todo Storage apenas porque o usuário está autenticado.
+
+Estas são exigências da especificação; firestore.rules e storage.rules atuais ainda divergem, conforme AUDITORIA\_ATUALIZADA.md. A presença de deny-all genérico não anula permissões amplas de matches específicos.

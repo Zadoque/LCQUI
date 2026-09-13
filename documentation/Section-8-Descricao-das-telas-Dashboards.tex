@@ -4,7 +4,7 @@
 \subsection{Header em comum em todos os papeis}
 \begin{verbatim}
 |----------------------------------------------------------------------|
-|Olá, [Nome completo do usuário]                       [foto de perfil]| 
+|Olá, [Nome completo do usuário]                       [foto de perfil]|
 |----------------------------------------------------------------------|
 \end{verbatim}
 Quando se clica na foto de perfil, aparece um modal que se arrasta da direita. Nele é possível deslogar e ir para "Perfil de usuário", que por sua vez abre um modal com as informações do usuário e botão para editar (foto, nome, etc.).
@@ -12,7 +12,7 @@ Quando se clica na foto de perfil, aparece um modal que se arrasta da direita. N
 \subsection{Header quando o usuário é Multi-Role}
 \begin{verbatim}
 |----------------------------------------------------------------------|
-|Olá, [Nome]  [Botão Papel 1] [Botão Papel 2]          [foto de perfil]| 
+|Olá, [Nome]  [Botão Papel 1] [Botão Papel 2]          [foto de perfil]|
 |----------------------------------------------------------------------|
 \end{verbatim}
 Alterar os botões de papel no header modifica instantaneamente a página toda e o painel lateral para as funcionalidades daquele papel selecionado (ex: de Aluno para Gestor de Almoxarifado).
@@ -32,10 +32,10 @@ Antes da área principal de busca, ele verá uma div \textit{full-width} com:
      \end{itemize}
     \item Um botão para "Gerenciar Gestores de Almoxarifado". Esse botão abre um novo modal que:
     \begin{itemize}
-        \item Permite pesquisar e selecionar Gestores. Ao selecionar, aparece o histórico dele nós ultimos 30 dias com: (Reagentes e frascos adicionados, movimentações registradas), caso ele queira de um mês específico, terá um modal para escolher o ano e o mês. 
+        \item Permite pesquisar e selecionar Gestores. Ao selecionar, aparece o histórico dele nós ultimos 30 dias com: (Reagentes e frascos adicionados, movimentações registradas), caso ele queira de um mês específico, terá um modal para escolher o ano e o mês.
     \end{itemize}
     \item Um botão de "Relatórios" que abre um modal com as opções para Relatórios em PDF dos almoxarifados.
-\end{itemize} 
+\end{itemize}
 Abaixo, haverá uma aba de busca onde pode-se filtrar por almoxarifado, reagente (ou ambos) e pesquisar livremente um reagente pelo nome. Ao clicar em um reagente, abre-se uma tela de detalhes:
 O filtro padrão da tela de detalhes é o estado atual, mas pode ser alterado para um período específico. Ele exibe: Todas as propriedades em Resumo de reagente, inclusive as materializadas (Materialized View).
 
@@ -44,30 +44,30 @@ Antes da aba principal de busca, ele verá uma div \textit{full-width} com:
 \begin{itemize}
     \item Um botão "Mais" com as opções:
      \begin{itemize}
-         \item Novo Gestor de Bens Patrimoniais. 
+         \item Novo Gestor de Bens Patrimoniais.
      \end{itemize}
     \item Um botão para "Gerenciar Gestores de Bens Patrimoniais", abrindo um modal que:
     \begin{itemize}
         \item Permite pesquisar (por nome) um gestor. Ao selecionar, visualiza-se o histórico dos últimos 30 dias, ou um mês e ano esepecífico que for escolhido (requisições aprovadas/rejeitadas, bens adicionados, edições feitas).
     \end{itemize}
-    \item Um botão de "Relatórios" para gerar os PDFs de bens patrimoniais (mensal, por prédio, geral). 
-\end{itemize} 
+    \item Um botão de "Relatórios" para gerar os PDFs de bens patrimoniais (mensal, por prédio, geral).
+\end{itemize}
 Abaixo, a aba de busca permite filtrar por responsável do bem, estado de conservação, e pesquisa livre pelo número/nome do bem. Ao clicar em um patrimônio, abre-se o detalhamento:
 Mostra o estado atual, quantos itens existem daquele tipo cadastrados, a divisão por status (Ativo, Inservível, Baixado) e a lista completa desses itens exibindo o número de patrimônio e o respectivo responsável logado no Sistema da UENF.
 
-Ao clicar em um número de patrimônio especifico, abre um modal com as propriedades desse patrimônio, ao mudar o status dele para já dado baixa, é preciso fazer o upload do documento pdf que comprove isso. 
+Ao clicar em um número de patrimônio especifico, abre um modal com as propriedades desse patrimônio, ao mudar o status dele para já dado baixa, é preciso fazer o upload do documento pdf que comprove isso.
 \subsubsection{Aba: Professores}
 Antes da aba de busca, uma div \textit{full-width} com:
 \begin{itemize}
     \item Um botão para "Novo Professor".
-\end{itemize} 
+\end{itemize}
 Na área principal ele pode pesquisar Professores pelo nome, filtrar por Matéria lecionada, Prédio, ou número da sala (inclusive combinando múltiplos filtros). Ao clicar em um professor, abre-se um modal para gerenciar a conta daquele docente, ver seu histórico de ações e a lista de turmas que ele administra.
 
 \subsubsection{Aba: Alunos}
 Antes da aba de busca, uma div \textit{full-width} com:
 \begin{itemize}
     \item Um botão para "Novo Aluno".
-\end{itemize} 
+\end{itemize}
 Na área principal ele pesquisa Aluno pelo nome, podendo filtrar por Matéria que cursa ou número de matrícula. Ao clicar no Aluno, abre-se um modal de gerenciamento exibindo seu histórico e as turmas em que está matriculado.
 
 \subsection{Dashboard-Professor}
@@ -83,14 +83,14 @@ Para o papel de Professor, a dashboard foca em organização acadêmica e gestã
 Na aba principal, abaixo do header em comum, ele verá uma div \textit{full-width} com:
 \begin{itemize}
     \item \textbf{Notificações:} Botão com ícone de sino que abre um modal \textit{dropdown} alertando sobre requisições de bens respondidas e sobre reagentes emprestados cujo prazo está atrasado, vence hoje ou vence amanhã. Inclui um botão "Limpar tudo".
-    \item \textbf{Botão Mais (+):} Abre \textit{dropdown} com: Nova Turma, Novo Aluno (bloqueado se não tiver turmas criadas), Novo Roteiro de Experimento, Novo Pedido de Adição de Bem Patrimonial (se o usuário selecionar "Novo Local" dentro do pedido, um modal sobreposto exigirá o cadastro prévio do Prédio/Sala), e \textbf{Nova Matéria} (abre modal simples com nome e código; código deve ser único, validado pelo backend).
-    \item \textbf{Gerenciar Roteiros:} Abre um modal com duas abas ("Meus" e "Compartilhados comigo"). Permite abrir para visualização ou baixar os arquivos em PDF.
+    \item \textbf{Botão Mais (+):} Abre \textit{dropdown} com: Nova Turma, Novo Aluno (turma opcional, com confirmação de convite global), Novo Roteiro de Experimento, Novo Pedido de Adição de Bem Patrimonial (se o usuário selecionar "Novo Local" dentro do pedido, um modal sobreposto exigirá o cadastro prévio do Prédio/Sala), e \textbf{Nova Matéria} (abre modal simples com nome e código; código deve ser único, validado pelo backend).
+    \item \textbf{Gerenciar Roteiros:} Abre um modal com três abas ("Meus", "Compartilhados comigo" e "Eu compartilhei"). Permite abrir para visualização ou baixar os arquivos em PDF.
     \item \textbf{Minhas Requisições:} Modal para acompanhar os pedidos feitos de adição/edição de Bens Patrimoniais (filtrando por Pendente, Aprovada, Rejeitada).
     \item \textbf{Meus Reagentes:} Modal de acompanhamento onde o professor visualiza os reagentes atualmente sob sua posse (ordenados pela data de devolução) e o histórico de uso (Padrão: últimos 30 dias). Ao clicar num reagente histórico, ele visualiza exatamente o volume (mL) que ele consumiu nesse período.
-\end{itemize} 
+\end{itemize}
 
 \textbf{Área Central (Feed da Turma):}
-Ao acessar a dashboard inicialmente, uma mensagem dirá: "\textit{Selecione uma turma ao lado para começarmos}". 
+Ao acessar a dashboard inicialmente, uma mensagem dirá: "\textit{Selecione uma turma ao lado para começarmos}".
 Ao clicar em uma turma no painel lateral, a área central exibe o Feed dessa disciplina. Existe um bloco fixo superior para criar novos posts (podendo anexar PDFs novos ou selecioná-los da sua biblioteca/compartilhados). O feed lista os posts em ordem cronológica e cada post contém a área de comentários integrada para interação direta com os alunos.
 
 \subsection{Dashboard-Gestor de Almoxarifado}
@@ -104,33 +104,33 @@ Na aba principal, uma div \textit{full-width} com botões rápidos essenciais:
     \item \textbf{Alertas de Gestor (Notificações):} Sino de avisos exclusivo exibindo pendências críticas: frascos declarados como vazios, vencidos ou quebrados, ou seja, aguardando mudança para o estado DESCARTADO, e reagentes que atingiram nível de escassez no estoque, frascos que precisam de pesagem de rotina, frascos que estão em quarentena.
     \item \textbf{Botão Mais (+):}
     \begin{itemize}
-        \item Novo Reagente -> Abre modal exigindo Nome,CAS, Concentração, grau de pureza( em \%), a quantidade em que ele é considerado escasso para alertas futuros, fórmula química , se é controlado pela pf ou pela eb, a classe de inflamabilidade, link da ficha de segurança, tipo (sólido ou líquido: pede densidade, pergunta se requer pesagem frequente, se sim, pede a frequencia em dias). 
+        \item Novo Reagente -> Abre modal exigindo dados de resumo e especificação separados conforme UI-05; CAS e concentração têm obrigatoriedade condicional, não universal. Campos: Nome, CAS, Concentração, grau de pureza (texto opcional), a quantidade em que ele é considerado escasso para alertas futuros, fórmula química , se é controlado pela pf ou pela eb, a classe de inflamabilidade, link da ficha de segurança, tipo (sólido ou líquido: pede densidade, pergunta se requer pesagem frequente, se sim, pede a frequencia em dias).
         Tem um seletor para escolher entre sólido e líquido (em temperatura ambiente):
         \begin{itemize}
             \item Para tipo sólido -> Sempre que for adicionar um frasco -> o tipo de medida é gramas (g) (setado pelo sistema)
             \item Para tipo líquido -> Sempre que for adicionar um frasco -> o tipo de medida é mililitros (ml) (setado pelo sistema)
         \end{itemize}
         Tem um seletor para a Natureza do Reagente: Orgânico, Inorgânico, Elemento ou Híbrido
-        
+
         \item Adicionar Frasco: abre um modal para escolher o reagente a ser adicionado, o reagente pode ser pesquisado, por: nome, cas e formula química (deve ter um seletor para escolher, isso serve para não precisar pesquisar em todas as categorias de uma vez). Após selecionar o reagente a ser adcionado, fecha o modal de escolher reagente e passa a preencher o formulário para adicionar o frasco de reagente, o fórmulário deve conter:
          Selecionar o almoxarifao em que esse frasco vai ficar;\\
          Escrever o detalhamento do local (como: Segunda prateleira, na direita, etc) \\
          O número do lote em que esse frasco pertence. \\
          Pergunta o status dele: Fechado, Aberto, Quarentena (em caso de quarente, aparece um campo em texto para ser escrito explicando o motivo de estar em quarentena)
-         
+
          \textbf{Feedback de Sucesso:} Ao salvar, exibe: "\textit{Frasco cadastrado sob o código LCQUI-XX (Reagente: YY, Data: DD/MM/AAAA). Localize a etiqueta física correspondente na folha de bancada, preencha os dados à caneta e aplique no frasco com fita adesiva.}"
-         O campo "tipo" em Resumo de reagente que determina os campos a serem pedidos abaixo (sólido ou líquido) \\
+         O campo estado físico na Especificação do reagente que determina os campos a serem pedidos abaixo (sólido ou líquido) \\
         líquido ->
 \begin{itemize}
     \item Se é do tipo fechado, pede apenas a volume do líquido e o peso total com o frasco. (calcula o peso do frasco, mostra o peso do frasco mas não pode ser editado.)
-    \item Se é do tipo Aberto, pede o peso do frasco, ...
-        \end{itemize} 
-        sólido -> pede peso 
-        
+    \item Se é do tipo Aberto, exige peso total e uma modalidade: tara conhecida ou estimativa de volume, conforme UI-06.
+        \end{itemize}
+        sólido -> exige peso total e massa nominal (fechado), ou tara conhecida/estimativa de massa (aberto), conforme UI-06.
+
         \item Imprimir Etiquetas: Modal bifurcado em duas abas. A Aba 1 (Novos Frascos / Virgens) oferece opções de intervalo (a partir do último cadastrado, após última impressão ou personalizado) e um Grid Visual de Offset 3×10 para escolha da célula inicial. A Aba 2 (Frascos Cadastrados / 2ª Via) permite busca por reagente/código e seleção de até 10 frascos, gerando a respectiva Ficha de Conferência.
-         
+
     \end{itemize}
-    \item \textbf{Ações de Bancada (Destacados no centro):} 
+    \item \textbf{Ações de Bancada (Destacados no centro):}
     \begin{itemize}
         \item \textbf{Registrar Retirada:} Modal para escanear/buscar o frasco, selecionar o usuário retirante (Professor ou Bolsista, conforme as regras de autorização) e anotar o Peso Inicial.
         \item \textbf{Registrar Devolução:} Modal crucial. O gestor informa o frasco retornado e insere o \textbf{Peso de Retorno} da balança. O sistema faz a diferença, aplica a densidade (se for líquido), e mostra em negrito o \textit{Volume Ultilizado em mL}, ou então o \textit{Peso Ultizado em gramas}, atualizando medida no frasco e seus status automaticamente antes de fechar o modal.
@@ -147,7 +147,7 @@ Para o Gestor de Bens Patrimoniais, o foco é em auditoria, análise comparativa
 Na div \textit{full-width} superior:
 \begin{itemize}
     \item \textbf{Notificações:} Alerta sempre que um professor abrir uma requisição de adição de bem novo ou alteração do estado de um bem existente.
-    \item \textbf{Botão Mais (+):} Adição direta de bens (ignorando requisição) e cadastro de novas descrições/resumos de itens ou Gestores (se tiver permissão).
+    \item \textbf{Botão Mais (+):} Adição direta de bens (ignorando requisição) e cadastro de novas descrições/resumos de itens; cadastro de gestores é exclusivo do Chefe Geral.
     \item \textbf{Analisar Requisições (Destaque):} Abre uma interface de tela dividida (Split-screen). Do lado esquerdo, os dados e foto do bem como estão atualmente no banco de dados. Do lado direito, os novos dados propostos pelo professor destacado em cores (ex: Estado de Conservação passando de Bom para Ruim). No rodapé, botões massivos de "Aprovar Alteração" ou "Rejeitar" (exigindo campo de texto com justificativa).
     \item \textbf{Gerar Relatórios:} Modal para compilação e download de PDF. Foco em permitir gerar o relatório de "Baixa de Bens Inservíveis" (contendo responsáveis) para anexar diretamente no processo interno (SEI) da Universidade.
 \end{itemize}
@@ -156,8 +156,8 @@ Na div \textit{full-width} superior:
 \subsection{Dashboard-Aluno}
 Para o perfil de Aluno, a interface remove completamente as complexidades de gestão, focando apenas no acesso aos materiais acadêmicos:
 \begin{itemize}
-    \item \textbf{Painel Lateral:} Um visual limpo apresentando a lista de "Minhas Turmas". No rodapé desse painel, um input text estilizado e claro dizendo "Código da Turma" com um botão "Entrar", permitindo vínculo imediato a uma nova disciplina sem modais complexos. Quando o aluno também for um bolsista, ele vai ter o mesmo grupo 1 que o professor: (Visualizar), mas apenas com a opção "Reagentes".
-    
+    \item \textbf{Painel Lateral:} Um visual limpo apresentando a lista de "Minhas Turmas". No rodapé desse painel, um input text estilizado e claro dizendo "Código da Turma" com um botão "Entrar", permitindo vínculo imediato a uma nova disciplina sem modais complexos. Todo aluno tem acesso de leitura ao catálogo de reagentes conforme a seção 3. Quando também for bolsista, ele mantém o grupo Visualizar/Reagentes e ganha acompanhamento dos próprios empréstimos.
+
 \end{itemize}
 Na aba principal, abaixo do header:
 \begin{itemize}
@@ -170,3 +170,111 @@ Na aba principal, abaixo do header:
     \item Se o post contém um Roteiro de Experimento anexado, um ícone de PDF chamativo aparece ao lado do nome do arquivo com um botão de ação "Baixar" (Download direto).
     \item Abaixo de cada post, a seção de comentários. O aluno vê um campo simples de \textit{input} para digitar uma dúvida ou observação, que, ao ser enviada, fica visível imediatamente na \textit{thread} daquele post para o professor e demais colegas da sala.
 \end{itemize}
+
+\subsection{Contratos detalhados das telas e modais}
+\label{sec:contratos-telas}
+Os contratos UI abaixo complementam os painéis anteriores, preservando sua organização. Cada abertura de modal, gaveta, página ou menu descrita acima usa o contrato correspondente. Campos não marcados como opcionais são obrigatórios; limites e enums do dicionário da seção~\ref{subsec:mapeamento-colecoes} também se aplicam ao frontend. As regras seguintes especificam o comportamento esperado e não atestam implementação.
+
+\subsubsection{UI-01: acesso, sessão, perfil e troca de papel}
+Login apresenta e-mail (tipo email, até 150 caracteres, espaços externos removidos), senha obrigatória com alternância de visibilidade, Entrar, Login com Google e Recuperar senha. Não aplicar trim à senha. Erro de credencial é genérico, sem confirmar a existência da conta. Recuperação pede somente e-mail e apresenta a mesma confirmação para endereços existentes ou não. Login não concede papel: após autenticação, carregar conta ativa e permissões antes de montar a dashboard; conta desativada vai para aviso de acesso desativado, conta sem papel para acesso não autorizado. Falha de rede oferece Tentar novamente.
+
+A foto abre gaveta com nome, e-mail somente leitura, papéis, Perfil e Sair. Perfil contém nome obrigatório (1--150 caracteres), foto opcional com prévia, Remover foto, Cancelar e Salvar. A imagem deve ter tamanho inferior a 5 MiB; o servidor valida formato e propriedade do objeto. E-mail, matrícula e papéis não são editáveis nesse formulário. Atualizar nome propaga as projeções de busca, preservando eventos históricos. Sair encerra listeners, descarta dados da sessão, libera URLs temporárias e retorna ao login.
+
+O seletor de papel exibe somente papéis autorizados. Ao trocar, interromper consultas do painel anterior, limpar seleções e carregar o novo escopo; um formulário modificado exige decidir entre continuar editando ou descartar. O papel preferido é apenas preferência visual. Não constitui autorização. Após alteração de permissões, renovar o token e verificar conta ativa; se o papel corrente deixou de existir, escolher outro permitido ou encerrar a sessão.
+
+\paragraph{Padrão visual, acessibilidade e estados.}
+Modal central: \texttt{fixed inset-0 z-50}, fundo escurecido, conteúdo \texttt{w-full max-w-2xl max-h-[90vh] overflow-y-auto}; formulários usam uma coluna no celular e duas em telas largas. Gaveta: largura total no celular e painel lateral no desktop. Manter título acessível, foco contido, retorno do foco ao acionador, rótulos ligados aos campos, erros textuais com \texttt{aria-describedby}, resumo de erros e foco no primeiro inválido. Escape e Cancelar fecham quando não há envio em andamento. Botões têm foco visível e texto além da cor. Salvar fica indisponível durante envio; sucesso só após resposta do servidor. Em conflito, preservar entradas e oferecer recarregar/revisar. Nunca repetir silenciosamente uma movimentação cuja resposta se perdeu: consultar seu identificador idempotente. Listas apresentam carregamento, vazio, erro, sem permissão e dados desatualizados como estados distintos.
+
+\subsubsection{UI-02: usuários, gestores e atribuição de papéis}
+Novo Professor, Novo Aluno e Novo Gestor compartilham formulário do Chefe Geral: escolher usuário existente por pesquisa autorizada ou convidar por e-mail; nome e e-mail são obrigatórios na criação. Professor exige centro (CCT, CCTA, CBB ou CCH) e laboratório até 100 caracteres; Aluno exige matrícula única até 20 caracteres no cadastro concluído. Convite pode antecipar matrícula opcional, exigida na aceitação se ainda ausente. Matérias são seleção opcional de IDs existentes, sem duplicatas. Gestor de almoxarifado aceita vínculos opcionais; sem vínculos, exibir estado vazio com orientação para procurar a chefia. Não converter Aluno em Professor implicitamente.
+
+A lista de papéis mostra combinações permitidas, motivo de bloqueio e conjunto resultante. Conceder Bolsista exige Aluno e ausência de Gestor de Almoxarifado. Revogar abre confirmação com usuário, papel, vínculos afetados, justificativa obrigatória e consequência para a conta. Aplicar RN-ROLE-01 a RN-ROLE-15, incluindo autorrevogação e proteção do último responsável. Não oferecer revogar outro Chefe Geral. O backend valida tudo novamente e registra inclusive rejeições.
+
+Detalhes de professor/aluno/gestor têm abas Dados, Papéis e vínculos, Turmas e Atividade. Nome, matrícula, laboratório e centro seguem os mesmos limites; somente campos autorizados são editáveis. Atividade inicia nos últimos 30 dias e consulta histórico paginado por autor e instante; o seletor mensal exige mês 1--12 e ano não futuro e usa os agregados mensais. Matrícula e e-mail não aparecem na lista de colegas. Filtros por matéria usam os vínculos Professor--Matéria e Aluno--Turma--Matéria. Filtros por sala do professor dependem da decisão Q01, não de um campo inventado.
+
+\subsubsection{UI-03: almoxarifado, local e matéria}
+Novo Almoxarifado exige nome (100), descrição (500), Local existente e pelo menos um gestor para ativação. Seleção múltipla lista apenas gestores ativos. Pode ser salvo inativo sem gestor; ativar exige vínculo válido. Gerenciar vínculos mostra todos os responsáveis e impede remover o último de um almoxarifado ativo, inclusive numa revogação global.
+
+Novo Local exige prédio (30), andar (10, texto para aceitar térreo/subsolo) e sala (30). Remover espaços externos, rejeitar campos vazios e verificar unicidade normalizada da combinação no servidor. Ao salvar, retornar o ID e selecionar o local no formulário de origem, preservando o restante do pedido. Evitar dois diálogos simultâneos com foco concorrente: usar etapa interna ou suspender o diálogo pai. Autoria e data vêm da sessão e do servidor.
+
+Nova/Editar Matéria pede nome (100) e código (10), ambos não vazios; normalizar código de forma consistente e verificar unicidade transacional. Editar mantém o ID e atualiza projeções; turmas não são recriadas. Chefe e Professor acessam essa ação; selecionar matéria existente não exige cadastrar novamente.
+
+\subsubsection{UI-04: pesquisa, catálogo e detalhes}
+Reagentes exigem pelo menos um filtro entre letra, natureza, tipo de substância e estado físico. Patrimônio exige prédio, letra ou status. Usar debounce de 300 ms como parâmetro inicial de interface, cursor estável e páginas de 25 registros. Busca textual local informa ``filtrando os itens carregados''; zero correspondências numa página não significa ausência no catálogo. Oferecer carregar próxima página e refinar filtros. Busca exata por LCQUI-N, CAS, matrícula ou plaqueta tem modo próprio, valida o formato e consulta índice/chave específica, sem varrer toda a base. Não abrir automaticamente detalhes enquanto o usuário ainda digita.
+
+Detalhes de reagente mostram resumo, especificações separadas, composição, densidade/unidade, fabricante, controle PF/EB e link FDS; frascos são paginados por almoxarifado e estado. Mostrar saldo em g separado de mL, fechados/abertos/em uso e horário da materialização. Período histórico usa resumos diários; o estado atual usa documentos atuais. Selecionar frasco abre código, localização, lote opcional, validade, pesagem, disponibilidade e histórico. Emprestado não revela dados do retirante a quem só consulta catálogo. Ações de gestão exigem papel e vínculo; Professor/Bolsista consultam seus empréstimos, e Aluno tem leitura de catálogo conforme seção 3, sem retirada.
+
+Patrimônio apresenta resumo catalográfico e itens físicos, foto, plaqueta, local, conservação e status separados. Responsável SEI é texto, não conta LCQUI. Detalhe individual usa ID e histórico paginado; resumo agrega contagens por status. Professor tem Solicitar edição, gestores e Chefe têm Editar e Baixa. Listas administrativas de pessoas usam respostas com campos mínimos e filtros de escopo; não baixar a coleção de identidades para simular busca.
+
+\subsubsection{UI-05: resumo químico, substância, especificação e lote}
+Novo Reagente é um assistente. Primeiro pesquisar resumo existente; criar somente se a identidade química nominal for diferente. Resumo exige nome (150), PURA/MISTURA, natureza (ORGANICO, INORGANICO, ELEMENTO, HIBRIDO), limiar inteiro positivo de frascos e indicador de pesagem frequente; quando marcado, frequência inteira positiva em dias. Alterar esses dados exige confirmação do alcance sobre todas as especificações.
+
+A segunda etapa seleciona ou cria especificação: descrição (150), estado SOLIDO/LIQUIDO e classe de inflamabilidade obrigatórios; unidade somente leitura (g/ml). Densidade positiva obrigatória para líquido; opcional para sólido. Fabricante (150), código do produto (100), grau de pureza (30) e FDS HTTPS (255) são opcionais. Grau de pureza é texto (ex.: P.A.), não percentual obrigatório. Controle PF/EB usa dois booleanos explícitos. Densidade confirmada não é editável: registrar nova especificação e preservar cálculos históricos.
+
+Composição permite adicionar substâncias por nome/CAS, sem repetir ID. Nova substância pede nome (150), CAS opcional (15) e fórmula opcional (50); CAS informado deve ter formato e dígito verificador válidos e ser único. Mistura exige ao menos um componente. Tipo de concentração é enum da seção 4; valor numérico não negativo ou faixa textual ordenada seguem Q03. A validação ocorre também no servidor. Não exigir CAS único de uma mistura como se fosse substância individual.
+
+Lote é opcional no frasco. Novo Lote exige especificação, fornecedor (80), número (100), nota fiscal (100), aquisição, fabricação, validade e quantidade inteira não negativa comprada. Fabricação não excede validade; aquisição não é futura. Verificar unicidade especificação/fornecedor/número. Lotes existentes são filtrados pela especificação selecionada. Salvamento de cada entidade retorna seu ID; eventual falha da etapa seguinte permite retomar sem criar duplicatas.
+
+\subsubsection{UI-06: cadastrar, editar e pesar frasco}
+Adicionar Frasco inicia pelo seletor de resumo e especificação UI-05, com modos de busca nome/CAS/fórmula. Exige almoxarifado autorizado e ativo, localização detalhada (campo opcional até 500 caracteres, recomendado para localizar a unidade), estado FECHADO/ABERTO e modo de pesagem. Lote é opcional; selecionar Quarentena é uma decisão separada do estado físico e torna motivo obrigatório. Validade fechada é opcional se marcada desconhecida; prazo após abertura, quando informado, é inteiro positivo. Nunca tratar validade desconhecida como validade ilimitada. O servidor calcula validade efetiva; decisão sobre operação com validade desconhecida está em Q04.
+
+Fechado: conteúdo nominal positivo (mL líquido/g sólido) e peso total positivo em g. Tara calculada é somente leitura: peso total menos conteúdo vezes densidade para líquido, ou menos conteúdo para sólido. Aberto: peso total e modo CONHECE\_TARA, ESTIMA\_VOLUME (líquido) ou ESTIMA\_MASSA (sólido). Exigir apenas a entrada correspondente; tara deve ser positiva e não maior que o peso total, conteúdo inicial positivo. Apresentar prévia identificada como estimativa; não enviar derivados como autoridade. Data de abertura anterior desconhecida não deve ser fabricada como hoje (Q05).
+
+Se vencido, exigir destino: quarentena com motivo, pendente de descarte ou autorização didática explícita. Exibir revisão final com identidade, unidades, destino e dados de validade. Salvar cria código, frasco, histórico e auditoria de forma idempotente; apenas o servidor atribui LCQUI-N. O retorno mostra código e instrução de localizar/preencher a etiqueta física correspondente. Não gravar código sugerido por impressão anterior.
+
+Editar propriedades permite localização, dados corrigíveis e decisões de estado autorizadas; não altera código, identidade química, peso de cadastro ou densidade. Pesagem de rotina exige novo peso em g, motivo e revisão da diferença; confirmar relê o frasco, exige disponibilidade e registra ajuste/evaporação separadamente do consumo em empréstimo. Tara incompatível bloqueia conclusão. O exemplo legado de margem higroscópica de 2\% exige conciliação com consumo não negativo; correção de tara e tolerância de balança dependem de Q06; não aceitar consumo negativo silenciosamente.
+
+\subsubsection{UI-07: retirada, devolução, quarentena e descarte}
+Retirada exige código/ID do frasco, retirante ativo Professor/Bolsista, local de uso, peso de saída positivo em g, data prevista não anterior a hoje e finalidade (PESQUISA, DIDATICO\_DEMONSTRACAO, OUTRO). Nome e detalhes da especificação são somente leitura. Seleção de destinatário deve ser pesquisa autorizada com campos mínimos. Quarentena, vazio, quebrado, descartado ou pendente de descarte bloqueiam envio. Primeira abertura é confirmada e recalcula validade na mesma transação. Vencido autorizado exige finalidade didática e checkbox de ciência, sem alterar a autorização do gestor. Confirmar apresenta resumo; servidor relê vínculo, frasco e destinatário, cria empréstimo e muda disponibilidade atomicamente.
+
+Devolução seleciona empréstimo EM\_USO/ATRASADO do frasco, apresenta retirante, prazo, peso de saída e densidade fixada. Exige peso de retorno em g e identificação de quem devolve; operador é obtido da sessão. Prévia mostra diferença em g e consumo em g/mL. Peso inferior à tara ou superior ao de saída abre erro de revisão, não consumo negativo. Ao confirmar, servidor recalcula consumo, atraso e vencimento; resultado devolve consumo final e estado atualizado. Qualquer gestor vinculado pode receber, mesmo que outro tenha registrado a saída. Frasco vencido na devolução exige destino, sem impedir o registro do retorno físico.
+
+Alertas abrem lista filtrada de vazios, quebrados, vencidos, quarentena, pesagem ou escassez. Selecionar item abre UI-04 com ações cabíveis. Marcar vazio/quebrado exige motivo e confirmação; empréstimo ativo deve ser encerrado de modo auditado antes da transição incompatível. Quarentena e liberação exigem motivo, revalidação de validade e pesagem quando necessária. Descartar exige confirmação explícita de descarte físico concluído, motivo e registro do operador/instante; é terminal, sem excluir documento. ``Removido'' significa retirada do catálogo operacional por estado/arquivamento, nunca exclusão de identidade; política específica em Q07.
+
+\subsubsection{UI-08: etiquetas virgens e segunda via}
+Imprimir Etiquetas tem abas Novos Frascos e Frascos Cadastrados. Virgens: escolha entre próximo ao último cadastro, após última geração e intervalo personalizado; mostrar origem e instante da sugestão. Início/fim são inteiros positivos, fim maior ou igual a início e total entre 1 e 50. Grade 3 por 10 permite célula inicial por teclado ou clique, linha 1--10 e coluna 1--3, com células anteriores indisponíveis para esta impressão. Prévia informa quantidade de páginas e não reserva códigos. Última geração não prova impressão física.
+
+Segunda via: busca autorizada por código/reagente, seleção de 1 a 10 IDs distintos e contador visível; limite bloqueia seleção adicional. Exibir identidade e localização para conferência. Servidor relê cada frasco e autoriza seu almoxarifado; falha em qualquer seleção impede gerar lote parcial silencioso. Cada página A4 contém ficha cadastral, especificação, lote/validade, último peso e tara, último empréstimo e dez últimos eventos, além de uma única etiqueta no rodapé. Ausência legítima é ``não informado'', nunca inventar saldo ou status. Auditoria registra uma segunda via por frasco.
+
+Gerar mostra progresso indeterminado, erro recuperável e botão Baixar quando pronto; download não significa impressão concluída. Orientar impressão em tamanho real (100\%), sem ajustar à página, conferindo código antes de colar. Geometria e decisões de persistência constam na seção 10.
+
+\subsubsection{UI-09: patrimônio e análise de requisições}
+Novo Bem/Editar exige resumo existente (ou Novo Resumo com nome 150 e descrição), plaqueta textual até 30 caracteres preservando zeros iniciais, conservação BOM/REGULAR/RUIM, Local, foto, responsável SEI (150) e status. Descrição complementar é opcional (200). Foto: prévia, substituição, erro e upload inferior a 5 MiB; servidor verifica existência e autorização do objeto antes de salvar. Novo Bem não permite contornar baixa sem comprovante.
+
+Pedido de Adição do Professor pede plaqueta, conservação, responsável, local, motivo e escolha exclusiva entre resumo existente e nome/descrição de novo resumo. Foto é opcional na solicitação, obrigatória antes de aprovar e criar o bem; não usar imagem fictícia. Pedido de Edição apresenta valores atuais e campos propostos opcionais, com motivo obrigatório e ao menos uma diferença. Alterar nome individual significa reclassificação de resumo, não renomear todos os equipamentos. A seção 4 define conservação e status separadamente: RUIM não equivale automaticamente a Inservivel.
+
+Minhas Requisições lista somente as do solicitante, por status/data, e abre detalhe com proposta, motivo, resposta, gestor e instante. Fila do gestor começa por pendentes e abre comparação em duas colunas (uma no celular); exibir campos alterados com texto/ícone, não apenas cor. Aprovar e Rejeitar exigem justificativa. Na aprovação de adição sem foto/resumo completo, exigir completar e revisar esses dados. Confirmar relê requisição e versão do bem; se já respondida ou alterada, não sobrescrever silenciosamente. Persistir resposta, criação/edição, histórico e liberação do lock juntos, e notificar o professor de forma idempotente.
+
+Baixa está no detalhe individual: selecionar Ja\_dado\_baixa exige PDF comprobatório inferior a 10 MiB, prévia/nome do arquivo e confirmação com plaqueta e responsável. O servidor verifica o objeto antes da transação; falha de upload mantém status anterior. Após sucesso, item sai do filtro Ativo e permanece consultável no histórico. Não excluir comprovante associado a evento de baixa.
+
+\subsubsection{UI-10: turmas, membros e convites}
+Nova Turma exige nome (100), matéria existente, ano inteiro, semestre 1/2 e capacidade inteira positiva; responsável vem do contexto autorizado. Código único é gerado no servidor e exibido com Copiar, feedback de sucesso/falha da área de transferência e alternativa de seleção manual. Detalhe de turma tem nome/período, matéria, professor, ocupação/capacidade, feed e Membros. Membros exibem nome/foto para alunos matriculados; matrícula/e-mail ficam restritos à gestão autorizada.
+
+Arquivar abre confirmação com nome/período e explica preservação dos dados; turma sai das listas ativas. Turmas Arquivadas mostra lista paginada, ano/semestre, detalhe e Desarquivar para professor responsável. Restaurar usa mesmo ID e vínculos, sincroniza espelhos e notifica membros. Comportamento de escrita durante arquivamento depende de Q08; até decisão, apresentar histórico em leitura.
+
+Novo Aluno do Professor convida exclusivamente como Aluno, com um ou mais e-mails validados e deduplicados, matrícula opcional por pessoa e turma opcional. Sem turma, exigir confirmação de convite global; portanto o botão não fica bloqueado só por inexistirem turmas. Mostrar resultado individual por destinatário e permitir repetir apenas falhas, sem afirmar envio de e-mail se houve apenas criação de registro. Exceção de capacidade por convite nominal exige justificativa do professor (RN-TUR-01), persistida para validação na aceitação.
+
+Aceitar convite exige sessão com e-mail verificado correspondente, convite pendente não expirado, nome e matrícula válida se faltarem. Validar conta/papéis existentes, não sobrescrever identidade. Aceitação cria vínculo e espelho atomicamente e consome convite uma vez. Convite expirado orienta solicitar novo; lotação sem exceção válida mantém erro recuperável. Ingresso por código no painel Aluno exige código não vazio até 20 caracteres, turma ativa, vaga e ausência de remoção impeditiva; aluno já matriculado recebe acesso à turma sem duplicar contagem. Removido anteriormente precisa de convite explícito. Remover membro abre confirmação com nome e turma, preserva comentários e histórico, remove vínculo/espelho e reduz contador na mesma transação.
+
+\subsubsection{UI-11: roteiros, posts e comentários}
+Novo Roteiro exige nome (150), descrição e PDF inferior a 15 MiB. Upload tem seleção/arrastar arquivo, nome/tamanho, progresso, Cancelar e Tentar novamente; não habilitar Salvar antes de validar upload e metadados no servidor. Biblioteca tem Meus, Compartilhados comigo e Eu compartilhei; cada linha mostra nome, autor, descrição e ações permitidas. Visualizar abre leitor com fallback Baixar; download revalida propriedade, compartilhamento ou matrícula numa turma cujo post vincula o roteiro. URL de arquivo não é autorização permanente.
+
+Compartilhar abre pesquisa de professores ativos, exclui proprietário e seleciona IDs distintos. Confirmar cria relações únicas; repetir não duplica acesso. Revogar compartilhamento exige confirmação e segue Q09 quanto a posts existentes. Quem recebeu pode anexar à própria turma, mas não alterar autoria ou compartilhar em nome do dono.
+
+Novo/Editar Post exige título (150) e descrição não vazia; roteiro é opcional e único por post. Clipe abre seletor com Meus/Compartilhados ou Novo Roteiro, preservando rascunho ao voltar. Publicar valida professor responsável, turma e acesso atual ao roteiro; guarda post, histórico de edição quando aplicável e notificações. Feed pagina por data/ID com mais recentes primeiro; navegação de notificação carrega o post alvo diretamente em vez de baixar todo o feed.
+
+Comentários são carregados por post aberto, com texto obrigatório, autor/data e indicação de edição. Limite de texto segue Q10; rejeitar só espaços, renderizar texto escapado e não HTML arbitrário. Enviar mostra pendente e confirma após servidor validar matrícula/professor e post. Edição/exclusão depende de Q11; controles sem política definida não são presumidos liberados. Responder no feed é comentário no mesmo post, sem criar hierarquia de respostas ausente no modelo. Remoção do aluno não apaga comentários anteriores.
+
+\subsubsection{UI-12: notificações, empréstimos próprios e relatórios}
+Sino abre painel com Não lidas/Todas, tipo, resumo e instante. Consulta é pelo destinatário autenticado e contexto do papel; Bolsista usa contexto Aluno para eventos acadêmicos (alertas próprios de empréstimo: Q12). Clicar revalida acesso ao alvo e abre o contrato correspondente; recurso indisponível apresenta mensagem sem expor dados. Limpar tudo pede confirmação de marcar notificações ativas do usuário como lidas, inclusive de outros papéis; mantém histórico e usa processamento paginado. Alertas vencidos não autorizam ações por si mesmos.
+
+Meus Reagentes possui Em uso, ordenado por prazo, e Histórico, últimos 30 dias com filtro de período. Exibir código, reagente, peso, unidade, datas, consumo e situação; selecionar histórico abre o empréstimo e a memória de cálculo. Professor/Bolsista não registram a retirada nessa tela: procuram gestor no balcão. Não somar g e mL.
+
+Relatórios possuem Mensal, Personalizado e, para patrimônio, Inservíveis/Bem específico. Mensal exige mês e ano não futuros; personalizado exige início/fim, início não posterior a fim, nenhuma data futura e no máximo 31 dias inclusivos. Filtros opcionais de prédio/andar/sala são dependentes: trocar prédio limpa seleções incompatíveis. Outros filtros: status, conservação, responsável, reagente e almoxarifados autorizados conforme domínio. ``Todos'' significa todos dentro do escopo do operador. Chefe tem escopo global. Relatório de um bem exige seu ID/plaqueta.
+
+Prévia resume filtros, período, domínio e unidades; Gerar fica bloqueado se inválido. Servidor repete limites e escopo, usa agregados para totais e históricos para movimentos, distinguindo fotografia atual de eventos do período. Sem registros, informar ausência sem simular erro. Mostrar fonte/instante da materialização e período parcial quando ainda aberto. Ao concluir, oferecer Baixar/Imprimir; preservar filtros em falha e não persistir conteúdo do PDF em localStorage.
+
+\subsubsection{UI-13: consultas, cache e armazenamento no navegador}
+Chave de cache inclui UID, papel, recurso, filtros e cursor. Cache de sessão em memória é padrão; preferência de tema, menu compacto e filtros não sensíveis podem ir para localStorage com versão de formato e validação ao ler. Não armazenar senhas, tokens manualmente, e-mails, matrícula, PDFs ou autorização no localStorage. Persistência Firestore em disco só mediante opção de dispositivo confiável; bancada compartilhada usa memória. Logout/troca de identidade encerra listeners e elimina acesso aos dados anteriores; dados já baixados exigem política de limpeza, não desaparecem pela simples troca de claims.
+
+Listeners ficam apenas nas listas visíveis e limitadas (feed ativo, notificações e estoque em atendimento); histórico e relatórios usam leitura pontual paginada. Cancelar ao fechar modal, mudar papel ou filtro. Invalidar cache afetado após mutação e revalidar dados críticos no servidor mesmo com cache recente. Offline permite consultar dados previamente autorizados com aviso de desatualização, mas não confirmar empréstimos, baixas, papéis ou matrículas. Evitar N+1: carregar referências únicas em lotes e materializações por escopo; nenhuma métrica de cache substitui validação de disponibilidade.

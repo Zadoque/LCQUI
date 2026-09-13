@@ -1,33 +1,31 @@
-Você é um assistente de IA focado no desenvolvimento contínuo do sistema **LCQUI** (Sistema de Gestão do Laboratório de Química).
+# Contexto de desenvolvimento LCQUI
 
-## Contexto do Projeto
-O LCQUI é uma aplicação completa com backend em **Node.js (Firebase Cloud Functions)**, banco de dados **Firestore**, **Firebase Auth**, e **Firebase Storage**. O frontend é feito em **React (Next.js)**. 
+LCQUI gerencia almoxarifado químico, patrimônio e atividades acadêmicas. Frontend: Next.js/React/TypeScript/Tailwind. Backend: Firebase Functions/TypeScript, Firestore, Auth e Storage; schemas Zod e testes Jest no repositório. Nomes e versões reais devem ser conferidos em package.json e código, não presumidos.
 
-Toda a arquitetura é orientada a *Custom Claims* para tratar o acesso **Multi-Role**. O controle de acesso ao Firestore e ao Storage adota a política de **deny-by-default**. 
+## Leitura inicial
 
-**Os principais perfis/claims são:**
-- `admin` ou `chefe` (Acesso total)
-- `professor` (Gestão de turmas, roteiros, requisições de patrimônio)
-- `gestorPatrimonio` (Controle estrito de adição e baixa de bens do patrimônio)
-- `gestorAlmoxarifado` (Controle de estoque, reagentes, frascos e empréstimos)
-- `aluno` (Acesso de leitura restrito a turmas matriculadas, interações limitadas)
-- `bolsista` (Status auxiliar)
+1. Leia STATUS_ATUAL.md, AUDITORIA_ATUALIZADA.md e MATRIZ_IMPLEMENTACAO_LCQUI.md.
+2. Leia a seção 3 (papéis), 4 (modelo 3FN), 5.9 (dicionário físico), 7 (regras), 8 (UI-01–13), 9 (fluxos) e 11 (autorização) do LaTeX para o domínio da tarefa.
+3. Consulte DUVIDAS_DOCUMENTACAO_LCQUI.md. Opções recomendadas não são decisões aprovadas; não invente política de domínio para fechar implementação.
+4. Inspecione AGENTS.md aplicáveis e o código antes de editar. Documentação de comportamento esperado não prova implementação atual.
 
-## Estado do Desenvolvimento
-Estamos executando um rigoroso plano de auditoria para fechar as **17 Fases de Implementação** necessárias para atingir os 100% de prontidão. 
-O controle completo dessas etapas está presente no arquivo `documentation/MATRIZ_IMPLEMENTACAO_LCQUI.md` e o progresso em tempo real encontra-se em `documentation/STATUS_ATUAL.md`.
+## Identidade e dados
 
-*Regras de ouro até aqui:*
-- **Firestore e Storage Security:** Nenhuma regra pode ser genérica (`allow read, write: if true`). Toda leitura ou escrita baseia-se em papéis e/ou escopo do dono do documento (`request.auth.uid == resource.data.userId`, por exemplo).
-- **Testes:** Para tudo que tange domínio ou segurança, devem ser criados testes unitários ou de emulação de regras com `@firebase/rules-unit-testing`. Checagens artificiais (`expect(true).toBe(true)`) não são aceitas.
-- **Validação:** Não confie diretamente na interface do TypeScript na Cloud Function (`data as MyInterface`). Valide os inputs minuciosamente.
-- **Erros:** Retorne os erros oficiais corretos como `invalid-argument`, `permission-denied`, `not-found`, etc. (e não apenas `internal` para tudo).
+Papéis/claims canônicos: `Chefe_Geral`, `Gestor_Almoxarifado`, `Gestor_Bens_Patrimoniais`, `Professor`, `Aluno`, `Bolsista`. Não usar aliases admin/chefe nem tratar Bolsista como booleano sem perfil. Chefe é exclusivo; Bolsista exige Aluno; Professor/Aluno e Bolsista/Gestor_Almoxarifado são incompatíveis. Aplicar RN-ROLE-01–15, escopo de almoxarifado, proteção do último responsável e preservação de identidade.
 
-## O que foi concluído?
-(A IA deve ler rapidamente o `documentation/STATUS_ATUAL.md` para se alinhar ao iniciar a sessão). Já concluímos a **Fase 1** (fechamento do Firestore Security Rules), a **Fase 2** (Storage Security e proteção de metadata.owner), a **Fase 3** (blindagem completa de inputs com Zod nas Cloud Functions, e geração de PDFs em base64 sem persistir no Storage), e a **Fase 4** (implementação da matriz oficial de suporte multi-role com segurança no Firestore e testes).
+`roles` no token e seleção visual são coisas distintas. Atualizar claims não invalida imediatamente tokens antigos. Conta ativa, versão de permissões, reconciliação Auth e testes de revogação são pendências reais, não garantias já implementadas.
 
-## Como você deve agir nesta sessão
-1. Leia o `documentation/STATUS_ATUAL.md` para entender onde paramos.
-2. Siga metodicamente a próxima FASE em aberto.
-3. Não presuma implementações — crie planos formais (`implementation_plan.md`) para grandes mudanças e submeta à minha aprovação (via `RequestFeedback: true`).
-4. Ao concluir uma etapa da fase, atualize o relatório `task.md` e, no final da fase, documente tudo no `walkthrough.md`.
+Firestore alvo: `Usuarios`, `Turma`, `Usuarios/uid/Turmas`, `Resumo_Reagente/id/Especificacoes`, `Frasco_Reagente`, `Bem_Patrimonial` e demais caminhos da seção 5.9. Código atual tem divergências de caminho: planejar migração explícita, sem manter duas fontes canônicas. 3FN define dependências; projeções de leitura e snapshots históricos são exceções distintas.
+
+## Contratos essenciais
+
+- Validar input, usuário ativo, papel, escopo e estado no servidor. Rules atuais possuem permissões excessivas: deny-all raiz não as anula.
+- Transações leem antes de escrever; operações externas exigem idempotência/reconciliação. Não enviar e-mail em callback transacional.
+- Peso bruto/tara em g; líquidos usam densidade para mL; não somar g e mL. Vencido, quarentena e disponibilidade são dimensões separadas.
+- Código LCQUI-N nasce na transação de cadastro em `Contador_Codigo_Frasco/singleton`. Virgens não reservam IDs; segunda via tem no máximo dez frascos e uma etiqueta/ficha.
+- Relatório personalizado: até 31 dias inclusivos, sem futuro, escopo autorizado. Backend atual entrega base64; comprovantes e roteiros permanecem no Storage.
+- UI segue campos, falhas, paginação e acessibilidade da seção 8. Cache por identidade/escopo; localStorage só para preferências não sensíveis, nunca autorização.
+
+## Como registrar progresso
+
+Trabalhe dentro da autorização da sessão. Para cada mudança, associe RF/RN/UI/fluxo, evidência de código e verificação adequada. Não declarar teste aprovado apenas porque existe arquivo. Atualize matriz/status/auditoria com comando, resultado e limitações; `VALIDADO` exige prova de ponta a ponta e homologação. Não repetir percentuais antigos de prontidão. Não alterar dados externos, enviar mensagens ou publicar sem autorização aplicável.

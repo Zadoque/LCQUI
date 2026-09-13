@@ -1,17 +1,19 @@
-# Status Atual do Projeto LCQUI
+# Status atual do LCQUI
 
-Este documento serve para acompanhar o progresso global em tempo real do plano de ação de auditoria (Sessão 5).
+Revisão: 11/09/2026. Branch: `docs/realinhamento-especificacao-lcqui`.
 
-## O que foi concluído recentemente
-- **FASE 0**: Criação da Matriz Oficial de Rastreabilidade (`MATRIZ_IMPLEMENTACAO_LCQUI.md`).
-- **FASE 1**: Fechamento das regras de segurança do Firestore (`firestore.rules`). 
-- **FASE 2**: Fechamento da Segurança do Firebase Storage (`storage.rules`), garantindo metadata ownership.
-- **FASE 3**: Validação robusta de entrada no backend com *Zod* (em todas as rotas exportadas via `onCall`), e substituição da geração de PDFs para string em Base64 no backend.
-- **FASE 4**: Implementação e testes sistemáticos do suporte a multi-role. Lógica de papéis, desativação de usuários em vez de deleção, segurança do Firestore ajustada para coleções de Identidade, e testes automatizados.
-- **FASE 5**: Aperfeiçoamentos nas relações Aluno–Turma. Implementação de atualização atômica de contagem de alunos, desvínculo limpo, arquivamento de turmas, permissões do professor e testes unitários exaustivos do domínio, sem verificações artificiais.
-- **FASE 6**: Lapidação do domínio de Reagentes, Patrimônio, Notificações e Roteiros (criação de esquemas transacionais, testes com firebase-functions-test sem checagens artificiais, e controle de acesso a Roteiros).
-## O que estamos fazendo agora
-- **FASE 7+**: Refatoração da UI Global (Sessão 5) e estabilização de relatórios/testes ponta a ponta.
+## Entrega documental
 
-## Próximos Passos (Futuros)
-- Iniciar os ajustes finais da UI do React (Next.js).
+- Planejamento de etiquetas e RN-ROLE-01–15 incorporados ao LaTeX, mantendo os Markdown de origem identificados como histórico.
+- Seção 5.9 ampliada com dicionário de campos, tipos, obrigatoriedade, projeções e integridade.
+- Seção 8 preservada e ampliada com contratos UI-01–13; seção 9 cobre ações de todos os papéis.
+- Quatorze decisões pendentes, com três alternativas cada, em [DUVIDAS_DOCUMENTACAO_LCQUI.md](DUVIDAS_DOCUMENTACAO_LCQUI.md).
+- Matriz, auditoria e contexto atualizados por evidência estática; percentuais e declarações de homologação sem comprovação foram retirados.
+
+## Implementação
+
+O projeto está parcial em relação aos contratos documentados. Prioridade: corrigir permissões excessivas, sincronização de identidade e caminhos divergentes de especificações; depois concluir invariantes, UI, consultas e E2E. Consulte os achados AUD-01–16 em [AUDITORIA_ATUALIZADA.md](AUDITORIA_ATUALIZADA.md) e RF/fluxos em [MATRIZ_IMPLEMENTACAO_LCQUI.md](MATRIZ_IMPLEMENTACAO_LCQUI.md).
+
+## Validação desta entrega
+
+Compilação concluída com `latexmk -pdf -interaction=nonstopmode -halt-on-error`, saída isolada em `/tmp/lcqui-tex-build`: PDF de 164 páginas atualizado em `documentation/main.pdf`, sem erros nem referências indefinidas. Permanecem 19 avisos tipográficos de caixas horizontais excedentes; amostras do dicionário e das telas foram inspecionadas visualmente. `git diff --check` passou para os arquivos desta entrega. A verificação estrutural confirmou 46 entidades, 15 regras RN-ROLE, 13 contratos UI, 35 fluxos e 14 perguntas com três opções cada. Testes funcionais não executados: esta entrega não altera código de aplicação, regras ou dados. Não houve deploy ou migração. Alterações locais preexistentes em logs e no arquivo de lock do PDF foram preservadas.

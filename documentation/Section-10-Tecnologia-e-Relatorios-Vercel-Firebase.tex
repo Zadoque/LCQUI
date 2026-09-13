@@ -10,17 +10,21 @@ Após avaliação das restrições do ambiente \textit{serverless} (Vercel e Fir
 \begin{itemize}
     \item \textbf{Baixo consumo de memória:} O \textit{pdfkit} desenha o PDF nativamente, respeitando os limites de memória da Vercel/Firebase.
     \item \textbf{Tabelas dinâmicas:} O \textit{pdfkit-table} resolve a paginação automática de tabelas longas.
-    \item \textbf{Fluxo de Armazenamento:} A Cloud Function gera o PDF em um \textit{Buffer} de memória, faz o upload para o \textbf{Firebase Storage} e retorna uma URL assinada temporária para download.
+    \item \textbf{Fluxo de Armazenamento:} A Cloud Function gera o PDF em um \textit{Buffer} de memória, retorna o PDF em base64 conforme o contrato atual; o cliente cria um Blob temporário para download.
 \end{itemize}
 
 \subsubsection{Assinatura Lógica de Relatórios (Hash Canônico)}
-Todos os relatórios gerados pelo backend injetam um rodapé contendo um Hash Canônico. Este hash compila os parâmetros da requisição (ID, datas e registros consultados) concatenados com o Timestamp (\texttt{Date.now()}), garantindo a unicidade e a rastreabilidade do documento impresso, além de mitigar colisão de cache no \textit{Storage}.
+Todos os relatórios gerados pelo backend injetam um rodapé contendo um Hash Canônico. Este hash compila os parâmetros da requisição (ID, datas e registros consultados) concatenados com o Timestamp (\texttt{Date.now()}), servindo como identificador de rastreabilidade, sem equivaler a assinatura digital.
 
 \subsubsection{Prevenção de Limites de Leitura Firestore (N+1)}
-Devido aos limites impostos pelas cláusulas \textit{in} ou \textit{getAll} no Firestore (limite de itens por array), as rotinas de agregação de relatórios implementam um padrão de resolução de referências agrupada (Chunking). Os arrays de \textit{refs} são subdivididos em lotes de 200 itens através do utilitário \texttt{chunkArray} garantindo resiliência perante alta volumetria.
+Resolver referências únicas em lotes para reduzir N+1. O tamanho é definido pela API e pelo volume medido; in e getAll têm contratos distintos, sem limite universal de 200 itens.
 
 \subsubsection{Módulo de Geração de Etiquetas (PDF)}
 Para a identificação física dos frascos, o backend também utiliza o \textbf{pdfkit} para desenhar uma matriz (Grid Visual de Offset 3×10) em tamanho A4, com etiquetas de 65,0 mm × 26,5 mm. O código de barras no formato Code 128 é gerado ativamente em memória via biblioteca \textbf{bwip-js} e embutido no buffer do PDF, garantindo alta definição na impressão e dispensa de fontes especiais no client. Para frascos já cadastrados (2ª via), o backend gera folhas individuais A4 contendo a Ficha de Conferência e Rastreabilidade com histórico recente de 10 movimentações e 1 única etiqueta de reposição centralizada no rodapé.
+
+\begin{explicacao}[Leitura dos exemplos legados]
+Os listings a seguir preservam exemplos de desenvolvimento, não uma implementação pronta para copiar. O contrato atualizado está nas seções 5.9, 8 e 11: caminhos de especificações são aninhados, datas civis são normalizadas no fuso institucional, relatórios usam base64, consultas e escritas são ordenadas em transação e claims exigem controle de revogação. A margem higroscópica de 2\% do exemplo conflita com consumo não negativo e está pendente em Q06. Não adotar consumo negativo, data de abertura inventada, placeholder de foto ou simples cópia de novo nome sobre o bem. Esses exemplos devem ser adaptados ao contrato antes de implementação.
+\end{explicacao}
 
 \subsection{Princípio: nunca confiar no \textit{client-side}}
 Todas as \textit{Cloud Functions} desta seção seguem a mesma regra: \textbf{qualquer dado que o servidor consiga derivar ou verificar por conta própria é recalculado ou reconferido no servidor, nunca aceito como o cliente enviou}. Isso vale, em particular, para o papel do usuário (sempre resolvido a partir do Firestore, nunca do que o \textit{request} diz que o usuário é), para valores calculados como peso/volume/vencimento/atraso (sempre recomputados a partir dos dados brutos e da hora do servidor), para códigos gerados pelo sistema (Regra 6.2.9), e para o estado de disponibilidade de um recurso concorrente (sempre relido dentro de uma transação antes de decidir).
@@ -43,7 +47,7 @@ function resolverPapeisDoToken(auth: {token: Record<string, unknown>} | undefine
 
 // Chamada após TODA concessão ou remoção de papel:
 //   await atualizarCustomClaims(uid);
-// Isso invalida o token atual; o cliente deve renovar com user.getIdToken(true).
+// Isso atualiza claims para o próximo token; não invalida automaticamente o atual; o cliente deve renovar com user.getIdToken(true).
 export async function atualizarCustomClaims(uid: string): Promise<void> {
   const colecoes = ["Chefe_Geral", "Gestor_Almoxarifado", "Gestor_Bens_Patrimoniais", "Professor", "Aluno", "Bolsista"];
   const leituras = await Promise.all(
@@ -1188,3 +1192,31 @@ export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
 });
 \end{lstlisting}
 
+
+
+\subsection{Consolidação do planejamento complementar e contrato de execução}
+\label{sec:consolidacao}
+O inventário complementar inclui Planejamento\_Etiquetas\_LCQUI.md, REGRAS\_MULTI\_ROLE.md, COMPILACAO\_NIX\_LCQUI.md, README.md e os quatro documentos de acompanhamento. Os README de scaffold do frontend não adicionam requisitos de negócio; instruções AGENTS/CLAUDE orientam desenvolvimento, não a especificação do produto. O novo arquivo DUVIDAS\_DOCUMENTACAO\_LCQUI.md registra Q01--Q14 com três alternativas cada; a opção recomendada não é aprovação.
+
+O planejamento de etiquetas foi incorporado às seções 4 (auditoria), 5.9 (contador e campos), 7 (regras), 8 (UI-08), 9 (ALM-07), 10 (geração) e 11 (acesso). O documento de Multi-Role foi incorporado integralmente pelos IDs RN-ROLE-01 a RN-ROLE-15 na seção 7. Os Markdown de origem permanecem como histórico; esta versão explicita as decisões conflitantes em vez de criar fontes concorrentes.
+
+\paragraph{Etiquetas e geometria.}
+Papel A4 210 por 297 mm; três colunas e dez linhas; etiqueta 65 por 26,5 mm; margens laterais 7,5 mm e superior/inferior 16 mm; espaçamentos horizontal/vertical zero. Linhas cinza contínuas orientam corte. Offset é aplicado apenas na primeira página; ao completar a grade, reiniciar na célula 1/1 da seguinte. Etiqueta virgem contém código, espaço manuscrito para data/reagente e Code 128. Segunda via contém nome e data cadastrados e uma etiqueta centralizada por ficha. Gerar barras em memória com bwip-js e PDF com pdfkit; preservar proporção e área livre ao redor do código, testar leitura física e códigos longos. Casos mínimos: uma etiqueta, coluna 3, offset 4/2, última célula 10/3, 30/36 itens, nome longo, frasco sem histórico e rejeição de 11 IDs na segunda via. Os testes relatados no planejamento são evidência histórica de protótipo, não homologação da aplicação atual.
+
+\paragraph{Contador e auditoria.}
+Adota-se o caminho já usado pelo sistema, Contador\_Codigo\_Frasco/singleton e ultimo\_codigo\_gerado. Contadores/codigo\_frasco no planejamento é proposta antiga, não outro contador ativo. Cadastro incrementa contador e cria frasco atomicamente; impressão não reserva código. Lotes virgens usam Impressao\_Etiqueta\_Frasco; segunda via usa Registro\_de\_Auditoria. A sugestão contraditória de armazenar segunda via também em Impressao não é adotada. Custos reais incluem todas as escritas/leitura de domínio, índices, histórico e tentativas; não reutilizar estimativa de ``1 leitura e 2 escritas'' como custo total.
+
+\paragraph{Relatórios, transporte e integridade.}
+O backend atual retorna PDF em base64; a especificação adota esse transporte para relatórios limitados, com conversão em Blob no cliente e liberação da URL temporária. Roteiros e comprovantes permanecem no Storage. Relatórios maiores exigem decisão de infraestrutura antes de ampliar limites. Um hash simples de parâmetros/data não é assinatura digital nem prova de autoria; tratá-lo como identificador de rastreabilidade. Relatórios históricos usam eventos/snapshots da época, não somente o cadastro atual.
+
+\paragraph{Garantias de execução.}
+Exemplos de código desta seção são ilustrativos e não substituem contratos UI/dicionário. Todas as leituras transacionais precedem escritas; callbacks podem repetir e não devem enviar e-mail ou gerar PDF como efeito externo. A transação grava evento/operação e um processador idempotente realiza efeitos externos após commit. Alterações no Auth e upload no Storage exigem reconciliação, pois não participam da transação Firestore. Consultas in e getAll não têm o mesmo contrato: tamanho de lote deve ser escolhido por API e medido; 200 não é limite universal do Firestore.
+
+\paragraph{Ambiente e documentação operacional.}
+README contém instruções de aplicação e emuladores; COMPILACAO\_NIX\_LCQUI.md é guia de build documental. O flake.nix atual fornece Node/Python/Git/Docker, mas não TeX Live; não presumir que nix develop disponibiliza pdflatex. Usar TeX Live instalado ou ambiente Nix dedicado e compilar main.tex até estabilizar referências. Os quatro documentos de acompanhamento registram evidências do código, não novos requisitos independentes.
+
+\paragraph{Referências técnicas verificadas.}
+\href{https://firebase.google.com/docs/firestore/manage-data/transactions}{Firebase: transações e lotes};
+\href{https://firebase.google.com/docs/auth/admin/custom-claims}{Firebase: propagação de Custom Claims};
+\href{https://firebase.google.com/docs/firestore/manage-data/enable-offline}{Firebase: persistência offline}.
+Consulta em 11/09/2026. Estes fundamentos apoiam a execução transacional, renovação de tokens e opção por cache em dispositivo confiável.

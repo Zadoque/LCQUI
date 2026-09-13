@@ -12,18 +12,18 @@ O campo \textit{letra\_inicial}, removido de \textit{Resumo\_Reagente} por ser d
 \textit{letra\_inicial} deve ser recalculado e reescrito pela mesma \textit{Cloud Function} que grava \textit{nome}, nunca aceito diretamente do cliente -- ver princípio ``nunca confiar no \textit{client-side}'' na seção \textit{Tecnologia e Relatórios}.
 \end{regra}
 
-\subsection{Espelhamento de \textit{estado\_fisico}}
-\textit{estado\_fisico} tem fonte única em \textit{Especificacao\_Reagente} no modelo 3FN. Se a tela de busca do catálogo (\textit{Resumo\_Reagente}) precisar filtrar por estado físico junto com \textit{natureza\_quimica} e \textit{letra\_inicial} na mesma consulta, \textit{estado\_fisico} também precisa ser espelhado como campo próprio no documento Firestore de \textit{Resumo\_Reagente} -- mesma lógica de \textit{letra\_inicial}.
+\subsection{Projeção dos estados físicos do catálogo}
+A fonte de estado físico é cada especificação. Um resumo com várias especificações não pode escolher arbitrariamente um único estado: manter \texttt{estados\_fisicos} como conjunto derivado e filtrar por pertencimento. A projeção é mantida pelo servidor e não altera a modelagem 3FN.
 
 \subsection{Espelhamento de \textit{nome\_equipamento} e Localização em \textit{Bem\_Patrimonial}}
 No modelo 3FN, o nome do tipo de bem pertence exclusivamente a \textit{Resumo\_Bem\_Patrimonial.nome}; \textit{Bem\_Patrimonial} mantém apenas \textit{id\_resumo\_bem\_patrimonial} e \textit{id\_local}. No Firestore, porém, consultas de listagem e relatórios frequentemente partem diretamente de \textit{Bem\_Patrimonial}, sem um \textit{JOIN} para resolver o resumo ou o prédio. Por isso, o documento Firestore de \textit{Bem\_Patrimonial} deve conter os campos denormalizados \textit{nome\_equipamento}, \textit{predio}, \textit{andar} e \textit{sala}.
 
 \begin{regra}[Fonte única de verdade para o nome do patrimônio]
-\textit{nome\_equipamento} é exclusivamente um campo de leitura derivado de \textit{Resumo\_Bem\_Patrimonial.nome}. O cliente nunca pode gravá-lo diretamente. Sempre que o nome do resumo for alterado, a mesma operação transacional ou um gatilho de propagação controlado pelo servidor deve atualizar os documentos \textit{Bem\_Patrimonial} associados. Na aprovação da requisição de edição descrita na seção 10.2.5, \textit{novo\_nome} representa uma proposta de alteração do nome do resumo; o servidor atualiza primeiro a fonte de verdade e, em seguida, sincroniza \textit{nome\_equipamento}.
+\textit{nome\_equipamento} é exclusivamente um campo de leitura derivado de \textit{Resumo\_Bem\_Patrimonial.nome}. O cliente nunca pode gravá-lo diretamente. Sempre que o nome do resumo for alterado, a mesma operação transacional ou um gatilho de propagação controlado pelo servidor deve atualizar os documentos \textit{Bem\_Patrimonial} associados. Na aprovação da requisição de edição descrita na seção 10.2.5, \textit{novo\_nome} representa uma proposta de alteração do nome do resumo; o servidor resolve/cria outro resumo e altera a referência somente do bem solicitado; renomear globalmente um resumo é ação distinta do gestor.
 \end{regra}
 
-\subsection{\textit{Composicao\_Reagente} como sub-coleção}
-A relação N:N \textit{Especificacao\_Reagente} $\leftrightarrow$ \textit{Substancia\_Quimica} não precisa de uma coleção de nível superior no Firestore: como é sempre consultada a partir de uma especificação já conhecida (nunca ``todas as composições do banco''), o caminho natural é uma sub-coleção \nolinkurl{Especificacao\_Reagente/\{id\}/Composicao} (ou um \textit{array} de mapas embutido no próprio documento, se o número de substâncias por especificação for pequeno e não crescer sem limite). A constraint \textit{UNIQUE(id\_especificacao\_reagente, id\_substancia\_quimica)} da seção 4.16, nesse caso, precisa ser reforçada na \textit{Cloud Function} de escrita (checar duplicidade antes de gravar), já que o Firestore não tem \textit{unique constraints} declarativas.
+\subsection{Composição embutida na especificação}
+O mapeamento físico adotado é \texttt{composicao}, array de mapas na especificação em \texttt{Resumo\_Reagente/id/Especificacoes/id}. Cada mapa referencia uma substância; o servidor impede IDs repetidos e limita o tamanho do array. Não manter simultaneamente uma coleção raiz e uma subcoleção alternativa como fontes concorrentes. A relação N:N continua normalizada na seção 4.
 
 \subsection{Tabelas ``Materialized'' são coleções próprias, não \textit{views} do SGBD}
 As tabelas descritas na seção \textit{Materialized (Views)} não são \textit{materialized views} no sentido de PostgreSQL (não existe \texttt{REFRESH MATERIALIZED VIEW} no Firestore). Cada uma delas é implementada como sua própria coleção Firestore, escrita por \textit{Cloud Functions} -- gatilhos de escrita (\texttt{onDocumentWritten}) para contadores que reagem a um evento pontual (ex.: \textit{Lote\_Materializado}), ou funções agendadas (\texttt{onSchedule}) para os resumos diários/mensais. Ver pseudo-código na seção \textit{Tecnologia e Relatórios}.
@@ -36,19 +36,10 @@ o bem patrimonial ainda não existe. No Firestore não há índice parcial
 nem \emph{unique constraint} nativo, então a garantia é reimplementada
 na Cloud Function de criação da requisição de adição.
 
-A função de criação consulta a coleção
-\texttt{Requisicao\_Adicao\_Bem\_Patrimonial} filtrando por
-\texttt{numero\_patrimonio\_proposto == X} e
-\texttt{status == 'pendente'}, com \texttt{limit(1)}. Se encontrar
-algum documento, lança um \texttt{HttpsError} de \emph{failed-precondition}
-e não cria nova requisição. Caso contrário, persiste a requisição com
-\texttt{status = 'pendente'} e \texttt{feita\_em} baseado em
-\texttt{serverTimestamp()}. A consulta e a escrita são encapsuladas
-em uma transação para evitar condição de corrida entre dois clientes
-tentando criar requisições para o mesmo número de patrimônio.
+A criação lê o documento determinístico em \texttt{Locks\_Requisicao\_Patrimonio}, verifica a plaqueta já cadastrada e grava lock e requisição na mesma transação. Aprovação e rejeição removem o lock na mesma transação da resposta. Uma consulta prévia pode melhorar a mensagem de erro, mas não substitui a chave de unicidade. Locks vinculados a requisições pendentes não expiram por idade.
 
 \subsection{Mecanismo de Sequenciamento Atômico via Documento Singleton (\textit{Contador\_Codigo\_Frasco})}
-A coleção \texttt{Contador\_Codigo\_Frasco} não existe no modelo 3FN porque bancos relacionais possuem primitivas de \texttt{SEQUENCE/SERIAL}. Para gerar o identificador atômico \texttt{LCQUI-X}, utiliza-se o documento singleton \texttt{Contador\_Codigo\_Frasco/singleton} com o campo \texttt{ultimo\_codigo\_gerado}, operado atomicamente via \texttt{runTransaction} no backend. Isso garante unicidade estrita sem limites pesados de cota, visto que o \textit{throughput} manual da bancada é perfeitamente atendido pelo limite de 1 \textit{write/s} do Firestore.
+A coleção \texttt{Contador\_Codigo\_Frasco} não existe no modelo 3FN porque bancos relacionais possuem primitivas de \texttt{SEQUENCE/SERIAL}. Para gerar o identificador atômico \texttt{LCQUI-X}, utiliza-se o documento singleton \texttt{Contador\_Codigo\_Frasco/singleton} com o campo \texttt{ultimo\_codigo\_gerado}, operado atomicamente via \texttt{runTransaction} no backend. A transação garante a unicidade; contenção e custo devem ser medidos incluindo histórico, auditoria, índices e tentativas repetidas. Não se fixa aqui uma cota universal de escritas por segundo.
 
 \subsection{Índices Compostos Obrigatórios}
 Para garantir a integridade das \textit{queries} e ordenações cruciais, os seguintes índices compostos devem ser criados explicitamente no console do Firestore:
@@ -60,7 +51,7 @@ Para garantir a integridade das \textit{queries} e ordenações cruciais, os seg
 \label{subsec:mapeamento-colecoes}
 
 \begin{explicacao}[Como ler esta tabela]
-Cada linha descreve uma entidade 3FN da Seção 4, a decisão de estrutura no Firestore (coleção raiz, sub-coleção ou array de maps embutido) e a justificativa. Campos FK referenciados em queries de listagem ou relatório que exigiriam um JOIN são obrigatoriamente denormalizados no documento Firestore; o símbolo \textbf{Denorm:} lista esses campos. A consistência de todos os campos denormalizados deve ser garantida por \texttt{onDocumentUpdated} na Cloud Function da entidade de origem, nunca pelo cliente.
+Cada linha descreve uma entidade 3FN da Seção 4, a decisão de estrutura no Firestore (coleção raiz, sub-coleção ou array de maps embutido) e a justificativa. Campos de consulta necessários podem ser projetados no documento Firestore conforme o dicionário; o símbolo \textbf{Denorm:} lista esses campos. A consistência usa transação para invariantes ou propagação versionada para apresentação; snapshots históricos não são atualizados com o cadastro atual.
 \end{explicacao}
 
 \small
@@ -81,7 +72,7 @@ Cada linha descreve uma entidade 3FN da Seção 4, a decisão de estrutura no Fi
 \bottomrule
 \endfoot
 Usuario & Coleção raiz \texttt{Usuarios} (docId = Firebase Auth UID) & Acesso direto por auth; estrutura natural do SDK.\\
-Chefe\_Geral & Coleção raiz \texttt{Chefe\_Geral} (docId = uid) & Lido por \texttt{atualizarCustomClaims(uid)} para compor o claim \texttt{roles} do token JWT. Papéis n\~{a}o s\~{a}o mais relidos a cada chamada de API.\\
+Chefe\_Geral & Coleção raiz \texttt{Chefe\_Geral} (docId = uid) & Lido por \texttt{atualizarCustomClaims(uid)} para compor o claim \texttt{roles} do token JWT. Claims são projeção; conta ativa e versão de permissões devem ser verificadas conforme seção 11.\\
 Gestor\_Almoxarifado & Coleção raiz \texttt{Gestor\_Almoxarifado} (docId = uid) & Idem acima.\\
 Gestor\_Bens\_Patrimoniais & Coleção raiz \texttt{Gestor\_Bens\_Patrimoniais} (docId = uid) & Idem.\\
 Professor & Coleção raiz \texttt{Professor} (docId = uid) & Idem.\\
@@ -99,22 +90,22 @@ Requisicao\_Adicao\_Bem\_Patrimonial & Coleção raiz & Mesma lógica; query por
 Impressao\_Etiqueta\_Frasco & Coleção raiz & Refere-se a impressão em lote (virgens). Reimpressões avulsas de frascos já cadastrados usam o Registro de Auditoria.\\
 Contador\_Codigo\_Frasco & Documento singleton em \nolinkurl{Contador\_Codigo\_Frasco/singleton} & Sequenciador atômico operado via \texttt{runTransaction} para gerar o \texttt{LCQUI-X}.\\
 Substancia\_Quimica & Coleção raiz & Catálogo global; raramente alterado.\\
-Resumo\_Reagente & Coleção raiz. Denorm: \texttt{letra\_inicial}, \texttt{estado\_fisico} & Catálogo de reagentes; filtros de igualdade combinados exigem ambos os campos como propriedades do documento.\\
+Resumo\_Reagente & Coleção raiz. Denorm: \texttt{letra\_inicial}, \texttt{estados\_fisicos} & Catálogo de reagentes; filtros de igualdade combinados exigem ambos os campos como propriedades do documento.\\
 Especificacao\_Reagente & Sub-coleção \nolinkurl{Resumo\_Reagente/\{id\}/Especificacoes} & Sempre acessada a partir do resumo; nunca consultada globalmente.\\
 Composicao\_Reagente & Array de maps embutido no documento de \texttt{Especificacao\_Reagente} & N pequeno e fixo (poucas substâncias por especificação); não cresce sem limite.\\
 Lote & Coleção raiz. Denorm: \texttt{id\_especificacao\_reagente}, \texttt{nome\_reagente} & Relatórios consultam todos os lotes de um período sem partir de uma especificação conhecida.\\
 Frasco\_Reagente & Coleção raiz. Denorm: \texttt{id\_especificacao\_reagente}, \texttt{id\_resumo\_reagente}, \texttt{nome\_reagente}, \texttt{unidade\_medida}, \texttt{id\_almoxarifado} & Entidade central; queries cruzadas constantes por almoxarifado, status e vencimento.\\
-Historico\_Frasco\_Reagente & Coleção raiz (não sub-coleção). Denorm: \texttt{id\_almoxarifado} & Jobs diários consultam ``todos os históricos do dia'' sem partir de um frasco conhecido; sub-coleção impossibilitaria esse padrão.\\
+Historico\_Frasco\_Reagente & Coleção raiz (não sub-coleção). Denorm: \texttt{id\_almoxarifado} & Jobs diários consultam ``todos os históricos do dia'' sem partir de um frasco conhecido; coleção raiz simplifica esse padrão; collection-group também permitiria históricos em subcoleções.\\
 Emprestimo\_Reagente & Coleção raiz. Denorm: \texttt{id\_almoxarifado}, \texttt{nome\_reagente}, \texttt{nome\_usuario\_retirou} & Relatórios por almoxarifado e por período; queries de status global (\texttt{EM\_USO}).\\
 Materia & Coleção raiz & Catálogo global; raramente alterado.\\
 Professor\_x\_Materia & Coleção raiz & Query bidirecional: ``matérias de X'' e ``professores de Y''.\\
 Turma & Coleção raiz. Denorm: \texttt{nome\_materia} & Acesso direto por \texttt{codigo\_turma}; nome da matéria necessário na listagem sem JOIN.\\
-\textbf{\texttt{Aluno\_x\_Turma}} & \textbf{Subcoleção dupla (espelhada):}\newline 1. \nolinkurl{Turmas/\{id\}/Alunos}\newline 2. \nolinkurl{Usuarios/\{uid\}/Turmas} & \textbf{1. \nolinkurl{Turmas/\{id\}/Alunos}:} Visão da disciplina; contagem de capacidade e listagem de chamada para o professor.\newline \textbf{2. \nolinkurl{Usuarios/\{uid\}/Turmas}:} Visão do aluno; viabiliza o feed em tempo real no menu lateral de ``Minhas Turmas'' com segurança isolada por UID e zero leituras $N+1$. Consistência garantida via transação nas Cloud Functions de matrícula/exclusão.\\
-Historico\_Alunos\_Turma & Sub-coleção \nolinkurl{Turmas/\{id\}/HistoricoAlunos} & Auditoria de inclusão/exclusão sempre por turma.\\
-Post & Sub-coleção \nolinkurl{Turmas/\{id\}/Posts} & Feed cronológico da turma; nunca consultado globalmente.\\
-Comentario & Sub-coleção \nolinkurl{Posts/\{id\}/Comentarios} & Thread aninhada ao post.\\
-Historico\_Posts\_Turma & Sub-coleção \nolinkurl{Posts/\{id\}/Historico} & Auditoria de edição sempre a partir do post.\\
-Historico\_Comentario & Sub-coleção \nolinkurl{Comentarios/\{id\}/Historico} & Auditoria de edição sempre a partir do comentário.\\
+\textbf{\texttt{Aluno\_x\_Turma}} & \textbf{Subcoleção dupla (espelhada):}\newline 1. \nolinkurl{Turma/\{id\}/Alunos}\newline 2. \nolinkurl{Usuarios/\{uid\}/Turmas} & \textbf{1. \nolinkurl{Turma/\{id\}/Alunos}:} Visão da disciplina; contagem de capacidade e listagem de chamada para o professor.\newline \textbf{2. \nolinkurl{Usuarios/\{uid\}/Turmas}:} Visão do aluno; viabiliza o feed em tempo real no menu lateral de ``Minhas Turmas'' com segurança isolada por UID e zero leituras $N+1$. Consistência garantida via transação nas Cloud Functions de matrícula/exclusão.\\
+Historico\_Alunos\_Turma & Sub-coleção \nolinkurl{Turma/\{id\}/HistoricoAlunos} & Auditoria de inclusão/exclusão sempre por turma.\\
+Post & Sub-coleção \nolinkurl{Turma/\{id\}/Posts} & Feed cronológico da turma; nunca consultado globalmente.\\
+Comentario & Sub-coleção \nolinkurl{Turma/\{id\}/Posts/\{postId\}/Comentarios} & Thread aninhada ao post.\\
+Historico\_Posts\_Turma & Sub-coleção \nolinkurl{Turma/\{id\}/Posts/\{postId\}/Historico} & Auditoria de edição sempre a partir do post.\\
+Historico\_Comentario & Sub-coleção \nolinkurl{Turma/\{id\}/Posts/\{postId\}/Comentarios/\{id\}/Historico} & Auditoria de edição sempre a partir do comentário.\\
 Roteiro\_Experimento & Coleção raiz & Compartilhamento cross-professor exige acesso sem partir de uma turma.\\
 Roteiro\_Professor\_Compartilhado & Coleção raiz & Query bidirecional: ``roteiros compartilhados comigo'' e ``com quem compartilhei este roteiro''.\\
 Convite\_Aluno & Coleção raiz & Query por e-mail normalizado e status independentemente de turma.\\
@@ -130,9 +121,603 @@ Atividade\_Gestor\_Bens\_Patrimoniais\_Mensal & Coleção raiz & Job agendado di
 
 
 \begin{regra}[Regra geral de denormalização]
-Todo campo FK referenciado em queries de listagem ou relatório que exigiria um JOIN deve ser denormalizado no documento Firestore correspondente. A consistência desse campo é mantida por um \texttt{onDocumentUpdated} na Cloud Function da entidade de origem, nunca pelo cliente. A ordem de atualização é: primeiro a entidade de origem, depois os documentos dependentes.
+Copiar apenas atributos necessários às consultas documentadas. Cada projeção identifica sua origem e mecanismo de atualização; snapshots de eventos são imutáveis. Vínculos e invariantes críticos são transacionais, enquanto projeções de apresentação podem ser assíncronas com reconciliação.
 \end{regra}
 
+
+\normalsize
+\begingroup
+\sloppy
+\subsubsection{Dicionário de dados completo e convenções físicas}
+\label{sec:dicionario}
+Este dicionário especifica o alvo documental. Divergências com os caminhos do código atual são listadas na auditoria; não se pressupõe migração executada. IDs relacionais SERIAL tornam-se docIds string; FKs tornam-se IDs string, sem JOIN implícito. Datas civis usam string YYYY-MM-DD; instantes usam Timestamp UTC, exibidos em America/Sao\_Paulo. Valores quantitativos usam number finito, com precisão/escala da seção 4; rejeitar NaN, infinito, sinal e casas decimais incompatíveis. Todos os limites VARCHAR continuam válidos. O = obrigatório; N = null permitido; C = condicional. Campos calculados, autoria, timestamps, IDs e estados são gravados pelo servidor. Arrays de composição e alterações são limitados pelo esquema, nunca históricos crescentes. O docId substitui o campo id SERIAL; em associações a chave é determinística pelas FKs.
+
+\paragraph{Usuario}\mbox{}\par
+Caminho: \texttt{Usuarios/\{uid\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{nome}] string; O. Nome de apresentação; não substitui a chave do documento. Máximo 150 caracteres.
+\item[\texttt{email}] string; O. Endereço normalizado para identidade/convite; não divulgar em catálogo público interno. Máximo 150 caracteres. Unicidade garantida por chave determinística/registro de unicidade no servidor.
+\item[\texttt{profile\_url\_photo}] string; N. Foto opcional de apresentação do usuário; ausência usa avatar padrão, com acesso validado ao objeto.
+\end{description}
+
+\paragraph{Chefe\_Geral}\mbox{}\par
+Caminho: \texttt{Chefe\_Geral/\{id\}}.
+\begin{description}
+\item[\texttt{id\_usuario}] string; O. Identificador da entidade usuario, cuja existência e escopo são verificados no servidor.
+\end{description}
+
+\paragraph{Gestor\_Almoxarifado}\mbox{}\par
+Caminho: \texttt{Gestor\_Almoxarifado/\{id\}}.
+\begin{description}
+\item[\texttt{id\_usuario}] string; O. Identificador da entidade usuario, cuja existência e escopo são verificados no servidor.
+\end{description}
+
+\paragraph{Gestor\_Almoxarifado\_x\_Almoxarifado}\mbox{}\par
+Caminho: \texttt{Gestor\_Almoxarifado\_x\_Almoxarifado/\{id\}}.
+\begin{description}
+\item[\texttt{id\_gestor\_almoxarifado}] string; O. Identificador da entidade gestor almoxarifado, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_almoxarifado}] string; O. Identificador da entidade almoxarifado, cuja existência e escopo são verificados no servidor.
+\end{description}
+
+\paragraph{Gestor\_Bens\_Patrimoniais}\mbox{}\par
+Caminho: \texttt{Gestor\_Bens\_Patrimoniais/\{id\}}.
+\begin{description}
+\item[\texttt{id\_usuario}] string; O. Identificador da entidade usuario, cuja existência e escopo são verificados no servidor.
+\end{description}
+
+\paragraph{Bem\_Patrimonial}\mbox{}\par
+Caminho: \texttt{Bem\_Patrimonial/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_resumo\_bem\_patrimonial}] string; O. Identificador da entidade resumo bem patrimonial, cuja existência e escopo são verificados no servidor.
+\item[\texttt{numero\_patrimonio}] string; O. Plaqueta institucional em texto, preservando zeros iniciais; identifica unicamente a unidade física. Máximo 30 caracteres.
+\item[\texttt{estado\_conservacao}] string enum; O. Valor de estado conservacao, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: BOM, REGULAR, RUIM.
+\item[\texttt{id\_local}] string; O. Identificador da entidade local, cuja existência e escopo são verificados no servidor.
+\item[\texttt{photo\_url}] string; O. Referência da foto validada; não confiar em URL arbitrária.
+\item[\texttt{documento\_dado\_baixa\_pdf\_url}] string; N. Referência do comprovante PDF, nula antes da baixa e obrigatória em Ja\_dado\_baixa; preservar após vínculo.
+\item[\texttt{nome\_responsavel\_sei}] string; O. Responsável institucional em texto; não é FK de usuário. Máximo 150 caracteres.
+\item[\texttt{status}] string enum; O. Estado controlado pelo domínio; transições são validadas no servidor. Valores: Ativo, Inservivel, Ja\_dado\_baixa.
+\item[\texttt{descricao\_complementar}] string; N. Observação opcional da unidade física, sem alterar a descrição compartilhada do modelo. Máximo 200 caracteres.
+\end{description}
+
+\paragraph{Resumo\_Bem\_Patrimonial}\mbox{}\par
+Caminho: \texttt{Resumo\_Bem\_Patrimonial/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{nome}] string; O. Nome de apresentação; não substitui a chave do documento. Máximo 150 caracteres.
+\item[\texttt{descricao}] string; O. Valor de descricao, validado pelo formulário e pelo servidor conforme regras do domínio.
+\end{description}
+
+\paragraph{Historico\_Bem\_Patrimonial}\mbox{}\par
+Caminho: \texttt{Bem\_Patrimonial/\{id\}/Historico/\{eventoId\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_bem\_patrimonial}] string; O. Identificador da entidade bem patrimonial, cuja existência e escopo são verificados no servidor.
+\item[\texttt{timestamp}] Timestamp; O. Data/instante de timestamp, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: cadastro, edicao, baixa.
+\item[\texttt{id\_usuario}] string; O. Identificador da entidade usuario, cuja existência e escopo são verificados no servidor.
+\end{description}
+
+\paragraph{Alteracao\_Bem\_Patrimonial}\mbox{}\par
+Caminho: \texttt{Bem\_Patrimonial/\{id\}/Historico/\{eventoId\}: alteracoes[]}.
+\begin{description}
+\item[\texttt{campo}] string; O. Valor de campo, validado pelo formulário e pelo servidor conforme regras do domínio. Máximo 60 caracteres.
+\item[\texttt{valor\_anterior}] string; O. Valor de valor anterior, validado pelo formulário e pelo servidor conforme regras do domínio.
+\item[\texttt{valor\_novo}] string; O. Valor de valor novo, validado pelo formulário e pelo servidor conforme regras do domínio.
+\end{description}
+
+\paragraph{Requisicao\_Edicao\_Bem\_Patrimonial}\mbox{}\par
+Caminho: \texttt{Requisicao\_Edicao\_Bem\_Patrimonial/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_bem\_patrimonial}] string; O. Identificador da entidade bem patrimonial, cuja existência e escopo são verificados no servidor.
+\item[\texttt{status}] string enum; O. Estado controlado pelo domínio; transições são validadas no servidor. Valores: pendente, aprovada, rejeitada.
+\item[\texttt{feita\_em}] Timestamp; O. Data/instante de feita em, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{respondida\_em}] Timestamp; N. Data/instante de respondida em, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{id\_usuario\_solicitante}] string; O. Identificador da entidade usuario solicitante, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_usuario\_respondente}] string; N. Identificador da entidade usuario respondente, cuja existência e escopo são verificados no servidor.
+\item[\texttt{novo\_nome}] string; N. Valor novo nome, restrito ao campo correspondente da entidade de origem; preservar ausência legítima. Máximo 150 caracteres.
+\item[\texttt{novo\_status}] string enum; N. Valor novo status, restrito ao campo correspondente da entidade de origem; preservar ausência legítima. Valores: Ativo, Inservivel, Ja\_dado\_baixa.
+\item[\texttt{novo\_estado\_conservacao}] string enum; N. Valor novo estado conservacao, restrito ao campo correspondente da entidade de origem; preservar ausência legítima. Valores: BOM, REGULAR, RUIM.
+\item[\texttt{novo\_id\_local}] string; N. Valor novo id local, restrito ao campo correspondente da entidade de origem; preservar ausência legítima.
+\item[\texttt{nova\_photo\_url}] string; N. Valor nova photo url, restrito ao campo correspondente da entidade de origem; preservar ausência legítima.
+\item[\texttt{motivo}] string; O. Valor de motivo, validado pelo formulário e pelo servidor conforme regras do domínio.
+\item[\texttt{justificativa\_resposta}] string; N. Justificativa obrigatória ao aprovar ou rejeitar; ausente enquanto pendente.
+\end{description}
+
+\paragraph{Requisicao\_Adicao\_Bem\_Patrimonial}\mbox{}\par
+Caminho: \texttt{Requisicao\_Adicao\_Bem\_Patrimonial/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{numero\_patrimonio\_proposto}] string; O. Plaqueta solicitada para o novo bem; unicidade entre pendências e bens existentes. Máximo 30 caracteres.
+\item[\texttt{status}] string enum; O. Estado controlado pelo domínio; transições são validadas no servidor. Valores: pendente, aprovada, rejeitada.
+\item[\texttt{feita\_em}] Timestamp; O. Data/instante de feita em, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{id\_bem\_patrimonial\_se\_aprovado}] string; N. Identificador da entidade bem patrimonial se aprovado, cuja existência e escopo são verificados no servidor.
+\item[\texttt{respondida\_em}] Timestamp; N. Data/instante de respondida em, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{id\_usuario\_solicitante}] string; O. Identificador da entidade usuario solicitante, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_usuario\_respondente}] string; N. Identificador da entidade usuario respondente, cuja existência e escopo são verificados no servidor.
+\item[\texttt{estado\_conservacao\_proposto}] string enum; O. Valor de estado conservacao proposto, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: BOM, REGULAR, RUIM.
+\item[\texttt{photo\_url\_proposta}] string; N. Valor de photo url proposta, validado pelo formulário e pelo servidor conforme regras do domínio.
+\item[\texttt{nome\_responsavel\_proposto}] string; O. Valor de nome responsavel proposto, validado pelo formulário e pelo servidor conforme regras do domínio. Máximo 150 caracteres.
+\item[\texttt{id\_local}] string; O. Identificador da entidade local, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_resumo\_bem\_patrimonial}] string; N. Identificador da entidade resumo bem patrimonial, cuja existência e escopo são verificados no servidor.
+\item[\texttt{nome\_resumo\_proposto}] string; N. Valor de nome resumo proposto, validado pelo formulário e pelo servidor conforme regras do domínio. Máximo 150 caracteres.
+\item[\texttt{descricao\_resumo\_proposta}] string; N. Valor de descricao resumo proposta, validado pelo formulário e pelo servidor conforme regras do domínio.
+\item[\texttt{motivo}] string; O. Valor de motivo, validado pelo formulário e pelo servidor conforme regras do domínio.
+\end{description}
+
+\paragraph{Locks\_Requisicao\_Patrimonio}\mbox{}\par
+Caminho: \texttt{Locks\_Requisicao\_Patrimonio/\{id\}}.
+\begin{description}
+\item[\texttt{id (docId determinístico)}] string; O. Identificador da entidade id (docId determinístico), cuja existência e escopo são verificados no servidor. Máximo 100 caracteres.
+\item[\texttt{criado\_em}] Timestamp; O. Data/instante de criado em, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\end{description}
+
+\paragraph{Impressao\_Etiqueta\_Frasco}\mbox{}\par
+Caminho: \texttt{Impressao\_Etiqueta\_Frasco/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{gerado\_em}] Timestamp; O. Data/instante de gerado em, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{gerado\_por}] string; O. UID do operador que solicitou a geração de etiquetas, obtido da sessão autenticada.
+\item[\texttt{codigo\_inicial}] number; O. Primeiro número inteiro positivo do intervalo inclusivo de etiquetas virgens.
+\item[\texttt{codigo\_final}] number; O. Último número do intervalo inclusivo, maior ou igual ao inicial e limitado a 50 etiquetas.
+\end{description}
+
+\paragraph{Almoxarifado}\mbox{}\par
+Caminho: \texttt{Almoxarifado/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_local}] string; O. Identificador da entidade local, cuja existência e escopo são verificados no servidor.
+\item[\texttt{nome}] string; O. Nome de apresentação; não substitui a chave do documento. Máximo 100 caracteres.
+\item[\texttt{descricao}] string; O. Valor de descricao, validado pelo formulário e pelo servidor conforme regras do domínio. Máximo 500 caracteres.
+\end{description}
+
+\paragraph{Substancia\_Quimica}\mbox{}\par
+Caminho: \texttt{Substancia\_Quimica/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{nome}] string; O. Nome de apresentação; não substitui a chave do documento. Máximo 150 caracteres.
+\item[\texttt{cas\_number}] string; N. Identificador CAS opcional da substância; quando informado, validar formato, dígito e unicidade. Máximo 15 caracteres.
+\item[\texttt{formula\_quimica}] string; N. Fórmula declarada da substância; apresentação textual, sem executar marcação arbitrária. Máximo 50 caracteres.
+\item[\texttt{ativo}] boolean; O. Habilitação lógica; desativação preserva identidade e histórico.
+\end{description}
+
+\paragraph{Resumo\_Reagente}\mbox{}\par
+Caminho: \texttt{Resumo\_Reagente/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{nome}] string; O. Nome de apresentação; não substitui a chave do documento. Máximo 150 caracteres.
+\item[\texttt{tipo\_substancia}] string enum; O. Valor de tipo substancia, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: PURA, MISTURA.
+\item[\texttt{natureza\_quimica}] string enum; O. Classificação curada do item do catálogo, independente de fabricante ou frasco. Valores: ORGANICO, INORGANICO, ELEMENTO, HIBRIDO.
+\item[\texttt{requer\_pesagem\_frequente}] boolean; O. Indica necessidade de alertas periódicos de pesagem; true exige frequência positiva.
+\item[\texttt{qtd\_em\_que\_e\_considerado\_escasso}] number; O. Limiar inteiro positivo de quantidade de frascos, usado para alerta de escassez do resumo.
+\item[\texttt{frequencia\_pesagem\_dias}] number; N. Intervalo inteiro positivo entre verificações; null quando não exige pesagem frequente.
+\end{description}
+
+\paragraph{Composicao\_Reagente}\mbox{}\par
+Caminho: \texttt{Resumo\_Reagente/\{resumoId\}/Especificacoes/\{id\}: composicao[]}.
+\begin{description}
+\item[\texttt{id\_substancia\_quimica}] string; O. Identificador da entidade substancia quimica, cuja existência e escopo são verificados no servidor.
+\item[\texttt{valor\_composicao}] number; N. Valor numérico da concentração quando conhecido; alternativa à faixa.
+\item[\texttt{tipo\_concentracao}] string enum; O. Base da concentração; enum M\_M, V\_V, M\_V, MOL\_L, MOL\_KG, PPM ou PPB. Valores: M\_M,V\_V,M\_V,MOL\_L,MOL\_KG,PPM,PPB.
+\item[\texttt{unidade}] string; N. Notação textual legada de concentração/faixa; ver Q03. Máximo 20 caracteres.
+\end{description}
+
+\paragraph{Especificacao\_Reagente}\mbox{}\par
+Caminho: \texttt{Resumo\_Reagente/\{resumoId\}/Especificacoes/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_resumo\_reagente}] string; O. Identificador da entidade resumo reagente, cuja existência e escopo são verificados no servidor.
+\item[\texttt{descricao}] string; O. Valor de descricao, validado pelo formulário e pelo servidor conforme regras do domínio. Máximo 150 caracteres.
+\item[\texttt{fabricante}] string; N. Nome do fabricante da especificação comercial; não é o fornecedor do lote. Máximo 150 caracteres.
+\item[\texttt{codigo\_produto\_fabricante}] string; N. Código comercial do fabricante para distinguir versões de produto sob o mesmo resumo. Máximo 100 caracteres.
+\item[\texttt{grau\_pureza}] string; N. Grau declarado pelo fabricante, por exemplo P.A. ou HPLC; texto opcional, não percentual obrigatório. Máximo 30 caracteres.
+\item[\texttt{densidade}] number; N. Densidade em g/ml; positiva e obrigatória para líquido, imutável após confirmação.
+\item[\texttt{estado\_fisico}] string enum; O. Estado da especificação; SOLIDO usa g e LIQUIDO usa ml. Valores: SOLIDO,LIQUIDO.
+\item[\texttt{unidade\_de\_medida}] string enum; O. Valor de unidade de medida, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: ml,g.
+\item[\texttt{classe\_inflamabilidade}] string enum; O. Classe selecionada para a especificação; não derivar apenas do nome comercial. Valores: NAO\_INFLAMAVEL,CLASSE\_1,CLASSE\_2,CLASSE\_3.
+\item[\texttt{eh\_controlado\_pf}] boolean; O. Indicador cadastral de controle PF declarado pelo gestor; não é inferência automática nem parecer regulatório.
+\item[\texttt{eh\_controlado\_eb}] boolean; O. Indicador cadastral de controle EB declarado pelo gestor, independente do indicador PF.
+\item[\texttt{link\_fds\_fispq}] string; N. Endereço HTTPS opcional para a ficha de segurança; abrir com proteção de navegação externa. Máximo 255 caracteres.
+\end{description}
+
+\paragraph{Lote}\mbox{}\par
+Caminho: \texttt{Lote/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_especificacao\_reagente}] string; O. Identificador da entidade especificacao reagente, cuja existência e escopo são verificados no servidor.
+\item[\texttt{data\_aquisicao}] Timestamp; O. Data da aquisição do lote; não pode estar no futuro no cadastro de entrada já realizada.
+\item[\texttt{qtd\_frascos\_comprados}] number; O. Quantidade adquirida, distinta da contagem materializada de frascos cadastrados.
+\item[\texttt{nome\_fornecedor}] string; O. Fornecedor da aquisição; participa da chave composta do lote. Máximo 80 caracteres.
+\item[\texttt{numero\_lote}] string; O. Identificação do lote do fornecedor/fabricante, distinta do código LCQUI de cada frasco. Máximo 100 caracteres.
+\item[\texttt{nota\_fiscal}] string; O. Referência textual do documento de aquisição; não contém o binário da nota. Máximo 100 caracteres.
+\item[\texttt{data\_fabricacao}] string YYYY-MM-DD; O. Data civil declarada de fabricação; não posterior à validade.
+\item[\texttt{data\_validade}] string YYYY-MM-DD; O. Data civil de validade do lote; preenche sugestão de validade fechada do frasco.
+\end{description}
+
+\paragraph{Frasco\_Reagente}\mbox{}\par
+Caminho: \texttt{Frasco\_Reagente/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_almoxarifado}] string; O. Identificador da entidade almoxarifado, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_lote}] string; N. Identificador da entidade lote, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_especificacao\_reagente}] string; N. Identificador da entidade especificacao reagente, cuja existência e escopo são verificados no servidor.
+\item[\texttt{detalhe\_local\_armazenamento}] string; N. Valor de detalhe local armazenamento, validado pelo formulário e pelo servidor conforme regras do domínio.
+\item[\texttt{codigo\_frasco}] string; O. Identificador LCQUI-N único, gerado pelo servidor. Unicidade garantida por chave determinística/registro de unicidade no servidor.
+\item[\texttt{data\_ultima\_pesagem}] Timestamp; N. Data/instante de data ultima pesagem, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{conteudo\_nominal}] number; O. Conteúdo inicial declarado em ml ou g conforme especificação.
+\item[\texttt{peso\_no\_cadastrado}] number; O. Peso bruto inicial em g; imutável.
+\item[\texttt{peso\_atual}] number; O. Último peso bruto confirmado em g.
+\item[\texttt{peso\_frasco\_vazio}] number; N. Tara em g, calculada ou informada conforme modalidade.
+\item[\texttt{medida\_usada}] number; O. Acumulado gravimétrico em g; não misturar com volume.
+\item[\texttt{data\_abertura}] string YYYY-MM-DD; N. Data efetiva da abertura; não inventar data histórica desconhecida (Q05).
+\item[\texttt{validade\_fechado}] string YYYY-MM-DD; N. Validade declarada antes da abertura; pode ser sugerida pelo lote, com origem preservada.
+\item[\texttt{validade\_efetiva}] string YYYY-MM-DD; N. Prazo aplicável calculado com abertura e validade fechada; null quando não determinável.
+\item[\texttt{validade\_desconhecida}] boolean; O. Ausência explícita de informação de validade; não significa validade ilimitada.
+\item[\texttt{validade\_apos\_aberto\_dias}] number; N. Prazo inteiro positivo após abertura quando declarado; compõe o mínimo da validade efetiva.
+\item[\texttt{estado\_fisico\_frasco}] string enum; O. Condição do recipiente/conteúdo; quarentena e vencimento são dimensões separadas. Valores: FECHADO,ABERTO,VAZIO,QUEBRADO,DESCARTADO.
+\item[\texttt{disponibilidade}] string enum; O. Disponível ou emprestado; exige coerência com empréstimo ativo. Valores: DISPONIVEL,EMPRESTADO.
+\item[\texttt{vencido}] boolean; O. Projeção de validade comparada ao relógio do servidor; reavaliar em cada operação crítica.
+\item[\texttt{em\_quarentena}] boolean; O. Bloqueio operacional independente de abertura e vencimento; true exige motivo.
+\item[\texttt{uso\_vencido\_autorizado}] boolean; O. Decisão expressa de gestor para uso exclusivamente didático/demonstração, auditada.
+\item[\texttt{detalhe\_status}] string; N. Justificativa obrigatória para quarentena e decisões que a exigem.
+\item[\texttt{cadastrado\_em}] Timestamp; O. Data/instante de cadastrado em, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{cadastrado\_por}] string; O. Valor de cadastrado por, validado pelo formulário e pelo servidor conforme regras do domínio.
+\end{description}
+
+\paragraph{Historico\_Frasco\_Reagente}\mbox{}\par
+Caminho: \texttt{Historico\_Frasco\_Reagente/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_frasco\_reagente}] string; O. Identificador da entidade frasco reagente, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_almoxarifado}] string; O. Identificador da entidade almoxarifado, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_gestor}] string; O. Identificador da entidade gestor, cuja existência e escopo são verificados no servidor.
+\item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio.
+\item[\texttt{campo\_ajustado}] string; N. Nome permitido do atributo alterado no evento; não é caminho arbitrário para atualização de documento. Máximo 30 caracteres.
+\item[\texttt{id\_emprestimo\_reagente}] string; N. Identificador da entidade emprestimo reagente, cuja existência e escopo são verificados no servidor.
+\item[\texttt{peso\_anterior}] number; N. Peso bruto em g imediatamente antes do evento de ajuste/pesagem, quando aplicável.
+\item[\texttt{peso\_novo}] number; N. Peso bruto em g confirmado no evento, quando aplicável.
+\item[\texttt{medida\_ajustada}] number; N. Diferença operacional na unidade indicada, com sinal definido pelo tipo de evento; não somar automaticamente como consumo.
+\item[\texttt{unidade\_medida\_ajustada}] string enum; O. Valor de unidade medida ajustada, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: ml,g.
+\item[\texttt{timestamp}] Timestamp; O. Data/instante de timestamp, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\end{description}
+
+\paragraph{Emprestimo\_Reagente}\mbox{}\par
+Caminho: \texttt{Emprestimo\_Reagente/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_frasco\_reagente}] string; O. Identificador da entidade frasco reagente, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_usuario\_retirou}] string; O. Identificador da entidade usuario retirou, cuja existência e escopo são verificados no servidor.
+\item[\texttt{status}] string enum; O. Estado controlado pelo domínio; transições são validadas no servidor. Valores: EM\_USO,ATRASADO,DEVOLVIDO,DEVOLVIDO\_COM\_ATRASO.
+\item[\texttt{data\_retirada}] Timestamp; O. Data/instante de data retirada, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{data\_devolucao\_prevista}] string YYYY-MM-DD; O. Data civil cujo prazo termina no fim do dia no fuso institucional.
+\item[\texttt{data\_devolucao\_efetuada}] Timestamp; N. Data/instante de data devolucao efetuada, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{id\_local\_usado}] string; O. Identificador da entidade local usado, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_usuario\_devolveu}] string; N. Identificador da entidade usuario devolveu, cuja existência e escopo são verificados no servidor.
+\item[\texttt{peso\_saida}] number; O. Peso bruto em g medido na retirada; referência imutável para o consumo deste empréstimo.
+\item[\texttt{peso\_retorno}] number; N. Peso bruto em g medido na devolução; null antes do retorno e validado contra tara/saída.
+\item[\texttt{medida\_utilizada}] number; N. Consumo calculado na unidade do empréstimo.
+\item[\texttt{unidade\_medida\_utilizada}] string enum; O. Valor de unidade medida utilizada, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: ml,g.
+\item[\texttt{peso\_perda\_evaporacao}] number; O. Perda em g registrada separadamente de consumo; não inferir arbitrariamente.
+\item[\texttt{uso\_vencido\_aceito}] boolean; O. Ciência explícita do empréstimo específico; não concede nem substitui autorização do gestor.
+\item[\texttt{finalidade\_uso}] string enum; O. Finalidade declarada na retirada; vencido autorizado só admite DIDATICO\_DEMONSTRACAO. Valores: PESQUISA, DIDATICO\_DEMONSTRACAO, OUTRO.
+\end{description}
+
+\paragraph{Turma}\mbox{}\par
+Caminho: \texttt{Turma/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_materia}] string; O. Identificador da entidade materia, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_professor}] string; O. Identificador da entidade professor, cuja existência e escopo são verificados no servidor.
+\item[\texttt{status}] string enum; O. Estado controlado pelo domínio; transições são validadas no servidor. Valores: Ativo, Arquivada.
+\item[\texttt{nome\_turma}] string; O. Nome de apresentação da turma, sem inferir ano/semestre a partir do texto. Máximo 100 caracteres.
+\item[\texttt{ano}] number; O. Ano letivo da turma ou ano da competência do agregado mensal, conforme documento.
+\item[\texttt{semestre}] number; O. Semestre letivo inteiro, exclusivamente 1 ou 2.
+\item[\texttt{capacidade}] number; O. Quantidade máxima ordinária de alunos; inteiro positivo, validado na transação de ingresso.
+\item[\texttt{codigo\_turma}] string; O. Código único de ingresso, não concede acesso sem validação. Máximo 20 caracteres. Unicidade garantida por chave determinística/registro de unicidade no servidor.
+\item[\texttt{data\_criacao}] Timestamp; O. Data/instante de data criacao, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\end{description}
+
+\paragraph{Historico\_Alunos\_Turma}\mbox{}\par
+Caminho: \texttt{Turma/\{id\}/HistoricoAlunos/\{eventoId\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_turma}] string; O. Identificador da entidade turma, cuja existência e escopo são verificados no servidor.
+\item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: inclusao\_aluno, exclusao\_aluno.
+\item[\texttt{id\_aluno}] string; O. Identificador da entidade aluno, cuja existência e escopo são verificados no servidor.
+\item[\texttt{timestamp}] Timestamp; O. Data/instante de timestamp, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\end{description}
+
+\paragraph{Historico\_Posts\_Turma}\mbox{}\par
+Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}/Historico/\{eventoId\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_post}] string; O. Identificador da entidade post, cuja existência e escopo são verificados no servidor.
+\item[\texttt{novo\_titulo}] string; N. Valor novo titulo, restrito ao campo correspondente da entidade de origem; preservar ausência legítima. Máximo 150 caracteres.
+\item[\texttt{novo\_id\_roteiro}] string; N. Valor novo id roteiro, restrito ao campo correspondente da entidade de origem; preservar ausência legítima.
+\item[\texttt{nova\_descricao}] string; N. Valor nova descricao, restrito ao campo correspondente da entidade de origem; preservar ausência legítima.
+\item[\texttt{antigo\_titulo}] string; N. Valor antigo titulo, restrito ao campo correspondente da entidade de origem; preservar ausência legítima. Máximo 150 caracteres.
+\item[\texttt{antigo\_id\_roteiro}] string; N. Valor antigo id roteiro, restrito ao campo correspondente da entidade de origem; preservar ausência legítima.
+\item[\texttt{antiga\_descricao}] string; N. Valor antiga descricao, restrito ao campo correspondente da entidade de origem; preservar ausência legítima.
+\item[\texttt{timestamp}] Timestamp; O. Data/instante de timestamp, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\end{description}
+
+\paragraph{Historico\_Comentario}\mbox{}\par
+Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}/Comentarios/\{id\}/Historico/\{eventoId\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_comentario}] string; O. Identificador da entidade comentario, cuja existência e escopo são verificados no servidor.
+\item[\texttt{novo\_texto}] string; O. Valor novo texto, restrito ao campo correspondente da entidade de origem; preservar ausência legítima.
+\item[\texttt{texto\_antigo}] string; O. Valor de texto antigo, validado pelo formulário e pelo servidor conforme regras do domínio.
+\item[\texttt{editado\_em}] Timestamp; O. Data/instante de editado em, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{editado\_por}] string; O. Valor de editado por, validado pelo formulário e pelo servidor conforme regras do domínio.
+\end{description}
+
+\paragraph{Roteiro\_Experimento}\mbox{}\par
+Caminho: \texttt{Roteiro\_Experimento/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_professor\_upload}] string; O. Identificador da entidade professor upload, cuja existência e escopo são verificados no servidor.
+\item[\texttt{file\_url}] string; O. Referência do PDF; download exige revalidar acesso.
+\item[\texttt{nome}] string; O. Nome de apresentação; não substitui a chave do documento. Máximo 150 caracteres.
+\item[\texttt{descricao}] string; O. Valor de descricao, validado pelo formulário e pelo servidor conforme regras do domínio.
+\end{description}
+
+\paragraph{Roteiro\_Professor\_Compartilhado}\mbox{}\par
+Caminho: \texttt{Roteiro\_Professor\_Compartilhado/\{id\}}.
+\begin{description}
+\item[\texttt{id\_roteiro\_experimento}] string; O. Identificador da entidade roteiro experimento, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_professor}] string; O. Identificador da entidade professor, cuja existência e escopo são verificados no servidor.
+\end{description}
+
+\paragraph{Professor}\mbox{}\par
+Caminho: \texttt{Professor/\{id\}}.
+\begin{description}
+\item[\texttt{id\_usuario}] string; O. Identificador da entidade usuario, cuja existência e escopo são verificados no servidor.
+\item[\texttt{centro}] string enum; O. Centro institucional do professor: CCT, CCTA, CBB ou CCH. Valores: CCT, CCTA, CBB, CCH.
+\item[\texttt{laboratorio}] string; O. Laboratório de lotação do professor; não fornece automaticamente prédio/andar/sala. Máximo 100 caracteres.
+\end{description}
+
+\paragraph{Materia}\mbox{}\par
+Caminho: \texttt{Materia/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{nome}] string; O. Nome de apresentação; não substitui a chave do documento. Máximo 100 caracteres.
+\item[\texttt{codigo\_materia}] string; O. Código acadêmico único da matéria, normalizado de modo uniforme. Máximo 10 caracteres.
+\end{description}
+
+\paragraph{Professor\_x\_Materia}\mbox{}\par
+Caminho: \texttt{Professor\_x\_Materia/\{id\}}.
+\begin{description}
+\item[\texttt{id\_professor}] string; O. Identificador da entidade professor, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_materia}] string; O. Identificador da entidade materia, cuja existência e escopo são verificados no servidor.
+\end{description}
+
+\paragraph{Aluno}\mbox{}\par
+Caminho: \texttt{Aluno/\{id\}}.
+\begin{description}
+\item[\texttt{id\_usuario}] string; O. Identificador da entidade usuario, cuja existência e escopo são verificados no servidor.
+\item[\texttt{numero\_matricula}] string; O. Matrícula institucional textual, com zeros iniciais; obrigatória e única em Aluno, opcional e não única em Convite. Máximo 20 caracteres.
+\end{description}
+
+\paragraph{Bolsista}\mbox{}\par
+Caminho: \texttt{Bolsista/\{id\}}.
+\begin{description}
+\item[\texttt{id\_usuario}] string; O. Identificador da entidade usuario, cuja existência e escopo são verificados no servidor.
+\end{description}
+
+\paragraph{Convite\_Aluno}\mbox{}\par
+Caminho: \texttt{Convite\_Aluno/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_turma}] string; N. Identificador da entidade turma, cuja existência e escopo são verificados no servidor.
+\item[\texttt{email}] string; O. Endereço normalizado para identidade/convite; não divulgar em catálogo público interno. Máximo 150 caracteres.
+\item[\texttt{convidado\_em}] Timestamp; O. Data/instante de convidado em, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{status}] string enum; O. Estado controlado pelo domínio; transições são validadas no servidor. Valores: pendente, aceitado, expirado.
+\item[\texttt{expira\_em}] Timestamp; O. Instante de expiração de convite/notificação; não equivale a autorização de excluir auditoria.
+\item[\texttt{convidado\_por}] string; O. Valor de convidado por, validado pelo formulário e pelo servidor conforme regras do domínio.
+\item[\texttt{numero\_matricula}] string; N. Matrícula institucional textual, com zeros iniciais; obrigatória e única em Aluno, opcional e não única em Convite. Máximo 20 caracteres.
+\end{description}
+
+\paragraph{Notificacao}\mbox{}\par
+Caminho: \texttt{Usuarios/\{uid\}/Notificacoes/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_destinatario}] string; O. Identificador da entidade destinatario, cuja existência e escopo são verificados no servidor.
+\item[\texttt{papel\_destinatario}] string enum; O. Contexto de exibição da notificação, sem conceder esse papel ao usuário.
+\item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio.
+\item[\texttt{id\_quem\_fez\_acao}] string; N. Identificador da entidade quem fez acao, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_turma}] string; N. Identificador da entidade turma, cuja existência e escopo são verificados no servidor.
+\item[\texttt{quantidade}] number; N. Quantidade agregada de ocorrências agrupadas na notificação, quando aplicável.
+\item[\texttt{entidade\_alvo}] string; O. Tipo autorizado de recurso para navegação; mapear a rotas conhecidas, não URL arbitrária. Máximo 40 caracteres.
+\item[\texttt{id\_alvo}] string; O. ID do recurso da notificação; acesso é revalidado ao abrir. Máximo 200 caracteres.
+\item[\texttt{lida}] boolean; O. Estado de leitura da notificação; true preserva o registro em vez de excluí-lo.
+\item[\texttt{lida\_em}] Timestamp; N. Instante servidor de marcação de leitura; null enquanto não lida.
+\item[\texttt{emitida\_em}] Timestamp; O. Data/instante de emitida em, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{expira\_em}] Timestamp; O. Instante de expiração de convite/notificação; não equivale a autorização de excluir auditoria.
+\end{description}
+
+\paragraph{Aluno\_x\_Turma}\mbox{}\par
+Caminho: \texttt{Turma/\{id\}/Alunos/\{uid\}}.
+\begin{description}
+\item[\texttt{id\_aluno}] string; O. Identificador da entidade aluno, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_turma}] string; O. Identificador da entidade turma, cuja existência e escopo são verificados no servidor.
+\end{description}
+
+\paragraph{Local}\mbox{}\par
+Caminho: \texttt{Local/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{predio}] string; O. Identificador textual do prédio no cadastro de locais. Máximo 30 caracteres.
+\item[\texttt{andar}] string; O. Identificador textual do piso; permite térreo/subsolo, sem impor número inteiro. Máximo 10 caracteres.
+\item[\texttt{sala}] string; O. Identificador textual da sala, único no contexto prédio/andar. Máximo 30 caracteres.
+\item[\texttt{criado\_por}] string; O. Valor de criado por, validado pelo formulário e pelo servidor conforme regras do domínio.
+\item[\texttt{criado\_em}] Timestamp; O. Data/instante de criado em, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\end{description}
+
+\paragraph{Post}\mbox{}\par
+Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_professor}] string; O. Identificador da entidade professor, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_turma}] string; O. Identificador da entidade turma, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_roteiro\_experimento}] string; N. Identificador da entidade roteiro experimento, cuja existência e escopo são verificados no servidor.
+\item[\texttt{titulo}] string; O. Título obrigatório de publicação, exibido no feed e na navegação de notificações. Máximo 150 caracteres.
+\item[\texttt{descricao}] string; O. Valor de descricao, validado pelo formulário e pelo servidor conforme regras do domínio.
+\item[\texttt{criado\_em}] Timestamp; O. Data/instante de criado em, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\end{description}
+
+\paragraph{Comentario}\mbox{}\par
+Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}/Comentarios/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_post}] string; O. Identificador da entidade post, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_usuario}] string; O. Identificador da entidade usuario, cuja existência e escopo são verificados no servidor.
+\item[\texttt{texto}] string; O. Conteúdo textual do comentário, escapado na renderização; rejeitar texto vazio após trim.
+\item[\texttt{criado\_em}] Timestamp; O. Data/instante de criado em, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\end{description}
+
+\paragraph{Registro\_de\_Auditoria}\mbox{}\par
+Caminho: \texttt{Registro\_de\_Auditoria/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_usuario}] string; O. Identificador da entidade usuario, cuja existência e escopo são verificados no servidor.
+\item[\texttt{acao}] string; O. Nome da ação auditada; distinguir solicitação, conclusão e rejeição quando relevante. Máximo 200 caracteres.
+\item[\texttt{tipo\_entidade\_sofre\_acao}] string enum; O. Valor de tipo entidade sofre acao, validado pelo formulário e pelo servidor conforme regras do domínio.
+\item[\texttt{id\_do\_objeto\_da\_entidade}] string; O. Identificador da entidade do objeto da entidade, cuja existência e escopo são verificados no servidor. Máximo 200 caracteres.
+\item[\texttt{acao\_feita\_em}] Timestamp; O. Data/instante de acao feita em, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{metadata}] map; O. Mapa auditável e limitado ao evento, sem senha, token ou conteúdo binário.
+\end{description}
+
+\paragraph{Lote\_Materializado}\mbox{}\par
+Caminho: \texttt{Lote\_Materializado/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_lote}] string; O. Identificador da entidade lote, cuja existência e escopo são verificados no servidor. Unicidade garantida por chave determinística/registro de unicidade no servidor.
+\item[\texttt{qtd\_frascos\_cadastrados}] number; O. Contagem de frascos cadastrados, inteira não negativa; não editável pelo cliente quando materializada.
+\end{description}
+
+\paragraph{Resumo\_Almoxarifado\_Diario}\mbox{}\par
+Caminho: \texttt{Resumo\_Almoxarifado\_Diario/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{data}] string YYYY-MM-DD; O. Data/instante de data, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{id\_almoxarifado}] string; O. Identificador da entidade almoxarifado, cuja existência e escopo são verificados no servidor.
+\item[\texttt{qtd\_frascos\_fechados\_no\_fim\_do\_dia}] number; O. Contagem de frascos fechados no fim do dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_frascos\_abertos\_no\_fim\_do\_dia}] number; O. Contagem de frascos abertos no fim do dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_frascos\_emprestados\_no\_fim\_do\_dia}] number; O. Contagem de frascos emprestados no fim do dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_frascos\_cadastrados\_fechados\_durante\_o\_dia}] number; O. Contagem de frascos cadastrados fechados durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_frascos\_cadastrados\_abertos\_durante\_o\_dia}] number; O. Contagem de frascos cadastrados abertos durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_frascos\_emprestados\_durante\_o\_dia}] number; O. Contagem de frascos emprestados durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_frascos\_devolvidos\_durante\_o\_dia}] number; O. Contagem de frascos devolvidos durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{volume\_total\_usado\_nos\_frascos\_devolvidos\_durante\_o\_dia}] number; O. Métrica de volume total usado nos frascos devolvidos durante o dia, não negativa e calculada a partir dos eventos/saldos do domínio.
+\item[\texttt{volume\_total\_disponivel\_ml}] number; O. Métrica de volume total disponivel ml, não negativa e calculada a partir dos eventos/saldos do domínio.
+\item[\texttt{volume\_utilizado\_no\_dia\_ml}] number; O. Métrica de volume utilizado no dia ml, não negativa e calculada a partir dos eventos/saldos do domínio.
+\item[\texttt{massa\_total\_disponivel\_g}] number; O. Métrica de massa total disponivel g, não negativa e calculada a partir dos eventos/saldos do domínio.
+\item[\texttt{massa\_utilizada\_no\_dia\_g}] number; O. Métrica de massa utilizada no dia g, não negativa e calculada a partir dos eventos/saldos do domínio.
+\item[\texttt{created\_at}] Timestamp; O. Instante servidor da primeira criação da materialização.
+\item[\texttt{updated\_at}] Timestamp; O. Instante servidor da última atualização da materialização; informa atualidade do resultado.
+\end{description}
+
+\paragraph{Resumo\_Reagente\_Diario}\mbox{}\par
+Caminho: \texttt{Resumo\_Reagente\_Diario/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{data}] string YYYY-MM-DD; O. Data/instante de data, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{id\_resumo\_reagente}] string; O. Identificador da entidade resumo reagente, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_almoxarifado}] string; O. Identificador da entidade almoxarifado, cuja existência e escopo são verificados no servidor.
+\item[\texttt{qtd\_frascos\_fechados\_disponiveis}] number; O. Contagem de frascos fechados disponiveis, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_frascos\_abertos\_disponiveis}] number; O. Contagem de frascos abertos disponiveis, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_frascos\_em\_uso}] number; O. Contagem de frascos em uso, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_frascos\_vazios}] number; O. Contagem de frascos vazios, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_frascos\_descartados\_dia}] number; O. Contagem de frascos descartados dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{volume\_total\_disponivel\_ml}] number; O. Métrica de volume total disponivel ml, não negativa e calculada a partir dos eventos/saldos do domínio.
+\item[\texttt{volume\_utilizado\_no\_dia\_ml}] number; O. Métrica de volume utilizado no dia ml, não negativa e calculada a partir dos eventos/saldos do domínio.
+\item[\texttt{volume\_evaporado\_no\_dia\_ml}] number; O. Métrica de volume evaporado no dia ml, não negativa e calculada a partir dos eventos/saldos do domínio.
+\item[\texttt{massa\_total\_disponivel\_g}] number; O. Métrica de massa total disponivel g, não negativa e calculada a partir dos eventos/saldos do domínio.
+\item[\texttt{massa\_utilizada\_no\_dia\_g}] number; O. Métrica de massa utilizada no dia g, não negativa e calculada a partir dos eventos/saldos do domínio.
+\item[\texttt{massa\_evaporada\_no\_dia\_g}] number; O. Métrica de massa evaporada no dia g, não negativa e calculada a partir dos eventos/saldos do domínio.
+\item[\texttt{created\_at}] Timestamp; O. Instante servidor da primeira criação da materialização.
+\item[\texttt{updated\_at}] Timestamp; O. Instante servidor da última atualização da materialização; informa atualidade do resultado.
+\end{description}
+
+\paragraph{Resumo\_Bem\_Patrimonial\_Diario}\mbox{}\par
+Caminho: \texttt{Resumo\_Bem\_Patrimonial\_Diario/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{data}] string YYYY-MM-DD; O. Data/instante de data, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{id\_local}] string; N. Identificador da entidade local, cuja existência e escopo são verificados no servidor.
+\item[\texttt{qtd\_bens\_ativos\_no\_fim\_do\_dia}] number; O. Contagem de bens ativos no fim do dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_bens\_inservivel\_no\_fim\_do\_dia}] number; O. Contagem de bens inservivel no fim do dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_bens\_dado\_baixa\_no\_fim\_do\_dia}] number; O. Contagem de bens dado baixa no fim do dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_bens\_cadastrados\_durante\_o\_dia}] number; O. Contagem de bens cadastrados durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_bens\_marcados\_inservivel\_durante\_o\_dia}] number; O. Contagem de bens marcados inservivel durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_bens\_dados\_baixa\_durante\_o\_dia}] number; O. Contagem de bens dados baixa durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_requisicoes\_abertas\_durante\_o\_dia}] number; O. Contagem de requisicoes abertas durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_requisicoes\_aprovadas\_durante\_o\_dia}] number; O. Contagem de requisicoes aprovadas durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_requisicoes\_rejeitadas\_durante\_o\_dia}] number; O. Contagem de requisicoes rejeitadas durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{created\_at}] Timestamp; O. Instante servidor da primeira criação da materialização.
+\item[\texttt{updated\_at}] Timestamp; O. Instante servidor da última atualização da materialização; informa atualidade do resultado.
+\end{description}
+
+\paragraph{Atividade\_Gestor\_Almoxarifado\_Mensal}\mbox{}\par
+Caminho: \texttt{Atividade\_Gestor\_Almoxarifado\_Mensal/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_gestor}] string; O. Identificador da entidade gestor, cuja existência e escopo são verificados no servidor.
+\item[\texttt{ano}] number; O. Ano letivo da turma ou ano da competência do agregado mensal, conforme documento.
+\item[\texttt{mes}] number; O. Mês da competência mensal, inteiro de 1 a 12.
+\item[\texttt{qtd\_reagentes\_adicionados}] number; O. Contagem de reagentes adicionados, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_frascos\_adicionados}] number; O. Contagem de frascos adicionados, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_movimentacoes\_registradas}] number; O. Contagem de movimentacoes registradas, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{created\_at}] Timestamp; O. Instante servidor da primeira criação da materialização.
+\item[\texttt{updated\_at}] Timestamp; O. Instante servidor da última atualização da materialização; informa atualidade do resultado.
+\end{description}
+
+\paragraph{Atividade\_Gestor\_Bens\_Patrimoniais\_Mensal}\mbox{}\par
+Caminho: \texttt{Atividade\_Gestor\_Bens\_Patrimoniais\_Mensal/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_gestor}] string; O. Identificador da entidade gestor, cuja existência e escopo são verificados no servidor.
+\item[\texttt{ano}] number; O. Ano letivo da turma ou ano da competência do agregado mensal, conforme documento.
+\item[\texttt{mes}] number; O. Mês da competência mensal, inteiro de 1 a 12.
+\item[\texttt{qtd\_bens\_adicionados}] number; O. Contagem de bens adicionados, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_bens\_editados}] number; O. Contagem de bens editados, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_requisicoes\_aprovadas}] number; O. Contagem de requisicoes aprovadas, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_requisicoes\_rejeitadas}] number; O. Contagem de requisicoes rejeitadas, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{created\_at}] Timestamp; O. Instante servidor da primeira criação da materialização.
+\item[\texttt{updated\_at}] Timestamp; O. Instante servidor da última atualização da materialização; informa atualidade do resultado.
+\end{description}
+
+\paragraph{Complementos físicos obrigatórios e fontes de verdade.}
+\begin{description}
+\item[Usuarios] \texttt{ativo} (boolean, O), \texttt{versao\_permissoes} (inteiro, O), \texttt{claims\_pendentes} (boolean, O), \texttt{atualizado\_em} (Timestamp, O): controle servidor de ativação e sincronização de autorização. Não replicar papéis editáveis no navegador.
+\item[Perfis] docId = UID em Chefe\_Geral, Professor, Aluno, Bolsista e gestores; \texttt{id\_usuario} é esse UID. \texttt{nome}, \texttt{email} e \texttt{letra\_inicial}, se usados em busca de perfil, são projeções de Usuarios, com leitura restrita e atualização pelo servidor.
+\item[Almoxarifado] \texttt{ativo} (boolean, O) e \texttt{qtd\_gestores\_ativos} (inteiro não negativo, O) são necessários à ativação e revogação concorrente. O contador é derivado dos vínculos; ativo exige contador positivo.
+\item[Turma] \texttt{qtd\_alunos} (inteiro não negativo, O) é contador transacional do vínculo ativo, não count lido fora da transação. \texttt{versao} (inteiro positivo, O) permite detectar edições concorrentes.
+\item[Espelho Aluno--Turma] \texttt{Usuarios/uid/Turmas/turmaId}: \texttt{id\_turma}, \texttt{id\_professor}, \texttt{id\_materia}, \texttt{nome\_turma}, \texttt{nome\_materia} (strings O), \texttt{ano}, \texttt{semestre} (inteiros O), \texttt{status} (enum O), \texttt{ingressou\_em} (Timestamp O). Todos derivados de Turma/Matéria ou evento de ingresso; não usar espelho desatualizado como autorização. Vínculo canônico em Turma/id/Alunos/uid contém \texttt{id\_aluno} (string O), \texttt{ingressou\_em} (Timestamp O); nome/foto para colegas são projeções mínimas, sem matrícula/e-mail.
+\item[Reagentes] Resumo possui \texttt{letra\_inicial} (string O, derivada do nome). Como várias especificações podem diferir em estado, substituir cópia escalar ambígua por \texttt{estados\_fisicos} (array único de SOLIDO/LIQUIDO, derivado); filtro usa array-contains. Especificação embute \texttt{composicao} (array de maps com os campos da composição; IDs de substâncias únicos). O resumo pai fornece seu ID; manter ID de resumo em Lote e Frasco para resolver o caminho completo da especificação.
+\item[Lote e Frasco] \texttt{id\_resumo\_reagente}, \texttt{id\_especificacao\_reagente}, \texttt{nome\_reagente} (strings O) são projeções servidor; em Frasco, especificação permanece resolvida mesmo com lote, como desnormalização deliberada. \texttt{unidade\_medida} (ml/g, O), \texttt{localizacao\_detalhada} (string até 500, N), \texttt{versao} (inteiro O), \texttt{ultima\_pesagem\_em} (Timestamp, N) e \texttt{modalidade\_cadastro} (FECHADO/CONHECE\_TARA/ESTIMA\_VOLUME/ESTIMA\_MASSA, O) sustentam UI-06. \texttt{id\_emprestimo\_ativo} (string N) é ponteiro transacional, limpo no retorno. \texttt{id\_almoxarifado} é fonte da localização operacional, nunca aceito sem escopo.
+\item[Empréstimo] \texttt{id\_almoxarifado}, \texttt{id\_resumo\_reagente}, \texttt{id\_especificacao\_reagente} (strings O), \texttt{densidade\_aplicada} (number positiva C para líquido), \texttt{id\_gestor\_retirada} (string O), \texttt{id\_gestor\_devolucao} (string N até retorno). Snapshot químico da retirada preserva a memória de cálculo; não atualizar retroativamente. Retirante, devolvente e operador são papéis distintos.
+\item[Patrimônio] \texttt{nome\_equipamento}, \texttt{letra\_inicial\_nome}, \texttt{predio}, \texttt{andar}, \texttt{sala} (strings O) são projeções de Resumo/Local. \texttt{versao} (inteiro O) detecta conflitos. Histórico embute \texttt{alteracoes} (array de maps campo/valor anterior/novo, admitindo null para ausência) e snapshot do local quando necessário a relatório histórico; não propagar local atual sobre fatos passados.
+\item[Requisições] Adição inclui \texttt{justificativa\_resposta} (string N, obrigatória após resposta). Edição inclui \texttt{versao\_bem\_origem} (inteiro O), \texttt{novo\_id\_resumo\_bem\_patrimonial} (string N, reclassificação) e \texttt{novo\_documento\_baixa} (string N, C para proposta de baixa). Projeções nome/plaqueta são identificadores de leitura, não autorização. Resposta nunca inventa foto ausente.
+\item[Convite] \texttt{exceder\_capacidade} (boolean O, default false) e \texttt{justificativa\_excecao} (string C quando true), \texttt{aceitado\_por} (string N), \texttt{aceitado\_em} (Timestamp N), \texttt{token\_hash} (string C se houver segredo de convite). Nunca guardar token em claro. Status aceitado exige UID e instante; matrícula obrigatória na identidade final.
+\item[Arquivos] Roteiros, fotos e comprovantes mantêm \texttt{storage\_path} (string O quando upload), \texttt{content\_type} (string O), \texttt{tamanho\_bytes} (inteiro positivo O), \texttt{owner\_uid} (string O), \texttt{criado\_em} (Timestamp O) no registro/metadados aplicável. \texttt{file\_url}/\texttt{photo\_url} são referências legadas; URL assinada transitória não é fonte de autorização nem conteúdo persistente. Arquivo e Firestore não têm transação única: usar upload provisório e reconciliação de órfãos, preservando anexos referenciados.
+\item[Etiquetas] \texttt{Contador\_Codigo\_Frasco/singleton}: \texttt{ultimo\_codigo\_gerado} (inteiro não negativo O). Não criar simultaneamente Contadores/codigo\_frasco. Impressao\_Etiqueta\_Frasco acrescenta \texttt{start\_row} (1--10), \texttt{start\_col} (1--3), \texttt{id\_operacao} (string O) e \texttt{status\_geracao} (SOLICITADA/CONCLUIDA/FALHOU). Segunda via fica na auditoria; metadata inclui operação, frasco, motivo e resultado, sem duplicar registro como lote virgem.
+\item[Locks] Locks\_Requisicao\_Patrimonio contém \texttt{id\_requisicao}, \texttt{tipo} (ADICAO/EDICAO), \texttt{chave\_recurso} (string O) e \texttt{criado\_em} (Timestamp O). Lock e requisição são atômicos; limpeza só após verificar inexistência de pendência vinculada.
+\item[Unicidade técnica] \texttt{Chaves\_Unicas/chaveHash}: \texttt{tipo}, \texttt{id\_recurso} (strings O), \texttt{criado\_em} (Timestamp O). Chave determinística derivada do valor normalizado e domínio (plaqueta, matrícula, CAS, matéria, local, código turma, lote ou convite pendente); nunca expor e-mail na chave. Criar/liberar na mesma transação do recurso.
+\item[Operações técnicas] \texttt{Operacoes/id}: \texttt{uid}, \texttt{acao}, \texttt{recurso}, \texttt{hash\_entrada} (strings O), \texttt{status} (PENDENTE/CONCLUIDA/FALHOU), \texttt{resultado} (map N), \texttt{criado\_em}, \texttt{atualizado\_em} (Timestamp O). Chave é vinculada ao ator/ação; repetição com entrada diferente é rejeitada. Suporta idempotência, notificações e reconciliação Auth/Storage. Leitura restrita ao solicitante por resposta mínima; escrita servidor.
+\item[Controle de papéis] \texttt{Controle\_Papeis/singleton}: \texttt{chefes\_ativos}, \texttt{gestores\_patrimoniais\_ativos} (inteiros não negativos O), \texttt{versao} (inteiro O). Atualizado na mesma transação das concessões/revogações para impedir retirada concorrente do último responsável.
+\item[Materializações] Chaves por lote; data+almoxarifado; data+resumo+almoxarifado; data+local (sentinela GERAL); gestor+ano+mês. Todos os campos de métricas do dicionário são calculados no servidor. Acrescentar \texttt{calculado\_em} (Timestamp O) e \texttt{versao\_calculo} (inteiro O); reprocessar a mesma janela substitui resultado ou deduplica eventos, sem somar duas vezes. Não somar linha GERAL às linhas locais. Métrica legada de volume total usado é alias do consumo ml e não uma parcela adicional.
+\end{description}
+
+\paragraph{Consultas e integridade do dicionário.}
+A entidade 3FN mantém dependências e referências canônicas; desnormalização é exceção documentada para consulta, não replicação automática de toda FK. Atualização transacional é obrigatória em vínculos, saldos e exclusões lógicas; propagação de nomes pode ser assíncrona, com versão da origem e reconciliação. Nunca aplicar trigger de nome atual a snapshot histórico. Histórico por bem admite collection-group autorizado para relatórios, portanto subcoleção não impede consulta global.
+
+As consultas UI exigem índices versionados em firestore.indexes.json: empréstimo por almoxarifado/status/data prevista e por retirante/data; histórico de frasco por frasco/timestamp e almoxarifado/timestamp; requisição por solicitante/status/feita\_em; turma por professor/status/ano; notificações por papel/lida/emitida\_em; resumo diário por escopo/data. Acrescentar docId como desempate da paginação. Combinações opcionais de filtros precisam de inventário de consultas e validação em emulador/ambiente de integração, não promessa de qualquer combinação arbitrária.
+
+\endgroup
 \subsection{Estratégia de Busca Textual no Firestore}
 \label{subsec:busca-textual}
 
@@ -150,18 +735,18 @@ Combinação obrigatória de pelo menos um: (Prédio) ou (letra inicial do nome 
 Busca via campo denormalizado \texttt{letra\_inicial} (filtro de igualdade). O frontend aplica substring sobre \texttt{nome} nos resultados. A \textit{range query} por prefixo (\texttt{nome >= ``A''}, \texttt{nome < ``B''}) é alternativa válida, mas não combina facilmente com outros filtros de igualdade em índice composto no Firestore; o campo \texttt{letra\_inicial} é preferível.
 
 \subsubsection{Professores}
-Poucos no sistema (dezenas). Estratégia: baixar todos via \texttt{onSnapshot} com persistência habilitada e filtrar inteiramente no frontend por substring. Cache local resolve o desempenho.
+Poucos no sistema (dezenas). Usar listagem autorizada e paginada com campos mínimos; filtrar por substring apenas os registros carregados. UI-13 define cache e ciclo de vida.
 
-\begin{regra}[Listeners com \texttt{onSnapshot} e Persistência]
-O frontend deve usar \texttt{onSnapshot} com persistência habilitada (\texttt{enableIndexedDbPersistence} ou \texttt{enableMultiTabIndexedDbPersistence} conforme o contexto) em todas as coleções listáveis pelo papel do usuário logado. Com isso, o SDK Firestore mantém cache local e trafega apenas deltas do servidor a cada reconexão, reduzindo leituras faturáveis e melhorando a experiência offline. As telas de busca se alimentam primariamente do cache; a sincronização em tempo real é transparente.
+\begin{regra}[Listeners e cache com escopo]
+Aplicar UI-13: listeners limitados às telas visíveis, histórico paginado, memória por padrão e persistência somente em dispositivo confiável. Cache não garante atualização nem ausência de novas leituras faturadas ao reconectar. Encerrar listeners e limpar dados ao sair ou trocar identidade.
 \end{regra}
 
 \subsection{Espelhamento Bidirecional da Associação Aluno--Turma}
 \begin{itemize}
     \item \textbf{Justificativa NoSQL:} No modelo 3FN, a tabela associativa \texttt{Aluno\_x\_Turma} responde bidirecionalmente às consultas via chave composta. No Firestore, como subcoleções não podem ser filtradas a partir da coleção pai (\texttt{Turma}), e regras de segurança não atuam como filtros de busca, a relação $N:N$ é intencionalmente denormalizada e espelhada em duas estruturas complementares:
     \begin{enumerate}
-        \item \textbf{\nolinkurl{Turmas/\{turmaId\}/Alunos/\{alunoId\}} (Visão da Turma):} Utilizada pelo professor para gerenciar os matriculados e validar a regra de capacidade máxima (\texttt{COUNT < Turma.capacidade}).
+        \item \textbf{\nolinkurl{Turma/\{turmaId\}/Alunos/\{alunoId\}} (Visão da Turma):} Utilizada pelo professor para gerenciar os matriculados e validar a regra de capacidade máxima (\texttt{qtd\_alunos < capacidade}, atualizado na transação).
         \item \textbf{\nolinkurl{Usuarios/\{uid\}/Turmas/\{turmaId\}} (Visão do Aluno):} Utilizada exclusivamente pelo frontend do Aluno para alimentar o painel lateral de ``Minhas Turmas'' via listener em tempo real (\texttt{onSnapshot}), contendo os metadados essenciais (\texttt{nome\_turma}, \texttt{nome\_materia}, \texttt{ano}, \texttt{semestre}, \texttt{id\_professor}).
     \end{enumerate}
-    \item \textbf{Consistência Transacional:} A criação e a remoção desse espelho são executadas de forma estritamente atômica pelo backend nas Cloud Functions. Na matrícula (\texttt{ingressarEmTurmaPorCodigo}), o espelho é criado. Na remoção (\texttt{removerAlunoTurma}), a transação deve abranger: exclusão de \nolinkurl{Turmas/\{id\}/Alunos/\{uid\}}, exclusão de \nolinkurl{Usuarios/\{uid\}/Turmas/\{turmaId\}}, gravação no histórico da turma, decremento do contador de vagas e gravação da auditoria.
+    \item \textbf{Consistência Transacional:} A criação e a remoção desse espelho são executadas de forma estritamente atômica pelo backend nas Cloud Functions. Na matrícula (\texttt{ingressarEmTurmaPorCodigo}), o espelho é criado. Na remoção (\texttt{removerAlunoTurma}), a transação deve abranger: exclusão de \nolinkurl{Turma/\{id\}/Alunos/\{uid\}}, exclusão de \nolinkurl{Usuarios/\{uid\}/Turmas/\{turmaId\}}, gravação no histórico da turma, decremento do contador de vagas e gravação da auditoria.
 \end{itemize}

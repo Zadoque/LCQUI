@@ -1,3 +1,5 @@
+> Histórico de planejamento, consolidado em 11/09/2026 nas seções 4, 5.9, 7, 8 (UI-08), 9 (ALM-07), 10 e 11 do LaTeX. O contador vigente na especificação é Contador_Codigo_Frasco/singleton; segunda via é auditada em Registro_de_Auditoria. Exemplos e resultados de protótipo abaixo não atestam implementação/homologação atual.
+
 # Documento de Decisão Técnica e Arquitetural (ADR)
 
 ## Sistema LCQUI (UENF) — Módulo de Impressão de Etiquetas e Ciclo de Vida de Frascos

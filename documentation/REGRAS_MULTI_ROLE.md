@@ -1,3 +1,5 @@
+> Consolidação em 11/09/2026: Regras RN-ROLE-01 a RN-ROLE-15 incorporadas à seção 7; UI-02 na seção 8 e CHE-01/CHE-02 na seção 9 detalham a execução. Consulte o LaTeX e DUVIDAS_DOCUMENTACAO_LCQUI.md para complementos e decisões pendentes.
+
 # Regras de Negócio — Atribuição e Revogação de Papéis (Multi-Role)
 
 ## RN-ROLE-01 — Chefe Geral não pode possuir múltiplos papéis

@@ -48,7 +48,7 @@ RF25 & O sistema deve manter dados históricos e de auditoria sem apagar fatos r
 \subsection{Regras de Negócio Gerais}
 \subsubsection{Status de um frasco de reagente}
 \begin{regra}
-quando um frasco de reagente é cadastrado como em quarentena, deve ser obrigatório escrever o detalhe do status explicando o motivo dele estar em quarentena. 
+quando um frasco de reagente é cadastrado como em quarentena, deve ser obrigatório escrever o detalhe do status explicando o motivo dele estar em quarentena.
 Um frasco no estado de quarentena, pode ser descastado ou voltar ao estado de disponivel (FechadoDisponivel ou AbertoDisponivel)
 \end{regra}
 \subsubsection{Seleção do tipo em Resumo de Reagente}
@@ -61,7 +61,7 @@ Quando o professor exclui um aluno de uma turma, ele não apga o aluno d sistema
 \end{regra}
 \subsubsection{Chefe Geral}
 \begin{regra}
-O sistema pode ter mais de um chefe geral, isso não altera o sistema. 
+O sistema pode ter mais de um chefe geral, isso não altera o sistema.
 \end{regra}
 \subsubsection{O responsável pelo bem patrimonial não é um Usuário do sistema LCQUI}
 \begin{regra}
@@ -69,7 +69,7 @@ Por iss que "\textit{nome\_responsavel\_sei}" é um simples texto.
 \end{regra}
 \subsubsection{Historico de Posts na Turma}
 \begin{regra}
-A entidade desse Histórico não tem o id de quem editou porque apenas o Professor da turma específica pode fazer e editar um Post. O \textit{id\_turma} não é armazenado nesta entidade 3FN porque pode ser obtido por \textit{Historico\_Posts\_Turma.id\_post} $\rightarrow$ \textit{Post.id\_turma}; se a consulta direta por turma for necessária no Firestore, esse vínculo poderá ser denormalizado na coleção de histórico. 
+A entidade desse Histórico não tem o id de quem editou porque apenas o Professor da turma específica pode fazer e editar um Post. O \textit{id\_turma} não é armazenado nesta entidade 3FN porque pode ser obtido por \textit{Historico\_Posts\_Turma.id\_post} $\rightarrow$ \textit{Post.id\_turma}; se a consulta direta por turma for necessária no Firestore, esse vínculo poderá ser denormalizado na coleção de histórico.
 \end{regra}
 \subsubsection{Não compartilhar o mesmo roteiro 2 vezes com um professor}
 \begin{regra}
@@ -78,7 +78,7 @@ UNIQUE(id\_roteiro\_experimento, id\_professor)
 \end{regra}
 \subsubsection{Densidade e concentração na especificação do reagente}
 \begin{regra}
-A densidade é uma propriedade da \textit{Especificacao\_Reagente}, e não do \textit{Resumo\_Reagente}. Ela deve ser informada quando obrigatória para a especificação e, após a confirmação cadastral, não pode ser alterada diretamente, pois participa dos cálculos de volume e consumo dos frascos. A concentração pertence à composição da especificação. Duas especificações com o mesmo nome comercial podem ter densidade, concentração, fabricante ou código de produto diferentes e, portanto, são especificações distintas sob o mesmo resumo quando ainda representam o mesmo item químico agrupador; não se deve criar um novo \textit{Resumo\_Reagente} apenas por haver diferença de concentração ou densidade. 
+A densidade é uma propriedade da \textit{Especificacao\_Reagente}, e não do \textit{Resumo\_Reagente}. Ela deve ser informada quando obrigatória para a especificação e, após a confirmação cadastral, não pode ser alterada diretamente, pois participa dos cálculos de volume e consumo dos frascos. A concentração pertence à composição da especificação. Duas especificações com o mesmo nome comercial podem ter densidade, concentração, fabricante ou código de produto diferentes e, portanto, são especificações distintas sob o mesmo resumo quando ainda representam o mesmo item químico agrupador; não se deve criar um novo \textit{Resumo\_Reagente} apenas por haver diferença de concentração ou densidade.
 \end{regra}
 \subsubsection{Regra para código do frasco de Reagente}
 \begin{regra}
@@ -106,7 +106,7 @@ Deve aparecer na interface:
 
 \subsubsection{Regra para convidar um aluno que não está no sistema}
 \begin{regra}
-Quando o aluno é convidado sem especificar uma turma, id\_turma é NULL em \textit{Convite para Aluno}. Quando o professor vai convidar o aluno, ele pode ou não especificar uma turma, mas ao enviar um convite, tem que aparecer uma confirmação no caso de estar convidando um aluno sem uma turma para ele. 
+Quando o aluno é convidado sem especificar uma turma, id\_turma é NULL em \textit{Convite para Aluno}. Quando o professor vai convidar o aluno, ele pode ou não especificar uma turma, mas ao enviar um convite, tem que aparecer uma confirmação no caso de estar convidando um aluno sem uma turma para ele.
 \end{regra}
 \subsubsection{Regra para registrar um patrimônio como dado baixa}
 \begin{regra}
@@ -114,7 +114,7 @@ Quando o aluno é convidado sem especificar uma turma, id\_turma é NULL em \tex
 \end{regra}
 \subsubsection{Cálculo de Volume e Peso de Reagentes (Padrão de Laboratório)}
 \begin{regra}[Controle de Volume via Pesagem]
-O sistema adotará a pesagem como método principal de controle de volume dos frascos, utilizando a fórmula $Volume = \frac{Peso_{total} - Peso_{vazio}}{Densidade}$. 
+O sistema adotará a pesagem como método principal de controle de volume dos frascos, utilizando a fórmula $Volume = \frac{Peso_{total} - Peso_{vazio}}{Densidade}$.
 
 \textbf{1. Cadastro de Frasco Fechado:}\\
 O usuário informa o Peso Total (frasco + reagente) medido na balança e o Volume Nominal (ex: 100mL impresso no rótulo). O sistema calcula e salva o peso do recipiente vazio:\\
@@ -140,11 +140,11 @@ Apenas os usuários cadastrados como \textit{Professor} ou \textit{Bolsista} tê
 
 \subsubsection{Usuário Multi-role, exceto Chefe Geral}
 \begin{regra}
-Uma conta que possui o papel \textit{Chefe Geral} não pode possuir nenhum outro papel. Se a mesma pessoa exercer, na instituição, a função de Chefe Geral e também uma função representada por outro papel do sistema, deverão existir duas contas independentes, cada uma com identidade e permissões próprias. 
+Uma conta que possui o papel \textit{Chefe Geral} não pode possuir nenhum outro papel. Se a mesma pessoa exercer, na instituição, a função de Chefe Geral e também uma função representada por outro papel do sistema, deverão existir duas contas independentes, cada uma com identidade e permissões próprias.
 \end{regra}
 \subsubsection{Usuário Multi-role, Aluno não pode ser professor}
 \begin{regra}
-O usuário que é aluno não pode ser professor. 
+O usuário que é aluno não pode ser professor.
 \end{regra}
 \subsubsection{Usuário Multi-role, Quais multi papeis podem existir}
 \begin{regra}
@@ -162,7 +162,7 @@ No caso do Aluno que exerce algum papel de Gestor (ou ambos): o aluno pode edita
 \end{regra}
 \subsubsection{Aluno que é bolsista}
 \begin{regra}
-Apenas o chefe geral consegue colocar um aluno como bolsista. 
+Apenas o chefe geral consegue colocar um aluno como bolsista.
 \end{regra}
 \subsubsection{Status, vencimento e descarte de frascos}
 \begin{regra}
@@ -234,3 +234,105 @@ Não são permitidos Chefe Geral combinado com qualquer outro papel, Aluno + Pro
 
 \subsection{Fluxo obrigatório para mutações críticas}
 Toda operação que altera dados relevantes segue: autenticar, resolver papéis, validar escopo, reler estado atual no servidor, validar transição e constraints, calcular derivados, persistir atomicamente quando necessário, registrar histórico/auditoria e disparar notificações/materializações. O frontend nunca é a autoridade final.
+
+
+\subsection{Atribuição e revogação de papéis}
+\label{sec:regras-role}
+\subsubsection{RN-ROLE-01 — Chefe Geral não pode possuir múltiplos papéis}
+O papel Chefe\_Geral é mutuamente exclusivo com todos os demais papéis do sistema.
+Um usuário que possua Chefe\_Geral não pode possuir simultaneamente:
+Professor;
+Aluno;
+Bolsista;
+Gestor\_Almoxarifado;
+Gestor\_Bens\_Patrimoniais;
+qualquer outro papel do sistema.
+Consequentemente, um usuário com Chefe\_Geral nunca é considerado Multi-Role.
+
+\subsubsection{RN-ROLE-02 — Chefe Geral não pode revogar o papel de outro Chefe Geral}
+Um usuário com o papel Chefe\_Geral não pode alterar ou revogar o papel Chefe\_Geral de outro usuário que também possua esse papel.
+Um Chefe Geral somente pode iniciar o processo de revogação do próprio papel.
+
+\subsubsection{RN-ROLE-03 — Auto-revogação de Chefe Geral}
+Um Chefe Geral pode revogar o próprio papel Chefe\_Geral somente quando existir pelo menos outro usuário ativo com o papel Chefe\_Geral.
+A operação deve ser rejeitada quando o usuário for o único Chefe Geral ativo do sistema.
+A finalidade dessa regra é impedir que o sistema fique sem qualquer usuário com capacidade de administração global.
+
+\subsubsection{RN-ROLE-04 — Revogação de Chefe Geral desativa a conta}
+Como Chefe\_Geral é um papel exclusivo, sua revogação sempre resulta na ausência de outros papéis para o usuário.
+Nesse caso:
+o papel Chefe\_Geral é removido;
+os Custom Claims são recalculados;
+a conta do usuário é marcada como desativada (ativo = false);
+o usuário permanece armazenado no sistema;
+seus registros históricos e de auditoria são preservados;
+a conta não deve ser excluída fisicamente.
+
+\subsubsection{RN-ROLE-05 — Almoxarifado deve possuir pelo menos um gestor}
+Todo almoxarifado ativo deve possuir obrigatoriamente pelo menos um Gestor\_Almoxarifado responsável.
+Um Gestor de Almoxarifado somente poderá ter seu papel revogado se, após a operação, cada almoxarifado que ele gerencia continuar possuindo pelo menos um outro Gestor de Almoxarifado.
+Portanto, a operação deve verificar individualmente todos os almoxarifados vinculados ao gestor.
+Se ele for o único gestor de qualquer um deles, a revogação deverá ser rejeitada.
+
+\subsubsection{RN-ROLE-06 — Gestores de Almoxarifado não possuem exclusividade sobre movimentações}
+Não existe exigência de que o mesmo Gestor de Almoxarifado que registrou uma movimentação precise posteriormente registrar a movimentação complementar.
+Quando um almoxarifado possuir dois ou mais gestores:
+qualquer um dos gestores autorizados poderá registrar a entrada de um frasco;
+qualquer um dos gestores autorizados poderá registrar a saída;
+qualquer um dos gestores autorizados poderá registrar a devolução;
+qualquer um dos gestores autorizados poderá registrar outras movimentações para as quais possua permissão.
+O fato de um gestor ter registrado a saída de determinado frasco não impede que outro gestor autorizado registre posteriormente sua entrada ou devolução.
+A autoria da operação deve permanecer registrada para fins de auditoria.
+
+\subsubsection{RN-ROLE-07 — Revogação de Gestor de Almoxarifado em usuário Multi-Role}
+Quando um usuário possuir Gestor\_Almoxarifado e pelo menos outro papel válido, a revogação de Gestor\_Almoxarifado não desativa sua conta.
+O sistema deve:
+validar as regras de revogação dos almoxarifados;
+remover Gestor\_Almoxarifado dos papéis do usuário;
+recalcular seus Custom Claims;
+manter os demais papéis;
+manter a conta ativa;
+remover da interface as funcionalidades exclusivas de Gestor de Almoxarifado.
+
+\subsubsection{RN-ROLE-08 — Revogação de Gestor de Bens Patrimoniais em usuário Multi-Role}
+Quando um usuário possuir Gestor\_Bens\_Patrimoniais e pelo menos outro papel válido, a revogação de Gestor\_Bens\_Patrimoniais não desativa sua conta.
+O sistema deve:
+verificar a condição necessária para a revogação;
+remover o papel;
+recalcular os Custom Claims;
+preservar os demais papéis;
+manter a conta ativa;
+retirar da interface as funcionalidades exclusivas do Gestor de Bens Patrimoniais.
+
+\subsubsection{RN-ROLE-09 — Gestor de Bens Patrimoniais não pode ser o único}
+A revogação de Gestor\_Bens\_Patrimoniais somente será permitida quando existir pelo menos outro usuário ativo que continue exercendo esse papel.
+Caso o usuário seja o único Gestor de Bens Patrimoniais ativo, a revogação deverá ser rejeitada.
+A finalidade é impedir que o sistema fique sem nenhum responsável pela gestão patrimonial.
+
+\subsubsection{RN-ROLE-10 — Revogação do último papel desativa a conta}
+Quando um usuário possuir apenas um papel ativo e esse papel for revogado, sua conta deverá ser desativada.
+Isso se aplica a todos os papéis. A conta não deve ser excluída.
+O usuário deverá permanecer no sistema para preservação de auditoria, histórico, autoria de operações, etc.
+
+\subsubsection{RN-ROLE-11 — Revogação de papel não significa exclusão do usuário}
+A revogação de qualquer papel deve preservar a identidade histórica do usuário.
+Fluxo correto: Revogar papel -> Validar regras -> Remover papel -> Recalcular conjunto -> Atualizar Custom Claims -> Possui outro papel? (Sim = ativo, Não = desativado).
+
+\subsubsection{RN-ROLE-12 — Usuário Multi-Role}
+Um usuário será considerado Multi-Role quando possuir dois ou mais papéis simultaneamente, exceto Chefe\_Geral.
+A remoção de um papel de um usuário Multi-Role deve afetar somente aquele papel específico.
+
+\subsubsection{RN-ROLE-13 — Usuário com apenas um papel}
+Se o único papel de um usuário for revogado, o usuário ficará com 0 papéis e sua conta será desativada, mas o usuário permanece armazenado para fins históricos e de auditoria.
+
+\subsubsection{RN-ROLE-14 — Recalculo dos Custom Claims}
+Os Custom Claims devem representar o conjunto efetivo de papéis do usuário após a operação. O backend deve recalcular o conjunto completo de papéis autorizados e então atualizar os Custom Claims. Se o conjunto resultante for vazio, a conta deverá ser marcada como desativada.
+
+\subsubsection{RN-ROLE-15 — Auditoria das alterações de papéis}
+Toda atribuição e toda revogação de papel devem gerar registro de auditoria contendo: usuário afetado, usuário que executou a operação, papel adicionado/removido, data/hora, resultado, justificativa e situação da conta. Revogações rejeitadas também devem ser registradas.
+
+
+
+
+\paragraph{Execução concorrente e sincronização de identidade.}
+A verificação do último chefe, do último gestor patrimonial e de cada almoxarifado deve compartilhar um documento de controle transacional; duas revogações concorrentes não podem ambas remover o último responsável. Revogar Aluno exige remover Bolsista na mesma operação ou rejeitar a solicitação. O modal explicita o conjunto resultante antes de confirmar. A gravação dos papéis e da auditoria ocorre no Firestore; a atualização do Firebase Auth é uma etapa externa, recuperável e idempotente. Uma falha nessa etapa mantém a autorização bloqueada até a reconciliação, sem anunciar conclusão prematura.
