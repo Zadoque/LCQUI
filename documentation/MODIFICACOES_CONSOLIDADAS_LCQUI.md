@@ -199,3 +199,34 @@ Para acomodar a incerteza instrumental de balanças de bancada sem permitir disc
    * Correção do campo `Notificacao.id_quem_fez_acao` de `INTEGER PK, NULL` para `INTEGER FK, NULL`.
 
 &nbsp;
+
+---
+
+## 6\. Registro de Decisões e Trade-offs — Rodada de Realinhamento 13/09/2026
+
+Esta seção registra as decisões desta rodada de auditoria por blocos (A–D). Itens que dependem de validação externa estão em `DUVIDAS_PENDENTES_LCQUI.md`.
+
+### 6.1 Confirmações de Decisões Já Registradas
+
+As seguintes decisões deste documento estão **confirmadas como diretrizes de evolução** e devem prevalecer sobre a Seção 10 (exemplos de código) onde houver divergência:
+
+* **Q06 §2.1 (Não negatividade)**: O consumo de empréstimo é `max(0, peso_saida - peso_retorno)`. O pseudocódigo de `registrarDevolucao` na Seção 10 não implementa este piso; o plano de atualização (P1-03) registra a correção.
+* **Q06 §2.2 (Fórmula híbrida)**: A margem de tolerância é `max(1g, 0,5% × peso_saida)` para não-higroscópicos e `max(2g, 2% × peso_saida)` para higroscópicos. A Seção 10 usa margem plana de 2%; o plano P1-03 registra a correção.
+* **Q06 §2.2 (Tipo de evento de ganho)**: Quando `peso_retorno > peso_saida` mas dentro da tolerância, o consumo do empréstimo é `0`, o `peso_atual` do frasco é atualizado com o peso físico real e é gerado evento `AJUSTE/ganho_massa_higroscopia` em `Historico_Frasco_Reagente`. Este comportamento não estava implementado no pseudocódigo da Seção 10.
+* **§3.1 (Snapshot `roteiro_anexo`)**: O campo `roteiro_anexo` é denormalização exclusiva do Firestore no documento `Post`. O modelo 3FN não é alterado. O dicionário 5.9 deve ser atualizado (plano P1-01).
+* **§3.2 (ACL `professores_compartilhados`)**: A coleção `Roteiro_Professor_Compartilhado` não existe no Firestore; existe apenas no modelo relacional 3FN. A Seção 5 deve ser atualizada para remover essa coleção da tabela de mapeamento físico Firestore e referenciar o array ACL (plano P1-02).
+
+### 6.2 Unidade de `medida_usada` no Frasco
+
+* **Decisão**: `medida_usada` em `Frasco_Reagente` acumula **sempre em gramas** (leitura de balança), independentemente de o reagente ser sólido ou líquido. O consumo em mL é calculado e armazenado exclusivamente em `Emprestimo_Reagente.medida_utilizada` e nas views materializadas.
+* **Trade-off**: O pseudocódigo atual da Seção 10 (`registrarDevolucao`) usa `FieldValue.increment(volumeUtilizado)`, onde `volumeUtilizado = pesoConsumido / densidade` para líquidos — acumulando mL em `medida_usada`. Esta inconsistência (AUD-18) deve ser corrigida: o incremento em `medida_usada` deve usar sempre `pesoConsumido` (g), sem divisão por densidade.
+* **Justificativa**: O dicionário 5.9 §Frasco_Reagente define explicitamente `medida_usada` como "acumulado gravimétrico em g; não misturar com volume". Misturar g e mL neste campo tornaria os relatórios de consumo inconsistentes para reagentes líquidos.
+
+### 6.3 Campos Ausentes do Modelo 3FN — Trade-offs Documentais
+
+As decisões Q01–Q14 geraram campos que precisam ser incorporados ao LaTeX. O `PLANO_ATUALIZACAO_TEX_LCQUI.md` lista as alterações concretas. O trade-off central é: manter o LaTeX divergente do `.md` por tempo limitado é aceitável durante a transição, desde que o `.md` seja a diretriz de evolução e os campos ausentes estejam rastreados na auditoria (AUD-22 a AUD-34).
+
+### 6.4 Coleções de Controle de Concorrência nas Security Rules
+
+* **Decisão**: As coleções `Controle_Papeis/singleton`, `Operacoes` e `Chaves_Unicas` devem ter regras explícitas negando acesso direto de clientes em `firestore.rules`. A ausência de regra não equivale a deny-all em ambientes onde o deny-all raiz não é configurado explicitamente. AUD-35 e AUD-36 registram este risco.
+* **Trade-off**: Adicionar regras de deny para essas coleções não impacta o comportamento atual das Cloud Functions (que usam o SDK Admin e ignoram Rules), mas fecha o vetor de acesso direto por clientes maliciosos com token válido.
