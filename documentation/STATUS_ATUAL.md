@@ -1,8 +1,26 @@
 # Status atual do LCQUI
 
-Revisão: 13/09/2026. Branch: `docs/realinhamento-especificacao-lcqui`.
+Revisão: 13/09/2026 (pós-resolução de todas as pendências DP). Branch: `docs/realinhamento-especificacao-lcqui`.
 
-## Entrega documental — rodada de realinhamento por blocos (13/09/2026)
+## Entrega documental — resolução formal das pendências DP-A01 a DP-D02 (13/09/2026)
+
+- **Todas as 10 dúvidas pendentes resolvidas**: `DUVIDAS_PENDENTES_LCQUI.md` atualizado como registro histórico com decisão, justificativa técnica e rastreabilidade para cada DP.
+- **`PLANO_ATUALIZACAO_TEX_LCQUI.md` atualizado**: 17 itens prontos para execução (P1-01–P1-06, P2-01–P2-04, P3-01–P3-03, P3-05–P3-09); 1 cancelado (P3-04, `ativo` em Bem_Patrimonial). 3 novos itens criados: P3-07 (snapshot `eh_higroscopico` em Frasco_Reagente), P3-08 (visibilidade de moderação UI-11 e Rules), P3-09 (`validarPermissao` com `requerAtivo`).
+- **`MODIFICACOES_CONSOLIDADAS_LCQUI.md`** ampliado com Seção 7 (§7.1–§7.10): resolução formal de cada pendência com justificativa técnica e seções LaTeX afetadas.
+- **`AUDITORIA_ATUALIZADA.md`** atualizado: itens AUD-17, 18, 19, 20, 21, 25, 28, 31, 32, 33, 38 marcados com `RESOLVIDO NO PLANO` / `FECHADO SEM ALTERAÇÃO`; tabela de rastreabilidade DP→AUD→Plano adicionada.
+- **Nenhum arquivo `.tex` foi alterado** nesta rodada — todas as mudanças são documentais (.md).
+
+### Resumo de prontidão para execução LaTeX
+
+| Prioridade | Itens | Status |
+|---|---|---|
+| P1 — Crítico | P1-01 a P1-06 (6 itens) | ✅ Todos prontos |
+| P2 — Alta | P2-01 a P2-04 (4 itens) | ✅ Todos prontos |
+| P3 — Desbloqueados | P3-01, 02, 03, 05, 06, 07, 08, 09 (8 itens) | ✅ Todos desbloqueados |
+| P3 — Cancelado | P3-04 (`ativo` em Bem_Patrimonial) | ❌ Cancelado (DP-B01) |
+
+**Total executável**: 17 de 18 itens do plano. Nenhum item bloqueado por pendência aberta.
+
 
 - **Auditoria por blocos A–D concluída**: 22 novos achados (AUD-17–AUD-38) adicionados a `AUDITORIA_ATUALIZADA.md`, cobrindo Química/Almoxarifado (8), Patrimônio (4), Acadêmico/Turmas/Roteiros (6) e Governança/Multi-Role/Infra (4).
 - **Fichário de dúvidas criado**: `DUVIDAS_PENDENTES_LCQUI.md` com 9 pendências subjetivas (DP-A01–DP-D02) que exigem decisão de stakeholder antes de alterar o LaTeX.
