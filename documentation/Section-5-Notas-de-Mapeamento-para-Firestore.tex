@@ -12,8 +12,8 @@ O campo \textit{letra\_inicial}, removido de \textit{Resumo\_Reagente} por ser d
 \textit{letra\_inicial} deve ser recalculado e reescrito pela mesma \textit{Cloud Function} que grava \textit{nome}, nunca aceito diretamente do cliente -- ver princípio ``nunca confiar no \textit{client-side}'' na seção \textit{Tecnologia e Relatórios}.
 \end{regra}
 
-\subsection{Projeção dos estados físicos do catálogo}
-A fonte de estado físico é cada especificação. Um resumo com várias especificações não pode escolher arbitrariamente um único estado: manter \texttt{estados\_fisicos} como conjunto derivado e filtrar por pertencimento. A projeção é mantida pelo servidor e não altera a modelagem 3FN.
+\subsection{Estado físico canônico do catálogo}
+DP-A01: Resumo\_Reagente.estado\_fisico é escalar SOLIDO/LIQUIDO; eh\_higroscopico também pertence ao resumo. Filtro usa igualdade: \texttt{.where("estado\_fisico", "==", "SOLIDO")}. A unidade operacional é derivada, g para sólido e mL para líquido.
 
 \subsection{Espelhamento de \textit{nome\_equipamento} e Localização em \textit{Bem\_Patrimonial}}
 No modelo 3FN, o nome do tipo de bem pertence exclusivamente a \textit{Resumo\_Bem\_Patrimonial.nome}; \textit{Bem\_Patrimonial} mantém apenas \textit{id\_resumo\_bem\_patrimonial} e \textit{id\_local}. No Firestore, porém, consultas de listagem e relatórios frequentemente partem diretamente de \textit{Bem\_Patrimonial}, sem um \textit{JOIN} para resolver o resumo ou o prédio. Por isso, o documento Firestore de \textit{Bem\_Patrimonial} deve conter os campos denormalizados \textit{nome\_equipamento}, \textit{predio}, \textit{andar} e \textit{sala}.
@@ -90,7 +90,7 @@ Requisicao\_Adicao\_Bem\_Patrimonial & Coleção raiz & Mesma lógica; query por
 Impressao\_Etiqueta\_Frasco & Coleção raiz & Refere-se a impressão em lote (virgens). Reimpressões avulsas de frascos já cadastrados usam o Registro de Auditoria.\\
 Contador\_Codigo\_Frasco & Documento singleton em \nolinkurl{Contador\_Codigo\_Frasco/singleton} & Sequenciador atômico operado via \texttt{runTransaction} para gerar o \texttt{LCQUI-X}.\\
 Substancia\_Quimica & Coleção raiz & Catálogo global; raramente alterado.\\
-Resumo\_Reagente & Coleção raiz. Denorm: \texttt{letra\_inicial}, \texttt{estados\_fisicos} & Catálogo de reagentes; filtros de igualdade combinados exigem ambos os campos como propriedades do documento.\\
+Resumo\_Reagente & Coleção raiz. Denorm: \texttt{letra\_inicial} & Catálogo de reagentes; filtros de igualdade combinados exigem ambos os campos como propriedades do documento.\\
 Especificacao\_Reagente & Sub-coleção \nolinkurl{Resumo\_Reagente/\{id\}/Especificacoes} & Sempre acessada a partir do resumo; nunca consultada globalmente.\\
 Composicao\_Reagente & Array de maps embutido no documento de \texttt{Especificacao\_Reagente} & N pequeno e fixo (poucas substâncias por especificação); não cresce sem limite.\\
 Lote & Coleção raiz. Denorm: \texttt{id\_especificacao\_reagente}, \texttt{nome\_reagente} & Relatórios consultam todos os lotes de um período sem partir de uma especificação conhecida.\\
@@ -292,15 +292,18 @@ Caminho: \texttt{Resumo\_Reagente/\{id\}}.
 \item[\texttt{requer\_pesagem\_frequente}] boolean; O. Indica necessidade de alertas periódicos de pesagem; true exige frequência positiva.
 \item[\texttt{qtd\_em\_que\_e\_considerado\_escasso}] number; O. Limiar inteiro positivo de quantidade de frascos, usado para alerta de escassez do resumo.
 \item[\texttt{frequencia\_pesagem\_dias}] number; N. Intervalo inteiro positivo entre verificações; null quando não exige pesagem frequente.
+\item[\texttt{estado\_fisico}] string enum; O. SOLIDO/LIQUIDO; fonte canônica do catálogo, filtro por igualdade.
+\item[\texttt{eh\_higroscopico}] boolean; O, padrão false. Fonte canônica da higroscopicidade; não propagar mudanças para snapshots de frascos já cadastrados.
 \end{description}
 
 \paragraph{Composicao\_Reagente}\mbox{}\par
 Caminho: \texttt{Resumo\_Reagente/\{resumoId\}/Especificacoes/\{id\}: composicao[]}.
 \begin{description}
 \item[\texttt{id\_substancia\_quimica}] string; O. Identificador da entidade substancia quimica, cuja existência e escopo são verificados no servidor.
-\item[\texttt{valor\_composicao}] number; N. Valor numérico da concentração quando conhecido; alternativa à faixa.
+\item[\texttt{valor\_min}] number; N. Concentração pontual ou limite inferior não negativo.
+\item[\texttt{valor\_max}] number; N. Limite superior; quando informado exige mínimo e valor\_min <= valor\_max.
 \item[\texttt{tipo\_concentracao}] string enum; O. Base da concentração; enum M\_M, V\_V, M\_V, MOL\_L, MOL\_KG, PPM ou PPB. Valores: M\_M,V\_V,M\_V,MOL\_L,MOL\_KG,PPM,PPB.
-\item[\texttt{unidade}] string; N. Notação textual legada de concentração/faixa; ver Q03. Máximo 20 caracteres.
+\item[\texttt{notacao\_original\_fabricante}] string; N. Rótulo original, até 50 caracteres; não substitui limites numéricos.
 \end{description}
 
 \paragraph{Especificacao\_Reagente}\mbox{}\par
@@ -313,8 +316,7 @@ Caminho: \texttt{Resumo\_Reagente/\{resumoId\}/Especificacoes/\{id\}}.
 \item[\texttt{codigo\_produto\_fabricante}] string; N. Código comercial do fabricante para distinguir versões de produto sob o mesmo resumo. Máximo 100 caracteres.
 \item[\texttt{grau\_pureza}] string; N. Grau declarado pelo fabricante, por exemplo P.A. ou HPLC; texto opcional, não percentual obrigatório. Máximo 30 caracteres.
 \item[\texttt{densidade}] number; N. Densidade em g/ml; positiva e obrigatória para líquido, imutável após confirmação.
-\item[\texttt{estado\_fisico}] string enum; O. Estado da especificação; SOLIDO usa g e LIQUIDO usa ml. Valores: SOLIDO,LIQUIDO.
-\item[\texttt{unidade\_de\_medida}] string enum; O. Valor de unidade de medida, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: ml,g.
+\item[\texttt{unidade\_de\_medida}] string enum; projeção física opcional derivada pelo servidor do estado do resumo, g/ml; não é fonte canônica nem campo editável.
 \item[\texttt{classe\_inflamabilidade}] string enum; O. Classe selecionada para a especificação; não derivar apenas do nome comercial. Valores: NAO\_INFLAMAVEL,CLASSE\_1,CLASSE\_2,CLASSE\_3.
 \item[\texttt{eh\_controlado\_pf}] boolean; O. Indicador cadastral de controle PF declarado pelo gestor; não é inferência automática nem parecer regulatório.
 \item[\texttt{eh\_controlado\_eb}] boolean; O. Indicador cadastral de controle EB declarado pelo gestor, independente do indicador PF.
@@ -359,11 +361,12 @@ Caminho: \texttt{Frasco\_Reagente/\{id\}}.
 \item[\texttt{disponibilidade}] string enum; O. Disponível ou emprestado; exige coerência com empréstimo ativo. Valores: DISPONIVEL,EMPRESTADO.
 \item[\texttt{vencido}] boolean; O. Projeção de validade comparada ao relógio do servidor; reavaliar em cada operação crítica.
 \item[\texttt{em\_quarentena}] boolean; O. Bloqueio operacional independente de abertura e vencimento; true exige motivo.
-\item[\texttt{uso\_vencido\_autorizado}] boolean; O. Decisão expressa de gestor para uso exclusivamente didático/demonstração, auditada.
+\item[\texttt{uso\_vencido\_autorizado}] boolean; O. Decisão expressa de gestor para uso excepcional conforme Q04, auditada; pesquisa exige TCR e justificativa.
 \item[\texttt{detalhe\_status}] string; N. Justificativa obrigatória para quarentena e decisões que a exigem.
 \item[\texttt{cadastrado\_em}] Timestamp; O. Data/instante de cadastrado em, com ordem temporal validada e autoria do relógio do servidor para eventos.
 \item[\texttt{cadastrado\_por}] string; O. Valor de cadastrado por, validado pelo formulário e pelo servidor conforme regras do domínio.
 \item[\texttt{eh\_higroscopico}] boolean; O. Snapshot físico denormalizado, imutável, preenchido pelo backend no cadastro a partir de Resumo\_Reagente.eh\_higroscopico (fonte canônica 3FN). Alterações posteriores do resumo não reescrevem frascos existentes. Não aceitar valor do cliente nem atualização direta. Permite aplicar Q06 na devolução sem leitura adicional do resumo. Frascos legados sem snapshot exigem reconciliação explícita antes da operação.
+\item[\texttt{abertura\_historica\_desconhecida}] boolean; O, padrão false. True exige data\_abertura null e estado coerente com abertura anterior, sem inventar data.
 \end{description}
 
 \paragraph{Historico\_Frasco\_Reagente}\mbox{}\par
@@ -397,11 +400,17 @@ Caminho: \texttt{Emprestimo\_Reagente/\{id\}}.
 \item[\texttt{id\_usuario\_devolveu}] string; N. Identificador da entidade usuario devolveu, cuja existência e escopo são verificados no servidor.
 \item[\texttt{peso\_saida}] number; O. Peso bruto em g medido na retirada; referência imutável para o consumo deste empréstimo.
 \item[\texttt{peso\_retorno}] number; N. Peso bruto em g medido na devolução; null antes do retorno e validado contra tara/saída.
-\item[\texttt{medida\_utilizada}] number; N. Consumo calculado na unidade do empréstimo.
+\item[\texttt{medida\_utilizada}] number; N. Consumo não negativo calculado na unidade do empréstimo; massa = max(0, saída menos retorno), conversão em mL só para líquido com densidade histórica positiva.
 \item[\texttt{unidade\_medida\_utilizada}] string enum; O. Valor de unidade medida utilizada, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: ml,g.
 \item[\texttt{peso\_perda\_evaporacao}] number; O. Perda em g registrada separadamente de consumo; não inferir arbitrariamente.
 \item[\texttt{uso\_vencido\_aceito}] boolean; O. Ciência explícita do empréstimo específico; não concede nem substitui autorização do gestor.
-\item[\texttt{finalidade\_uso}] string enum; O. Finalidade declarada na retirada; vencido autorizado só admite DIDATICO\_DEMONSTRACAO. Valores: PESQUISA, DIDATICO\_DEMONSTRACAO, OUTRO.
+\item[\texttt{finalidade\_uso}] string enum; O. Finalidade validada na retirada. Valores: AULA\_PRATICA, DEMONSTRACAO, PESQUISA\_TCC\_POS, ESTUDO\_DEGRADACAO\_RESIDUOS. Uso excepcional de pesquisa exige rastreabilidade TCR de Q04.
+\item[\texttt{auto\_atendimento}] boolean; O, padrão false. Calculado pelo backend conforme Q14, justificativa e notificação à chefia obrigatórias quando true.
+\item[\texttt{justificativa\_metodologica}] string; C no uso excepcional Q04, 20--2000 caracteres não vazios.
+\item[\texttt{tcr\_versao}] string; C em Q04, até 100. Versão institucional aceita, validada pelo backend.
+\item[\texttt{tcr\_aceito\_em}] Timestamp; C em Q04. Instante servidor do aceite.
+\item[\texttt{tcr\_aceito\_por}] string; C em Q04. UID autenticado do solicitante/retirante, não do gestor que atende.
+\item[\texttt{tcr\_auditoria\_id}] string; C em Q04. Evento imutável em Registro\_de\_Auditoria com frasco, operação, finalidade, versão, instante e aceitante; backend verifica correspondência e consumo único do aceite.
 \end{description}
 
 \paragraph{Turma}\mbox{}\par
@@ -699,7 +708,7 @@ Caminho: \texttt{Atividade\_Gestor\_Bens\_Patrimoniais\_Mensal/\{id\}}.
 \item[Almoxarifado] \texttt{ativo} (boolean, O) e \texttt{qtd\_gestores\_ativos} (inteiro não negativo, O) são necessários à ativação e revogação concorrente. O contador é derivado dos vínculos; ativo exige contador positivo.
 \item[Turma] \texttt{qtd\_alunos} (inteiro não negativo, O) é contador transacional do vínculo ativo, não count lido fora da transação. \texttt{versao} (inteiro positivo, O) permite detectar edições concorrentes.
 \item[Espelho Aluno--Turma] \texttt{Usuarios/uid/Turmas/turmaId}: \texttt{id\_turma}, \texttt{id\_professor}, \texttt{id\_materia}, \texttt{nome\_turma}, \texttt{nome\_materia} (strings O), \texttt{ano}, \texttt{semestre} (inteiros O), \texttt{status} (enum O), \texttt{ingressou\_em} (Timestamp O). Todos derivados de Turma/Matéria ou evento de ingresso; não usar espelho desatualizado como autorização. Vínculo canônico em Turma/id/Alunos/uid contém \texttt{id\_aluno} (string O), \texttt{ingressou\_em} (Timestamp O); nome/foto para colegas são projeções mínimas, sem matrícula/e-mail.
-\item[Reagentes] Resumo possui \texttt{letra\_inicial} (string O, derivada do nome). Como várias especificações podem diferir em estado, substituir cópia escalar ambígua por \texttt{estados\_fisicos} (array único de SOLIDO/LIQUIDO, derivado); filtro usa array-contains. Especificação embute \texttt{composicao} (array de maps com os campos da composição; IDs de substâncias únicos). O resumo pai fornece seu ID; manter ID de resumo em Lote e Frasco para resolver o caminho completo da especificação.
+\item[Reagentes] Resumo possui \texttt{letra\_inicial} (string O, derivada do nome). O estado físico escalar e a higroscopicidade são canônicos no resumo; filtro por igualdade. Especificação embute \texttt{composicao} (array de maps com os campos da composição; IDs de substâncias únicos). O resumo pai fornece seu ID; manter ID de resumo em Lote e Frasco para resolver o caminho completo da especificação.
 \item[Lote e Frasco] \texttt{id\_resumo\_reagente}, \texttt{id\_especificacao\_reagente}, \texttt{nome\_reagente} (strings O) são projeções servidor; em Frasco, especificação permanece resolvida mesmo com lote, como desnormalização deliberada. \texttt{unidade\_medida} (ml/g, O), \texttt{localizacao\_detalhada} (string até 500, N), \texttt{versao} (inteiro O), \texttt{ultima\_pesagem\_em} (Timestamp, N) e \texttt{modalidade\_cadastro} (FECHADO/CONHECE\_TARA/ESTIMA\_VOLUME/ESTIMA\_MASSA, O) sustentam UI-06. \texttt{id\_emprestimo\_ativo} (string N) é ponteiro transacional, limpo no retorno. \texttt{id\_almoxarifado} é fonte da localização operacional, nunca aceito sem escopo.
 \item[Empréstimo] \texttt{id\_almoxarifado}, \texttt{id\_resumo\_reagente}, \texttt{id\_especificacao\_reagente} (strings O), \texttt{densidade\_aplicada} (number positiva C para líquido), \texttt{id\_gestor\_retirada} (string O), \texttt{id\_gestor\_devolucao} (string N até retorno). Snapshot químico da retirada preserva a memória de cálculo; não atualizar retroativamente. Retirante, devolvente e operador são papéis distintos.
 \item[Patrimônio] \texttt{nome\_equipamento}, \texttt{letra\_inicial\_nome}, \texttt{predio}, \texttt{andar}, \texttt{sala} (strings O) são projeções de Resumo/Local. \texttt{versao} (inteiro O) detecta conflitos. Histórico embute \texttt{alteracoes} (array de maps campo/valor anterior/novo, admitindo null para ausência) e snapshot do local quando necessário a relatório histórico; não propagar local atual sobre fatos passados.

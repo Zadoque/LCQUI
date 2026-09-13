@@ -115,6 +115,7 @@ Usar \texttt{requerAtivo=true} em retirada, devolução, baixa patrimonial, apro
 
 \begin{lstlisting}[language=TypeScript, title={Cadastro de Frasco Fechado (Regra 6.2.13, item 1)}]
 interface CadastroFrascoFechado {
+  idResumoReagente: string;
   idEspecificacaoReagente: string;
   idAlmoxarifado: string;
   idLote?: string;
@@ -131,10 +132,11 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
   await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, dados.idAlmoxarifado);
 
-  const especSnap = await admin.firestore().collection("Especificacao_Reagente").doc(dados.idEspecificacaoReagente).get();
+  const especSnap = await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).collection("Especificacoes").doc(dados.idEspecificacaoReagente).get();
   if (!especSnap.exists) throw new HttpsError("not-found", "Especificação de reagente não encontrada.");
   const densidade = especSnap.data()!.densidade;
-  const estadoFisico = especSnap.data()!.estado_fisico;
+  const resumo = (await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).get()).data()!;
+  const estadoFisico = resumo.estado_fisico;
 
   let pesoVazio: number;
   if (estadoFisico === "LIQUIDO") {
@@ -171,7 +173,9 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
     tx.set(frascoRef, {
       id_almoxarifado: dados.idAlmoxarifado,
       id_lote: dados.idLote ?? null,
-      id_especificacao_reagente: dados.idLote ? null : dados.idEspecificacaoReagente,
+      id_especificacao_reagente: dados.idEspecificacaoReagente, // projeção física
+      id_resumo_reagente: dados.idResumoReagente,
+      eh_higroscopico: resumo.eh_higroscopico, // snapshot servidor imutável
       codigo_frasco: novoCodigo,
       conteudo_nominal: dados.volumeNominal,
       peso_no_cadastrado: dados.pesoTotal,
@@ -201,6 +205,7 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
 \begin{lstlisting}[language=TypeScript, title={cadastrarFrascoAberto com bifurcação SÓLIDO/LÍQUIDO (C5)}]
 // C5: modalidade para SÓLIDO usa ESTIMA_MASSA (não ESTIMA_VOLUME)
 interface CadastroFrascoAberto {
+  idResumoReagente: string;
   idEspecificacaoReagente: string;
   idAlmoxarifado: string;
   idLote?: string;
@@ -211,6 +216,8 @@ interface CadastroFrascoAberto {
   pesoFrascoVazioInformado?: number;  // Opção A (ambos estados físicos)
   volumeAtualEstimado?: number;        // Opção B LIQUIDO: volume visual em mL
   massaAtualEstimada?: number;         // Opção B SOLIDO: estimativa em g
+  dataAbertura?: string;
+  aberturaHistoricaDesconhecida: boolean;
   validadeAberto?: string;
   validadeDesconhecida?: boolean;
   decisaoSeJaVencido?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
@@ -222,10 +229,11 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
   const papeis = await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
   await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, dados.idAlmoxarifado);
 
-  const especSnap = await admin.firestore().collection("Especificacao_Reagente").doc(dados.idEspecificacaoReagente).get();
+  const especSnap = await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).collection("Especificacoes").doc(dados.idEspecificacaoReagente).get();
   if (!especSnap.exists) throw new HttpsError("not-found", "Especificação não encontrada.");
   const especData = especSnap.data()!;
-  const estadoFisico: "SOLIDO" | "LIQUIDO" = especData.estado_fisico;
+  const resumo = (await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).get()).data()!;
+  const estadoFisico: "SOLIDO" | "LIQUIDO" = resumo.estado_fisico;
   const densidade: number | null = especData.densidade ?? null;
 
   // C5: bifurcação explícita por estado físico
@@ -282,14 +290,17 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
     tx.set(frascoRef, {
       id_almoxarifado: dados.idAlmoxarifado,
       id_lote: dados.idLote ?? null,
-      id_especificacao_reagente: dados.idLote ? null : dados.idEspecificacaoReagente,
+      id_especificacao_reagente: dados.idEspecificacaoReagente, // projeção física
+      id_resumo_reagente: dados.idResumoReagente,
+      eh_higroscopico: resumo.eh_higroscopico, // snapshot servidor imutável
       codigo_frasco: novoCodigo,
       conteudo_nominal: conteudoNominal,   // g (sólido) ou mL (líquido)
       peso_no_cadastrado: dados.pesoTotalBalanca,
       peso_atual: dados.pesoTotalBalanca,
       peso_frasco_vazio: pesoVazio,
       medida_usada: 0,
-      data_abertura: agora,
+      data_abertura: dados.aberturaHistoricaDesconhecida ? null : dados.dataAbertura,
+      abertura_historica_desconhecida: dados.aberturaHistoricaDesconhecida,
       estado_fisico_frasco: "ABERTO",
       disponibilidade: "DISPONIVEL",
       validade_efetiva: validadeEfetiva,
@@ -390,7 +401,10 @@ interface RetiradaFrasco {
   dataDevolucaoPrevista: string;
   confirmarUsoVencido?: boolean;
   abrirNoEmprestimo?: boolean;
-  finalidadeUso: "PESQUISA" | "DIDATICO_DEMONSTRACAO" | "OUTRO";
+  finalidadeUso: "AULA_PRATICA" | "DEMONSTRACAO" | "PESQUISA_TCC_POS" | "ESTUDO_DEGRADACAO_RESIDUOS";
+  justificativaMetodologica?: string;
+  idAceiteTcr?: string; // evento prévio autenticado pelo retirante
+  justificativaAutoAtendimento?: string;
 }
 
 export const registrarRetirada = onCall(async (request) => {
@@ -431,19 +445,24 @@ export const registrarRetirada = onCall(async (request) => {
     if (dados.abrirNoEmprestimo && frasco.estado_fisico_frasco === "FECHADO") {
       validadeEfetiva = calcularValidadeEfetivaNaAbertura(frasco, agora);
       frascoVencido = Boolean(validadeEfetiva && validadeEfetiva <= agora);
-      tx.update(frascoRef, {
-        estado_fisico_frasco: "ABERTO",
-        data_abertura: agora,
-        validade_efetiva: validadeEfetiva,
-        vencido: frascoVencido,
-      });
+
     }
 
-    if (frascoVencido && !frasco.uso_vencido_autorizado && !dados.confirmarUsoVencido) {
-      throw new HttpsError("failed-precondition", "Frasco vencido requer confirmação explícita de uso didático.");
-    }
-    // P9: finalidade_uso vem do frontend; backend impõe DIDATICO se vencido
-    const finalidade = frascoVencido ? "DIDATICO_DEMONSTRACAO" : dados.finalidadeUso;
+    const excepcional = frascoVencido || frasco.validade_desconhecida;
+    if (excepcional && (!frasco.uso_vencido_autorizado || !dados.confirmarUsoVencido))
+      throw new HttpsError("failed-precondition", "Uso excepcional exige autorização e ciência.");
+    const finalidade = dados.finalidadeUso; // nunca substituir finalidade declarada
+    const pesquisa = ["PESQUISA_TCC_POS", "ESTUDO_DEGRADACAO_RESIDUOS"].includes(finalidade);
+    // Helpers contratuais: todas as leituras devem ocorrer antes da primeira escrita.
+    // Aceite foi criado por endpoint autenticado do retirante, não pelo gestor.
+    const aceite = excepcional && pesquisa
+      ? await validarAceiteTcrTx(tx, dados.idAceiteTcr, {
+          retirante: dados.idUsuarioRetirou, frasco: dados.idFrasco,
+          finalidade, justificativa: dados.justificativaMetodologica,
+        }) : null;
+    const autoAtendimento = await validarAutoAtendimentoTx(tx, request.auth!.uid,
+      dados.idUsuarioRetirou, frasco.id_almoxarifado, dados.justificativaAutoAtendimento);
+    const quimica = await resolverSnapshotQuimicoTx(tx, frasco);
 
     const emprestimoRef = admin.firestore().collection("Emprestimo_Reagente").doc();
     tx.set(emprestimoRef, {
@@ -457,9 +476,25 @@ export const registrarRetirada = onCall(async (request) => {
       peso_saida: dados.pesoSaida,
       uso_vencido_aceito: Boolean(frascoVencido),
       finalidade_uso: finalidade,
+      auto_atendimento: autoAtendimento,
+      justificativa_metodologica: dados.justificativaMetodologica ?? null,
+      tcr_versao: aceite?.versao ?? null,
+      tcr_aceito_em: aceite?.aceito_em ?? null,
+      tcr_aceito_por: aceite?.uid ?? null,
+      tcr_auditoria_id: aceite?.auditoria_id ?? null,
+      unidade_medida_utilizada: quimica.unidade,
+      densidade_aplicada: quimica.densidade,
+
     });
 
-    tx.update(frascoRef, { disponibilidade: "EMPRESTADO" });
+    tx.update(frascoRef, {
+      disponibilidade: "EMPRESTADO",
+      ...(dados.abrirNoEmprestimo && frasco.estado_fisico_frasco === "FECHADO"
+        ? { estado_fisico_frasco: "ABERTO", data_abertura: agora,
+            validade_efetiva: validadeEfetiva, vencido: frascoVencido } : {}),
+    });
+    if (aceite) vincularAceiteEAuditoriaTx(tx, aceite, emprestimoRef.id);
+    if (autoAtendimento) registrarNotificacaoChefiaTx(tx, emprestimoRef.id);
 
     const historicoRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
     tx.set(historicoRef, {
@@ -733,11 +768,15 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
     if (lockSnap.exists) {
       throw new HttpsError("failed-precondition", "Já existe uma requisição de edição pendente para este bem.");
     }
+    const bemSnap = await tx.get(admin.firestore().collection("Bem_Patrimonial").doc(dados.idBemPatrimonial));
+    if (!bemSnap.exists) throw new HttpsError("not-found", "Bem não encontrado.");
     // Cria lock e requisição atomicamente
     tx.set(lockRef, { criado_em: admin.firestore.FieldValue.serverTimestamp() });
     tx.set(reqRef, {
       id_bem_patrimonial: dados.idBemPatrimonial,
       novo_nome: dados.novoNome ?? null,
+      versao_bem_origem: bemSnap.data()!.versao,
+      novo_id_resumo_bem_patrimonial: null,
       novo_status: dados.novoStatus ?? null,
       novo_estado_conservacao: dados.novoEstadoConservacao ?? null,
       novo_id_local: dados.novoIdLocal ?? null,
@@ -752,48 +791,35 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
 
 export const responderRequisicaoEdicaoBem = onCall(async (request) => {
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"], true);
-  const { idRequisicao, aprovar, justificativa } = request.data as { idRequisicao: string; aprovar: boolean; justificativa: string };
-  const reqRef = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc(idRequisicao);
-
+  const { idRequisicao, aprovar, justificativa, idResumoAlvo } = request.data;
   return admin.firestore().runTransaction(async (tx) => {
-    const reqSnap = await tx.get(reqRef);
-    if (!reqSnap.exists) throw new HttpsError("not-found", "Requisição não encontrada.");
-    const req = reqSnap.data()!;
-    if (req.status !== "pendente") {
-      throw new HttpsError("failed-precondition", "Requisição já foi respondida.");
+    const reqRef = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc(idRequisicao);
+    const req = (await tx.get(reqRef)).data();
+    if (!req || req.status !== "pendente") throw new HttpsError("failed-precondition", "Requisição indisponível.");
+    const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(req.id_bem_patrimonial);
+    const bem = (await tx.get(bemRef)).data();
+    if (!bem || bem.versao !== req.versao_bem_origem)
+      throw new HttpsError("aborted", "Bem alterado; revisar proposta.");
+    // Resolve alvo existente ou prepara criação; helper só lê nesta etapa.
+    const alvo = aprovar && req.novo_nome
+      ? await prepararResumoAlvoTx(tx, idResumoAlvo, req.novo_nome) : null;
+    const alteracoes = calcularAlteracoesPermitidas(req, bem);
+    if (alvo) {
+      if (alvo.novo) tx.create(alvo.ref, alvo.dados);
+      alteracoes.id_resumo_bem_patrimonial = alvo.ref.id;
+      alteracoes.nome_equipamento = alvo.dados.nome;
     }
-
-    // Remove o lock ao responder
-    const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio")
-      .doc(`bem_edicao_${req.id_bem_patrimonial}`);
-    tx.delete(lockRef);
-
+    if (aprovar) {
+      tx.update(bemRef, { ...alteracoes, versao: bem.versao + 1 });
+      registrarHistoricoBemTx(tx, bemRef, bem, alteracoes, request.auth!.uid);
+    }
     tx.update(reqRef, {
       status: aprovar ? "aprovada" : "rejeitada",
+      novo_id_resumo_bem_patrimonial: alvo?.ref.id ?? null,
       respondida_em: admin.firestore.FieldValue.serverTimestamp(),
-      id_usuario_respondente: request.auth!.uid,
-      justificativa_resposta: justificativa,
+      id_usuario_respondente: request.auth!.uid, justificativa_resposta: justificativa,
     });
-
-    if (aprovar) {
-      const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(req.id_bem_patrimonial);
-      const bemSnap = await tx.get(bemRef);
-      if (!bemSnap.exists) throw new HttpsError("not-found", "Bem patrimonial não encontrado.");
-      const bem = bemSnap.data()!;
-
-      const camposBem: Record<string, unknown> = {};
-      if (req.novo_status) camposBem.status = req.novo_status;
-      if (req.novo_estado_conservacao) camposBem.estado_conservacao = req.novo_estado_conservacao;
-      if (req.novo_id_local) camposBem.id_local = req.novo_id_local;
-
-      if (req.novo_nome) {
-        // Reclassificação de modelo sem afetar outros bens
-        const resumoRef = admin.firestore().collection("Resumo_Bem_Patrimonial").doc(bem.id_resumo_bem_patrimonial);
-        camposBem.nome_equipamento = req.novo_nome;
-      }
-
-      tx.update(bemRef, camposBem);
-    }
+    tx.delete(admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(`bem_edicao_${bemRef.id}`));
     return { status: aprovar ? "aprovada" : "rejeitada" };
   });
 });
@@ -1249,3 +1275,6 @@ README contém instruções de aplicação e emuladores; COMPILACAO\_NIX\_LCQUI.
 \href{https://firebase.google.com/docs/auth/admin/custom-claims}{Firebase: propagação de Custom Claims};
 \href{https://firebase.google.com/docs/firestore/manage-data/enable-offline}{Firebase: persistência offline}.
 Consulta em 11/09/2026. Estes fundamentos apoiam a execução transacional, renovação de tokens e opção por cache em dispositivo confiável.
+
+\paragraph{Contratos dos auxiliares Q04/Q14.}
+validarAceiteTcrTx lê o evento de aceite produzido em sessão autenticada do retirante, confere versão institucional vigente, UID, frasco, finalidade, operação ainda não consumida e justificativa de 20--2000 caracteres. Não aceita timestamp ou UID arbitrário no payload do gestor. vincularAceiteEAuditoriaTx consome o aceite e registra o empréstimo correspondente na mesma transação. validarAutoAtendimentoTx conta gestores ativos, bloqueia quando existe outro e exige justificativa; registrarNotificacaoChefiaTx grava notificação/outbox idempotente. resolverSnapshotQuimicoTx resolve unidade pelo resumo e densidade pela especificação, sem gravações antes de concluir leituras. Auxiliares ilustram contratos, não atestam implementação em functions/. O TCR não substitui segurança química institucional.

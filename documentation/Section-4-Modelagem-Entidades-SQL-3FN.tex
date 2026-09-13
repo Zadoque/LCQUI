@@ -110,6 +110,8 @@ A chave primária composta \textit{(id\_gestor\_almoxarifado, id\_almoxarifado)}
 \campo{nova\_photo\_url}{TEXT}{NULL}
 \campo{motivo}{TEXT}{NOT NULL}
 \campo{justificativa\_resposta}{TEXT}{NULL}
+\campo{novo\_id\_resumo\_bem\_patrimonial}{INTEGER}{FK, NULL}
+\campo{versao\_bem\_origem}{INTEGER}{NOT NULL}
 \end{entidade}
 
 \begin{regra}
@@ -214,6 +216,8 @@ O campo \textit{cas\_number} identifica a substância e permanece \textbf{UNIQUE
 \campo{requer\_pesagem\_frequente}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
 \campo{qtd\_em\_que\_e\_considerado\_escasso}{INTEGER}{NOT NULL}
 \campo{frequencia\_pesagem\_dias}{INTEGER}{NULL}
+\campo{estado\_fisico}{ENUM}{SOLIDO, LIQUIDO, NOT NULL}
+\campo{eh\_higroscopico}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
 \end{entidade}
 \newpage
 \begin{explicacao}[Regra Fechada de Identidade do Resumo de Reagente]
@@ -233,9 +237,9 @@ Devem ser cadastrados como \textbf{resumos diferentes}:
 
 Os campos \textit{medida\_total\_usado} e \textit{unidade\_de\_medida} foram removidos desta entidade: ambos são métricas agregadas derivadas de \textit{Frasco\_Reagente} e \textit{Emprestimo\_Reagente}, e devem existir apenas na view materializada descrita na seção \textit{Métricas Agregadas}, nunca como coluna editável de uma tabela cadastral.
 
-A unidade de medida (ml ou g) passa a ter fonte única em \textit{Especificacao\_Reagente}, evitando duplicidade e divergência entre os níveis do modelo.
+A unidade operacional é derivada de Resumo\_Reagente.estado\_fisico: SOLIDO usa g e LIQUIDO usa mL. Não persistir cópia redundante da unidade no modelo 3FN.
 
-A densidade, o estado físico e a unidade de medida são propriedades da \textit{Especificacao\_Reagente}. Assim, HCl 37\% e HCl 10\% podem compartilhar o mesmo \textit{Resumo\_Reagente}, mas devem possuir especificações distintas. A regra de identidade do resumo é determinada pelo item químico que o catálogo pretende agrupar, e não por uma cópia de propriedades operacionais da especificação.
+DP-A01: estado\_fisico e eh\_higroscopico pertencem ao Resumo\_Reagente. Estados físicos distintos nas condições de catálogo (25 graus Celsius, 1 atm) exigem resumos distintos; solução aquosa e sólido puro não são o mesmo resumo. Densidade e concentração permanecem na especificação comercial.
 
 \textit{natureza\_quimica} classifica o item do catálogo como um todo (não uma \textit{Substancia\_Quimica} individual): \texttt{ELEMENTO} para substâncias simples (não se classificam como orgânicas nem inorgânicas), \texttt{ORGANICO}/\texttt{INORGANICO} para os demais casos, e \texttt{HIBRIDO} para fluidos complexos que não se decompõem em uma lista simples de substâncias em \textit{Composicao\_Reagente} (ex.: Soro Fetal Bovino). Como \texttt{HIBRIDO} não é derivável a partir das substâncias componentes, o campo é curado no nível do resumo, e não em \textit{Substancia\_Quimica}, evitando duas fontes de verdade diferentes para itens PUROS e para MISTURA/HÍBRIDO. O rótulo exibido na interface (ex.: ``Híbrido'', ``Complexo'' ou ``Biológico'') é independente do valor salvo no banco e pode ser alterado livremente.
 
@@ -247,9 +251,10 @@ O campo \textit{letra\_inicial}, presente em versões anteriores deste documento
 \campo{id}{SERIAL}{PK}
 \campo{id\_especificacao\_reagente}{INTEGER}{FK, NOT NULL}
 \campo{id\_substancia\_quimica}{INTEGER}{FK, NOT NULL}
-\campo{valor\_composicao}{NUMERIC(10,5)}{NULL}
+\campo{valor\_min}{NUMERIC(10,5)}{NULL}
+\campo{valor\_max}{NUMERIC(10,5)}{NULL}
 \campo{tipo\_concentracao}{ENUM}{M\_M,V\_V,M\_V,MOL\_L,MOL\_KG,PPM,PPB}
-\campo{unidade}{VARCHAR(20)}{NULL}
+\campo{notacao\_original\_fabricante}{VARCHAR(50)}{NULL}
 \end{entidade}
 
 \begin{explicacao}
@@ -265,7 +270,7 @@ A composição foi movida do nível de \textit{Resumo\_Reagente} para o nível d
 
 Uma substância pura normalmente terá apenas uma linha associada, enquanto uma mistura poderá possuir diversas substâncias.
 
-O campo \textit{unidade} é armazenado como texto livre para suportar tanto um valor único (ex.: ``37'') quanto um intervalo no formato \texttt{"MIN-MAX"} (ex.: ``15-20''), usado quando a especificação do fabricante declara uma faixa de concentração em vez de um valor fixo. A validação desse formato (numérico simples ou \texttt{X-Y} com X < Y) é responsabilidade da aplicação (frontend e servidor); o banco não impõe \textit{constraint} de formato sobre este campo.
+Q03/DP-A03: concentração pontual usa valor\_min = valor\_max ou valor\_max NULL; faixa usa limites numéricos ordenados. CHECK (valor\_max IS NULL OR valor\_min <= valor\_max). O servidor rejeita faixa com máximo informado e mínimo ausente; preserva a notação original do fabricante separadamente, sem usá-la como autoridade numérica.
 \end{explicacao}
 
 \begin{regra}
@@ -281,8 +286,6 @@ O campo \textit{unidade} é armazenado como texto livre para suportar tanto um v
 \campo{codigo\_produto\_fabricante}{VARCHAR(100)}{NULL}
 \campo{grau\_pureza}{VARCHAR(30)}{NULL}
 \campo{densidade}{NUMERIC(8,4)}{NULL}
-\campo{estado\_fisico}{ENUM}{SOLIDO,LIQUIDO, NOT NULL}
-\campo{unidade\_de\_medida}{ENUM}{ml,g, NOT NULL}
 \campo{classe\_inflamabilidade}{ENUM}{NAO\_INFLAMAVEL,CLASSE\_1,CLASSE\_2,CLASSE\_3, NOT NULL}
 \campo{eh\_controlado\_pf}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
 \campo{eh\_controlado\_eb}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
@@ -290,7 +293,7 @@ O campo \textit{unidade} é armazenado como texto livre para suportar tanto um v
 \end{entidade}
 
 \begin{explicacao}
-\textit{Especificacao\_Reagente} passa a ser a única fonte de verdade para \textit{unidade\_de\_medida}. Os demais níveis (\textit{Frasco\_Reagente}, \textit{Emprestimo\_Reagente}) referenciam essa unidade por meio da cadeia de FKs, em vez de armazenar uma cópia própria.
+A especificação referencia o resumo, fonte do estado físico; a unidade é derivada desse estado. Frasco e empréstimo chegam ao resumo pela cadeia de FKs. Snapshots de consulta e de cálculo são documentados separadamente no Firestore.
 
 \textit{GASOSO} foi removido de \textit{estado\_fisico} nesta versão: nenhum reagente gasoso está listado para o almoxarifado atual, e reagentes gasosos precisam de campos e método de medição próprios (pressão, não peso em balança) em vez de reaproveitar os campos já pensados para sólido/líquido. O estudo detalhado para reintrodução está na seção \textit{Implementações em Estudo para Versões Futuras}.
 \end{explicacao}
@@ -340,6 +343,7 @@ O campo \textit{unidade} é armazenado como texto livre para suportar tanto um v
 \campo{detalhe\_status}{TEXT}{NULL}
 \campo{cadastrado\_em}{TIMESTAMP}{NOT NULL}
 \campo{cadastrado\_por}{INTEGER}{FK, NOT NULL}
+\campo{abertura\_historica\_desconhecida}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
 \end{entidade}
 
 \begin{regra}[Constraint de Identidade Química do Frasco]
@@ -409,7 +413,14 @@ O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre 
 \campo{unidade\_medida\_utilizada}{ENUM}{ml,g, NOT NULL}
 \campo{peso\_perda\_evaporacao}{NUMERIC(10,3)}{DEFAULT 0, NOT NULL}
 \campo{uso\_vencido\_aceito}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
-\campo{finalidade\_uso}{ENUM}{PESQUISA, DIDATICO\_DEMONSTRACAO, OUTRO}{NOT NULL}
+\campo{finalidade\_uso}{ENUM}{NOT NULL}
+\subcampo{AULA\_PRATICA, DEMONSTRACAO, PESQUISA\_TCC\_POS, ESTUDO\_DEGRADACAO\_RESIDUOS}
+\campo{auto\_atendimento}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+\campo{justificativa\_metodologica}{TEXT}{NULL}
+\campo{tcr\_versao}{VARCHAR(100)}{NULL}
+\campo{tcr\_aceito\_em}{TIMESTAMP}{NULL}
+\campo{tcr\_aceito\_por}{INTEGER}{FK, NULL}
+\campo{tcr\_auditoria\_id}{INTEGER}{FK, NULL}
 \end{entidade}
 
 \begin{explicacao}
@@ -765,7 +776,7 @@ QUARENTENA & Exige detalhe de motivo e bloqueia nova retirada.\\
 VENCIDO + uso\_vencido\_autorizado = false & Exibe PENDENTE DE DESCARTE quando não estiver em quarentena; bloqueia nova retirada.\\
 VENCIDO + uso\_vencido\_autorizado = true & Pode permanecer DISPONIVEL para uso excepcional após confirmação explícita no empréstimo.\\
 DESCARTADO & É terminal; não retorna a DISPONIVEL.\\
-Devolução & Só pode ocorrer para empréstimo EM\_USO ou ATRASADO e o peso de retorno não pode exceder o peso de saída.\\
+Devolução & Só pode ocorrer para empréstimo EM\_USO ou ATRASADO e aplica tolerância híbrida Q06: ganho tolerado produz consumo zero e evento AJUSTE; ganho acima da tolerância bloqueia.\\
 \bottomrule
 \end{longtable}
 
@@ -797,4 +808,14 @@ Autor vê o original marcado como moderado; demais alunos e bolsistas veem aviso
 \end{regra}
 \begin{regra}[DP-C03: segredo de convite]
 Gerar token com CSPRNG de 32 bytes e armazenar somente SHA-256 do token aleatório. Comparar em tempo constante no backend, validar expiração de sete dias, identidade verificada e consumo único transacional. Reenvio substitui hash e expiração no mesmo documento e registra o último operador; link anterior deixa de funcionar. No Firestore, docId determinístico é derivado no servidor por HMAC-SHA-256 com segredo do servidor sobre serialização inequívoca de contexto turma/global e e-mail normalizado. Não expor hash simples de e-mail previsível. HMAC é pseudonimização; documento e e-mail continuam restritos. Nunca registrar token em logs, auditoria ou banco.
+\end{regra}
+
+\begin{regra}[Q06: massa, consumo e tolerância]
+Massa consumida = $\max(0, peso_{saida}-peso_{retorno})$ em g. Medida utilizada é não negativa (g para sólido, mL via densidade para líquido). Medida usada no frasco acumula apenas gramas. Tolerância normal: $\max(1\,g,0{,}005\,peso_{saida})$; higroscópico: $\max(2\,g,0{,}02\,peso_{saida})$. Ganho dentro da tolerância preserva peso físico real, consumo zero e evento AJUSTE/ganho\_massa\_higroscopia. Retorno abaixo da tara: diferença até 5 g exige confirmação de esgotamento para VAZIO e ajuste auditado; diferença maior com produto restante bloqueia e exige recalibração formal de tara com justificativa. Não converter ajuste em consumo negativo.
+\end{regra}
+\begin{regra}[Q14 e Q04: rastreabilidade na retirada]
+Autoatendimento é calculado pelo servidor: só o único gestor ativo do almoxarifado pode retirar para si, com justificativa obrigatória e notificação auditável à chefia; se houver outro gestor ativo, bloquear. Para vencido ou validade desconhecida liberado com termo nas finalidades PESQUISA\_TCC\_POS ou ESTUDO\_DEGRADACAO\_RESIDUOS, exigir justificativa metodológica de 20--2000 caracteres, versão do TCR, instante servidor, UID autenticado do retirante que aceitou e referência ao Registro\_de\_Auditoria correspondente. O backend valida aceite vinculado ao frasco, finalidade e operação, nunca declaração do gestor em nome de terceiro. Sem essas condições, rejeitar. TCR registra ciência e responsabilidade, sem substituir regras institucionais de segurança química. Quarentena e pendência de descarte continuam bloqueadas.
+\end{regra}
+\begin{regra}[Reclassificação patrimonial]
+Novo nome individual exige resolver/criar resumo alvo, preencher novo\_id\_resumo\_bem\_patrimonial e alterar só o vínculo do bem solicitado; não renomear resumo compartilhado. Versao\_bem\_origem captura a versão observada e impede aprovação sobre edição concorrente.
 \end{regra}

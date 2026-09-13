@@ -192,7 +192,7 @@ Cada fluxo parte de sessão ativa validada por COM-01 e usa os campos/estados do
 \textbf{Contrato:} UI-04 e UI-06. Estoque > filtros > frasco > ação. Abrir recalcula validade; editar localização mantém identidade; pesar exige leitura e motivo, produz histórico de ajuste/evaporação. Conflito com empréstimo obriga recarregar; não sobrescrever peso inicial.
 
 \subsubsection{ALM-04 --- Gestor Almox.: Registrar retirada e autorizar uso didático de vencido}
-\textbf{Contrato:} UI-07. Registrar Retirada > código > Professor/Bolsista > local/peso/prazo/finalidade > revisão. Vencido só segue com autorização já registrada e ciência explícita para finalidade didática. Transação valida disponibilidade e escopo, cria empréstimo e histórico; concorrente perdedor não retira.
+\textbf{Contrato:} UI-07. Registrar Retirada > código > Professor/Bolsista > local/peso/prazo/finalidade > revisão. Vencido só segue com autorização registrada e ciência explícita; pesquisa excepcional exige justificativa e TCR rastreável Q04. Transação valida disponibilidade e escopo, cria empréstimo e histórico; concorrente perdedor não retira.
 
 \subsubsection{ALM-05 --- Gestor Almox.: Receber devolução de empréstimo próprio ou de outro gestor}
 \textbf{Contrato:} UI-07. Registrar Devolução > frasco/pendência > peso/quem devolveu > destino se vencido > confirmar. Servidor calcula consumo e atraso, encerra empréstimo e atualiza frasco/histórico. Peso incompatível exige revisão; qualquer gestor vinculado pode receber.
@@ -220,3 +220,6 @@ Cada fluxo parte de sessão ativa validada por COM-01 e usa os campos/estados do
 
 \subsubsection{PAT-05 --- Gestor Patr.: Gerar relatório mensal, personalizado ou individual}
 \textbf{Contrato:} UI-12. Relatórios ou detalhe do bem > tipo/período/filtros > Gerar > Baixar/Imprimir. Validar intervalo e datas; documento identifica filtros e instante. Mês em aberto é parcial; erro ou dados ausentes têm retorno distinto.
+
+\paragraph{Q04 e Q14: contrato de aceite e autoatendimento.}
+Para PESQUISA\_TCC\_POS ou ESTUDO\_DEGRADACAO\_RESIDUOS com frasco vencido ou validade desconhecida liberado com termo, obter aceite em sessão autenticada do retirante. Persistir tcr\_versao, tcr\_aceito\_em (servidor), tcr\_aceito\_por e tcr\_auditoria\_id no empréstimo, com evento correspondente em Registro\_de\_Auditoria; exigir justificativa\_metodologica de 20--2000 caracteres. Modal/checkbox são UX: backend valida versão vigente, identidade e vínculo do aceite ao frasco, finalidade e operação antes de confirmar a retirada. O TCR registra ciência e responsabilidade e não substitui regras institucionais de segurança química. Autoatendimento só quando não houver outro gestor ativo, calculado pelo servidor com justificativa e notificação à chefia. Registrar abertura\_historica\_desconhecida quando a data anterior não for conhecida; nunca inventar a data.

@@ -53,7 +53,7 @@ Um frasco no estado de quarentena, pode ser descastado ou voltar ao estado de di
 \end{regra}
 \subsubsection{Seleção do tipo em Resumo de Reagente}
 \begin{regra}
-Ao cadastrar uma \textit{Especificacao\_Reagente}, o estado físico da especificação (\texttt{SOLIDO} ou \texttt{LIQUIDO}) determina quais campos operacionais de frasco serão apresentados. O tipo de substância (\texttt{PURA} ou \texttt{MISTURA}) determina as propriedades químicas obrigatórias, conforme a matriz de obrigatoriedade. O estado físico pertence à especificação e não deve ser inferido ou gravado como propriedade independente do resumo na modelagem 3FN. \\
+Ao cadastrar uma \textit{Especificacao\_Reagente}, o estado físico do resumo (\texttt{SOLIDO} ou \texttt{LIQUIDO}) determina quais campos operacionais de frasco serão apresentados. O tipo de substância (\texttt{PURA} ou \texttt{MISTURA}) determina as propriedades químicas obrigatórias, conforme a matriz de obrigatoriedade. DP-A01: estado físico e higroscopicidade pertencem ao resumo; unidade é derivada e densidade permanece na especificação. \\
 \end{regra}
 \subsubsection{Excluindo um Aluno de uma turma}
 \begin{regra}
@@ -130,7 +130,7 @@ $Peso_{vazio} = Peso_{total} - (Volume_{atual} \times Densidade)$
 
 \textbf{4. Empréstimo e Devolução:}\\
 No empréstimo, registra-se o \textit{peso\_saida}. Na devolução, registra-se o \textit{peso\_retorno}. O consumo é documentado precisamente na tabela \textit{Emprestimo\_Reagente} como:\\
-$Volume_{utilizado} = \frac{Peso_{saida} - Peso_{retorno}}{Densidade}$
+$Volume_{utilizado} = \frac{\max(0, Peso_{saida} - Peso_{retorno})}{Densidade}$ (líquidos); sólidos usam a diferença não negativa em g. Ganho tolerado segue Q06, com consumo zero e ajuste separado.
 \end{regra}
 
 \subsubsection{Exclusividade na retirada de reagentes}
@@ -336,3 +336,6 @@ Toda atribuição e toda revogação de papel devem gerar registro de auditoria 
 
 \paragraph{Execução concorrente e sincronização de identidade.}
 A verificação do último chefe, do último gestor patrimonial e de cada almoxarifado deve compartilhar um documento de controle transacional; duas revogações concorrentes não podem ambas remover o último responsável. Revogar Aluno exige remover Bolsista na mesma operação ou rejeitar a solicitação. O modal explicita o conjunto resultante antes de confirmar. A gravação dos papéis e da auditoria ocorre no Firestore; a atualização do Firebase Auth é uma etapa externa, recuperável e idempotente. Uma falha nessa etapa mantém a autorização bloqueada até a reconciliação, sem anunciar conclusão prematura.
+
+\paragraph{Q04 e Q14: contrato de aceite e autoatendimento.}
+Para PESQUISA\_TCC\_POS ou ESTUDO\_DEGRADACAO\_RESIDUOS com frasco vencido ou validade desconhecida liberado com termo, obter aceite em sessão autenticada do retirante. Persistir tcr\_versao, tcr\_aceito\_em (servidor), tcr\_aceito\_por e tcr\_auditoria\_id no empréstimo, com evento correspondente em Registro\_de\_Auditoria; exigir justificativa\_metodologica de 20--2000 caracteres. Modal/checkbox são UX: backend valida versão vigente, identidade e vínculo do aceite ao frasco, finalidade e operação antes de confirmar a retirada. O TCR registra ciência e responsabilidade e não substitui regras institucionais de segurança química. Autoatendimento só quando não houver outro gestor ativo, calculado pelo servidor com justificativa e notificação à chefia. Registrar abertura\_historica\_desconhecida quando a data anterior não for conhecida; nunca inventar a data.
