@@ -13,7 +13,7 @@ latexmk -pdf -interaction=nonstopmode -halt-on-error -outdir=/tmp/lcqui-tex-buil
 Em Nix, um ambiente dedicado pode fornecer as ferramentas:
 
 ```sh
-nix shell nixpkgs#texliveFull nixpkgs#latexmk
+nix shell nixpkgs#texliveFull
 ```
 
 Fixe a revisão de nixpkgs no ambiente institucional para builds reproduzíveis; o comando acima usa a referência configurada no computador. Se houver apenas pdflatex, execute passagens sucessivas até que não haja aviso de referências/rótulos alterados. Saída: `/tmp/lcqui-tex-build/main.pdf`. Isso evita modificar auxiliares e PDF versionados durante a validação.

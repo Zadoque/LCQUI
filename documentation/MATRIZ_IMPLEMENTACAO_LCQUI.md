@@ -78,4 +78,4 @@ A seção 9 define entradas, validação, persistência, falhas e retorno para c
 
 ## Como atualizar os estados
 
-Para concluir um item, registrar commit, comando/data/resultado dos testes pertinentes, caminhos reais de Rules/índices e evidência do fluxo UI. Testar autor autorizado e não autorizado, outro recurso/escopo, dados inválidos, repetição e concorrência quando aplicável. Homologação não é substituída por mocks. Decisões Q01–Q14 permanecem em [DUVIDAS_DOCUMENTACAO_LCQUI.md](DUVIDAS_DOCUMENTACAO_LCQUI.md).
+Para concluir um item, registrar commit, comando/data/resultado dos testes pertinentes, caminhos reais de Rules/índices e evidência do fluxo UI. Testar autor autorizado e não autorizado, outro recurso/escopo, dados inválidos, repetição e concorrência quando aplicável. Homologação não é substituída por mocks. Decisões Q01–Q14 permanecem em [DUVIDAS_PENDENTES_LCQUI.md](DUVIDAS_PENDENTES_LCQUI.md).

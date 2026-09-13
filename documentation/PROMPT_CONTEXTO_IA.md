@@ -6,7 +6,7 @@ LCQUI gerencia almoxarifado químico, patrimônio e atividades acadêmicas. Fron
 
 1. Leia STATUS_ATUAL.md, AUDITORIA_ATUALIZADA.md e MATRIZ_IMPLEMENTACAO_LCQUI.md.
 2. Leia a seção 3 (papéis), 4 (modelo 3FN), 5.9 (dicionário físico), 7 (regras), 8 (UI-01–13), 9 (fluxos) e 11 (autorização) do LaTeX para o domínio da tarefa.
-3. Consulte DUVIDAS_DOCUMENTACAO_LCQUI.md. Opções recomendadas não são decisões aprovadas; não invente política de domínio para fechar implementação.
+3. Consulte DUVIDAS_PENDENTES_LCQUI.md. Opções recomendadas não são decisões aprovadas; não invente política de domínio para fechar implementação.
 4. Inspecione AGENTS.md aplicáveis e o código antes de editar. Documentação de comportamento esperado não prova implementação atual.
 
 ## Identidade e dados
@@ -29,3 +29,5 @@ Firestore alvo: `Usuarios`, `Turma`, `Usuarios/uid/Turmas`, `Resumo_Reagente/id/
 ## Como registrar progresso
 
 Trabalhe dentro da autorização da sessão. Para cada mudança, associe RF/RN/UI/fluxo, evidência de código e verificação adequada. Não declarar teste aprovado apenas porque existe arquivo. Atualize matriz/status/auditoria com comando, resultado e limitações; `VALIDADO` exige prova de ponta a ponta e homologação. Não repetir percentuais antigos de prontidão. Não alterar dados externos, enviar mensagens ou publicar sem autorização aplicável.
+
+Decisões DP-A01–DP-D02 resolvidas: não reabrir sem contradição técnica objetiva. DP-D01 mantém verificação seletiva de ativo; mutações sem requerAtivo=true podem confiar em token válido até renovação. Snapshot de higroscopicidade é exclusivamente físico no Firestore, com fonte canônica no resumo. Retenção indefinida V1 é política conservadora institucional, não exigência legal genérica. Estado do plano: 21 itens enumerados, 20 executáveis e P3-04 cancelado.

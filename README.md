@@ -129,4 +129,4 @@ npm run test:security
 
 ## Documentação e especificação
 
-A documentação principal é [documentation/main.tex](documentation/main.tex). Telas detalhadas estão na seção 8, fluxos por papel na seção 9 e dicionário Firestore na seção 5.9. Consulte [status](documentation/STATUS_ATUAL.md), [matriz de implementação](documentation/MATRIZ_IMPLEMENTACAO_LCQUI.md), [auditoria](documentation/AUDITORIA_ATUALIZADA.md) e [decisões pendentes](documentation/DUVIDAS_DOCUMENTACAO_LCQUI.md). Para gerar o PDF, siga o [guia de compilação](documentation/COMPILACAO_NIX_LCQUI.md).
+A documentação principal é [documentation/main.tex](documentation/main.tex). Telas detalhadas estão na seção 8, fluxos por papel na seção 9 e dicionário Firestore na seção 5.9. Consulte [status](documentation/STATUS_ATUAL.md), [matriz de implementação](documentation/MATRIZ_IMPLEMENTACAO_LCQUI.md), [auditoria](documentation/AUDITORIA_ATUALIZADA.md) e [decisões pendentes](documentation/DUVIDAS_PENDENTES_LCQUI.md). Para gerar o PDF, siga o [guia de compilação](documentation/COMPILACAO_NIX_LCQUI.md).
