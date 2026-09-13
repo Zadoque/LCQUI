@@ -551,6 +551,8 @@ A chave primária composta \textit{(id\_professor, id\_materia)} impede vincular
 \campo{expira\_em}{TIMESTAMP}{NOT NULL}
 \campo{convidado\_por}{INTEGER}{FK, NOT NULL}
 \campo{numero\_matricula}{VARCHAR(20)}{NULL}
+\campo{token\_hash}{VARCHAR(100)}{NOT NULL}
+\campo{ultimo\_reenvio\_por}{INTEGER}{FK, NULL}
 \end{entidade}
 
 \begin{regra}
@@ -567,7 +569,7 @@ A combinação \textit{email + id\_turma} não pode possuir mais de um convite \
 \campo{id\_destinatario}{INTEGER}{FK, NOT NULL}
 \campo{papel\_destinatario}{ENUM}{
   \shortstack[l]{%
-    Aluno, Professor, Gestor\_Bens\_Patrimoniais,\\
+    Aluno, Professor, Bolsista, Gestor\_Bens\_Patrimoniais,\\
     Gestor\_Almoxarifado%
   }
 }{NOT NULL}
@@ -641,6 +643,9 @@ A combinação de prédio, andar e sala deve ser única (\textit{UNIQUE(predio, 
 \campo{id\_usuario}{INTEGER}{FK, NOT NULL}
 \campo{texto}{TEXT}{NOT NULL}
 \campo{criado\_em}{TIMESTAMP}{NOT NULL}
+\campo{moderado}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+\campo{motivo\_moderacao}{TEXT}{NULL}
+\campo{moderado\_por}{INTEGER}{FK, NULL}
 \end{entidade}
 
 \subsection{Registro de Auditoria}
@@ -786,3 +791,10 @@ Os onze pontos que precisavam ser resolvidos antes da modelagem física foram co
 \begin{explicacao}[Critério de passagem para a modelagem Firestore]
 O modelo 3FN é considerado fechado quando cada requisito funcional consegue ser rastreado até entidade, atributo, constraint e fluxo correspondente sem depender de uma suposição não documentada. A seção seguinte pode então introduzir apenas as denormalizações necessárias às consultas do Firestore, sem alterar a semântica do modelo relacional.
 \end{explicacao}
+
+\begin{regra}[DP-C02: moderação]
+Autor vê o original marcado como moderado; demais alunos e bolsistas veem aviso institucional. Professor responsável e Chefe Geral veem o original e histórico necessário à moderação/auditoria. Moderação exige motivo e moderador; proteção ocorre no servidor e nas Rules (seção 11).
+\end{regra}
+\begin{regra}[DP-C03: segredo de convite]
+Gerar token com CSPRNG de 32 bytes e armazenar somente SHA-256 do token aleatório. Comparar em tempo constante no backend, validar expiração de sete dias, identidade verificada e consumo único transacional. Reenvio substitui hash e expiração no mesmo documento e registra o último operador; link anterior deixa de funcionar. No Firestore, docId determinístico é derivado no servidor por HMAC-SHA-256 com segredo do servidor sobre serialização inequívoca de contexto turma/global e e-mail normalizado. Não expor hash simples de e-mail previsível. HMAC é pseudonimização; documento e e-mail continuam restritos. Nunca registrar token em logs, auditoria ou banco.
+\end{regra}

@@ -23,7 +23,7 @@ Resolver referências únicas em lotes para reduzir N+1. O tamanho é definido p
 Para a identificação física dos frascos, o backend também utiliza o \textbf{pdfkit} para desenhar uma matriz (Grid Visual de Offset 3×10) em tamanho A4, com etiquetas de 65,0 mm × 26,5 mm. O código de barras no formato Code 128 é gerado ativamente em memória via biblioteca \textbf{bwip-js} e embutido no buffer do PDF, garantindo alta definição na impressão e dispensa de fontes especiais no client. Para frascos já cadastrados (2ª via), o backend gera folhas individuais A4 contendo a Ficha de Conferência e Rastreabilidade com histórico recente de 10 movimentações e 1 única etiqueta de reposição centralizada no rodapé.
 
 \begin{explicacao}[Leitura dos exemplos legados]
-Os listings a seguir preservam exemplos de desenvolvimento, não uma implementação pronta para copiar. O contrato atualizado está nas seções 5.9, 8 e 11: caminhos de especificações são aninhados, datas civis são normalizadas no fuso institucional, relatórios usam base64, consultas e escritas são ordenadas em transação e claims exigem controle de revogação. A margem higroscópica de 2\% do exemplo conflita com consumo não negativo e está pendente em Q06. Não adotar consumo negativo, data de abertura inventada, placeholder de foto ou simples cópia de novo nome sobre o bem. Esses exemplos devem ser adaptados ao contrato antes de implementação.
+Os listings a seguir preservam exemplos de desenvolvimento, não uma implementação pronta para copiar. O contrato atualizado está nas seções 5.9, 8 e 11: caminhos de especificações são aninhados, datas civis são normalizadas no fuso institucional, relatórios usam base64, consultas e escritas são ordenadas em transação e claims exigem controle de revogação. Q06 utiliza tolerância híbrida, consumo não negativo e ajuste separado quando há ganho de massa tolerado. Não adotar consumo negativo, data de abertura inventada, placeholder de foto ou simples cópia de novo nome sobre o bem. Esses exemplos devem ser adaptados ao contrato antes de implementação.
 \end{explicacao}
 
 \subsection{Princípio: nunca confiar no \textit{client-side}}
@@ -502,17 +502,20 @@ export const registrarDevolucao = onCall(async (request) => {
     const frasco = frascoSnap.data()!;
     await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
 
-    const densidade = await resolverDensidadeDoFrasco(frasco);
-    const pesoConsumido = emprestimo.peso_saida - dados.pesoRetorno;
+    const liquido = emprestimo.unidade_medida_utilizada === "ml";
+    const densidade = liquido ? emprestimo.densidade_aplicada : null;
+    if (liquido && (!Number.isFinite(densidade) || densidade <= 0))
+      throw new HttpsError("failed-precondition", "Densidade histórica inválida.");
+    const pesoConsumido = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno);
 
-    // C5: Reagentes higroscópicos (NaOH, sílica gel, etc.) podem ganhar massa por
-    // absorção de umidade. Permite margem de +2% da massa de saída antes de erro.
-    const MARGEM_HIGROSCOPICA = 0.02;
-    const limiteMaxRetorno = emprestimo.peso_saida * (1 + MARGEM_HIGROSCOPICA);
-    if (dados.pesoRetorno > limiteMaxRetorno) {
-      throw new HttpsError("invalid-argument",
-        `Peso de retorno (${dados.pesoRetorno}g) excede 102% da massa de saída (${emprestimo.peso_saida}g). Verifique se há contaminação ou erro na balança.`);
-    }
+    if (typeof frasco.eh_higroscopico !== "boolean")
+      throw new HttpsError("failed-precondition", "Snapshot histórico ausente: reconciliar frasco.");
+    const deltaMax = frasco.eh_higroscopico
+      ? Math.max(2.0, 0.02 * emprestimo.peso_saida)
+      : Math.max(1.0, 0.005 * emprestimo.peso_saida);
+    const limiteMaxRetorno = emprestimo.peso_saida + deltaMax;
+    if (!Number.isFinite(dados.pesoRetorno) || dados.pesoRetorno <= 0 || dados.pesoRetorno > limiteMaxRetorno)
+      throw new HttpsError("invalid-argument", "Peso fora da tolerância híbrida Q06.");
     const avisoHigroscopico = dados.pesoRetorno > emprestimo.peso_saida;
     const volumeUtilizado = densidade ? pesoConsumido / densidade : pesoConsumido;
 
@@ -530,7 +533,7 @@ export const registrarDevolucao = onCall(async (request) => {
       disponibilidade: "DISPONIVEL",
       data_ultima_pesagem: admin.firestore.FieldValue.serverTimestamp(),
       peso_atual: dados.pesoRetorno,
-      medida_usada: admin.firestore.FieldValue.increment(volumeUtilizado),
+      medida_usada: admin.firestore.FieldValue.increment(pesoConsumido), // sempre g
       vencido: frascoVencido,
     };
 
@@ -553,6 +556,20 @@ export const registrarDevolucao = onCall(async (request) => {
     ...(avisoHigroscopico && { aviso: "higroscopico_suspeito" }),
     });
     tx.update(frascoRef, atualizacaoFrasco);
+
+    if (avisoHigroscopico) {
+      tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+        id_frasco_reagente: frascoRef.id,
+        id_almoxarifado: frasco.id_almoxarifado,
+        id_gestor: request.auth!.uid,
+        id_emprestimo_reagente: emprestimoRef.id,
+        tipo: "AJUSTE", campo_ajustado: "ganho_massa_higroscopia",
+        peso_anterior: emprestimo.peso_saida, peso_novo: dados.pesoRetorno,
+        medida_ajustada: dados.pesoRetorno - emprestimo.peso_saida,
+        unidade_medida_ajustada: "g",
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
 
     // Registro obrigatório de devolução no histórico
     const histRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
