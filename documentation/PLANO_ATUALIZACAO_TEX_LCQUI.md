@@ -41,7 +41,18 @@ adição direta por cliente.
 
 ### P1-03 — Atualizar pseudocódigo de `registrarDevolucao` na Seção 10 (fórmula Q06 híbrida + unidade `medida_usada`)
 **Arquivo**: `Section-10-Tecnologia-e-Relatorios-Vercel-Firebase.tex`  
-**Localização**: Listagem `registrarDevolucao` (circa linha 467–563)  
+**Localização**: Listagem `registrarDevolucao` (circa linha 467–563)
+
+> ⚠️ **Dependência de execução — aplicar P3-07 antes ou junto com este item.**  
+> O pseudocódigo referencia `frasco.eh_higroscopico`. Sem a aplicação de P3-07 na Seção 4, o campo não existe no modelo documentado e o exemplo ficaria inconsistente com a entidade 3FN.
+>
+> ⚠️ **Dependência de assinatura — usar a assinatura atualizada de P3-09.**  
+> A chamada dentro de `registrarDevolucao` deve usar o parâmetro `requerAtivo = true` introduzido em P3-09:
+> ```typescript
+> await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
+> await validarGestorDoAlmoxarifado(request, frasco.id_almoxarifado);
+> ```
+
 **Ações**:
 1. Substituir margem plana `MARGEM_HIGROSCOPICA = 0.02` pela fórmula híbrida (lê `eh_higroscopico` direto do frasco — snapshot gravado no cadastro, conforme DP-A02):
 ```typescript
@@ -54,7 +65,7 @@ const limiteMaxRetorno = emprestimo.peso_saida + deltaMax;
 2. Quando `pesoRetorno > peso_saida` mas dentro da tolerância: consumo = 0, `peso_atual = pesoRetorno`, gerar `Historico_Frasco_Reagente` tipo `AJUSTE` com `campo_ajustado = 'ganho_massa_higroscopia'`. **Não** incrementar `medida_usada`.
 3. Substituir `FieldValue.increment(volumeUtilizado)` em `medida_usada` por `FieldValue.increment(pesoConsumido)` (sempre em **gramas**). O consumo em mL pertence exclusivamente a `Emprestimo_Reagente.medida_utilizada`.  
 
-**Justificativa**: MODIFICACOES §2.1–2.3, §7.2; AUD-17, AUD-18; DP-A01 ✅ DP-A02 ✅. **Status**: ✅ Desbloqueado — pronto para execução.
+**Justificativa**: MODIFICACOES §2.1–2.3, §7.2; AUD-17, AUD-18; DP-A01 ✅ DP-A02 ✅. **Status**: ✅ Desbloqueado — pronto para execução (executar após P3-07 e P3-09).
 
 ---
 
@@ -176,6 +187,73 @@ concorrentes ao mesmo bem.
 \end{regra}
 ```
 **Justificativa**: MODIFICACOES §5.3; AUD-25, AUD-26. **Status**: ✅ Pronto para execução.
+
+---
+
+### P2-05 — Remover filtro de prédio/sala do painel de Professor e documentar como escopo V2 (Q01)
+**Arquivos**:
+- `Section-8-Descricao-das-telas-Dashboards.tex`
+- `Section-12-Implementacoes-em-Estudo-para-Versoes-Futuras.tex`
+
+**Localização A**: Subseção `§8.3.3 — Filtros de busca de Professor` (campo de filtro por prédio/número de sala)  
+**Ação A**: Remover o item *"Prédio ou número da sala"* da lista de filtros disponíveis na tela de busca de professores. Manter apenas: Nome, Matéria lecionada, Centro e Laboratório.  
+Substituir a referência ao filtro por nota:
+```latex
+\begin{nota}
+Q01: O filtro por lotação física (prédio/gabinete/sala) foi postergado para a V2.
+Na V1, a busca de professor suporta apenas Nome, Matéria lecionada, Centro e Laboratório.
+\end{nota}
+```
+**Localização B**: Seção 12.5 (ou nova subseção) — Implementações Futuras  
+**Ação B**: Adicionar parágrafo documentando o escopo postergado:
+```latex
+\subsubsection{Lotação física de gabinete e alocação de salas (V2)}
+Q01: A vinculação de professores a gabinetes, prédios e salas específicas foi removida da
+V1 por insuficiência de dados estruturados. Na V2, serão integrados os dados de lotação da
+SECRETARIA/UENF para permitir filtragem espacial no mapa do campus.
+```
+**Justificativa**: MODIFICACOES §Q01. **Status**: ✅ Pronto para execução.
+
+---
+
+### P2-06 — Expandir enum `finalidade_uso` e adicionar `justificativa_metodologica` em `Emprestimo_Reagente` (Q04)
+**Arquivos**:
+- `Section-4-Modelagem-Entidades-SQL-3FN.tex`
+- `Section-8-Descricao-das-telas-Dashboards.tex`
+
+**Localização A**: Subseção `§4.22 — Emprestimo_Reagente` (ou a subseção que define `finalidade_uso`)  
+**Ação A**: Expandir o enum `finalidade_uso` e adicionar campo opcional:
+```latex
+\campo{finalidade\_uso}{ENUM}{
+  \shortstack[l]{%
+    AULA\_PRATICA, DEMONSTRACAO,\\
+    PESQUISA\_TCC\_POS, ESTUDO\_DEGRADACAO\_RESIDUOS%
+  }
+}{NOT NULL}
+\campo{justificativa\_metodologica}{TEXT}{NULL}
+```
+Adicionar regra de governança:
+```latex
+\begin{regra}
+Q04: Quando \textit{finalidade\_uso} $\in$ \{\texttt{PESQUISA\_TCC\_POS},
+\texttt{ESTUDO\_DEGRADACAO\_RESIDUOS}\} e o frasco está vencido
+(\textit{data\_validade} $<$ \texttt{now()}), a retirada exige
+\textit{justificativa\_metodologica} preenchida e aceite de Termo de Ciência e
+Responsabilidade pelo solicitante. Sem o aceite, o servidor rejeita a operação.
+\end{regra}
+```
+**Localização B**: Subseção `UI-07` (tela de registro de retirada de reagente)  
+**Ação B**: Descrever a trava de governança na interface:
+```latex
+\begin{ui-comportamento}[UI-07 — Retirada com frasco vencido para pesquisa]
+Q04: Quando o usuário seleciona \textit{PESQUISA\_TCC\_POS} ou
+\textit{ESTUDO\_DEGRADACAO\_RESIDUOS} e o frasco está com validade expirada, a
+interface exibe modal de Termo de Ciência e Responsabilidade (TCR) com texto
+institucional parametrizado. O botão ``Confirmar retirada'' só é habilitado após o aceite
+explícito do TCR. A ausência de \textit{justificativa\_metodologica} bloqueia o envio.
+\end{ui-comportamento}
+```
+**Justificativa**: MODIFICACOES §Q04. **Status**: ✅ Pronto para execução.
 
 ---
 
@@ -365,7 +443,7 @@ Adicionar nota: funções que devem chamar com `requerAtivo = true`: `registrarR
 |---|---|---|
 | P1-01 | `roteiro_anexo` em §Post (Seção 5) | ✅ Pronto |
 | P1-02 | Remover `Roteiro_Professor_Compartilhado` Firestore | ✅ Pronto |
-| P1-03 | `registrarDevolucao` fórmula Q06 + `medida_usada` em g | ✅ Pronto |
+| P1-03 | `registrarDevolucao` fórmula Q06 + `medida_usada` em g | ✅ Pronto ⚠️ após P3-07 e P3-09 |
 | P1-04 | `moderado`/`motivo_moderacao`/`moderado_por` em `Comentario` | ✅ Pronto |
 | P1-05 | `token_hash` + `ultimo_reenvio_por` em `Convite_Aluno` | ✅ Pronto |
 | P1-06 | `Bolsista` no enum `papel_destinatario` | ✅ Pronto |
@@ -373,17 +451,28 @@ Adicionar nota: funções que devem chamar com `requerAtivo = true`: `registrarR
 | P2-02 | `auto_atendimento` em `Emprestimo_Reagente` | ✅ Pronto |
 | P2-03 | Invariante `medida_utilizada >= 0` | ✅ Pronto |
 | P2-04 | `novo_id_resumo_bem_patrimonial` + `versao_bem_origem` | ✅ Pronto |
+| P2-05 | Remover filtro prédio/sala do painel Professor + documentar V2 | ✅ Pronto (novo) |
+| P2-06 | `finalidade_uso` enum expandido + `justificativa_metodologica` + TCR | ✅ Pronto (novo) |
 | P3-01 | `Composicao_Reagente` Q03 + CHECK constraint | ✅ Desbloqueado |
 | P3-02 | `estado_fisico`/`eh_higroscopico` em `Resumo_Reagente` | ✅ Desbloqueado |
 | P3-03 | Busca textual Seção 5 — escalar em vez de array | ✅ Desbloqueado |
 | P3-04 | `ativo` em `Bem_Patrimonial` | ❌ Cancelado (DP-B01: Opção 1) |
 | P3-05 | `photo_url_proposta` NOT NULL | ✅ Desbloqueado |
 | P3-06 | Harmonizar Aluno+Gestor_Almoxarifado (Seções 3 e 7) | ✅ Desbloqueado |
-| P3-07 | `eh_higroscopico` snapshot em `Frasco_Reagente` | ✅ Desbloqueado (novo) |
-| P3-08 | Moderação UI-11 e Security Rules | ✅ Desbloqueado (novo) |
-| P3-09 | `validarPermissao` com `requerAtivo` | ✅ Desbloqueado (novo) |
+| P3-07 | `eh_higroscopico` snapshot em `Frasco_Reagente` | ✅ Desbloqueado |
+| P3-08 | Moderação UI-11 e Security Rules | ✅ Desbloqueado |
+| P3-09 | `validarPermissao` com `requerAtivo` | ✅ Desbloqueado |
 
-**Total**: 18 itens | 17 prontos para execução | 1 cancelado.
+**Total**: 20 itens | 19 prontos para execução | 1 cancelado.
+
+### Ordem de execução recomendada para os itens com dependências
+
+```
+P3-07  →  P3-09  →  P1-03   (dependências cruzadas: campo no modelo antes do pseudocódigo)
+P3-02  →  P3-03             (estado_fisico no 3FN antes de corrigir busca na Seção 5)
+P3-01                       (independente, mas conveniente junto com P3-02)
+Demais P1, P2, P3            (sem dependências entre si)
+```
 
 ---
 
