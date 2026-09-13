@@ -63,7 +63,7 @@ Isso garante consistência com o mesmo Custom Claim usado pelas Cloud Functions 
 
 \subsection{Contrato de acesso para os fluxos detalhados}
 \label{sec:acesso-detalhado}
-Além do papel, toda operação verifica conta ativa, versão de permissões e escopo atual. Atualizar Custom Claims não invalida imediatamente um token já emitido. A aplicação deve renovar o token após sincronização e o backend/Rules deve rejeitar versão desatualizada ou conta inativa consultando o controle persistido. Preferência de papel no cliente só altera apresentação.
+Além do papel, validar o escopo atual. DP-D01 determina consulta de conta ativa em mutações de alto impacto conforme a seção 10; leituras e demais mutações podem confiar no JWT até renovação. Atualizar Custom Claims não invalida imediatamente o token emitido. Versão de permissões e reconciliação não constituem garantia universal já implementada. Preferência de papel no cliente só altera apresentação.
 
 Leituras de membros, posts, comentários e PDFs de turma exigem professor responsável ou vínculo ativo; colegas recebem projeção mínima, sem e-mail/matrícula. Requisições são visíveis ao solicitante, gestor patrimonial e Chefe. Empréstimos completos são visíveis ao retirante, gestor vinculado ao almoxarifado e Chefe; demais leitores do catálogo recebem somente disponibilidade. Histórico operacional segue o mesmo escopo, e auditoria global fica com a chefia. Diretórios usados em seletores devem ter endpoints/projeções mínimas autorizadas, não leitura irrestrita de Usuarios.
 

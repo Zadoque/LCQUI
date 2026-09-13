@@ -27,7 +27,7 @@ Os listings a seguir preservam exemplos de desenvolvimento, não uma implementa�
 \end{explicacao}
 
 \subsection{Princípio: nunca confiar no \textit{client-side}}
-Todas as \textit{Cloud Functions} desta seção seguem a mesma regra: \textbf{qualquer dado que o servidor consiga derivar ou verificar por conta própria é recalculado ou reconferido no servidor, nunca aceito como o cliente enviou}. Isso vale, em particular, para o papel do usuário (sempre resolvido a partir do Firestore, nunca do que o \textit{request} diz que o usuário é), para valores calculados como peso/volume/vencimento/atraso (sempre recomputados a partir dos dados brutos e da hora do servidor), para códigos gerados pelo sistema (Regra 6.2.9), e para o estado de disponibilidade de um recurso concorrente (sempre relido dentro de uma transação antes de decidir).
+Todas as \textit{Cloud Functions} desta seção seguem a mesma regra: \textbf{qualquer dado que o servidor consiga derivar ou verificar por conta própria é recalculado ou reconferido no servidor, nunca aceito como o cliente enviou}. Isso vale, em particular, para o papel do usuário (claims assinadas pelo Auth, nunca um papel declarado no payload; conta ativa verificada seletivamente conforme DP-D01), para valores calculados como peso/volume/vencimento/atraso (sempre recomputados a partir dos dados brutos e da hora do servidor), para códigos gerados pelo sistema (Regra 6.2.9), e para o estado de disponibilidade de um recurso concorrente (sempre relido dentro de uma transação antes de decidir).
 
 \subsubsection{Funções de Apoio (Autorização)}
 
@@ -57,17 +57,25 @@ export async function atualizarCustomClaims(uid: string): Promise<void> {
   await admin.auth().setCustomUserClaims(uid, { roles });
 }
 
-function validarPermissao(request: {auth?: {uid: string; token: Record<string, unknown>}}, papeisPermitidos: string[]): string[] {
+async function validarPermissao(
+  request: {auth?: {uid: string; token: Record<string, unknown>}},
+  papeisPermitidos: string[],
+  requerAtivo = false
+): Promise<string[]> {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Usuário não autenticado.");
-  const papeis = resolverPapeisDoToken(request.auth);
-  if (!papeisPermitidos.some((p) => papeis.includes(p))) {
-    throw new HttpsError("permission-denied", "Usuário sem papel autorizado para esta ação.");
+  if (requerAtivo) {
+    const snap = await admin.firestore().collection("Usuarios").doc(request.auth.uid).get();
+    if (!snap.exists || snap.data()?.ativo !== true)
+      throw new HttpsError("permission-denied", "Conta desativada ou não habilitada.");
   }
+  const papeis = resolverPapeisDoToken(request.auth);
+  if (!papeisPermitidos.some((p) => papeis.includes(p)))
+    throw new HttpsError("permission-denied", "Usuário sem papel autorizado para esta ação.");
   return papeis;
 }
 
-async function validarGestorDoAlmoxarifado(uid: string, auth: {token: Record<string, unknown>}, idAlmoxarifado: string): Promise<void> {
-  const papeis = resolverPapeisDoToken(auth);
+async function validarGestorDoAlmoxarifado(uid: string, token: Record<string, unknown>, idAlmoxarifado: string): Promise<void> {
+  const papeis = resolverPapeisDoToken({ token });
   if (papeis.includes("Chefe_Geral")) return; // Chefe tem escopo global
   if (!papeis.includes("Gestor_Almoxarifado")) {
     throw new HttpsError("permission-denied", "Usuário não é Gestor de Almoxarifado.");
@@ -99,6 +107,10 @@ async function obterProximoCodigoFrascoTx(
 }
 \end{lstlisting}
 
+\begin{regra}[DP-D01: verificação seletiva e risco residual]
+Usar \texttt{requerAtivo=true} em retirada, devolução, baixa patrimonial, aprovação/rejeição de requisições e concessão/revogação de papéis. As funções \texttt{concederPapel} e \texttt{revogarPapel} seguem a mesma assinatura. Leituras e mutações sem essa exigência podem continuar confiando em token válido até renovação (aproximadamente uma hora). Verificar ativo não atualiza automaticamente papéis de uma conta ainda ativa. Essa limitação é risco residual aceito da DP-D01, não revogação universal instantânea.
+\end{regra}
+
 \subsubsection{Fluxo de Reagentes: Cadastro, Retirada e Devolução}
 
 \begin{lstlisting}[language=TypeScript, title={Cadastro de Frasco Fechado (Regra 6.2.13, item 1)}]
@@ -116,8 +128,8 @@ interface CadastroFrascoFechado {
 
 export const cadastrarFrascoFechado = onCall(async (request) => {
   const dados = request.data as CadastroFrascoFechado;
-  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Almoxarifado"]);
-  await validarGestorDoAlmoxarifado(request.auth!.uid, dados.idAlmoxarifado);
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, dados.idAlmoxarifado);
 
   const especSnap = await admin.firestore().collection("Especificacao_Reagente").doc(dados.idEspecificacaoReagente).get();
   if (!especSnap.exists) throw new HttpsError("not-found", "Especificação de reagente não encontrada.");
@@ -207,7 +219,7 @@ interface CadastroFrascoAberto {
 
 export const cadastrarFrascoAberto = onCall(async (request) => {
   const dados = request.data as CadastroFrascoAberto;
-  const papeis = validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  const papeis = await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
   await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, dados.idAlmoxarifado);
 
   const especSnap = await admin.firestore().collection("Especificacao_Reagente").doc(dados.idEspecificacaoReagente).get();
@@ -326,14 +338,14 @@ interface AberturaFrasco {
 
 export const registrarAberturaFrasco = onCall(async (request) => {
   const dados = request.data as AberturaFrasco;
-  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
 
   const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
   return admin.firestore().runTransaction(async (tx) => {
     const snap = await tx.get(frascoRef);
     if (!snap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     const frasco = snap.data()!;
-    await validarGestorDoAlmoxarifado(request.auth!.uid, frasco.id_almoxarifado);
+    await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
 
     if (frasco.estado_fisico_frasco !== "FECHADO") {
       throw new HttpsError("failed-precondition", "Somente um frasco FECHADO pode ser aberto por esta operação.");
@@ -383,7 +395,7 @@ interface RetiradaFrasco {
 
 export const registrarRetirada = onCall(async (request) => {
   const dados = request.data as RetiradaFrasco;
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
 
   // Verificação do papel do tomador: este UID é de outro usuário
   // (não do requisitante), portanto Custom Claims não estão disponíveis.
@@ -404,7 +416,7 @@ export const registrarRetirada = onCall(async (request) => {
     if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     const frasco = frascoSnap.data()!;
 
-    await validarGestorDoAlmoxarifado(request.auth!.uid, frasco.id_almoxarifado);
+    await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
     if (frasco.disponibilidade !== "DISPONIVEL") {
       throw new HttpsError("failed-precondition", "Frasco não está disponível para retirada.");
     }
@@ -473,7 +485,7 @@ interface DevolucaoFrasco {
 
 export const registrarDevolucao = onCall(async (request) => {
   const dados = request.data as DevolucaoFrasco;
-  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
 
   const emprestimoRef = admin.firestore().collection("Emprestimo_Reagente").doc(dados.idEmprestimo);
 
@@ -689,7 +701,7 @@ async function atualizarContadorLote(idLote: string, delta: number) {
 
 \begin{lstlisting}[language=TypeScript, title={Criação e Resposta de Requisição de Edição (C2: lock determinístico)}]
 export const criarRequisicaoEdicaoBem = onCall(async (request) => {
-  validarPermissao(request, ["Professor"]);
+  await validarPermissao(request, ["Professor"]);
   const dados = request.data as { idBemPatrimonial: string; novoNome?: string; novoStatus?: string; novoEstadoConservacao?: string; novoIdLocal?: string; motivo: string };
 
   // C2: Lock determinístico - elimina phantom reads em transações Firestore.
@@ -722,7 +734,7 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
 });
 
 export const responderRequisicaoEdicaoBem = onCall(async (request) => {
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"], true);
   const { idRequisicao, aprovar, justificativa } = request.data as { idRequisicao: string; aprovar: boolean; justificativa: string };
   const reqRef = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc(idRequisicao);
 
@@ -772,7 +784,7 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
 
 \begin{lstlisting}[language=TypeScript, title={criarRequisicaoAdicaoBem com lock determinístico (C2)}]
 export const criarRequisicaoAdicaoBem = onCall(async (request) => {
-  validarPermissao(request, ["Professor"]);
+  await validarPermissao(request, ["Professor"]);
 
   const dados = request.data as {
     numeroPatrimonioProposto: string;
@@ -817,7 +829,7 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
 });
 
 export const responderRequisicaoAdicaoBem = onCall(async (request) => {
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"], true);
   const { idRequisicao, aprovar, justificativa } = request.data as { idRequisicao: string; aprovar: boolean; justificativa: string };
   const reqRef = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc(idRequisicao);
 
@@ -928,7 +940,7 @@ export const onLocalAtualizado = onDocumentUpdated(
 );
 
 export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
-  await validarPermissao(request.auth?.uid, ["Aluno"]);
+  await validarPermissao(request, ["Aluno"]);
   const { codigoTurma } = request.data as { codigoTurma: string };
 
   const turmaSnap = await admin.firestore().collection("Turma")
@@ -998,8 +1010,8 @@ interface FiltrosAlmoxarifado {
 
 export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
   const { idAlmoxarifado, mes, ano } = request.data as FiltrosAlmoxarifado;
-  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Almoxarifado"]);
-  await validarGestorDoAlmoxarifado(request.auth!.uid, idAlmoxarifado);
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, idAlmoxarifado);
 
   const dataInicio = new Date(ano, mes - 1, 1);
   const dataFim = new Date(ano, mes, 0);
@@ -1045,7 +1057,7 @@ interface FiltrosPredio {
 
 export const gerarRelatorioBensPredio = onCall(async (request) => {
   const filtros = request.data as FiltrosPredio;
-  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
 
   let query = admin.firestore().collection("Bem_Patrimonial").where("predio", "==", filtros.predio);
   if (filtros.andar) query = query.where("andar", "==", filtros.andar);
@@ -1076,7 +1088,7 @@ interface FiltrosGeralEPersonalizado {
 
 export const gerarRelatorioPersonalizado = onCall(async (request) => {
   const { dataInicio, dataFim, entidade, prediosSelecionados } = request.data as FiltrosGeralEPersonalizado;
-  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Bens_Patrimoniais", "Gestor_Almoxarifado"]);
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais", "Gestor_Almoxarifado"]);
 
   const dataIniObj = new Date(dataInicio);
   const dataFimObj = new Date(dataFim);
@@ -1119,7 +1131,7 @@ interface DadosEtiquetasVirgens {
 }
 
 export const gerarPdfEtiquetasVirgens = onCall(async (request) => {
-  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
   const dados = request.data as DadosEtiquetasVirgens;
 
   const total = dados.codigoFinal - dados.codigoInicial + 1;
@@ -1154,7 +1166,7 @@ interface DadosReimpressao {
 }
 
 export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
-  await validarPermissao(request.auth?.uid, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
   const { frascoIds } = request.data as DadosReimpressao;
 
   // Regra 7.2.10: Teto rigido de seguranca quimica

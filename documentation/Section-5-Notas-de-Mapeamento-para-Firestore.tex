@@ -364,6 +364,7 @@ Caminho: \texttt{Frasco\_Reagente/\{id\}}.
 \item[\texttt{detalhe\_status}] string; N. Justificativa obrigatória para quarentena e decisões que a exigem.
 \item[\texttt{cadastrado\_em}] Timestamp; O. Data/instante de cadastrado em, com ordem temporal validada e autoria do relógio do servidor para eventos.
 \item[\texttt{cadastrado\_por}] string; O. Valor de cadastrado por, validado pelo formulário e pelo servidor conforme regras do domínio.
+\item[\texttt{eh\_higroscopico}] boolean; O. Snapshot físico denormalizado, imutável, preenchido pelo backend no cadastro a partir de Resumo\_Reagente.eh\_higroscopico (fonte canônica 3FN). Alterações posteriores do resumo não reescrevem frascos existentes. Não aceitar valor do cliente nem atualização direta. Permite aplicar Q06 na devolução sem leitura adicional do resumo. Frascos legados sem snapshot exigem reconciliação explícita antes da operação.
 \end{description}
 
 \paragraph{Historico\_Frasco\_Reagente}\mbox{}\par
