@@ -38,7 +38,7 @@ Todas as exceções são declaradas explicitamente abaixo.
 \nolinkurl{Turma/\{turmaId\}} & Read: usuário é professor da turma (\texttt{resource.data.id\_professor == request.auth.uid}) OU está na sub-coleção \texttt{Alunos}. Write: negado ao cliente.\\
 \nolinkurl{Turma/\{turmaId\}/Alunos} & Read: \texttt{request.auth.uid == resource.data.id\_aluno} OU membro ativo da mesma turma, apenas em projeção mínima sem matrícula/e-mail.\\
 \nolinkurl{Turma/\{turmaId\}/Posts} & Read: membro da turma (professor ou aluno matriculado). Write: negado.\\
-\nolinkurl{Turma/\{turmaId\}/Posts/\{postId\}/Comentarios} & Idem ao Post pai.\\
+\nolinkurl{Turma/\{turmaId\}/Posts/\{postId\}/Comentarios} & Original moderado: somente autor, Professor responsável ou Chefe Geral com acesso ao contexto. Colegas recebem aviso por endpoint autorizado. Escrita direta negada.\\
 \nolinkurl{Usuarios/\{uid\}/Notificacoes} & Read: \texttt{request.auth.uid == uid}. Write: negado ao cliente.\\
 \texttt{Frasco\_Reagente} & Read: papel \texttt{roles} no token contém \texttt{Chefe\_Geral} OU \texttt{Gestor\_Almoxarifado} OU \texttt{Professor} OU \texttt{Bolsista} OU \texttt{Aluno}. Write: negado ao cliente.\\
 \texttt{Emprestimo\_Reagente} & Read: \texttt{Chefe\_Geral} OU \texttt{Gestor\_Almoxarifado} OU o próprio usuário que retirou (\texttt{resource.data.id\_usuario\_retirou == request.auth.uid}). Write: negado.\\
@@ -72,3 +72,8 @@ Mutações de domínio e locks são exclusivas do servidor, inclusive marcar not
 Storage valida dono, caminho, tipo e tamanho: foto inferior a 5 MiB, baixa inferior a 10 MiB e roteiro inferior a 15 MiB. Backend verifica arquivo existente e assinatura de conteúdo antes de referenciar; metadados não bastam para provar formato. Leitura de roteiro exige propriedade, compartilhamento ou post de turma acessível. Comprovante de baixa segue escopo patrimonial e não pode ser removido após vinculação. Não conceder leitura de todo Storage apenas porque o usuário está autenticado.
 
 Estas são exigências da especificação; firestore.rules e storage.rules atuais ainda divergem, conforme AUDITORIA\_ATUALIZADA.md. A presença de deny-all genérico não anula permissões amplas de matches específicos.
+
+\subsection{Moderação: autorização por documento e resposta filtrada}
+Firestore Rules autorizam ou negam documentos completos; não fazem projeção nem substituição do campo texto. Não implementar ``texto vazio via Rules''. Para o modelo físico descrito, negar leitura direta de Comentarios e histórico a quem não pode conhecer o original; a listagem de comentários é fornecida por endpoint autenticado que valida vínculo com a turma e devolve somente aviso institucional para comentários moderados de colegas. Autor recebe original marcado; Professor responsável e Chefe Geral recebem conteúdo necessário à auditoria. Não retornar original em campos auxiliares, cache, notificações ou mensagens de erro. Consulta ampla cliente que possa incluir documentos proibidos deve ser rejeitada e substituída pelo endpoint, nunca filtrada apenas no frontend. Backend valida também autoria da edição, motivo e papel de moderação, status ativo da turma e registra histórico/auditoria.
+
+Coleções Controle\_Papeis, Operacoes e Chaves\_Unicas são exclusivas de Admin SDK; leitura e escrita diretas de clientes são negadas. O deny-all atual já as protege, sem allow concorrente; matches explícitos constituem hardening documental. Esta seção descreve o alvo; a implementação atual de moderação permanece pendente.

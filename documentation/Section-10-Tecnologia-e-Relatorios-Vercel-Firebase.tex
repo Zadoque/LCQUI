@@ -834,11 +834,14 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
     estadoConservacaoProposto: string;
     idLocal: string;
     nomeResponsavelProposto: string;
+    photoUrlProposta: string; // objeto verificado pelo backend
     idResumoBemPatrimonial?: string;
     nomeResumoProposto?: string;
     descricaoResumoProposta?: string;
     motivo: string;
   };
+
+  await validarFotoProposta(dados.photoUrlProposta, request.auth!.uid);
 
   // C2: Lock determinístico por número de patrimônio proposto
   const lockId = `bem_adicao_${dados.numeroPatrimonioProposto}`;
@@ -854,7 +857,7 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
     tx.set(reqRef, {
       numero_patrimonio_proposto: dados.numeroPatrimonioProposto,
       estado_conservacao_proposto: dados.estadoConservacaoProposto,
-      photo_url_proposta: null,
+      photo_url_proposta: dados.photoUrlProposta,
       nome_responsavel_proposto: dados.nomeResponsavelProposto,
       id_local: dados.idLocal,
       id_resumo_bem_patrimonial: dados.idResumoBemPatrimonial ?? null,
@@ -881,6 +884,9 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
     if (!reqSnap.exists) throw new HttpsError("not-found", "Requisição não encontrada.");
     const req = reqSnap.data()!;
     if (req.status !== "pendente") throw new HttpsError("failed-precondition", "Requisição já respondida.");
+
+    if (aprovar && !req.photo_url_proposta)
+      throw new HttpsError("failed-precondition", "Foto obrigatória: sanear pedido legado.");
 
     // C2: Remove o lock ao responder (libera possível nova requisição futura)
     const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio")
@@ -914,7 +920,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
         numero_patrimonio: req.numero_patrimonio_proposto,
         estado_conservacao: req.estado_conservacao_proposto,
         id_local: req.id_local,
-        photo_url: req.photo_url_proposta ?? "https://placeholder",
+        photo_url: req.photo_url_proposta, // ausência rejeitada antes das escritas
         documento_dado_baixa_pdf_url: null,
         nome_responsavel_sei: req.nome_responsavel_proposto,
         status: "Ativo",
@@ -1251,7 +1257,7 @@ export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
 
 \subsection{Consolidação do planejamento complementar e contrato de execução}
 \label{sec:consolidacao}
-O inventário complementar inclui Planejamento\_Etiquetas\_LCQUI.md, REGRAS\_MULTI\_ROLE.md, COMPILACAO\_NIX\_LCQUI.md, README.md e os quatro documentos de acompanhamento. Os README de scaffold do frontend não adicionam requisitos de negócio; instruções AGENTS/CLAUDE orientam desenvolvimento, não a especificação do produto. O novo arquivo DUVIDAS\_DOCUMENTACAO\_LCQUI.md registra Q01--Q14 com três alternativas cada; a opção recomendada não é aprovação.
+O inventário complementar inclui Planejamento\_Etiquetas\_LCQUI.md, REGRAS\_MULTI\_ROLE.md, COMPILACAO\_NIX\_LCQUI.md, README.md e os quatro documentos de acompanhamento. Os README de scaffold do frontend não adicionam requisitos de negócio; instruções AGENTS/CLAUDE orientam desenvolvimento, não a especificação do produto. DUVIDAS\_PENDENTES\_LCQUI.md é o registro atual de decisões; Q01--Q14 e DP-A01--DP-D02 já foram resolvidas, conforme MODIFICACOES\_CONSOLIDADAS\_LCQUI.md.
 
 O planejamento de etiquetas foi incorporado às seções 4 (auditoria), 5.9 (contador e campos), 7 (regras), 8 (UI-08), 9 (ALM-07), 10 (geração) e 11 (acesso). O documento de Multi-Role foi incorporado integralmente pelos IDs RN-ROLE-01 a RN-ROLE-15 na seção 7. Os Markdown de origem permanecem como histórico; esta versão explicita as decisões conflitantes em vez de criar fontes concorrentes.
 

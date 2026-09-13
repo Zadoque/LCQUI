@@ -129,7 +129,7 @@ RF10: \textit{UNIQUE(id\_bem\_patrimonial) WHERE status = 'pendente'} -- impede 
 \campo{id\_usuario\_solicitante}{INTEGER}{FK, NOT NULL}
 \campo{id\_usuario\_respondente}{INTEGER}{FK, NULL}
 \campo{estado\_conservacao\_proposto}{ENUM}{BOM, REGULAR, RUIM, NOT NULL}
-\campo{photo\_url\_proposta}{TEXT}{NULL}
+\campo{photo\_url\_proposta}{TEXT}{NOT NULL}
 \campo{nome\_responsavel\_proposto}{VARCHAR(150)}{NOT NULL}
 \campo{id\_local}{INTEGER}{FK, NOT NULL}
 \campo{id\_resumo\_bem\_patrimonial}{INTEGER}{FK, NULL}
