@@ -230,3 +230,117 @@ As decisões Q01–Q14 geraram campos que precisam ser incorporados ao LaTeX. O 
 
 * **Decisão**: As coleções `Controle_Papeis/singleton`, `Operacoes` e `Chaves_Unicas` devem ter regras explícitas negando acesso direto de clientes em `firestore.rules`. A ausência de regra não equivale a deny-all em ambientes onde o deny-all raiz não é configurado explicitamente. AUD-35 e AUD-36 registram este risco.
 * **Trade-off**: Adicionar regras de deny para essas coleções não impacta o comportamento atual das Cloud Functions (que usam o SDK Admin e ignoram Rules), mas fecha o vetor de acesso direto por clientes maliciosos com token válido.
+
+---
+
+## 7\. Resolução Formal das Dúvidas Pendentes (DP-A01 a DP-D02)
+
+Todas as pendências de `DUVIDAS_PENDENTES_LCQUI.md` foram resolvidas em 13/09/2026. O detalhamento técnico de cada decisão está em `DUVIDAS_PENDENTES_LCQUI.md` (arquivo atualizado como registro histórico). As alterações LaTeX correspondentes estão em `PLANO_ATUALIZACAO_TEX_LCQUI.md`.
+
+### 7.1 DP-A01 — `estado_fisico` e `eh_higroscopico` movidos para `Resumo_Reagente`
+
+**Decisão**: Opção 2 — Ambos os campos migram de `Especificacao_Reagente` para `Resumo_Reagente`.
+
+**Justificativa**: Em CNTP (25 °C, 1 atm), substâncias em estados físicos distintos são produtos químicos distintos e, portanto, itens de catálogo distintos. Soluções aquosas de NaOH são `MISTURA` (resumo distinto de NaOH sólido puro). `eh_higroscopico` é propriedade intrínseca da espécie química, comum a todas as especificações de pureza. A unidade operacional (`g` se `SOLIDO`, `ml` se `LIQUIDO`) é derivada diretamente do resumo, sem ambiguidade. Queries de catálogo usam igualdade escalar `.where("estado_fisico", "==", "SOLIDO")`, eliminando o array `estados_fisicos` e queries `array-contains`.
+
+**Seções LaTeX**: 4.16 (Resumo_Reagente), 4.18 (Especificacao_Reagente — remover campo), 5.2 e 5.9.1 (dicionário e busca textual). Plano: P3-02, P3-03.
+
+---
+
+### 7.2 DP-A02 — Snapshot imutável `eh_higroscopico` em `Frasco_Reagente`
+
+**Decisão**: Opção 2 — Denormalizar snapshot `eh_higroscopico: boolean` em `Frasco_Reagente` no momento do cadastro.
+
+**Justificativa**: Zero leituras adicionais na devolução. A Cloud Function `registrarDevolucao` lê apenas o frasco e obtém a regra de tolerância híbrida diretamente. Imutabilidade garantida por validação no servidor: campo recusado em updates diretos. Solução mais eficiente em custo de leituras Firestore sem comprometer a fidelidade ao domínio.
+
+**Seções LaTeX**: 4.20 (campo novo em Frasco_Reagente), 5.9.1 (dicionário Frasco_Reagente), 10.2.2 (pseudocódigo registrarDevolucao). Plano: P3-07, P1-03.
+
+---
+
+### 7.3 DP-A03 — Constraint formal de faixa em `Composicao_Reagente`
+
+**Decisão**: Opção 1 — Constraint declarativa formal no modelo 3FN.
+
+**Regra**: `CHECK (valor_max IS NULL OR valor_min <= valor_max)`. Concentrações pontuais: `valor_min == valor_max` ou `valor_max = NULL`. Faixas: `valor_min < valor_max`. Campos substituem `valor_composicao`/`unidade` por `valor_min NUMERIC NULL`, `valor_max NUMERIC NULL`, `notacao_original_fabricante VARCHAR(50) NULL`.
+
+**Seções LaTeX**: 4.17 (Composicao_Reagente), 4.42.3 (anotações de integridade). Plano: P3-01.
+
+---
+
+### 7.4 DP-B01 — Máquina de estados pura em `Bem_Patrimonial` (sem flag `ativo`)
+
+**Decisão**: Opção 1 — Não adicionar flag `ativo`; manter a máquina de estados `Ativo → Inservivel → Ja_dado_baixa`.
+
+**Justificativa**: O ciclo de vida patrimonial público da UENF é regido pelo status formal. Uma flag `ativo` avulsa criaria redundância e ambiguidade semântica com o status formal. A máquina de estados é a forma canônica de controle de ciclo de vida patrimonial.
+
+**Seções LaTeX**: Nenhuma alteração. Item P3-04 cancelado. AUD-28 fechado sem alteração.
+
+---
+
+### 7.5 DP-B02 — `photo_url_proposta` NOT NULL na submissão da requisição de adição
+
+**Decisão**: Opção 1 — Foto obrigatória na submissão pelo professor (`NOT NULL`).
+
+**Justificativa**: O solicitante precisa estar diante do equipamento para levantar plaqueta e conservação, tornando a foto integral ao ato da requisição. Submissões sem imagem geram retrabalho e dependência de vistorias presenciais do gestor, contrariando o objetivo de autonomia do professor na requisição. Remove o fallback `"https://placeholder"` do backend.
+
+**Seções LaTeX**: 4.11 (`photo_url_proposta TEXT NOT NULL`), 10.2.5 (remover placeholder). Plano: P3-05.
+
+---
+
+### 7.6 DP-C01 — Aluno puro (sem Bolsista) pode exercer Gestor_Almoxarifado
+
+**Decisão**: Opção 1 — Compatível.
+
+**Regra resultante**: A restrição mútua de SoD é estritamente `Bolsista` ↔ `Gestor_Almoxarifado`. `Aluno` (sem `Bolsista`) e `Gestor_Almoxarifado` são compatíveis porque alunos regulares de graduação não têm permissão para retirar reagentes, eliminando o conflito de interesse. A seção 3.6 deve ser precisada para evitar ambiguidade futura.
+
+**Seções LaTeX**: 3.6 (nota de precisão), 7.4 (linha explícita na matriz). Plano: P3-06.
+
+---
+
+### 7.7 DP-C02 — Visibilidade de comentários moderados
+
+**Decisão**: Opção 1 — Autor vê seu texto com tarja; colegas veem aviso institucional.
+
+**Regra técnica**:
+- **Autor**: texto original com `"Comentário moderado pelo docente: [motivo_moderacao]"`.
+- **Colegas (Aluno/Bolsista não-autores)**: texto substituído por `"Comentário ocultado pela moderação da turma"`.
+- **Professor e Chefe_Geral**: texto original e histórico completo para auditoria.
+- **Bolsista**: segue visibilidade de Aluno (sem visibilidade ampliada de moderação).
+
+Campo `moderado_por INTEGER FK NULL` adicionado à entidade `Comentario` para rastreabilidade.
+
+**Seções LaTeX**: 4 (entidade Comentario: `moderado`, `motivo_moderacao`, `moderado_por`), 8.8.11 (UI-11), 11.1 (Security Rules). Plano: P1-04, P3-08.
+
+---
+
+### 7.8 DP-C03 — Invalidação de token de convite por substituição in-place
+
+**Decisão**: Opção 1 — Substituição in-place no documento determinístico. Sem campo `revogado_em`.
+
+**Regra técnica**: Chave determinística `convite_${turmaId || 'global'}_${hashEmail}`. O reenvio executa update atômico gravando novo `token_hash`, recalculando `expira_em = now() + 7 dias` e gravando `ultimo_reenvio_por`. O link anterior é revogado imediatamente sem duplicar documentos. A ausência de `revogado_em` é intencional: a substituição in-place é semanticamente equivalente à revogação.
+
+**Seções LaTeX**: 4.35 (`token_hash`, `ultimo_reenvio_por`), 5.9.1 (dicionário Convite_Aluno), 8.8.10 (UI de reenvio). Plano: P1-05.
+
+---
+
+### 7.9 DP-D01 — Verificação seletiva de `Usuarios/{uid}.ativo`
+
+**Decisão**: Opção 2 — Verificação apenas em mutações de alto impacto.
+
+**Regra técnica**:
+- **Confiam no token JWT** (latência máxima de 1h de revogação): leituras de catálogo, feeds de turma, listagem de posts e comentários, relatórios.
+- **Leem `Usuarios/{uid}.ativo` obrigatoriamente** (zero tolerância de revogação): `registrarRetirada`, `registrarDevolucao`, `responderRequisicaoAdicaoBem`, `responderRequisicaoEdicaoBem`, `concederPapel`, `revogarPapel`.
+
+Implementação via parâmetro `requerAtivo: boolean = false` em `validarPermissao`. Custo: 1 leitura Firestore por mutação crítica — aceitável para operações de escrita de alto impacto.
+
+**Seções LaTeX**: 10.2.1 (pseudocódigo `validarPermissao`). Plano: P3-09.
+
+---
+
+### 7.10 DP-D02 — Retenção indefinida de registros de auditoria (V1)
+
+**Decisão**: Opção 1 — Retenção indefinida na V1.
+
+**Justificativa**: Exigências legais de controle de bens públicos (TCU/CGU) e substâncias controladas (PF e EB) impedem expurgo automático de `Registro_de_Auditoria` e `Historico_Frasco_Reagente`. Notificações expiradas são marcadas com `expirada = true` mas o documento é preservado. RF25 e Seção 4.41 ratificados sem alteração.
+
+**Seções LaTeX**: Nenhuma alteração — RF25 e Seção 4.41 já cobrem este requisito.

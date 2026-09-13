@@ -1,8 +1,10 @@
 # Dúvidas Pendentes LCQUI
 
-Criação: 13/09/2026. Documento de pendências subjetivas ou de negócio que exigem validação externa (stakeholders, gestor do laboratório ou decisão de produto), **não** achados técnicos verificáveis por inspeção estática (esses vão em `AUDITORIA_ATUALIZADA.md`).
+Criação: 13/09/2026. Atualização: 13/09/2026 (resolução formal de todas as pendências).
 
-Formato: cada item lista a questão, a fonte do conflito ou lacuna, as alternativas possíveis e o impacto no modelo caso a decisão mude.
+> **TODAS AS PENDÊNCIAS FORAM RESOLVIDAS.**  
+> As decisões estão registradas em `MODIFICACOES_CONSOLIDADAS_LCQUI.md` §7 e as alterações LaTeX correspondentes em `PLANO_ATUALIZACAO_TEX_LCQUI.md` (Prioridade 3, itens desbloqueados).  
+> Este arquivo é mantido como registro histórico.
 
 ---
 
@@ -10,41 +12,36 @@ Formato: cada item lista a questão, a fonte do conflito ou lacuna, as alternati
 
 ### DP-A01 — Posicionamento de `estado_fisico` e `eh_higroscopico`
 
-**Questão**: `MODIFICACOES_CONSOLIDADAS_LCQUI.md` §1.1 move `estado_fisico` e `eh_higroscopico` de `Especificacao_Reagente` para `Resumo_Reagente`. Contudo, a Seção 4 mantém `estado_fisico` apenas em `Especificacao_Reagente`, e a explicação da Seção 4 (§Resumo_Reagente) afirma explicitamente que "densidade, estado físico e unidade de medida são propriedades da Especificacao_Reagente". As duas fontes se contradizem.
+> **RESOLVIDA** — Ver `MODIFICACOES_CONSOLIDADAS_LCQUI.md` §7.1 e Plano P3-02, P3-03.
 
-**Alternativas**:
-1. Manter em `Especificacao_Reagente` (posição atual do LaTeX) e revogar a decisão de §1.1 do MODIFICACOES.
-2. Mover para `Resumo_Reagente` (posição do MODIFICACOES): implica que todas as especificações de um mesmo resumo devem compartilhar o mesmo estado físico — impede, por exemplo, ter "Ácido Clorídrico anidro (SOLIDO)" e "Ácido Clorídrico solução 37% (LIQUIDO)" sob o mesmo resumo.
-3. Manter em ambos como redundância explícita: viola 3FN e cria risco de divergência.
-
-**Impacto**: Afeta o modelo 3FN (Seção 4), o dicionário Firestore (Seção 5.9), a fórmula de busca do catálogo (Seção 5 §busca-textual) e as regras de obrigatoriedade (Seção 7). Achados AUD-19 e AUD-20 bloqueados por esta decisão.
-
-**Recomendação técnica (não decisão)**: A opção 1 preserva a capacidade de agrupar formas distintas do mesmo reagente. A opção 2 simplifica queries mas restringe o catálogo. Levar ao gestor do laboratório para confirmar se "Ácido Clorídrico" é sempre um único estado físico no contexto do almoxarifado LCQUI.
+**Decisão**: Opção 2 — Mover `estado_fisico` e `eh_higroscopico` para `Resumo_Reagente`.  
+**Justificativa técnica**: Em CNTP (25 °C, 1 atm), substâncias em estados físicos distintos são produtos químicos distintos (ex.: NaOH sólido ≠ Solução aquosa de NaOH, que são resumos do tipo `MISTURA`). `eh_higroscopico` é propriedade intrínseca da espécie química, comum a todas as especificações de pureza do mesmo composto. A unidade operacional de catálogo fica derivada diretamente do resumo: `g` se `SOLIDO`, `ml` se `LIQUIDO`.  
+**Impacto no Firestore**: Elimina array `estados_fisicos: []` e queries `array-contains`. Consultas usam igualdade escalar: `.where("estado_fisico", "==", "SOLIDO")`.  
+**Seções afetadas**: 4.16, 4.18, 5.2, 5.9.1. Itens AUD-19 e AUD-20 → `RESOLVIDO NO PLANO`.
 
 ---
 
-### DP-A02 — Fórmula híbrida de Q06 e custo de leitura de `eh_higroscopico`
+### DP-A02 — Custo de leitura de `eh_higroscopico` na devolução (Q06)
 
-**Questão**: A fórmula híbrida de tolerância de devolução (MODIFICACOES §2.2) distingue higroscópicos de não-higroscópicos. Para aplicar essa distinção, a Cloud Function `registrarDevolucao` precisa resolver `eh_higroscopico` a partir da cadeia `Frasco_Reagente → Especificacao_Reagente → Resumo_Reagente`. Isso exige 1–2 leituras adicionais por devolução sem DP-A01 resolvido.
+> **RESOLVIDA** — Ver `MODIFICACOES_CONSOLIDADAS_LCQUI.md` §7.2 e Plano P3-07 (novo).
 
-**Alternativas**:
-1. Resolver `eh_higroscopico` na devolução com leituras adicionais (fidelidade máxima ao domínio).
-2. Denormalizar `eh_higroscopico` em `Frasco_Reagente` no momento do cadastro (snapshot, zero leituras extras na devolução).
-3. Simplificar para margem única de 2% (abrir mão da distinção higroscópico/não-higroscópico).
-
-**Impacto**: AUD-17 bloqueado parcialmente por esta decisão.
+**Decisão**: Opção 2 — Denormalizar snapshot `eh_higroscopico: boolean` em `Frasco_Reagente`.  
+**Justificativa técnica**: No momento do cadastro do frasco, o valor de `Resumo_Reagente.eh_higroscopico` é copiado como campo imutável para `Frasco_Reagente/{id}`. A Cloud Function `registrarDevolucao` lê apenas o frasco, obtendo a tolerância híbrida com **zero leituras adicionais**. Imutabilidade garantida por validação no servidor: campo recusado em updates do cliente.  
+**Seções afetadas**: 4.20, 5.9.1, 10.2.2. AUD-17 → `RESOLVIDO NO PLANO`.
 
 ---
 
 ### DP-A03 — Constraint de faixa em `Composicao_Reagente` (Q03)
 
-**Questão**: Q03 (MODIFICACOES §Q03) define `valor_min`/`valor_max` para representar faixas. A regra `valor_min <= valor_max` não foi incorporada à Seção 4 como constraint formal.
+> **RESOLVIDA** — Ver `MODIFICACOES_CONSOLIDADAS_LCQUI.md` §7.3 e Plano P3-01 (desbloqueado).
 
-**Alternativas**:
-1. Adicionar `CHECK (valor_max IS NULL OR valor_min <= valor_max)` na Seção 4.
-2. Manter validação apenas na aplicação, sem constraint no modelo 3FN.
-
-**Impacto**: AUD-21 depende desta formalização.
+**Decisão**: Opção 1 — Constraint formal declarativa no modelo 3FN.  
+**Regra técnica**:
+```sql
+CHECK (valor_max IS NULL OR valor_min <= valor_max)
+```
+Concentrações pontuais: `valor_min == valor_max` ou `valor_max = NULL`. Faixas: `valor_min < valor_max`.  
+**Seções afetadas**: 4.17, 4.42.3. AUD-21 → `RESOLVIDO NO PLANO`.
 
 ---
 
@@ -52,26 +49,22 @@ Formato: cada item lista a questão, a fonte do conflito ou lacuna, as alternati
 
 ### DP-B01 — Soft-delete em `Bem_Patrimonial`
 
-**Questão**: Q07 define flag `ativo` para reagentes. A entidade `Bem_Patrimonial` tem máquina de estados (`Ativo → Inservivel → Ja_dado_baixa`) mas não tem flag `ativo`. Não está claro se um bem pode ser "desativado" sem completar o fluxo formal de baixa.
+> **RESOLVIDA** — Ver `MODIFICACOES_CONSOLIDADAS_LCQUI.md` §7.4.
 
-**Alternativas**:
-1. Máquina de estados é suficiente para patrimônio; não adicionar `ativo`.
-2. Adicionar `ativo BOOLEAN` para permitir ocultação temporária sem transição de status formal.
-
-**Impacto**: AUD-28. Se opção 2, requer adição ao modelo 3FN e dicionário 5.9.
+**Decisão**: Opção 1 — Não adicionar flag `ativo`; manter máquina de estados pura.  
+**Justificativa técnica**: O ciclo de vida patrimonial público da UENF é regido pelo status formal: `Ativo → Inservivel → Ja_dado_baixa`. Uma flag `ativo` avulsa criaria redundância e ambiguidade semântica com o status formal. Seção 4.6 permanece sem alterações.  
+**Seções afetadas**: Nenhuma alteração no LaTeX. AUD-28 → `FECHADO SEM ALTERAÇÃO`.
 
 ---
 
 ### DP-B02 — Foto obrigatória na requisição de adição de bem
 
-**Questão**: `Requisicao_Adicao_Bem_Patrimonial.photo_url_proposta` é NULL na Seção 4 (linha 130). A lógica da UENF exige foto para registro patrimonial. Não está especificado se a foto é obrigatória na criação da requisição ou apenas na aprovação.
+> **RESOLVIDA** — Ver `MODIFICACOES_CONSOLIDADAS_LCQUI.md` §7.5 e Plano P3-05 (desbloqueado).
 
-**Alternativas**:
-1. Foto obrigatória na criação da requisição (NOT NULL): professor fotografa ao solicitar.
-2. Foto obrigatória apenas na aprovação: gestor pode requisitar foto antes de aprovar.
-3. Foto opcional em todo o fluxo (atual: NULL).
-
-**Impacto**: Altera nullability em `Requisicao_Adicao_Bem_Patrimonial.photo_url_proposta`. AUD-25 relacionado.
+**Decisão**: Opção 1 — Foto estritamente obrigatória na submissão pelo professor.  
+**Justificativa técnica**: O solicitante necessita estar diante do equipamento para levantar plaqueta e conservação; foto sem presença é impossível, então exigir na submissão elimina retrabalho e dependência de vistorias presenciais do gestor.  
+**Ajuste de schema**: `photo_url_proposta TEXT NOT NULL` em `Requisicao_Adicao_Bem_Patrimonial` (Seção 4.11). Remove fallback `"https://placeholder"` na Seção 10.2.5.  
+**Seções afetadas**: 4.11, 10.2.5. AUD-25 → `RESOLVIDO NO PLANO`.
 
 ---
 
@@ -79,77 +72,76 @@ Formato: cada item lista a questão, a fonte do conflito ou lacuna, as alternati
 
 ### DP-C01 — Aluno puro + Gestor_Almoxarifado: combinação permitida?
 
-**Questão**: Seção 7 (linha ~157) lista "Aluno que é Gestor de Almoxarifado" como combinação válida. Seção 3 §Bolsista (linha 99) diz que Bolsista é "mutuamente exclusivo com Gestor de Almoxarifado". A ambiguidade: Aluno **sem** Bolsista + Gestor_Almoxarifado é permitido?
+> **RESOLVIDA** — Ver `MODIFICACOES_CONSOLIDADAS_LCQUI.md` §7.6 e Plano P3-06 (desbloqueado).
 
-**Alternativas**:
-1. Sim, Aluno puro (sem Bolsista) pode ser Gestor_Almoxarifado (leitura atual da Seção 7).
-2. Não, qualquer Aluno é vedado de ser Gestor_Almoxarifado (segregação mais rígida).
-
-**Impacto**: Altera a matriz de combinações da Seção 7 e verificações nas Functions. AUD-33 relacionado.
-
----
-
-### DP-C02 — Histórico de comentários moderados: visibilidade
-
-**Questão**: Q11 (MODIFICACOES) define que comentários moderados ocultam o texto para alunos mas mantêm histórico para "auditoria da chefia e do docente". Não está especificado:
-- Se o autor vê seu próprio texto moderado.
-- Se Bolsista (que é Aluno) tem visibilidade ampliada.
-- Se `Historico_Comentario` tem Rules separadas de leitura.
-
-**Alternativas**:
-1. Autor vê seu texto moderado; outros alunos não veem.
-2. Nenhum aluno (nem o autor) vê o texto moderado.
-
-**Impacto**: Altera Security Rules em `Comentarios/{id}/Historico` e UI-11.
+**Decisão**: Opção 1 — Aluno puro (sem Bolsista) **PODE** exercer Gestor_Almoxarifado.  
+**Justificativa técnica**: A segregação de funções (SoD) visa impedir que o pesquisador/retirante gerencie o próprio estoque. Alunos regulares de graduação não têm permissão para retirar reagentes; portanto, não há conflito de interesse. A restrição mútua permanece estrita apenas para o conjunto **Aluno + Bolsista + Gestor_Almoxarifado**.  
+**Regra resultante**: `Bolsista` e `Gestor_Almoxarifado` são mutuamente exclusivos; `Aluno` (sem `Bolsista`) e `Gestor_Almoxarifado` são compatíveis.  
+**Seções afetadas**: 3.6 (harmonização), 7.4 (matriz). AUD-33 → `RESOLVIDO NO PLANO`.
 
 ---
 
-### DP-C03 — Expiração e renovação de token de convite (Q02)
+### DP-C02 — Visibilidade de comentários moderados
 
-**Questão**: Q02 define renovação que invalida token anterior "sem duplicar registros". Não está especificado se o token anterior é invalidado por substituição in-place ou por campo de revogação.
+> **RESOLVIDA** — Ver `MODIFICACOES_CONSOLIDADAS_LCQUI.md` §7.7 e Plano P3-08 (novo).
 
-**Alternativas**:
-1. Substituição in-place: sobrescrever `token_hash` e `expira_em` no documento existente (sem histórico de tokens).
-2. Marcar `status = expirado` no convite antigo e criar novo documento.
+**Decisão**: Opção 1 — O autor vê seu próprio texto com marcação de moderação; demais alunos veem aviso institucional.  
+**Regra técnica**:
+- Para o **autor**: exibe texto original com tarja `"Comentário moderado pelo docente: [motivo_moderacao]"`.
+- Para **colegas (Aluno/Bolsista, exceto o autor)**: substitui o texto por `"Comentário ocultado pela moderação da turma"`.
+- Para **Professor e Chefe_Geral**: exibe texto original e histórico completo para auditoria.
+- **Bolsista** segue a mesma visibilidade de Aluno (não tem visibilidade ampliada de moderação).  
 
-**Impacto**: Altera estrutura de `Convite_Aluno` e o fluxo de reenvio. AUD-32 relacionado.
+**Seções afetadas**: 8.8.11 (UI-11), 11.1 (Security Rules). AUD-31 → `RESOLVIDO NO PLANO`.
+
+---
+
+### DP-C03 — Invalidação e renovação de token de convite (Q02)
+
+> **RESOLVIDA** — Ver `MODIFICACOES_CONSOLIDADAS_LCQUI.md` §7.8 e Plano P1-05 (desbloqueado).
+
+**Decisão**: Opção 1 — Substituição in-place no documento determinístico.  
+**Regra técnica**: Chave determinística `convite_${turmaId || 'global'}_${hashEmail}`. O reenvio executa update atômico sobrescrevendo `token_hash`, recalculando `expira_em = now() + 7 dias` e gravando `ultimo_reenvio_por`. Link antigo é revogado imediatamente; sem duplicação de documentos. Campo `revogado_em` não é necessário (a substituição in-place já serve como revogação implícita).  
+**Seções afetadas**: 4.35, 5.9.1, 8.8.10. AUD-32 → `RESOLVIDO NO PLANO`.
 
 ---
 
 ## Bloco D — Governança, Multi-Role e Infra
 
-### DP-D01 — Custo de verificação de `Usuarios/{uid}.ativo` por chamada
+### DP-D01 — Custo de verificação de `Usuarios/{uid}.ativo`
 
-**Questão**: `MODIFICACOES_CONSOLIDADAS_LCQUI.md` §5.1 exige verificação de `ativo` no banco para invalidar sessões revogadas. Verificar em cada chamada cria custo de leitura adicional.
+> **RESOLVIDA** — Ver `MODIFICACOES_CONSOLIDADAS_LCQUI.md` §7.9 e Plano P3-09 (novo).
 
-**Alternativas**:
-1. Verificar `ativo` em toda Cloud Function crítica (1 leitura por chamada).
-2. Verificar apenas nas funções de alto impacto; demais confiam no token por até 1h.
-3. Usar `versao_permissoes` no token e no banco, invalidando quando divergirem.
+**Decisão**: Opção 2 — Validação pontual apenas em mutações de alto impacto.  
+**Regra técnica**:
+- **Confiam no token JWT** (latência máxima 1h de revogação): leituras de catálogo, feeds de turma, listagem de posts e comentários.
+- **Leem `Usuarios/{uid}.ativo` obrigatoriamente** (zero tolerância de revogação): empréstimos de reagentes, devoluções, baixas patrimoniais, aprovação/rejeição de requisições e concessão/revogação de papéis.  
 
-**Impacto**: AUD-38, AUD-05. Depende do prazo aceitável de latência de revogação aceito pelo produto.
+**Seções afetadas**: 10.2.1 (`validarPermissao` — adicionar parâmetro `requerAtivo`). AUD-38, AUD-05 → `RESOLVIDO NO PLANO`.
 
 ---
 
 ### DP-D02 — Política de retenção de dados de auditoria
 
-**Questão**: RF25/RN-ROLE-11 garantem que histórico não seja excluído. Não está definido:
-- Por quanto tempo os registros de `Registro_de_Auditoria` são mantidos.
-- Se existe política de arquivamento após período.
-- Se notificações expiradas são fisicamente removidas ou apenas marcadas.
+> **RESOLVIDA** — Ver `MODIFICACOES_CONSOLIDADAS_LCQUI.md` §7.10.
 
-**Alternativas**:
-1. Retenção indefinida (padrão atual implícito).
-2. Retenção por período definido por política institucional da UENF.
-3. Soft-delete com campo `arquivado_em` após período.
-
-**Impacto**: Afeta custo de armazenamento Firestore e índices de relatórios.
+**Decisão**: Opção 1 — Retenção indefinida para a V1.  
+**Justificativa técnica**: Exigências legais de controle de bens públicos (TCU/CGU) e substâncias controladas (PF e EB) impedem expurgo automático. `Registro_de_Auditoria` e `Historico_Frasco_Reagente` nunca são excluídos por rotina automatizada. Notificações expiradas são marcadas com `expirada = true` mas o documento é preservado.  
+**Seções afetadas**: RF25 e Seção 4.41 ratificados sem alteração. AUD não associado — item de política registrado.
 
 ---
 
-## Como resolver estas pendências
+## Registro de resolução
 
-1. Cada item deve ser discutido com o stakeholder relevante (gestor do laboratório, coordenação ou equipe de produto).
-2. Após decisão, registrar a resolução em `MODIFICACOES_CONSOLIDADAS_LCQUI.md` com a alternativa escolhida e a justificativa.
-3. Atualizar `PLANO_ATUALIZACAO_TEX_LCQUI.md` com as mudanças no LaTeX decorrentes da decisão.
-4. Remover o item deste arquivo somente após a decisão estar registrada nos documentos acima.
+| ID | Bloco | Decisão adotada | Plano LaTeX | Status AUD associado |
+|---|---|---|---|---|
+| DP-A01 | A | Opção 2 — `estado_fisico`/`eh_higroscopico` em `Resumo_Reagente` | P3-02, P3-03 desbloqueados | AUD-19, AUD-20 → RESOLVIDO NO PLANO |
+| DP-A02 | A | Opção 2 — Snapshot `eh_higroscopico` em `Frasco_Reagente` | P3-07 criado | AUD-17 → RESOLVIDO NO PLANO |
+| DP-A03 | A | Opção 1 — Constraint `CHECK` formal no modelo 3FN | P3-01 desbloqueado | AUD-21 → RESOLVIDO NO PLANO |
+| DP-B01 | B | Opção 1 — Máquina de estados pura, sem flag `ativo` | Nenhuma (P3-04 cancelado) | AUD-28 → FECHADO SEM ALTERAÇÃO |
+| DP-B02 | B | Opção 1 — Foto NOT NULL na submissão do professor | P3-05 desbloqueado | AUD-25 → RESOLVIDO NO PLANO |
+| DP-C01 | C | Opção 1 — Aluno puro + Gestor_Almoxarifado compatíveis | P3-06 desbloqueado | AUD-33 → RESOLVIDO NO PLANO |
+| DP-C02 | C | Opção 1 — Autor vê texto moderado; colegas veem aviso | P3-08 criado | AUD-31 → RESOLVIDO NO PLANO |
+| DP-C03 | C | Opção 1 — Substituição in-place, sem `revogado_em` | P1-05 desbloqueado | AUD-32 → RESOLVIDO NO PLANO |
+| DP-D01 | D | Opção 2 — `ativo` apenas em mutações de alto impacto | P3-09 criado | AUD-38, AUD-05 → RESOLVIDO NO PLANO |
+| DP-D02 | D | Opção 1 — Retenção indefinida V1 | Nenhuma (RF25 ratificado) | — |
