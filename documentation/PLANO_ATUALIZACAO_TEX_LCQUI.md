@@ -1,6 +1,8 @@
 # Plano de Atualização dos Arquivos LaTeX — LCQUI
 
-Criação: 13/09/2026. Atualização: 13/09/2026 (desbloqueio de P3 após resolução DP-A01–DP-D02).
+Criação: 13/09/2026. Atualização: 13/09/2026 (rodadas A–D aplicadas).
+
+Os blocos de ação abaixo preservam a transformação planejada e nomes antigos como histórico de rastreabilidade. O sumário registra aplicação real nos .tex; não representa código implementado.
 
 Regra geral: não alterar arquivos `.tex` diretamente durante a análise. Toda alteração de `.tex` requer compilação prévia com `latexmk -pdf -halt-on-error` em diretório isolado (`/tmp/lcqui-tex-build`) e verificação de ausência de erros e referências indefinidas.
 
@@ -20,7 +22,7 @@ raiz \texttt{Roteiro\_Experimento}. Subcampos: \texttt{id\_roteiro} (string; O),
 (number inteiro positivo; O), \texttt{storage\_path} (string; O). Imutável após
 publicação do post; revogação de compartilhamento não remove o snapshot histórico.
 ```
-**Justificativa**: MODIFICACOES §3.1; AUD-29. **Status**: ✅ Pronto para execução.
+**Justificativa**: MODIFICACOES §3.1; AUD-29. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
@@ -35,7 +37,7 @@ publicação do post; revogação de compartilhamento não remove o snapshot his
 professores com acesso de leitura ao roteiro, gerenciada pelo servidor; nunca aceitar
 adição direta por cliente.
 ```
-**Justificativa**: MODIFICACOES §3.2; AUD-30. **Status**: ✅ Pronto para execução.
+**Justificativa**: MODIFICACOES §3.2; AUD-30. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
@@ -65,7 +67,7 @@ const limiteMaxRetorno = emprestimo.peso_saida + deltaMax;
 2. Quando `pesoRetorno > peso_saida` mas dentro da tolerância: consumo = 0, `peso_atual = pesoRetorno`, gerar `Historico_Frasco_Reagente` tipo `AJUSTE` com `campo_ajustado = 'ganho_massa_higroscopia'`. **Não** incrementar `medida_usada`.
 3. Substituir `FieldValue.increment(volumeUtilizado)` em `medida_usada` por `FieldValue.increment(pesoConsumido)` (sempre em **gramas**). O consumo em mL pertence exclusivamente a `Emprestimo_Reagente.medida_utilizada`.
 
-**Justificativa**: MODIFICACOES §2.1–2.3, §7.2; AUD-17, AUD-18; DP-A01 ✅ DP-A02 ✅. **Status**: ✅ Desbloqueado — pronto para execução (executar após P3-07 e P3-09).
+**Justificativa**: MODIFICACOES §2.1–2.3, §7.2; AUD-17, AUD-18; DP-A01 ✅ DP-A02 ✅. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
@@ -86,7 +88,7 @@ Professor e Chefe\_Geral veem o texto original e o histórico. Bolsista segue vi
 de Aluno.
 \end{regra}
 ```
-**Justificativa**: MODIFICACOES §Q11, §7.7; AUD-31; DP-C02 ✅. **Status**: ✅ Desbloqueado — pronto para execução.
+**Justificativa**: MODIFICACOES §Q11, §7.7; AUD-31; DP-C02 ✅. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
@@ -111,7 +113,7 @@ Não usar hash simples de e-mail como identificador público; HMAC é pseudonimi
 não anonimização, e o documento continua com acesso restrito.
 \end{regra}
 ```
-**Justificativa**: MODIFICACOES §Q02, §7.8; AUD-32; DP-C03 ✅. **Status**: ✅ Desbloqueado — pronto para execução.
+**Justificativa**: MODIFICACOES §Q02, §7.8; AUD-32; DP-C03 ✅. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
@@ -123,7 +125,7 @@ não anonimização, e o documento continua com acesso restrito.
 \campo{papel\_destinatario}{ENUM}{Aluno, Professor, Bolsista, Gestor\_Bens\_Patrimoniais,
 Gestor\_Almoxarifado}{NOT NULL}
 ```
-**Justificativa**: MODIFICACOES §Q12; AUD-34. **Status**: ✅ Pronto para execução.
+**Justificativa**: MODIFICACOES §Q12; AUD-34. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
@@ -136,7 +138,7 @@ Gestor\_Almoxarifado}{NOT NULL}
 ```latex
 \campo{abertura\_historica\_desconhecida}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
 ```
-**Justificativa**: MODIFICACOES §Q05; AUD-22. **Status**: ✅ Pronto para execução.
+**Justificativa**: MODIFICACOES §Q05; AUD-22. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
@@ -154,7 +156,7 @@ Q14: Quando o único gestor ativo registra empréstimo para si mesmo,
 enviada ao Chefe Geral e justificativa obrigatória é registrada.
 \end{regra}
 ```
-**Justificativa**: MODIFICACOES §Q14; AUD-23. **Status**: ✅ Pronto para execução.
+**Justificativa**: MODIFICACOES §Q14; AUD-23. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
@@ -169,7 +171,7 @@ Q06 §2.1: \textit{medida\_utilizada} $\geq 0$. Consumo = $\max(0, \textit{peso\
 no empréstimo e cria entrada de ajuste em \textit{Historico\_Frasco\_Reagente}.
 \end{regra}
 ```
-**Justificativa**: MODIFICACOES §2.1; AUD-24. **Status**: ✅ Pronto para execução.
+**Justificativa**: MODIFICACOES §2.1; AUD-24. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
@@ -190,7 +192,7 @@ sem renomear globalmente o resumo original. \textit{versao\_bem\_origem} detecta
 concorrentes ao mesmo bem.
 \end{regra}
 ```
-**Justificativa**: MODIFICACOES §5.3; AUD-25, AUD-26. **Status**: ✅ Pronto para execução.
+**Justificativa**: MODIFICACOES §5.3; AUD-25, AUD-26. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
@@ -216,7 +218,7 @@ Q01: A vinculação de professores a gabinetes, prédios e salas específicas fo
 V1 por insuficiência de dados estruturados. Na V2, serão integrados os dados de lotação da
 SECRETARIA/UENF para permitir filtragem espacial no mapa do campus.
 ```
-**Justificativa**: MODIFICACOES §Q01. **Status**: ✅ Pronto para execução.
+**Justificativa**: MODIFICACOES §Q01. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
@@ -259,11 +261,11 @@ explícito do TCR. A ausência de \textit{justificativa\_metodologica} bloqueia 
 ```
 **Rastreabilidade obrigatória**: persistir no empréstimo `tcr_versao`, `tcr_aceito_em` (Timestamp servidor), `tcr_aceito_por` (UID autenticado do solicitante) e `tcr_auditoria_id`, com evento correspondente em `Registro_de_Auditoria`. O aceite deve ser obtido em sessão do retirante e vinculado ao frasco/operação/finalidade, validado pelo backend na retirada; gestor não pode declarar aceite em nome de terceiro. Persistência transacional/idempotente, versão institucional vigente e justificativa de 20–2000 caracteres. Checkbox/modal são UX. O TCR registra ciência e responsabilidade, sem substituir regras institucionais de segurança química. Aplicar também nas Seções 5, 7, 9 e 10.
 
-**Justificativa**: MODIFICACOES §Q04. **Status**: ✅ Pronto para execução.
+**Justificativa**: MODIFICACOES §Q04. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
-## Prioridade 3 — Desbloqueados após resolução das pendências (antes bloqueados)
+## Prioridade 3 — Decisões resolvidas; aplicação documental concluída
 
 ### P3-01 — Atualizar `Composicao_Reagente` para Q03 + constraint de faixa (Seção 4)
 **Desbloqueado por**: DP-A03 ✅
@@ -283,7 +285,7 @@ Concentrações pontuais: \texttt{valor\_min = valor\_max} ou \texttt{valor\_max
 Faixas: \texttt{valor\_min < valor\_max}.
 \end{regra}
 ```
-**Justificativa**: MODIFICACOES §Q03, §7.3; AUD-21. **Status**: ✅ Desbloqueado — pronto para execução.
+**Justificativa**: MODIFICACOES §Q03, §7.3; AUD-21. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
@@ -306,7 +308,7 @@ resumo, não da especificação comercial individual. A unidade operacional de c
 (\texttt{g} para SOLIDO, \texttt{ml} para LIQUIDO) é derivada diretamente deste campo.
 \end{explicacao}
 ```
-**Justificativa**: MODIFICACOES §1.1, §7.1; AUD-19. **Status**: ✅ Desbloqueado — pronto para execução.
+**Justificativa**: MODIFICACOES §1.1, §7.1; AUD-19. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
@@ -318,7 +320,7 @@ resumo, não da especificação comercial individual. A unidade operacional de c
 1. No dicionário §Resumo_Reagente: remover campo `estados_fisicos` (array) e adicionar `estado_fisico` (enum escalar) e `eh_higroscopico` (boolean).
 2. Na subseção de busca: substituir menção a `array-contains` por filtro de igualdade escalar `.where("estado_fisico", "==", "SOLIDO")`. Remover nota sobre `estados_fisicos`.
 
-**Justificativa**: MODIFICACOES §1.1, §7.1; AUD-20. **Status**: ✅ Desbloqueado — pronto para execução.
+**Justificativa**: MODIFICACOES §1.1, §7.1; AUD-20. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
@@ -346,7 +348,7 @@ conservação. Foto obrigatória na submissão elimina retrabalho de vistoria pr
 gestor. O backend rejeita a requisição sem foto e remove o placeholder \texttt{https://placeholder}.
 \end{regra}
 ```
-**Justificativa**: MODIFICACOES §7.5; AUD-25. **Status**: ✅ Desbloqueado — pronto para execução.
+**Justificativa**: MODIFICACOES §7.5; AUD-25. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
@@ -369,12 +371,12 @@ acumular o papel de Gestor de Almoxarifado.
 (SoD: quem retira não pode gerir o estoque). Aluno sem Bolsista pode exercer
 Gestor\_Almoxarifado.
 ```
-**Justificativa**: MODIFICACOES §7.6; AUD-33. **Status**: ✅ Desbloqueado — pronto para execução.
+**Justificativa**: MODIFICACOES §7.6; AUD-33. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
 ### P3-07 — Snapshot físico de higroscopicidade (Seção 5)
-**Decisão**: DP-A02 preservada. **Estado**: PLANEJADO.
+**Decisão**: DP-A02 preservada. **Estado**: APLICADO_DOCUMENTACAO.
 **Arquivo**: `Section-5-Notas-de-Mapeamento-para-Firestore.tex`.
 Adicionar `Frasco_Reagente.eh_higroscopico` ao dicionário físico: boolean obrigatório, denormalização imutável preenchida exclusivamente pelo backend no cadastro a partir de `Resumo_Reagente.eh_higroscopico`. Alterações futuras do resumo não reescrevem snapshots existentes. Não adicionar a cópia à entidade relacional: a fonte canônica 3FN permanece no resumo. Cadastro e devolução da Seção 10 devem respeitar esse contrato; dado histórico ausente exige reconciliação explícita, não inferência silenciosa.
 
@@ -398,7 +400,7 @@ visibilidade de Aluno.
 **Arquivo B**: `Section-11` (Security Rules ou equivalente)
 **Localização B**: Regras de leitura de `Comentarios/{id}`
 **Ação B**: Rules não fazem projeção de campos. Negar leitura direta do documento original a colegas quando moderado; fornecer aviso institucional por endpoint autorizado, com resposta filtrada no servidor. Autor, Professor responsável e Chefe Geral recebem o conteúdo conforme DP-C02. Proteger igualmente o histórico e impedir que um allow amplo anule a restrição. A UI não é barreira de segurança.
-**Justificativa**: MODIFICACOES §7.7; AUD-31. **Status**: ✅ Desbloqueado — pronto para execução.
+**Justificativa**: MODIFICACOES §7.7; AUD-31. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
@@ -428,7 +430,7 @@ async function validarPermissao(
 Risco residual DP-D01: mutações que não exigirem `requerAtivo=true` podem continuar confiando em token ainda válido até renovação (até aproximadamente 1h). A verificação seletiva de ativo não garante atualização imediata de papéis em conta que permanece ativa.
 
 Adicionar nota: funções que devem chamar com `requerAtivo = true`: `registrarRetirada`, `registrarDevolucao`, `responderRequisicaoAdicaoBem`, `responderRequisicaoEdicaoBem`, `concederPapel`, `revogarPapel`.
-**Justificativa**: MODIFICACOES §5.1, §7.9; AUD-38, AUD-05. **Status**: ✅ Desbloqueado — pronto para execução.
+**Justificativa**: MODIFICACOES §5.1, §7.9; AUD-38, AUD-05. **Status**: APLICADO_DOCUMENTACAO (rodadas A–D; código não atestado).
 
 ---
 
@@ -436,29 +438,29 @@ Adicionar nota: funções que devem chamar com `requerAtivo = true`: `registrarR
 
 | Item | Título resumido | Status |
 |---|---|---|
-| P1-01 | `roteiro_anexo` em §Post (Seção 5) | ✅ Pronto |
-| P1-02 | Remover `Roteiro_Professor_Compartilhado` Firestore | ✅ Pronto |
-| P1-03 | `registrarDevolucao` fórmula Q06 + `medida_usada` em g | ✅ Pronto ⚠️ após P3-07 e P3-09 |
-| P1-04 | `moderado`/`motivo_moderacao`/`moderado_por` em `Comentario` | ✅ Pronto |
-| P1-05 | `token_hash` + `ultimo_reenvio_por` em `Convite_Aluno` | ✅ Pronto |
-| P1-06 | `Bolsista` no enum `papel_destinatario` | ✅ Pronto |
-| P2-01 | `abertura_historica_desconhecida` em `Frasco_Reagente` | ✅ Pronto |
-| P2-02 | `auto_atendimento` em `Emprestimo_Reagente` | ✅ Pronto |
-| P2-03 | Invariante `medida_utilizada >= 0` | ✅ Pronto |
-| P2-04 | `novo_id_resumo_bem_patrimonial` + `versao_bem_origem` | ✅ Pronto |
-| P2-05 | Remover filtro prédio/sala do painel Professor + documentar V2 | ✅ Pronto (novo) |
-| P2-06 | `finalidade_uso` enum expandido + `justificativa_metodologica` + TCR | ✅ Pronto (novo) |
-| P3-01 | `Composicao_Reagente` Q03 + CHECK constraint | ✅ Desbloqueado |
-| P3-02 | `estado_fisico`/`eh_higroscopico` em `Resumo_Reagente` | ✅ Desbloqueado |
-| P3-03 | Busca textual Seção 5 — escalar em vez de array | ✅ Desbloqueado |
+| P1-01 | `roteiro_anexo` em §Post (Seção 5) | APLICADO_DOCUMENTACAO |
+| P1-02 | Remover `Roteiro_Professor_Compartilhado` Firestore | APLICADO_DOCUMENTACAO |
+| P1-03 | `registrarDevolucao` fórmula Q06 + `medida_usada` em g | APLICADO_DOCUMENTACAO |
+| P1-04 | `moderado`/`motivo_moderacao`/`moderado_por` em `Comentario` | APLICADO_DOCUMENTACAO |
+| P1-05 | `token_hash` + `ultimo_reenvio_por` em `Convite_Aluno` | APLICADO_DOCUMENTACAO |
+| P1-06 | `Bolsista` no enum `papel_destinatario` | APLICADO_DOCUMENTACAO |
+| P2-01 | `abertura_historica_desconhecida` em `Frasco_Reagente` | APLICADO_DOCUMENTACAO |
+| P2-02 | `auto_atendimento` em `Emprestimo_Reagente` | APLICADO_DOCUMENTACAO |
+| P2-03 | Invariante `medida_utilizada >= 0` | APLICADO_DOCUMENTACAO |
+| P2-04 | `novo_id_resumo_bem_patrimonial` + `versao_bem_origem` | APLICADO_DOCUMENTACAO |
+| P2-05 | Remover filtro prédio/sala do painel Professor + documentar V2 | APLICADO_DOCUMENTACAO |
+| P2-06 | `finalidade_uso` enum expandido + `justificativa_metodologica` + TCR | APLICADO_DOCUMENTACAO |
+| P3-01 | `Composicao_Reagente` Q03 + CHECK constraint | APLICADO_DOCUMENTACAO |
+| P3-02 | `estado_fisico`/`eh_higroscopico` em `Resumo_Reagente` | APLICADO_DOCUMENTACAO |
+| P3-03 | Busca textual Seção 5 — escalar em vez de array | APLICADO_DOCUMENTACAO |
 | P3-04 | `ativo` em `Bem_Patrimonial` | ❌ Cancelado (DP-B01: Opção 1) |
-| P3-05 | `photo_url_proposta` NOT NULL | ✅ Desbloqueado |
-| P3-06 | Harmonizar Aluno+Gestor_Almoxarifado (Seções 3 e 7) | ✅ Desbloqueado |
-| P3-07 | `eh_higroscopico` snapshot em `Frasco_Reagente` | ✅ Desbloqueado |
-| P3-08 | Moderação UI-11 e Security Rules | ✅ Desbloqueado |
-| P3-09 | `validarPermissao` com `requerAtivo` | ✅ Desbloqueado |
+| P3-05 | `photo_url_proposta` NOT NULL | APLICADO_DOCUMENTACAO |
+| P3-06 | Harmonizar Aluno+Gestor_Almoxarifado (Seções 3 e 7) | APLICADO_DOCUMENTACAO |
+| P3-07 | `eh_higroscopico` snapshot em `Frasco_Reagente` | APLICADO_DOCUMENTACAO |
+| P3-08 | Moderação UI-11 e Security Rules | APLICADO_DOCUMENTACAO |
+| P3-09 | `validarPermissao` com `requerAtivo` | APLICADO_DOCUMENTACAO |
 
-**Total**: 21 itens | 20 prontos para execução | 1 cancelado.
+**Total**: 21 itens | 20 APLICADO_DOCUMENTACAO | 1 cancelado.
 
 Contagem conferida na Fase 0: 6 P1 + 6 P2 + 9 P3. O total anterior era erro aritmético; nenhum item foi acrescentado ou removido por esta correção.
 

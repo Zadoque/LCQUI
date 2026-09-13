@@ -1,6 +1,6 @@
 # Matriz de implementação e rastreabilidade LCQUI
 
-Revisão: 11/09/2026. Referência funcional: LaTeX, seções 3, 5.9, 7, 8 e 9. Esta revisão é documental e de inspeção estática; não executou testes funcionais nem homologação. `PARCIAL` significa que há código relacionado, mas não há evidência suficiente de conformidade integral com os novos contratos. Existência de teste não significa aprovação nesta revisão. Nenhum item recebe `VALIDADO` sem execução identificada e aceite.
+Revisão: 13/09/2026. Referência funcional: LaTeX, seções 3, 5.9, 7, 8 e 9. Esta revisão é documental e de inspeção estática; não executou testes funcionais nem homologação. `PARCIAL` significa que há código relacionado, mas não há evidência suficiente de conformidade integral com os novos contratos. Existência de teste não significa aprovação nesta revisão. Nenhum item recebe `VALIDADO` sem execução identificada e aceite.
 
 Os caminhos de frontend abreviados após ponto e vírgula pertencem à mesma árvore indicada. Testes abaixo são relativos a `functions/src/__tests__/`. Funções e coleções são nomes observados; diferenças para o alvo estão na auditoria.
 
@@ -15,7 +15,7 @@ Os caminhos de frontend abreviados após ponto e vírgula pertencem à mesma ár
 | RF05 | Alternância de papel | UI-01 / COM-01 | `frontend/src/components/layout/Header.tsx; Sidebar.tsx` | `Apresentação cliente; sem endpoint switchRole confirmado` | `auth.test.ts` | Troca real de escopo, limpeza de cache e E2E | PARCIAL |
 | RF06 | Cadastro/manutenção patrimonial | UI-09 / PAT-01 | `frontend/src/components/patrimonio/ModaisPatrimonio.tsx; functions/src/patrimonio.ts` | `Bem_Patrimonial; Resumo_Bem_Patrimonial` | `patrimonio.test.ts` | Unificar mutações servidor e campos obrigatórios | PARCIAL |
 | RF07 | Histórico patrimonial | UI-04 / PAT-02 | `functions/src/patrimonio.ts; frontend/src/app/patrimonio/[id]/page.tsx` | `Historico_Bem_Patrimonial (raiz atual; alvo subcoleção)` | `patrimonio.test.ts` | Migrar caminho e preservar snapshots | PARCIAL |
-| RF08 | Requisição de adição | UI-09 / PRO-10 | `functions/src/patrimonio.ts` | `criarRequisicaoAdicaoBem / Requisicao_Adicao_Bem_Patrimonial` | `patrimonio.test.ts` | Foto na aprovação, unicidade e Rules | PARCIAL |
+| RF08 | Requisição de adição | UI-09 / PRO-10 | `functions/src/patrimonio.ts` | `criarRequisicaoAdicaoBem / Requisicao_Adicao_Bem_Patrimonial` | `patrimonio.test.ts` | Foto na submissão (DP-B02), unicidade e Rules | PARCIAL |
 | RF09 | Requisição de edição | UI-09 / PRO-10 | `functions/src/patrimonio.ts` | `criarRequisicaoEdicaoBem / Requisicao_Edicao_Bem_Patrimonial` | `patrimonio.test.ts` | Versão do bem e reclassificação | PARCIAL |
 | RF10 | Uma edição pendente por bem | UI-09 / PAT-03 | `functions/src/patrimonio.ts` | `Locks_Requisicao_Patrimonio` | `patrimonio.test.ts` | Concorrência e limpeza sem expirar pendências | PARCIAL |
 | RF11 | Responder requisição | UI-09 / PAT-03 | `functions/src/patrimonio.ts; frontend/src/app/patrimonio/requisicoes/page.tsx` | `responderRequisicaoAdicaoBem; responderRequisicaoEdicaoBem` | `patrimonio.test.ts` | Transação, resposta duplicada, justificativa | PARCIAL |
@@ -79,3 +79,7 @@ A seção 9 define entradas, validação, persistência, falhas e retorno para c
 ## Como atualizar os estados
 
 Para concluir um item, registrar commit, comando/data/resultado dos testes pertinentes, caminhos reais de Rules/índices e evidência do fluxo UI. Testar autor autorizado e não autorizado, outro recurso/escopo, dados inválidos, repetição e concorrência quando aplicável. Homologação não é substituída por mocks. Decisões Q01–Q14 permanecem em [DUVIDAS_PENDENTES_LCQUI.md](DUVIDAS_PENDENTES_LCQUI.md).
+
+## Aplicação documental desta rodada
+
+P1-01–06, P2-01–06 e P3-01–03/P3-05–09: APLICADO_DOCUMENTACAO nas rodadas A–D. P3-04 cancelado por DP-B01. Contratos incluem Q06 híbrida, fonte 3FN no resumo, snapshot físico, TCR rastreável, ACL, convites, SoD e moderação protegida no servidor. Isso não eleva os RF/RN parciais a IMPLEMENTADO_CODIGO ou VALIDADO.

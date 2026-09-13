@@ -439,8 +439,8 @@ export const registrarRetirada = onCall(async (request) => {
     }
 
     const agora = new Date();
-    let frascoVencido = frasco.vencido;
     let validadeEfetiva = frasco.validade_efetiva ? frasco.validade_efetiva.toDate() : null;
+    let frascoVencido = Boolean(validadeEfetiva && validadeEfetiva <= agora);
 
     if (dados.abrirNoEmprestimo && frasco.estado_fisico_frasco === "FECHADO") {
       validadeEfetiva = calcularValidadeEfetivaNaAbertura(frasco, agora);
@@ -528,12 +528,13 @@ export const registrarDevolucao = onCall(async (request) => {
     const emprestimoSnap = await tx.get(emprestimoRef);
     if (!emprestimoSnap.exists) throw new HttpsError("not-found", "Empréstimo não encontrado.");
     const emprestimo = emprestimoSnap.data()!;
-    if (emprestimo.status === "DEVOLVIDO" || emprestimo.status === "DEVOLVIDO_COM_ATRASO") {
+    if (!["EM_USO", "ATRASADO"].includes(emprestimo.status)) {
       throw new HttpsError("failed-precondition", "Empréstimo já foi devolvido.");
     }
 
     const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(emprestimo.id_frasco_reagente);
     const frascoSnap = await tx.get(frascoRef);
+    if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     const frasco = frascoSnap.data()!;
     await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
 
@@ -541,6 +542,9 @@ export const registrarDevolucao = onCall(async (request) => {
     const densidade = liquido ? emprestimo.densidade_aplicada : null;
     if (liquido && (!Number.isFinite(densidade) || densidade <= 0))
       throw new HttpsError("failed-precondition", "Densidade histórica inválida.");
+    // Q06: peso abaixo da tara segue esgotamento/recalibração auditados, nunca ajuste silencioso.
+    if (dados.pesoRetorno < frasco.peso_frasco_vazio)
+      throw new HttpsError("failed-precondition", "Usar fluxo Q06 de esgotamento/recalibração de tara.");
     const pesoConsumido = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno);
 
     if (typeof frasco.eh_higroscopico !== "boolean")
@@ -1063,7 +1067,7 @@ export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
   await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, idAlmoxarifado);
 
   const dataInicio = new Date(ano, mes - 1, 1);
-  const dataFim = new Date(ano, mes, 0);
+  const dataFim = new Date(`${ano}-${String(mes).padStart(2, "0")}-${new Date(ano, mes, 0).getDate()}T23:59:59.999-03:00`);
 
   const devolucoesSnapshot = await admin.firestore().collection("Emprestimo_Reagente")
     .where("id_almoxarifado", "==", idAlmoxarifado)
@@ -1071,9 +1075,12 @@ export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
     .where("data_devolucao_efetuada", "<=", dataFim)
     .get();
 
-  const volumeTotalConsumido = devolucoesSnapshot.docs.reduce(
-    (acc, doc) => acc + (doc.data().medida_utilizada || 0), 0
-  );
+  const consumoPorUnidade = devolucoesSnapshot.docs.reduce((acc, doc) => {
+    const d = doc.data();
+    if (d.unidade_medida_utilizada === "ml") acc.ml += d.medida_utilizada || 0;
+    else if (d.unidade_medida_utilizada === "g") acc.g += d.medida_utilizada || 0;
+    return acc;
+  }, { g: 0, ml: 0 });
 
   const historicoSnapshot = await admin.firestore().collection("Historico_Frasco_Reagente")
     .where("id_almoxarifado", "==", idAlmoxarifado)
@@ -1082,14 +1089,9 @@ export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
     .orderBy("timestamp", "asc").get();
 
   const doc = new PDFDocument({ margin: 30, size: "A4" });
-  const buffer = await buildPdfBuffer(doc, historicoSnapshot.docs, volumeTotalConsumido);
+  const buffer = await buildPdfBuffer(doc, historicoSnapshot.docs, consumoPorUnidade);
 
-  const fileName = `relatorios/almoxarifado_${idAlmoxarifado}_${mes}_${ano}_${Date.now()}.pdf`;
-  const fileRef = admin.storage().bucket().file(fileName);
-  await fileRef.save(buffer, { contentType: "application/pdf" });
-
-  const [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
-  return { url };
+  return { pdfBase64: buffer.toString("base64") };
 });
 \end{lstlisting}
 
@@ -1119,11 +1121,7 @@ export const gerarRelatorioBensPredio = onCall(async (request) => {
   const doc = new PDFDocument({ size: "A4" });
   const buffer = await buildPredioPdfBuffer(doc, bensSnapshot.docs, filtros);
 
-  const fileRef = admin.storage().bucket().file(`relatorios/predio_${filtros.predio}_${Date.now()}.pdf`);
-  await fileRef.save(buffer, { contentType: "application/pdf" });
-
-  const [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
-  return { url };
+  return { pdfBase64: buffer.toString("base64") };
 });
 \end{lstlisting}
 
@@ -1144,7 +1142,7 @@ export const gerarRelatorioPersonalizado = onCall(async (request) => {
   let snapshot;
 
   if (entidade === "Bens_Patrimoniais") {
-    let query = admin.firestore().collection("Historico_Bem_Patrimonial")
+    let query = admin.firestore().collectionGroup("Historico") // somente caminhos Bem_Patrimonial/{id}/Historico
       .where("timestamp", ">=", dataIniObj)
       .where("timestamp", "<=", dataFimObj);
     if (prediosSelecionados && prediosSelecionados.length > 0) {
@@ -1161,10 +1159,7 @@ export const gerarRelatorioPersonalizado = onCall(async (request) => {
   const doc = new PDFDocument({ layout: "landscape", size: "A4" });
   const buffer = await buildPersonalizadoPdfBuffer(doc, snapshot.docs, entidade);
 
-  const fileRef = admin.storage().bucket().file(`relatorios/personalizado_${Date.now()}.pdf`);
-  await fileRef.save(buffer, { contentType: "application/pdf" });
-  const [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
-  return { url };
+  return { pdfBase64: buffer.toString("base64") };
 });
 \end{lstlisting}
 

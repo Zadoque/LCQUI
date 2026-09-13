@@ -357,7 +357,7 @@ A especificação referencia o resumo, fonte do estado físico; a unidade é der
 
 Os campos \textit{peso\_no\_cadastrado}, \textit{peso\_atual}, \textit{peso\_frasco\_vazio} e \textit{medida\_usada} são sempre leituras de balança em gramas, independentemente de o conteúdo ser sólido ou líquido, já que a operação real do laboratório consiste em pesar o frasco; o volume, quando aplicável, é sempre derivado por conversão via densidade.
 
-O campo \textit{unidade\_de\_medida}, antes duplicado nesta entidade, foi removido: a unidade do produto (ml ou g) é obtida via \textit{Frasco\_Reagente} $\rightarrow$ \textit{Lote} $\rightarrow$ \textit{Especificacao\_Reagente} (ou diretamente via \textit{id\_especificacao\_reagente} quando o lote é NULL).
+O campo \textit{unidade\_de\_medida}, antes duplicado nesta entidade, foi removido: a unidade do produto (ml ou g) é obtida via \textit{Frasco\_Reagente} $\rightarrow$ \textit{Lote} $\rightarrow$ \textit{Especificacao\_Reagente} (ou diretamente via \textit{id\_especificacao\_reagente} quando o lote é NULL), chegando ao Resumo\_Reagente, cujo estado determina a unidade.
 
 O antigo campo único \textit{status} (com valores combinados como \texttt{VENCIDO\_DISPONIVEL}, \texttt{VENCIDO\_EMPRESTADO}) foi decomposto em dimensões ortogonais -- \textit{estado\_fisico\_frasco}, \textit{disponibilidade}, \textit{vencido} e \textit{em\_quarentena} -- evitando o crescimento combinatorial do enum e simplificando consultas e regras de notificação.
 

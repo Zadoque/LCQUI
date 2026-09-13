@@ -169,7 +169,7 @@ Apenas o chefe geral consegue colocar um aluno como bolsista.
 \begin{itemize}
     \item Um frasco \texttt{VAZIO} ou \texttt{QUEBRADO} deve ser exibido como ``Pendente de Descarte'', salvo se já estiver \texttt{DESCARTADO}.
     \item Um frasco \texttt{VENCIDO} não é automaticamente descartado e também não é automaticamente bloqueado para uso. Para frasco vencido, o sistema mantém a decisão explícita: \texttt{em\_quarentena = true}, ou \texttt{uso\_vencido\_autorizado = true}, ou situação de \textit{PENDENTE DE DESCARTE} com \texttt{uso\_vencido\_autorizado = false}.
-    \item Em cadastro, quando a validade efetiva já tiver expirado no instante da operação, o gestor é obrigado a escolher um desses três destinos: \texttt{QUARENTENA}, \texttt{PENDENTE\_DE\_DESCARTE} ou \texttt{DISPONIVEL} com uso vencido explicitamente autorizado para práticas didáticas e demonstrações.
+    \item Em cadastro, quando a validade efetiva já tiver expirado no instante da operação, o gestor é obrigado a escolher um desses três destinos: \texttt{QUARENTENA}, \texttt{PENDENTE\_DE\_DESCARTE} ou \texttt{DISPONIVEL} com uso vencido explicitamente autorizado conforme Q04.
     \item O frasco em quarentena não pode ser retirado; o frasco pendente de descarte não pode ser retirado; o frasco vencido com uso explicitamente autorizado pode ser retirado, mas a interface deve alertar transparentemente antes da confirmação do empréstimo.
     \item Se um frasco vencer enquanto estiver emprestado, o empréstimo continua válido. Na devolução, o servidor deve recalcular o vencimento com a hora atual e permitir ao gestor registrar o destino pós-validade.
 \end{itemize}
