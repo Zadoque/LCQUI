@@ -208,7 +208,7 @@ interface CadastroFrascoFechado {
   idEspecificacaoReagente: string;
   idAlmoxarifado: string;
   idLote?: string; // quando fornecido, deve pertencer à idEspecificacaoReagente (validado abaixo)
-  // volumeNominal: payload camelCase do cliente → persiste como conteudo_nominal (snake_case Firestore)
+  // volumeNominal: payload camelCase do cliente -> persiste como conteudo_nominal (snake_case Firestore)
   // Para sólidos: volumeNominal representa a massa nominal em g
   // Para líquidos: volumeNominal representa o volume nominal em mL (M-17)
   pesoTotal: number;
@@ -946,7 +946,7 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
       if (!localSnap.exists)
         throw new HttpsError("not-found", "Local referenciado na requisição não encontrado.");
       const local = localSnap.data()!;
-      // Atualizar as projeções denormalizadas conforme Seção 5 §Espelhamento de Local
+      // Atualizar as projeções denormalizadas conforme Seção 5 (Espelhamento de Local)
       alteracoes.id_local = req.novo_id_local;
       alteracoes.predio = local.predio;
       alteracoes.andar = local.andar;
