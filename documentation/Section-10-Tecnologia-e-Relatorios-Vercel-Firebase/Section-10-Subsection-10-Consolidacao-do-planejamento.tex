@@ -142,31 +142,61 @@ export const verificarEscassezReagentes = onSchedule("every day 04:00", async ()
 // verificado/criado na mesma transação Firestore.
 export const aceitarConviteAluno = onCall(async (request) => {
   const { tokenConvite } = request.data as { tokenConvite: string };
-  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Usuário não autenticado.");
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Usuario nao autenticado.");
 
-  // 1. Localizar convite por hash HMAC determinístico (DP-C03)
+  // 1. Calcular hash HMAC deterministico (DP-C03) para busca do convite
   const hashToken = calcularHmacConvite(tokenConvite); // HMAC-SHA-256 com segredo servidor
-  const conviteSnap = await admin.firestore().collection("Convite_Aluno")
-    .where("token_hash", "==", hashToken).where("status", "==", "pendente").limit(1).get();
-  if (conviteSnap.empty) throw new HttpsError("not-found", "Convite inválido ou expirado.");
-  const convite = conviteSnap.docs[0].data();
-  if (new Date() > convite.expira_em.toDate())
-    throw new HttpsError("failed-precondition", "Convite expirado.");
 
-  // 2. Verificar e-mail do usuário autenticado
+  // 2. Verificar e-mail do usuario autenticado no provedor
   const authUser = await admin.auth().getUser(request.auth.uid);
   const emailNorm = authUser.email?.toLowerCase();
-  if (emailNorm !== convite.email)
-    throw new HttpsError("permission-denied", "E-mail da conta não corresponde ao convite.");
 
-  // 3. Transação: criar Aluno e vínculo se não existirem
+  // 3. Transacao: revalidar convite e criar Aluno e vinculos se nao existirem
   return admin.firestore().runTransaction(async (tx) => {
-    const alunoRef = admin.firestore().collection("Aluno").doc(request.auth!.uid);
-    const usuarioRef = admin.firestore().collection("Usuarios").doc(request.auth!.uid);
+    // PASSO A: Todas as leituras
+    const conviteQuery = await tx.get(admin.firestore().collection("Convite_Aluno")
+      .where("token_hash", "==", hashToken).where("status", "==", "pendente").limit(1));
+    if (conviteQuery.empty) throw new HttpsError("not-found", "Convite invalido, expirado ou ja aceito.");
+    
+    const conviteDoc = conviteQuery.docs[0];
+    const convite = conviteDoc.data();
+    
+    if (new Date() > convite.expira_em.toDate())
+      throw new HttpsError("failed-precondition", "Convite expirado.");
+    if (emailNorm !== convite.email)
+      throw new HttpsError("permission-denied", "E-mail da conta nao corresponde ao convite.");
+
+    const uid = request.auth!.uid;
+    const alunoRef = admin.firestore().collection("Aluno").doc(uid);
+    const usuarioRef = admin.firestore().collection("Usuarios").doc(uid);
+    
     const alunoSnap = await tx.get(alunoRef);
     const usuarioSnap = await tx.get(usuarioRef);
 
-    // Criar Usuarios e Aluno apenas se não existirem (idempotente)
+    let turmaSnap = null;
+    let turma = null;
+    let jaMatriculado = false;
+    let alunosSnap = null;
+
+    if (convite.id_turma) {
+      const turmaRef = admin.firestore().collection("Turma").doc(convite.id_turma);
+      turmaSnap = await tx.get(turmaRef);
+      if (!turmaSnap.exists) throw new HttpsError("not-found", "Turma nao encontrada.");
+      turma = turmaSnap.data()!;
+      if (turma.status !== "Ativo") throw new HttpsError("failed-precondition", "Turma inativa.");
+
+      alunosSnap = await tx.get(turmaRef.collection("Alunos"));
+      jaMatriculado = alunosSnap.docs.some(d => d.id === uid);
+      
+      // Validacao de capacidade (ignorado se exceder_capacidade = true ou se ja for matriculado)
+      if (!jaMatriculado && !convite.exceder_capacidade) {
+        if (alunosSnap.size >= turma.capacidade) {
+          throw new HttpsError("resource-exhausted", "Turma lotada.");
+        }
+      }
+    }
+
+    // PASSO B: Escritas (idempotentes para repeticao concorrente)
     if (!usuarioSnap.exists) {
       tx.set(usuarioRef, {
         nome: authUser.displayName ?? emailNorm,
@@ -177,32 +207,28 @@ export const aceitarConviteAluno = onCall(async (request) => {
     }
     if (!alunoSnap.exists) {
       tx.set(alunoRef, {
-        id_usuario: request.auth!.uid,
+        id_usuario: uid,
         numero_matricula: convite.numero_matricula ?? null,
       });
     }
-    // Vincular à turma se o convite especificar uma
-    if (convite.id_turma) {
-      const turmaRef = admin.firestore().collection("Turma").doc(convite.id_turma);
-      const turmaSnap = await tx.get(turmaRef);
-      if (!turmaSnap.exists) throw new HttpsError("not-found", "Turma não encontrada.");
-      const turma = turmaSnap.data()!;
-      if (turma.status !== "Ativo") throw new HttpsError("failed-precondition", "Turma inativa.");
 
-      const alunosSnap = await tx.get(turmaRef.collection("Alunos"));
-      // convite.exceder_capacidade não existe no schema, mas se houvesse flag no convite, seria verificado aqui.
-      // Assumindo limite estrito:
-      if (alunosSnap.size >= turma.capacidade) {
-        throw new HttpsError("resource-exhausted", "Turma lotada.");
-      }
+    // Expirar convite e reconciliar com Secao 5 (aceitado_por, aceitado_em)
+    const agora = admin.firestore.FieldValue.serverTimestamp();
+    tx.update(conviteDoc.ref, { 
+      status: "aceito",
+      aceitado_por: uid,
+      aceitado_em: agora
+    });
 
-      const vincRef = turmaRef.collection("Alunos").doc(request.auth!.uid);
-      const vincRef2 = admin.firestore()
-        .collection("Usuarios").doc(request.auth!.uid)
-        .collection("Turmas").doc(convite.id_turma);
+    // Vincular a turma (se aplicavel e se nao estiver matriculado ainda)
+    if (convite.id_turma && turmaSnap && !jaMatriculado) {
+      const turmaRef = turmaSnap.ref;
+      const vincRef = turmaRef.collection("Alunos").doc(uid);
+      const vincRef2 = usuarioRef.collection("Turmas").doc(convite.id_turma);
       
-      const agora = admin.firestore.FieldValue.serverTimestamp();
-      tx.set(vincRef, { id_aluno: request.auth!.uid, ingressou_em: agora });
+      // 1o Espelho: colecao Alunos na Turma
+      tx.set(vincRef, { id_aluno: uid, ingressou_em: agora });
+      // 2o Espelho: colecao Turmas no Usuario
       tx.set(vincRef2, { 
         id_turma: convite.id_turma,
         id_professor: turma.id_professor,
@@ -214,19 +240,20 @@ export const aceitarConviteAluno = onCall(async (request) => {
         status: turma.status,
         ingressou_em: agora 
       });
+      // Registro no historico: preserva regras de reingresso sem duplicacao
       tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
-        id_aluno: request.auth!.uid,
+        id_aluno: uid,
         tipo: "inclusao_aluno",
         modo_ingresso: "CONVITE",
+        justificativa: convite.justificativa_excecao || null,
         timestamp: agora
       });
       tx.update(turmaRef, { qtd_alunos: admin.firestore.FieldValue.increment(1) });
     }
-    // Expirar convite
-    tx.update(conviteSnap.docs[0].ref, { status: "aceitado" });
-    return { vinculado: !!convite.id_turma };
+    
+    return { vinculado: !!convite.id_turma, ja_matriculado: jaMatriculado };
   });
-  // Após commit: atualizarCustomClaims(request.auth!.uid) -- recuperável e idempotente
+  // Apos commit: atualizarCustomClaims(request.auth!.uid) -- recuperavel e idempotente
 });
 \end{lstlisting}
 

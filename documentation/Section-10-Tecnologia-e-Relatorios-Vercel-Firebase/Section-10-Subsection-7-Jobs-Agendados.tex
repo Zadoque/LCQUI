@@ -119,47 +119,93 @@ function fimDoDiaInstitucional(data: Date): Date {
 
 export const onFrascoCriado = onDocumentCreated("Frasco_Reagente/{frascoId}", async (event) => {
   const idLote = event.data?.data().id_lote;
-  if (idLote) await atualizarContadorLoteIdempotente(event.id, idLote, +1);
+  if (idLote) await atualizarContadorLoteIdempotente(event.id, idLote, +1, event.time);
 });
 
 export const onFrascoRemovido = onDocumentDeleted("Frasco_Reagente/{frascoId}", async (event) => {
   const idLote = event.data?.data().id_lote;
-  if (idLote) await atualizarContadorLoteIdempotente(event.id, idLote, -1);
+  if (idLote) await atualizarContadorLoteIdempotente(event.id, idLote, -1, event.time);
 });
 
-// PDF-016: INVARIANTE DE IDEMPOTENCIA
-// Triggers no Cloud Functions (gen2) tem semantica "at-least-once".
-// FieldValue.increment sem deduplicacao causa drift silencioso.
-// Normativa: usar event.id como chave de lock em subcolecao ou colecao separada.
-async function atualizarContadorLoteIdempotente(eventId: string, idLote: string, delta: number) {
+// PDF-016: Coordenacao Triggers vs Reconciliacao
+// Problema: Um evento atrasado (ex: trigger retida no Pub/Sub por horas) processado
+// apos uma reconciliacao absoluta causaria somatoria dupla (o count() do job
+// ja incluiria o frasco, e o incremento da trigger repetiria a soma).
+// 
+// Alternativas:
+// 1. Versionamento Estrito (Optimistic Concurrency): Requereria linearizacao e rejeitaria processamento assincrono.
+// 2. Invalidacao Antecipada de Locks: O job teria que prever eventIds pendentes, o que e impossivel.
+// 3. Marca d'Agua (Recomendada): O lote guarda `ultimo_reconciliador`. A trigger ignora incrementos de eventos cuja emissao (`event.time`) seja anterior a marca.
+// Impacto da Recomendacao: Adicao de `ultimo_reconciliador` na entidade, `tx.get` extra na trigger para validar a marca antes do incremento.
+
+async function atualizarContadorLoteIdempotente(eventId: string, idLote: string, delta: number, eventTime: string) {
   await admin.firestore().runTransaction(async (tx) => {
     const lockRef = admin.firestore().collection("Eventos_Processados").doc(eventId);
     const lock = await tx.get(lockRef);
-    if (lock.exists) return; // Deduplicado: evento ja processado
+    if (lock.exists) return; // Deduplicado: evento ja processado (at-least-once resolvida)
 
     const loteRef = admin.firestore().collection("Lote_Materializado").doc(idLote);
-    tx.set(loteRef, {
-      id_lote: idLote,
-      qtd_frascos_cadastrados: admin.firestore.FieldValue.increment(delta)
-    }, { merge: true });
+    const loteSnap = await tx.get(loteRef);
+    
+    let aplicarIncremento = true;
+    if (loteSnap.exists) {
+      const lote = loteSnap.data()!;
+      if (lote.ultimo_reconciliador && new Date(eventTime) <= lote.ultimo_reconciliador.toDate()) {
+        aplicarIncremento = false; // Evento retardado engolido pela contagem absoluta da reconciliacao
+      }
+    }
+
+    if (aplicarIncremento) {
+      tx.set(loteRef, {
+        id_lote: idLote,
+        qtd_frascos_cadastrados: admin.firestore.FieldValue.increment(delta)
+      }, { merge: true });
+    }
 
     tx.set(lockRef, { processado_em: admin.firestore.FieldValue.serverTimestamp() });
   });
 }
 
-// Além da deduplicação nas triggers (acima), o sistema exige um job de reconciliação
-// para curar eventuais divergências (drift) causadas por operações fora das functions
+// Alem da deduplicacao nas triggers (acima), o sistema exige um job de reconciliacao
+// para curar eventuais divergencias (drift) causadas por operacoes fora das functions
 // ou falhas de lock.
 export const reconciliarContadoresLote = onSchedule({
   schedule: "every sunday 04:00",
   timeZone: "America/Sao_Paulo"
 }, async () => {
-  // 1. O job itera pelos lotes ativos em Lote_Materializado
-  // 2. Para evitar disputa com triggers simultâneas, o ajuste
-  //    deve ser transacional: lock no lote, count() agregando Frasco_Reagente.
-  // 3. Atualizar o Lote_Materializado escrevendo o valor absoluto do count()
-  //    (substituição idempotente, não incremento relativo).
-  // 4. Registrar a auditoria da reconciliação se ajustes foram feitos.
+  // Busca lotes ativos que nao foram reconciliados recentemente
+  const lotesSnap = await admin.firestore().collection("Lote_Materializado").get();
+  
+  for (const lote of lotesSnap.docs) {
+    const idLote = lote.id;
+    await admin.firestore().runTransaction(async (tx) => {
+      // 1. Contagem absoluta transacional
+      const frascosQuery = admin.firestore().collection("Frasco_Reagente").where("id_lote", "==", idLote);
+      const aggregate = await tx.get(frascosQuery.count());
+      const qtdReal = aggregate.data().count;
+      
+      const loteSnap = await tx.get(lote.ref);
+      if (!loteSnap.exists) return;
+      
+      // 2. So escrever se houver divergencia, ou apenas atualizar a marca d'agua
+      const dados = loteSnap.data()!;
+      if (dados.qtd_frascos_cadastrados !== qtdReal) {
+        // Grava auditoria
+        tx.set(admin.firestore().collection("Auditoria_Reconciliacao").doc(), {
+          id_lote: idLote,
+          qtd_anterior: dados.qtd_frascos_cadastrados,
+          qtd_corrigida: qtdReal,
+          data: admin.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      
+      // 3. Atualizar OBRIGATORIAMENTE a marca d'agua absoluta
+      tx.set(lote.ref, {
+        qtd_frascos_cadastrados: qtdReal,
+        ultimo_reconciliador: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    });
+  }
 });
 \end{lstlisting}
 
