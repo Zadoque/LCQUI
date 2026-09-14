@@ -38,23 +38,61 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
   });
 });
 
+// N-02 (PDF-001): Algoritmo normativo de resposta a requisição de edição.
+// INVARIANTE DE LOCK: o lock bem_edicao_{idBem} DEVE ser liberado em todos os desfechos:
+//   - aprovação com sucesso: liberado na linha tx.delete abaixo;
+//   - rejeição: liberado na mesma transação, sem verificação de versão;
+//   - conflito de versão na aprovação: a transação deve rejeitar a requisição E liberar o lock,
+//     não apenas abortar, para evitar lock permanente irrecuperável.
+// FLUXO NORMATIVO:
+//   1. Leitura: requisição -> lock (implícito) -> bem;
+//   2. Validação de estado da requisição (pendente?);
+//   3. SE REJEIÇÃO: não verificar versão; finalizar requisição como rejeitada; liberar lock;
+//   4. SE APROVAÇÃO: verificar versão;
+//      a. Conflito de versão -> rejeitar requisição como conflito; liberar lock (não abortar sem liberar);
+//      b. Sem conflito -> aplicar alterações; incrementar versão; histórico; liberar lock.
+// UNICIDADE DE PLAQUETA: criarRequisicaoAdicaoBem usa Lock C2 por numero_patrimonio_proposto;
+//   a aprovação cria o bem apenas depois de verificar Chaves_Unicas/Bem_Patrimonial__{numero}
+//   dentro da mesma transação, garantindo que duas aprovações concorrentes não criem duplicatas.
 export const responderRequisicaoEdicaoBem = onCall(async (request) => {
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"], true);
   const { idRequisicao, aprovar, justificativa, idResumoAlvo } = request.data;
+  const lockColl = admin.firestore().collection("Locks_Requisicao_Patrimonio");
   return admin.firestore().runTransaction(async (tx) => {
+    // PASSO 1: Todas as leituras antes de qualquer escrita (obrigatório em transações Firestore)
     const reqRef = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc(idRequisicao);
     const req = (await tx.get(reqRef)).data();
     if (!req || req.status !== "pendente") throw new HttpsError("failed-precondition", "Requisição indisponível.");
     const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(req.id_bem_patrimonial);
+    const lockRef = lockColl.doc(`bem_edicao_${bemRef.id}`);
     const bem = (await tx.get(bemRef)).data();
-    // N-02: versao_bem_origem garante que aprovação sobre edição concorrente seja rejeitada.
-    // Se o bem foi editado após a abertura da requisição, a versão diverge e a aprovação
-    // é abortada -- o respondente deve revisar a proposta com os dados atuais.
-    if (!bem || bem.versao !== req.versao_bem_origem)
-      throw new HttpsError("aborted",
-        "O bem foi alterado após a criação desta requisição. Revise a proposta com os dados atuais antes de responder.");
+    // PASSO 2: Rejeição não depende de verificação de versão (PDF-001: lock liberado em todos os desfechos)
+    if (!aprovar) {
+      tx.update(reqRef, {
+        status: "rejeitada",
+        respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+        id_usuario_respondente: request.auth!.uid,
+        justificativa_resposta: justificativa,
+      });
+      tx.delete(lockRef); // INVARIANTE: lock liberado mesmo na rejeição
+      return { status: "rejeitada" };
+    }
+    // PASSO 3: Aprovação -- verificar versão e aplicar alterações
+    // N-02: se o bem foi alterado após a abertura da requisição, a versão diverge.
+    // Política normativa: rejeitar a requisição como conflito E liberar o lock;
+    // NÃO abortar sem liberar o lock (evita lock irrecuperável).
+    if (!bem || bem.versao !== req.versao_bem_origem) {
+      tx.update(reqRef, {
+        status: "rejeitada",
+        respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+        id_usuario_respondente: request.auth!.uid,
+        justificativa_resposta: "Conflito de versão: o bem foi alterado após a abertura desta requisição. Revise a proposta com os dados atuais e abra nova requisição.",
+      });
+      tx.delete(lockRef); // INVARIANTE: lock liberado no conflito de versão
+      return { status: "rejeitada", motivo: "CONFLITO_VERSAO" };
+    }
     // Resolve alvo existente ou prepara criação; helper só lê nesta etapa.
-    const alvo = aprovar && req.novo_nome
+    const alvo = req.novo_nome
       ? await prepararResumoAlvoTx(tx, idResumoAlvo, req.novo_nome) : null;
     const alteracoes = calcularAlteracoesPermitidas(req, bem);
     if (alvo) {
@@ -63,7 +101,7 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
       alteracoes.nome_equipamento = alvo.dados.nome;
     }
     // M-02: quando novo_id_local está presente, propagar predio/andar/sala denormalizados
-    if (aprovar && req.novo_id_local) {
+    if (req.novo_id_local) {
       const localSnap = await tx.get(
         admin.firestore().collection("Local").doc(req.novo_id_local)
       );
@@ -76,18 +114,17 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
       alteracoes.andar = local.andar;
       alteracoes.sala = local.sala;
     }
-    if (aprovar) {
-      tx.update(bemRef, { ...alteracoes, versao: bem.versao + 1 });
-      registrarHistoricoBemTx(tx, bemRef, bem, alteracoes, request.auth!.uid);
-    }
+    // PASSO 4: Escritas -- todas após as leituras
+    tx.update(bemRef, { ...alteracoes, versao: bem.versao + 1 });
+    registrarHistoricoBemTx(tx, bemRef, bem, alteracoes, request.auth!.uid);
     tx.update(reqRef, {
-      status: aprovar ? "aprovada" : "rejeitada",
+      status: "aprovada",
       novo_id_resumo_bem_patrimonial: alvo?.ref.id ?? null,
       respondida_em: admin.firestore.FieldValue.serverTimestamp(),
       id_usuario_respondente: request.auth!.uid, justificativa_resposta: justificativa,
     });
-    tx.delete(admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(`bem_edicao_${bemRef.id}`));
-    return { status: aprovar ? "aprovada" : "rejeitada" };
+    tx.delete(lockRef); // INVARIANTE: lock liberado na aprovação
+    return { status: "aprovada" };
   });
 });
 
@@ -215,6 +252,23 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
   });
 });
 
+// PDF-007/PDF-017: Mecanismo único oficial de fan-out com chunks de 400.
+// Decisão normativa (MODIFICACOES sec.5.5): batches particionados em blocos de no máximo 400
+// operações por commit, garantindo que atualizações em acervos grandes (ex: 800 bens)
+// não ultrapassem o limite do Firestore. A callable concorrente propagarNomeResumo
+// (baseada em BulkWriter) foi descontinuada; este trigger é o único mecanismo oficial.
+async function commitEmChunks(
+  operacoes: Array<{ ref: FirebaseFirestore.DocumentReference; dados: Record<string, unknown> }>,
+  tamanhoDunk = 400
+): Promise<void> {
+  for (let i = 0; i < operacoes.length; i += tamanhoDunk) {
+    const chunk = operacoes.slice(i, i + tamanhoDunk);
+    const batch = admin.firestore().batch();
+    chunk.forEach(({ ref, dados }) => batch.update(ref, dados));
+    await batch.commit(); // idempotente: re-executar o mesmo chunk produz o mesmo estado
+  }
+}
+
 export const onResumoBemPatrimonialNomeAtualizado = onDocumentUpdated(
   "Resumo_Bem_Patrimonial/{resumoId}",
   async (event) => {
@@ -226,11 +280,9 @@ export const onResumoBemPatrimonialNomeAtualizado = onDocumentUpdated(
       .where("id_resumo_bem_patrimonial", "==", event.params.resumoId)
       .get();
 
-    const batch = admin.firestore().batch();
-    bens.docs.forEach((bem) => batch.update(bem.ref, {
-      nome_equipamento: depois.nome,
-    }));
-    await batch.commit();
+    // PDF-007: único mecanismo de propagação de nome (chunks de 400 -- sem BulkWriter concorrente)
+    const ops = bens.docs.map((bem) => ({ ref: bem.ref, dados: { nome_equipamento: depois.nome } }));
+    await commitEmChunks(ops);
   }
 );
 
@@ -246,13 +298,12 @@ export const onLocalAtualizado = onDocumentUpdated(
       .where("id_local", "==", event.params.localId)
       .get();
 
-    const batch = admin.firestore().batch();
-    bens.docs.forEach((bem) => batch.update(bem.ref, {
-      predio: depois.predio,
-      andar: depois.andar,
-      sala: depois.sala,
+    // PDF-017: chunks de 400 garantem que locais com muitos bens (ex: 600+) não excedam o limite
+    const ops = bens.docs.map((bem) => ({
+      ref: bem.ref,
+      dados: { predio: depois.predio, andar: depois.andar, sala: depois.sala },
     }));
-    await batch.commit();
+    await commitEmChunks(ops);
   }
 );
 
@@ -297,14 +348,34 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
         "Você foi removido desta turma pelo professor. O re-ingresso requer convite explícito.");
     }
 
-    // Matricular
+    // PDF-003 / MODIFICACOES sec.5.2: espelhamento atômico obrigatório.
+    // Matrícula requer dois documentos consistentes na mesma transação:
+    //   1. Turma/{turmaId}/Alunos/{uid}  -- o aluno vê a turma no feed;
+    //   2. Usuarios/{uid}/Turmas/{turmaId} -- a turma aparece na home do aluno.
+    // Ambos devem ser criados ou nenhum (atomicidade). O contador qtd_alunos
+    // é atualizado com FieldValue.increment(1) na mesma transação.
     tx.set(turmaDoc.ref.collection("Alunos").doc(request.auth!.uid), {
       id_aluno: request.auth!.uid,
       ingressou_em: admin.firestore.FieldValue.serverTimestamp(),
     });
+    // Espelho reverso: aluno encontra a turma em Usuarios/{uid}/Turmas
+    tx.set(
+      admin.firestore().collection("Usuarios").doc(request.auth!.uid)
+        .collection("Turmas").doc(turmaDoc.id),
+      {
+        id_turma: turmaDoc.id,
+        nome_turma: turma.nome_turma,
+        id_professor: turma.id_professor,
+        ingressou_em: admin.firestore.FieldValue.serverTimestamp(),
+        modo_ingresso: "CODIGO",
+      }
+    );
+    // Contador transacional (sem leitura prévia) -- idempotente para o atômico
+    tx.update(turmaDoc.ref, { qtd_alunos: admin.firestore.FieldValue.increment(1) });
     tx.set(turmaDoc.ref.collection("HistoricoAlunos").doc(), {
       id_aluno: request.auth!.uid,
       tipo: "inclusao_aluno",
+      modo_ingresso: "CODIGO",
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 

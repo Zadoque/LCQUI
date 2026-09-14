@@ -69,27 +69,63 @@ export const verificarVencimentosEAtrasos = onSchedule("every day 03:00", async 
   }
 });
 
+// PDF-015: INVARIANTE DE TIMEZONE
+// Toda data civil em regras operacionais (retirada, vencimento, escassez, relatorios)
+// DEVE ser derivada do timezone IANA "America/Sao_Paulo", independente do TZ do processo.
+// NAO usar Date.setHours(0,0,0,0) sem especificar timezone (depende de TZ do servidor).
+// NAO usar offset fixo -03:00 (nao respeita horario de verao historico).
+// Usar biblioteca que implemente IANA corretamente (ex: luxon, date-fns-tz, dayjs+tz).
+//
+// Exemplo normativo com luxon:
+//   import { DateTime } from "luxon";
+//   const TZ = "America/Sao_Paulo";
+//   function inicioDoDiaInstitucional(ref: Date): Date {
+//     return DateTime.fromJSDate(ref, { zone: TZ }).startOf("day").toJSDate();
+//   }
+//   function fimDoDiaInstitucional(ref: Date): Date {
+//     return DateTime.fromJSDate(ref, { zone: TZ }).endOf("day").toJSDate();
+//   }
+//   function adicionarDias(data: Date, dias: number): Date {
+//     return DateTime.fromJSDate(data, { zone: TZ }).plus({ days: dias }).toJSDate();
+//   }
+//   function mesmoDia(a: Date, b: Date): boolean {
+//     const da = DateTime.fromJSDate(a, { zone: TZ });
+//     const db = DateTime.fromJSDate(b, { zone: TZ });
+//     return da.hasSame(db, "day");
+//   }
+//
+// O pseudocodigo abaixo e INVALIDO (setHours ignora timezone):
+//   result.setHours(0, 0, 0, 0); // PROIBIDO em contexto de data civil
+
 function adicionarDias(data: Date, dias: number): Date {
+  // NAO USAR: usa o timezone do processo, que pode ser UTC em producao
+  // Usar luxon: DateTime.fromJSDate(data, { zone: "America/Sao_Paulo" }).plus({ days: dias }).toJSDate()
   const result = new Date(data);
   result.setDate(result.getDate() + dias);
-  return result;
+  return result; // SUBSTITUIR pela versao IANA na implementacao
 }
 
 function mesmoDia(a: Date, b: Date): boolean {
+  // NAO USAR para datas civis: compara apenas por UTC
+  // Usar luxon: DateTime.fromJSDate(a, { zone: "America/Sao_Paulo" }).hasSame(...)
   return a.getFullYear() === b.getFullYear() &&
          a.getMonth() === b.getMonth() &&
-         a.getDate() === b.getDate();
+         a.getDate() === b.getDate(); // SUBSTITUIR pela versao IANA na implementacao
 }
 
 function inicioDoDiaInstitucional(data: Date): Date {
+  // NAO USAR: setHours sem timezone depende de TZ do processo
+  // Usar luxon: DateTime.fromJSDate(data, { zone: "America/Sao_Paulo" }).startOf("day").toJSDate()
   const result = new Date(data);
-  result.setHours(0, 0, 0, 0);
+  result.setHours(0, 0, 0, 0); // SUBSTITUIR pela versao IANA na implementacao
   return result;
 }
 
 function fimDoDiaInstitucional(data: Date): Date {
+  // NAO USAR: setHours sem timezone depende de TZ do processo
+  // Usar luxon: DateTime.fromJSDate(data, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate()
   const result = new Date(data);
-  result.setHours(23, 59, 59, 999);
+  result.setHours(23, 59, 59, 999); // SUBSTITUIR pela versao IANA na implementacao
   return result;
 }
 

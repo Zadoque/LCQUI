@@ -55,6 +55,17 @@ export const revogarPapel = onCall(async (request) => {
         throw new HttpsError("failed-precondition",
           "Único Gestor de Bens Patrimoniais: revogação bloqueada (RN-ROLE-09).");
     }
+    // PDF-002: RN-ROLE-BOLSISTA: Bolsista implica Aluno (Bolsista -> Aluno).
+    // Revogar Aluno com Bolsista ativo viola essa dependência estrutural.
+    // Política segura: o operador deve revogar Bolsista antes de revogar Aluno.
+    if (papel === "Aluno") {
+      const bolsistaSnap = await tx.get(
+        admin.firestore().collection("Bolsista").doc(uidAlvo)
+      );
+      if (bolsistaSnap.exists)
+        throw new HttpsError("failed-precondition",
+          "Este usuario e Bolsista (Bolsista -> Aluno). Revogue o papel Bolsista antes de revogar Aluno (RN-ROLE-BOLSISTA).");
+    }
 
     // 3. Remover o papel
     const papelRef = admin.firestore().collection(papel).doc(uidAlvo);
