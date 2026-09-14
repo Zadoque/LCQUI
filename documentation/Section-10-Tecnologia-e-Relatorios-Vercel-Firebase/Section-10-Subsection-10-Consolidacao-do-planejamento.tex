@@ -158,10 +158,10 @@ export const aceitarConviteAluno = onCall(async (request) => {
     const conviteQuery = await tx.get(admin.firestore().collection("Convite_Aluno")
       .where("token_hash", "==", hashToken).where("status", "==", "pendente").limit(1));
     if (conviteQuery.empty) throw new HttpsError("not-found", "Convite invalido, expirado ou ja aceito.");
-    
+
     const conviteDoc = conviteQuery.docs[0];
     const convite = conviteDoc.data();
-    
+
     if (new Date() > convite.expira_em.toDate())
       throw new HttpsError("failed-precondition", "Convite expirado.");
     if (emailNorm !== convite.email)
@@ -170,7 +170,7 @@ export const aceitarConviteAluno = onCall(async (request) => {
     const uid = request.auth!.uid;
     const alunoRef = admin.firestore().collection("Aluno").doc(uid);
     const usuarioRef = admin.firestore().collection("Usuarios").doc(uid);
-    
+
     const alunoSnap = await tx.get(alunoRef);
     const usuarioSnap = await tx.get(usuarioRef);
 
@@ -188,7 +188,7 @@ export const aceitarConviteAluno = onCall(async (request) => {
 
       alunosSnap = await tx.get(turmaRef.collection("Alunos"));
       jaMatriculado = alunosSnap.docs.some(d => d.id === uid);
-      
+
       // Validacao de capacidade (ignorado se exceder_capacidade = true ou se ja for matriculado)
       if (!jaMatriculado && !convite.exceder_capacidade) {
         if (alunosSnap.size >= turma.capacidade) {
@@ -201,14 +201,23 @@ export const aceitarConviteAluno = onCall(async (request) => {
     let lockRefMatricula: FirebaseFirestore.DocumentReference | null = null;
     let matriculaFinal: string | null = null;
     if (!alunoSnap.exists) {
-      matriculaFinal = convite.numero_matricula || matriculaInformada;
-      if (!matriculaFinal) {
-        throw new HttpsError("invalid-argument", "Matricula e obrigatoria para a criacao do aluno e nao consta no convite.");
+      const matriculaBruta = convite.numero_matricula ?? matriculaInformada;
+      if (typeof matriculaBruta !== "string") {
+        throw new HttpsError("invalid-argument", "Matrícula é obrigatória e deve ser texto.");
       }
-      const matriculaNorm = matriculaFinal.trim().toUpperCase();
-      lockRefMatricula = admin.firestore().collection("Chaves_Unicas").doc(`Aluno__${matriculaNorm}`);
+
+      matriculaFinal = matriculaBruta.trim(); // Canonicalização documental
+
+      if (!matriculaFinal) {
+        throw new HttpsError("invalid-argument", "Matrícula não pode ser vazia ou conter apenas espaços.");
+      }
+      if (matriculaFinal.length > 20) {
+        throw new HttpsError("invalid-argument", "Matrícula inválida: excede o limite de 20 caracteres.");
+      }
+
+      lockRefMatricula = admin.firestore().collection("Chaves_Unicas").doc(`Aluno__${matriculaFinal}`);
       const lockSnap = await tx.get(lockRefMatricula);
-      if (lockSnap.exists) throw new HttpsError("already-exists", "A matricula informada ja esta em uso por outro aluno.");
+      if (lockSnap.exists) throw new HttpsError("already-exists", "A matrícula informada já está em uso por outro aluno.");
     }
 
     // PASSO B: Escritas (idempotentes para repeticao concorrente)
@@ -234,7 +243,7 @@ export const aceitarConviteAluno = onCall(async (request) => {
 
     // Expirar convite e reconciliar com Secao 5 (aceitado_por, aceitado_em)
     const agora = admin.firestore.FieldValue.serverTimestamp();
-    tx.update(conviteDoc.ref, { 
+    tx.update(conviteDoc.ref, {
       status: "aceitado",
       aceitado_por: uid,
       aceitado_em: agora
@@ -245,11 +254,11 @@ export const aceitarConviteAluno = onCall(async (request) => {
       const turmaRef = turmaSnap.ref;
       const vincRef = turmaRef.collection("Alunos").doc(uid);
       const vincRef2 = usuarioRef.collection("Turmas").doc(convite.id_turma);
-      
+
       // 1o Espelho: colecao Alunos na Turma
       tx.set(vincRef, { id_aluno: uid, ingressou_em: agora });
       // 2o Espelho: colecao Turmas no Usuario
-      tx.set(vincRef2, { 
+      tx.set(vincRef2, {
         id_turma: convite.id_turma,
         id_professor: turma.id_professor,
         id_materia: turma.id_materia,
@@ -258,7 +267,7 @@ export const aceitarConviteAluno = onCall(async (request) => {
         ano: turma.ano,
         semestre: turma.semestre,
         status: turma.status,
-        ingressou_em: agora 
+        ingressou_em: agora
       });
       // Registro no historico: preserva regras de reingresso sem duplicacao
       tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
@@ -270,7 +279,7 @@ export const aceitarConviteAluno = onCall(async (request) => {
       });
       tx.update(turmaRef, { qtd_alunos: admin.firestore.FieldValue.increment(1) });
     }
-    
+
     return { vinculado: !!convite.id_turma, ja_matriculado: jaMatriculado };
   });
   // Apos commit: atualizarCustomClaims(request.auth!.uid) -- recuperavel e idempotente

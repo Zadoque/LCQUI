@@ -66,7 +66,7 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
     const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(req.id_bem_patrimonial);
     const lockRef = lockColl.doc(`bem_edicao_${bemRef.id}`);
     const bem = (await tx.get(bemRef)).data();
-    
+
     // PASSO 2: Rejeição não depende de verificação de versão (PDF-001: lock liberado em todos os desfechos)
     if (!aprovar) {
       tx.update(reqRef, {
@@ -171,14 +171,19 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
     if (lockSnap.exists) {
       throw new HttpsError("failed-precondition", "Já existe requisição pendente para este número de patrimônio.");
     }
-    
+
     // Validar existência prévia do patrimônio na coleção Chaves_Unicas
     const chaveUnicaRef = admin.firestore().collection("Chaves_Unicas").doc(`Bem_Patrimonial__${numeroNormalizado}`);
     const chaveUnicaSnap = await tx.get(chaveUnicaRef);
     if (chaveUnicaSnap.exists) {
       throw new HttpsError("already-exists", "O número de patrimônio proposto já está em uso por outro bem.");
     }
-    tx.set(lockRef, { criado_em: admin.firestore.FieldValue.serverTimestamp() });
+    tx.set(lockRef, {
+      id_requisicao: reqRef.id,
+      tipo: "ADICAO",
+      chave_recurso: numeroNormalizado,
+      criado_em: admin.firestore.FieldValue.serverTimestamp()
+    });
     tx.set(reqRef, {
       numero_patrimonio_proposto: dados.numeroPatrimonioProposto,
       estado_conservacao_proposto: dados.estadoConservacaoProposto,
@@ -205,22 +210,31 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
   const reqRef = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc(idRequisicao);
 
   return admin.firestore().runTransaction(async (tx) => {
+    // PASSO A: Leituras primárias
     const reqSnap = await tx.get(reqRef);
     if (!reqSnap.exists) throw new HttpsError("not-found", "Requisição não encontrada.");
     const req = reqSnap.data()!;
     if (req.status !== "pendente") throw new HttpsError("failed-precondition", "Requisição já respondida.");
 
-    if (aprovar && !req.photo_url_proposta)
-      throw new HttpsError("failed-precondition", "Foto obrigatória: sanear pedido legado.");
+    const numeroNormalizado = req.numero_patrimonio_proposto.trim().toUpperCase();
+    const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(`bem_adicao_${numeroNormalizado}`);
+    const lockSnap = await tx.get(lockRef);
 
     let chaveUnicaRef: FirebaseFirestore.DocumentReference | null = null;
     let resumoNome = req.nome_resumo_proposto ?? "";
     let localSnapData: any = null;
     let letraInicial = "";
-    const numeroNormalizado = req.numero_patrimonio_proposto.trim().toUpperCase();
 
-    if (aprovar) {
-      // PDF-001: Validação de chave única e leituras obrigatórias antes das escritas
+    // PASSO B: Decisão e validações adicionais (leituras antes das escritas mantidas)
+    let aprovarInterno = aprovar;
+    let justificativaFinal = justificativa;
+
+    if (aprovarInterno && !req.photo_url_proposta) {
+      aprovarInterno = false;
+      justificativaFinal = "Rejeição sistêmica: Foto obrigatória ausente no pedido legado.";
+    }
+
+    if (aprovarInterno) {
       chaveUnicaRef = admin.firestore().collection("Chaves_Unicas").doc(`Bem_Patrimonial__${numeroNormalizado}`);
       const chaveUnicaSnap = await tx.get(chaveUnicaRef);
       if (chaveUnicaSnap.exists) {
@@ -229,24 +243,39 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
 
       if (req.id_resumo_bem_patrimonial) {
         const resumoSnap = await tx.get(admin.firestore().collection("Resumo_Bem_Patrimonial").doc(req.id_resumo_bem_patrimonial));
-        if (!resumoSnap.exists) throw new HttpsError("not-found", "Resumo referenciado não existe.");
-        resumoNome = resumoSnap.data()!.nome;
+        if (!resumoSnap.exists) {
+          aprovarInterno = false;
+          justificativaFinal = "Rejeição sistêmica: Resumo referenciado não existe.";
+        } else {
+          resumoNome = resumoSnap.data()!.nome;
+        }
       }
-      
-      const localSnap = await tx.get(admin.firestore().collection("Local").doc(req.id_local));
-      if (!localSnap.exists) throw new HttpsError("not-found", "Local referenciado não existe.");
-      localSnapData = localSnap.data()!;
-      letraInicial = resumoNome ? resumoNome.charAt(0).toUpperCase() : "";
+
+      if (aprovarInterno) { // Só lê local se ainda for aprovar
+        const localSnap = await tx.get(admin.firestore().collection("Local").doc(req.id_local));
+        if (!localSnap.exists) {
+          aprovarInterno = false;
+          justificativaFinal = "Rejeição sistêmica: Local referenciado não existe.";
+        } else {
+          localSnapData = localSnap.data()!;
+          letraInicial = resumoNome ? resumoNome.charAt(0).toUpperCase() : "";
+        }
+      }
     }
 
-    // C2: Remove o lock ao responder (libera possível nova requisição futura)
-    // DEVE ocorrer APÓS as leituras da transação (tx.get)
-    const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(`bem_adicao_${numeroNormalizado}`);
-    tx.delete(lockRef);
+    // PASSO C: Escritas (remoção do lock e resposta)
+    if (lockSnap.exists) {
+      const lockData = lockSnap.data()!;
+      if (lockData.id_requisicao === idRequisicao) {
+        tx.delete(lockRef);
+      } else {
+        throw new HttpsError("failed-precondition", "Conflito de integridade: Lock pertence a outra requisição.");
+      }
+    }
 
     let idBemCriado: string | null = null;
 
-    if (aprovar) {
+    if (aprovarInterno) {
       let idResumo = req.id_resumo_bem_patrimonial;
 
       // Se não havia resumo existente, cria atômica e transacionalmente o Resumo_Bem_Patrimonial
@@ -297,14 +326,14 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
         respondida_em: admin.firestore.FieldValue.serverTimestamp(),
         id_usuario_respondente: request.auth!.uid,
         id_bem_patrimonial_se_aprovado: idBemCriado,
-        justificativa_resposta: justificativa,
+        justificativa_resposta: justificativaFinal,
       });
     } else {
       tx.update(reqRef, {
         status: "rejeitada",
         respondida_em: admin.firestore.FieldValue.serverTimestamp(),
         id_usuario_respondente: request.auth!.uid,
-        justificativa_resposta: justificativa,
+        justificativa_resposta: justificativaFinal,
       });
     }
 

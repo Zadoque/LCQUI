@@ -6,18 +6,17 @@
 |---|---|
 | Branch | `docs/realinhamento-especificacao-lcqui` |
 | HEAD inicial (início desta sessão) | `e7b0bfe90dc91c693f965a51ca81f42676dc187c` |
-| HEAD atual | 03f72169 |
-| Último commit concluído | 03f72169 (Lote 2.2 Complemento V2 - PDF-001, PDF-003, PDF-016) |
+| Commit documental validado | a-definir-no-proximo-commit |
 
 ## Estado atual
 
 | Campo | Valor |
 |---|---|
 | Lote atual | Lote 2.2 — Refinamento Semântico (Concluído) |
-| Último arquivo editado | Section-10-Subsection-5-Fluxo-de-Reagentes.tex |
-| Alterações ainda não compiladas | nenhuma |
-| Último build (herdado da sessão anterior) | Lote 2.2 Final — 195 páginas; exit 0 |
-| Resultado do build herdado | aprovado (sessão Lote 2.2 Final) |
+| Último arquivo editado | Section-10-Subsection-7-Jobs-Agendados.tex |
+| Alterações ainda não compiladas | pendentes de compilação do Complemento V3 |
+| Último build validado | Lote 2.2 Complemento V2 — 196 páginas; exit 0 |
+| Resultado da inspeção visual | aprovada (sessão Lote 2.2 Complemento V2) |
 | Próxima ação exata | Iniciar Lote 3. |
 
 ## Decisões bloqueadoras
