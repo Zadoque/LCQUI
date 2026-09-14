@@ -67,12 +67,6 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
     const lockRef = lockColl.doc(`bem_edicao_${bemRef.id}`);
     const bem = (await tx.get(bemRef)).data();
     
-    let localSnap: FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData> | null = null;
-    if (req.novo_id_local) {
-      localSnap = await tx.get(admin.firestore().collection("Local").doc(req.novo_id_local));
-      if (!localSnap.exists) throw new HttpsError("not-found", "Local referenciado na requisição não encontrado.");
-    }
-
     // PASSO 2: Rejeição não depende de verificação de versão (PDF-001: lock liberado em todos os desfechos)
     if (!aprovar) {
       tx.update(reqRef, {
@@ -84,10 +78,9 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
       tx.delete(lockRef); // INVARIANTE: lock liberado mesmo na rejeição
       return { status: "rejeitada" };
     }
-    // PASSO 3: Aprovação -- verificar versão e aplicar alterações
+
+    // PASSO 3: Aprovação -- verificar versão (conflito)
     // N-02: se o bem foi alterado após a abertura da requisição, a versão diverge.
-    // Política normativa: rejeitar a requisição como conflito E liberar o lock;
-    // NÃO abortar sem liberar o lock (evita lock irrecuperável).
     if (!bem || bem.versao !== req.versao_bem_origem) {
       tx.update(reqRef, {
         status: "rejeitada",
@@ -97,6 +90,23 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
       });
       tx.delete(lockRef); // INVARIANTE: lock liberado no conflito de versão
       return { status: "rejeitada", motivo: "CONFLITO_VERSAO" };
+    }
+
+    // PASSO 4: Leituras secundárias do caminho de aprovação (preserva leituras antes das escritas deste fluxo)
+    let localSnap: FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData> | null = null;
+    if (req.novo_id_local) {
+      localSnap = await tx.get(admin.firestore().collection("Local").doc(req.novo_id_local));
+      if (!localSnap.exists) {
+        // Rejeição sistêmica: local não existe, o lock precisa ser liberado.
+        tx.update(reqRef, {
+          status: "rejeitada",
+          respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+          id_usuario_respondente: request.auth!.uid,
+          justificativa_resposta: "Local referenciado na requisição não encontrado ou excluído.",
+        });
+        tx.delete(lockRef);
+        return { status: "rejeitada", motivo: "LOCAL_NAO_ENCONTRADO" };
+      }
     }
     // Resolve alvo existente ou prepara criação; helper só lê nesta etapa.
     const alvo = req.novo_nome

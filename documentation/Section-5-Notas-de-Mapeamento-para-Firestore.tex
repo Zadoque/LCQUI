@@ -612,6 +612,17 @@ Caminho: \texttt{Lote\_Materializado/\{id\}}.
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{id\_lote}] string; O. Identificador da entidade lote, cuja existência e escopo são verificados no servidor. Unicidade garantida por chave determinística/registro de unicidade no servidor.
 \item[\texttt{qtd\_frascos\_cadastrados}] number; O. Contagem de frascos cadastrados, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{ultimo\_reconciliador}] Timestamp; O (se já reconciliado). Marca temporal absoluta, preenchida/atualizada pelo job de reconciliação. Eventos de trigger gerados antes deste instante são ignorados, evitando que eventos assíncronos retardados somem duplamente sobre a contagem absoluta já aferida.
+\end{description}
+
+\paragraph{Auditoria\_Reconciliacao}\mbox{}\par
+Caminho: \texttt{Auditoria\_Reconciliacao/\{id\}}.
+\begin{description}
+\item[\texttt{id}] docId string; O. Chave gerada pelo servidor para o registro da cura.
+\item[\texttt{id\_lote}] string; O. Lote alvo da reconciliação onde ocorreu divergência.
+\item[\texttt{qtd\_anterior}] number; O. Contagem que constava no documento \texttt{Lote\_Materializado} antes da correção (drift).
+\item[\texttt{qtd\_corrigida}] number; O. Contagem absoluta efetivamente encontrada no banco de dados e aplicada (count real).
+\item[\texttt{data}] Timestamp; O. Instante exato em que a correção transacional foi aplicada e a marca d'água elevada.
 \end{description}
 
 \paragraph{Resumo\_Almoxarifado\_Diario}\mbox{}\par

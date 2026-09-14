@@ -18,7 +18,7 @@
 | Alterações ainda não compiladas | nenhuma |
 | Último build (herdado da sessão anterior) | Lote 2.2 Final — 195 páginas; exit 0 |
 | Resultado do build herdado | aprovado (sessão Lote 2.2 Final) |
-| Próxima ação exata | Iniciar Lote 3, conforme item 6 (Sincronizar plano, matriz e checkpoint: Corrigir PDF-017, separar validação de compilação da semântica). |
+| Próxima ação exata | Iniciar Lote 3. |
 
 ## Decisões bloqueadoras
 

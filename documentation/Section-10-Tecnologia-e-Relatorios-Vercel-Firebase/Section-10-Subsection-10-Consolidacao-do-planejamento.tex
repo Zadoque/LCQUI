@@ -215,7 +215,7 @@ export const aceitarConviteAluno = onCall(async (request) => {
     // Expirar convite e reconciliar com Secao 5 (aceitado_por, aceitado_em)
     const agora = admin.firestore.FieldValue.serverTimestamp();
     tx.update(conviteDoc.ref, { 
-      status: "aceito",
+      status: "aceitado",
       aceitado_por: uid,
       aceitado_em: agora
     });

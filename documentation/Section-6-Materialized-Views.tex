@@ -7,9 +7,10 @@
 \campo{id}{SERIAL}{PK}
 \campo{id\_lote}{INTEGER}{FK, UNIQUE}
 \campo{qtd\_frascos\_cadastrados}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{ultimo\_reconciliador}{TIMESTAMP}{NULL}
 \end{entidade}
 \begin{explicacao}
-Corrigido o typo \texttt{SERAIL} $\rightarrow$ \texttt{SERIAL}. \textit{id\_lote} recebeu \texttt{UNIQUE}: esta é uma tabela 1:1 com \textit{Lote} (uma linha por lote), então o par (\textit{id}, \textit{id\_lote}) sem essa restrição permitiria duas linhas materializadas divergentes para o mesmo lote. Mantida por trigger/\textit{Cloud Function} a cada frasco cadastrado ou removido daquele lote (ver seção \textit{Tecnologia e Relatórios}).
+Corrigido o typo \texttt{SERAIL} $\rightarrow$ \texttt{SERIAL}. \textit{id\_lote} recebeu \texttt{UNIQUE}: esta é uma tabela 1:1 com \textit{Lote} (uma linha por lote), então o par (\textit{id}, \textit{id\_lote}) sem essa restrição permitiria duas linhas materializadas divergentes para o mesmo lote. Mantida por trigger/\textit{Cloud Function} a cada frasco cadastrado ou removido daquele lote. Adicionada a marca d'água \textit{ultimo\_reconciliador} que é preenchida por \textit{jobs} agendados de reconciliação para bloquear o duplo cômputo de eventos atrasados (drift silenciado, ver seção \textit{Tecnologia e Relatórios}).
 \end{explicacao}
 
 \subsection{Tabela Resumo de Almoxarifado - Diário}

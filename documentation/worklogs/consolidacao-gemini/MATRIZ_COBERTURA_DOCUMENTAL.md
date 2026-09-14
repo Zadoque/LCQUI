@@ -21,7 +21,7 @@
 | PDF-014 | Descarte/quebra/quarentena sem contratos | máquina de estados (S7) | Frasco_Reagente (S5) | RF15 (presente) | UI ALM-06 (presente) | Fluxo (presente) | contratos ausentes em S10 | — | Ausente | LACUNA_DOCUMENTAL |
 | PDF-015 | Timezone do servidor | — | Timestamps (S5) | invariante de data (parcial, S7) | — | — | S10.7 (uso de IANA resolvido) | — | Presente | VALIDADO_LATEX |
 | PDF-016 | Triggers não idempotentes | Lote_Materializado (S6) | contadores (S5) | RN idempotência (ausente) | — | — | S10.7 (com deduplicação em Eventos_Processados) | — | Presente | VALIDADO_LATEX |
-| PDF-017 | Batch acima do limite | — | S5 (denormalização local) | — | — | — | S10.8 (chunks ausentes) | — | Ausente | COBERTURA_FRAGMENTADA |
+| PDF-017 | Batch acima do limite | — | S5 (denormalização local) | — | — | — | S10.8 (chunks presentes) | — | Presente | VALIDADO_LATEX |
 | PDF-018 | Singleton contenção | Contador_Codigo (S5.7) | S5.7 | S7 (sequência estrita) | — | — | benchmark não documentado | — | Ausente | DECISAO_PENDENTE |
 | PDF-019 | Etiquetas virgens sem reserva | — | — | S7 (regra presente) | S8 (UI etiquetas, verificar) | — | S10 (verificar) | — | Verificar | SUGESTAO_REJEITADA |
 | PDF-020 | Custom Claims / requerAtivo | — | Usuarios.ativo (S5) | DP-D01 (MODIFICACOES §7.9) | — | — | S10.3 (verificar lista de mutações) | — | Ausente | COBERTURA_FRAGMENTADA |
