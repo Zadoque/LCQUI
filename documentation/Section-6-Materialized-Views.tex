@@ -24,7 +24,10 @@ Corrigido o typo \texttt{SERAIL} $\rightarrow$ \texttt{SERIAL}. \textit{id\_lote
 \campo{qtd\_frascos\_cadastrados\_abertos\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_emprestados\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_devolvidos\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
-\campo{volume\_total\_usado\_nos\_frascos\_devolvidos\_durante\_o\_dia}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+% N-07: campo abaixo é LEGADO. Redundante e ambíguo frente às colunas dimensionadas.
+% Não usar em novas queries. Utilizar volume\_utilizado\_no\_dia\_ml (líquidos)
+% e massa\_utilizada\_no\_dia\_g (sólidos). Descontinuar na próxima migração.
+\campo{volume\_total\_usado\_nos\_frascos\_devolvidos\_durante\_o\_dia}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL -- LEGADO N-07}
 \campo{volume\_total\_disponivel\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{volume\_utilizado\_no\_dia\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{massa\_total\_disponivel\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
@@ -36,6 +39,8 @@ Corrigido o typo \texttt{SERAIL} $\rightarrow$ \texttt{SERIAL}. \textit{id\_lote
 \begin{explicacao}[Separação Física Rigorosa: Massa ($g$) vs Volume ($ml$)]
 Esta tabela consolida uma distinção única e consistente entre \textbf{estoque} (\textit{...\_no\_fim\_do\_dia}, fotografia às 23h59) e \textbf{fluxo} (\textit{...\_durante\_o\_dia}, eventos ocorridos naquele dia).
 Para eliminar distorções métricas em sólidos com densidade desconhecida ou nula, as colunas agregadas de saldo e consumo são formalmente segregadas nas duas dimensões físicas fundamentais: reagentes líquidos acumulam em \textit{volume\_...\_ml} e reagentes sólidos acumulam em \textit{massa\_...\_g}. Nunca se tenta converter gravimetria de sólidos para volume sem densidade aferida.
+
+\textbf{N-07 -- campo legado:} \texttt{volume\_total\_usado\_nos\_frascos\_devolvidos\_durante\_o\_dia} pré-existe à separação massa vs. volume e mistura unidades. Sua semântica é coberta por \texttt{volume\_utilizado\_no\_dia\_ml} e \texttt{massa\_utilizada\_no\_dia\_g}. Não preencher em novos agregadores; manter apenas para compatibilidade de relatórios históricos até a migração.
 \end{explicacao}
 \newpage
 \subsection{Tabela Resumo de Reagente/Solvente - Diário}
