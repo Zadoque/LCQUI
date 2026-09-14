@@ -1,0 +1,82 @@
+\subsubsection{Funções de Apoio (Autorização)}
+
+\begin{lstlisting}[language=TypeScript, title={Resolução de Papéis via Custom Claims (zero leituras Firestore)}]
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import * as admin from "firebase-admin";
+
+// C1: Papéis lidos diretamente do JWT (Firebase Custom Claims).
+// Zero leituras extras no Firestore por chamada de API.
+// PREREQUISITO: toda mutação de papel deve chamar atualizarCustomClaims(uid).
+function resolverPapeisDoToken(auth: {token: Record<string, unknown>} | undefined): string[] {
+  if (!auth) return [];
+  const roles = auth.token["roles"];
+  if (!Array.isArray(roles)) return [];
+  return roles as string[];
+}
+
+// Chamada após TODA concessão ou remoção de papel:
+//   await atualizarCustomClaims(uid);
+// Isso atualiza claims para o próximo token; não invalida automaticamente o atual; o cliente deve renovar com user.getIdToken(true).
+export async function atualizarCustomClaims(uid: string): Promise<void> {
+  const colecoes = ["Chefe_Geral", "Gestor_Almoxarifado", "Gestor_Bens_Patrimoniais", "Professor", "Aluno", "Bolsista"];
+  const leituras = await Promise.all(
+    colecoes.map((c) => admin.firestore().collection(c).doc(uid).get())
+  );
+  const roles = colecoes.filter((_, i) => leituras[i].exists);
+  await admin.auth().setCustomUserClaims(uid, { roles });
+}
+
+async function validarPermissao(
+  request: {auth?: {uid: string; token: Record<string, unknown>}},
+  papeisPermitidos: string[],
+  requerAtivo = false
+): Promise<string[]> {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Usuário não autenticado.");
+  if (requerAtivo) {
+    const snap = await admin.firestore().collection("Usuarios").doc(request.auth.uid).get();
+    if (!snap.exists || snap.data()?.ativo !== true)
+      throw new HttpsError("permission-denied", "Conta desativada ou não habilitada.");
+  }
+  const papeis = resolverPapeisDoToken(request.auth);
+  if (!papeisPermitidos.some((p) => papeis.includes(p)))
+    throw new HttpsError("permission-denied", "Usuário sem papel autorizado para esta ação.");
+  return papeis;
+}
+
+async function validarGestorDoAlmoxarifado(uid: string, token: Record<string, unknown>, idAlmoxarifado: string): Promise<void> {
+  const papeis = resolverPapeisDoToken({ token });
+  if (papeis.includes("Chefe_Geral")) return; // Chefe tem escopo global
+  if (!papeis.includes("Gestor_Almoxarifado")) {
+    throw new HttpsError("permission-denied", "Usuário não é Gestor de Almoxarifado.");
+  }
+  // 1 leitura: o vínculo de escopo (não o papel - esse já veio do token)
+  const vinculo = await admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
+    .where("id_gestor_almoxarifado", "==", uid)
+    .where("id_almoxarifado", "==", idAlmoxarifado)
+    .limit(1).get();
+  if (vinculo.empty) {
+    throw new HttpsError("permission-denied", "Gestor não está designado para este almoxarifado.");
+  }
+}
+
+// Geração atômica sequencial no Firestore via Documento Singleton (Seção 5.7)
+// Executado estritamente dentro da transação de cadastro do frasco
+async function obterProximoCodigoFrascoTx(
+  tx: FirebaseFirestore.Transaction
+): Promise<{ proximoNumero: number; novoCodigo: string }> {
+  const contadorRef = admin.firestore().collection("Contador_Codigo_Frasco").doc("singleton");
+  const contadorSnap = await tx.get(contadorRef);
+
+  const ultimoCodigo = contadorSnap.data()?.ultimo_codigo_gerado || 0;
+  const proximoNumero = ultimoCodigo + 1;
+
+  tx.set(contadorRef, { ultimo_codigo_gerado: proximoNumero }, { merge: true });
+
+  return { proximoNumero, novoCodigo: `LCQUI-${proximoNumero}` };
+}
+\end{lstlisting}
+
+\begin{regra}[DP-D01: verificação seletiva e risco residual]
+Usar \texttt{requerAtivo=true} em retirada, devolução, baixa patrimonial, aprovação/rejeição de requisições e concessão/revogação de papéis. As funções \texttt{concederPapel} e \texttt{revogarPapel} seguem a mesma assinatura. Leituras e mutações sem essa exigência podem continuar confiando em token válido até renovação (aproximadamente uma hora). Verificar ativo não atualiza automaticamente papéis de uma conta ainda ativa. Essa limitação é risco residual aceito da DP-D01, não revogação universal instantânea.
+\end{regra}
+

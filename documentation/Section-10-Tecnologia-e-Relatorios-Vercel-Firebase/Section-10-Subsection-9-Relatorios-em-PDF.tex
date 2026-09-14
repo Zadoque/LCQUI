@@ -1,0 +1,201 @@
+\subsubsection{Relatórios em PDF}
+Pseudo-códigos das funções de relatório, revisados: os nomes de campo passam a corresponder exatamente ao modelo (\textit{data\_devolucao\_efetuada}, não \textit{data\_devolucao}; filtro por \textit{id\_almoxarifado} denormalizado em \textit{Emprestimo\_Reagente}, não por um inexistente \textit{id\_local\_saida}), e \textit{gerarRelatorioAlmoxarifado} passa a checar o escopo do gestor, não apenas o papel.
+
+\begin{lstlisting}[language=TypeScript, title={Configuração Base e Relatório de Almoxarifado}]
+import PDFDocument from "pdfkit-table";
+
+interface FiltrosAlmoxarifado {
+  idAlmoxarifado: string;
+  mes: number;
+  ano: number;
+}
+
+export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
+  const { idAlmoxarifado, mes, ano } = request.data as FiltrosAlmoxarifado;
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, idAlmoxarifado);
+
+  const dataInicio = new Date(ano, mes - 1, 1);
+  const dataFim = new Date(`${ano}-${String(mes).padStart(2, "0")}-${new Date(ano, mes, 0).getDate()}T23:59:59.999-03:00`);
+
+  const devolucoesSnapshot = await admin.firestore().collection("Emprestimo_Reagente")
+    .where("id_almoxarifado", "==", idAlmoxarifado)
+    .where("data_devolucao_efetuada", ">=", dataInicio)
+    .where("data_devolucao_efetuada", "<=", dataFim)
+    .get();
+
+  const consumoPorUnidade = devolucoesSnapshot.docs.reduce((acc, doc) => {
+    const d = doc.data();
+    if (d.unidade_medida_utilizada === "ml") acc.ml += d.medida_utilizada || 0;
+    else if (d.unidade_medida_utilizada === "g") acc.g += d.medida_utilizada || 0;
+    return acc;
+  }, { g: 0, ml: 0 });
+
+  const historicoSnapshot = await admin.firestore().collection("Historico_Frasco_Reagente")
+    .where("id_almoxarifado", "==", idAlmoxarifado)
+    .where("timestamp", ">=", dataInicio)
+    .where("timestamp", "<=", dataFim)
+    .orderBy("timestamp", "asc").get();
+
+  const doc = new PDFDocument({ margin: 30, size: "A4" });
+  const buffer = await buildPdfBuffer(doc, historicoSnapshot.docs, consumoPorUnidade);
+
+  return { pdfBase64: buffer.toString("base64") };
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Relatório Mensal de um Prédio (Filtros Compostos)}]
+interface FiltrosPredio {
+  predio: string;
+  mes: number;
+  ano: number;
+  andar?: string;
+  sala?: string;
+  estadoConservacao?: string;
+  status?: string;
+}
+
+export const gerarRelatorioBensPredio = onCall(async (request) => {
+  const filtros = request.data as FiltrosPredio;
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
+
+  let query = admin.firestore().collection("Bem_Patrimonial").where("predio", "==", filtros.predio);
+  if (filtros.andar) query = query.where("andar", "==", filtros.andar);
+  if (filtros.sala) query = query.where("sala", "==", filtros.sala);
+  if (filtros.estadoConservacao) query = query.where("estado_conservacao", "==", filtros.estadoConservacao);
+  if (filtros.status) query = query.where("status", "==", filtros.status);
+
+  const bensSnapshot = await query.get();
+
+  const doc = new PDFDocument({ size: "A4" });
+  const buffer = await buildPredioPdfBuffer(doc, bensSnapshot.docs, filtros);
+
+  return { pdfBase64: buffer.toString("base64") };
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Relatório Geral e Período Personalizado}]
+interface FiltrosGeralEPersonalizado {
+  dataInicio: string;
+  dataFim: string;
+  entidade: "Bens_Patrimoniais" | "Reagentes";
+  prediosSelecionados?: string[];
+}
+
+export const gerarRelatorioPersonalizado = onCall(async (request) => {
+  const { dataInicio, dataFim, entidade, prediosSelecionados } = request.data as FiltrosGeralEPersonalizado;
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais", "Gestor_Almoxarifado"]);
+
+  const dataIniObj = new Date(dataInicio);
+  const dataFimObj = new Date(dataFim);
+  let snapshot;
+
+  if (entidade === "Bens_Patrimoniais") {
+    let query = admin.firestore().collectionGroup("Historico") // somente caminhos Bem_Patrimonial/{id}/Historico
+      .where("timestamp", ">=", dataIniObj)
+      .where("timestamp", "<=", dataFimObj);
+    if (prediosSelecionados && prediosSelecionados.length > 0) {
+      query = query.where("predio", "in", prediosSelecionados);
+    }
+    snapshot = await query.get();
+  } else {
+    snapshot = await admin.firestore().collection("Emprestimo_Reagente")
+      .where("data_devolucao_efetuada", ">=", dataIniObj)
+      .where("data_devolucao_efetuada", "<=", dataFimObj)
+      .get();
+  }
+
+  const doc = new PDFDocument({ layout: "landscape", size: "A4" });
+  const buffer = await buildPersonalizadoPdfBuffer(doc, snapshot.docs, entidade);
+
+  return { pdfBase64: buffer.toString("base64") };
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Módulo de Etiquetas em PDF: Virgens e Reimpressão}]
+// ============================================================================
+// GERACAO DE ETIQUETAS VIRGENS (NOVOS FRASCOS) - ABA 1
+// ============================================================================
+interface DadosEtiquetasVirgens {
+  codigoInicial: number;
+  codigoFinal: number;
+  startRow?: number; // 1 a 10 (Grid A4)
+  startCol?: number; // 1 a 3
+}
+
+export const gerarPdfEtiquetasVirgens = onCall(async (request) => {
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  const dados = request.data as DadosEtiquetasVirgens;
+
+  const total = dados.codigoFinal - dados.codigoInicial + 1;
+  if (total <= 0 || total > 50) {
+    throw new HttpsError("invalid-argument", "O lote deve conter entre 1 e 50 etiquetas por impressão.");
+  }
+
+  // Audita a sessao de geracao de etiquetas virgens (Secao 4.13)
+  await admin.firestore().collection("Impressao_Etiqueta_Frasco").add({
+    gerado_em: admin.firestore.FieldValue.serverTimestamp(),
+    gerado_por: request.auth!.uid,
+    codigo_inicial: dados.codigoInicial,
+    codigo_final: dados.codigoFinal,
+  });
+
+  const codigos = Array.from({ length: total }, (_, i) => `LCQUI-${dados.codigoInicial + i}`);
+  const buffer = await gerarPdfEtiquetasNovosFrascos(codigos, dados.startRow || 1, dados.startCol || 1);
+
+  const fileName = `etiquetas/virgens_${dados.codigoInicial}_a_${dados.codigoFinal}_${Date.now()}.pdf`;
+  const fileRef = admin.storage().bucket().file(fileName);
+  await fileRef.save(buffer, { contentType: "application/pdf" });
+  const [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
+
+  return { url };
+});
+
+// ============================================================================
+// REIMPRESSAO E FICHA DE CONFERENCIA (FRASCOS JA CADASTRADOS) - ABA 2
+// ============================================================================
+interface DadosReimpressao {
+  frascoIds: string[]; // Máximo 10 frascos
+}
+
+export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  const { frascoIds } = request.data as DadosReimpressao;
+
+  // Regra 7.2.10: Teto rigido de seguranca quimica
+  if (!frascoIds || frascoIds.length === 0 || frascoIds.length > 10) {
+    throw new HttpsError("invalid-argument", "Selecione entre 1 e 10 frascos por sessao de reimpressao.");
+  }
+
+  // 1. Busca dados completos, historico recente e ultimo emprestimo dos frascos
+  const dadosFrascos = await buscarDadosCompletosParaConferencia(frascoIds);
+
+  // 2. Registra auditoria individual de 2a via para cada frasco (Secao 4.41)
+  const batch = admin.firestore().batch();
+  for (const frascoId of frascoIds) {
+    const auditRef = admin.firestore().collection("Registro_de_Auditoria").doc();
+    batch.set(auditRef, {
+      id_usuario: request.auth!.uid,
+      acao: "REIMPRESSAO_ETIQUETA",
+      tipo_entidade_sofre_acao: "FRASCO_REAGENTE",
+      id_do_objeto_da_entidade: frascoId,
+      acao_feita_em: admin.firestore.FieldValue.serverTimestamp(),
+      metadata: { motivo: "segunda_via_conferencia" },
+    });
+  }
+  await batch.commit();
+
+  // 3. Gera PDF com Ficha de Conferencia + 1 Etiqueta Centralizada por frasco
+  const buffer = await gerarPdfFrascosCadastrados(dadosFrascos);
+
+  const fileName = `etiquetas/reimpressao_${Date.now()}.pdf`;
+  const fileRef = admin.storage().bucket().file(fileName);
+  await fileRef.save(buffer, { contentType: "application/pdf" });
+  const [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
+
+  return { url };
+});
+\end{lstlisting}
+
+
+

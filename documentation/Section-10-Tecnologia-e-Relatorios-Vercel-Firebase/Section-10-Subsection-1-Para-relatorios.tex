@@ -1,0 +1,23 @@
+\subsection{Para relatórios}
+Após avaliação das restrições do ambiente \textit{serverless} (Vercel e Firebase Functions), a biblioteca escolhida para a geração de relatórios no backend é o \textbf{\textit{pdfkit}} em conjunto com o plugin \textbf{\textit{pdfkit-table}}.
+
+\textbf{Justificativa da escolha:}
+\begin{itemize}
+    \item \textbf{Baixo consumo de memória:} O \textit{pdfkit} desenha o PDF nativamente, respeitando os limites de memória da Vercel/Firebase.
+    \item \textbf{Tabelas dinâmicas:} O \textit{pdfkit-table} resolve a paginação automática de tabelas longas.
+    \item \textbf{Fluxo de Armazenamento:} A Cloud Function gera o PDF em um \textit{Buffer} de memória, retorna o PDF em base64 conforme o contrato atual; o cliente cria um Blob temporário para download.
+\end{itemize}
+
+\subsubsection{Assinatura Lógica de Relatórios (Hash Canônico)}
+Todos os relatórios gerados pelo backend injetam um rodapé contendo um Hash Canônico. Este hash compila os parâmetros da requisição (ID, datas e registros consultados) concatenados com o Timestamp (\texttt{Date.now()}), servindo como identificador de rastreabilidade, sem equivaler a assinatura digital.
+
+\subsubsection{Prevenção de Limites de Leitura Firestore (N+1)}
+Resolver referências únicas em lotes para reduzir N+1. O tamanho é definido pela API e pelo volume medido; in e getAll têm contratos distintos, sem limite universal de 200 itens.
+
+\subsubsection{Módulo de Geração de Etiquetas (PDF)}
+Para a identificação física dos frascos, o backend também utiliza o \textbf{pdfkit} para desenhar uma matriz (Grid Visual de Offset 3×10) em tamanho A4, com etiquetas de 65,0 mm × 26,5 mm. O código de barras no formato Code 128 é gerado ativamente em memória via biblioteca \textbf{bwip-js} e embutido no buffer do PDF, garantindo alta definição na impressão e dispensa de fontes especiais no client. Para frascos já cadastrados (2ª via), o backend gera folhas individuais A4 contendo a Ficha de Conferência e Rastreabilidade com histórico recente de 10 movimentações e 1 única etiqueta de reposição centralizada no rodapé.
+
+\begin{explicacao}[Leitura dos exemplos legados]
+Os listings a seguir preservam exemplos de desenvolvimento, não uma implementação pronta para copiar. O contrato atualizado está nas seções 5.9, 8 e 11: caminhos de especificações são aninhados, datas civis são normalizadas no fuso institucional, relatórios usam base64, consultas e escritas são ordenadas em transação e claims exigem controle de revogação. Q06 utiliza tolerância híbrida, consumo não negativo e ajuste separado quando há ganho de massa tolerado. Não adotar consumo negativo, data de abertura inventada, placeholder de foto ou simples cópia de novo nome sobre o bem. Esses exemplos devem ser adaptados ao contrato antes de implementação.
+\end{explicacao}
+

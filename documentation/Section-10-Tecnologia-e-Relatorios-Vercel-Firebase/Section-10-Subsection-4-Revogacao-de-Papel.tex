@@ -1,0 +1,89 @@
+\subsubsection{Revogação de Papel com Singleton de Controle de Concorrência (M-14, N-01)}
+
+\begin{lstlisting}[language=TypeScript, title={revogarPapel com singleton Controle\_Papeis/singleton (RN-ROLE-02 a RN-ROLE-15)}]
+// M-14 / N-01: Singleton que arbitra revogações concorrentes.
+// Duas revogações simultâneas leem e escrevem o singleton na mesma transação,
+// garantindo que somente uma remoção do último responsável seja possível.
+const singletonRef = admin.firestore().collection("Controle_Papeis").doc("singleton");
+
+export const revogarPapel = onCall(async (request) => {
+  const { uidAlvo, papel } = request.data as { uidAlvo: string; papel: string };
+  await validarPermissao(request, ["Chefe_Geral"], true);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    // 1. Leitura do singleton - bloqueia outras transacoes concorrentes que
+    //    tambem escrevam no singleton (transacao serializada pelo Firestore)
+    const singletonSnap = await tx.get(singletonRef);
+
+    // 2. Verificar invariantes de RN-ROLE antes de qualquer escrita
+    if (papel === "Chefe_Geral") {
+      // RN-ROLE-02: Chefe Geral não pode revogar outro Chefe Geral
+      if (uidAlvo !== request.auth!.uid)
+        throw new HttpsError("permission-denied", "Chefe Geral não pode revogar outro Chefe Geral.");
+      // RN-ROLE-03: auto-revogação só com outro Chefe ativo
+      const outrosChefes = await tx.get(
+        admin.firestore().collection("Chefe_Geral").where("id_usuario", "!=", uidAlvo).limit(1)
+      );
+      if (outrosChefes.empty)
+        throw new HttpsError("failed-precondition", "Único Chefe Geral: auto-revogação bloqueada (RN-ROLE-03).");
+    }
+    if (papel === "Gestor_Almoxarifado") {
+      // RN-ROLE-05: cada almoxarifado vinculado deve ter outro gestor
+      const vinculos = await tx.get(
+        admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
+          .where("id_gestor_almoxarifado", "==", uidAlvo)
+      );
+      for (const v of vinculos.docs) {
+        const idAlmox = v.data().id_almoxarifado;
+        const outrosGestores = await tx.get(
+          admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
+            .where("id_almoxarifado", "==", idAlmox)
+            .where("id_gestor_almoxarifado", "!=", uidAlvo).limit(1)
+        );
+        if (outrosGestores.empty)
+          throw new HttpsError("failed-precondition",
+            `Almoxarifado ${idAlmox} ficaria sem gestor (RN-ROLE-05).`);
+      }
+    }
+    if (papel === "Gestor_Bens_Patrimoniais") {
+      // RN-ROLE-09: deve existir ao menos outro gestor patrimonial
+      const outrosGestores = await tx.get(
+        admin.firestore().collection("Gestor_Bens_Patrimoniais")
+          .where("id_usuario", "!=", uidAlvo).limit(1)
+      );
+      if (outrosGestores.empty)
+        throw new HttpsError("failed-precondition",
+          "Único Gestor de Bens Patrimoniais: revogação bloqueada (RN-ROLE-09).");
+    }
+
+    // 3. Remover o papel
+    const papelRef = admin.firestore().collection(papel).doc(uidAlvo);
+    tx.delete(papelRef);
+
+    // 4. Verificar se a conta deve ser desativada (RN-ROLE-10/13)
+    const colecoesRestantes = ["Chefe_Geral", "Gestor_Almoxarifado",
+      "Gestor_Bens_Patrimoniais", "Professor", "Aluno", "Bolsista"].filter(c => c !== papel);
+    const leituras = await Promise.all(
+      colecoesRestantes.map(c => tx.get(admin.firestore().collection(c).doc(uidAlvo)))
+    );
+    const semPapeis = leituras.every(s => !s.exists);
+    if (semPapeis) {
+      tx.update(admin.firestore().collection("Usuarios").doc(uidAlvo), { ativo: false });
+    }
+
+    // 5. Atualizar singleton (marca a operação; invalida leituras concorrentes)
+    tx.set(singletonRef, {
+      ultima_operacao: { tipo: "REVOGACAO", papel, uid_alvo: uidAlvo,
+        uid_operador: request.auth!.uid,
+        ts: admin.firestore.FieldValue.serverTimestamp() },
+    }, { merge: true });
+
+    return { desativado: semPapeis };
+  });
+  // Fora da transação: atualizar Custom Claims e auditoria
+  // (recuperável e idempotente; falha não desfaz a revogação persistida)
+});
+\end{lstlisting}
+
+
+

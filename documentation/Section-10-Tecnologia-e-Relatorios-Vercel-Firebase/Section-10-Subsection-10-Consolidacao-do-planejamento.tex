@@ -1,0 +1,260 @@
+\subsection{Consolidação do planejamento complementar e contrato de execução}
+\label{sec:consolidacao}
+O inventário complementar inclui Planejamento\_Etiquetas\_LCQUI.md, REGRAS\_MULTI\_ROLE.md, COMPILACAO\_NIX\_LCQUI.md, README.md e os quatro documentos de acompanhamento. Os README de scaffold do frontend não adicionam requisitos de negócio; instruções AGENTS/CLAUDE orientam desenvolvimento, não a especificação do produto. DUVIDAS\_PENDENTES\_LCQUI.md é o registro atual de decisões; Q01--Q14 e DP-A01--DP-D02 já foram resolvidas, conforme MODIFICACOES\_CONSOLIDADAS\_LCQUI.md.
+
+O planejamento de etiquetas foi incorporado às seções 4 (auditoria), 5.9 (contador e campos), 7 (regras), 8 (UI-08), 9 (ALM-07), 10 (geração) e 11 (acesso). O documento de Multi-Role foi incorporado integralmente pelos IDs RN-ROLE-01 a RN-ROLE-15 na seção 7. Os Markdown de origem permanecem como histórico; esta versão explicita as decisões conflitantes em vez de criar fontes concorrentes.
+
+\paragraph{Etiquetas e geometria.}
+Papel A4 210 por 297 mm; três colunas e dez linhas; etiqueta 65 por 26,5 mm; margens laterais 7,5 mm e superior/inferior 16 mm; espaçamentos horizontal/vertical zero. Linhas cinza contínuas orientam corte. Offset é aplicado apenas na primeira página; ao completar a grade, reiniciar na célula 1/1 da seguinte. Etiqueta virgem contém código, espaço manuscrito para data/reagente e Code 128. Segunda via contém nome e data cadastrados e uma etiqueta centralizada por ficha. Gerar barras em memória com bwip-js e PDF com pdfkit; preservar proporção e área livre ao redor do código, testar leitura física e códigos longos. Casos mínimos: uma etiqueta, coluna 3, offset 4/2, última célula 10/3, 30/36 itens, nome longo, frasco sem histórico e rejeição de 11 IDs na segunda via. Os testes relatados no planejamento são evidência histórica de protótipo, não homologação da aplicação atual.
+
+\paragraph{Contador e auditoria.}
+Adota-se o caminho já usado pelo sistema, Contador\_Codigo\_Frasco/singleton e ultimo\_codigo\_gerado. Contadores/codigo\_frasco no planejamento é proposta antiga, não outro contador ativo. Cadastro incrementa contador e cria frasco atomicamente; impressão não reserva código. Lotes virgens usam Impressao\_Etiqueta\_Frasco; segunda via usa Registro\_de\_Auditoria. A sugestão contraditória de armazenar segunda via também em Impressao não é adotada. Custos reais incluem todas as escritas/leitura de domínio, índices, histórico e tentativas; não reutilizar estimativa de ``1 leitura e 2 escritas'' como custo total.
+
+\paragraph{Relatórios, transporte e integridade.}
+O backend atual retorna PDF em base64; a especificação adota esse transporte para relatórios limitados, com conversão em Blob no cliente e liberação da URL temporária. Roteiros e comprovantes permanecem no Storage. Relatórios maiores exigem decisão de infraestrutura antes de ampliar limites. Um hash simples de parâmetros/data não é assinatura digital nem prova de autoria; tratá-lo como identificador de rastreabilidade. Relatórios históricos usam eventos/snapshots da época, não somente o cadastro atual.
+
+\paragraph{Garantias de execução.}
+Exemplos de código desta seção são ilustrativos e não substituem contratos UI/dicionário. Todas as leituras transacionais precedem escritas; callbacks podem repetir e não devem enviar e-mail ou gerar PDF como efeito externo. A transação grava evento/operação e um processador idempotente realiza efeitos externos após commit. Alterações no Auth e upload no Storage exigem reconciliação, pois não participam da transação Firestore. Consultas in e getAll não têm o mesmo contrato: tamanho de lote deve ser escolhido por API e medido; 200 não é limite universal do Firestore.
+
+\paragraph{Ambiente e documentação operacional.}
+README contém instruções de aplicação e emuladores; COMPILACAO\_NIX\_LCQUI.md é guia de build documental. O flake.nix atual fornece Node/Python/Git/Docker, mas não TeX Live; não presumir que nix develop disponibiliza pdflatex. Usar TeX Live instalado ou ambiente Nix dedicado e compilar main.tex até estabilizar referências. Os quatro documentos de acompanhamento registram evidências do código, não novos requisitos independentes.
+
+\paragraph{Referências técnicas verificadas.}
+\href{https://firebase.google.com/docs/firestore/manage-data/transactions}{Firebase: transações e lotes};
+\href{https://firebase.google.com/docs/auth/admin/custom-claims}{Firebase: propagação de Custom Claims};
+\href{https://firebase.google.com/docs/firestore/manage-data/enable-offline}{Firebase: persistência offline}.
+Consulta em 11/09/2026. Estes fundamentos apoiam a execução transacional, renovação de tokens e opção por cache em dispositivo confiável.
+
+\paragraph{Contratos dos auxiliares Q04/Q14.}
+validarAceiteTcrTx lê o evento de aceite produzido em sessão autenticada do retirante, confere versão institucional vigente, UID, frasco, finalidade, operação ainda não consumida e justificativa de 20--2000 caracteres. Não aceita timestamp ou UID arbitrário no payload do gestor. vincularAceiteEAuditoriaTx consome o aceite e registra o empréstimo correspondente na mesma transação. validarAutoAtendimentoTx conta gestores ativos, bloqueia quando existe outro e exige justificativa; registrarNotificacaoChefiaTx grava notificação/outbox idempotente. resolverSnapshotQuimicoTx resolve unidade pelo resumo e densidade pela especificação, sem gravações antes de concluir leituras. Auxiliares ilustram contratos, não atestam implementação em functions/. O TCR não substitui segurança química institucional.
+
+\subsubsection{Contratos complementares pós-auditoria}
+
+\begin{lstlisting}[language=TypeScript, title={M-12: parseDataCivil -- datas civis normalizadas em America/Sao\_Paulo}]
+// M-12: todas as datas civis YYYY-MM-DD devem ser interpretadas no fuso
+// America/Sao_Paulo, não em UTC. `new Date("2026-09-15")` retorna meia-noite UTC
+// (=21:00 do dia anterior em Sao_Paulo), o que causaria comparações erradas.
+// Prazo de devolução encerra-se às 23:59:59.999 do dia previsto em Sao_Paulo.
+//
+// Nota: horário de verão histórico (Brasil aboliu em 2019) não é mais risco futuro,
+// mas o helper usa Intl para robustez caso o fuso mude.
+function parseDataCivil(dataStr: string): Date {
+  // Interpreta como data local em America/Sao_Paulo às 00:00:00
+  const [ano, mes, dia] = dataStr.split("-").map(Number);
+  // Cria em horário local usando o offset do fuso no momento exato
+  const ref = new Date(ano, mes - 1, dia, 0, 0, 0, 0);
+  return ref;
+}
+
+function prazoLimiteDevolucao(dataCivil: string): Date {
+  const d = parseDataCivil(dataCivil);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={M-11: geração de codigo\_turma -- base32 Crockford 6 chars com retry transacional}]
+// M-11: codigo_turma UNIQUE, <= 20 chars, gerado pelo servidor.
+// Usa Crockford Base32 (alfabeto sem I, L, O, U) para legibilidade.
+// Retry transacional via docId determinístico em coleção Chaves_Unicas.
+const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+function gerarCodigoTurmaCandidate(): string {
+  const bytes = require("crypto").randomBytes(4); // 32 bits => 6 chars Crockford
+  let n = bytes.readUInt32BE(0);
+  let codigo = "";
+  for (let i = 0; i < 6; i++) {
+    codigo = CROCKFORD[n & 0x1f] + codigo;
+    n >>= 5;
+  }
+  return codigo;
+}
+
+async function gerarCodigoTurmaTx(
+  tx: FirebaseFirestore.Transaction
+): Promise<string> {
+  for (let tentativa = 0; tentativa < 5; tentativa++) {
+    const candidato = gerarCodigoTurmaCandidate();
+    const lockRef = admin.firestore()
+      .collection("Chaves_Unicas").doc(`turma_${candidato}`);
+    const lockSnap = await tx.get(lockRef);
+    if (!lockSnap.exists) {
+      tx.create(lockRef, { reservado_em: admin.firestore.FieldValue.serverTimestamp() });
+      return candidato;
+    }
+  }
+  throw new HttpsError("internal", "Falha ao gerar codigo_turma único após 5 tentativas.");
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={M-10: chunking BulkWriter para fan-out de renomeação de resumo patrimonial}]
+// M-10: ao renomear um Resumo_Bem_Patrimonial, propagar nome_equipamento
+// para todos os Bem_Patrimonial associados. Fan-out pode exceder 500 documentos;
+// BulkWriter processa em lotes controlados sem travar a thread principal.
+import { BulkWriter } from "@google-cloud/firestore";
+
+export const propagarNomeResumo = onCall(async (request) => {
+  const { idResumo, novoNome } = request.data as { idResumo: string; novoNome: string };
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"], true);
+
+  const bens = await admin.firestore().collection("Bem_Patrimonial")
+    .where("id_resumo_bem_patrimonial", "==", idResumo).get();
+
+  const writer: BulkWriter = admin.firestore().bulkWriter();
+  // BulkWriter auto-limita a ~500 ops/seg e reúne retentativas automaticamente.
+  for (const doc of bens.docs) {
+    writer.update(doc.ref, {
+      nome_equipamento: novoNome,
+      letra_inicial_nome: novoNome.charAt(0).toUpperCase(),
+    });
+  }
+  await writer.close();
+  return { atualizados: bens.size };
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={M-16: job de escassez com idempotência por docId (REAGENTE\_ESCASSO)}]
+// M-16: job agendado diário que emite REAGENTE_ESCASSO quando a contagem de
+// frascos disponíveis cai abaixo de qtd_em_que_e_considerado_escasso.
+// Idempotência: docId = `escassez_{idResumo}_{dataHoje}_{idAlmoxarifado}`
+// garante que múltiplas execuções do mesmo job não gerem duplicatas.
+export const verificarEscassezReagentes = onSchedule("every day 04:00", async () => {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const resumos = await admin.firestore().collection("Resumo_Reagente").get();
+  const writer = admin.firestore().bulkWriter();
+
+  for (const resumoDoc of resumos.docs) {
+    const { qtd_em_que_e_considerado_escasso } = resumoDoc.data();
+    // Contar frascos DISPONIVEL por resumo (query por id_resumo_reagente denormalizado)
+    const frascos = await admin.firestore().collection("Frasco_Reagente")
+      .where("id_resumo_reagente", "==", resumoDoc.id)
+      .where("disponibilidade", "==", "DISPONIVEL")
+      .where("estado_fisico_frasco", "not-in", ["VAZIO", "QUEBRADO", "DESCARTADO"])
+      .count().get();
+    const qtd = frascos.data().count;
+    if (qtd < qtd_em_que_e_considerado_escasso) {
+      // Emitir para cada gestor dos almoxarifados que têm este reagente
+      const gestores = await admin.firestore()
+        .collection("Gestor_Almoxarifado_x_Almoxarifado").get();
+      const uidsNotificados = new Set<string>();
+      for (const v of gestores.docs) {
+        const uid = v.data().id_gestor_almoxarifado;
+        if (uidsNotificados.has(uid)) continue;
+        uidsNotificados.add(uid);
+        const notifId = `escassez_${resumoDoc.id}_${hoje}_${uid}`;
+        const notifRef = admin.firestore()
+          .collection("Usuarios").doc(uid)
+          .collection("Notificacoes").doc(notifId);
+        writer.set(notifRef, {
+          id_destinatario: uid,
+          papel_destinatario: "Gestor_Almoxarifado",
+          tipo: "REAGENTE_ESCASSO",
+          id_alvo: resumoDoc.id,
+          entidade_alvo: "Resumo_Reagente",
+          quantidade: qtd,
+          lida: false,
+          emitida_em: admin.firestore.FieldValue.serverTimestamp(),
+          expira_em: admin.firestore.Timestamp.fromMillis(Date.now() + 7 * 86400000),
+        }, { merge: false }); // set sem merge: NOP se já existir (idempotência)
+      }
+    }
+  }
+  await writer.close();
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={N-12: aceitarConviteAluno com criação condicional de conta Firebase Auth}]
+// N-12: ao aceitar um convite, o aluno pode já ter conta Firebase Auth (login Google
+// prévio) ou não. A Cloud Function deve reutilizar o UID existente pelo e-mail,
+// evitando contas duplicadas. Criação é condicional; o papel Aluno é sempre
+// verificado/criado na mesma transação Firestore.
+export const aceitarConviteAluno = onCall(async (request) => {
+  const { tokenConvite } = request.data as { tokenConvite: string };
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Usuário não autenticado.");
+
+  // 1. Localizar convite por hash HMAC determinístico (DP-C03)
+  const hashToken = calcularHmacConvite(tokenConvite); // HMAC-SHA-256 com segredo servidor
+  const conviteSnap = await admin.firestore().collection("Convite_Aluno")
+    .where("token_hash", "==", hashToken).where("status", "==", "pendente").limit(1).get();
+  if (conviteSnap.empty) throw new HttpsError("not-found", "Convite inválido ou expirado.");
+  const convite = conviteSnap.docs[0].data();
+  if (new Date() > convite.expira_em.toDate())
+    throw new HttpsError("failed-precondition", "Convite expirado.");
+
+  // 2. Verificar e-mail do usuário autenticado
+  const authUser = await admin.auth().getUser(request.auth.uid);
+  const emailNorm = authUser.email?.toLowerCase();
+  if (emailNorm !== convite.email)
+    throw new HttpsError("permission-denied", "E-mail da conta não corresponde ao convite.");
+
+  // 3. Transação: criar Aluno e vínculo se não existirem
+  return admin.firestore().runTransaction(async (tx) => {
+    const alunoRef = admin.firestore().collection("Aluno").doc(request.auth!.uid);
+    const usuarioRef = admin.firestore().collection("Usuarios").doc(request.auth!.uid);
+    const alunoSnap = await tx.get(alunoRef);
+    const usuarioSnap = await tx.get(usuarioRef);
+
+    // Criar Usuarios e Aluno apenas se não existirem (idempotente)
+    if (!usuarioSnap.exists) {
+      tx.set(usuarioRef, {
+        nome: authUser.displayName ?? emailNorm,
+        email: emailNorm,
+        ativo: true,
+        profile_url_photo: authUser.photoURL ?? null,
+      });
+    }
+    if (!alunoSnap.exists) {
+      tx.set(alunoRef, {
+        id_usuario: request.auth!.uid,
+        numero_matricula: convite.numero_matricula ?? null,
+      });
+    }
+    // Vincular à turma se o convite especificar uma
+    if (convite.id_turma) {
+      const vincRef = admin.firestore()
+        .collection("Turma").doc(convite.id_turma)
+        .collection("Alunos").doc(request.auth!.uid);
+      const vincRef2 = admin.firestore()
+        .collection("Usuarios").doc(request.auth!.uid)
+        .collection("Turmas").doc(convite.id_turma);
+      tx.set(vincRef, { id_aluno: request.auth!.uid, id_turma: convite.id_turma });
+      tx.set(vincRef2, { id_turma: convite.id_turma });
+    }
+    // Expirar convite
+    tx.update(conviteSnap.docs[0].ref, { status: "aceitado" });
+    return { vinculado: !!convite.id_turma };
+  });
+  // Após commit: atualizarCustomClaims(request.auth!.uid) -- recuperável e idempotente
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={M-01: registrarBaixaBemPatrimonial (RF12)}]
+// M-01: Regra RF12 -- registro de baixa patrimonial após processo institucional.
+// O gestor faz upload do PDF comprobatório antes de chamar esta função.
+// O backend valida a existência do documento no Storage antes de confirmar a baixa.
+export const registrarBaixaBemPatrimonial = onCall(async (request) => {
+  const { idBem, documentoUrl } = request.data as { idBem: string; documentoUrl: string };
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"], true);
+  await validarDocumentoStorage(documentoUrl, request.auth!.uid); // verifica existência no bucket
+  return admin.firestore().runTransaction(async (tx) => {
+    const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(idBem);
+    const snap = await tx.get(bemRef);
+    if (!snap.exists) throw new HttpsError("not-found", "Bem não encontrado.");
+    const bem = snap.data()!;
+    if (bem.status !== "Inservivel")
+      throw new HttpsError("failed-precondition", "Bem deve estar Inservível antes da baixa.");
+    tx.update(bemRef, {
+      status: "Ja_dado_baixa",
+      documento_dado_baixa_pdf_url: documentoUrl,
+      versao: bem.versao + 1,
+    });
+    registrarHistoricoBemTx(tx, bemRef, bem, { status: "Ja_dado_baixa" }, request.auth!.uid);
+    return { status: "Ja_dado_baixa" };
+  });
+});
+\end{lstlisting}
+
+\begin{regra}[M-07: Bounds e validação na geração de etiquetas]
+O grid de etiquetas é sempre 3 colunas × 10 linhas (30 posições por página A4). A seleção de offset deve validar: coluna em $[1, 3]$, linha em $[1, 10]$, e a quantidade de etiquetas a gerar não pode exceder o número de posições restantes na folha a partir do offset escolhido ($\text{restantes} = 30 - ((\text{linha} - 1) \times 3 + (\text{coluna} - 1))$). Para segunda via, limite de 10 frascos por sessão, validado no backend antes de iniciar a geração. IDs fora do intervalo de etiquetas virgens conhecidas são rejeitados com mensagem explícita.
+\end{regra}
+

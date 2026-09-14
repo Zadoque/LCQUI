@@ -1,0 +1,9 @@
+\subsubsection{Validação síncrona de validade no cadastro e na abertura}
+A validade não depende apenas do job diário. No cadastro do frasco, a Cloud Function calcula \textit{validade\_efetiva} e compara esse valor com o relógio do servidor. Se a validade já expirou, a criação só pode prosseguir com uma decisão explícita do gestor: \texttt{QUARENTENA}, \texttt{PENDENTE\_DE\_DESCARTE} ou \texttt{DISPONIVEL} com \textit{uso\_vencido\_autorizado}. A primeira opção exige \textit{detalhe\_status}. A terceira representa uma exceção operacional deliberada: reagentes vencidos podem continuar sendo utilizados em práticas menos exigentes ou demonstrações quando o gestor registra explicitamente essa autorização.
+
+Na abertura do frasco, a função \textit{calcularValidadeEfetivaNaAbertura} aplica:
+\[
+\textit{validade\_efetiva} = \min(\textit{validade\_fechado},\; \textit{data\_abertura} + \textit{validade\_apos\_aberto\_dias}),
+\]
+quando os dois limites existem.
+

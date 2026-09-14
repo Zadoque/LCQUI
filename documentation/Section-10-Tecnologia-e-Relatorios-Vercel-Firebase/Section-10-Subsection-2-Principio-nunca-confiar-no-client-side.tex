@@ -1,0 +1,3 @@
+\subsection{Princípio: nunca confiar no \textit{client-side}}
+Todas as \textit{Cloud Functions} desta seção seguem a mesma regra: \textbf{qualquer dado que o servidor consiga derivar ou verificar por conta própria é recalculado ou reconferido no servidor, nunca aceito como o cliente enviou}. Isso vale, em particular, para o papel do usuário (claims assinadas pelo Auth, nunca um papel declarado no payload; conta ativa verificada seletivamente conforme DP-D01), para valores calculados como peso/volume/vencimento/atraso (sempre recomputados a partir dos dados brutos e da hora do servidor), para códigos gerados pelo sistema (Regra 6.2.9), e para o estado de disponibilidade de um recurso concorrente (sempre relido dentro de uma transação antes de decidir).
+

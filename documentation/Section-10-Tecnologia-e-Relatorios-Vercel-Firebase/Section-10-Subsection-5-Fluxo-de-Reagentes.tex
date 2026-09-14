@@ -1,0 +1,552 @@
+\subsubsection{Fluxo de Reagentes: Cadastro, Retirada e Devolução}
+
+\begin{lstlisting}[language=TypeScript, title={Cadastro de Frasco Fechado (Regra 6.2.13, item 1)}]
+interface CadastroFrascoFechado {
+  idResumoReagente: string;
+  idEspecificacaoReagente: string;
+  idAlmoxarifado: string;
+  idLote?: string; // quando fornecido, deve pertencer à idEspecificacaoReagente (validado abaixo)
+  // volumeNominal: payload camelCase do cliente -> persiste como conteudo_nominal (snake_case Firestore)
+  // Para sólidos: volumeNominal representa a massa nominal em g
+  // Para líquidos: volumeNominal representa o volume nominal em mL (M-17)
+  pesoTotal: number;
+  volumeNominal: number;
+  validadeFechado?: string;
+  validadeDesconhecida?: boolean;
+  decisaoSeJaVencido?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
+  detalheStatus?: string;
+}
+
+export const cadastrarFrascoFechado = onCall(async (request) => {
+  const dados = request.data as CadastroFrascoFechado;
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, dados.idAlmoxarifado);
+
+  const especSnap = await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).collection("Especificacoes").doc(dados.idEspecificacaoReagente).get();
+  if (!especSnap.exists) throw new HttpsError("not-found", "Especificação de reagente não encontrada.");
+
+  // M-06: validar que o lote pertence à especificação fornecida
+  if (dados.idLote) {
+    const loteSnap = await admin.firestore().collection("Lote").doc(dados.idLote).get();
+    if (!loteSnap.exists) throw new HttpsError("not-found", "Lote não encontrado.");
+    if (loteSnap.data()!.id_especificacao_reagente !== dados.idEspecificacaoReagente)
+      throw new HttpsError("failed-precondition", "Lote não pertence à especificação informada.");
+    // Limite fiscal: não exceder frascos comprados no lote
+    const jaExistem = await admin.firestore().collection("Frasco_Reagente")
+      .where("id_lote", "==", dados.idLote).count().get();
+    const qtdComprados = loteSnap.data()!.qtd_frascos_comprados as number;
+    if (jaExistem.data().count >= qtdComprados)
+      throw new HttpsError("failed-precondition",
+        `Limite de frascos do lote atingido (${qtdComprados} comprados).`);
+  }
+  const densidade = especSnap.data()!.densidade;
+  const resumo = (await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).get()).data()!;
+  const estadoFisico = resumo.estado_fisico;
+
+  let pesoVazio: number;
+  if (estadoFisico === "LIQUIDO") {
+    if (!densidade || densidade <= 0) throw new HttpsError("failed-precondition", "Líquido exige densidade positiva.");
+    pesoVazio = dados.pesoTotal - (dados.volumeNominal * densidade);
+  } else {
+    pesoVazio = dados.pesoTotal - dados.volumeNominal; // g
+  }
+
+  if (pesoVazio <= 0) {
+    throw new HttpsError("invalid-argument", "Peso total incompatível com o volume nominal para esta densidade.");
+  }
+
+  const agora = new Date();
+  const validadeFechado = dados.validadeFechado ? new Date(dados.validadeFechado) : null;
+  const validadeEfetiva = dados.validadeDesconhecida ? null : validadeFechado;
+  const venceuNoCadastro = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+
+  if (venceuNoCadastro && !dados.decisaoSeJaVencido) {
+    throw new HttpsError("failed-precondition", "O frasco está vencido no cadastro e exige uma decisão do gestor.");
+  }
+
+  if (dados.decisaoSeJaVencido === "QUARENTENA" && !dados.detalheStatus) {
+    throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status.");
+  }
+
+  // Execução atômica no Firestore: Sequenciamento + Cadastro do Frasco
+  return admin.firestore().runTransaction(async (tx) => {
+    // 1. Gera o código sequencial estrito LCQUI-N
+    const { novoCodigo } = await obterProximoCodigoFrascoTx(tx);
+
+    // 2. Persiste o frasco com o código gerado
+    const frascoRef = admin.firestore().collection("Frasco_Reagente").doc();
+    tx.set(frascoRef, {
+      id_almoxarifado: dados.idAlmoxarifado,
+      id_lote: dados.idLote ?? null,
+      id_especificacao_reagente: dados.idEspecificacaoReagente, // projeção física
+      id_resumo_reagente: dados.idResumoReagente,
+      eh_higroscopico: resumo.eh_higroscopico, // snapshot servidor imutável
+      codigo_frasco: novoCodigo,
+      conteudo_nominal: dados.volumeNominal,
+      peso_no_cadastrado: dados.pesoTotal,
+      peso_atual: dados.pesoTotal,
+      peso_frasco_vazio: pesoVazio,
+      medida_usada: 0,
+      estado_fisico_frasco: "FECHADO",
+      disponibilidade: "DISPONIVEL",
+      validade_fechado: validadeEfetiva,
+      validade_efetiva: validadeEfetiva,
+      validade_desconhecida: dados.validadeDesconhecida ?? false,
+      vencido: venceuNoCadastro,
+      em_quarentena: venceuNoCadastro && dados.decisaoSeJaVencido === "QUARENTENA",
+      uso_vencido_autorizado: venceuNoCadastro && dados.decisaoSeJaVencido === "DISPONIVEL",
+      detalhe_status: venceuNoCadastro
+        ? dados.detalheStatus ?? (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE" ? "Frasco vencido aguardando processo institucional de descarte." : null)
+        : null,
+      cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+      cadastrado_por: request.auth!.uid,
+    });
+
+    // M-15: evento CADASTRO no histórico do frasco, gravado na mesma transação
+    const historicoRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
+    tx.set(historicoRef, {
+      id_frasco_reagente: frascoRef.id,
+      id_almoxarifado: dados.idAlmoxarifado,
+      id_gestor: request.auth!.uid,
+      tipo: "CADASTRO",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { idFrasco: frascoRef.id, codigoFrasco: novoCodigo, pesoVazioCalculado: pesoVazio, venceuNoCadastro };
+  });
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={cadastrarFrascoAberto com bifurcação SÓLIDO/LÍQUIDO (C5)}]
+// C5: modalidade para SÓLIDO usa ESTIMA_MASSA (não ESTIMA_VOLUME)
+interface CadastroFrascoAberto {
+  idResumoReagente: string;
+  idEspecificacaoReagente: string;
+  idAlmoxarifado: string;
+  idLote?: string;
+  // LIQUIDO: "CONHECE_TARA" | "ESTIMA_VOLUME"
+  // SOLIDO:  "CONHECE_TARA" | "ESTIMA_MASSA"
+  modalidade: "CONHECE_TARA" | "ESTIMA_VOLUME" | "ESTIMA_MASSA";
+  pesoTotalBalanca: number;            // sempre leitura de balança em g
+  pesoFrascoVazioInformado?: number;  // Opção A (ambos estados físicos)
+  volumeAtualEstimado?: number;        // Opção B LIQUIDO: volume visual em mL
+  massaAtualEstimada?: number;         // Opção B SOLIDO: estimativa em g
+  dataAbertura?: string;
+  aberturaHistoricaDesconhecida: boolean;
+  validadeAberto?: string;
+  validadeDesconhecida?: boolean;
+  decisaoSeJaVencido?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
+  detalheStatus?: string;
+}
+
+export const cadastrarFrascoAberto = onCall(async (request) => {
+  const dados = request.data as CadastroFrascoAberto;
+  const papeis = await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, dados.idAlmoxarifado);
+
+  const especSnap = await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).collection("Especificacoes").doc(dados.idEspecificacaoReagente).get();
+  if (!especSnap.exists) throw new HttpsError("not-found", "Especificação não encontrada.");
+  const especData = especSnap.data()!;
+  const resumo = (await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).get()).data()!;
+  const estadoFisico: "SOLIDO" | "LIQUIDO" = resumo.estado_fisico;
+  const densidade: number | null = especData.densidade ?? null;
+
+  // C5: bifurcação explícita por estado físico
+  let pesoVazio: number;
+  let conteudoNominal: number; // g para sólidos, mL para líquidos
+
+  if (estadoFisico === "SOLIDO") {
+    // Sólidos: tudo em gramas; densidade não é usada para cálculo de volume
+    if (dados.modalidade === "CONHECE_TARA") {
+      if (dados.pesoFrascoVazioInformado == null)
+        throw new HttpsError("invalid-argument", "CONHECE_TARA exige pesoFrascoVazioInformado.");
+      pesoVazio = dados.pesoFrascoVazioInformado;
+      conteudoNominal = dados.pesoTotalBalanca - pesoVazio;
+    } else { // ESTIMA_MASSA
+      if (dados.massaAtualEstimada == null)
+        throw new HttpsError("invalid-argument", "ESTIMA_MASSA exige massaAtualEstimada.");
+      conteudoNominal = dados.massaAtualEstimada;
+      pesoVazio = dados.pesoTotalBalanca - conteudoNominal;
+    }
+    if (pesoVazio <= 0)
+      throw new HttpsError("invalid-argument", "Massa atual maior que o peso total medido na balança.");
+  } else { // LIQUIDO
+    if (!densidade || densidade <= 0)
+      throw new HttpsError("failed-precondition", "Líquido exige densidade positiva cadastrada na especificação.");
+    if (dados.modalidade === "CONHECE_TARA") {
+      if (dados.pesoFrascoVazioInformado == null)
+        throw new HttpsError("invalid-argument", "CONHECE_TARA exige pesoFrascoVazioInformado.");
+      pesoVazio = dados.pesoFrascoVazioInformado;
+      conteudoNominal = (dados.pesoTotalBalanca - pesoVazio) / densidade;
+    } else { // ESTIMA_VOLUME
+      if (dados.volumeAtualEstimado == null)
+        throw new HttpsError("invalid-argument", "ESTIMA_VOLUME exige volumeAtualEstimado.");
+      conteudoNominal = dados.volumeAtualEstimado;
+      pesoVazio = dados.pesoTotalBalanca - (conteudoNominal * densidade);
+    }
+    if (conteudoNominal <= 0 || pesoVazio <= 0)
+      throw new HttpsError("invalid-argument", "Dados de volume/peso inconsistentes com a densidade.");
+  }
+
+  const agora = new Date();
+  const validade = dados.validadeAberto ? new Date(dados.validadeAberto) : null;
+  const validadeEfetiva = dados.validadeDesconhecida ? null : validade;
+  const jaVencido = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+
+  if (jaVencido && !dados.decisaoSeJaVencido)
+    throw new HttpsError("failed-precondition", "O frasco está vencido no cadastro e exige uma decisão do gestor.");
+  if (dados.decisaoSeJaVencido === "QUARENTENA" && !dados.detalheStatus)
+    throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status.");
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const { novoCodigo } = await obterProximoCodigoFrascoTx(tx);
+    const frascoRef = admin.firestore().collection("Frasco_Reagente").doc();
+
+    tx.set(frascoRef, {
+      id_almoxarifado: dados.idAlmoxarifado,
+      id_lote: dados.idLote ?? null,
+      id_especificacao_reagente: dados.idEspecificacaoReagente, // projeção física
+      id_resumo_reagente: dados.idResumoReagente,
+      eh_higroscopico: resumo.eh_higroscopico, // snapshot servidor imutável
+      codigo_frasco: novoCodigo,
+      conteudo_nominal: conteudoNominal,   // g (sólido) ou mL (líquido)
+      peso_no_cadastrado: dados.pesoTotalBalanca,
+      peso_atual: dados.pesoTotalBalanca,
+      peso_frasco_vazio: pesoVazio,
+      medida_usada: 0,
+      data_abertura: dados.aberturaHistoricaDesconhecida ? null : dados.dataAbertura,
+      abertura_historica_desconhecida: dados.aberturaHistoricaDesconhecida,
+      estado_fisico_frasco: "ABERTO",
+      disponibilidade: "DISPONIVEL",
+      validade_efetiva: validadeEfetiva,
+      validade_desconhecida: dados.validadeDesconhecida ?? false,
+      vencido: jaVencido,
+      em_quarentena: jaVencido && dados.decisaoSeJaVencido === "QUARENTENA",
+      uso_vencido_autorizado: jaVencido && dados.decisaoSeJaVencido === "DISPONIVEL",
+      detalhe_status: jaVencido
+        ? (dados.detalheStatus ?? (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE"
+            ? "Frasco vencido aguardando processo institucional de descarte." : null))
+        : null,
+      cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+      cadastrado_por: request.auth!.uid,
+    });
+
+    return { idFrasco: frascoRef.id, codigoFrasco: novoCodigo, conteudoNominal, pesoVazio, venceuNoCadastro: jaVencido };
+  });
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Abertura e cálculo de validade efetiva no servidor}]
+function calcularValidadeEfetivaNaAbertura(frasco: any, dataAbertura: Date): Date | null {
+  if (frasco.validade_desconhecida) return null;
+
+  const validadeFechado = frasco.validade_fechado
+    ? (typeof frasco.validade_fechado.toDate === "function"
+      ? frasco.validade_fechado.toDate()
+      : new Date(frasco.validade_fechado))
+    : null;
+  const diasDepoisDeAberto = frasco.validade_apos_aberto_dias;
+  const validadeDepoisDaAbertura = diasDepoisDeAberto != null
+    ? new Date(dataAbertura.getTime() + diasDepoisDeAberto * 24 * 60 * 60 * 1000)
+    : null;
+
+  if (validadeFechado && validadeDepoisDaAbertura) {
+    return validadeFechado <= validadeDepoisDaAbertura ? validadeFechado : validadeDepoisDaAbertura;
+  }
+  return validadeFechado ?? validadeDepoisDaAbertura;
+}
+
+interface AberturaFrasco {
+  idFrasco: string;
+  destinoSeVencerNaAbertura?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
+  detalheStatus?: string;
+}
+
+export const registrarAberturaFrasco = onCall(async (request) => {
+  const dados = request.data as AberturaFrasco;
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+
+  const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
+  return admin.firestore().runTransaction(async (tx) => {
+    const snap = await tx.get(frascoRef);
+    if (!snap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
+    const frasco = snap.data()!;
+    await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
+
+    if (frasco.estado_fisico_frasco !== "FECHADO") {
+      throw new HttpsError("failed-precondition", "Somente um frasco FECHADO pode ser aberto por esta operação.");
+    }
+
+    const agora = new Date();
+    const validadeEfetiva = calcularValidadeEfetivaNaAbertura(frasco, agora);
+    const venceu = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+
+    if (venceu && !dados.destinoSeVencerNaAbertura) {
+      throw new HttpsError("failed-precondition", "A abertura tornou o frasco vencido. O gestor deve escolher o destino do frasco.");
+    }
+    if (venceu && dados.destinoSeVencerNaAbertura === "QUARENTENA" && !dados.detalheStatus) {
+      throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status.");
+    }
+
+    tx.update(frascoRef, {
+      estado_fisico_frasco: "ABERTO",
+      data_abertura: agora,
+      validade_efetiva: validadeEfetiva,
+      vencido: venceu,
+      em_quarentena: venceu && dados.destinoSeVencerNaAbertura === "QUARENTENA",
+      uso_vencido_autorizado: venceu && dados.destinoSeVencerNaAbertura === "DISPONIVEL",
+      detalhe_status: venceu
+        ? (dados.detalheStatus ?? (dados.destinoSeVencerNaAbertura === "PENDENTE_DE_DESCARTE"
+          ? "Frasco vencido aguardando processo institucional de descarte."
+          : null))
+        : null,
+    });
+
+    return { validadeEfetiva, venceu, destino: dados.destinoSeVencerNaAbertura ?? null };
+  });
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Registrar Retirada (Empréstimo)}]
+interface RetiradaFrasco {
+  idFrasco: string;
+  idUsuarioRetirou: string;
+  idLocalUsado: string;
+  pesoSaida: number;
+  dataDevolucaoPrevista: string;
+  confirmarUsoVencido?: boolean;
+  abrirNoEmprestimo?: boolean;
+  finalidadeUso: "AULA_PRATICA" | "DEMONSTRACAO" | "PESQUISA_TCC_POS" | "ESTUDO_DEGRADACAO_RESIDUOS";
+  justificativaMetodologica?: string;
+  idAceiteTcr?: string; // evento prévio autenticado pelo retirante
+  justificativaAutoAtendimento?: string;
+}
+
+export const registrarRetirada = onCall(async (request) => {
+  const dados = request.data as RetiradaFrasco;
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
+
+  // M-05: verificar conta ativa do tomador (Professor ou Bolsista)
+  // Custom Claims não estão disponíveis para terceiros; leitura Firestore necessária (1 ou 2 leituras).
+  const [profSnap, bolsSnap, tomadorSnap] = await Promise.all([
+    admin.firestore().collection("Professor").doc(dados.idUsuarioRetirou).get(),
+    admin.firestore().collection("Bolsista").doc(dados.idUsuarioRetirou).get(),
+    admin.firestore().collection("Usuarios").doc(dados.idUsuarioRetirou).get(),
+  ]);
+  if (!profSnap.exists && !bolsSnap.exists) {
+    throw new HttpsError("failed-precondition", "Usuário selecionado não é Professor nem Bolsista.");
+  }
+  if (!tomadorSnap.exists || tomadorSnap.data()?.ativo !== true) {
+    throw new HttpsError("failed-precondition", "Conta do tomador está desativada ou não encontrada.");
+  }
+
+  const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const frascoSnap = await tx.get(frascoRef);
+    if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
+    const frasco = frascoSnap.data()!;
+
+    await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
+    if (frasco.disponibilidade !== "DISPONIVEL") {
+      throw new HttpsError("failed-precondition", "Frasco não está disponível para retirada.");
+    }
+    if (frasco.em_quarentena) {
+      throw new HttpsError("failed-precondition", "Frasco em quarentena não pode ser retirado.");
+    }
+
+    const agora = new Date();
+    let validadeEfetiva = frasco.validade_efetiva ? frasco.validade_efetiva.toDate() : null;
+    let frascoVencido = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+
+    if (dados.abrirNoEmprestimo && frasco.estado_fisico_frasco === "FECHADO") {
+      validadeEfetiva = calcularValidadeEfetivaNaAbertura(frasco, agora);
+      frascoVencido = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+
+    }
+
+    const excepcional = frascoVencido || frasco.validade_desconhecida;
+    if (excepcional && (!frasco.uso_vencido_autorizado || !dados.confirmarUsoVencido))
+      throw new HttpsError("failed-precondition", "Uso excepcional exige autorização e ciência.");
+    const finalidade = dados.finalidadeUso; // nunca substituir finalidade declarada
+    const pesquisa = ["PESQUISA_TCC_POS", "ESTUDO_DEGRADACAO_RESIDUOS"].includes(finalidade);
+    // Helpers contratuais: todas as leituras devem ocorrer antes da primeira escrita.
+    // Aceite foi criado por endpoint autenticado do retirante, não pelo gestor.
+    const aceite = excepcional && pesquisa
+      ? await validarAceiteTcrTx(tx, dados.idAceiteTcr, {
+          retirante: dados.idUsuarioRetirou, frasco: dados.idFrasco,
+          finalidade, justificativa: dados.justificativaMetodologica,
+        }) : null;
+    const autoAtendimento = await validarAutoAtendimentoTx(tx, request.auth!.uid,
+      dados.idUsuarioRetirou, frasco.id_almoxarifado, dados.justificativaAutoAtendimento);
+    const quimica = await resolverSnapshotQuimicoTx(tx, frasco);
+
+    const emprestimoRef = admin.firestore().collection("Emprestimo_Reagente").doc();
+    tx.set(emprestimoRef, {
+      id_frasco_reagente: dados.idFrasco,
+      // M-20: id_usuario_retirou = o portador físico (Professor ou Bolsista que vai usar o frasco)
+      // id_gestor_retirada = o operador do almoxarifado que registrou a operação (uid do requisitante)
+      id_usuario_retirou: dados.idUsuarioRetirou,
+      id_gestor_retirada: request.auth!.uid,
+      id_almoxarifado: frasco.id_almoxarifado,
+      status: "EM_USO",
+      data_retirada: admin.firestore.FieldValue.serverTimestamp(),
+      data_devolucao_prevista: new Date(dados.dataDevolucaoPrevista),
+      id_local_usado: dados.idLocalUsado,
+      peso_saida: dados.pesoSaida,
+      uso_vencido_aceito: Boolean(frascoVencido),
+      finalidade_uso: finalidade,
+      auto_atendimento: autoAtendimento,
+      justificativa_metodologica: dados.justificativaMetodologica ?? null,
+      tcr_versao: aceite?.versao ?? null,
+      tcr_aceito_em: aceite?.aceito_em ?? null,
+      tcr_aceito_por: aceite?.uid ?? null,
+      tcr_auditoria_id: aceite?.auditoria_id ?? null,
+      unidade_medida_utilizada: quimica.unidade,
+      densidade_aplicada: quimica.densidade,
+    });
+
+    tx.update(frascoRef, {
+      disponibilidade: "EMPRESTADO",
+      ...(dados.abrirNoEmprestimo && frasco.estado_fisico_frasco === "FECHADO"
+        ? { estado_fisico_frasco: "ABERTO", data_abertura: agora,
+            validade_efetiva: validadeEfetiva, vencido: frascoVencido } : {}),
+    });
+    if (aceite) vincularAceiteEAuditoriaTx(tx, aceite, emprestimoRef.id);
+    if (autoAtendimento) registrarNotificacaoChefiaTx(tx, emprestimoRef.id);
+
+    const historicoRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
+    tx.set(historicoRef, {
+      id_frasco_reagente: dados.idFrasco,
+      id_almoxarifado: frasco.id_almoxarifado,
+      id_gestor: request.auth!.uid,
+      tipo: "SAIU",
+      id_emprestimo_reagente: emprestimoRef.id,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { idEmprestimo: emprestimoRef.id };
+  });
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Registrar Devolução com atualização física e histórico completo}]
+interface DevolucaoFrasco {
+  idEmprestimo: string;
+  pesoRetorno: number;
+  destinoPosDevolucao?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
+}
+
+export const registrarDevolucao = onCall(async (request) => {
+  const dados = request.data as DevolucaoFrasco;
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
+
+  const emprestimoRef = admin.firestore().collection("Emprestimo_Reagente").doc(dados.idEmprestimo);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const emprestimoSnap = await tx.get(emprestimoRef);
+    if (!emprestimoSnap.exists) throw new HttpsError("not-found", "Empréstimo não encontrado.");
+    const emprestimo = emprestimoSnap.data()!;
+    if (!["EM_USO", "ATRASADO"].includes(emprestimo.status)) {
+      throw new HttpsError("failed-precondition", "Empréstimo já foi devolvido.");
+    }
+
+    const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(emprestimo.id_frasco_reagente);
+    const frascoSnap = await tx.get(frascoRef);
+    if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
+    const frasco = frascoSnap.data()!;
+    await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
+
+    const liquido = emprestimo.unidade_medida_utilizada === "ml";
+    const densidade = liquido ? emprestimo.densidade_aplicada : null;
+    if (liquido && (!Number.isFinite(densidade) || densidade <= 0))
+      throw new HttpsError("failed-precondition", "Densidade histórica inválida.");
+    // Q06: peso abaixo da tara segue esgotamento/recalibração auditados, nunca ajuste silencioso.
+    if (dados.pesoRetorno < frasco.peso_frasco_vazio)
+      throw new HttpsError("failed-precondition", "Usar fluxo Q06 de esgotamento/recalibração de tara.");
+    const pesoConsumido = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno);
+
+    if (typeof frasco.eh_higroscopico !== "boolean")
+      throw new HttpsError("failed-precondition", "Snapshot histórico ausente: reconciliar frasco.");
+    const deltaMax = frasco.eh_higroscopico
+      ? Math.max(2.0, 0.02 * emprestimo.peso_saida)
+      : Math.max(1.0, 0.005 * emprestimo.peso_saida);
+    const limiteMaxRetorno = emprestimo.peso_saida + deltaMax;
+    if (!Number.isFinite(dados.pesoRetorno) || dados.pesoRetorno <= 0 || dados.pesoRetorno > limiteMaxRetorno)
+      throw new HttpsError("invalid-argument", "Peso fora da tolerância híbrida Q06.");
+    const avisoHigroscopico = dados.pesoRetorno > emprestimo.peso_saida;
+    const volumeUtilizado = densidade ? pesoConsumido / densidade : pesoConsumido;
+
+    const agora = new Date();
+    // Normalização: Prazo encerra-se às 23:59:59.999 do dia previsto
+    const prazoLimite = new Date(emprestimo.data_devolucao_prevista.toDate());
+    prazoLimite.setHours(23, 59, 59, 999);
+    const atrasado = agora > prazoLimite;
+
+    const validadeEfetiva = frasco.validade_efetiva?.toDate?.() ?? frasco.validade_efetiva ?? null;
+    const venceuAgora = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+    const frascoVencido = Boolean(frasco.vencido || venceuAgora);
+
+    const atualizacaoFrasco: Record<string, unknown> = {
+      disponibilidade: "DISPONIVEL",
+      data_ultima_pesagem: admin.firestore.FieldValue.serverTimestamp(),
+      peso_atual: dados.pesoRetorno,
+      medida_usada: admin.firestore.FieldValue.increment(pesoConsumido), // sempre g
+      vencido: frascoVencido,
+    };
+
+    if (frascoVencido && dados.destinoPosDevolucao === "QUARENTENA") {
+      atualizacaoFrasco.em_quarentena = true;
+      atualizacaoFrasco.uso_vencido_autorizado = false;
+      atualizacaoFrasco.detalhe_status = "Frasco vencido retido em quarentena após devolução.";
+    } else if (frascoVencido && dados.destinoPosDevolucao === "DISPONIVEL") {
+      atualizacaoFrasco.em_quarentena = false;
+      atualizacaoFrasco.uso_vencido_autorizado = true;
+    }
+
+    tx.update(emprestimoRef, {
+      status: atrasado ? "DEVOLVIDO_COM_ATRASO" : "DEVOLVIDO",
+      data_devolucao_efetuada: admin.firestore.FieldValue.serverTimestamp(),
+      id_usuario_devolveu: request.auth!.uid,
+      peso_retorno: dados.pesoRetorno,
+      medida_utilizada: volumeUtilizado,
+      unidade_medida_utilizada: densidade ? "ml" : "g",
+    ...(avisoHigroscopico && { aviso: "higroscopico_suspeito" }),
+    });
+    tx.update(frascoRef, atualizacaoFrasco);
+
+    if (avisoHigroscopico) {
+      tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+        id_frasco_reagente: frascoRef.id,
+        id_almoxarifado: frasco.id_almoxarifado,
+        id_gestor: request.auth!.uid,
+        id_emprestimo_reagente: emprestimoRef.id,
+        tipo: "AJUSTE", campo_ajustado: "ganho_massa_higroscopia",
+        peso_anterior: emprestimo.peso_saida, peso_novo: dados.pesoRetorno,
+        medida_ajustada: dados.pesoRetorno - emprestimo.peso_saida,
+        unidade_medida_ajustada: "g",
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    // Registro obrigatório de devolução no histórico
+    const histRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
+    tx.set(histRef, {
+      id_frasco_reagente: emprestimo.id_frasco_reagente,
+      id_almoxarifado: frasco.id_almoxarifado,
+      id_gestor: request.auth!.uid,
+      tipo: "ENTROU",
+      id_emprestimo_reagente: emprestimoRef.id,
+      peso_anterior: emprestimo.peso_saida,
+      peso_novo: dados.pesoRetorno,
+      medida_ajustada: volumeUtilizado,
+      unidade_medida_ajustada: densidade ? "ml" : "g",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { pesoConsumido, volumeUtilizado, atrasado, frascoVencido,
+           avisoHigroscopico: avisoHigroscopico || false };
+  });
+});
+\end{lstlisting}
+

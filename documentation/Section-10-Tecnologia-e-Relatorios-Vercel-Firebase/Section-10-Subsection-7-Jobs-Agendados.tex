@@ -1,0 +1,113 @@
+\subsubsection{Jobs Agendados: Vencimento, Atraso e Materialização}
+
+\begin{lstlisting}[language=TypeScript, title={Vencimento e Atraso com busca preventiva de devoluções}]
+import { onSchedule } from "firebase-functions/v2/scheduler";
+import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated } from "firebase-functions/v2/firestore";
+
+export const verificarVencimentosEAtrasos = onSchedule("every day 03:00", async () => {
+  const agora = new Date();
+  const inicioHoje = inicioDoDiaInstitucional(agora);
+  const fimDeAmanha = fimDoDiaInstitucional(adicionarDias(inicioHoje, 1));
+
+  const emprestimosNaJanela = await admin.firestore().collection("Emprestimo_Reagente")
+    .where("status", "==", "EM_USO")
+    .where("data_devolucao_prevista", "<=", fimDeAmanha)
+    .get();
+
+  const batchAtrasados = admin.firestore().batch();
+  const notificacoesPreventivas: Array<{ idEmprestimo: string; idUsuario: string; quando: "HOJE" | "AMANHA" }> = [];
+
+  emprestimosNaJanela.docs.forEach((doc) => {
+    const dados = doc.data();
+    const prevista = dados.data_devolucao_prevista.toDate();
+
+    if (prevista < inicioHoje) {
+      batchAtrasados.update(doc.ref, { status: "ATRASADO" });
+      return;
+    }
+
+    if (mesmoDia(prevista, inicioHoje)) {
+      notificacoesPreventivas.push({ idEmprestimo: doc.id, idUsuario: dados.id_usuario_retirou, quando: "HOJE" });
+    } else {
+      notificacoesPreventivas.push({ idEmprestimo: doc.id, idUsuario: dados.id_usuario_retirou, quando: "AMANHA" });
+    }
+  });
+
+  await batchAtrasados.commit();
+
+  for (const item of notificacoesPreventivas) {
+    await notificarProfessorDevolucaoUmaVez(item.idUsuario, item.idEmprestimo, item.quando);
+  }
+
+  const totalAtrasados = emprestimosNaJanela.docs.filter((doc) => {
+    const prevista = doc.data().data_devolucao_prevista.toDate();
+    return prevista < inicioHoje;
+  }).length;
+  if (totalAtrasados > 0) {
+    await notificarGestoresDeReagentes("ENTREGA_ATRASADA", totalAtrasados);
+  }
+
+  const frascosVencendo = await admin.firestore().collection("Frasco_Reagente")
+    .where("vencido", "==", false)
+    .where("validade_efetiva", "<=", agora)
+    .get();
+
+  const batchVencidos = admin.firestore().batch();
+  frascosVencendo.docs.forEach((doc) => {
+    batchVencidos.update(doc.ref, { vencido: true });
+    const histRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
+    batchVencidos.set(histRef, {
+      id_frasco_reagente: doc.id,
+      id_almoxarifado: doc.data().id_almoxarifado,
+      tipo: "VENCEU",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+  await batchVencidos.commit();
+  if (!frascosVencendo.empty) {
+    await notificarGestoresDeReagentes("FRASCOS_VENCIDOS", frascosVencendo.size);
+  }
+});
+
+function adicionarDias(data: Date, dias: number): Date {
+  const result = new Date(data);
+  result.setDate(result.getDate() + dias);
+  return result;
+}
+
+function mesmoDia(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() &&
+         a.getMonth() === b.getMonth() &&
+         a.getDate() === b.getDate();
+}
+
+function inicioDoDiaInstitucional(data: Date): Date {
+  const result = new Date(data);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+function fimDoDiaInstitucional(data: Date): Date {
+  const result = new Date(data);
+  result.setHours(23, 59, 59, 999);
+  return result;
+}
+
+export const onFrascoCriado = onDocumentCreated("Frasco_Reagente/{frascoId}", async (event) => {
+  const idLote = event.data?.data().id_lote;
+  if (idLote) await atualizarContadorLote(idLote, +1);
+});
+
+export const onFrascoRemovido = onDocumentDeleted("Frasco_Reagente/{frascoId}", async (event) => {
+  const idLote = event.data?.data().id_lote;
+  if (idLote) await atualizarContadorLote(idLote, -1);
+});
+
+async function atualizarContadorLote(idLote: string, delta: number) {
+  await admin.firestore().collection("Lote_Materializado").doc(idLote).set(
+    { id_lote: idLote, qtd_frascos_cadastrados: admin.firestore.FieldValue.increment(delta) },
+    { merge: true }
+  );
+}
+\end{lstlisting}
+
