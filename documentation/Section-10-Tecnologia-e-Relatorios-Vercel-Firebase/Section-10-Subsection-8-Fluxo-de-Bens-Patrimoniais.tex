@@ -66,6 +66,13 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
     const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(req.id_bem_patrimonial);
     const lockRef = lockColl.doc(`bem_edicao_${bemRef.id}`);
     const bem = (await tx.get(bemRef)).data();
+    
+    let localSnap: FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData> | null = null;
+    if (req.novo_id_local) {
+      localSnap = await tx.get(admin.firestore().collection("Local").doc(req.novo_id_local));
+      if (!localSnap.exists) throw new HttpsError("not-found", "Local referenciado na requisição não encontrado.");
+    }
+
     // PASSO 2: Rejeição não depende de verificação de versão (PDF-001: lock liberado em todos os desfechos)
     if (!aprovar) {
       tx.update(reqRef, {
@@ -101,12 +108,7 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
       alteracoes.nome_equipamento = alvo.dados.nome;
     }
     // M-02: quando novo_id_local está presente, propagar predio/andar/sala denormalizados
-    if (req.novo_id_local) {
-      const localSnap = await tx.get(
-        admin.firestore().collection("Local").doc(req.novo_id_local)
-      );
-      if (!localSnap.exists)
-        throw new HttpsError("not-found", "Local referenciado na requisição não encontrado.");
+    if (req.novo_id_local && localSnap) {
       const local = localSnap.data()!;
       // Atualizar as projeções denormalizadas conforme Seção 5 (Espelhamento de Local)
       alteracoes.id_local = req.novo_id_local;
@@ -158,6 +160,14 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
     if (lockSnap.exists) {
       throw new HttpsError("failed-precondition", "Já existe requisição pendente para este número de patrimônio.");
     }
+    
+    // Validar existência prévia do patrimônio na coleção Chaves_Unicas
+    const numeroNormalizado = dados.numeroPatrimonioProposto.trim().toUpperCase();
+    const chaveUnicaRef = admin.firestore().collection("Chaves_Unicas").doc(`Bem_Patrimonial__${numeroNormalizado}`);
+    const chaveUnicaSnap = await tx.get(chaveUnicaRef);
+    if (chaveUnicaSnap.exists) {
+      throw new HttpsError("already-exists", "O número de patrimônio proposto já está em uso por outro bem.");
+    }
     tx.set(lockRef, { criado_em: admin.firestore.FieldValue.serverTimestamp() });
     tx.set(reqRef, {
       numero_patrimonio_proposto: dados.numeroPatrimonioProposto,
@@ -193,23 +203,26 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
     if (aprovar && !req.photo_url_proposta)
       throw new HttpsError("failed-precondition", "Foto obrigatória: sanear pedido legado.");
 
-    // C2: Remove o lock ao responder (libera possível nova requisição futura)
-    const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio")
-      .doc(`bem_adicao_${req.numero_patrimonio_proposto}`);
-    tx.delete(lockRef);
-
-    let idBemCriado: string | null = null;
     let chaveUnicaRef: FirebaseFirestore.DocumentReference | null = null;
-
     if (aprovar) {
       // PDF-001: Validação de chave única (leitura obrigatória antes das escritas)
+      // Unificação da definição da chave de unicidade (Bem_Patrimonial__{numero}) com normalização
+      const numeroNormalizado = req.numero_patrimonio_proposto.trim().toUpperCase();
       chaveUnicaRef = admin.firestore().collection("Chaves_Unicas")
-        .doc(`plaqueta_${req.numero_patrimonio_proposto}`);
+        .doc(`Bem_Patrimonial__${numeroNormalizado}`);
       const chaveUnicaSnap = await tx.get(chaveUnicaRef);
       if (chaveUnicaSnap.exists) {
         throw new HttpsError("already-exists", "O número de patrimônio aprovado já está em uso por outro bem.");
       }
     }
+
+    // C2: Remove o lock ao responder (libera possível nova requisição futura)
+    // DEVE ocorrer APÓS as leituras da transação (tx.get)
+    const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio")
+      .doc(`bem_adicao_${req.numero_patrimonio_proposto}`);
+    tx.delete(lockRef);
+
+    let idBemCriado: string | null = null;
 
     if (aprovar) {
       let idResumo = req.id_resumo_bem_patrimonial;
@@ -245,7 +258,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
 
       // PDF-001: Gravação da chave única associada ao novo bem
       tx.set(chaveUnicaRef!, {
-        tipo: "plaqueta",
+        tipo: "Bem_Patrimonial",
         id_recurso: idBemCriado,
         criado_em: admin.firestore.FieldValue.serverTimestamp()
       });
