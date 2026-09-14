@@ -289,8 +289,8 @@
 | Ação documental | Adicionar à Seção 10.7 a invariante de deduplicação por event.id ou recomputação determinística; documentar job de reconciliação periódica; o pseudocódigo atual sem deduplicação deve ser substituído ou anotado como incompleto |
 | Dependências | nenhuma |
 | Critérios de aceite | Contrato de trigger inclui estratégia de deduplicação; job de reconciliação documentado |
-| Estado | PENDENTE |
-| Commit | — |
+| Estado | VALIDADO_LATEX |
+| Commit | 198c86cc |
 
 ---
 
@@ -361,8 +361,8 @@
 | Ação documental | Listar explicitamente no contrato de validarPermissao quais operações requerem requerAtivo=true (mutações de alto impacto: registrarRetirada, registrarDevolucao, responderRequisicao*, concederPapel, revogarPapel) e quais confiam no JWT |
 | Dependências | nenhuma |
 | Critérios de aceite | Seção 10.3 lista distingue operações com e sem verificação de ativo; conformidade com DP-D01 |
-| Estado | PENDENTE |
-| Commit | — |
+| Estado | VALIDADO_LATEX |
+| Commit | 198c86cc |
 
 ---
 
@@ -451,8 +451,8 @@
 | Ação documental | Verificar se a fórmula canônica (peso_saida bruto) está na Seção 7 com ambas as faixas; verificar contrato de registrarDevolucao na Seção 10.5; rejeitar massa líquida explicitamente |
 | Dependências | nenhuma |
 | Critérios de aceite | Fórmula completa em Seção 7; contrato de devolução referencia a fórmula; evento AJUSTE documentado para ganho tolerado |
-| Estado | PENDENTE |
-| Commit | — |
+| Estado | VALIDADO_LATEX |
+| Commit | 198c86cc |
 
 ---
 
