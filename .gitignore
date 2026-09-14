@@ -1,1 +1,19 @@
-functions/firebase-debug.log
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Firebase / Firestore debug
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
+firestore-debug.*.log
+**/firebase-debug.log
+**/firestore-debug.log
+
+# Build artifacts
+functions/lib/
+
+# Environment
+.env
+.env.local
+.env.*.local
