@@ -9,15 +9,15 @@ Este documento atende à regra obrigatória da Fase 3 de produzir "fichas conten
 | Campo | Definição |
 |---|---|
 | **ID** | PDF-012 |
-| **Invariante principal** | Todo Lote pertence estruturalmente a uma Especificação, que pertence a um Resumo. Para consultas transversais e limites de negócio, o `id_resumo_reagente` deve constar fisicamente no documento de Lote como projeção imutável. |
-| **Fonte normativa** | Modelo Lógico 3FN e regras de desnormalização controlada Firestore. |
+| **Invariante principal** | Todo Lote pertence estruturalmente a uma Especificação, que pertence a um Resumo. No modelo relacional (3FN), essa relação é alcançada pela FK `Lote → Especificacao_Reagente → Resumo_Reagente`. Contudo, para consultas transversais e limites de negócio no Firestore, o `id_resumo_reagente` deve constar fisicamente no documento de Lote como projeção imutável. |
+| **Fonte normativa** | Regras de desnormalização controlada Firestore (Seção 5). |
 | **Entidades envolvidas** | `Lote`, `Resumo_Reagente`. |
 | **Coleções/documentos Firestore** | Coleção raiz `Lote`. |
-| **Normalização/canonicalização** | O campo `id_resumo_reagente` é uma projeção idêntica ao ID do documento de Resumo correspondente. |
-| **Estado persistido** | `id_resumo_reagente` torna-se `NOT NULL` (SQL) e `string; O` (Firestore). |
-| **Auditoria/histórico** | N/A (Alteração estrutural retroativa). |
-| **Migração/backfill** | **Requerido.** Um script de backfill precisará ler o `id_especificacao_reagente` de cada lote legado, buscar a especificação, extrair o pai (Resumo) e gravar no lote. |
-| **Critério de aceite** | O campo consta formalmente nas Seções 4 e 5. A necessidade de backfill está declarada. |
+| **Normalização/canonicalização** | O campo `id_resumo_reagente` é uma projeção idêntica ao ID do documento de Resumo correspondente, existindo apenas no modelo físico Firestore. |
+| **Estado persistido** | `id_resumo_reagente` torna-se `string; O` apenas no dicionário Firestore (Seção 5). |
+| **Auditoria/histórico** | N/A. |
+| **Migração/backfill** | **Requerido.** Um script de backfill precisará ler o `id_especificacao_reagente` de cada lote legado no Firestore, buscar a especificação, extrair o pai (Resumo) e gravar no lote. |
+| **Critério de aceite** | O campo consta formalmente na Seção 5 como projeção do Firestore, mas NÃO viola o modelo 3FN da Seção 4. A necessidade de backfill está declarada para documentos legados. |
 
 ---
 
