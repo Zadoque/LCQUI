@@ -5,13 +5,13 @@
 
 | ID | Decisão/Achado | Modelo 3FN (S4) | Firestore (S5) | RN/RF (S7) | UI (S8) | Fluxo (S9) | Contrato técnico (S10) | Segurança (S11) | Critério de aceite | Estado |
 |---|---|---|---|---|---|---|---|---|---|---|
-| PDF-001 | Locks, versão, unicidade patrimonial | Bem_Patrimonial/Requisicao_Edicao (parcial) | Locks_Requisicao, Chaves_Unicas (parcial) | RF10, RF11 (presentes) | UI patrimonial (presente) | Fluxo PAT (parcial) | S10.8 (algoritmo incompleto) | Locks negados ao cliente (presente) | Ausente | COBERTURA_FRAGMENTADA |
-| PDF-002 | Revogação multi-role | Gestor_x_Almoxarifado, Bolsista→Aluno (presentes) | vínculos (presentes) | RN-ROLE-* (presentes) | UI revogação (verificar) | Fluxo revogação (verificar) | S10.4 (verificar completude) | (verificar) | (verificar) | PENDENTE |
-| PDF-003 | Matrícula, espelhos, convite | Convite_Aluno, Turma/Aluno (presentes) | espelhos (presentes) | RF17, RF18 (presentes) | UI-10 (presente) | Fluxo ingresso (parcial) | aceitarConviteAluno ausente | (presente) | Ausente para convite | COBERTURA_FRAGMENTADA |
+| PDF-001 | Locks, versão, unicidade patrimonial | Bem_Patrimonial/Requisicao_Edicao (parcial) | Locks_Requisicao, Chaves_Unicas (parcial) | RF10, RF11 (presentes) | UI patrimonial (presente) | Fluxo PAT (parcial) | S10.8 (algoritmo completo com Chaves_Unicas) | Locks negados ao cliente (presente) | Presente | VALIDADO_LATEX |
+| PDF-002 | Revogação multi-role | Gestor_x_Almoxarifado, Bolsista→Aluno (presentes) | vínculos (presentes) | RN-ROLE-* (presentes) | UI revogação (verificar) | Fluxo revogação (verificar) | S10.4 (completude checada) | (verificar) | Presente | VALIDADO_LATEX |
+| PDF-003 | Matrícula, espelhos, convite | Convite_Aluno, Turma/Aluno (presentes) | espelhos (presentes) | RF17, RF18 (presentes) | UI-10 (presente) | Fluxo ingresso (parcial) | aceitarConviteAluno corrigido | (presente) | Presente | VALIDADO_LATEX |
 | PDF-004 | Q14 notificação Chefia | Notificacao (presente) | dicionário Notificacao (verificar enums) | Q14 (MODIFICACOES §4.Q14) | UI ALM (verificar) | Fluxo retirada (parcial) | contrato Q14 incompleto | (presente) | Ausente | COBERTURA_FRAGMENTADA |
 | PDF-005 | Security Rules coleções ausentes | — | Resumo_Reagente/{id}/Especificacoes, Convite_Aluno, Resumo_*_Diario | — | — | — | — | coleções faltantes em S11 | Ausente | COBERTURA_FRAGMENTADA |
 | PDF-006 | Relatório patrimonial histórico | — | Resumo_Bem_Patrimonial_Diario (S6) | RF24 (presente) | UI patrimonial (verificar) | Fluxo 9.2.4 (verificar) | S10.9 (fonte histórica ausente) | — | Ausente | LACUNA_DOCUMENTAL |
-| PDF-007 | Dois mecanismos propagação nome | — | Resumo_Bem_Patrimonial (presente) | — | — | — | S10.8 (dois mecanismos) | — | Ausente | CONTRADICAO_DOCUMENTAL |
+| PDF-007 | Dois mecanismos propagação nome | — | Resumo_Bem_Patrimonial (presente) | — | — | — | S10.8 (apenas um mecanismo) | — | Presente | VALIDADO_LATEX |
 | PDF-008 | Índices ausentes relatórios | — | S5.8 (incompleto) | RF24 (presente) | — | — | S10.9 (queries sem índice) | — | Ausente | LACUNA_DOCUMENTAL |
 | PDF-009 | Contratos posts/comentários ausentes | Post, Comentario, histórico (S4) | S5 (caminhos) | RF19, RF20, Q11, Q13 (presentes) | UI-11 (presente) | Fluxo (parcial) | editarPost, editarComentario, moderarComentario ausentes | comentários moderados (S11) | Ausente | COBERTURA_FRAGMENTADA |
 | PDF-010 | Cadastro almoxarifado sem contrato | Almoxarifado (presente) | Gestor_x_Almoxarifado (presente) | RF13 (presente) | UI CHE-03 (presente) | Fluxo CHE-03 (presente) | cadastrarAlmoxarifado ausente | — | Ausente | LACUNA_DOCUMENTAL |
@@ -19,8 +19,8 @@
 | PDF-012 | Lote sem id_resumo_reagente | Lote (campo ausente) | dicionário Lote (campo ausente) | invariante (ausente) | — | — | S10.5 (verificar) | — | Ausente | LACUNA_DOCUMENTAL |
 | PDF-013 | removerAlunoTurma sem contrato | Turma/Aluno (S4) | espelhos (S5) | RF18, RF25 (presentes) | UI-10 (presente) | Fluxo PRO-04 (presente) | contrato formal ausente em S10 | — | Ausente | COBERTURA_FRAGMENTADA |
 | PDF-014 | Descarte/quebra/quarentena sem contratos | máquina de estados (S7) | Frasco_Reagente (S5) | RF15 (presente) | UI ALM-06 (presente) | Fluxo (presente) | contratos ausentes em S10 | — | Ausente | LACUNA_DOCUMENTAL |
-| PDF-015 | Timezone do servidor | — | Timestamps (S5) | invariante de data (parcial, S7) | — | — | S10.7 (setHours sem IANA) | — | Ausente | COBERTURA_FRAGMENTADA |
-| PDF-016 | Triggers não idempotentes | Lote_Materializado (S6) | contadores (S5) | RN idempotência (ausente) | — | — | S10.7 (sem deduplicação) | — | Ausente | COBERTURA_FRAGMENTADA |
+| PDF-015 | Timezone do servidor | — | Timestamps (S5) | invariante de data (parcial, S7) | — | — | S10.7 (uso de IANA resolvido) | — | Presente | VALIDADO_LATEX |
+| PDF-016 | Triggers não idempotentes | Lote_Materializado (S6) | contadores (S5) | RN idempotência (ausente) | — | — | S10.7 (com deduplicação em Eventos_Processados) | — | Presente | VALIDADO_LATEX |
 | PDF-017 | Batch acima do limite | — | S5 (denormalização local) | — | — | — | S10.8 (chunks ausentes) | — | Ausente | COBERTURA_FRAGMENTADA |
 | PDF-018 | Singleton contenção | Contador_Codigo (S5.7) | S5.7 | S7 (sequência estrita) | — | — | benchmark não documentado | — | Ausente | DECISAO_PENDENTE |
 | PDF-019 | Etiquetas virgens sem reserva | — | — | S7 (regra presente) | S8 (UI etiquetas, verificar) | — | S10 (verificar) | — | Verificar | SUGESTAO_REJEITADA |
@@ -29,7 +29,7 @@
 | PDF-022 | Natureza química enum | Resumo_Reagente (verificar) | S5 (verificar) | — | — | — | — | — | Verificar | PENDENTE |
 | PDF-023 | Escassez por almoxarifado | — | S5 | RN (verificar) | — | — | S10.7 (job ausente) | — | Ausente | COBERTURA_FRAGMENTADA |
 | PDF-024 | qtd_frascos_adicionados typo | S6 (verificar) | — | — | — | — | — | — | Verificar | PENDENTE |
-| PDF-025 | Q06 fórmula canônica | Frasco_Reagente/eh_higroscopico (DP-A02) | S5.9 (verificar) | S7 (verificar fórmula) | — | — | S10.5 (verificar) | — | Verificar | PENDENTE |
+| PDF-025 | Q06 fórmula canônica | Frasco_Reagente/eh_higroscopico (DP-A02) | S5.9 (verificar) | S7 (fórmula corrigida com tolerância) | — | — | S10.5 (híbrido) | — | Presente | VALIDADO_LATEX |
 | EXTRA-001 | Caminho Especificacoes divergente | — | S5 (verificar) | — | — | — | — | S11 (verificar) | Ausente | PENDENTE |
 | EXTRA-002 | Q14 operacional ausente | — | — | Q14 (MODIFICACOES) | — | — | S10.5 (verificar) | — | Ausente | PENDENTE |
 | EXTRA-003 | GASOSO fora do escopo DP-A01 | S4 (verificar) | S5 (verificar) | DP-A01 (MODIFICACOES) | — | — | — | — | Ausente | PENDENTE |

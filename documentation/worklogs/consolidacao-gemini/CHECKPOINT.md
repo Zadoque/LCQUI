@@ -6,18 +6,18 @@
 |---|---|
 | Branch | `docs/realinhamento-especificacao-lcqui` |
 | HEAD inicial (início desta sessão) | `e7b0bfe90dc91c693f965a51ca81f42676dc187c` |
-| HEAD atual | `e7b0bfe90dc91c693f965a51ca81f42676dc187c` |
-| Último commit concluído | — (Fase 0 em andamento) |
+| HEAD atual | `820617a5464b610c859da02e000980d6ec550512` |
+| Último commit concluído | `820617a5` (Lote 2.1) |
 
 ## Estado atual
 
 | Campo | Valor |
 |---|---|
 | Lote atual | Lote 3 — Próximo lote |
-| Último arquivo editado | Section-10-Subsection-7-Jobs-Agendados.tex |
+| Último arquivo editado | Section-10-Subsection-10-Consolidacao-do-planejamento.tex |
 | Alterações ainda não compiladas | nenhuma |
-| Último build (herdado da sessão anterior) | Lote 2 — 191 páginas; Final — 191 páginas; exit 0 |
-| Resultado do build herdado | aprovado (sessão Lote 2) |
+| Último build (herdado da sessão anterior) | Lote 2.1 — 192 páginas; Final — 192 páginas; exit 0 |
+| Resultado do build herdado | aprovado (sessão Lote 2.1) |
 | Próxima ação exata | Identificar os arquivos .tex para o Lote 3 (ex: PDF-004, PDF-005) e editar |
 
 ## Decisões bloqueadoras
