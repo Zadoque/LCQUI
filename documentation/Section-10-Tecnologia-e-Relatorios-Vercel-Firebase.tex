@@ -1446,7 +1446,7 @@ function prazoLimiteDevolucao(dataCivil: string): Date {
 \end{lstlisting}
 
 \begin{lstlisting}[language=TypeScript, title={M-11: geração de codigo\_turma -- base32 Crockford 6 chars com retry transacional}]
-// M-11: codigo_turma UNIQUE, ≤ 20 chars, gerado pelo servidor.
+// M-11: codigo_turma UNIQUE, <= 20 chars, gerado pelo servidor.
 // Usa Crockford Base32 (alfabeto sem I, L, O, U) para legibilidade.
 // Retry transacional via docId determinístico em coleção Chaves_Unicas.
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
