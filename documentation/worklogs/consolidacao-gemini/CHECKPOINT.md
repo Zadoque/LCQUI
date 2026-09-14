@@ -6,7 +6,7 @@
 |---|---|
 | Branch | `docs/realinhamento-especificacao-lcqui` |
 | HEAD inicial (início desta sessão) | `e7b0bfe90dc91c693f965a51ca81f42676dc187c` |
-| Commit documental validado | 5c07b53a |
+| Commit documental validado | dc9c50db |
 
 ## Estado atual
 
@@ -15,8 +15,8 @@
 | Lote atual | Lote 2.2 — Refinamento Semântico (Concluído) |
 | Último arquivo editado | Section-10-Subsection-7-Jobs-Agendados.tex |
 | Alterações ainda não compiladas | nenhuma |
-| Último build validado | Lote 2.2 Complemento V5 — 200 páginas; exit 0 |
-| Resultado da inspeção visual | aprovada (PDF-001, PDF-016) |
+| Último build validado | Lote 2.2 Complemento V6 — 199 páginas; exit 0 |
+| Resultado da inspeção visual | aprovada (PDF-016) |
 | Próxima ação exata | Iniciar Lote 3. |
 
 ## Decisões bloqueadoras
