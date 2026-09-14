@@ -16,6 +16,7 @@ export const revogarPapel = onCall(async (request) => {
     const singletonSnap = await tx.get(singletonRef);
 
     // 2. Verificar invariantes de RN-ROLE antes de qualquer escrita
+    let vinculos: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null = null;
     if (papel === "Chefe_Geral") {
       // RN-ROLE-02: Chefe Geral não pode revogar outro Chefe Geral
       if (uidAlvo !== request.auth!.uid)
@@ -29,7 +30,7 @@ export const revogarPapel = onCall(async (request) => {
     }
     if (papel === "Gestor_Almoxarifado") {
       // RN-ROLE-05: cada almoxarifado vinculado deve ter outro gestor
-      const vinculos = await tx.get(
+      vinculos = await tx.get(
         admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
           .where("id_gestor_almoxarifado", "==", uidAlvo)
       );
@@ -79,7 +80,7 @@ export const revogarPapel = onCall(async (request) => {
     const papelRef = admin.firestore().collection(papel).doc(uidAlvo);
     tx.delete(papelRef);
     
-    if (papel === "Gestor_Almoxarifado") {
+    if (papel === "Gestor_Almoxarifado" && vinculos) {
       // Limpeza em cascata dos vínculos (obtidos no passo 2)
       vinculos.docs.forEach((doc) => tx.delete(doc.ref));
     }
