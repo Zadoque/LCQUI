@@ -6,7 +6,7 @@
 |---|---|
 | Branch | `docs/realinhamento-especificacao-lcqui` |
 | HEAD inicial (início desta sessão) | `e7b0bfe90dc91c693f965a51ca81f42676dc187c` |
-| Commit documental validado | a-definir-no-proximo-commit |
+| Commit documental validado | 43232157 |
 
 ## Estado atual
 
