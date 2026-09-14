@@ -190,7 +190,12 @@ Esta entidade audita de forma isolada as sessões de geração em lote de etique
 \campo{id\_local}{INTEGER}{FK, NOT NULL}
 \campo{nome}{VARCHAR(100)}{NOT NULL}
 \campo{descricao}{VARCHAR(500)}{NOT NULL}
+\campo{ativo}{BOOLEAN}{DEFAULT TRUE, NOT NULL}
 \end{entidade}
+
+\begin{explicacao}
+O campo \textit{ativo} indica se o almoxarifado está operacional. Quando \texttt{ativo = false}, o almoxarifado está desativado e as regras de bloqueio da Seção~\ref{sec:regras-almoxarifado-inativo} se aplicam. A desativação é reversível e não exclui registros históricos.
+\end{explicacao}
 
 \subsection{Substância Química}
 \begin{entidade}{Substancia\_Quimica}
@@ -401,6 +406,7 @@ O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre 
 \campo{id}{SERIAL}{PK}
 \campo{id\_frasco\_reagente}{INTEGER}{FK, NOT NULL}
 \campo{id\_usuario\_retirou}{INTEGER}{FK, NOT NULL}
+\campo{id\_gestor\_retirada}{INTEGER}{FK, NOT NULL}
 \campo{status}{ENUM}{EM\_USO,ATRASADO,DEVOLVIDO,DEVOLVIDO\_COM\_ATRASO, NOT NULL}
 \campo{data\_retirada}{TIMESTAMP}{NOT NULL}
 \campo{data\_devolucao\_prevista}{DATE}{NOT NULL}
@@ -424,8 +430,12 @@ O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre 
 \end{entidade}
 
 \begin{explicacao}
+\textbf{Semântica dos atores da retirada:} \textit{id\_usuario\_retirou} identifica o \textbf{portador físico} -- o Professor ou Bolsista que receberá e usará o reagente. \textit{id\_gestor\_retirada} identifica o \textbf{operador do almoxarifado} -- o Gestor de Almoxarifado (ou Chefe Geral) que registrou a operação no sistema. No autoatendimento, os dois UIDs coincidem e a flag \textit{auto\_atendimento} fica \texttt{true}. Esta separação é essencial para rastreabilidade de auditoria: o relatório de atividade do gestor parte de \textit{id\_gestor\_retirada}, enquanto o painel ``Meus Reagentes'' do professor parte de \textit{id\_usuario\_retirou}.
+
 \textit{peso\_saida} e \textit{peso\_retorno} são sempre leituras de balança em gramas. \textit{unidade\_medida\_utilizada} qualifica exclusivamente \textit{medida\_utilizada} -- o consumo calculado, reportado em massa (g) para sólidos ou em volume (ml) para líquidos, via $V = \Delta m / \rho$.
 \end{explicacao}
+
+
 
 \subsection{Métricas Agregadas do Reagente}
 \begin{explicacao}
@@ -484,6 +494,7 @@ Caso a capacidade seja atingida, o sistema rejeita o ingresso por código. Apena
 \begin{entidade}{Historico\_Posts\_Turma}
 \campo{id}{SERIAL}{PK}
 \campo{id\_post}{INTEGER}{FK, NOT NULL}
+\campo{editado\_por}{INTEGER}{FK, NOT NULL}
 \campo{novo\_titulo}{VARCHAR(150)}{NULL}
 \campo{novo\_id\_roteiro}{INTEGER}{FK, NULL}
 \campo{nova\_descricao}{TEXT}{NULL}
@@ -492,6 +503,10 @@ Caso a capacidade seja atingida, o sistema rejeita o ingresso por código. Apena
 \campo{antiga\_descricao}{TEXT}{NULL}
 \campo{timestamp}{TIMESTAMP}{NOT NULL}
 \end{entidade}
+
+\begin{explicacao}
+O campo \textit{editado\_por} registra o UID do usuário que realizou a edição. Normalmente é o Professor dono da turma, mas o Chefe Geral também pode editar ou remover posts em caráter excepcional de moderação institucional (Q13). O \textit{id\_turma} não é armazenado nesta entidade 3FN porque pode ser obtido por \textit{Historico\_Posts\_Turma.id\_post} $\rightarrow$ \textit{Post.id\_turma}; se a consulta direta por turma for necessária no Firestore, esse vínculo poderá ser denormalizado na coleção de histórico.
+\end{explicacao}
 
 \subsection{Historico de Comentario em um Post}
 \begin{entidade}{Historico\_Comentario}

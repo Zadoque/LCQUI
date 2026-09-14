@@ -82,7 +82,7 @@ Para o papel de Professor, a dashboard foca em organização acadêmica e gestã
 
 Na aba principal, abaixo do header em comum, ele verá uma div \textit{full-width} com:
 \begin{itemize}
-    \item \textbf{Notificações:} Botão com ícone de sino que abre um modal \textit{dropdown} alertando sobre requisições de bens respondidas e sobre reagentes emprestados cujo prazo está atrasado, vence hoje ou vence amanhã. Inclui um botão "Limpar tudo".
+    \item \textbf{Notificações:} Botão com ícone de sino, presente globalmente no header (N-11) e consolidado por conta ativa (UID), independentemente do papel selecionado no momento. Abre um modal \textit{dropdown} contendo todos os alertas direcionados àquele usuário: requisições de bens respondidas (Professor), reagentes com prazo atrasado ou vencendo (Professor/Bolsista), e alertas de escassez (Gestores). Cada notificação exibe visualmente o escopo/papel a que se destina. Inclui opção de marcar como lida e um botão ``Limpar tudo''.
     \item \textbf{Botão Mais (+):} Abre \textit{dropdown} com: Nova Turma, Novo Aluno (turma opcional, com confirmação de convite global), Novo Roteiro de Experimento, Novo Pedido de Adição de Bem Patrimonial (se o usuário selecionar "Novo Local" dentro do pedido, um modal sobreposto exigirá o cadastro prévio do Prédio/Sala), e \textbf{Nova Matéria} (abre modal simples com nome e código; código deve ser único, validado pelo backend).
     \item \textbf{Gerenciar Roteiros:} Abre um modal com três abas ("Meus", "Compartilhados comigo" e "Eu compartilhei"). Permite abrir para visualização ou baixar os arquivos em PDF.
     \item \textbf{Minhas Requisições:} Modal para acompanhar os pedidos feitos de adição/edição de Bens Patrimoniais (filtrando por Pendente, Aprovada, Rejeitada).

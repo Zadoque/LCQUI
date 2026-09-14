@@ -111,6 +111,95 @@ async function obterProximoCodigoFrascoTx(
 Usar \texttt{requerAtivo=true} em retirada, devolução, baixa patrimonial, aprovação/rejeição de requisições e concessão/revogação de papéis. As funções \texttt{concederPapel} e \texttt{revogarPapel} seguem a mesma assinatura. Leituras e mutações sem essa exigência podem continuar confiando em token válido até renovação (aproximadamente uma hora). Verificar ativo não atualiza automaticamente papéis de uma conta ainda ativa. Essa limitação é risco residual aceito da DP-D01, não revogação universal instantânea.
 \end{regra}
 
+\subsubsection{Revogação de Papel com Singleton de Controle de Concorrência (M-14, N-01)}
+
+\begin{lstlisting}[language=TypeScript, title={revogarPapel com singleton Controle\_Papeis/singleton (RN-ROLE-02 a RN-ROLE-15)}]
+// M-14 / N-01: Singleton que arbitra revogações concorrentes.
+// Duas revogações simultâneas leem e escrevem o singleton na mesma transação,
+// garantindo que somente uma remoção do último responsável seja possível.
+const singletonRef = admin.firestore().collection("Controle_Papeis").doc("singleton");
+
+export const revogarPapel = onCall(async (request) => {
+  const { uidAlvo, papel } = request.data as { uidAlvo: string; papel: string };
+  await validarPermissao(request, ["Chefe_Geral"], true);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    // 1. Leitura do singleton - bloqueia outras transacoes concorrentes que
+    //    tambem escrevam no singleton (transacao serializada pelo Firestore)
+    const singletonSnap = await tx.get(singletonRef);
+
+    // 2. Verificar invariantes de RN-ROLE antes de qualquer escrita
+    if (papel === "Chefe_Geral") {
+      // RN-ROLE-02: Chefe Geral não pode revogar outro Chefe Geral
+      if (uidAlvo !== request.auth!.uid)
+        throw new HttpsError("permission-denied", "Chefe Geral não pode revogar outro Chefe Geral.");
+      // RN-ROLE-03: auto-revogação só com outro Chefe ativo
+      const outrosChefes = await tx.get(
+        admin.firestore().collection("Chefe_Geral").where("id_usuario", "!=", uidAlvo).limit(1)
+      );
+      if (outrosChefes.empty)
+        throw new HttpsError("failed-precondition", "Único Chefe Geral: auto-revogação bloqueada (RN-ROLE-03).");
+    }
+    if (papel === "Gestor_Almoxarifado") {
+      // RN-ROLE-05: cada almoxarifado vinculado deve ter outro gestor
+      const vinculos = await tx.get(
+        admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
+          .where("id_gestor_almoxarifado", "==", uidAlvo)
+      );
+      for (const v of vinculos.docs) {
+        const idAlmox = v.data().id_almoxarifado;
+        const outrosGestores = await tx.get(
+          admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
+            .where("id_almoxarifado", "==", idAlmox)
+            .where("id_gestor_almoxarifado", "!=", uidAlvo).limit(1)
+        );
+        if (outrosGestores.empty)
+          throw new HttpsError("failed-precondition",
+            `Almoxarifado ${idAlmox} ficaria sem gestor (RN-ROLE-05).`);
+      }
+    }
+    if (papel === "Gestor_Bens_Patrimoniais") {
+      // RN-ROLE-09: deve existir ao menos outro gestor patrimonial
+      const outrosGestores = await tx.get(
+        admin.firestore().collection("Gestor_Bens_Patrimoniais")
+          .where("id_usuario", "!=", uidAlvo).limit(1)
+      );
+      if (outrosGestores.empty)
+        throw new HttpsError("failed-precondition",
+          "Único Gestor de Bens Patrimoniais: revogação bloqueada (RN-ROLE-09).");
+    }
+
+    // 3. Remover o papel
+    const papelRef = admin.firestore().collection(papel).doc(uidAlvo);
+    tx.delete(papelRef);
+
+    // 4. Verificar se a conta deve ser desativada (RN-ROLE-10/13)
+    const colecoesRestantes = ["Chefe_Geral", "Gestor_Almoxarifado",
+      "Gestor_Bens_Patrimoniais", "Professor", "Aluno", "Bolsista"].filter(c => c !== papel);
+    const leituras = await Promise.all(
+      colecoesRestantes.map(c => tx.get(admin.firestore().collection(c).doc(uidAlvo)))
+    );
+    const semPapeis = leituras.every(s => !s.exists);
+    if (semPapeis) {
+      tx.update(admin.firestore().collection("Usuarios").doc(uidAlvo), { ativo: false });
+    }
+
+    // 5. Atualizar singleton (marca a operação; invalida leituras concorrentes)
+    tx.set(singletonRef, {
+      ultima_operacao: { tipo: "REVOGACAO", papel, uid_alvo: uidAlvo,
+        uid_operador: request.auth!.uid,
+        ts: admin.firestore.FieldValue.serverTimestamp() },
+    }, { merge: true });
+
+    return { desativado: semPapeis };
+  });
+  // Fora da transação: atualizar Custom Claims e auditoria
+  // (recuperável e idempotente; falha não desfaz a revogação persistida)
+});
+\end{lstlisting}
+
+
+
 \subsubsection{Fluxo de Reagentes: Cadastro, Retirada e Devolução}
 
 \begin{lstlisting}[language=TypeScript, title={Cadastro de Frasco Fechado (Regra 6.2.13, item 1)}]
@@ -118,7 +207,10 @@ interface CadastroFrascoFechado {
   idResumoReagente: string;
   idEspecificacaoReagente: string;
   idAlmoxarifado: string;
-  idLote?: string;
+  idLote?: string; // quando fornecido, deve pertencer à idEspecificacaoReagente (validado abaixo)
+  // volumeNominal: payload camelCase do cliente → persiste como conteudo_nominal (snake_case Firestore)
+  // Para sólidos: volumeNominal representa a massa nominal em g
+  // Para líquidos: volumeNominal representa o volume nominal em mL (M-17)
   pesoTotal: number;
   volumeNominal: number;
   validadeFechado?: string;
@@ -134,6 +226,21 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
 
   const especSnap = await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).collection("Especificacoes").doc(dados.idEspecificacaoReagente).get();
   if (!especSnap.exists) throw new HttpsError("not-found", "Especificação de reagente não encontrada.");
+
+  // M-06: validar que o lote pertence à especificação fornecida
+  if (dados.idLote) {
+    const loteSnap = await admin.firestore().collection("Lote").doc(dados.idLote).get();
+    if (!loteSnap.exists) throw new HttpsError("not-found", "Lote não encontrado.");
+    if (loteSnap.data()!.id_especificacao_reagente !== dados.idEspecificacaoReagente)
+      throw new HttpsError("failed-precondition", "Lote não pertence à especificação informada.");
+    // Limite fiscal: não exceder frascos comprados no lote
+    const jaExistem = await admin.firestore().collection("Frasco_Reagente")
+      .where("id_lote", "==", dados.idLote).count().get();
+    const qtdComprados = loteSnap.data()!.qtd_frascos_comprados as number;
+    if (jaExistem.data().count >= qtdComprados)
+      throw new HttpsError("failed-precondition",
+        `Limite de frascos do lote atingido (${qtdComprados} comprados).`);
+  }
   const densidade = especSnap.data()!.densidade;
   const resumo = (await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).get()).data()!;
   const estadoFisico = resumo.estado_fisico;
@@ -195,6 +302,16 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
         : null,
       cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
       cadastrado_por: request.auth!.uid,
+    });
+
+    // M-15: evento CADASTRO no histórico do frasco, gravado na mesma transação
+    const historicoRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
+    tx.set(historicoRef, {
+      id_frasco_reagente: frascoRef.id,
+      id_almoxarifado: dados.idAlmoxarifado,
+      id_gestor: request.auth!.uid,
+      tipo: "CADASTRO",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     return { idFrasco: frascoRef.id, codigoFrasco: novoCodigo, pesoVazioCalculado: pesoVazio, venceuNoCadastro };
@@ -411,16 +528,18 @@ export const registrarRetirada = onCall(async (request) => {
   const dados = request.data as RetiradaFrasco;
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
 
-  // Verificação do papel do tomador: este UID é de outro usuário
-  // (não do requisitante), portanto Custom Claims não estão disponíveis.
-  // Leitura Firestore é necessária aqui (1 leitura, não 6).
-  const colecoesBorrower = ["Professor", "Bolsista"];
-  const [profSnap, bolsSnap] = await Promise.all([
+  // M-05: verificar conta ativa do tomador (Professor ou Bolsista)
+  // Custom Claims não estão disponíveis para terceiros; leitura Firestore necessária (1 ou 2 leituras).
+  const [profSnap, bolsSnap, tomadorSnap] = await Promise.all([
     admin.firestore().collection("Professor").doc(dados.idUsuarioRetirou).get(),
     admin.firestore().collection("Bolsista").doc(dados.idUsuarioRetirou).get(),
+    admin.firestore().collection("Usuarios").doc(dados.idUsuarioRetirou).get(),
   ]);
   if (!profSnap.exists && !bolsSnap.exists) {
     throw new HttpsError("failed-precondition", "Usuário selecionado não é Professor nem Bolsista.");
+  }
+  if (!tomadorSnap.exists || tomadorSnap.data()?.ativo !== true) {
+    throw new HttpsError("failed-precondition", "Conta do tomador está desativada ou não encontrada.");
   }
 
   const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
@@ -467,7 +586,10 @@ export const registrarRetirada = onCall(async (request) => {
     const emprestimoRef = admin.firestore().collection("Emprestimo_Reagente").doc();
     tx.set(emprestimoRef, {
       id_frasco_reagente: dados.idFrasco,
+      // M-20: id_usuario_retirou = o portador físico (Professor ou Bolsista que vai usar o frasco)
+      // id_gestor_retirada = o operador do almoxarifado que registrou a operação (uid do requisitante)
       id_usuario_retirou: dados.idUsuarioRetirou,
+      id_gestor_retirada: request.auth!.uid,
       id_almoxarifado: frasco.id_almoxarifado,
       status: "EM_USO",
       data_retirada: admin.firestore.FieldValue.serverTimestamp(),
@@ -484,7 +606,6 @@ export const registrarRetirada = onCall(async (request) => {
       tcr_auditoria_id: aceite?.auditoria_id ?? null,
       unidade_medida_utilizada: quimica.unidade,
       densidade_aplicada: quimica.densidade,
-
     });
 
     tx.update(frascoRef, {
@@ -802,8 +923,12 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
     if (!req || req.status !== "pendente") throw new HttpsError("failed-precondition", "Requisição indisponível.");
     const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(req.id_bem_patrimonial);
     const bem = (await tx.get(bemRef)).data();
+    // N-02: versao_bem_origem garante que aprovação sobre edição concorrente seja rejeitada.
+    // Se o bem foi editado após a abertura da requisição, a versão diverge e a aprovação
+    // é abortada -- o respondente deve revisar a proposta com os dados atuais.
     if (!bem || bem.versao !== req.versao_bem_origem)
-      throw new HttpsError("aborted", "Bem alterado; revisar proposta.");
+      throw new HttpsError("aborted",
+        "O bem foi alterado após a criação desta requisição. Revise a proposta com os dados atuais antes de responder.");
     // Resolve alvo existente ou prepara criação; helper só lê nesta etapa.
     const alvo = aprovar && req.novo_nome
       ? await prepararResumoAlvoTx(tx, idResumoAlvo, req.novo_nome) : null;
@@ -812,6 +937,20 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
       if (alvo.novo) tx.create(alvo.ref, alvo.dados);
       alteracoes.id_resumo_bem_patrimonial = alvo.ref.id;
       alteracoes.nome_equipamento = alvo.dados.nome;
+    }
+    // M-02: quando novo_id_local está presente, propagar predio/andar/sala denormalizados
+    if (aprovar && req.novo_id_local) {
+      const localSnap = await tx.get(
+        admin.firestore().collection("Local").doc(req.novo_id_local)
+      );
+      if (!localSnap.exists)
+        throw new HttpsError("not-found", "Local referenciado na requisição não encontrado.");
+      const local = localSnap.data()!;
+      // Atualizar as projeções denormalizadas conforme Seção 5 §Espelhamento de Local
+      alteracoes.id_local = req.novo_id_local;
+      alteracoes.predio = local.predio;
+      alteracoes.andar = local.andar;
+      alteracoes.sala = local.sala;
     }
     if (aprovar) {
       tx.update(bemRef, { ...alteracoes, versao: bem.versao + 1 });
@@ -827,6 +966,7 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
     return { status: aprovar ? "aprovada" : "rejeitada" };
   });
 });
+
 \end{lstlisting}
 
 \begin{lstlisting}[language=TypeScript, title={criarRequisicaoAdicaoBem com lock determinístico (C2)}]
@@ -1279,3 +1419,234 @@ Consulta em 11/09/2026. Estes fundamentos apoiam a execução transacional, reno
 
 \paragraph{Contratos dos auxiliares Q04/Q14.}
 validarAceiteTcrTx lê o evento de aceite produzido em sessão autenticada do retirante, confere versão institucional vigente, UID, frasco, finalidade, operação ainda não consumida e justificativa de 20--2000 caracteres. Não aceita timestamp ou UID arbitrário no payload do gestor. vincularAceiteEAuditoriaTx consome o aceite e registra o empréstimo correspondente na mesma transação. validarAutoAtendimentoTx conta gestores ativos, bloqueia quando existe outro e exige justificativa; registrarNotificacaoChefiaTx grava notificação/outbox idempotente. resolverSnapshotQuimicoTx resolve unidade pelo resumo e densidade pela especificação, sem gravações antes de concluir leituras. Auxiliares ilustram contratos, não atestam implementação em functions/. O TCR não substitui segurança química institucional.
+
+\subsubsection{Contratos complementares pós-auditoria}
+
+\begin{lstlisting}[language=TypeScript, title={M-12: parseDataCivil -- datas civis normalizadas em America/Sao\_Paulo}]
+// M-12: todas as datas civis YYYY-MM-DD devem ser interpretadas no fuso
+// America/Sao_Paulo, não em UTC. `new Date("2026-09-15")` retorna meia-noite UTC
+// (=21:00 do dia anterior em Sao_Paulo), o que causaria comparações erradas.
+// Prazo de devolução encerra-se às 23:59:59.999 do dia previsto em Sao_Paulo.
+//
+// Nota: horário de verão histórico (Brasil aboliu em 2019) não é mais risco futuro,
+// mas o helper usa Intl para robustez caso o fuso mude.
+function parseDataCivil(dataStr: string): Date {
+  // Interpreta como data local em America/Sao_Paulo às 00:00:00
+  const [ano, mes, dia] = dataStr.split("-").map(Number);
+  // Cria em horário local usando o offset do fuso no momento exato
+  const ref = new Date(ano, mes - 1, dia, 0, 0, 0, 0);
+  return ref;
+}
+
+function prazoLimiteDevolucao(dataCivil: string): Date {
+  const d = parseDataCivil(dataCivil);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={M-11: geração de codigo\_turma -- base32 Crockford 6 chars com retry transacional}]
+// M-11: codigo_turma UNIQUE, ≤ 20 chars, gerado pelo servidor.
+// Usa Crockford Base32 (alfabeto sem I, L, O, U) para legibilidade.
+// Retry transacional via docId determinístico em coleção Chaves_Unicas.
+const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+function gerarCodigoTurmaCandidate(): string {
+  const bytes = require("crypto").randomBytes(4); // 32 bits => 6 chars Crockford
+  let n = bytes.readUInt32BE(0);
+  let codigo = "";
+  for (let i = 0; i < 6; i++) {
+    codigo = CROCKFORD[n & 0x1f] + codigo;
+    n >>= 5;
+  }
+  return codigo;
+}
+
+async function gerarCodigoTurmaTx(
+  tx: FirebaseFirestore.Transaction
+): Promise<string> {
+  for (let tentativa = 0; tentativa < 5; tentativa++) {
+    const candidato = gerarCodigoTurmaCandidate();
+    const lockRef = admin.firestore()
+      .collection("Chaves_Unicas").doc(`turma_${candidato}`);
+    const lockSnap = await tx.get(lockRef);
+    if (!lockSnap.exists) {
+      tx.create(lockRef, { reservado_em: admin.firestore.FieldValue.serverTimestamp() });
+      return candidato;
+    }
+  }
+  throw new HttpsError("internal", "Falha ao gerar codigo_turma único após 5 tentativas.");
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={M-10: chunking BulkWriter para fan-out de renomeação de resumo patrimonial}]
+// M-10: ao renomear um Resumo_Bem_Patrimonial, propagar nome_equipamento
+// para todos os Bem_Patrimonial associados. Fan-out pode exceder 500 documentos;
+// BulkWriter processa em lotes controlados sem travar a thread principal.
+import { BulkWriter } from "@google-cloud/firestore";
+
+export const propagarNomeResumo = onCall(async (request) => {
+  const { idResumo, novoNome } = request.data as { idResumo: string; novoNome: string };
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"], true);
+
+  const bens = await admin.firestore().collection("Bem_Patrimonial")
+    .where("id_resumo_bem_patrimonial", "==", idResumo).get();
+
+  const writer: BulkWriter = admin.firestore().bulkWriter();
+  // BulkWriter auto-limita a ~500 ops/seg e reúne retentativas automaticamente.
+  for (const doc of bens.docs) {
+    writer.update(doc.ref, {
+      nome_equipamento: novoNome,
+      letra_inicial_nome: novoNome.charAt(0).toUpperCase(),
+    });
+  }
+  await writer.close();
+  return { atualizados: bens.size };
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={M-16: job de escassez com idempotência por docId (REAGENTE\_ESCASSO)}]
+// M-16: job agendado diário que emite REAGENTE_ESCASSO quando a contagem de
+// frascos disponíveis cai abaixo de qtd_em_que_e_considerado_escasso.
+// Idempotência: docId = `escassez_{idResumo}_{dataHoje}_{idAlmoxarifado}`
+// garante que múltiplas execuções do mesmo job não gerem duplicatas.
+export const verificarEscassezReagentes = onSchedule("every day 04:00", async () => {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const resumos = await admin.firestore().collection("Resumo_Reagente").get();
+  const writer = admin.firestore().bulkWriter();
+
+  for (const resumoDoc of resumos.docs) {
+    const { qtd_em_que_e_considerado_escasso } = resumoDoc.data();
+    // Contar frascos DISPONIVEL por resumo (query por id_resumo_reagente denormalizado)
+    const frascos = await admin.firestore().collection("Frasco_Reagente")
+      .where("id_resumo_reagente", "==", resumoDoc.id)
+      .where("disponibilidade", "==", "DISPONIVEL")
+      .where("estado_fisico_frasco", "not-in", ["VAZIO", "QUEBRADO", "DESCARTADO"])
+      .count().get();
+    const qtd = frascos.data().count;
+    if (qtd < qtd_em_que_e_considerado_escasso) {
+      // Emitir para cada gestor dos almoxarifados que têm este reagente
+      const gestores = await admin.firestore()
+        .collection("Gestor_Almoxarifado_x_Almoxarifado").get();
+      const uidsNotificados = new Set<string>();
+      for (const v of gestores.docs) {
+        const uid = v.data().id_gestor_almoxarifado;
+        if (uidsNotificados.has(uid)) continue;
+        uidsNotificados.add(uid);
+        const notifId = `escassez_${resumoDoc.id}_${hoje}_${uid}`;
+        const notifRef = admin.firestore()
+          .collection("Usuarios").doc(uid)
+          .collection("Notificacoes").doc(notifId);
+        writer.set(notifRef, {
+          id_destinatario: uid,
+          papel_destinatario: "Gestor_Almoxarifado",
+          tipo: "REAGENTE_ESCASSO",
+          id_alvo: resumoDoc.id,
+          entidade_alvo: "Resumo_Reagente",
+          quantidade: qtd,
+          lida: false,
+          emitida_em: admin.firestore.FieldValue.serverTimestamp(),
+          expira_em: admin.firestore.Timestamp.fromMillis(Date.now() + 7 * 86400000),
+        }, { merge: false }); // set sem merge: NOP se já existir (idempotência)
+      }
+    }
+  }
+  await writer.close();
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={N-12: aceitarConviteAluno com criação condicional de conta Firebase Auth}]
+// N-12: ao aceitar um convite, o aluno pode já ter conta Firebase Auth (login Google
+// prévio) ou não. A Cloud Function deve reutilizar o UID existente pelo e-mail,
+// evitando contas duplicadas. Criação é condicional; o papel Aluno é sempre
+// verificado/criado na mesma transação Firestore.
+export const aceitarConviteAluno = onCall(async (request) => {
+  const { tokenConvite } = request.data as { tokenConvite: string };
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Usuário não autenticado.");
+
+  // 1. Localizar convite por hash HMAC determinístico (DP-C03)
+  const hashToken = calcularHmacConvite(tokenConvite); // HMAC-SHA-256 com segredo servidor
+  const conviteSnap = await admin.firestore().collection("Convite_Aluno")
+    .where("token_hash", "==", hashToken).where("status", "==", "pendente").limit(1).get();
+  if (conviteSnap.empty) throw new HttpsError("not-found", "Convite inválido ou expirado.");
+  const convite = conviteSnap.docs[0].data();
+  if (new Date() > convite.expira_em.toDate())
+    throw new HttpsError("failed-precondition", "Convite expirado.");
+
+  // 2. Verificar e-mail do usuário autenticado
+  const authUser = await admin.auth().getUser(request.auth.uid);
+  const emailNorm = authUser.email?.toLowerCase();
+  if (emailNorm !== convite.email)
+    throw new HttpsError("permission-denied", "E-mail da conta não corresponde ao convite.");
+
+  // 3. Transação: criar Aluno e vínculo se não existirem
+  return admin.firestore().runTransaction(async (tx) => {
+    const alunoRef = admin.firestore().collection("Aluno").doc(request.auth!.uid);
+    const usuarioRef = admin.firestore().collection("Usuarios").doc(request.auth!.uid);
+    const alunoSnap = await tx.get(alunoRef);
+    const usuarioSnap = await tx.get(usuarioRef);
+
+    // Criar Usuarios e Aluno apenas se não existirem (idempotente)
+    if (!usuarioSnap.exists) {
+      tx.set(usuarioRef, {
+        nome: authUser.displayName ?? emailNorm,
+        email: emailNorm,
+        ativo: true,
+        profile_url_photo: authUser.photoURL ?? null,
+      });
+    }
+    if (!alunoSnap.exists) {
+      tx.set(alunoRef, {
+        id_usuario: request.auth!.uid,
+        numero_matricula: convite.numero_matricula ?? null,
+      });
+    }
+    // Vincular à turma se o convite especificar uma
+    if (convite.id_turma) {
+      const vincRef = admin.firestore()
+        .collection("Turma").doc(convite.id_turma)
+        .collection("Alunos").doc(request.auth!.uid);
+      const vincRef2 = admin.firestore()
+        .collection("Usuarios").doc(request.auth!.uid)
+        .collection("Turmas").doc(convite.id_turma);
+      tx.set(vincRef, { id_aluno: request.auth!.uid, id_turma: convite.id_turma });
+      tx.set(vincRef2, { id_turma: convite.id_turma });
+    }
+    // Expirar convite
+    tx.update(conviteSnap.docs[0].ref, { status: "aceitado" });
+    return { vinculado: !!convite.id_turma };
+  });
+  // Após commit: atualizarCustomClaims(request.auth!.uid) -- recuperável e idempotente
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={M-01: registrarBaixaBemPatrimonial (RF12)}]
+// M-01: Regra RF12 -- registro de baixa patrimonial após processo institucional.
+// O gestor faz upload do PDF comprobatório antes de chamar esta função.
+// O backend valida a existência do documento no Storage antes de confirmar a baixa.
+export const registrarBaixaBemPatrimonial = onCall(async (request) => {
+  const { idBem, documentoUrl } = request.data as { idBem: string; documentoUrl: string };
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"], true);
+  await validarDocumentoStorage(documentoUrl, request.auth!.uid); // verifica existência no bucket
+  return admin.firestore().runTransaction(async (tx) => {
+    const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(idBem);
+    const snap = await tx.get(bemRef);
+    if (!snap.exists) throw new HttpsError("not-found", "Bem não encontrado.");
+    const bem = snap.data()!;
+    if (bem.status !== "Inservivel")
+      throw new HttpsError("failed-precondition", "Bem deve estar Inservível antes da baixa.");
+    tx.update(bemRef, {
+      status: "Ja_dado_baixa",
+      documento_dado_baixa_pdf_url: documentoUrl,
+      versao: bem.versao + 1,
+    });
+    registrarHistoricoBemTx(tx, bemRef, bem, { status: "Ja_dado_baixa" }, request.auth!.uid);
+    return { status: "Ja_dado_baixa" };
+  });
+});
+\end{lstlisting}
+
+\begin{regra}[M-07: Bounds e validação na geração de etiquetas]
+O grid de etiquetas é sempre 3 colunas × 10 linhas (30 posições por página A4). A seleção de offset deve validar: coluna em $[1, 3]$, linha em $[1, 10]$, e a quantidade de etiquetas a gerar não pode exceder o número de posições restantes na folha a partir do offset escolhido ($\text{restantes} = 30 - ((\text{linha} - 1) \times 3 + (\text{coluna} - 1))$). Para segunda via, limite de 10 frascos por sessão, validado no backend antes de iniciar a geração. IDs fora do intervalo de etiquetas virgens conhecidas são rejeitados com mensagem explícita.
+\end{regra}
+

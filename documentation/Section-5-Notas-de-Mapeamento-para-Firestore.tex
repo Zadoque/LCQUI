@@ -46,6 +46,11 @@ Para garantir a integridade das \textit{queries} e ordenações cruciais, os seg
 \begin{enumerate}
     \item \texttt{Historico\_Frasco\_Reagente}: \texttt{id\_frasco\_reagente (ASC)} + \texttt{timestamp (DESC)}.
     \item \texttt{Emprestimo\_Reagente}: \texttt{id\_frasco\_reagente (ASC)} + \texttt{data\_retirada (DESC)}.
+    \item \textbf{M-23} \texttt{Bem\_Patrimonial}: \texttt{predio (ASC)} + \texttt{andar (ASC)} + \texttt{sala (ASC)} -- suporta o relatório personalizado por localização (Seção~9 fluxo ALM-01).
+    \item \textbf{M-23} \texttt{Bem\_Patrimonial}: \texttt{id\_resumo\_bem\_patrimonial (ASC)} + \texttt{status (ASC)} -- suporta a listagem de bens por tipo e status.
+    \item \textbf{M-23 / N-08} Collection-group \texttt{Historico} (sub-coleção de \texttt{Bem\_Patrimonial}): \texttt{predio (ASC)} + \texttt{timestamp (DESC)} -- suporta relatório histórico por prédio/período.
+    \item \textbf{M-23} Collection-group \texttt{Historico}: \texttt{id\_gestor (ASC)} + \texttt{timestamp (DESC)} -- suporta relatório de atividade por operador.
+    \item \textbf{M-23} \texttt{Emprestimo\_Reagente}: \texttt{id\_almoxarifado (ASC)} + \texttt{data\_retirada (DESC)} -- suporta relatório mensal por almoxarifado.
 \end{enumerate}
 \subsection{Mapeamento Completo de Coleções e Sub-coleções Firestore}
 \label{subsec:mapeamento-colecoes}
@@ -83,7 +88,7 @@ Almoxarifado & Coleção raiz & Poucas dezenas de documentos.\\
 Local & Coleção raiz & Referenciado por múltiplas entidades; campos \texttt{predio}, \texttt{andar}, \texttt{sala} denormalizados em \texttt{Bem\_Patrimonial} via trigger.\\
 Resumo\_Bem\_Patrimonial & Coleção raiz. Denorm: \texttt{letra\_inicial\_nome} & Agrupador de bens; filtro alfabético por letra inicial.\\
 Bem\_Patrimonial & Coleção raiz. Denorm: \texttt{nome\_equipamento}, \texttt{predio}, \texttt{andar}, \texttt{sala}, \texttt{letra\_inicial\_nome} & Entidade central pesquisada diretamente; evita JOINs em listagens e relatórios.\\
-Historico\_Bem\_Patrimonial & Sub-coleção \nolinkurl{Bem\_Patrimonial/\{id\}/Historico} & Sempre consultado a partir de um bem conhecido.\\
+Historico\_Bem\_Patrimonial & Sub-coleção \nolinkurl{Bem\_Patrimonial/\{id\}/Historico}. Denorm (N-08): \texttt{predio}, \texttt{andar}, \texttt{sala} -- snapshot imutável do local no momento do evento & Sempre consultado a partir de um bem conhecido. O snapshot de localização é gravado no momento da criação do evento histórico e não é atualizado quando o bem muda de sala; isso garante rastreabilidade do bem antes e depois da mudança. Requerido pelo relatório personalizado por prédio/período.\\
 Alteracao\_Bem\_Patrimonial & Campo \texttt{alteracoes} (array de maps) dentro de cada doc de \texttt{Historico} & Poucos campos por alteração; relação 1:N estreita, nunca consultada independentemente.\\
 Requisicao\_Edicao\_Bem\_Patrimonial & Coleção raiz. Denorm: \texttt{nome\_equipamento}, \texttt{numero\_patrimonio} & Listada independentemente nos painéis de gestores por qualquer filtro de status.\\
 Requisicao\_Adicao\_Bem\_Patrimonial & Coleção raiz & Mesma lógica; query por status e número de patrimônio proposto.\\
