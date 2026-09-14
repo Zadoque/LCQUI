@@ -138,7 +138,8 @@ A margem de tolerância é estritamente baseada no \textbf{peso bruto de saída}
     \item Reagente normal: $max(1g; 0,5\% \times Peso_{saida})$
     \item Reagente higroscópico: $max(2g; 2,0\% \times Peso_{saida})$
 \end{itemize}
-Pesos acima dessa tolerância devem ser rejeitados e o usuário deve ser instruído a usar o fluxo de esgotamento/recalibração (AJUSTE).
+A avaliação de ganho máximo permitido segue estritamente a fórmula: $Peso_{retorno} > Peso_{saida} + Tolerancia$. 
+Um ganho de massa acima dessa tolerância bloqueia a devolução por anomalia (indicando possível contaminação ou erro de balança). Retornos abaixo da tara, no entanto, não acionam esse bloqueio e seguem o fluxo de esgotamento/recalibração.
 \end{regra}
 
 \subsubsection{Exclusividade na retirada de reagentes}

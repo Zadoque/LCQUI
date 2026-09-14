@@ -38,18 +38,15 @@ validarAceiteTcrTx lê o evento de aceite produzido em sessão autenticada do re
 //
 // Nota: horário de verão histórico (Brasil aboliu em 2019) não é mais risco futuro,
 // mas o helper usa Intl para robustez caso o fuso mude.
+import { DateTime } from "luxon";
+
+// Interpreta como data local em America/Sao_Paulo às 00:00:00
 function parseDataCivil(dataStr: string): Date {
-  // Interpreta como data local em America/Sao_Paulo às 00:00:00
-  const [ano, mes, dia] = dataStr.split("-").map(Number);
-  // Cria em horário local usando o offset do fuso no momento exato
-  const ref = new Date(ano, mes - 1, dia, 0, 0, 0, 0);
-  return ref;
+  return DateTime.fromISO(dataStr, { zone: "America/Sao_Paulo" }).startOf("day").toJSDate();
 }
 
-function prazoLimiteDevolucao(dataCivil: string): Date {
-  const d = parseDataCivil(dataCivil);
-  d.setHours(23, 59, 59, 999);
-  return d;
+function prazoLimiteDevolucao(dataStr: string): Date {
+  return DateTime.fromISO(dataStr, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate();
 }
 \end{lstlisting}
 
@@ -87,31 +84,6 @@ async function gerarCodigoTurmaTx(
 }
 \end{lstlisting}
 
-\begin{lstlisting}[language=TypeScript, title={M-10: chunking BulkWriter para fan-out de renomeação de resumo patrimonial}]
-// M-10: ao renomear um Resumo_Bem_Patrimonial, propagar nome_equipamento
-// para todos os Bem_Patrimonial associados. Fan-out pode exceder 500 documentos;
-// BulkWriter processa em lotes controlados sem travar a thread principal.
-import { BulkWriter } from "@google-cloud/firestore";
-
-export const propagarNomeResumo = onCall(async (request) => {
-  const { idResumo, novoNome } = request.data as { idResumo: string; novoNome: string };
-  await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"], true);
-
-  const bens = await admin.firestore().collection("Bem_Patrimonial")
-    .where("id_resumo_bem_patrimonial", "==", idResumo).get();
-
-  const writer: BulkWriter = admin.firestore().bulkWriter();
-  // BulkWriter auto-limita a ~500 ops/seg e reúne retentativas automaticamente.
-  for (const doc of bens.docs) {
-    writer.update(doc.ref, {
-      nome_equipamento: novoNome,
-      letra_inicial_nome: novoNome.charAt(0).toUpperCase(),
-    });
-  }
-  await writer.close();
-  return { atualizados: bens.size };
-});
-\end{lstlisting}
 
 \begin{lstlisting}[language=TypeScript, title={M-16: job de escassez com idempotência por docId (REAGENTE\_ESCASSO)}]
 // M-16: job agendado diário que emite REAGENTE_ESCASSO quando a contagem de
@@ -211,14 +183,44 @@ export const aceitarConviteAluno = onCall(async (request) => {
     }
     // Vincular à turma se o convite especificar uma
     if (convite.id_turma) {
-      const vincRef = admin.firestore()
-        .collection("Turma").doc(convite.id_turma)
-        .collection("Alunos").doc(request.auth!.uid);
+      const turmaRef = admin.firestore().collection("Turma").doc(convite.id_turma);
+      const turmaSnap = await tx.get(turmaRef);
+      if (!turmaSnap.exists) throw new HttpsError("not-found", "Turma não encontrada.");
+      const turma = turmaSnap.data()!;
+      if (turma.status !== "Ativo") throw new HttpsError("failed-precondition", "Turma inativa.");
+
+      const alunosSnap = await tx.get(turmaRef.collection("Alunos"));
+      // convite.exceder_capacidade não existe no schema, mas se houvesse flag no convite, seria verificado aqui.
+      // Assumindo limite estrito:
+      if (alunosSnap.size >= turma.capacidade) {
+        throw new HttpsError("resource-exhausted", "Turma lotada.");
+      }
+
+      const vincRef = turmaRef.collection("Alunos").doc(request.auth!.uid);
       const vincRef2 = admin.firestore()
         .collection("Usuarios").doc(request.auth!.uid)
         .collection("Turmas").doc(convite.id_turma);
-      tx.set(vincRef, { id_aluno: request.auth!.uid, id_turma: convite.id_turma });
-      tx.set(vincRef2, { id_turma: convite.id_turma });
+      
+      const agora = admin.firestore.FieldValue.serverTimestamp();
+      tx.set(vincRef, { id_aluno: request.auth!.uid, ingressou_em: agora });
+      tx.set(vincRef2, { 
+        id_turma: convite.id_turma,
+        id_professor: turma.id_professor,
+        id_materia: turma.id_materia,
+        nome_turma: turma.nome_turma,
+        nome_materia: turma.nome_materia,
+        ano: turma.ano,
+        semestre: turma.semestre,
+        status: turma.status,
+        ingressou_em: agora 
+      });
+      tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
+        id_aluno: request.auth!.uid,
+        tipo: "inclusao_aluno",
+        modo_ingresso: "CONVITE",
+        timestamp: agora
+      });
+      tx.update(turmaRef, { qtd_alunos: admin.firestore.FieldValue.increment(1) });
     }
     // Expirar convite
     tx.update(conviteSnap.docs[0].ref, { status: "aceitado" });

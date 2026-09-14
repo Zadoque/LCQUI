@@ -481,15 +481,21 @@ export const registrarDevolucao = onCall(async (request) => {
       ? Math.max(2.0, 0.02 * emprestimo.peso_saida)
       : Math.max(1.0, 0.005 * emprestimo.peso_saida);
     const limiteMaxRetorno = emprestimo.peso_saida + deltaMax;
-    if (!Number.isFinite(dados.pesoRetorno) || dados.pesoRetorno <= 0 || dados.pesoRetorno > limiteMaxRetorno)
-      throw new HttpsError("invalid-argument", "Peso fora da tolerância híbrida Q06.");
+    if (!Number.isFinite(dados.pesoRetorno) || dados.pesoRetorno <= 0) {
+      throw new HttpsError("invalid-argument", "Peso de retorno inválido.");
+    }
+    // PDF-025: Ganho acima da tolerância bloqueia por anomalia. Retorno abaixo da tara é permitido e tratado como esgotamento.
+    if (dados.pesoRetorno > limiteMaxRetorno) {
+      throw new HttpsError("invalid-argument", "Ganho de massa excede tolerância Q06 (possível erro ou contaminação). Bloqueado por anomalia.");
+    }
     const avisoHigroscopico = dados.pesoRetorno > emprestimo.peso_saida;
     const volumeUtilizado = densidade ? pesoConsumido / densidade : pesoConsumido;
 
     const agora = new Date();
-    // Normalização: Prazo encerra-se às 23:59:59.999 do dia previsto
-    const prazoLimite = new Date(emprestimo.data_devolucao_prevista.toDate());
-    prazoLimite.setHours(23, 59, 59, 999);
+    // DP-D02: Normalização via Luxon (America/Sao_Paulo). Prazo encerra-se às 23:59:59.999 do dia previsto.
+    const { DateTime } = require("luxon");
+    const prazoLimite = DateTime.fromJSDate(emprestimo.data_devolucao_prevista.toDate(), { zone: "America/Sao_Paulo" })
+      .endOf("day").toJSDate();
     const atrasado = agora > prazoLimite;
 
     const validadeEfetiva = frasco.validade_efetiva?.toDate?.() ?? frasco.validade_efetiva ?? null;

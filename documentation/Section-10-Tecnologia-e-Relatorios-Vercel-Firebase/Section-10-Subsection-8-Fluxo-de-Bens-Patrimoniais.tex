@@ -199,6 +199,17 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
     tx.delete(lockRef);
 
     let idBemCriado: string | null = null;
+    let chaveUnicaRef: FirebaseFirestore.DocumentReference | null = null;
+
+    if (aprovar) {
+      // PDF-001: Validação de chave única (leitura obrigatória antes das escritas)
+      chaveUnicaRef = admin.firestore().collection("Chaves_Unicas")
+        .doc(`plaqueta_${req.numero_patrimonio_proposto}`);
+      const chaveUnicaSnap = await tx.get(chaveUnicaRef);
+      if (chaveUnicaSnap.exists) {
+        throw new HttpsError("already-exists", "O número de patrimônio aprovado já está em uso por outro bem.");
+      }
+    }
 
     if (aprovar) {
       let idResumo = req.id_resumo_bem_patrimonial;
@@ -230,6 +241,13 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
         nome_responsavel_sei: req.nome_responsavel_proposto,
         status: "Ativo",
         cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // PDF-001: Gravação da chave única associada ao novo bem
+      tx.set(chaveUnicaRef!, {
+        tipo: "plaqueta",
+        id_recurso: idBemCriado,
+        criado_em: admin.firestore.FieldValue.serverTimestamp()
       });
 
       tx.update(reqRef, {
@@ -364,10 +382,14 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
         .collection("Turmas").doc(turmaDoc.id),
       {
         id_turma: turmaDoc.id,
-        nome_turma: turma.nome_turma,
         id_professor: turma.id_professor,
+        id_materia: turma.id_materia,
+        nome_turma: turma.nome_turma,
+        nome_materia: turma.nome_materia,
+        ano: turma.ano,
+        semestre: turma.semestre,
+        status: turma.status,
         ingressou_em: admin.firestore.FieldValue.serverTimestamp(),
-        modo_ingresso: "CODIGO",
       }
     );
     // Contador transacional (sem leitura prévia) -- idempotente para o atômico

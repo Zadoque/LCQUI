@@ -100,33 +100,21 @@ export const verificarVencimentosEAtrasos = onSchedule("every day 03:00", async 
 function adicionarDias(data: Date, dias: number): Date {
   // NAO USAR: usa o timezone do processo, que pode ser UTC em producao
   // Usar luxon: DateTime.fromJSDate(data, { zone: "America/Sao_Paulo" }).plus({ days: dias }).toJSDate()
-  const result = new Date(data);
-  result.setDate(result.getDate() + dias);
-  return result; // SUBSTITUIR pela versao IANA na implementacao
+  return DateTime.fromJSDate(data, { zone: "America/Sao_Paulo" }).plus({ days: dias }).toJSDate();
 }
 
 function mesmoDia(a: Date, b: Date): boolean {
-  // NAO USAR para datas civis: compara apenas por UTC
-  // Usar luxon: DateTime.fromJSDate(a, { zone: "America/Sao_Paulo" }).hasSame(...)
-  return a.getFullYear() === b.getFullYear() &&
-         a.getMonth() === b.getMonth() &&
-         a.getDate() === b.getDate(); // SUBSTITUIR pela versao IANA na implementacao
+  const dtA = DateTime.fromJSDate(a, { zone: "America/Sao_Paulo" });
+  const dtB = DateTime.fromJSDate(b, { zone: "America/Sao_Paulo" });
+  return dtA.hasSame(dtB, "day");
 }
 
 function inicioDoDiaInstitucional(data: Date): Date {
-  // NAO USAR: setHours sem timezone depende de TZ do processo
-  // Usar luxon: DateTime.fromJSDate(data, { zone: "America/Sao_Paulo" }).startOf("day").toJSDate()
-  const result = new Date(data);
-  result.setHours(0, 0, 0, 0); // SUBSTITUIR pela versao IANA na implementacao
-  return result;
+  return DateTime.fromJSDate(data, { zone: "America/Sao_Paulo" }).startOf("day").toJSDate();
 }
 
 function fimDoDiaInstitucional(data: Date): Date {
-  // NAO USAR: setHours sem timezone depende de TZ do processo
-  // Usar luxon: DateTime.fromJSDate(data, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate()
-  const result = new Date(data);
-  result.setHours(23, 59, 59, 999); // SUBSTITUIR pela versao IANA na implementacao
-  return result;
+  return DateTime.fromJSDate(data, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate();
 }
 
 export const onFrascoCriado = onDocumentCreated("Frasco_Reagente/{frascoId}", async (event) => {
@@ -162,11 +150,16 @@ async function atualizarContadorLoteIdempotente(eventId: string, idLote: string,
 // Além da deduplicação nas triggers (acima), o sistema exige um job de reconciliação
 // para curar eventuais divergências (drift) causadas por operações fora das functions
 // ou falhas de lock.
-export const reconciliarContadoresLote = onSchedule("every sunday 04:00", async () => {
-  // 1. O job deve iterar pelos lotes ativos
-  // 2. Para cada lote, realizar um count() determinístico em Frasco_Reagente
-  // 3. Atualizar o Lote_Materializado se houver divergência
-  // 4. Registrar a auditoria da reconciliação se ajustes foram feitos
+export const reconciliarContadoresLote = onSchedule({
+  schedule: "every sunday 04:00",
+  timeZone: "America/Sao_Paulo"
+}, async () => {
+  // 1. O job itera pelos lotes ativos em Lote_Materializado
+  // 2. Para evitar disputa com triggers simultâneas, o ajuste
+  //    deve ser transacional: lock no lote, count() agregando Frasco_Reagente.
+  // 3. Atualizar o Lote_Materializado escrevendo o valor absoluto do count()
+  //    (substituição idempotente, não incremento relativo).
+  // 4. Registrar a auditoria da reconciliação se ajustes foram feitos.
 });
 \end{lstlisting}
 
