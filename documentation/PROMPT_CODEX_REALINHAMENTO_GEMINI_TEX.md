@@ -875,21 +875,7 @@ Atualizar todas as seções afetadas, compilar, registrar e commitar.
 
 ### Fase 3 — reagentes e almoxarifado
 
-Tratar:
-
-- PDF-004 + EXTRA-002;
-- PDF-010;
-- PDF-012 + EXTRA-001;
-- PDF-014;
-- PDF-018;
-- PDF-019;
-- PDF-021;
-- PDF-022;
-- PDF-024;
-- PDF-025;
-- EXTRA-003.
-
-Separar Q06, Q14, etiquetas, natureza química e estado físico.
+No arquivo: Fase_3.md
 
 ### Fase 4 — identidade e domínio acadêmico
 
