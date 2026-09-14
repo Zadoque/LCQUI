@@ -12,6 +12,7 @@ Registro de todas as compilações desta sessão. Cada lote requer build indepen
 | 2026-09-14T12:54 | Lote 2.2b (PDF-001) | 065176b7 | `... latexmk -cd -pdf -interaction=nonstopmode -halt-on-error -outdir=/tmp/lcqui-tex-lote2-2b documentation/main.tex` | **0** | **192** | **0** | **0** | — | — | limpo | Sim (Bens) | Lote 2.2b validado; removido reads após writes, normalizado chave de unicidade, backfill em Section 5. |
 | 2026-09-14T13:02 | Lote 2.2c (PDF-003, PDF-016) | 9cec7da4 | `... latexmk -cd -pdf -interaction=nonstopmode -halt-on-error -outdir=/tmp/lcqui-tex-lote2-2c documentation/main.tex` | **0** | **195** | **0** | **0** | — | — | limpo | Sim (Convites, Triggers) | Lote 2.2c validado; resolvido UTF-8, convites refatorados, reconciliador absoluto com marca d'água. |
 | 2026-09-14T13:03 | Lote 2.2 Final (PDF-025) | bc3f5602 | `... latexmk -cd -pdf -interaction=nonstopmode -halt-on-error -outdir=/tmp/lcqui-tex-lote2-2final documentation/main.tex` | **0** | **195** | **0** | **0** | — | — | limpo | Sim (Fluxo Q06) | Lote 2.2 concluído. |
+| 2026-09-14T13:25 | Lote 2.2 Complemento V2 | 03f72169 | `... latexmk -cd -pdf -interaction=nonstopmode -halt-on-error -outdir=/tmp/lcqui-tex-lote2-2-complemento-v2 documentation/main.tex` | **0** | **196** | **0** | **0** | — | — | limpo | Sim (PDF-001, PDF-003, PDF-016) | Adicionados checks minuciosos aos PDFs 001, 003 e 016; compilado com sucesso. |
 
 ## Regras
 

@@ -6,8 +6,8 @@
 |---|---|
 | Branch | `docs/realinhamento-especificacao-lcqui` |
 | HEAD inicial (início desta sessão) | `e7b0bfe90dc91c693f965a51ca81f42676dc187c` |
-| HEAD atual | bc3f5602 |
-| Último commit concluído | bc3f5602 (Lote 2.2 Final - PDF-025) |
+| HEAD atual | 03f72169 |
+| Último commit concluído | 03f72169 (Lote 2.2 Complemento V2 - PDF-001, PDF-003, PDF-016) |
 
 ## Estado atual
 
