@@ -126,13 +126,14 @@ export const onFrascoCriado = onDocumentCreated("Frasco_Reagente/{frascoId}", as
   }
 });
 
-export const onFrascoRemovido = onDocumentDeleted("Frasco_Reagente/{frascoId}", async (event) => {
+export const onEventoRemocaoFrasco = onDocumentCreated("Eventos_Dominio_Contagem/{eventoId}", async (event) => {
   const data = event.data?.data();
-  if (data?.id_lote) {
-    // Para deleção, o documento e seu updateTime final não constam no payload.
-    // Usamos event.time (geração do CloudEvent) parseado como fallback canônico.
-    const tsDelecao = parseIsoToTimestamp(event.time);
-    await atualizarContadorLoteIdempotente(event.id, data.id_lote, -1, tsDelecao);
+  if (data?.tipo === "FRASCO_REMOVIDO" && data?.id_lote && data?.ocorrido_em) {
+    // PDF-016: A exclusão de um frasco não depende do `event.time` do Eventarc.
+    // A API/sistema que remove o frasco grava na mesma transação Firestore este
+    // evento de domínio, com ocorrido_em = FieldValue.serverTimestamp().
+    // Assim, garantimos a mesma ordem temporal exata para criação e exclusão.
+    await atualizarContadorLoteIdempotente(event.id, data.id_lote, -1, data.ocorrido_em);
   }
 });
 
@@ -146,14 +147,6 @@ export const onFrascoRemovido = onDocumentDeleted("Frasco_Reagente/{frascoId}", 
 // 2. Invalidacao Antecipada de Locks: O job teria que prever eventIds pendentes, o que e impossivel.
 // 3. Marca d'Agua (Recomendada): O lote guarda `ultimo_reconciliador`. A trigger ignora incrementos de eventos cuja emissao (`event.time`) seja anterior a marca.
 // Impacto da Recomendacao: Adicao de `ultimo_reconciliador` na entidade, `tx.get` extra na trigger para validar a marca antes do incremento.
-
-// Helper obrigatorio para nao truncar a fracao de milissegundos/nanossegundos do eventTime
-function parseIsoToTimestamp(isoStr: string): admin.firestore.Timestamp {
-  const d = new Date(isoStr);
-  const m = isoStr.match(/\.(\d+)Z$/);
-  const nanos = m ? parseInt(m[1].padEnd(9, '0')) : 0;
-  return new admin.firestore.Timestamp(Math.floor(d.getTime() / 1000), nanos);
-}
 
 async function atualizarContadorLoteIdempotente(eventId: string, idLote: string, delta: number, eventTime: admin.firestore.Timestamp) {
   await admin.firestore().runTransaction(async (tx) => {
@@ -174,16 +167,14 @@ async function atualizarContadorLoteIdempotente(eventId: string, idLote: string,
         // Formalizacao do Contrato Temporal de Reconciliacao (PDF-016):
         // 1. T_evento (evTs):
         //    - Criacao: Snapshot `createTime`. Representa o timestamp exato de commit no Spanner.
-        //    - Exclusao: CloudEvent `event.time`. Representa a geracao do evento. Como T_commit <= T_event,
-        //      usar T_event para descarte (T_event <= T_corte) é logicamente seguro e conservador.
+        //    - Exclusao: Via evento de dominio persistido com `ocorrido_em` (serverTimestamp).
+        //      Representa o timestamp exato de commit da transacao que efetivou a exclusao.
         // 2. T_corte (mcTs): `lote.ultimo_reconciliador`. Timestamp exato do commit da reconciliacao (serverTimestamp).
-        // 3. Comparabilidade: Ambos estao fortemente ordenados. O fallback da exclusao aceita um desvio
-        //    minimo por latencia do Eventarc, o que apenas resultaria num acumulo transitorio seguro
-        //    (corrigido ativamente na reconciliacao subsequente), jamais numa dupla contagem final.
+        // 3. Comparabilidade: 100% ancorada em transacoes Firestore (linha do tempo Spanner).
+        //    Nao existe mais nenhuma dependencia na latencia de geracao do Eventarc (event.time).
         // 4. Se T_evento <= T_corte: A mutacao ocorreu antes ou no instante do fechamento da fotografia
         //    da reconciliacao. Por garantia ACID, o count() ja tratou o frasco. O incremento é DESCARTADO.
-        // 5. Se T_evento > T_corte: A mutacao (ou a emissao do evento de exclusao) aconteceu estritamente
-        //    apos o corte. O incremento DEVE ser aplicado.
+        // 5. Se T_evento > T_corte: A mutacao aconteceu estritamente apos o corte. O incremento DEVE ser aplicado.
         const isEventoVelho = evTs.seconds < mcTs.seconds ||
           (evTs.seconds === mcTs.seconds && evTs.nanoseconds <= mcTs.nanoseconds);
 
