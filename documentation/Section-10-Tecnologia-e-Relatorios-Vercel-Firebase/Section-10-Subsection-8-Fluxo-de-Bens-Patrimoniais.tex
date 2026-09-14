@@ -160,8 +160,9 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
 
   await validarFotoProposta(dados.photoUrlProposta, request.auth!.uid);
 
-  // C2: Lock determinístico por número de patrimônio proposto
-  const lockId = `bem_adicao_${dados.numeroPatrimonioProposto}`;
+  // C2: Lock determinístico por número de patrimônio proposto (normalizado)
+  const numeroNormalizado = dados.numeroPatrimonioProposto.trim().toUpperCase();
+  const lockId = `bem_adicao_${numeroNormalizado}`;
   const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(lockId);
   const reqRef  = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc();
 
@@ -172,7 +173,6 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
     }
     
     // Validar existência prévia do patrimônio na coleção Chaves_Unicas
-    const numeroNormalizado = dados.numeroPatrimonioProposto.trim().toUpperCase();
     const chaveUnicaRef = admin.firestore().collection("Chaves_Unicas").doc(`Bem_Patrimonial__${numeroNormalizado}`);
     const chaveUnicaSnap = await tx.get(chaveUnicaRef);
     if (chaveUnicaSnap.exists) {
@@ -214,22 +214,34 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
       throw new HttpsError("failed-precondition", "Foto obrigatória: sanear pedido legado.");
 
     let chaveUnicaRef: FirebaseFirestore.DocumentReference | null = null;
+    let resumoNome = req.nome_resumo_proposto ?? "";
+    let localSnapData: any = null;
+    let letraInicial = "";
+    const numeroNormalizado = req.numero_patrimonio_proposto.trim().toUpperCase();
+
     if (aprovar) {
-      // PDF-001: Validação de chave única (leitura obrigatória antes das escritas)
-      // Unificação da definição da chave de unicidade (Bem_Patrimonial__{numero}) com normalização
-      const numeroNormalizado = req.numero_patrimonio_proposto.trim().toUpperCase();
-      chaveUnicaRef = admin.firestore().collection("Chaves_Unicas")
-        .doc(`Bem_Patrimonial__${numeroNormalizado}`);
+      // PDF-001: Validação de chave única e leituras obrigatórias antes das escritas
+      chaveUnicaRef = admin.firestore().collection("Chaves_Unicas").doc(`Bem_Patrimonial__${numeroNormalizado}`);
       const chaveUnicaSnap = await tx.get(chaveUnicaRef);
       if (chaveUnicaSnap.exists) {
         throw new HttpsError("already-exists", "O número de patrimônio aprovado já está em uso por outro bem.");
       }
+
+      if (req.id_resumo_bem_patrimonial) {
+        const resumoSnap = await tx.get(admin.firestore().collection("Resumo_Bem_Patrimonial").doc(req.id_resumo_bem_patrimonial));
+        if (!resumoSnap.exists) throw new HttpsError("not-found", "Resumo referenciado não existe.");
+        resumoNome = resumoSnap.data()!.nome;
+      }
+      
+      const localSnap = await tx.get(admin.firestore().collection("Local").doc(req.id_local));
+      if (!localSnap.exists) throw new HttpsError("not-found", "Local referenciado não existe.");
+      localSnapData = localSnap.data()!;
+      letraInicial = resumoNome ? resumoNome.charAt(0).toUpperCase() : "";
     }
 
     // C2: Remove o lock ao responder (libera possível nova requisição futura)
     // DEVE ocorrer APÓS as leituras da transação (tx.get)
-    const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio")
-      .doc(`bem_adicao_${req.numero_patrimonio_proposto}`);
+    const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(`bem_adicao_${numeroNormalizado}`);
     tx.delete(lockRef);
 
     let idBemCriado: string | null = null;
@@ -246,6 +258,8 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
           criado_em: admin.firestore.FieldValue.serverTimestamp(),
         });
         idResumo = novoResumoRef.id;
+        resumoNome = req.nome_resumo_proposto;
+        letraInicial = resumoNome.charAt(0).toUpperCase();
       }
 
       if (!idResumo) throw new HttpsError("failed-precondition", "A aprovação exige vincular um resumo.");
@@ -255,7 +269,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
 
       tx.set(bemRef, {
         id_resumo_bem_patrimonial: idResumo,
-        nome_equipamento: req.nome_resumo_proposto ?? "Equipamento",
+        nome_equipamento: resumoNome,
         numero_patrimonio: req.numero_patrimonio_proposto,
         estado_conservacao: req.estado_conservacao_proposto,
         id_local: req.id_local,
@@ -263,6 +277,11 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
         documento_dado_baixa_pdf_url: null,
         nome_responsavel_sei: req.nome_responsavel_proposto,
         status: "Ativo",
+        versao: 1,
+        predio: localSnapData.predio,
+        andar: localSnapData.andar,
+        sala: localSnapData.sala,
+        letra_inicial_nome: letraInicial,
         cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
       });
 

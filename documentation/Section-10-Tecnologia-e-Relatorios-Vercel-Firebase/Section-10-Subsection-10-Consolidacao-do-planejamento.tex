@@ -141,11 +141,12 @@ export const verificarEscassezReagentes = onSchedule("every day 04:00", async ()
 // evitando contas duplicadas. Criação é condicional; o papel Aluno é sempre
 // verificado/criado na mesma transação Firestore.
 export const aceitarConviteAluno = onCall(async (request) => {
-  const { tokenConvite } = request.data as { tokenConvite: string };
+  const { tokenConvite, matriculaInformada } = request.data as { tokenConvite: string; matriculaInformada?: string };
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Usuario nao autenticado.");
 
-  // 1. Calcular hash HMAC deterministico (DP-C03) para busca do convite
-  const hashToken = calcularHmacConvite(tokenConvite); // HMAC-SHA-256 com segredo servidor
+  // 1. Calcular hash SHA-256 para busca do convite pelo token_hash (o HMAC e usado apenas como ID deterministico do documento)
+  const { createHash } = require("crypto");
+  const hashToken = createHash("sha256").update(tokenConvite).digest("hex");
 
   // 2. Verificar e-mail do usuario autenticado no provedor
   const authUser = await admin.auth().getUser(request.auth.uid);
@@ -196,6 +197,20 @@ export const aceitarConviteAluno = onCall(async (request) => {
       }
     }
 
+    // PDF-003: Validar matricula e unicidade se for criar um novo Aluno
+    let lockRefMatricula: FirebaseFirestore.DocumentReference | null = null;
+    let matriculaFinal: string | null = null;
+    if (!alunoSnap.exists) {
+      matriculaFinal = convite.numero_matricula || matriculaInformada;
+      if (!matriculaFinal) {
+        throw new HttpsError("invalid-argument", "Matricula e obrigatoria para a criacao do aluno e nao consta no convite.");
+      }
+      const matriculaNorm = matriculaFinal.trim().toUpperCase();
+      lockRefMatricula = admin.firestore().collection("Chaves_Unicas").doc(`Aluno__${matriculaNorm}`);
+      const lockSnap = await tx.get(lockRefMatricula);
+      if (lockSnap.exists) throw new HttpsError("already-exists", "A matricula informada ja esta em uso por outro aluno.");
+    }
+
     // PASSO B: Escritas (idempotentes para repeticao concorrente)
     if (!usuarioSnap.exists) {
       tx.set(usuarioRef, {
@@ -205,10 +220,15 @@ export const aceitarConviteAluno = onCall(async (request) => {
         profile_url_photo: authUser.photoURL ?? null,
       });
     }
-    if (!alunoSnap.exists) {
+    if (!alunoSnap.exists && matriculaFinal && lockRefMatricula) {
       tx.set(alunoRef, {
         id_usuario: uid,
-        numero_matricula: convite.numero_matricula ?? null,
+        numero_matricula: matriculaFinal,
+      });
+      tx.set(lockRefMatricula, {
+        tipo: "Aluno",
+        id_recurso: uid,
+        criado_em: admin.firestore.FieldValue.serverTimestamp()
       });
     }
 

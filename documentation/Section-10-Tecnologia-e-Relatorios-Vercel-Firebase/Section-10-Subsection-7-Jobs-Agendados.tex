@@ -138,6 +138,14 @@ export const onFrascoRemovido = onDocumentDeleted("Frasco_Reagente/{frascoId}", 
 // 3. Marca d'Agua (Recomendada): O lote guarda `ultimo_reconciliador`. A trigger ignora incrementos de eventos cuja emissao (`event.time`) seja anterior a marca.
 // Impacto da Recomendacao: Adicao de `ultimo_reconciliador` na entidade, `tx.get` extra na trigger para validar a marca antes do incremento.
 
+// Helper obrigatorio para nao truncar a fracao de milissegundos/nanossegundos do eventTime
+function parseIsoToTimestamp(isoStr: string): admin.firestore.Timestamp {
+  const d = new Date(isoStr);
+  const m = isoStr.match(/\.(\d+)Z$/);
+  const nanos = m ? parseInt(m[1].padEnd(9, '0')) : 0;
+  return new admin.firestore.Timestamp(Math.floor(d.getTime() / 1000), nanos);
+}
+
 async function atualizarContadorLoteIdempotente(eventId: string, idLote: string, delta: number, eventTime: string) {
   await admin.firestore().runTransaction(async (tx) => {
     const lockRef = admin.firestore().collection("Eventos_Processados").doc(eventId);
@@ -150,8 +158,21 @@ async function atualizarContadorLoteIdempotente(eventId: string, idLote: string,
     let aplicarIncremento = true;
     if (loteSnap.exists) {
       const lote = loteSnap.data()!;
-      if (lote.ultimo_reconciliador && new Date(eventTime) <= lote.ultimo_reconciliador.toDate()) {
-        aplicarIncremento = false; // Evento retardado engolido pela contagem absoluta da reconciliacao
+      if (lote.ultimo_reconciliador) {
+        const evTs = parseIsoToTimestamp(eventTime);
+        const mcTs = lote.ultimo_reconciliador; // admin.firestore.Timestamp
+        
+        // Criterio de aceite e tratamento de drift (PDF-016):
+        // 1. evTs < mcTs: evento definitivamente anterior ao count(). JÁ AFERIDO. Descartar.
+        // 2. evTs == mcTs: empate técnico na mesma janela de nanosegundos. Conservadorismo: assumimos
+        //    que a foto isolada Snapshot/Count do Firestore incluiu a transação. Descartar.
+        // 3. evTs > mcTs: evento comprovadamente acorrido APÓS o corte da reconciliação. PROCESSAR.
+        const isEventoVelho = evTs.seconds < mcTs.seconds || 
+          (evTs.seconds === mcTs.seconds && evTs.nanoseconds <= mcTs.nanoseconds);
+
+        if (isEventoVelho) {
+          aplicarIncremento = false; // Evento retardado engolido pela contagem absoluta da reconciliacao
+        }
       }
     }
 
