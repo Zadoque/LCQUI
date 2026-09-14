@@ -261,6 +261,11 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
           letraInicial = resumoNome ? resumoNome.charAt(0).toUpperCase() : "";
         }
       }
+
+      if (aprovarInterno && !req.id_resumo_bem_patrimonial && !req.nome_resumo_proposto?.trim()) {
+        aprovarInterno = false;
+        justificativaFinal = "Rejeição sistêmica: A aprovação exige vincular ou criar um resumo patrimonial.";
+      }
     }
 
     // PASSO C: Escritas (remoção do lock e resposta)
@@ -283,15 +288,14 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
         const novoResumoRef = admin.firestore().collection("Resumo_Bem_Patrimonial").doc();
         tx.set(novoResumoRef, {
           nome: req.nome_resumo_proposto,
-          descricao: req.descricao_resumo_proposta ?? "",
-          criado_em: admin.firestore.FieldValue.serverTimestamp(),
+          descricao: req.descricao_resumo_proposta ?? null,
+          foto_url: null,
+          versao: 1
         });
         idResumo = novoResumoRef.id;
         resumoNome = req.nome_resumo_proposto;
-        letraInicial = resumoNome.charAt(0).toUpperCase();
+        letraInicial = req.nome_resumo_proposto.charAt(0).toUpperCase();
       }
-
-      if (!idResumo) throw new HttpsError("failed-precondition", "A aprovação exige vincular um resumo.");
 
       const bemRef = admin.firestore().collection("Bem_Patrimonial").doc();
       idBemCriado = bemRef.id;
@@ -337,7 +341,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
       });
     }
 
-    return { status: aprovar ? "aprovada" : "rejeitada", idBemCriado };
+    return { status: aprovarInterno ? "aprovada" : "rejeitada", idBemCriado };
   });
 });
 
