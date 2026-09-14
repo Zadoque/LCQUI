@@ -6,17 +6,17 @@
 |---|---|
 | Branch | `docs/realinhamento-especificacao-lcqui` |
 | HEAD inicial (início desta sessão) | `e7b0bfe90dc91c693f965a51ca81f42676dc187c` |
-| Commit documental validado | 43232157 |
+| Commit documental validado | ab804eec |
 
 ## Estado atual
 
 | Campo | Valor |
 |---|---|
 | Lote atual | Lote 2.2 — Refinamento Semântico (Concluído) |
-| Último arquivo editado | Section-10-Subsection-7-Jobs-Agendados.tex |
-| Alterações ainda não compiladas | pendentes de compilação do Complemento V3 |
-| Último build validado | Lote 2.2 Complemento V2 — 196 páginas; exit 0 |
-| Resultado da inspeção visual | aprovada (sessão Lote 2.2 Complemento V2) |
+| Último arquivo editado | Section-10-Subsection-8-Fluxo-de-Bens-Patrimoniais.tex |
+| Alterações ainda não compiladas | nenhuma |
+| Último build validado | Lote 2.2 Complemento V4 — 199 páginas; exit 0 |
+| Resultado da inspeção visual | aprovada (PDF-001, PDF-003, PDF-016) |
 | Próxima ação exata | Iniciar Lote 3. |
 
 ## Decisões bloqueadoras
