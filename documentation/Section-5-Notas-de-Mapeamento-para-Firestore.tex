@@ -332,6 +332,7 @@ Caminho: \texttt{Resumo\_Reagente/\{resumoId\}/Especificacoes/\{id\}}.
 Caminho: \texttt{Lote/\{id\}}.
 \begin{description}
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id\_resumo\_reagente}] string; O. Projeção física imutável do documento pai da especificação, preenchida no cadastro para permitir agregações por resumo (desvio de 3FN focado em leitura). A base de dados requer backfill.
 \item[\texttt{id\_especificacao\_reagente}] string; O. Identificador da entidade especificacao reagente, cuja existência e escopo são verificados no servidor.
 \item[\texttt{data\_aquisicao}] Timestamp; O. Data da aquisição do lote; não pode estar no futuro no cadastro de entrada já realizada.
 \item[\texttt{qtd\_frascos\_comprados}] number; O. Quantidade adquirida, distinta da contagem materializada de frascos cadastrados.

@@ -306,6 +306,7 @@ A especificação referencia o resumo, fonte do estado físico; a unidade é der
 \subsection{Lote}
 \begin{entidade}{Lote}
 \campo{id}{SERIAL}{PK}
+\campo{id\_resumo\_reagente}{INTEGER}{FK, NOT NULL}
 \campo{id\_especificacao\_reagente}{INTEGER}{FK, NOT NULL}
 \campo{data\_aquisicao}{TIMESTAMP}{NOT NULL}
 \campo{qtd\_frascos\_comprados}{INTEGER}{DEFAULT 0, NOT NULL}
@@ -319,6 +320,7 @@ A especificação referencia o resumo, fonte do estado físico; a unidade é der
 \textit{UNIQUE(id\_especificacao\_reagente, nome\_fornecedor, numero\_lote)}.
 \end{regra}
 \begin{explicacao}
+\textit{id\_resumo\_reagente} é obrigatoriamente denormalizado no nível do Lote para permitir consultas e cálculos diretos (agregando estoques por Resumo) sem necessitar resolver o caminho físico pela Especificação (caracterizando um desvio deliberado da 3FN focado em leitura/performance).
 \textit{qtd\_frascos\_comprados} é dado de entrada (o que consta na nota fiscal) e permanece nesta tabela. Já \textit{qtd\_frascos\_cadastrados} -- quantos frascos deste lote já foram individualmente registrados em \textit{Frasco\_Reagente} -- é uma contagem agregada (\texttt{COUNT(*) FROM Frasco\_Reagente WHERE id\_lote = X}) e, por isso, \textbf{não} é coluna desta tabela cadastral: ela vive exclusivamente em \textit{Lote\_Materializado} (ver seção \textit{Materialized (Views)}), mantida por mecanismo transacional a cada frasco cadastrado ou removido.
 \end{explicacao}
 \subsection{Frasco de Reagente / Solvente}

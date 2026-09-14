@@ -40,6 +40,8 @@ Todas as exceções são declaradas explicitamente abaixo.
 \nolinkurl{Turma/\{turmaId\}/Posts} & Read: membro da turma (professor ou aluno matriculado). Write: negado.\\
 \nolinkurl{Turma/\{turmaId\}/Posts/\{postId\}/Comentarios} & Original moderado: somente autor, Professor responsável ou Chefe Geral com acesso ao contexto. Colegas recebem aviso por endpoint autorizado. Escrita direta negada.\\
 \nolinkurl{Usuarios/\{uid\}/Notificacoes} & Read: \texttt{request.auth.uid == uid}. Write: negado ao cliente.\\
+\nolinkurl{Resumo\_Reagente/\{resumoId\}} & Read: qualquer usuário com papel ativo no sistema (token de acesso válido). Write: negado ao cliente.\\
+\nolinkurl{Resumo\_Reagente/\{resumoId\}/Especificacoes/\{specId\}} & Read: qualquer usuário com papel ativo no sistema (catálogo público interno). Write: negado ao cliente.\\
 \texttt{Frasco\_Reagente} & Read: papel \texttt{roles} no token contém \texttt{Chefe\_Geral} OU \texttt{Gestor\_Almoxarifado} OU \texttt{Professor} OU \texttt{Bolsista} OU \texttt{Aluno}. Write: negado ao cliente.\\
 \texttt{Emprestimo\_Reagente} & Read: \texttt{Chefe\_Geral} OU \texttt{Gestor\_Almoxarifado} OU o próprio usuário que retirou (\texttt{resource.data.id\_usuario\_retirou == request.auth.uid}). Write: negado.\\
 \texttt{Bem\_Patrimonial} & Read: Chefe Geral, Gestor de Bens Patrimoniais ou Professor. Write: negado ao cliente.\\
