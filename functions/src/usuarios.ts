@@ -1,186 +1,194 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { FieldValue } from "firebase-admin/firestore";
 import * as admin from "firebase-admin";
-import { validarPermissao, atualizarCustomClaims, validarMatrizPapeis } from "./auth";
+import { createHash, randomUUID } from "crypto";
+import { validarPermissao, validarMatrizPapeis } from "./auth";
 import { validatePayload } from "./utils/validation";
 import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema } from "./schemas/usuarios.schema";
-import { validarRevogacaoChefeGeral, validarRevogacaoGestorAlmoxarifado, validarRevogacaoGestorPatrimonial } from "./domain/revogarPapel";
 
-export const convidarUsuario = onCall(async (request) => {
-  validarPermissao(request, ["Chefe_Geral"]);
+const PAPEIS = ["Chefe_Geral", "Gestor_Almoxarifado", "Gestor_Bens_Patrimoniais", "Professor", "Aluno", "Bolsista"];
 
-  const { email, nome, papel, centro, laboratorio, materias } = validatePayload(ConvidarUsuarioSchema, request.data);
+type Mutacao = {
+  ator: string; uid: string; papel: string; conceder: boolean; motivo: string;
+  idOperacao: string; perfil?: Record<string, unknown>; identidade?: { nome: string; email: string };
+  materias?: string[];
+};
 
+/** Auth é externo à transação. Repetição reconcilia a versão corrente, sem repetir a mutação. */
+export async function reconciliarClaimsUsuario(uid: string): Promise<void> {
   const db = admin.firestore();
-  
-  let userRecord;
+  const ref = db.collection("Usuarios").doc(uid);
   try {
-    userRecord = await admin.auth().getUserByEmail(email);
-  } catch (error: any) {
-    if (error.code === 'auth/user-not-found') {
-      userRecord = await admin.auth().createUser({
-        email,
-        displayName: nome,
+    for (let tentativa = 0; tentativa < 5; tentativa++) {
+      const estado = await db.runTransaction(async tx => {
+        const usuario = await tx.get(ref);
+        const perfis = await tx.getAll(...PAPEIS.map(p => db.collection(p).doc(uid)));
+        if (!usuario.exists) throw new HttpsError("not-found", "Identidade não encontrada.");
+        const roles = PAPEIS.filter((_, i) => perfis[i].exists);
+        validarMatrizPapeis(roles);
+        return { roles: usuario.data()!.ativo === true ? roles : [], versao: usuario.data()!.versao_permissoes ?? 0 };
       });
-    } else {
-      throw new HttpsError("internal", "Erro ao verificar usuário na autenticação.");
+      const authUser = await admin.auth().getUser(uid);
+      await admin.auth().setCustomUserClaims(uid, {
+        ...authUser.customClaims, roles: estado.roles, versao_permissoes: estado.versao,
+      });
+      const atual = await db.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (snap.data()?.versao_permissoes !== estado.versao) return false;
+        tx.update(ref, { claims_pendentes: false });
+        return true;
+      });
+      if (atual) return;
     }
+    throw new Error("Permissões alteradas durante reconciliação.");
+  } catch {
+    await ref.update({ claims_pendentes: true });
+    throw new HttpsError("unavailable", "Papéis persistidos; sincronização Auth pendente. Repetir a mesma operação para reconciliar.");
   }
+}
 
-  const uid = userRecord.uid;
+/** Todas as concessões/revogações compartilham o singleton, inclusive o bootstrap de contagens. */
+async function alterarPapel(dados: Mutacao): Promise<{ uid: string; ativo: boolean }> {
+  const db = admin.firestore();
+  const controleRef = db.collection("Controle_Papeis").doc("singleton");
+  const usuarioRef = db.collection("Usuarios").doc(dados.uid);
+  const chave = createHash("sha256").update(JSON.stringify([dados.ator, dados.idOperacao])).digest("hex");
+  const operacaoRef = db.collection("Operacoes").doc(chave);
+  const entrada = createHash("sha256").update(JSON.stringify(dados)).digest("hex");
+  const auditRef = db.collection("Registro_de_Auditoria").doc(`papel_${chave}`);
+  try {
+    return await db.runTransaction(async tx => {
+      const controle = await tx.get(controleRef);
+      const operacao = await tx.get(operacaoRef);
+      if (operacao.exists) {
+        if (operacao.data()!.hash_entrada !== entrada)
+          throw new HttpsError("already-exists", "Identificador de operação reutilizado com outros dados.");
+        return operacao.data()!.resultado as { uid: string; ativo: boolean };
+      }
+      const [ator, chefeAtor, usuario] = await tx.getAll(
+        db.collection("Usuarios").doc(dados.ator), db.collection("Chefe_Geral").doc(dados.ator), usuarioRef,
+      );
+      if (ator.data()?.ativo !== true || !chefeAtor.exists)
+        throw new HttpsError("permission-denied", "Chefia ativa necessária.");
+      const perfis = await tx.getAll(...PAPEIS.map(p => db.collection(p).doc(dados.uid)));
+      const atuais = PAPEIS.filter((_, i) => perfis[i].exists);
+      if (!dados.conceder && dados.papel === "Chefe_Geral" && dados.ator !== dados.uid)
+        throw new HttpsError("permission-denied", "Não é permitido revogar outro Chefe Geral.");
+      if (!usuario.exists && !dados.conceder)
+        throw new HttpsError("not-found", "Identidade não encontrada.");
+      const posteriores = dados.conceder ? [...new Set([...atuais, dados.papel])] : atuais.filter(p => p !== dados.papel);
+      validarMatrizPapeis(posteriores);
+      const ativo = posteriores.length > 0;
+      // Recontagem transacional evita confiar em contador legado ausente/desatualizado.
+      const chefes = await tx.get(db.collection("Chefe_Geral"));
+      const gestores = await tx.get(db.collection("Gestor_Bens_Patrimoniais"));
+      const ids = [...new Set([...chefes.docs, ...gestores.docs].map(d => d.id))];
+      const identidades = ids.length ? await tx.getAll(...ids.map(id => db.collection("Usuarios").doc(id))) : [];
+      const ativos = new Set(identidades.filter(d => d.data()?.ativo === true).map(d => d.id));
+      const contar = (lista: FirebaseFirestore.QuerySnapshot, papel: string) =>
+        lista.docs.filter(d => d.id !== dados.uid && ativos.has(d.id)).length + (ativo && posteriores.includes(papel) ? 1 : 0);
+      const chefesDepois = contar(chefes, "Chefe_Geral");
+      const gestoresDepois = contar(gestores, "Gestor_Bens_Patrimoniais");
+      if (chefesDepois < 1) throw new HttpsError("failed-precondition", "O sistema deve conservar outro Chefe Geral ativo.");
+      if (!dados.conceder && dados.papel === "Gestor_Bens_Patrimoniais" && atuais.includes(dados.papel) && gestoresDepois < 1)
+        throw new HttpsError("failed-precondition", "Não revogar o último gestor patrimonial ativo.");
+      const vinculos = !dados.conceder && dados.papel === "Gestor_Almoxarifado"
+        ? await tx.get(db.collection("Gestor_Almoxarifado_x_Almoxarifado").where("id_gestor_almoxarifado", "==", dados.uid)) : null;
+      if (vinculos) {
+        for (const v of vinculos.docs) {
+          const almId = v.data().id_almoxarifado;
+          const alm = await tx.get(db.collection("Almoxarifado").doc(almId));
+          if (alm.data()?.ativo === false) continue;
+          const outros = await tx.get(db.collection("Gestor_Almoxarifado_x_Almoxarifado").where("id_almoxarifado", "==", almId));
+          const candidatos = [...new Set(outros.docs.map(d => d.data().id_gestor_almoxarifado as string))].filter(id => id !== dados.uid);
+          let outroAtivo = false;
+          for (const id of candidatos) {
+            const [u, p] = await tx.getAll(db.collection("Usuarios").doc(id), db.collection("Gestor_Almoxarifado").doc(id));
+            if (u.data()?.ativo === true && p.exists) outroAtivo = true;
+          }
+          if (!outroAtivo) throw new HttpsError("failed-precondition", "Almoxarifado deve conservar gestor ativo.");
+        }
+      }
+      // A partir daqui, somente escritas. Callbacks não executam Auth, e-mail ou PDF.
+      const mudou = atuais.includes(dados.papel) !== dados.conceder || usuario.data()?.ativo !== ativo;
+      const versao = (usuario.data()?.versao_permissoes ?? 0) + (mudou ? 1 : 0);
+      tx.set(usuarioRef, {
+        ...(!usuario.exists ? dados.identidade : {}), ativo, versao_permissoes: versao,
+        claims_pendentes: true, atualizado_em: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      if (dados.conceder && !atuais.includes(dados.papel)) {
+        tx.create(db.collection(dados.papel).doc(dados.uid), {
+          ...dados.perfil, id_usuario: dados.uid, ativo: true, createdAt: FieldValue.serverTimestamp(),
+        });
+        if (dados.papel === "Professor") for (const materia of new Set(dados.materias ?? [])) {
+          const id = createHash("sha256").update(JSON.stringify([dados.uid, materia])).digest("hex");
+          tx.set(db.collection("Professor_x_Materia").doc(id), { id_usuario: dados.uid, id_professor: dados.uid, id_materia: materia });
+        }
+      } else if (!dados.conceder && atuais.includes(dados.papel)) {
+        tx.delete(db.collection(dados.papel).doc(dados.uid));
+        vinculos?.docs.forEach(v => tx.delete(v.ref));
+      }
+      tx.set(controleRef, { chefes_ativos: chefesDepois, gestores_patrimoniais_ativos: gestoresDepois,
+        versao: (controle.data()?.versao ?? 0) + 1 }, { merge: true });
+      const resultado = { uid: dados.uid, ativo };
+      tx.create(operacaoRef, { uid: dados.ator, acao: dados.conceder ? "CONCEDER_PAPEL" : "REVOGAR_PAPEL",
+        recurso: dados.uid, hash_entrada: entrada, status: "CONCLUIDA", resultado,
+        criado_em: FieldValue.serverTimestamp() });
+      tx.set(auditRef, { id_usuario: dados.ator, acao: dados.conceder ? "CONCEDER_PAPEL" : "REVOGAR_PAPEL",
+        tipo_entidade_sofre_acao: "USUARIO", id_do_objeto_da_entidade: dados.uid,
+        acao_feita_em: FieldValue.serverTimestamp(), metadata: { papel: dados.papel, motivo: dados.motivo,
+          resultado: mudou ? "APLICADO" : "SEM_ALTERACAO", situacao_conta: ativo ? "ATIVA" : "DESATIVADA" } });
+      return resultado;
+    });
+  } catch (error) {
+    // Fora do callback: registrar rejeição sem desfazer a tentativa já concluída.
+    if (error instanceof HttpsError) await db.collection("Registro_de_Auditoria").doc(`rejeicao_${chave}_${entrada}`).set({
+      id_usuario: dados.ator, acao: "ALTERACAO_PAPEL_REJEITADA", tipo_entidade_sofre_acao: "USUARIO",
+      id_do_objeto_da_entidade: dados.uid, acao_feita_em: FieldValue.serverTimestamp(),
+      metadata: { papel: dados.papel, motivo: dados.motivo, resultado: error.code },
+    });
+    throw error;
+  }
+}
 
-  // Validação Prévia da Matriz de Multi-Role
-  const colecoes = [
-    "Chefe_Geral",
-    "Gestor_Almoxarifado",
-    "Gestor_Bens_Patrimoniais",
-    "Professor",
-    "Aluno",
-    "Bolsista"
-  ];
-  const leiturasAtuais = await Promise.all(
-    colecoes.map((c) => db.collection(c).doc(uid).get())
+export const convidarUsuario = onCall(async request => {
+  validarPermissao(request, ["Chefe_Geral"]);
+  const dados = validatePayload(ConvidarUsuarioSchema, request.data);
+  // Evitar criar identidade Auth antes de verificar a chefia persistida.
+  const [ator, chefe] = await admin.firestore().getAll(
+    admin.firestore().collection("Usuarios").doc(request.auth!.uid),
+    admin.firestore().collection("Chefe_Geral").doc(request.auth!.uid),
   );
-  const rolesAtuais = colecoes.filter((_, i) => leiturasAtuais[i].exists);
-  const novasRoles = Array.from(new Set([...rolesAtuais, papel]));
-
-  validarMatrizPapeis(novasRoles);
-
-  // Centraliza a criação na coleção Usuarios
-  await db.collection("Usuarios").doc(uid).set({
-    nome,
-    email,
-    ativo: true,
-    updatedAt: FieldValue.serverTimestamp()
-  }, { merge: true });
-
-  // Add user to the corresponding collection
-  const dataToSave: any = {
-    nome,
-    email,
-    ativo: true,
-    createdAt: FieldValue.serverTimestamp()
-  };
-
-  if (papel === "Aluno") {
-    dataToSave.letra_inicial = nome.charAt(0).toUpperCase();
-  }
-
-  if (papel === "Professor") {
-    dataToSave.centro = centro || "N/A";
-    dataToSave.laboratorio = laboratorio || "N/A";
-  }
-
-  await db.collection(papel).doc(uid).set(dataToSave, { merge: true });
-
-  if (papel === "Professor" && materias && materias.length > 0) {
-    const batch = db.batch();
-    for (const materiaId of materias) {
-      const relRef = db.collection("Professor_x_Materia").doc();
-      batch.set(relRef, {
-        id_usuario: uid,
-        id_materia: materiaId
-      });
+  if (ator.data()?.ativo !== true || !chefe.exists) throw new HttpsError("permission-denied", "Chefia ativa necessária.");
+  let user;
+  try { user = await admin.auth().getUserByEmail(dados.email); }
+  catch (error: any) {
+    if (error.code !== "auth/user-not-found") throw error;
+    try { user = await admin.auth().createUser({ email: dados.email, displayName: dados.nome }); }
+    catch (creation: any) {
+      if (creation.code !== "auth/email-already-exists") throw creation;
+      user = await admin.auth().getUserByEmail(dados.email);
     }
-    await batch.commit();
   }
-
-  // Update Custom Claims
-  await atualizarCustomClaims(uid);
-
-  // Generate Reset Link
-  const resetLink = await admin.auth().generatePasswordResetLink(email);
-
-  // Audit log
-  await db.collection("Registro_de_Auditoria").add({
-    id_usuario: request.auth!.uid,
-    acao: "Convidar Usuário",
-    tipo_entidade_sofre_acao: "USUARIO",
-    id_do_objeto_da_entidade: uid,
-    acao_feita_em: FieldValue.serverTimestamp(),
-    metadata: {
-      email,
-      papel
-    }
-  });
-
-  return { resetLink, uid };
+  const perfil: Record<string, unknown> = { nome: dados.nome, email: dados.email };
+  if (dados.papel === "Aluno") perfil.letra_inicial = dados.nome.charAt(0).toUpperCase();
+  if (dados.papel === "Professor") { perfil.centro = dados.centro ?? "N/A"; perfil.laboratorio = dados.laboratorio ?? "N/A"; }
+  const resultado = await alterarPapel({ ator: request.auth!.uid, uid: user.uid, papel: dados.papel,
+    conceder: true, motivo: dados.motivo ?? "Concessão solicitada pela chefia", idOperacao: dados.idOperacao ?? randomUUID(),
+    perfil, identidade: { nome: dados.nome, email: dados.email }, materias: dados.materias ?? [] });
+  await reconciliarClaimsUsuario(user.uid);
+  const resetLink = await admin.auth().generatePasswordResetLink(dados.email);
+  return { ...resultado, resetLink };
 });
 
-export const revogarUsuarioPapel = onCall(async (request) => {
-  // Apenas Chefe Geral pode revogar (RN-ROLE-02 permite auto-revogação, vamos assumir que o sistema só permite a Chefes Gerais usarem esta tela inicialmente)
+export const revogarUsuarioPapel = onCall(async request => {
   validarPermissao(request, ["Chefe_Geral"]);
-
-  const { email, papel, motivo } = validatePayload(RevogarUsuarioPapelSchema, request.data);
-  const db = admin.firestore();
-  
-  let userRecord;
-  try {
-    userRecord = await admin.auth().getUserByEmail(email);
-  } catch (error: any) {
-    throw new HttpsError("not-found", "Usuário não encontrado.");
-  }
-
-  const uid = userRecord.uid;
-
-  // Verifica se o usuário tem o papel que está sendo revogado
-  const papelDoc = await db.collection(papel).doc(uid).get();
-  if (!papelDoc.exists) {
-    throw new HttpsError("failed-precondition", `O usuário não possui o papel de ${papel}.`);
-  }
-
-  // Validação de RN de Revogação
-  if (papel === "Chefe_Geral") {
-    await validarRevogacaoChefeGeral(uid);
-  } else if (papel === "Gestor_Almoxarifado") {
-    await validarRevogacaoGestorAlmoxarifado(uid);
-  } else if (papel === "Gestor_Bens_Patrimoniais") {
-    await validarRevogacaoGestorPatrimonial(uid);
-  }
-
-  // Executa a remoção do papel (removendo da coleção do papel)
-  await db.collection(papel).doc(uid).delete();
-
-  // Recalcula Custom Claims
-  await atualizarCustomClaims(uid);
-
-  // Lê novamente para verificar se restou algum papel
-  const colecoes = [
-    "Chefe_Geral",
-    "Gestor_Almoxarifado",
-    "Gestor_Bens_Patrimoniais",
-    "Professor",
-    "Aluno",
-    "Bolsista"
-  ];
-  const leiturasPos = await Promise.all(
-    colecoes.map((c) => db.collection(c).doc(uid).get())
-  );
-  const restamPapeis = leiturasPos.some(doc => doc.exists);
-
-  let ativo = true;
-  if (!restamPapeis) {
-    ativo = false;
-    await db.collection("Usuarios").doc(uid).set({
-      ativo: false,
-      updatedAt: FieldValue.serverTimestamp()
-    }, { merge: true });
-  }
-
-  // Audit log
-  await db.collection("Registro_de_Auditoria").add({
-    id_usuario: request.auth!.uid,
-    acao: "Revogar Papel",
-    tipo_entidade_sofre_acao: "USUARIO",
-    id_do_objeto_da_entidade: uid,
-    acao_feita_em: FieldValue.serverTimestamp(),
-    metadata: {
-      email,
-      papel_removido: papel,
-      motivo: motivo || "Não informado",
-      situacao_conta: ativo ? "ATIVA" : "DESATIVADA"
-    }
-  });
-
-  return { uid, ativo };
+  const dados = validatePayload(RevogarUsuarioPapelSchema, request.data);
+  let user;
+  try { user = await admin.auth().getUserByEmail(dados.email); }
+  catch { throw new HttpsError("not-found", "Usuário não encontrado."); }
+  const resultado = await alterarPapel({ ator: request.auth!.uid, uid: user.uid, papel: dados.papel,
+    conceder: false, motivo: dados.motivo, idOperacao: dados.idOperacao ?? randomUUID() });
+  await reconciliarClaimsUsuario(user.uid);
+  return resultado;
 });

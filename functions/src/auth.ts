@@ -59,7 +59,7 @@ export async function validarGestorDoAlmoxarifado(
 
 /**
  * Chamada após TODA concessão ou remoção de papel.
- * Isso atualiza os custom claims e invalida o token atual.
+ * Isso atualiza os custom claims para o próximo token; não invalida o token atual.
  * O cliente precisará renovar o token chamando `user.getIdToken(true)`.
  */
 export async function atualizarCustomClaims(uid: string): Promise<void> {
@@ -93,6 +93,9 @@ export function validarMatrizPapeis(roles: string[]): void {
   }
   if (roles.includes("Aluno") && roles.includes("Professor")) {
     throw new HttpsError("failed-precondition", "O usuário que é aluno não pode ser professor.");
+  }
+  if (roles.includes("Bolsista") && !roles.includes("Aluno")) {
+    throw new HttpsError("failed-precondition", "Bolsista exige papel Aluno.");
   }
   if (roles.includes("Bolsista") && roles.includes("Gestor_Almoxarifado")) {
     throw new HttpsError("failed-precondition", "O usuário Bolsista não pode ser Gestor de Almoxarifado.");

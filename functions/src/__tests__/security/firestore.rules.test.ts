@@ -64,10 +64,10 @@ describe("Firestore Security Rules", () => {
       await assertFails(db.collection("Usuarios").doc("alice").set({ nome: "Alice 2" }));
     });
 
-    it("deve permitir que o chefe leia e escreva qualquer usuário", async () => {
+    it("chefe lê identidade, mas não altera ativo ou papéis diretamente", async () => {
       const db = authedDb("boss", ["Chefe_Geral"]);
       await assertSucceeds(db.collection("Usuarios").doc("alice").get());
-      await assertSucceeds(db.collection("Usuarios").doc("alice").set({ nome: "Alice Alterada" }));
+      await assertFails(db.collection("Usuarios").doc("alice").set({ nome: "Alice Alterada", ativo: false }));
     });
   });
 
@@ -195,4 +195,21 @@ describe("Firestore Security Rules", () => {
     });
   });
 
+});
+
+// AUD-35/36: usar documentos existentes para provar negativa por Rules, não ausência.
+describe.each(["Controle_Papeis", "Operacoes", "Chaves_Unicas"])("Coleção interna %s", colecao => {
+  it.each([[], ["Aluno"], ["Professor"], ["Gestor_Almoxarifado"], ["Chefe_Geral"]])("nega cliente com roles %j", async (...roles) => {
+    await testEnv.withSecurityRulesDisabled(async ctx => {
+      await ctx.firestore().collection(colecao).doc("singleton").set({ versao: 1 });
+    });
+    const db = testEnv.authenticatedContext("cliente", { roles }).firestore();
+    const ref = db.collection(colecao).doc("singleton");
+    await assertFails(ref.get());
+    await assertFails(db.collection(colecao).get());
+    await assertFails(db.collection(colecao).doc("novo").set({ versao: 9 }));
+    await assertFails(ref.update({ versao: 9 }));
+    await assertFails(ref.delete());
+    await assertFails(ref.collection("aninhado").doc("item").set({ versao: 9 }));
+  });
 });

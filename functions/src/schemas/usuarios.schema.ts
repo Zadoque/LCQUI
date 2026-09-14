@@ -10,6 +10,8 @@ export const PapeisUsuariosSchema = z.enum([
 ]);
 
 export const ConvidarUsuarioSchema = z.object({
+  idOperacao: z.string().uuid().optional(),
+  motivo: z.string().trim().min(1).max(2000).optional(),
   email: z.string().email("O e-mail fornecido não é válido."),
   nome: z.string().min(1, "O nome é obrigatório."),
   papel: PapeisUsuariosSchema,
@@ -19,7 +21,8 @@ export const ConvidarUsuarioSchema = z.object({
 });
 
 export const RevogarUsuarioPapelSchema = z.object({
+  idOperacao: z.string().uuid().optional(),
   email: z.string().email("O e-mail fornecido não é válido."),
   papel: PapeisUsuariosSchema,
-  motivo: z.string().optional()
+  motivo: z.string().trim().min(1, "Justificativa obrigatória.").max(2000)
 });

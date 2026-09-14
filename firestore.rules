@@ -26,12 +26,18 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Coleções internas: deny-all já as protegia; matches explicitam a arquitetura.
+    // Admin SDK não é sujeito a Security Rules.
+    match /Controle_Papeis/{document=**} { allow read, write: if false; }
+    match /Operacoes/{document=**} { allow read, write: if false; }
+    match /Chaves_Unicas/{document=**} { allow read, write: if false; }
+
     // --- Usuarios ---
     match /Usuarios/{uid} {
       // Usuário lê a si mesmo, chefe lê todos
       allow read: if isOwner(uid) || isAdmin();
       // Escrita principal é feita via Cloud Function
-      allow write: if isAdmin();
+      allow write: if false; // identidade/ativo: transação servidor (RN-ROLE)
 
       match /Turmas/{turmaId} {
         allow read: if isOwner(uid) || isAdmin();
