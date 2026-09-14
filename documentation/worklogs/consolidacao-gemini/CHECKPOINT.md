@@ -6,16 +6,16 @@
 |---|---|
 | Branch | `docs/realinhamento-especificacao-lcqui` |
 | HEAD inicial (início desta sessão) | `e7b0bfe90dc91c693f965a51ca81f42676dc187c` |
-| Commit documental validado | 9db6707a |
+| Commit documental validado | 7c4be0f2 |
 
 ## Estado atual
 
 | Campo | Valor |
 |---|---|
-| Lote atual | Lote 3A — Vocabulário e Modelo Canônico (Concluído) |
-| Último arquivo editado | Section-11-Regras-de-Seguranca-do-Firestore-Security-Rules.tex |
+| Lote atual | Complemento 3A.1 — Correção de regressão 3FN (Concluído) |
+| Último arquivo editado | Section-12-Implementacoes-em-Estudo-para-Versoes-Futuras.tex |
 | Alterações ainda não compiladas | nenhuma |
-| Último build validado | Lote 3A — 199 páginas; exit 0 |
+| Último build validado | Complemento 3A.1 — 200 páginas; exit 0 |
 | Resultado da inspeção visual | aprovada |
 | Próxima ação exata | Iniciar Lote 3B. |
 
