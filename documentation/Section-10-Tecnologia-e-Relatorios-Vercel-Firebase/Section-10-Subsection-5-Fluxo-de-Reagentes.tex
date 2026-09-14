@@ -484,7 +484,7 @@ export const registrarDevolucao = onCall(async (request) => {
     if (!Number.isFinite(dados.pesoRetorno) || dados.pesoRetorno <= 0) {
       throw new HttpsError("invalid-argument", "Peso de retorno inválido.");
     }
-    // PDF-025: Ganho acima da tolerância bloqueia por anomalia. Retorno abaixo da tara é permitido e tratado como esgotamento.
+    // PDF-025: Ganho acima da tolerância bloqueia por anomalia. Retorno abaixo da tara é bloqueado e encaminhado ao fluxo Q06 para confirmação de esgotamento ou recalibração da tara.
     if (dados.pesoRetorno > limiteMaxRetorno) {
       throw new HttpsError("invalid-argument", "Ganho de massa excede tolerância Q06 (possível erro ou contaminação). Bloqueado por anomalia.");
     }
