@@ -1,391 +1,363 @@
 # PLANO_IMPLEMENTACAO_LOTE_3B_APOS_3B1
 
 Data: 2026-09-14  
-Base semântica: `AVALIACAO_RESPOSTAS_FASE_3B1_R2.md`  
+Base semântica: `AVALIACAO_RESPOSTAS_FASE_3B1_R2.md` — revisão R2.1  
 Gate: `SEMANTIC_GATE = PASS`
 
 ## Objetivo
 
-Aplicar documentalmente as decisões fechadas da Fase 3B.1 sem reiniciar o Lote 3B, preservando os contratos e decisões anteriores e fechando os bloqueadores remanescentes de PDF-014, PDF-021 e PDF-025.
+Aplicar documentalmente as decisões fechadas da Fase 3B.1 sem reiniciar o Lote 3B, preservando decisões anteriores e fechando os bloqueadores de PDF-014, PDF-021 e PDF-025.
 
 ## Ordem obrigatória de implementação
 
-1. Atualizar fontes canônicas de dados/semântica: Seções 4 e 5.
-2. Atualizar materializações e regras de negócio: Seções 6 e 7.
-3. Atualizar UI/UX e fluxos: Seções 8 e 9.
-4. Atualizar contratos operacionais/jobs/relatórios/consolidação na Seção 10.
-5. Atualizar Security Rules da Seção 11.
-6. Atualizar Contract Cards do Lote 3B.
-7. Executar revisão transversal de identidade, NULL vs zero, idempotência e Q06.
-8. Executar `git diff --check`.
-9. Criar commit funcional/documental.
-10. Compilar exatamente o commit funcional, inspecionar páginas alteradas, registrar em `VALIDACAO_LATEX.md`, atualizar `CHECKPOINT.md` e somente por último atualizar `main.pdf`.
+1. Executar o **checkpoint técnico de `disponibilidade` para EXTRAVIADO** antes de editar o modelo: rastrear a semântica e todos os consumidores de `disponibilidade` nas Seções 4–11; não criar `INDISPONIVEL` nem escolher outro valor por conveniência.
+2. Atualizar fontes canônicas de dados/semântica: Seções 4 e 5.
+3. Atualizar materializações e regras de negócio: Seções 6 e 7.
+4. Atualizar UI/UX e fluxos: Seções 8 e 9.
+5. Atualizar contratos operacionais/jobs/relatórios/consolidação na Seção 10.
+6. Atualizar Security Rules da Seção 11.
+7. Atualizar Contract Cards do Lote 3B.
+8. Executar revisão transversal de identidade, NULL vs zero, desativação x exclusão, idempotência e Q06.
+9. Executar `git diff --check`.
+10. Criar commit funcional/documental e registrar SHA.
+11. Compilar exatamente esse SHA; inspecionar páginas alteradas; atualizar `VALIDACAO_LATEX.md`, depois `CHECKPOINT.md`, e `main.pdf` por último.
 
 ---
 
-# Matriz por decisão
+# DDP-3B1-01 — Extravio recuperável
 
-## DDP-3B1-01 — Extravio recuperável
+## Checkpoint técnico obrigatório — semântica de `disponibilidade`
+
+Antes de alterar enum/campo, localizar todas as definições e usos de `Frasco_Reagente.disponibilidade` nas Seções 4–11 e classificar a semântica vigente:
+
+- se `disponibilidade` representa **ocupação/vínculo de empréstimo** (`DISPONIVEL` = sem empréstimo ativo; `EMPRESTADO` = com empréstimo ativo), um frasco `EXTRAVIADO` após encerramento pode não estar emprestado, mas isso **não o torna apto para retirada**. Nesse caso, o predicado operacional deve obrigatoriamente exigir `estado_fisico_frasco` elegível, além de disponibilidade, quarentena, descarte etc.; UI/relatórios não podem chamar o extraviado de “disponível para uso”.
+- se `disponibilidade` representa **aptidão operacional para retirada**, o domínio `DISPONIVEL|EMPRESTADO` torna-se insuficiente para `EXTRAVIADO`; ampliar/remodelar o domínio é então correção técnica necessária.
+
+Não introduzir `INDISPONIVEL` automaticamente. Registrar no worklog qual leitura é sustentada pelo conjunto normativo e propagar a menor solução consistente. Somente abrir nova DDP se os documentos revelarem uma escolha institucional genuína que não possa ser deduzida tecnicamente.
 
 ### Seção 4 — 3FN
-- adicionar `EXTRAVIADO` ao domínio de estado físico do frasco;
-- deixar explícito que extravio não equivale a descarte físico;
-- histórico deve registrar `EXTRAVIOU_EM_EMPRESTIMO` e `REENCONTRADO_APOS_EXTRAVIO`;
-- se `reencontrado_em/por` permanecerem no snapshot atual, documentá-los como projeção do último reencontro, não fonte canônica histórica;
-- preservar `peso_atual` como última medição válida; nunca usar zero para ausência.
+- adicionar `EXTRAVIADO` ao domínio do estado físico;
+- extravio não equivale a descarte físico;
+- histórico registra `EXTRAVIOU_EM_EMPRESTIMO` e `REENCONTRADO_APOS_EXTRAVIO`;
+- `reencontrado_em/por`, se mantidos no snapshot, são projeções do último evento, não fonte histórica canônica;
+- preservar `peso_atual` como última medição válida/ausente; nunca usar 0 para ausência;
+- só alterar o domínio de `disponibilidade` se o checkpoint demonstrar necessidade semântica.
 
 ### Seção 5 — Firestore
-- estado `EXTRAVIADO` deve ser inelegível para retirada;
-- não usar `disponibilidade=DISPONIVEL` com significado de disponibilidade operacional durante extravio;
-- reencontro atômico: validar estado anterior, registrar evento, atualizar estado observável e `em_quarentena=true`;
-- preservar empréstimo encerrado extraordinariamente.
+- qualquer consulta de estoque apto exclui `EXTRAVIADO` por contrato;
+- não persistir combinação que faça o consumidor interpretar extraviado como apto para retirada;
+- reencontro atômico valida estado anterior, grava evento, atualiza estado físico observável e `em_quarentena=true`;
+- empréstimo extraordinariamente encerrado permanece fechado.
 
 ### Seção 6 — materializações
-- separar contagens de extraviados, quarentena e disponíveis;
-- não reinserir automaticamente reencontrado em estoque apto antes da liberação de quarentena.
+- separar extraviados, quarentena e estoque apto;
+- reencontro não volta ao saldo apto antes da liberação.
 
 ### Seção 7 — RN/RF
-- formalizar: extravio é ausência recuperável; reencontro só retorna via quarentena;
-- liberação exige fluxo técnico existente de quarentena.
+- formalizar ausência recuperável + reingresso obrigatório por quarentena;
+- formalizar predicado de elegibilidade de retirada, incluindo exclusão de `EXTRAVIADO`.
 
 ### Seção 8 — UI/UX
-- ação “Registrar reencontro” apenas para extraviados;
-- após registro, item aparece em quarentena, não em disponíveis;
-- exibir histórico do sinistro preservado.
+- “Registrar reencontro” apenas para extraviados;
+- extraviado nunca aparece como apto/disponível para retirada;
+- reencontrado aparece em quarentena.
 
 ### Seção 9 — fluxos
-- fluxo extraordinário: empréstimo encerrado -> frasco extraviado -> eventual reencontro -> quarentena -> liberação/descarte.
+- empréstimo -> encerramento extraordinário -> extravio -> eventual reencontro -> quarentena -> liberação/descarte.
 
-### Seção 10 — contratos/jobs/relatórios
-- função de reencontro server-side e idempotente;
+### Seção 10
+- função server-side idempotente de reencontro;
 - relatórios distinguem extravio, reencontro e descarte.
 
-### Seção 11 — Security Rules
-- cliente não pode mudar livremente `EXTRAVIADO` para estado operacional nem retirar quarentena; somente backend autorizado.
+### Seção 11
+- cliente não muda livremente `EXTRAVIADO` para estado operacional nem retira quarentena.
 
-### Contract Cards
-- PDF-014 deve incorporar encerramento extraordinário sem peso fictício e reencontro sem reabertura do empréstimo.
+### Contract Cards / PDF-014
+- encerramento extraordinário sem peso fictício;
+- reencontro sem reabertura do empréstimo;
+- contrato de disponibilidade deve refletir a conclusão do checkpoint, sem enum inventado.
 
 ### Migração/backfill
 - não converter descarte histórico em extravio sem evidência inequívoca.
 
 ### Índices
-- índices para listagem por `estado_fisico_frasco=EXTRAVIADO`, almoxarifado e ordenação temporal se aplicável.
+- somente os necessários às consultas finais de extraviados/quarentena/estoque apto.
 
 ### Testes/adversarial
-- retry duplo de reencontro;
-- reencontro concorrente por dois gestores;
+- retry duplo e reencontro concorrente;
 - tentativa de retirada enquanto extraviado/quarentena;
-- extravio com peso anterior conhecido e desconhecido.
+- consulta de estoque nunca inclui extraviado;
+- caso com última pesagem conhecida e sem pesagem válida;
+- teste específico do significado final de `disponibilidade` escolhido no checkpoint.
 
 ---
 
-## DDP-3B1-02 — Confirmação por entidade completa
+# DDP-3B1-02 — Confirmação por entidade completa
 
 ### Seção 4
-- manter Resumo, Especificação e Lote como entidades independentes;
-- composição de mistura é dependência obrigatória atômica da Especificação.
+- Resumo, Especificação e Lote permanecem entidades independentes;
+- composição de mistura é dependência obrigatória/atômica da Especificação;
+- `ativo=false` representa desativação operacional, não apagamento histórico.
 
 ### Seção 5
-- persistir cada entidade somente após confirmação explícita e validação completa;
+- persistir cada entidade somente após confirmação completa;
 - retomada usa IDs persistidos;
-- excluir/desativar não pode depender apenas de `COUNT(frascos)==0`.
+- **desativação lógica e exclusão física são operações distintas**.
+
+#### Contrato de desativação lógica
+- `ativo=false` preserva a entidade e referências históricas existentes;
+- não exigir `COUNT(frascos)==0` nem ausência de toda referência histórica como precondição universal;
+- impedir novos usos/vínculos incompatíveis enquanto inativa;
+- consultas de seleção para novos cadastros filtram entidades inativas conforme o domínio;
+- relatórios/histórico continuam resolvendo a entidade.
+
+#### Contrato de exclusão física
+- operação excepcional, não sinônimo de desativar;
+- só permitida se não houver referências impeditivas e se o domínio autorizar remoção definitiva;
+- verificar frascos, lotes, composição, estoque mínimo, histórico, notificações/referências e demais refs/FKs relevantes;
+- não usar `COUNT(frascos)==0` como critério suficiente;
+- proteger contra TOCTOU por transação/precondição/lock ou proibir delete quando a garantia robusta não for possível.
 
 ### Seção 6
-- materializações não devem apagar referências a entidade desativada usada historicamente.
+- materializações/históricos continuam resolvendo entidades desativadas usadas no passado.
 
 ### Seção 7
-- “Salvar [Entidade] e continuar” confirma; “Próximo” sem salvar não confirma;
-- cancelar etapas posteriores preserva entidades confirmadas.
+- “Salvar [Entidade] e continuar” confirma; “Próximo” não confirma implicitamente;
+- cancelar etapas posteriores preserva confirmados;
+- formalizar separação `desativar` versus `excluir definitivamente`.
 
 ### Seção 8
-- botões e feedback visual deixam estado de persistência explícito;
-- permitir selecionar entidade previamente criada.
+- feedback de persistência explícito;
+- permitir selecionar entidade já criada;
+- UI não apresenta Desativar e Excluir como equivalentes; exclusão física, se existir, exige alerta/justificativa adequada.
 
 ### Seção 9
-- fluxo ALM-01/02 deve distinguir entidade confirmada de estado de formulário.
+- ALM-01/02 distinguem formulário, entidade confirmada, entidade inativa e eventual remoção física.
 
 ### Seção 10
 - criação idempotente;
-- política de desativação/exclusão considera FKs/refs: frascos, composição, lote, histórico, estoque mínimo e referências auditáveis;
-- evitar TOCTOU.
+- desativação idempotente e preservadora de histórico;
+- exclusão física com checagem integral e proteção de concorrência.
 
 ### Seção 11
-- clientes autorizados criam entidades completas; exclusão física, quando existir, deve ser backend/transacional ou fortemente restrita.
+- impedir novos vínculos incompatíveis a entidade inativa;
+- exclusão física somente via backend privilegiado/contrato seguro quando existir.
 
-### Contract Cards
-- PDF-021: persistência por entidade completa, abandono e retomada por IDs.
+### Contract Cards / PDF-021
+- persistência por entidade completa;
+- abandono/retomada por IDs;
+- ciclo de vida: ativo -> inativo sem destruição de referências; delete excepcional separado.
 
 ### Migração/backfill
-- auditar órfãos/incompletos legados; não inferir automaticamente intenção.
+- auditar órfãos/incompletos; não inferir nem apagar automaticamente.
 
 ### Índices
-- consultas de seleção/retomada por ativo, nome normalizado, parent refs relevantes.
+- seleção por `ativo` e campos realmente consultados.
 
 ### Testes/adversarial
-- dois usuários salvando mesma entidade;
 - cancelamento após Resumo/Especificação;
-- criação concorrente de frasco durante tentativa de desativação/exclusão.
+- desativar entidade que possui histórico/referências e verificar preservação;
+- tentativa de novo vínculo com entidade inativa;
+- criação concorrente de referência durante delete;
+- delete com referência impeditiva;
+- retry de desativação.
 
 ---
 
-## DDP-3B1-03 — localStorage em bancada compartilhada
+# DDP-3B1-03 — localStorage em bancada compartilhada
 
-### Seção 4/5
+### Seções 4/5
 - nenhum rascunho incompleto no banco.
 
 ### Seção 7
-- exceção expressa da UI-13 apenas para rascunhos de catálogo;
-- whitelist de campos permitidos;
-- proibir credenciais, tokens, PII e anexos/documento fiscal completo.
+- exceção da UI-13 só para rascunho de catálogo;
+- whitelist explícita; proibir credenciais, tokens, PII, anexos/documento fiscal completo e segredos.
 
 ### Seção 8
-- banner Restaurar/Descartar;
-- mostrar idade do rascunho;
+- Restaurar/Descartar com idade do rascunho;
 - não restaurar automaticamente em terminal compartilhado;
-- troca de usuário não acessa rascunho de outro UID.
+- troca de usuário nunca acessa rascunho de UID diferente.
 
 ### Seção 9
-- fluxo de reabertura/restauração é apenas local até confirmação.
+- restauração é local até confirmação.
 
 ### Seção 10
-- chave com UID é namespacing, não isolamento;
-- TTL validado na inicialização/leitura;
-- limpeza em sucesso, logout e troca de identidade;
-- schema version para invalidar chaves antigas;
-- controle de múltiplas abas com versão/timestamp.
+- UID é namespacing, não isolamento;
+- TTL validado no boot/leitura, não “expiração automática” do navegador;
+- limpeza em sucesso/logout/troca de identidade;
+- schema version/chaves antigas;
+- múltiplas abas com versão/timestamp;
+- CSP/sanitização/redução de scripts como defesa contra XSS.
 
 ### Seção 11
-- registrar que Security Rules não protegem `localStorage`; controles são frontend/CSP/operacionais.
+- Security Rules não protegem `localStorage`.
 
-### Contract Cards
-- PDF-021 inclui risco residual e separação entre rascunho local e entidade confirmada.
+### Contract Cards / PDF-021
+- risco residual explícito e separação rascunho local x entidade confirmada.
 
-### Migração/backfill
-- expurgo de chaves antigas por versão de schema.
-
-### Índices
-- nenhum.
-
-### Testes/adversarial
-- usuário A sai sem logout e usuário B entra;
-- duas abas alteram o mesmo rascunho;
+### Testes
+- usuário A fecha sem logout e B entra;
+- duas abas;
 - TTL expirado;
-- XSS simulado/inspeção da whitelist;
-- crash do navegador.
+- crash;
+- inspeção de whitelist/XSS.
 
 ---
 
-## DDP-3B1-04 — conteudo_nominal
+# DDP-3B1-04 — conteudo_nominal
 
 ### Seção 4
-- definir `conteudo_nominal` como quantidade original declarada no rótulo/fabricante;
-- `NULL` apenas se nominal original é desconhecido/ilegível;
-- saldo atual é conceito separado e não derivado automaticamente.
+- nominal = quantidade original declarada no rótulo/fabricante;
+- `NULL` só se nominal original for desconhecido/ilegível;
+- saldo atual é conceito separado.
 
-### Seção 5
-- mesma semântica no Firestore;
-- não nomear projeção do nominal como saldo.
-
-### Seção 6
-- materializações de estoque/consumo não usam nominal como substituto de quantidade restante.
-
-### Seção 7
-- RN explícita: nominal conhecido permanece conhecido em frasco aberto; saldo pode ser desconhecido.
-
-### Seção 8
-- rótulo de UI “Conteúdo nominal do rótulo/fabricante”;
-- “desconhecido” em vez de 0 para saldo não apurado.
-
-### Seção 9
-- cadastro de frasco aberto não apaga nominal conhecido nem inventa saldo.
-
-### Seção 10
-- relatórios distinguem nominal, pesagens e cobertura dos agregados.
+### Seções 5–10
+- não usar nominal como saldo/projeção de estoque restante;
+- materializações/relatórios distinguem nominal, pesagens e desconhecido;
+- UI rotula explicitamente “Conteúdo nominal do rótulo/fabricante”;
+- cadastro aberto preserva nominal conhecido sem inventar saldo.
 
 ### Seção 11
-- validações impedem valores semanticamente inválidos onde possível, sem falsear desconhecido.
+- validações não transformam desconhecido em zero.
 
 ### Contract Cards
-- PDF-021 e PDF-014 devem usar a semântica consolidada.
+- PDF-014/PDF-021 propagam a semântica consolidada.
 
 ### Migração/backfill
-- valores legados só são reinterpretados quando a proveniência for comprovável.
+- legados só reinterpretados com proveniência comprovável.
 
-### Índices
-- nenhum específico.
-
-### Testes/adversarial
-- frasco aberto com rótulo 500 mL e saldo desconhecido;
+### Testes
+- aberto com rótulo 500 mL e saldo desconhecido;
 - rótulo ilegível;
-- frasco fechado com nominal conhecido;
-- relatório que antes usava nominal como saldo.
+- relatório/materialização que antes confundia nominal e saldo.
 
 ---
 
-## DDP-3B1-05 — Estoque mínimo por Especificação × Almoxarifado
+# DDP-3B1-05 — Estoque mínimo por Especificação × Almoxarifado
 
 ### Seção 4
-- criar `Estoque_Minimo_Almoxarifado` com PK composta relacional;
-- sem limiar global em Especificação.
+- `Estoque_Minimo_Almoxarifado` com PK composta relacional;
+- nenhum limiar global na Especificação.
 
 ### Seção 5
-- configuração sob `Almoxarifado/{id}/Estoques_Configurados/{configId}`;
-- armazenar `id_resumo_reagente` + `id_especificacao_reagente` ou path canônico;
-- descrição denormalizada é somente projeção;
-- `specId` isolado não é chave canônica global.
+- configuração sob Almoxarifado com identidade não ambígua da Especificação;
+- armazenar `id_resumo_reagente + id_especificacao_reagente` ou path/reference canônico;
+- descrição denormalizada é projeção;
+- `specId` isolado não é chave canônica global sem contrato explícito.
 
 ### Seção 6
-- materialização/contagem usa mesma identidade e mesma definição de frasco apto do job;
-- não compensar especificações distintas.
+- contagens/materializações usam mesma identidade e predicado de frasco apto do job.
 
-### Seção 7
-- configuração explícita do par define intenção de estocar;
-- limiar 0 é permitido e semanticamente explicado;
-- par inativo/removido deixa de gerar alertas.
-
-### Seção 8
-- tela de configuração por unidade + especificação;
-- explicar limiar 0 e estado ativo/notificação ativa.
-
-### Seção 9
+### Seção 7/8/9
+- par configurado = intenção de estocar;
+- limiar 0 explicado;
+- ativo/notificação ativa distintos;
 - fluxo de criação/edição/desativação da configuração.
 
 ### Seção 10 — Jobs
-- job percorre apenas K pares configurados ativos;
+- apenas K pares configurados ativos;
 - `America/Sao_Paulo` no schedule e na data civil;
-- filtros de gestores/vínculos ativos;
-- count por par usando identidade completa e filtros canônicos de disponibilidade;
-- notifId inclui identidade completa, almoxarifado, data civil e destinatário;
-- usar create/precondition ou transação para não sobrescrever notificação existente;
-- retry não altera `lida`, `lida_em`, `expira_em` ou interação do usuário;
-- BulkWriter com captura de falhas por operação e retry seletivo.
+- gestores/vínculos ativos;
+- notifId com identidade completa + almoxarifado + data + destinatário;
+- `create`/precondition `exists=false` ou transação equivalente;
+- retry não altera `lida`, `lida_em`, `expira_em` nem interação do usuário;
+- BulkWriter com falhas por operação/retry seletivo;
+- não alegar economia concreta sem medição: apenas A×E -> K é garantido arquiteturalmente.
 
-### Seção 10 — Relatórios
-- relatórios de escassez usam as mesmas regras/identidade do job.
-
-### Seção 10 — Consolidação
-- remover pseudocódigo inseguro com `merge:false` + `lida:false` em retry;
-- documentar custo O(K) e não alegar performance sem medição.
+### Seção 10 — Relatórios/Consolidação
+- mesmas regras/identidade do job;
+- remover pseudocódigo destrutivo.
 
 ### Seção 11
-- só gestores autorizados da unidade configuram limiar;
-- leitura de configuração conforme papéis definidos.
-
-### Contract Cards
-- PDF-014/PDF-021 onde houver impactos de identidade e estoque;
-- registrar o job como contrato operacional idempotente.
+- só gestores autorizados da unidade configuram limiar.
 
 ### Migração/backfill
-- não criar produto cartesiano A×E;
-- criar apenas pares conhecidos/decididos; nenhum default inventado.
+- nunca criar A×E;
+- nenhum default inventado;
+- só pares cuja intenção e limiar sejam demonstráveis.
 
 ### Índices
-- configs por `ativo`/`notificacao_ativa` quando necessário;
-- frascos por almoxarifado + identidade completa da especificação + disponibilidade + estado + quarentena + descarte conforme consulta suportada;
-- vínculos de gestor por almoxarifado + ativo.
+- alinhar às queries efetivas e à identidade completa; não indexar somente `specId` se a consulta exige `resumoId+specId`.
 
-### Testes/adversarial
-- job executado duas vezes no mesmo dia;
-- usuário lê notificação entre retry e segunda tentativa;
-- specId iguais sob resumos diferentes;
-- almoxarifado/spec desativados durante execução;
-- limiar 0, estoque 0;
-- falha parcial no BulkWriter.
+### Testes
+- execução duplicada no mesmo dia;
+- leitura entre retry;
+- IDs locais iguais sob resumos distintos;
+- spec/almox/par inativos;
+- limiar 0/estoque 0;
+- falha parcial BulkWriter.
 
 ---
 
-## DDP-3B1-06 — Retorno esgotado e tara após higienização
+# DDP-3B1-06 — retorno esgotado e tara após higienização
 
-### Seção 4
-- distinguir `peso_retorno` do empréstimo e `peso_frasco_vazio` aferido depois;
-- histórico de ajuste registra aferição posterior sem reescrever empréstimo.
+### Seções 4–7
+- `peso_retorno` do empréstimo e `peso_frasco_vazio` posterior são fatos distintos;
+- atualização de tara + evento histórica atômica;
+- Q06 permanece `max(0, peso_saida-peso_retorno)` com duas leituras válidas;
+- massa removida na lavagem não é consumo didático.
 
-### Seção 5
-- atualização de tara + evento deve ser atômica;
-- empréstimo fechado permanece imutável salvo mecanismo auditado de correção já existente.
-
-### Seção 6
-- consumo/materializações usam somente medidas válidas do empréstimo;
-- tara posterior não retroage Q06.
-
-### Seção 7
-- Q06 permanece `max(0, peso_saida - peso_retorno)` com duas leituras válidas;
-- esgotamento exige devolução física;
-- massa removida pela lavagem não é consumo didático.
-
-### Seção 8
+### Seções 8/9
 - devolução fecha no balcão;
-- ação separada para aferição de tara após higienização quando aplicável.
-
-### Seção 9
-- fluxo em dois momentos claramente separados.
+- ação separada para aferição posterior.
 
 ### Seção 10
-- reutilizar evento canônico `AJUSTE` + `campo_ajustado=peso_frasco_vazio` quando suficiente;
-- não criar `AJUSTE_TARA_POS_HIGIENIZACAO` se redundante;
-- relatórios não recalculam consumos históricos após nova tara.
+- reutilizar `AJUSTE` + `campo_ajustado=peso_frasco_vazio` quando suficiente;
+- não recalcular consumos antigos;
+- command/idempotency key para retry.
 
 ### Seção 11
-- só papel autorizado executa ajuste de tara.
+- somente papel autorizado ajusta tara.
 
-### Contract Cards
-- PDF-025 permanece regression check de Q06; somente separação entre retorno e tara posterior é incorporada.
+### Contract Cards / PDF-025
+- Q06 permanece regression check; só incorporar separação retorno x tara posterior.
 
-### Migração/backfill
-- nenhuma recomputação retroativa de consumo por tara posterior.
-
-### Índices
-- histórico por frasco/tipo/data se necessário.
-
-### Testes/adversarial
-- tara aferida dias depois;
+### Testes
+- tara dias depois;
 - duas aferições concorrentes;
-- retry da aferição;
+- retry/duplo clique;
 - tentativa de usar tara posterior como peso_retorno;
-- frasco descartável sem aferição posterior.
+- recipiente descartável sem aferição.
 
 ---
 
-# Fechamento específico dos PDFs do Lote 3B
+# Fechamento do Lote 3B
 
 ## PDF-014
-Fechar com:
-- encerramento extraordinário de quebra/extravio sem peso fictício;
-- extravio recuperável e reencontro via quarentena;
-- descarte técnico independente preservado;
-- estoque/alertas usando identidade não ambígua;
-- desconhecido distinto de zero.
+Fechar apenas após: encerramento extraordinário sem peso fictício; extravio recuperável via quarentena; predicado operacional sem contradição de `disponibilidade`; identidade de estoque não ambígua; descarte técnico preservado.
 
 ## PDF-021
-Fechar com:
-- persistência por entidade completa;
-- abandono/retomada por IDs confirmados;
-- localStorage apenas para rascunho de catálogo, com whitelist, TTL e troca de identidade segura;
-- `conteudo_nominal` como valor original do rótulo.
+Fechar apenas após: persistência por entidade completa; localStorage com risco residual/whitelist/TTL; desativação lógica separada de exclusão física; `conteudo_nominal` propagado corretamente.
 
 ## PDF-025
-Manter como regression check:
-- Q06 inalterada para empréstimos mensuráveis;
-- retorno esgotado é medido antes da higienização;
-- tara posterior é ajuste técnico separado e não retroativo.
+Permanece regression check de Q06. Tara posterior não retroage consumo; nenhuma nova fórmula é autorizada.
 
 ---
 
-# Critérios de aceite antes do commit funcional
+# Gate final antes da compilação
 
-- nenhuma ocorrência normativa de ausência de medição representada por zero;
-- nenhum extravio representado como descarte;
-- nenhum frasco `EXTRAVIADO` elegível para retirada;
-- nenhum `specId` isolado tratado como global no Firestore sem contrato;
-- nenhum retry de notificação que sobrescreva `lida`/interação;
-- nenhum `COUNT==0` seguido de exclusão sujeito a TOCTOU sem proteção;
-- nenhum `localStorage` apresentado como isolado por UID;
-- nenhuma tara pós-higienização usada para recalcular Q06;
-- nenhum nominal de rótulo tratado como saldo atual;
-- Q06 permanece consistente em Seções 4–10 e PDF-025;
-- `America/Sao_Paulo` preservado para job e data civil.
+Confirmar explicitamente:
 
-# Status
+- checkpoint de `disponibilidade` concluído e documentado;
+- nenhuma enumeração inventada silenciosamente;
+- desativação lógica != exclusão física;
+- desconhecido != zero;
+- identidade Firestore não ambígua;
+- retries não destroem interação do usuário;
+- denormalizações têm fonte canônica;
+- `America/Sao_Paulo` consistente;
+- Q06 preservada;
+- PDF-014/021/025 sem regressões.
 
-Plano aprovado para execução documental. Próximo passo: aplicar as mudanças nos `.tex` e Contract Cards, depois executar o gate final e a validação LaTeX.
+Somente com `SEMANTIC_GATE = PASS`:
+
+1. `git diff --check`;
+2. commit funcional/documental;
+3. registrar SHA;
+4. compilar exatamente esse SHA;
+5. inspecionar páginas alteradas;
+6. atualizar `VALIDACAO_LATEX.md`;
+7. atualizar `CHECKPOINT.md`;
+8. atualizar `main.pdf` por último.
+
+Build bem-sucedido não transforma gate semântico FAIL em PASS.
