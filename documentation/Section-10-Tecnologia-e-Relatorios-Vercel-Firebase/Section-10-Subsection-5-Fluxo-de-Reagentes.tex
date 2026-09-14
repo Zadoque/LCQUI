@@ -468,6 +468,15 @@ export const registrarDevolucao = onCall(async (request) => {
 
     if (typeof frasco.eh_higroscopico !== "boolean")
       throw new HttpsError("failed-precondition", "Snapshot histórico ausente: reconciliar frasco.");
+
+    // PDF-025: FORMULA CANONICA Q06
+    // A margem de tolerância é estritamente calculada sobre o PESO BRUTO (peso_saida).
+    // Rejeitada explicitamente a sugestão de calcular sobre massa líquida,
+    // pois a variância ocorre sobre a medição total na balança.
+    // Fórmula:
+    // Normal: max(1g, 0.5% peso_saida)
+    // Higroscópico: max(2g, 2.0% peso_saida)
+
     const deltaMax = frasco.eh_higroscopico
       ? Math.max(2.0, 0.02 * emprestimo.peso_saida)
       : Math.max(1.0, 0.005 * emprestimo.peso_saida);

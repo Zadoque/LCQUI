@@ -13,12 +13,12 @@
 
 | Campo | Valor |
 |---|---|
-| Lote atual | Fase 0 — criação dos arquivos de controle |
-| Último arquivo editado | — |
-| Alterações ainda não compiladas | nenhuma (nenhum `.tex` editado ainda) |
-| Último build (herdado da sessão anterior) | D — 173 páginas; Final — 172 páginas; exit 0 |
-| Resultado do build herdado | aprovado (sessão 13/09/2026); **não reutilizado como validação desta sessão** |
-| Próxima ação exata | Compilar baseline da sessão atual e registrar resultado em `VALIDACAO_LATEX.md` |
+| Lote atual | Lote 3 — Próximo lote |
+| Último arquivo editado | Section-10-Subsection-7-Jobs-Agendados.tex |
+| Alterações ainda não compiladas | nenhuma |
+| Último build (herdado da sessão anterior) | Lote 2 — 191 páginas; Final — 191 páginas; exit 0 |
+| Resultado do build herdado | aprovado (sessão Lote 2) |
+| Próxima ação exata | Identificar os arquivos .tex para o Lote 3 (ex: PDF-004, PDF-005) e editar |
 
 ## Decisões bloqueadoras
 
@@ -28,10 +28,10 @@ Nenhuma decisão de domínio bloqueia o início desta sessão. Todas as DP-A01�
 
 | Estado | IDs |
 |---|---|
-| PENDENTE | PDF-001, PDF-002, PDF-003, PDF-004, PDF-005, PDF-006, PDF-007, PDF-008, PDF-009, PDF-010, PDF-011, PDF-012, PDF-013, PDF-014, PDF-015, PDF-016, PDF-017, PDF-018, PDF-019, PDF-020, PDF-021, PDF-022, PDF-023, PDF-024, PDF-025, EXTRA-001, EXTRA-002, EXTRA-003, GEM-NOM-001, GEM-NOM-002, GEM-NOM-003, GEM-NOM-004, GEM-NOM-005 |
+| PENDENTE | PDF-004, PDF-005, PDF-006, PDF-008, PDF-009, PDF-010, PDF-011, PDF-012, PDF-013, PDF-014, PDF-018, PDF-019, PDF-021, PDF-022, PDF-023, PDF-024, EXTRA-001, EXTRA-002, EXTRA-003, GEM-NOM-001, GEM-NOM-002, GEM-NOM-003, GEM-NOM-004, GEM-NOM-005 |
 | EM_ANDAMENTO | — |
 | APLICADO_TEX | — |
-| VALIDADO_LATEX | — |
+| VALIDADO_LATEX | PDF-001, PDF-002, PDF-003, PDF-007, PDF-015, PDF-016, PDF-017, PDF-020, PDF-025 |
 | BLOQUEADO | — |
 
 ## Observações

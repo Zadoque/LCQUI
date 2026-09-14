@@ -26,6 +26,11 @@ export async function atualizarCustomClaims(uid: string): Promise<void> {
   await admin.auth().setCustomUserClaims(uid, { roles });
 }
 
+// PDF-020: JANELA DE CUSTOM CLAIMS E REVOGACAO
+// Operacoes de baixo risco (consultas) confiam apenas no JWT para minimizar latencia.
+// Mutações de ALTO IMPACTO DEVEM passar requerAtivo=true para mitigar a janela de 1 hora
+// de cache do JWT. Exemplos normativos: registrarRetirada, registrarDevolucao,
+// responderRequisicao*, concederPapel, revogarPapel.
 async function validarPermissao(
   request: {auth?: {uid: string; token: Record<string, unknown>}},
   papeisPermitidos: string[],

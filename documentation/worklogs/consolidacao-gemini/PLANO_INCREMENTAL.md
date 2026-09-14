@@ -19,8 +19,8 @@
 | Ação documental | Consolidar: (a) algoritmo normativo de rejeição sem dependência de versão; (b) lock liberado em todos os desfechos; (c) Chaves_Unicas como mecanismo de unicidade concorrente; (d) backfill exigido |
 | Dependências | nenhuma |
 | Critérios de aceite | Rejeição possível sem verificar versão; conflito de versão documentado sem lock irrecuperável; unicidade garantida por Chaves_Unicas documentado em Seções 4 e 5 |
-| Estado | PENDENTE |
-| Commit | — |
+| Estado | VALIDADO_LATEX |
+| Commit | 5fa1e501 |
 
 ---
 
@@ -37,8 +37,8 @@
 | Ação documental | Verificar que o texto normativo da Seção 10.4 cobre: ordem segura de revogação, proteção do último gestor e limpeza de vínculos. Se cobertura completa → registrar JA_CONSOLIDADO. Se faltam critérios de aceite → inserir |
 | Dependências | nenhuma |
 | Critérios de aceite | Contrato proíbe remoção de Aluno enquanto Bolsista ativo; último gestor protegido; vínculos removidos em cascata quando Gestor_Almoxarifado revogado |
-| Estado | PENDENTE |
-| Commit | — |
+| Estado | VALIDADO_LATEX |
+| Commit | 5fa1e501 |
 
 ---
 
@@ -55,8 +55,8 @@
 | Ação documental | Documentar contrato aceitarConviteAluno na Seção 10.10 cobrindo: validação de turma arquivada, capacidade, histórico, espelhos, idempotência, convite excepcional com justificativa |
 | Dependências | nenhuma |
 | Critérios de aceite | Contrato inclui: destinatário esperado, expiração, estado, turma arquivada, capacidade, flag excepcional, justificativa, espelhos, histórico, idempotência |
-| Estado | PENDENTE |
-| Commit | — |
+| Estado | VALIDADO_LATEX |
+| Commit | 5fa1e501 |
 
 ---
 
@@ -127,8 +127,8 @@
 | Ação documental | Escolher UM mecanismo oficial: trigger com chunks de 400 (já decisão §5.5) ou BulkWriter. Registrar o escolhido; remover/marcar obsoleto o concorrente. Se não houver decisão suficiente → criar DDP |
 | Dependências | PDF-017 (onLocalAtualizado usa chunks de 400 — coerência) |
 | Critérios de aceite | Seção 10.8 descreve apenas um mecanismo de fan-out; limite de 500 não é excedido conforme o mecanismo escolhido |
-| Estado | PENDENTE |
-| Commit | — |
+| Estado | VALIDADO_LATEX |
+| Commit | 5fa1e501 |
 
 ---
 
@@ -271,8 +271,8 @@
 | Ação documental | Adicionar invariante normativa: todas as datas civis devem ser interpretadas em America/Sao_Paulo via biblioteca IANA; corrigir pseudocódigo de inicioDoDiaInstitucional/fimDoDiaInstitucional que usa setHours sem timezone; não fixar -03:00 hard-coded |
 | Dependências | nenhuma |
 | Critérios de aceite | Invariante de timezone IANA explícita na Seção 7; pseudocódigo de jobs não usa Date.setHours sem timezone |
-| Estado | PENDENTE |
-| Commit | — |
+| Estado | VALIDADO_LATEX |
+| Commit | 5fa1e501 |
 
 ---
 
@@ -307,8 +307,8 @@
 | Ação documental | Atualizar documentação de onLocalAtualizado para refletir chunk de 400; coerência com PDF-007 (mecanismo escolhido) |
 | Dependências | PDF-007 (mecanismo único) |
 | Critérios de aceite | onLocalAtualizado documentado com paginação/chunks; limite de 500 não excedido conforme contrato |
-| Estado | PENDENTE |
-| Commit | — |
+| Estado | VALIDADO_LATEX |
+| Commit | 5fa1e501 |
 
 ---
 

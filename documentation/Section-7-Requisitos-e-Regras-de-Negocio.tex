@@ -131,6 +131,14 @@ $Peso_{vazio} = Peso_{total} - (Volume_{atual} \times Densidade)$
 \textbf{4. Empréstimo e Devolução:}\\
 No empréstimo, registra-se o \textit{peso\_saida}. Na devolução, registra-se o \textit{peso\_retorno}. O consumo é documentado precisamente na tabela \textit{Emprestimo\_Reagente} como:\\
 $Volume_{utilizado} = \frac{\max(0, Peso_{saida} - Peso_{retorno})}{Densidade}$ (líquidos); sólidos usam a diferença não negativa em g. Ganho tolerado segue Q06, com consumo zero e ajuste separado.
+
+\textbf{Tolerância de Devolução (Regra Q06 - PDF-025):}\\
+A margem de tolerância é estritamente baseada no \textbf{peso bruto de saída}. Rejeita-se explicitamente o cálculo sobre massa líquida, pois a variância incide sobre a totalidade do corpo medido na balança (incluindo o frasco).
+\begin{itemize}
+    \item Reagente normal: $max(1g; 0,5\% \times Peso_{saida})$
+    \item Reagente higroscópico: $max(2g; 2,0\% \times Peso_{saida})$
+\end{itemize}
+Pesos acima dessa tolerância devem ser rejeitados e o usuário deve ser instruído a usar o fluxo de esgotamento/recalibração (AJUSTE).
 \end{regra}
 
 \subsubsection{Exclusividade na retirada de reagentes}

@@ -131,19 +131,42 @@ function fimDoDiaInstitucional(data: Date): Date {
 
 export const onFrascoCriado = onDocumentCreated("Frasco_Reagente/{frascoId}", async (event) => {
   const idLote = event.data?.data().id_lote;
-  if (idLote) await atualizarContadorLote(idLote, +1);
+  if (idLote) await atualizarContadorLoteIdempotente(event.id, idLote, +1);
 });
 
 export const onFrascoRemovido = onDocumentDeleted("Frasco_Reagente/{frascoId}", async (event) => {
   const idLote = event.data?.data().id_lote;
-  if (idLote) await atualizarContadorLote(idLote, -1);
+  if (idLote) await atualizarContadorLoteIdempotente(event.id, idLote, -1);
 });
 
-async function atualizarContadorLote(idLote: string, delta: number) {
-  await admin.firestore().collection("Lote_Materializado").doc(idLote).set(
-    { id_lote: idLote, qtd_frascos_cadastrados: admin.firestore.FieldValue.increment(delta) },
-    { merge: true }
-  );
+// PDF-016: INVARIANTE DE IDEMPOTENCIA
+// Triggers no Cloud Functions (gen2) tem semantica "at-least-once".
+// FieldValue.increment sem deduplicacao causa drift silencioso.
+// Normativa: usar event.id como chave de lock em subcolecao ou colecao separada.
+async function atualizarContadorLoteIdempotente(eventId: string, idLote: string, delta: number) {
+  await admin.firestore().runTransaction(async (tx) => {
+    const lockRef = admin.firestore().collection("Eventos_Processados").doc(eventId);
+    const lock = await tx.get(lockRef);
+    if (lock.exists) return; // Deduplicado: evento ja processado
+
+    const loteRef = admin.firestore().collection("Lote_Materializado").doc(idLote);
+    tx.set(loteRef, {
+      id_lote: idLote,
+      qtd_frascos_cadastrados: admin.firestore.FieldValue.increment(delta)
+    }, { merge: true });
+
+    tx.set(lockRef, { processado_em: admin.firestore.FieldValue.serverTimestamp() });
+  });
 }
+
+// Além da deduplicação nas triggers (acima), o sistema exige um job de reconciliação
+// para curar eventuais divergências (drift) causadas por operações fora das functions
+// ou falhas de lock.
+export const reconciliarContadoresLote = onSchedule("every sunday 04:00", async () => {
+  // 1. O job deve iterar pelos lotes ativos
+  // 2. Para cada lote, realizar um count() determinístico em Frasco_Reagente
+  // 3. Atualizar o Lote_Materializado se houver divergência
+  // 4. Registrar a auditoria da reconciliação se ajustes foram feitos
+});
 \end{lstlisting}
 
