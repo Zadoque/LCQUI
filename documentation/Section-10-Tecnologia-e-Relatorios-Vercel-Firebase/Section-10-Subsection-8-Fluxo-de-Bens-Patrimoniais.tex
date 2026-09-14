@@ -262,9 +262,14 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
         }
       }
 
-      if (aprovarInterno && !req.id_resumo_bem_patrimonial && !req.nome_resumo_proposto?.trim()) {
-        aprovarInterno = false;
-        justificativaFinal = "Rejeição sistêmica: A aprovação exige vincular ou criar um resumo patrimonial.";
+      if (aprovarInterno && !req.id_resumo_bem_patrimonial) {
+        if (!req.nome_resumo_proposto?.trim()) {
+          aprovarInterno = false;
+          justificativaFinal = "Rejeição sistêmica: A aprovação exige vincular ou criar um resumo patrimonial válido.";
+        } else if (!req.descricao_resumo_proposta?.trim()) {
+          aprovarInterno = false;
+          justificativaFinal = "Rejeição sistêmica: A criação de um novo resumo exige descrição obrigatória conforme o dicionário.";
+        }
       }
     }
 
@@ -286,15 +291,16 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
       // Se não havia resumo existente, cria atômica e transacionalmente o Resumo_Bem_Patrimonial
       if (!idResumo && req.nome_resumo_proposto) {
         const novoResumoRef = admin.firestore().collection("Resumo_Bem_Patrimonial").doc();
+        const nomeNorm = req.nome_resumo_proposto.trim();
         tx.set(novoResumoRef, {
-          nome: req.nome_resumo_proposto,
-          descricao: req.descricao_resumo_proposta ?? null,
+          nome: nomeNorm,
+          descricao: req.descricao_resumo_proposta!.trim(),
           foto_url: null,
           versao: 1
         });
         idResumo = novoResumoRef.id;
-        resumoNome = req.nome_resumo_proposto;
-        letraInicial = req.nome_resumo_proposto.charAt(0).toUpperCase();
+        resumoNome = nomeNorm;
+        letraInicial = nomeNorm.charAt(0).toUpperCase();
       }
 
       const bemRef = admin.firestore().collection("Bem_Patrimonial").doc();

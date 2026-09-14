@@ -118,13 +118,22 @@ function fimDoDiaInstitucional(data: Date): Date {
 }
 
 export const onFrascoCriado = onDocumentCreated("Frasco_Reagente/{frascoId}", async (event) => {
-  const idLote = event.data?.data().id_lote;
-  if (idLote) await atualizarContadorLoteIdempotente(event.id, idLote, +1, event.time);
+  const data = event.data?.data();
+  if (data?.id_lote && event.data?.createTime) {
+    // Para criação, usamos createTime (ou updateTime), que é um FirebaseFirestore.Timestamp
+    // exato do commit no Spanner, permitindo uma comparação canônica inquestionável.
+    await atualizarContadorLoteIdempotente(event.id, data.id_lote, +1, event.data.createTime);
+  }
 });
 
 export const onFrascoRemovido = onDocumentDeleted("Frasco_Reagente/{frascoId}", async (event) => {
-  const idLote = event.data?.data().id_lote;
-  if (idLote) await atualizarContadorLoteIdempotente(event.id, idLote, -1, event.time);
+  const data = event.data?.data();
+  if (data?.id_lote) {
+    // Para deleção, o documento e seu updateTime final não constam no payload.
+    // Usamos event.time (geração do CloudEvent) parseado como fallback canônico.
+    const tsDelecao = parseIsoToTimestamp(event.time);
+    await atualizarContadorLoteIdempotente(event.id, data.id_lote, -1, tsDelecao);
+  }
 });
 
 // PDF-016: Coordenacao Triggers vs Reconciliacao
@@ -146,7 +155,7 @@ function parseIsoToTimestamp(isoStr: string): admin.firestore.Timestamp {
   return new admin.firestore.Timestamp(Math.floor(d.getTime() / 1000), nanos);
 }
 
-async function atualizarContadorLoteIdempotente(eventId: string, idLote: string, delta: number, eventTime: string) {
+async function atualizarContadorLoteIdempotente(eventId: string, idLote: string, delta: number, eventTime: admin.firestore.Timestamp) {
   await admin.firestore().runTransaction(async (tx) => {
     const lockRef = admin.firestore().collection("Eventos_Processados").doc(eventId);
     const lock = await tx.get(lockRef);
@@ -159,23 +168,22 @@ async function atualizarContadorLoteIdempotente(eventId: string, idLote: string,
     if (loteSnap.exists) {
       const lote = loteSnap.data()!;
       if (lote.ultimo_reconciliador) {
-        const evTs = parseIsoToTimestamp(eventTime);
+        const evTs = eventTime;
         const mcTs = lote.ultimo_reconciliador; // admin.firestore.Timestamp
 
         // Formalizacao do Contrato Temporal de Reconciliacao (PDF-016):
-        // 1. T_evento (evTs) = event.time da trigger. Representa o timestamp exato de commit da transacao
-        //    Firestore que originou a mutacao no frasco.
-        // 2. T_corte (mcTs) = lote.ultimo_reconciliador. Representa o timestamp exato de commit da transacao
-        //    da reconciliacao, estabelecido via FieldValue.serverTimestamp().
-        // 3. Comparabilidade: Ambos derivam do relogio transacional (Spanner) do Firestore, garantindo
-        //    uma linha do tempo canonica, global e de comparacao exata.
-        // 4. Se T_evento <= T_corte: A mutacao ocorreu antes ou no exato instante (empate tecnico) da
-        //    foto absoluta da reconciliacao. Por garantia ACID, o count() ja refletiu a mutacao.
-        //    Tratamento: O incremento atrasado e DESCARTADO.
-        // 5. Se T_evento > T_corte: A mutacao aconteceu apos a definicao da reconciliacao e nao constava
-        //    no count(). Tratamento: O incremento DEVE ser aplicado.
-        // 6. Resultado: Triggers atrasadas sao desarmadas, mas a precisao em nanossegundos garante que
-        //    nenhum evento verdadeiramente posterior seja engolido erroneamente pelo corte.
+        // 1. T_evento (evTs):
+        //    - Criacao: Snapshot `createTime`. Representa o timestamp exato de commit no Spanner.
+        //    - Exclusao: CloudEvent `event.time`. Representa a geracao do evento. Como T_commit <= T_event,
+        //      usar T_event para descarte (T_event <= T_corte) é logicamente seguro e conservador.
+        // 2. T_corte (mcTs): `lote.ultimo_reconciliador`. Timestamp exato do commit da reconciliacao (serverTimestamp).
+        // 3. Comparabilidade: Ambos estao fortemente ordenados. O fallback da exclusao aceita um desvio
+        //    minimo por latencia do Eventarc, o que apenas resultaria num acumulo transitorio seguro
+        //    (corrigido ativamente na reconciliacao subsequente), jamais numa dupla contagem final.
+        // 4. Se T_evento <= T_corte: A mutacao ocorreu antes ou no instante do fechamento da fotografia
+        //    da reconciliacao. Por garantia ACID, o count() ja tratou o frasco. O incremento é DESCARTADO.
+        // 5. Se T_evento > T_corte: A mutacao (ou a emissao do evento de exclusao) aconteceu estritamente
+        //    apos o corte. O incremento DEVE ser aplicado.
         const isEventoVelho = evTs.seconds < mcTs.seconds ||
           (evTs.seconds === mcTs.seconds && evTs.nanoseconds <= mcTs.nanoseconds);
 
