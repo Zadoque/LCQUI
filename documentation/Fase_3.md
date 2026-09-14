@@ -84,29 +84,7 @@ Aluno não pode retirar reagente sem possuir papel autorizado.
 Sua fonte são os requisitos e decisões normativas do projeto.
 
 ### B. Garantia da plataforma
-
-Exemplos:
-
-* semântica de transações Firestore;
-* ordem temporal de timestamps;
-* atomicidade;
-* comportamento de `serverTimestamp`;
-* limites documentados;
-* Eventarc;
-* Cloud Functions;
-* consultas agregadas.
-
-Essas afirmações só podem ser usadas como fundamento arquitetural se forem suportadas por documentação oficial Firebase/Google.
-
-**Não transformar suposição técnica em garantia normativa.**
-
-Se a garantia necessária não puder ser demonstrada:
-
-```text
-DECISAO_PENDENTE
-```
-
-ou redesenhe o contrato para não depender dela.
+No arquivo: `documentation/Fase_3.md`
 
 ### C. Escolha arquitetural do LCQUI
 
