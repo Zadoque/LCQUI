@@ -6,19 +6,19 @@
 |---|---|
 | Branch | `docs/realinhamento-especificacao-lcqui` |
 | HEAD inicial (início desta sessão) | `e7b0bfe90dc91c693f965a51ca81f42676dc187c` |
-| HEAD atual | `820617a5464b610c859da02e000980d6ec550512` |
-| Último commit concluído | `820617a5` (Lote 2.1) |
+| HEAD atual | bc3f5602 |
+| Último commit concluído | bc3f5602 (Lote 2.2 Final - PDF-025) |
 
 ## Estado atual
 
 | Campo | Valor |
 |---|---|
-| Lote atual | Lote 3 — Próximo lote |
-| Último arquivo editado | Section-10-Subsection-10-Consolidacao-do-planejamento.tex |
+| Lote atual | Lote 2.2 — Refinamento Semântico (Concluído) |
+| Último arquivo editado | Section-10-Subsection-5-Fluxo-de-Reagentes.tex |
 | Alterações ainda não compiladas | nenhuma |
-| Último build (herdado da sessão anterior) | Lote 2.1 — 192 páginas; Final — 192 páginas; exit 0 |
-| Resultado do build herdado | aprovado (sessão Lote 2.1) |
-| Próxima ação exata | Identificar os arquivos .tex para o Lote 3 (ex: PDF-004, PDF-005) e editar |
+| Último build (herdado da sessão anterior) | Lote 2.2 Final — 195 páginas; exit 0 |
+| Resultado do build herdado | aprovado (sessão Lote 2.2 Final) |
+| Próxima ação exata | Iniciar Lote 3, conforme item 6 (Sincronizar plano, matriz e checkpoint: Corrigir PDF-017, separar validação de compilação da semântica). |
 
 ## Decisões bloqueadoras
 
