@@ -317,60 +317,477 @@ Não use categorias como “resolvido no código”, “runtime correto” ou �
 
 ---
 
-## 10. Achados que devem ser consolidados
+## 10. Método obrigatório para verificar os achados do Gemini
 
-A tabela define o conteúdo normativo mínimo. Verifique onde já existe, elimine contradições e complete todas as seções afetadas.
+O relatório do Gemini é um **atalho de investigação**, não um veredito. Para cada achado:
 
-| ID | Conteúdo obrigatório na especificação | Alvos prováveis |
-|---|---|---|
-| PDF-001 | edição patrimonial transacional; `versao_bem_origem`; todas as leituras antes das escritas; rejeição sem deadlock; política de conflito; liberação de lock; histórico; unicidade concorrente da plaqueta por chave determinística; backfill | 4, 5, 7, 8, 9, 10.8, 11 |
-| PDF-003 | contrato único de matrícula para código, adição nominal e convite; capacidade; turma arquivada; espelhos; histórico; exceção nominal justificada; idempotência | 4, 5, 7, 8, 9, 10.10, 11 |
-| PDF-004 | Q14: autoatendimento somente quando o destinatário for o único gestor ativo do almoxarifado; justificativa; notificação idempotente à Chefia; auditoria; enums necessários | 3, 4, 5, 7, 8, 9, 10.5, 10.7, 11 |
-| PDF-005 | matriz de segurança para convites, materializações e especificações aninhadas; escrita crítica exclusivamente pelo backend planejado quando houver invariantes | 3, 5, 7, 9, 10.3, 11 |
-| PDF-006 | relatório patrimonial mensal reconstruído por fatos históricos do período, incluindo localização e situação no corte; parâmetros temporais não podem ser decorativos | 4, 5, 6, 7, 8, 9, 10.9 |
-| PDF-007 | um único mecanismo normativo de propagação de nome; fan-out limitado e idempotente; eliminar algoritmos concorrentes | 5, 6, 7, 10.7/10.8 |
-| PDF-008 | catálogo de índices exigidos pelas consultas planejadas; índices compostos e collection-group; configuração declarativa como requisito de implementação | 5, 7, 10.9, 11 |
-| PDF-009 | edição e moderação de posts/comentários; justificativa; histórico; tombstone/soft-delete; preservação do conteúdo original; autorização | 3, 4, 5, 7, 8, 9, 10.10, 11 |
-| PDF-010 | contrato de `cadastrarAlmoxarifado`: Chefia ativa, validação de gestores, vínculos determinísticos, atomicidade e auditoria | 3, 4, 5, 7, 8, 9, 10.10, 11 |
-| PDF-011 | jobs para resumos diários/mensais: timezone, IDs determinísticos, idempotência, reprocessamento, backfill, reconciliação, telemetria e autorização | 5, 6, 7, 9, 10.7, 11 |
-| PDF-012 | `Lote.id_resumo_reagente`; caminho físico único `Resumo_Reagente/{idResumo}/Especificacoes/{idEspecificacao}`; compatibilidade; migração e backfill planejados | 4, 5, 7, 8, 9, 10.5, 10.9, 11 |
-| PDF-013 | remoção de aluno: remover vínculo da turma e espelho do usuário; histórico; contador; autorização; idempotência; comportamento para repetição | 4, 5, 7, 8, 9, 10.10, 11 |
-| PDF-014 | contratos server-side planejados para descarte, quebra, vazio e quarentena; transições permitidas; vínculo do gestor; histórico; auditoria; bloqueios | 3, 4, 5, 7, 8, 9, 10.5, 11 |
-| PDF-015 | datas civis interpretadas em `America/Sao_Paulo` e depois convertidas para instante/Timestamp; relatórios, jobs, validade, retirada e devolução | 4, 5, 6, 7, 8, 9, 10.5, 10.6, 10.7, 10.9 |
-| PDF-016 | triggers de contagem idempotentes por `event.id`/ledger ou recomputação; mudança de lote; reconciliação de drift | 5, 6, 7, 10.7 |
-| PDF-017 | fan-out de atualização de local em chunks seguros ou mecanismo oficial decidido no PDF-007; proibir batch ilimitado | 5, 6, 7, 10.8 |
-| PDF-018 | singleton de código de frasco como decisão sujeita a benchmark; p50/p95/p99, retries, throughput e falhas; não fixar “1–5 writes/s” sem medição | 5, 7, 10.5, 10.10 |
-| PDF-020 | diferenciar janela aceita de claims para leituras e revalidação persistida para mutações críticas; descrever revogação sem prometer efeito instantâneo impossível | 3, 5, 7, 8, 9, 10.3, 10.4, 11 |
-| PDF-023 | escassez por `(id_resumo_reagente, id_almoxarifado)`; destinatários ativos e vinculados; notificação idempotente com unidade, data e UID | 3, 5, 6, 7, 8, 9, 10.7 |
-| PDF-025 | Q06: tolerância normal `max(1,0 g; 0,5% × peso_saida)`; higroscópica `max(2,0 g; 2,0% × peso_saida)`; consumo zero e `AJUSTE` dentro da tolerância; bloqueio acima; snapshot físico | 4, 5, 7, 8, 9, 10.5 |
+1. leia a alegação, as evidências e a correção sugerida reproduzidas abaixo;
+2. localize o conteúdo pelo número de página indicado e, principalmente, pelo nome da seção, entidade, campo ou função — a paginação pode ter mudado;
+3. abra os arquivos `.tex` que geram esses trechos;
+4. verifique se a inconsistência ainda existe no HEAD atual;
+5. confronte a sugestão com `MODIFICACOES_CONSOLIDADAS_LCQUI.md` e com as demais seções normativas;
+6. classifique o item como `CONFIRMADO`, `PARCIALMENTE_CONFIRMADO`, `SUPERADO_NO_TEX`, `REJEITADO_POR_DECISAO` ou `DECISAO_NECESSARIA`;
+7. registre evidências concretas na matriz de cobertura;
+8. edite os `.tex` somente quando o resultado exigir correção ou reforço;
+9. não use a implementação para confirmar ou negar a hipótese;
+10. compile e valide antes de concluir o item.
 
-### Achados adicionais
-
-| ID | Consolidação |
-|---|---|
-| EXTRA-001 | procurar globalmente `Especificacao_Reagente`; distinguir entidade lógica de caminho físico; o caminho físico planejado é aninhado |
-| EXTRA-002 | PDF-004 não termina com inclusão de enum; Q14 precisa do fluxo operacional completo |
-| EXTRA-003 | V1 usa `SOLIDO` e `LIQUIDO`; `GASOSO` deve aparecer somente como item futuro se essa decisão consolidada continuar vigente; não confundir estado físico e natureza química |
+A contagem apresentada pelo Gemini — 8 contradições, 9 lacunas, 8 riscos, 5 ambiguidades, 3 melhorias opcionais e 6 falsos positivos/diferenças intencionais — também é uma hipótese. Recalcule os totais depois da verificação.
 
 ---
 
-## 11. Achados de controle
+## 11. Dossiê dos 25 achados do Gemini
 
-Estes pontos não devem receber a solução originalmente sugerida pelo Gemini, mas a decisão correta deve estar inequívoca no PDF:
+### PDF-001 — Locks, versão e unicidade patrimonial
 
-| ID | Decisão normativa |
-|---|---|
-| PDF-002 | revogação de papel segue a matriz multi-role; não criar cascata automática que mantenha `Bolsista` sem `Aluno`; descrever ordem segura, último responsável, preservação da conta e auditoria |
-| PDF-019 | etiqueta virgem não reserva identificador oficial; o código oficial nasce na transação de cadastro físico |
-| PDF-021 | UI-05 é o contrato do assistente “Novo Reagente”; não reintroduzir formulário plano legado |
-| PDF-022 | natureza química: `ORGANICO`, `INORGANICO`, `ELEMENTO`, `HIBRIDO`; não reintroduzir “Complexo/Biológico” |
-| PDF-024 | campo canônico `qtd_frascos_adicionados`; eliminar grafias inválidas |
+**O que o Gemini alegou:** em `responderRequisicaoEdicaoBem`, a comparação entre a versão atual e `versao_bem_origem` abortaria o fluxo antes da rejeição e da liberação do lock. Também não haveria garantia suficiente de que uma plaqueta já existente em `Bem_Patrimonial` não fosse aceita numa requisição de adição.
 
-Classifique como `JA_CONSOLIDADO` ou `SUGESTAO_REJEITADA`, nunca como “resolvido na implementação”.
+**Evidências indicadas:** página 158, Seção 10.2.6; página 19, Seção 4.12; página 46, Seção 5.6; fluxo de adição na página 160.
+
+**Impacto indicado:** requisição presa indefinidamente e duplicação de número patrimonial.
+
+**Correção sugerida pelo Gemini:** separar rejeição da validação de versão, liberar o lock em todos os desfechos e verificar a plaqueta existente.
+
+**Verifique nos `.tex`:**
+
+- se rejeitar uma requisição depende indevidamente da versão;
+- se conflito possui estado final e política de liberação de lock;
+- se todas as leituras transacionais precedem as escritas;
+- se a unicidade concorrente é garantida por chave determinística, e não por consulta vulnerável a corrida;
+- se adição e edição possuem critérios e históricos completos.
+
+**Se confirmado:** consolidar o algoritmo normativo nas Seções 4, 5, 7, 8, 9, 10.8 e 11, incluindo backfill da chave de unicidade.
+
+### PDF-002 — Revogação multi-role e vínculos de almoxarifado
+
+**O que o Gemini alegou:** a revogação de `Gestor_Almoxarifado` deixaria vínculos órfãos em `Gestor_Almoxarifado_x_Almoxarifado`; revogar `Aluno` poderia deixar `Bolsista` sem o papel-base.
+
+**Evidências indicadas:** página 136, Seção 10.2.2; página 100, RN-ROLE-05; página 12, Seção 3.6.
+
+**Impacto indicado:** almoxarifado contabilizando gestor inexistente e violação da dependência `Bolsista -> Aluno`.
+
+**Correção sugerida pelo Gemini:** excluir vínculos e revogar `Bolsista` em cascata.
+
+**Verifique nos `.tex`:**
+
+- regra do último gestor ativo;
+- limpeza dos vínculos associativos;
+- preservação de outros papéis;
+- dependência entre Bolsista e Aluno;
+- política normativa aprovada para combinação inválida: cascata automática ou rejeição com ordem segura.
+
+**Atenção:** não aceite automaticamente a cascata proposta. Se a decisão consolidada exigir revogar primeiro `Bolsista` e rejeitar a retirada de `Aluno`, documente essa política. O importante é eliminar a combinação inválida e tornar o fluxo inequívoco.
+
+### PDF-003 — Matrícula, espelhos, capacidade e convite
+
+**O que o Gemini alegou:** o fluxo de ingresso por código não gravaria `Usuarios/{uid}/Turmas/{turmaId}`, não atualizaria `Turma.qtd_alunos` e dependeria de leitura O(N). O aceite de convite não validaria capacidade, turma arquivada, histórico nem metadados do espelho.
+
+**Evidências indicadas:** páginas 164–165, Seção 10.2.6; página 83, Seção 5.11; página 79, Seção 5.9.1; página 176, Seção 10.3.1.
+
+**Impacto indicado:** aluno matriculado sem visualizar a turma, contadores divergentes e ingresso indevido em turma lotada/arquivada.
+
+**Correção sugerida:** um contrato transacional único para ingresso por código, adição nominal e convite.
+
+**Verifique nos `.tex`:**
+
+- dois espelhos e metadados obrigatórios;
+- contador transacional;
+- prevenção de duplicidade;
+- histórico;
+- turma arquivada;
+- capacidade e convite excepcional com `exceder_capacidade` e justificativa;
+- reingresso após remoção somente por convite explícito;
+- idempotência.
+
+**Se confirmado:** consolidar nas Seções 4, 5, 7, 8, 9, 10.10 e 11.
+
+### PDF-004 — Notificação à Chefia no autoatendimento Q14
+
+**O que o Gemini alegou:** Q14 exige notificar a Chefia, mas `Notificacao.papel_destinatario` não incluiria `Chefe_Geral` e `tipo` não incluiria `AUTO_ATENDIMENTO`.
+
+**Evidências indicadas:** página 35, Seção 4.36; página 70, Seção 5.9.1; página 44, Q14; página 149, contrato `registrarNotificacaoChefiaTx`.
+
+**Impacto indicado:** documento de notificação incompatível com o próprio schema.
+
+**Correção sugerida:** adicionar os valores aos enums.
+
+**Verifique:** entidade lógica, dicionário Firestore, regras Q14, tela de notificações, fluxo de retirada, destinatários e matriz autorizativa.
+
+**Se confirmado:** atualizar todas as representações; não concluir o item apenas com enum — verificar também o fluxo operacional completo em EXTRA-002.
+
+### PDF-005 — Coleções ausentes da matriz de Security Rules
+
+**O que o Gemini alegou:** a política deny-all não declararia leitura para `Substancia_Quimica`, `Materia`, `Local`, `Resumo_Bem_Patrimonial`, `Lote`, `Convite_Aluno`, `Historico_Frasco_Reagente` e `Resumo_*_Diario`.
+
+**Evidências indicadas:** páginas 180–181, Seção 11.1; entidades/coleções nas páginas 21, 34, 36, 48, 49 e 84–88.
+
+**Impacto indicado:** a arquitetura especificada produziria `permission-denied` em consultas essenciais.
+
+**Correção sugerida:** declarar regras explícitas por coleção e papel.
+
+**Verifique nos `.tex`:**
+
+- inventário completo do dicionário físico versus matriz da Seção 11;
+- leitura por papel e escopo;
+- escrita direta negada quando o contrato exigir backend;
+- subcoleções;
+- convites;
+- materializações;
+- especificações aninhadas;
+- históricos e auditoria.
+
+**Se confirmado:** corrigir a especificação da Seção 11 e referências relacionadas. Não editar `firestore.rules` nesta fase.
+
+### PDF-006 — Relatório patrimonial mensal usando estado atual
+
+**O que o Gemini alegou:** `gerarRelatorioBensPredio` receberia mês/ano, mas a especificação consultaria somente o estado atual do bem.
+
+**Evidências indicadas:** página 167, Seção 10.2.7; página 87, Seção 6.4; página 119, fluxo 9.2.4.
+
+**Impacto indicado:** localização e situação históricas incorretas.
+
+**Correção sugerida:** reconstruir pelo histórico/materialização diária.
+
+**Verifique:** fonte temporal, corte civil, localização no período, bens transferidos/baixados, snapshots e parâmetros da UI.
+
+**Se confirmado:** documentar relatório histórico verdadeiro. Se os requisitos realmente quiserem relatório atual, remover a aparência de período somente mediante decisão explícita.
+
+### PDF-007 — Dois mecanismos de propagação de nome
+
+**O que o Gemini alegou:** coexistiriam uma trigger com `batch()` e uma callable com `BulkWriter`.
+
+**Evidências indicadas:** página 163, `onResumoBemPatrimonialNomeAtualizado`; página 174, `propagarNomeResumo`/M-10.
+
+**Impacto indicado:** corrida, duplicidade e falha acima de 500 operações.
+
+**Correção sugerida:** manter somente BulkWriter.
+
+**Verifique:** quantos mecanismos oficiais aparecem, quem inicia o fluxo, limite, retry, idempotência e recuperação parcial.
+
+**Atenção:** BulkWriter é proposta do Gemini, não decisão automática. Se nenhuma decisão vigente escolher BulkWriter ou chunks, registre decisão pendente e recomende uma alternativa. O PDF final não pode manter dois mecanismos concorrentes.
+
+### PDF-008 — Índices ausentes para relatórios
+
+**O que o Gemini alegou:** consultas combinando `id_almoxarifado` com `data_devolucao_efetuada` e com `timestamp` não estariam no catálogo de índices.
+
+**Evidências indicadas:** página 46, Seção 5.8; página 166, `gerarRelatorioAlmoxarifado`.
+
+**Impacto indicado:** consultas planejadas falhariam por índice ausente.
+
+**Correção sugerida:** incluir índices compostos para `Emprestimo_Reagente` e `Historico_Frasco_Reagente`.
+
+**Verifique:** todas as consultas descritas nas UIs, fluxos e relatórios contra a Seção 5.8, inclusive collection-group. Documente somente índices associados a consultas normativas existentes.
+
+### PDF-009 — Contratos de posts e comentários ausentes
+
+**O que o Gemini alegou:** a Seção 11 negaria escrita direta, mas a Seção 10 não especificaria criação, edição ou moderação de posts/comentários.
+
+**Evidências indicadas:** página 180, Seção 11.1; Seção 10, páginas 132–179; UI-11.
+
+**Impacto indicado:** telas acadêmicas sem caminho autorizado de escrita.
+
+**Correção sugerida:** contratos `criarPost`, `editarPost`, `criarComentario` e `moderarComentario`.
+
+**Verifique:** autoria, professor responsável, moderação excepcional da Chefia, justificativa, histórico, etiqueta “editado”, tombstone, conteúdo original e leitura por alunos.
+
+**Se confirmado:** consolidar nas Seções 4, 5, 7, 8, 9, 10.10 e 11.
+
+### PDF-010 — Cadastro de almoxarifado sem contrato de backend
+
+**O que o Gemini alegou:** UI e fluxo CHE-03 descrevem criação/vinculação, mas a Seção 10 não define a operação.
+
+**Evidências indicadas:** página 103, Seção 8.3.1; página 125, Seção 9.7.4; Seção 10.
+
+**Impacto indicado:** payload, validação, atomicidade e vínculos ficam por inferência.
+
+**Correção sugerida:** especificar `cadastrarAlmoxarifado`.
+
+**Verifique:** Chefia ativa, dados obrigatórios, gestores elegíveis, ao menos um responsável, vínculos determinísticos, atomicidade, auditoria e estado inativo.
+
+### PDF-011 — Materializações sem jobs de consolidação
+
+**O que o Gemini alegou:** a Seção 6 define cinco materializações, enquanto a Seção 10 descreve somente jobs de vencimento e escassez.
+
+**Evidências indicadas:** páginas 84–88, Seção 6; páginas 153–156, Seção 10.2.5.
+
+**Impacto indicado:** resumos sem algoritmo, fonte ou periodicidade.
+
+**Correção sugerida:** jobs noturnos para resumos de almoxarifado, reagente, patrimônio e atividade mensal.
+
+**Verifique:** todas as materializações, horário, timezone, fonte, janela, ID, idempotência, retry, backfill, reconciliação e regras de acesso.
+
+### PDF-012 — `Lote.id_resumo_reagente` omitido
+
+**O que o Gemini alegou:** nota física exigiria `id_resumo_reagente`, mas o dicionário formal de `Lote` não o teria.
+
+**Evidências indicadas:** página 60 e nota da página 79, Seção 5.9.1.
+
+**Impacto indicado:** caminho completo da especificação ambíguo.
+
+**Correção sugerida:** adicionar `id_resumo_reagente: string`.
+
+**Verifique:** modelo 3FN, denormalização física, caminho `Resumo_Reagente/{idResumo}/Especificacoes/{idEspecificacao}`, compatibilidade lote–especificação e backfill.
+
+### PDF-013 — Remoção de aluno sem contrato formal
+
+**O que o Gemini alegou:** UI-10/PRO-04 descrevem remoção bidirecional, mas a Seção 10 não formaliza `removerAlunoTurma`.
+
+**Evidências indicadas:** página 115, Seção 8.8.10; Seção 10; fluxo PRO-04.
+
+**Impacto indicado:** operação dependente de inferência.
+
+**Correção sugerida:** contrato com remoção dos dois espelhos, decremento e histórico.
+
+**Verifique:** autorização, contador sem valor negativo, repetição idempotente, histórico, bloqueio de reingresso por código e convite explícito de retorno.
+
+### PDF-014 — Descarte, quebra, vazio e quarentena sem contratos
+
+**O que o Gemini alegou:** ações ALM-06 não possuem contratos completos na Seção 10.
+
+**Evidências indicadas:** página 10, Seção 3.2; página 128, fluxo 9.7.28; Seção 10.
+
+**Impacto indicado:** transições e autorizações não especificadas.
+
+**Correção sugerida:** `registrarDescarteFrasco`, `registrarQuebraFrasco` e `alterarQuarentenaFrasco`.
+
+**Verifique:** todos os estados canônicos, transições permitidas, esvaziamento, vínculo do gestor, justificativa, histórico, auditoria e operações bloqueadas depois da transição.
+
+### PDF-015 — Data civil dependente do timezone do servidor
+
+**O que o Gemini alegou:** `parseDataCivil` usaria `new Date(ano, mes - 1, dia...)`, podendo interpretar UTC em vez de `America/Sao_Paulo`.
+
+**Evidências indicadas:** página 173, M-12; página 151, devolução.
+
+**Impacto indicado:** fim do prazo três horas antes no horário de Brasília.
+
+**Correção sugerida:** offset explícito ou biblioteca IANA.
+
+**Verifique:** datas sem hora, fronteiras de dia/mês, jobs, relatórios, validade, retirada/devolução e horário de verão histórico. Prefira contrato com timezone IANA; não fixe `-03:00` como regra universal sem justificar.
+
+### PDF-016 — Triggers de contagem não idempotentes
+
+**O que o Gemini alegou:** `FieldValue.increment(+1/-1)` em eventos reexecutáveis causaria drift.
+
+**Evidências indicadas:** página 156, `onFrascoCriado`/`onFrascoRemovido`; página 84, `Lote_Materializado`.
+
+**Impacto indicado:** contador permanentemente divergente.
+
+**Correção sugerida:** deduplicação por `event.id` ou reconciliação determinística.
+
+**Verifique:** retry, criação, remoção, mudança de lote, ledger, ID determinístico, recomputação e job de reconciliação.
+
+### PDF-017 — Atualização de local acima do limite de batch
+
+**O que o Gemini alegou:** `onLocalAtualizado` concentraria todas as atualizações num batch e falharia acima de 500.
+
+**Evidências indicadas:** página 163 e denormalização da página 48.
+
+**Impacto indicado:** localizações dessincronizadas e retentativas repetidas.
+
+**Correção sugerida:** BulkWriter.
+
+**Verifique:** cardinalidade ilimitada, paginação/chunks, idempotência, progresso parcial e coerência com PDF-007. Não aceite BulkWriter sem verificar se outra estratégia oficial já foi decidida.
+
+### PDF-018 — Contenção no singleton de códigos
+
+**O que o Gemini alegou:** toda criação de frasco transacionaria `Contador_Codigo_Frasco/singleton`, limitando cadastros concorrentes.
+
+**Evidências indicadas:** página 46, Seção 5.7; página 134; páginas 139 e 143.
+
+**Impacto indicado:** gargalo na carga inicial.
+
+**Correção sugerida:** blocos reservados ou documentação de vazão.
+
+**Verifique:** necessidade de sequência sem lacunas, volume esperado, plano de importação e tolerância a IDs não utilizados.
+
+**Atenção:** as taxas “~1 escrita/s” e “1–5/s” não são fatos normativos. Exija benchmark antes de registrar limite. Blocos podem contrariar a decisão de evitar lacunas.
+
+### PDF-019 — Reserva de códigos na impressão de etiquetas virgens
+
+**O que o Gemini alegou:** intervalos fornecidos pelo cliente poderiam divergir do singleton.
+
+**Evidências indicadas:** página 20, Seção 4.13; página 169, `gerarPdfEtiquetasVirgens`.
+
+**Impacto indicado:** etiqueta impressa e código cadastrado diferentes.
+
+**Correção sugerida:** reservar o contador antes da impressão.
+
+**Verifique contra a decisão vigente:** etiqueta virgem é artefato gráfico sem reserva oficial, e o código nasce somente no cadastro físico? Se sim, rejeite a solução do Gemini e torne essa distinção inequívoca na UI, nos fluxos e no contrato de etiquetas.
+
+### PDF-020 — Janela de Custom Claims após revogação
+
+**O que o Gemini alegou:** claims podem permanecer em JWT por até cerca de uma hora; leituras diretas não verificariam `Usuarios.ativo`.
+
+**Evidências indicadas:** páginas 132 e 134; página 181, DP-D01.
+
+**Impacto indicado:** acesso temporário após desativação/revogação.
+
+**Correção sugerida:** `requerAtivo` nas operações críticas e verificação de token revogado.
+
+**Verifique:** diferença entre leitura e mutação, decisão DP-D01, revalidação de ator/destinatário, versão de permissões, renovação de token, logout forçado e limites que precisam ser assumidos explicitamente.
+
+### PDF-021 — Formulário plano versus assistente de reagente
+
+**O que o Gemini alegou:** Seção 8.5 descrevia modal único, enquanto UI-05 descrevia assistente em etapas.
+
+**Evidências indicadas:** página 106, Seção 8.5; páginas 111–112, Seção 8.8.5.
+
+**Impacto indicado:** dois contratos de UI.
+
+**Correção sugerida:** declarar UI-05 como vinculante.
+
+**Verifique:** se o texto legado ainda existe. Se estiver superado, registre `SUPERADO_NO_TEX`; se permanecer, remova a ambiguidade sem reintroduzir formulário incompatível com a separação Resumo–Especificação–Composição.
+
+### PDF-022 — Natureza química e rótulos
+
+**O que o Gemini alegou:** coexistiriam “Híbrido”, “Complexo” ou “Biológico”, enquanto o banco teria `HIBRIDO`.
+
+**Evidências indicadas:** página 23, Seção 4.16; página 58, Seção 5.9.1.
+
+**Impacto indicado:** rótulos divergentes.
+
+**Correção sugerida:** “Híbrido / Complexo”.
+
+**Verifique contra a decisão consolidada:** valores canônicos e rótulos oficiais. Não reintroduza `Biológico` ou `Complexo` apenas por sugestão do Gemini se a decisão vigente for `ORGANICO`, `INORGANICO`, `ELEMENTO`, `HIBRIDO`.
+
+### PDF-023 — Escassez calculada globalmente
+
+**O que o Gemini alegou:** comentário e pseudocódigo do job usariam IDs diferentes, e a contagem seria global por resumo em vez de por almoxarifado.
+
+**Evidências indicadas:** páginas 175–176, M-16.
+
+**Impacto indicado:** gestores notificados sobre escassez de outra unidade.
+
+**Correção sugerida:** calcular por `(id_resumo_reagente, id_almoxarifado)` e notificar apenas vinculados.
+
+**Verifique:** limiar, unidade, gestor ativo, ID idempotente, data civil e diferença entre notificação por unidade e por usuário.
+
+### PDF-024 — Erro em `qtd_frascos_adicionados`
+
+**O que o Gemini alegou:** Seção 6.5 apresentava `_ frascos_adicionados`, enquanto o dicionário usava `qtd_frascos_adicionados`.
+
+**Evidências indicadas:** página 88, Seção 6.5; página 78, Seção 5.9.1.
+
+**Correção sugerida:** uniformizar o nome.
+
+**Verifique:** se o erro já foi corrigido globalmente. Não faça edição duplicada; registre cobertura.
+
+### PDF-025 — Tolerância Q06 baseada em massa líquida
+
+**O que o Gemini alegou:** usar 2 g/2% do peso bruto poderia mascarar consumo em frascos com tara alta.
+
+**Evidências indicadas:** página 43, Q06; páginas 150–151.
+
+**Correção sugerida:** calcular por massa líquida.
+
+**Verifique contra a decisão canônica:** a fórmula aprovada é baseada em `peso_saida` bruto? Se sim, classifique a sugestão como `REJEITADO_POR_DECISAO`. Preserve:
+
+```text
+normal: max(1,0 g; 0,5% × peso_saida)
+higroscópico: max(2,0 g; 2,0% × peso_saida)
+```
+
+Garanta consumo zero e evento `AJUSTE` dentro da tolerância, bloqueio acima dela e snapshot físico. Só reabra a fórmula mediante decisão formal.
 
 ---
 
-## 12. Como tratar escolhas técnicas ainda abertas
+## 12. Inconsistências adicionais de nomenclatura encontradas pelo Gemini
+
+Inclua estes itens na matriz com IDs `GEM-NOM-001` a `GEM-NOM-005`:
+
+| ID | Alegação do Gemini | Evidências indicadas | Verificação exigida |
+|---|---|---|---|
+| GEM-NOM-001 | `conteudo_nominal` teria substituído `capacidade_nominal`, mas Seção 7.3 e payload documental ainda usariam `volumeNominal`/“capacidade nominal” | Seção 4.20, páginas 27–28; Seção 7.3, página 98; contrato de cadastro, página 137 | escolher e propagar nomenclatura canônica, distinguindo nome de campo e conceito físico |
+| GEM-NOM-002 | `volume_total_usado_nos_frascos_devolvidos_durante_o_dia` estaria marcado como legado por misturar unidades, mas permaneceria NOT NULL na materialização e no dicionário | Seção 6.2, páginas 84–86; página 74 | remover contrato legado ou explicar substitutos separados em g e mL |
+| GEM-NOM-003 | `data_devolucao_efetuada`, `dataDevolucao` e `data_devolucao` coexistiriam | Seção 4.22, página 30; Seção 10.2.7, página 165 | separar nome lógico, nome físico e payload somente se houver convenção explícita; eliminar aliases ambíguos |
+| GEM-NOM-004 | enum `Registro_de_Auditoria.tipo_entidade_sofre_acao` teria convenção inconsistente, inclusive `FRASCO_REAGENTE` | Seção 4.41 e contrato de reimpressão, página 170 | definir um enum canônico único e aplicá-lo a modelo, dicionário e exemplos |
+| GEM-NOM-005 | `_ frascos_adicionados` divergiria de `qtd_frascos_adicionados` | Seção 6.5 e Seção 5.9.1 | verificar junto ao PDF-024 e não duplicar correção |
+
+Procure também variantes com acento, maiúsculas/minúsculas, snake_case/camelCase e nomes legados. Não uniformize mecanicamente quando os nomes pertencerem a camadas diferentes; documente a transformação entre payload e persistência quando ela for intencional.
+
+---
+
+## 13. Lacunas de rastreabilidade RF indicadas pelo Gemini
+
+O relatório classificou como parciais ou contraditórios, no documento auditado, os seguintes requisitos:
+
+- RF06: cadastro e manutenção de bens patrimoniais;
+- RF13: cadastro e gestão de almoxarifados;
+- RF15: movimentações e descarte;
+- RF17: criação de turmas com capacidade;
+- RF18: ingresso por código e convite;
+- RF19: publicação de posts;
+- RF20: comentários e moderação;
+- RF21: upload e metadados de roteiros;
+- RF22: compartilhamento de roteiros.
+
+Não copie essa classificação. Refaça a matriz documental no HEAD e verifique, para cada RF:
+
+- entidade;
+- campos físicos;
+- regra;
+- UI;
+- fluxo;
+- contrato técnico planejado;
+- autorização;
+- histórico/auditoria;
+- critérios de aceite.
+
+Se um RF não possuir uma dessas partes, registre `COBERTURA_FRAGMENTADA` e complete a documentação.
+
+---
+
+## 14. Cenários adversariais fornecidos pelo Gemini
+
+Use estes cenários como testes de consistência da especificação. Para cada um, localize as regras que determinam univocamente o resultado:
+
+| Cenário | Resultado documental que deve ser verificável |
+|---|---|
+| 1. duas requisições concorrentes para editar o mesmo bem | uma vence o lock; a outra falha sem duplicidade |
+| 2. bem muda da Sala 101 para Sala 202 | estado atual muda e histórico preserva a localização anterior |
+| 3. resumo patrimonial com 800 bens é renomeado | mecanismo único processa fan-out sem exceder limite |
+| 4. frasco tenta usar lote de outra especificação | operação rejeitada sem criar frasco ou consumir código |
+| 5. frasco antigo sem data de abertura | `data_abertura = null` e flag histórica, sem inventar data |
+| 6. retirada de vencido sem autorização excepcional | bloqueio e nenhum empréstimo criado |
+| 7. usuário Professor e Gestor tenta autoatendimento com outro gestor ativo | bloqueio conforme Q14 |
+| 8. destinatário da retirada está desativado | bloqueio por estado persistido |
+| 9. job diário é reexecutado | notificação idempotente, sem duplicidade |
+| 10. turma cheia recebe convite excepcional | aceite só ocorre com exceção nominal e justificativa válidas |
+| 11. aluno removido tenta retornar por código | bloqueio; retorno apenas por convite explícito |
+| 12. Chefia modera turma alheia | intervenção excepcional com justificativa, tombstone e auditoria |
+| 13. duas revogações concorrentes atingem o último gestor | almoxarifado não fica sem responsável |
+| 14. relatório de fevereiro após transferência em julho | relatório histórico mostra a localização de fevereiro |
+| 15. local associado a 600 bens é atualizado | fan-out não usa commit único acima do limite |
+
+Se o resultado não puder ser derivado sem suposição, há lacuna documental.
+
+---
+
+## 15. Diferenças intencionais que o Gemini considerou legítimas
+
+Verifique se continuam coerentes antes de preservá-las:
+
+1. `letra_inicial` denormalizada no Firestore para consulta;
+2. espelhamento `Turma/{id}/Alunos/{uid}` e `Usuarios/{uid}/Turmas/{id}`;
+3. `id_especificacao_reagente` também no frasco mesmo quando há lote;
+4. snapshot de prédio, andar e sala no histórico patrimonial;
+5. array ACL `professores_compartilhados` no Firestore, mantendo a associação N:N no modelo lógico;
+6. impressão de etiqueta virgem sem FK/reserva de código oficial.
+
+Não “normalize” essas decisões apenas por duplicarem informação. Para cada uma, exija:
+
+- fonte canônica;
+- regra de sincronização;
+- operação responsável;
+- tratamento de falha;
+- justificativa NoSQL ou histórica;
+- critério de reconciliação quando aplicável.
+
+Se a justificativa tiver desaparecido ou houver duas fontes canônicas, reclassifique como inconsistência documental.
+
+---
+
+## 16. Como tratar escolhas técnicas ainda abertas
 
 Alguns achados oferecem alternativas, como:
 
@@ -393,7 +810,7 @@ Uma especificação consolidada escolhe um contrato. Alternativas podem aparecer
 
 ---
 
-## 13. Conteúdo mínimo de cada contrato
+## 17. Conteúdo mínimo de cada contrato
 
 Sempre que aplicável, cada fluxo documentado deve conter:
 
@@ -422,7 +839,7 @@ Não preencha a Seção 10 com grandes cópias de código. Use pseudocódigo nor
 
 ---
 
-## 14. Plano incremental obrigatório
+## 18. Plano incremental obrigatório
 
 ### Fase 0 — preparação e baseline
 
@@ -534,7 +951,7 @@ Atualizar a matriz de cobertura.
 
 ---
 
-## 15. Incrementos e proteção contra término de quota
+## 19. Incrementos e proteção contra término de quota
 
 Cada lote deve ser pequeno, coerente e retomável.
 
@@ -575,7 +992,7 @@ docs(gemini): validate and rebuild normative specification
 
 ---
 
-## 16. Compilação
+## 20. Compilação
 
 Siga `documentation/COMPILACAO_NIX_LCQUI.md`. Use diretório diferente por lote:
 
@@ -597,7 +1014,7 @@ Compilar prova integridade do documento, não implementação do sistema.
 
 ---
 
-## 17. Definition of Done
+## 21. Definition of Done
 
 A consolidação termina somente quando:
 
@@ -618,7 +1035,7 @@ A consolidação termina somente quando:
 
 ---
 
-## 18. Relatório final esperado
+## 22. Relatório final esperado
 
 Informe:
 
