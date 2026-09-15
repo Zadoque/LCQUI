@@ -1,0 +1,28 @@
+\clearpage
+\section{Camada formal incremental: prova de infraestrutura M0}
+Esta seção acrescenta uma fatia formal ao baseline congelado da Fase 3B.
+A interface em \texttt{frontend/}, o backend em \texttt{functions/} e o
+Firestore permanecem a aplicação operacional. CUE descreve a estrutura;
+Alloy verifica propriedades abstratas; Rust apenas transforma os resultados
+em documentação.
+
+O modelo inicial cobre três dimensões do frasco e o filtro físico de retirada.
+Esse filtro é uma condição necessária, mas não suficiente: validade recalculada,
+autorização, aceite de uso excepcional, finalidade, idempotência e concorrência
+Firestore continuam sujeitos aos contratos humanos existentes e à implementação.
+Não há migração integral da entidade nem nova regra de negócio nesta seção.
+
+\input{generated/entities/frasco_reagente.tex}
+\input{generated/invariants/retirar_frasco.tex}
+
+O modelo assume coerência entre disponibilidade e empréstimos ativos no estado
+inicial. A retirada abstrata adiciona um empréstimo e atualiza a disponibilidade;
+a coerência do estado final é verificada, não assumida. As buscas de testemunha
+exigem uma retirada possível e um frasco extraviado disponível, mas fisicamente
+inapto. A existência dessas instâncias evita atribuir sucesso apenas a um
+modelo sem comportamento possível. Estados não envolvidos na transição não
+representam estados operacionais validados.
+
+Os hashes das entradas constam de \texttt{generated/MANIFEST.json}.
+Os resultados são limitados
+ao escopo declarado e não substituem testes no Firebase Emulator.
