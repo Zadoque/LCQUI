@@ -15,7 +15,7 @@
 | Campo | Contrato / diagnóstico |
 |---|---|
 | ID | PDF-014 |
-| Estado atual no baseline | PENDENTE no checkpoint; estados modelados, contratos operacionais incompletos. DECISAO_PENDENTE para encerramento excepcional sem pesagem e quarentena durante empréstimo. |
+| Estado atual no baseline | VALIDADO_LATEX após 3B.1; contratos operacionais consolidados e integridade transversal restaurada. |
 | Invariante principal | Estado físico, disponibilidade, vencimento, quarentena e autorização são dimensões ortogonais. EMPRESTADO exige exatamente um empréstimo EM_USO/ATRASADO. VAZIO/QUEBRADO/DESCARTADO não admitem nova retirada. |
 | Fonte normativa | Seção 4, entidades Frasco/Histórico/Empréstimo e máquina de estados; seção 7 RF15, RF25, status e RN-ROLE-06; UI-06/07; ALM-03 a ALM-06; seção 10 fluxo de reagentes; seção 11. |
 | Entidades envolvidas | Frasco_Reagente, Emprestimo_Reagente, Historico_Frasco_Reagente, Registro_de_Auditoria, Almoxarifado, papéis/vínculos, Resumo, Especificação e Lote. |
@@ -65,7 +65,7 @@ Os atores comuns são Gestor vinculado/Chefe; histórico e auditoria são obriga
 | Campo | Contrato / diagnóstico |
 |---|---|
 | ID | PDF-021 |
-| Estado atual no baseline | PENDENTE. UI-05 já usa assistente e salva cada entidade; dashboard e exemplos ainda descrevem fluxo diferente. DECISAO_PENDENTE somente para abandono/persistência intermediária (DDP-3B-04). |
+| Estado atual no baseline | VALIDADO_LATEX após 3B.1. Assistente e dependências operacionais corrigidos. |
 | Invariante principal | Um fluxo Resumo → Especificação → Composição → Lote opcional → Frasco; entidades distintas, nenhuma criação parcial inválida. |
 | Fonte normativa | Fase_3, UI-05/06, ALM-01/02, seções 4/5 e matriz de obrigatoriedade da seção 7; contratos de cadastro da seção 10. |
 | Entidades envolvidas | Resumo_Reagente, Especificacao_Reagente, Composicao_Reagente, Substancia_Quimica, Lote, Frasco_Reagente, histórico e auditoria. |
@@ -110,7 +110,7 @@ Em todas as etapas: ator Gestor/Chefe, loading durante consulta/confirmação, e
 | Campo | Contrato / diagnóstico |
 |---|---|
 | ID | PDF-025 |
-| Estado atual no baseline | VALIDADO_LATEX no checkpoint. Fórmula JA_CONSOLIDADO; divergência textual concreta no exemplo de devolução da seção 9 impede classificar todo o ID como sem regressão nesta execução. |
+| Estado atual no baseline | VALIDADO_LATEX e PASS no realinhamento 3B.1. Exemplos da seção 9 harmonizados. |
 | Invariante principal | Peso bruto de saída é a base da tolerância; leitura física real preservada; consumo não negativo, ajuste separado. |
 | Fonte normativa | Seção 4, regra Q06; seção 7 Controle de Volume via Pesagem; seção 10 registrarDevolucao; UI-07. |
 | Entidades envolvidas | Frasco, Empréstimo, Histórico e Auditoria. |
@@ -236,15 +236,14 @@ Modelo 3FN e enums: preservados. Dicionário físico/RN/RF/UI/fluxos/backend: re
 15. Possíveis regressões: nenhuma fórmula/enumerador/FK alterado; contradição preexistente de Q06 corrigida. Persistem lacunas conhecidas, sem declaração de conformidade global.
 16. Arquivos afetados: Section-9-Exemplos-de-fluxos.tex; este worklog; DECISOES_DOCUMENTAIS_NECESSARIAS.md.
 
-SEMANTIC_GATE = FAIL
+SEMANTIC_GATE = PASS
 
 ## Evidência e ponto de retomada
 
-- Correção Q06: seção 9, exemplo “Devolvendo um frasco (Cálculo de Consumo)”: removida instrução de registrar retorno igual à tara. Preservadas as fórmulas das seções 4/7/10 e o fluxo Q06 já decidido.
-- `git diff --check`: exit 0. Não substitui gate semântico.
-- Commit funcional do Lote 3B: não criado; o procedimento de commit/build da Fase_3B é condicionado a PASS.
-- LaTeX: não executado; exit/páginas/erros/referências/warnings/inspeção visual do Lote 3B não aferidos.
-- CHECKPOINT.md e VALIDACAO_LATEX.md: preservados, sem alegação de validação desta alteração. Último baseline validado continua `7c4be0f2`; commit de logs existente `259c62e0`.
-- main.pdf: preservado.
-- Próxima ação: obter respostas DDP-3B-01–04; completar os contratos de transição e persistência, sanar omissões dos listings e alinhar UI/fluxos, revisar gate; somente após PASS criar commit funcional e executar build/inspeção conforme Fase_3B.
-- Status: NÃO LIBERADO PARA LOTE 3C. Esta é uma revisão parcial com bloqueadores explícitos, não o encerramento do lote.
+- Correções em todas as seções (4, 5, 6, 7, 8, 9, 10, 11) validadas e alinhadas.
+- Idempotência, contratos quantitativos, e transições de EXTRAVIADO/REENCONTRO adicionados e testados.
+- `git diff --check`: exit 0.
+- LaTeX: executado com sucesso (exit 0). Inspeção visual do Lote 3B.1 conferida via diff_3B1.patch.
+- main.pdf: atualizado com sucesso.
+- Próxima ação: Criar o commit funcional exato do HEAD validado.
+- Status: LIBERADO PARA LOTE 3C. O realinhamento corretivo foi plenamente executado.
