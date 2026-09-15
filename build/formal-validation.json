@@ -1,0 +1,38 @@
+{
+  "versao": 1,
+  "alloy": "6.2.0",
+  "solver": "sat4j",
+  "model": "specification/alloy/reagents/withdrawal.als",
+  "model_sha256": "c99af1aeca47783044ece8a5becd50a562469fc42bd610cea5cb571e0e9bf85a",
+  "spec_ir_sha256": "5454188bb389fd9f0e2f30df1cff4883bb1d70306c09a97f458177dccf671201",
+  "resultados": [
+    {
+      "id": "INV-FRASCO-001",
+      "assertion": "BloqueioFisico",
+      "tipo": "check",
+      "scope": "check BloqueioFisico for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-EMPRESTIMO-001",
+      "assertion": "Unicidade",
+      "tipo": "check",
+      "scope": "check Unicidade for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "WIT-RETIRADA-001",
+      "assertion": "Testemunha",
+      "tipo": "run",
+      "scope": "run Testemunha for 4 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "WIT-DISPONIBILIDADE-001",
+      "assertion": "DisponivelNaoApto",
+      "tipo": "run",
+      "scope": "run DisponivelNaoApto for 4 but exactly 2 Estado",
+      "status": "SAT"
+    }
+  ]
+}

@@ -76,7 +76,12 @@ Preservar árvore real. M0 modela fatia explicitamente parcial, sem reivindicar 
 Todos os domínios; toda implementação permanece no lugar. Nenhuma migração normativa efetuada.
 
 ## 19. Commits desta fase
-Pendente primeiro commit: chore(spec): add formal specification state. Registrar seu SHA após execução (um commit não pode conter seu próprio SHA).
+672fc65a — chore(spec): add formal specification state (somente estado inicial).
+
+### Atualização pós-commit / retomada da interrupção
+Git limpo confirmado após commit inicial. Alloy 6.2.0 confirmado. O commit exigiu escalonamento (.git somente leitura). Solicitação Nix interrompida; guia `documentation/COMPILACAO_NIX_LCQUI.md` lido e caminho TeX Live existente confirmado (latexmk 4.87). Reutilizar PATH conforme guia. Python ausente; usar Node para automação auxiliar, Rust exclusivamente para renderização documental.
+
+Escopo M0 refinado: três campos (estado físico, disponibilidade, quarentena), filtro físico de retirada e unicidade de empréstimo em transição abstrata. Não afirmar elegibilidade completa: validade, autorização, aceite e idempotência ficam fora deste modelo. Fonte correta do fluxo: Seção 10.5, não 10.7. Próxima unidade: CUE parcial, projeção concreta e fixtures, depois Alloy com testemunha SAT e assertions UNSAT. Nenhuma contradição de domínio encontrada.
 
 ## 20. Estado do Git
 Antes do commit inicial: somente FORMAL_SPEC_STATE.md novo; baseline limpo. Confirmar novamente antes/depois de cada commit. Nunca incluir arquivos alheios.
@@ -86,3 +91,11 @@ Ler este arquivo, executar git status e git log --oneline -10, confirmar branch,
 
 ## 22. Definition of Done restante
 Todo pipeline M0 ainda pendente: CUE válido e fixtures negativas, IR concreto derivado, Alloy executado e resultados verificáveis, gerador Rust com escaping central e manifest SHA, inputs aditivos no LaTeX, PDF compilado/inspecionado, READMEs e knowledge docs, automação reprodutível e gates de stale, commits pequenos, aplicação preservada e validações reais registradas.
+
+### Checkpoint M0 — CUE/Alloy implementados
+- Novos arquivos: specification/cue/{cue.mod,domain,docs,tests}, specification/alloy/reagents/withdrawal.als, tools/formal/check.mjs, build/{spec-ir,formal-validation}.json.
+- cue fmt, cue vet e export executados com sucesso. Fixtures incluem EXTRAVIADO + DISPONIVEL (estruturalmente válido), enum inválido, null e campo ausente.
+- Alloy 6.2.0/SAT4J: BloqueioFisico e Unicidade UNSAT no scope 4, exatamente 2 Estado; Testemunha e DisponivelNaoApto SAT. Não é prova ilimitada nem teste Firebase.
+- Node spawnSync foi bloqueado com EPERM pelo sandbox; validador executado com escalonamento. Cargo fetch também precisou escalonamento por DNS; dependências baixadas em /tmp/lcqui-cargo com Cargo.lock.
+- tools/spec-doc está em bootstrap, ainda NÃO validado. Próxima ação exata: implementar leitor IR/resultados, escaping central, renderizador determinístico e manifest no Rust; testar escaping, entrada inválida e stale; só depois integrar LaTeX.
+- Preparação do commit CUE/Alloy: git diff --check e resultados acima; milestone permanece IN_PROGRESS. Nenhuma regra 3B alterada.
