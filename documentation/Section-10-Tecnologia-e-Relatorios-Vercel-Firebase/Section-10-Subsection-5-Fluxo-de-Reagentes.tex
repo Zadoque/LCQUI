@@ -461,9 +461,6 @@ export const registrarDevolucao = onCall(async (request) => {
     const densidade = liquido ? emprestimo.densidade_aplicada : null;
     if (liquido && (!Number.isFinite(densidade) || densidade <= 0))
       throw new HttpsError("failed-precondition", "Densidade histórica inválida.");
-    // Q06: peso abaixo da tara segue esgotamento/recalibração auditados, nunca ajuste silencioso.
-    if (dados.pesoRetorno < frasco.peso_frasco_vazio)
-      throw new HttpsError("failed-precondition", "Usar fluxo Q06 de esgotamento/recalibração de tara.");
     const pesoConsumido = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno);
 
     if (typeof frasco.eh_higroscopico !== "boolean")
@@ -484,7 +481,7 @@ export const registrarDevolucao = onCall(async (request) => {
     if (!Number.isFinite(dados.pesoRetorno) || dados.pesoRetorno <= 0) {
       throw new HttpsError("invalid-argument", "Peso de retorno inválido.");
     }
-    // PDF-025: Ganho acima da tolerância bloqueia por anomalia. Retorno abaixo da tara é bloqueado e encaminhado ao fluxo Q06 para confirmação de esgotamento ou recalibração da tara.
+    // PDF-025: Ganho acima da tolerância bloqueia por anomalia.
     if (dados.pesoRetorno > limiteMaxRetorno) {
       throw new HttpsError("invalid-argument", "Ganho de massa excede tolerância Q06 (possível erro ou contaminação). Bloqueado por anomalia.");
     }
@@ -563,40 +560,56 @@ export const registrarDevolucao = onCall(async (request) => {
            avisoHigroscopico: avisoHigroscopico || false };
   });
 });
-\end{lstlisting}
 
-\begin{lstlisting}[language=TypeScript, title={Extravio e Reencontro}]
 interface StatusExtraordinario {
   idFrasco: string;
   acao: "EXTRAVIAR" | "REENCONTRAR";
   motivo: string;
   estadoConstatadoAoReencontrar?: "ABERTO" | "FECHADO"; // obrigatório se REENCONTRAR
+  id_operacao: string;
 }
 
 export const registrarExtravioOuReencontro = onCall(async (request) => {
   const dados = request.data as StatusExtraordinario;
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
+  if (!dados.id_operacao) throw new HttpsError("invalid-argument", "id_operacao é obrigatório.");
 
   const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
-  // Pré-busca do empréstimo ativo (evita query dentro da transação)
-  const emprestimoAberto = await admin.firestore().collection("Emprestimo_Reagente")
-    .where("id_frasco_reagente", "==", dados.idFrasco)
-    .where("status", "in", ["EM_USO", "ATRASADO"])
-    .limit(1).get();
+  const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.id_operacao);
 
   return admin.firestore().runTransaction(async (tx) => {
+    // 1. ler registro de idempotência
+    const opSnap = await tx.get(operacaoRef);
+    if (opSnap.exists) {
+      const op = opSnap.data()!;
+      if (op.acao === dados.acao && op.id_frasco === dados.idFrasco) {
+        return { status: "OK", mensagem: "Operação já havia sido processada com sucesso." };
+      }
+      throw new HttpsError("already-exists", "id_operacao duplicada para ação divergente.");
+    }
+
+    // 2. ler frasco
     const frascoSnap = await tx.get(frascoRef);
     if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     const frasco = frascoSnap.data()!;
+
+    // 3. validar versão/estado e vínculo
     await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
 
+    // 4. ler eventual empréstimo EM_USO|ATRASADO (se for EXTRAVIAR)
     if (dados.acao === "EXTRAVIAR") {
       if (frasco.estado_fisico_frasco === "EXTRAVIADO")
         throw new HttpsError("failed-precondition", "O frasco já consta como extraviado.");
 
+      const queryEmprestimo = admin.firestore().collection("Emprestimo_Reagente")
+        .where("id_frasco_reagente", "==", dados.idFrasco)
+        .where("status", "in", ["EM_USO", "ATRASADO"])
+        .limit(1);
+      const emprestimoAberto = await tx.get(queryEmprestimo);
+
       tx.update(frascoRef, {
         estado_fisico_frasco: "EXTRAVIADO",
-        disponibilidade: "INDISPONIVEL", // Não contabiliza no saldo
+        disponibilidade: "DISPONIVEL", // Apenas significa que não há empréstimo ativo
         detalhe_status: dados.motivo,
       });
 
@@ -604,6 +617,7 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
         const docEmprestimo = emprestimoAberto.docs[0];
         tx.update(docEmprestimo.ref, {
           status: "ENCERRADO_EXTRAORDINARIO",
+          peso_retorno: 0, // Sem inventar devolução física
           data_devolucao_efetuada: admin.firestore.FieldValue.serverTimestamp(),
           id_usuario_devolveu: request.auth!.uid,
           detalhe_encerramento: "Encerrado devido a extravio: " + dados.motivo,
@@ -628,12 +642,9 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
         estado_fisico_frasco: dados.estadoConstatadoAoReencontrar,
         disponibilidade: "DISPONIVEL",
         em_quarentena: true,
-        uso_vencido_autorizado: false,
-        detalhe_status: "Reencontrado. " + dados.motivo,
+        detalhe_status: "Reencontrado - aguardando análise: " + dados.motivo,
       });
 
-      // Empréstimo encerrado anteriormente NÃO é reaberto.
-      
       tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
         id_frasco_reagente: dados.idFrasco,
         id_almoxarifado: frasco.id_almoxarifado,
@@ -643,6 +654,73 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
     }
+
+    // Grava operação para garantir idempotência
+    tx.set(operacaoRef, {
+      uid: request.auth!.uid,
+      acao: dados.acao,
+      id_frasco: dados.idFrasco,
+      status: "CONCLUIDA",
+      criado_em: admin.firestore.FieldValue.serverTimestamp(),
+      atualizado_em: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    return { status: "OK" };
   });
 });
-\end{lstlisting}
+
+interface PayloadRecalibrarTara {
+  id_frasco: string;
+  id_operacao: string;
+  peso_vazio_real: number;
+  motivo: string;
+}
+
+export const recalibrarTaraFrascoEsgotado = onCall(async (request) => {
+  const dados = request.data as PayloadRecalibrarTara;
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
+  if (!dados.id_operacao) throw new HttpsError("invalid-argument", "id_operacao é obrigatório.");
+
+  const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.id_frasco);
+  const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.id_operacao);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const opSnap = await tx.get(operacaoRef);
+    if (opSnap.exists) {
+      if (opSnap.data()!.acao === "RECALIBRAR_TARA" && opSnap.data()!.id_frasco === dados.id_frasco) {
+        return { status: "OK", mensagem: "Operação já havia sido processada com sucesso." };
+      }
+      throw new HttpsError("already-exists", "id_operacao duplicada para ação divergente.");
+    }
+
+    const frascoSnap = await tx.get(frascoRef);
+    if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
+    const frasco = frascoSnap.data()!;
+    await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
+
+    tx.update(frascoRef, { peso_frasco_vazio: dados.peso_vazio_real });
+
+    tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+      id_frasco_reagente: dados.id_frasco,
+      id_almoxarifado: frasco.id_almoxarifado,
+      id_gestor: request.auth!.uid,
+      tipo: "AJUSTE",
+      campo_ajustado: "peso_frasco_vazio",
+      peso_anterior: frasco.peso_frasco_vazio || null,
+      peso_novo: dados.peso_vazio_real,
+      motivo: dados.motivo,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    tx.set(operacaoRef, {
+      uid: request.auth!.uid,
+      acao: "RECALIBRAR_TARA",
+      id_frasco: dados.id_frasco,
+      status: "CONCLUIDA",
+      criado_em: admin.firestore.FieldValue.serverTimestamp(),
+      atualizado_em: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    return { status: "OK" };
+  });
+});
