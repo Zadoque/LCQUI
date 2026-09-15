@@ -521,7 +521,7 @@ export default function GestorAlmoxarifadoDashboard() {
           <ModalNovaSubstancia isOpen={isNovaSubstanciaOpen} onClose={() => setIsNovaSubstanciaOpen(false)} onSuccess={() => {}} />
           <ModalNovoReagente isOpen={isNovoReagenteOpen} onClose={() => setIsNovoReagenteOpen(false)} onSuccess={searchFirestore} />
           
-          <ModalNovaEspecificacao isOpen={isNovaEspecOpen} onClose={() => setIsNovaEspecOpen(false)} onSuccess={() => {}} idResumoReagente={selectedResumo?.id} tipoSubstanciaResumo={selectedResumo?.tipo_substancia} />
+          <ModalNovaEspecificacao isOpen={isNovaEspecOpen} onClose={() => setIsNovaEspecOpen(false)} onSuccess={() => {}} idResumoReagente={selectedResumo?.id} />
           <ModalNovoLote isOpen={isNovoLoteOpen} onClose={() => setIsNovoLoteOpen(false)} onSuccess={() => {}} idResumoReagente={selectedResumo?.id} idEspecificacaoReagente={selectedEspec?.id} />
           <ModalEntradaFrasco isOpen={isAdicionarFrascoOpen} onClose={() => setIsAdicionarFrascoOpen(false)} onSuccess={() => {}} idResumoReagente={selectedResumo?.id} idEspecificacaoReagente={selectedEspec?.id} />
           <ModalRegistrarRetirada isOpen={isRetiradaOpen} onClose={() => setIsRetiradaOpen(false)} />

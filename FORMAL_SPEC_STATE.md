@@ -166,3 +166,15 @@ Ler este arquivo; confirmar status/log/branch; ler fontes indicadas; repetir gat
 
 ## 22. Definition of Done restante
 Pipeline vertical e preservação de arquivos foram validados. Para M0 integralmente VALIDATED sob o critério de aplicação funcional, falta resolver/aceitar explicitamente a separação das duas falhas preexistentes APP-BASELINE-001/002, sem regressão semântica e fora do escopo aditivo já concluído. Não alegar validação Firebase Emulator que não foi executada. CI hospedada e expansão de domínios são trabalho posterior, não implementados nesta sessão. Estado e evidências permitem retomada sem contexto da conversa.
+
+## Retomada — diagnóstico antes das correções pontuais
+- HEAD inicial desta rodada: e95a42ab; branch correta, Git limpo. Commit/push anterior concluídos conforme histórico da sessão.
+- Duas falhas reproduzidas; diff frontend/functions/configurações/worklogs contra baseline vazio antes das correções.
+- Diagnóstico durável: documentation/worklogs/formal-spec/M0_BASELINE_DIAGNOSIS.md.
+- Tratamento escolhido para a próxima unidade: remover somente a prop não consumida tipoSubstanciaResumo da chamada do modal; separar as fixtures das regras Bolsista exige Aluno e Bolsista incompatível com Gestor. Não alterar lógica de autorização ou regra 3B. Correções explicitamente separadas da infraestrutura formal, para fechar as pendências registradas; não são reescrita da aplicação.
+- frontend/AGENTS.md e guias Next locais de TypeScript/componentes lidos antes da edição.
+- Gate formal repetido: Rust PASS; primeira tentativa bloqueada pelo sandbox em spawnSync cue (EPERM); reexecução escalonada em andamento.
+- Próxima ação EXATA desta unidade: aplicar as duas correções descritas no diagnóstico, rodar tsc de ambos os projetos e Jest domain, verificar conclusão do gate formal e registrar resultados antes do commit. M1 continua NOT_STARTED.
+
+### Resultado da unidade / preparação do commit
+Correções pontuais aplicadas conforme diagnóstico: uma prop não consumida removida de frontend/src/app/reagentes/page.tsx; somente fixtures de functions/src/__tests__/domain/roles.test.ts ajustadas e ampliadas. Nenhuma lógica de backend modificada. TypeScript dos dois projetos PASS; Jest domain 12/12 PASS; gate just formal-check PASS, generated sem diff, PDF já atualizado confirmado por latexmk. APP-BASELINE-001/002 resolvidas nos checks descritos. Antes do commit: git diff --check PASS; arquivos a incluir: os dois arquivos reparados, este estado e M0_BASELINE_DIAGNOSIS.md. Após registrar o SHA, consolidar seções correntes do estado e marcar M0 VALIDATED com limites explícitos; M1 não iniciado.

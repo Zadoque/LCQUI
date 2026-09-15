@@ -12,9 +12,17 @@ describe("Domain: Matriz de Papéis", () => {
     expect(() => validarMatrizPapeis(["Aluno", "Professor"])).toThrow("O usuário que é aluno não pode ser professor.");
   });
 
-  it("Bolsista + Gestor_Almoxarifado = erro", () => {
-    expect(() => validarMatrizPapeis(["Bolsista", "Gestor_Almoxarifado"])).toThrow(HttpsError);
-    expect(() => validarMatrizPapeis(["Bolsista", "Gestor_Almoxarifado"])).toThrow("O usuário Bolsista não pode ser Gestor de Almoxarifado.");
+  it.each([
+    { caso: "Bolsista isolado", roles: ["Bolsista"] },
+    { caso: "Bolsista com Gestor", roles: ["Bolsista", "Gestor_Almoxarifado"] },
+  ])("$caso sem Aluno = erro", ({ roles }) => {
+    expect(() => validarMatrizPapeis(roles)).toThrow(HttpsError);
+    expect(() => validarMatrizPapeis(roles)).toThrow("Bolsista exige papel Aluno.");
+  });
+
+  it("Aluno + Bolsista + Gestor_Almoxarifado = erro", () => {
+    expect(() => validarMatrizPapeis(["Aluno", "Bolsista", "Gestor_Almoxarifado"])).toThrow(HttpsError);
+    expect(() => validarMatrizPapeis(["Aluno", "Bolsista", "Gestor_Almoxarifado"])).toThrow("O usuário Bolsista não pode ser Gestor de Almoxarifado.");
   });
 
   it("Professor + Gestor_Bens_Patrimoniais = sucesso", () => {
