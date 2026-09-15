@@ -51,6 +51,7 @@ Para garantir a integridade das \textit{queries} e ordenações cruciais, os seg
     \item \textbf{M-23 / N-08} Collection-group \texttt{Historico} (sub-coleção de \texttt{Bem\_Patrimonial}): \texttt{predio (ASC)} + \texttt{timestamp (DESC)} -- suporta relatório histórico por prédio/período.
     \item \textbf{M-23} Collection-group \texttt{Historico}: \texttt{id\_gestor (ASC)} + \texttt{timestamp (DESC)} -- suporta relatório de atividade por operador.
     \item \textbf{M-23} \texttt{Emprestimo\_Reagente}: \texttt{id\_almoxarifado (ASC)} + \texttt{data\_retirada (DESC)} -- suporta relatório mensal por almoxarifado.
+    \item \texttt{Frasco\_Reagente}: \texttt{id\_almoxarifado (ASC)} + \texttt{id\_resumo\_reagente (ASC)} + \texttt{id\_especificacao\_reagente (ASC)} + \texttt{disponibilidade (ASC)} + \texttt{estado\_fisico\_frasco (ASC)} + \texttt{em\_quarentena (ASC)} + \texttt{vencido (ASC)} -- suporta job agendado de escassez.
 \end{enumerate}
 \subsection{Mapeamento Completo de Coleções e Sub-coleções Firestore}
 \label{subsec:mapeamento-colecoes}
@@ -360,11 +361,12 @@ Caminho: \texttt{Frasco\_Reagente/\{id\}}.
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{id\_almoxarifado}] string; O. Identificador da entidade almoxarifado, cuja existência e escopo são verificados no servidor.
 \item[\texttt{id\_lote}] string; N. Identificador da entidade lote, cuja existência e escopo são verificados no servidor.
-\item[\texttt{id\_especificacao\_reagente}] string; N. Identificador da entidade especificacao reagente, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_especificacao\_reagente}] string; O. Identificador da entidade especificacao reagente, cuja existência e escopo são verificados no servidor. Projeção imutável obrigatória no Firestore.
+\item[\texttt{id\_resumo\_reagente}] string; O. Identificador da entidade resumo reagente, cuja existência e escopo são verificados no servidor. Projeção imutável obrigatória no Firestore.
 \item[\texttt{detalhe\_local\_armazenamento}] string; N. Valor de detalhe local armazenamento, validado pelo formulário e pelo servidor conforme regras do domínio.
 \item[\texttt{codigo\_frasco}] string; O. Identificador LCQUI-N único, gerado pelo servidor. Unicidade garantida por chave determinística/registro de unicidade no servidor.
 \item[\texttt{data\_ultima\_pesagem}] Timestamp; N. Data/instante de data ultima pesagem, com ordem temporal validada e autoria do relógio do servidor para eventos.
-\item[\texttt{conteudo\_nominal}] number; O. Conteúdo inicial declarado em ml ou g conforme especificação.
+\item[\texttt{conteudo\_nominal}] number; N. Conteúdo inicial declarado em ml ou g conforme especificação. Se NULL, valor original do rótulo desconhecido ou ilegível (não usar 0 para isso).
 \item[\texttt{peso\_no\_cadastrado}] number; O. Peso bruto inicial em g; imutável.
 \item[\texttt{peso\_atual}] number; O. Último peso bruto confirmado em g.
 \item[\texttt{peso\_frasco\_vazio}] number; N. Tara em g, calculada ou informada conforme modalidade.
@@ -374,7 +376,7 @@ Caminho: \texttt{Frasco\_Reagente/\{id\}}.
 \item[\texttt{validade\_efetiva}] string YYYY-MM-DD; N. Prazo aplicável calculado com abertura e validade fechada; null quando não determinável.
 \item[\texttt{validade\_desconhecida}] boolean; O. Ausência explícita de informação de validade; não significa validade ilimitada.
 \item[\texttt{validade\_apos\_aberto\_dias}] number; N. Prazo inteiro positivo após abertura quando declarado; compõe o mínimo da validade efetiva.
-\item[\texttt{estado\_fisico\_frasco}] string enum; O. Condição do recipiente/conteúdo; quarentena e vencimento são dimensões separadas. Valores: FECHADO,ABERTO,VAZIO,QUEBRADO,DESCARTADO.
+\item[\texttt{estado\_fisico\_frasco}] string enum; O. Condição do recipiente/conteúdo; quarentena e vencimento são dimensões separadas. Valores: FECHADO,ABERTO,VAZIO,QUEBRADO,DESCARTADO,EXTRAVIADO.
 \item[\texttt{disponibilidade}] string enum; O. Disponível ou emprestado; exige coerência com empréstimo ativo. Valores: DISPONIVEL,EMPRESTADO.
 \item[\texttt{vencido}] boolean; O. Projeção de validade comparada ao relógio do servidor; reavaliar em cada operação crítica.
 \item[\texttt{em\_quarentena}] boolean; O. Bloqueio operacional independente de abertura e vencimento; true exige motivo.
@@ -399,7 +401,7 @@ Caminho: \texttt{Historico\_Frasco\_Reagente/\{id\}}.
 \item[\texttt{peso\_anterior}] number; N. Peso bruto em g imediatamente antes do evento de ajuste/pesagem, quando aplicável.
 \item[\texttt{peso\_novo}] number; N. Peso bruto em g confirmado no evento, quando aplicável.
 \item[\texttt{medida\_ajustada}] number; N. Diferença operacional na unidade indicada, com sinal definido pelo tipo de evento; não somar automaticamente como consumo.
-\item[\texttt{unidade\_medida\_ajustada}] string enum; O. Valor de unidade medida ajustada, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: ml,g.
+\item[\texttt{unidade\_medida\_ajustada}] string enum; N. Valor de unidade medida ajustada, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: ml,g. (NULL se evento não for quantitativo).
 \item[\texttt{timestamp}] Timestamp; O. Data/instante de timestamp, com ordem temporal validada e autoria do relógio do servidor para eventos.
 \end{description}
 
@@ -409,7 +411,7 @@ Caminho: \texttt{Emprestimo\_Reagente/\{id\}}.
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{id\_frasco\_reagente}] string; O. Identificador da entidade frasco reagente, cuja existência e escopo são verificados no servidor.
 \item[\texttt{id\_usuario\_retirou}] string; O. Identificador da entidade usuario retirou, cuja existência e escopo são verificados no servidor.
-\item[\texttt{status}] string enum; O. Estado controlado pelo domínio; transições são validadas no servidor. Valores: EM\_USO,ATRASADO,DEVOLVIDO,DEVOLVIDO\_COM\_ATRASO.
+\item[\texttt{status}] string enum; O. Estado controlado pelo domínio; transições são validadas no servidor. Valores: EM\_USO,ATRASADO,DEVOLVIDO,DEVOLVIDO\_COM\_ATRASO,ENCERRADO\_EXTRAORDINARIO.
 \item[\texttt{data\_retirada}] Timestamp; O. Data/instante de data retirada, com ordem temporal validada e autoria do relógio do servidor para eventos.
 \item[\texttt{data\_devolucao\_prevista}] string YYYY-MM-DD; O. Data civil cujo prazo termina no fim do dia no fuso institucional.
 \item[\texttt{data\_devolucao\_efetuada}] Timestamp; N. Data/instante de data devolucao efetuada, com ordem temporal validada e autoria do relógio do servidor para eventos.
