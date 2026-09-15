@@ -104,7 +104,7 @@ Na aba principal, uma div \textit{full-width} com botões rápidos essenciais:
     \item \textbf{Alertas de Gestor (Notificações):} Sino de avisos exclusivo exibindo pendências críticas: frascos declarados como vazios, vencidos ou quebrados, ou seja, aguardando mudança para o estado DESCARTADO, e reagentes que atingiram nível de escassez no estoque, frascos que precisam de pesagem de rotina, frascos que estão em quarentena.
     \item \textbf{Botão Mais (+):}
     \begin{itemize}
-        \item Novo Reagente -> Abre modal exigindo dados de resumo e especificação separados conforme UI-05; CAS e concentração têm obrigatoriedade condicional, não universal. Campos: Nome, CAS, Concentração, grau de pureza (texto opcional), a quantidade em que ele é considerado escasso para alertas futuros, fórmula química , se é controlado pela pf ou pela eb, a classe de inflamabilidade, link da ficha de segurança, tipo (sólido ou líquido: pede densidade, pergunta se requer pesagem frequente, se sim, pede a frequencia em dias).
+        \item Novo Reagente -> Abre modal exigindo dados de resumo e especificação separados conforme UI-05; CAS e concentração têm obrigatoriedade condicional, não universal. Campos: Nome, CAS, Concentração, grau de pureza (texto opcional), fórmula química, se é controlado pela pf ou pela eb, a classe de inflamabilidade, link da ficha de segurança, tipo (sólido ou líquido: pede densidade, pergunta se requer pesagem frequente, se sim, pede a frequencia em dias).
         Tem um seletor para escolher entre sólido e líquido (em temperatura ambiente):
         \begin{itemize}
             \item Para tipo sólido -> Sempre que for adicionar um frasco -> o tipo de medida é gramas (g) (setado pelo sistema)
@@ -121,11 +121,11 @@ Na aba principal, uma div \textit{full-width} com botões rápidos essenciais:
          \textbf{Feedback de Sucesso:} Ao salvar, exibe: "\textit{Frasco cadastrado sob o código LCQUI-XX (Reagente: YY, Data: DD/MM/AAAA). Localize a etiqueta física correspondente na folha de bancada, preencha os dados à caneta e aplique no frasco com fita adesiva.}"
          O campo estado físico no Resumo do reagente que determina os campos a serem pedidos abaixo (sólido ou líquido) \\
         líquido ->
-\begin{itemize}
+        \begin{itemize}
     \item Se é do tipo fechado, pede apenas a volume do líquido e o peso total com o frasco. (calcula o peso do frasco, mostra o peso do frasco mas não pode ser editado.)
-    \item Se é do tipo Aberto, exige peso total e uma modalidade: tara conhecida ou estimativa de volume, conforme UI-06.
+    \item Se é do tipo Aberto, exige peso total, o conteúdo nominal do rótulo e uma modalidade: tara conhecida ou estimativa de volume, conforme UI-06.
         \end{itemize}
-        sólido -> exige peso total e massa nominal (fechado), ou tara conhecida/estimativa de massa (aberto), conforme UI-06.
+        sólido -> exige peso total e massa nominal do rótulo (fechado), ou peso total, conteúdo nominal do rótulo e tara conhecida/estimativa de massa (aberto), conforme UI-06. O saldo inicial pode ser desconhecido.
 
         \item Imprimir Etiquetas: Modal bifurcado em duas abas. A Aba 1 (Novos Frascos / Virgens) oferece opções de intervalo (a partir do último cadastrado, após última impressão ou personalizado) e um Grid Visual de Offset 3×10 para escolha da célula inicial. A Aba 2 (Frascos Cadastrados / 2ª Via) permite busca por reagente/código e seleção de até 10 frascos, gerando a respectiva Ficha de Conferência.
 
@@ -207,7 +207,7 @@ Detalhes de reagente mostram resumo, especificações separadas, composição, d
 Patrimônio apresenta resumo catalográfico e itens físicos, foto, plaqueta, local, conservação e status separados. Responsável SEI é texto, não conta LCQUI. Detalhe individual usa ID e histórico paginado; resumo agrega contagens por status. Professor tem Solicitar edição, gestores e Chefe têm Editar e Baixa. Listas administrativas de pessoas usam respostas com campos mínimos e filtros de escopo; não baixar a coleção de identidades para simular busca.
 
 \subsubsection{UI-05: resumo químico, substância, especificação e lote}
-Novo Reagente é um assistente. Primeiro pesquisar resumo existente; criar somente se a identidade química nominal for diferente. Resumo exige nome (150), estado SOLIDO/LIQUIDO, higroscopicidade, PURA/MISTURA, natureza (ORGANICO, INORGANICO, ELEMENTO, HIBRIDO), limiar inteiro positivo de frascos e indicador de pesagem frequente; quando marcado, frequência inteira positiva em dias. Alterar esses dados exige confirmação do alcance sobre todas as especificações.
+Novo Reagente é um assistente. Primeiro pesquisar resumo existente; criar somente se a identidade química nominal for diferente. Resumo exige nome (150), estado SOLIDO/LIQUIDO, higroscopicidade, PURA/MISTURA, natureza (ORGANICO, INORGANICO, ELEMENTO, HIBRIDO) e indicador de pesagem frequente; quando marcado, frequência inteira positiva em dias. Alterar esses dados exige confirmação do alcance sobre todas as especificações.
 
 A segunda etapa seleciona ou cria especificação: descrição (150) e classe de inflamabilidade obrigatórios; estado herdado do resumo; unidade somente leitura (g/ml). Densidade positiva obrigatória para líquido; opcional para sólido. Fabricante (150), código do produto (100), grau de pureza (30) e FDS HTTPS (255) são opcionais. Grau de pureza é texto (ex.: P.A.), não percentual obrigatório. Controle PF/EB usa dois booleanos explícitos. Densidade confirmada não é editável: registrar nova especificação e preservar cálculos históricos.
 
@@ -218,7 +218,7 @@ Lote é opcional no frasco. Novo Lote exige especificação, fornecedor (80), n�
 \subsubsection{UI-06: cadastrar, editar e pesar frasco}
 Adicionar Frasco inicia pelo seletor de resumo e especificação UI-05, com modos de busca nome/CAS/fórmula. Exige almoxarifado autorizado e ativo, localização detalhada (campo opcional até 500 caracteres, recomendado para localizar a unidade), estado FECHADO/ABERTO e modo de pesagem. Lote é opcional; selecionar Quarentena é uma decisão separada do estado físico e torna motivo obrigatório. Validade fechada é opcional se marcada desconhecida; prazo após abertura, quando informado, é inteiro positivo. Nunca tratar validade desconhecida como validade ilimitada. O servidor calcula validade efetiva; decisão sobre operação com validade desconhecida está em Q04.
 
-Fechado: conteúdo nominal positivo (mL líquido/g sólido) e peso total positivo em g. Tara calculada é somente leitura: peso total menos conteúdo vezes densidade para líquido, ou menos conteúdo para sólido. Aberto: peso total e modo CONHECE\_TARA, ESTIMA\_VOLUME (líquido) ou ESTIMA\_MASSA (sólido). Exigir apenas a entrada correspondente; tara deve ser positiva e não maior que o peso total, conteúdo inicial positivo. Apresentar prévia identificada como estimativa; não enviar derivados como autoridade. Data de abertura anterior desconhecida não deve ser fabricada como hoje (Q05).
+Fechado: conteúdo nominal positivo (mL líquido/g sólido) e peso total positivo em g. Tara calculada é somente leitura: peso total menos conteúdo vezes densidade para líquido, ou menos conteúdo para sólido. Aberto: \textit{conteudo\_nominal} continua sendo a quantidade original do rótulo/fabricante (não exigir que represente conteúdo restante), peso total, e modo CONHECE\_TARA, ESTIMA\_VOLUME (líquido) ou ESTIMA\_MASSA (sólido). Se o saldo inicial atual for desconhecido, não inventar quantidade atual. Exigir apenas a entrada correspondente; tara deve ser positiva e não maior que o peso total. Apresentar prévia identificada como estimativa; não enviar derivados como autoridade. Data de abertura anterior desconhecida não deve ser fabricada como hoje (Q05).
 
 Se vencido, exigir destino: quarentena com motivo, pendente de descarte ou autorização excepcional explícita conforme Q04. Exibir revisão final com identidade, unidades, destino e dados de validade. Salvar cria código, frasco, histórico e auditoria de forma idempotente; apenas o servidor atribui LCQUI-N. O retorno mostra código e instrução de localizar/preencher a etiqueta física correspondente. Não gravar código sugerido por impressão anterior.
 
