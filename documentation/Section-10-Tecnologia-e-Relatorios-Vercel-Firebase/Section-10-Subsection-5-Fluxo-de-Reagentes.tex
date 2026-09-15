@@ -565,3 +565,84 @@ export const registrarDevolucao = onCall(async (request) => {
 });
 \end{lstlisting}
 
+\begin{lstlisting}[language=TypeScript, title={Extravio e Reencontro}]
+interface StatusExtraordinario {
+  idFrasco: string;
+  acao: "EXTRAVIAR" | "REENCONTRAR";
+  motivo: string;
+  estadoConstatadoAoReencontrar?: "ABERTO" | "FECHADO"; // obrigatório se REENCONTRAR
+}
+
+export const registrarExtravioOuReencontro = onCall(async (request) => {
+  const dados = request.data as StatusExtraordinario;
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
+
+  const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
+  // Pré-busca do empréstimo ativo (evita query dentro da transação)
+  const emprestimoAberto = await admin.firestore().collection("Emprestimo_Reagente")
+    .where("id_frasco_reagente", "==", dados.idFrasco)
+    .where("status", "in", ["EM_USO", "ATRASADO"])
+    .limit(1).get();
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const frascoSnap = await tx.get(frascoRef);
+    if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
+    const frasco = frascoSnap.data()!;
+    await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
+
+    if (dados.acao === "EXTRAVIAR") {
+      if (frasco.estado_fisico_frasco === "EXTRAVIADO")
+        throw new HttpsError("failed-precondition", "O frasco já consta como extraviado.");
+
+      tx.update(frascoRef, {
+        estado_fisico_frasco: "EXTRAVIADO",
+        disponibilidade: "INDISPONIVEL", // Não contabiliza no saldo
+        detalhe_status: dados.motivo,
+      });
+
+      if (!emprestimoAberto.empty) {
+        const docEmprestimo = emprestimoAberto.docs[0];
+        tx.update(docEmprestimo.ref, {
+          status: "ENCERRADO_EXTRAORDINARIO",
+          data_devolucao_efetuada: admin.firestore.FieldValue.serverTimestamp(),
+          id_usuario_devolveu: request.auth!.uid,
+          detalhe_encerramento: "Encerrado devido a extravio: " + dados.motivo,
+        });
+      }
+
+      tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+        id_frasco_reagente: dados.idFrasco,
+        id_almoxarifado: frasco.id_almoxarifado,
+        id_gestor: request.auth!.uid,
+        tipo: "EXTRAVIO",
+        motivo: dados.motivo,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } else { // REENCONTRAR
+      if (frasco.estado_fisico_frasco !== "EXTRAVIADO")
+        throw new HttpsError("failed-precondition", "Frasco não está extraviado.");
+      if (!dados.estadoConstatadoAoReencontrar)
+        throw new HttpsError("invalid-argument", "Estado constatado é obrigatório.");
+
+      tx.update(frascoRef, {
+        estado_fisico_frasco: dados.estadoConstatadoAoReencontrar,
+        disponibilidade: "DISPONIVEL",
+        em_quarentena: true,
+        uso_vencido_autorizado: false,
+        detalhe_status: "Reencontrado. " + dados.motivo,
+      });
+
+      // Empréstimo encerrado anteriormente NÃO é reaberto.
+      
+      tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+        id_frasco_reagente: dados.idFrasco,
+        id_almoxarifado: frasco.id_almoxarifado,
+        id_gestor: request.auth!.uid,
+        tipo: "REENCONTRO",
+        motivo: dados.motivo,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+  });
+});
+\end{lstlisting}
