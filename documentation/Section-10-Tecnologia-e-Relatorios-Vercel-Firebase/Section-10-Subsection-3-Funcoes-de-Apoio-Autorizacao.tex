@@ -64,6 +64,32 @@ async function validarGestorDoAlmoxarifado(uid: string, token: Record<string, un
   }
 }
 
+// Fechamento de TOCTOU: valida conta, papel e vínculo estritamente dentro da transação
+async function validarGestorDoAlmoxarifadoTx(tx: FirebaseFirestore.Transaction, uid: string, idAlmoxarifado: string): Promise<void> {
+  const usuarioSnap = await tx.get(admin.firestore().collection("Usuarios").doc(uid));
+  if (!usuarioSnap.exists || usuarioSnap.data()?.ativo !== true) {
+    throw new HttpsError("permission-denied", "Conta desativada ou não habilitada.");
+  }
+
+  const chefeSnap = await tx.get(admin.firestore().collection("Chefe_Geral").doc(uid));
+  if (chefeSnap.exists) return;
+
+  const gestorSnap = await tx.get(admin.firestore().collection("Gestor_Almoxarifado").doc(uid));
+  if (!gestorSnap.exists) {
+    throw new HttpsError("permission-denied", "Usuário não é Gestor de Almoxarifado.");
+  }
+
+  const vinculoSnap = await tx.get(
+    admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
+      .where("id_gestor_almoxarifado", "==", uid)
+      .where("id_almoxarifado", "==", idAlmoxarifado)
+      .limit(1)
+  );
+  if (vinculoSnap.empty) {
+    throw new HttpsError("permission-denied", "Gestor não está designado para este almoxarifado.");
+  }
+}
+
 // Geração atômica sequencial no Firestore via Documento Singleton (Seção 5.7)
 // Executado estritamente dentro da transação de cadastro do frasco
 async function obterProximoCodigoFrascoTx(
