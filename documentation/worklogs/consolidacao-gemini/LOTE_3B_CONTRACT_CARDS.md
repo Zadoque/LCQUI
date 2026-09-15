@@ -3,7 +3,7 @@
 ## Baseline e limites da execução
 
 - Data: 2026-09-14. Branch: `docs/realinhamento-especificacao-lcqui`.
-- Baseline funcional: `d47e8f84`.
+- Baseline funcional: `465de764`.
 - Nenhuma implementação utilizada como fonte normativa. Não iniciado o escopo 3C/3D. Decisões 3A preservadas.
 - Fichas reclassificadas após as correções cirúrgicas do Lote 3B.1-R3.1.
 
@@ -95,7 +95,7 @@
 | Resumo | Nome vazio, enum inválido impedem avanço | RESOLVIDA |
 | Especificação | Densidade inválida barra | RESOLVIDA |
 | Composição | CAS duplicado barra | RESOLVIDA |
-| Lote | Lote incompatível bloqueia | FORA_DO_ESCOPO_COM_JUSTIFICATIVA (Refinamento de UX de desaparecimento concorrente do lote delegado à UI) |
+| Lote desaparece antes de confirmar | FORA_DO_ESCOPO_COM_JUSTIFICATIVA (Refinamento de UX delegado à UI; backend já bloqueia gravação com TOCTOU resolvido na Sec 10.5) |
 | Frasco | Peso/tara incompatíveis bloqueiam | RESOLVIDA (Separação nominal/real aplicada) |
 
 ## PDF-025 — Q06 / REGRESSION CHECK
@@ -115,13 +115,13 @@
 
 | Cenário PDF-014 | Resultado |
 |---|---|
-| A — quebra nominal | FORA_DO_ESCOPO_COM_JUSTIFICATIVA (Validação na máquina CUE 3C). |
-| B — quebra durante empréstimo | FORA_DO_ESCOPO_COM_JUSTIFICATIVA (Validação na máquina CUE 3C). |
-| C — quebra repetida | FORA_DO_ESCOPO_COM_JUSTIFICATIVA. |
-| D — descarte nominal | FORA_DO_ESCOPO_COM_JUSTIFICATIVA. |
-| E — descarte repetido | FORA_DO_ESCOPO_COM_JUSTIFICATIVA. |
-| F — quarentena | FORA_DO_ESCOPO_COM_JUSTIFICATIVA. |
-| G — liberação | FORA_DO_ESCOPO_COM_JUSTIFICATIVA. |
+| A — quebra nominal | FORA_DO_ESCOPO_COM_JUSTIFICATIVA (Regra definida: transição ocorre de ABERTO/FECHADO para QUEBRADO sem nova retirada. Aplicação restrita de Alloy na 3C). |
+| B — quebra durante empréstimo | FORA_DO_ESCOPO_COM_JUSTIFICATIVA (Regra definida: exige encerramento do empréstimo via DEVOLUCAO/EXTRAVIO antes. Aplicação restrita de Alloy na 3C). |
+| C — quebra repetida | FORA_DO_ESCOPO_COM_JUSTIFICATIVA (Regra definida: QUEBRADO é terminal. Aplicação restrita de Alloy na 3C). |
+| D — descarte nominal | FORA_DO_ESCOPO_COM_JUSTIFICATIVA (Regra definida na Sec 4: preserva identidade e finaliza vida útil. Aplicação restrita de Alloy na 3C). |
+| E — descarte repetido | FORA_DO_ESCOPO_COM_JUSTIFICATIVA (Regra definida: DESCARTADO é terminal. Aplicação restrita de Alloy na 3C). |
+| F — quarentena | FORA_DO_ESCOPO_COM_JUSTIFICATIVA (Regra definida na Sec 4: bloqueia retirada, Gestor requer motivo. Aplicação restrita de Alloy na 3C). |
+| G — liberação | FORA_DO_ESCOPO_COM_JUSTIFICATIVA (Regra definida na Sec 4: retorna a DISPONIVEL e reavalia destino. Aplicação restrita de Alloy na 3C). |
 | H — vazio | RESOLVIDA (Semântica clarificada). |
 | Duas retiradas / quebra versus retirada | RESOLVIDA (Restrito fisicamente). |
 | Gestor revogado / FK inexistente | FORA_DO_ESCOPO_COM_JUSTIFICATIVA (Integridade de vínculos coberta nas Security Rules 3D). |
@@ -134,12 +134,12 @@
 | Cancelar após selecionar Resumo | RESOLVIDA. |
 | Cancelar após criar entidade / fechar | FORA_DO_ESCOPO_COM_JUSTIFICATIVA (Limpeza de rascunhos é de escopo UI/CRON secundário). |
 | Voltar etapa | RESOLVIDA. |
-| Erro backend | RESOLVIDA (Idempotência provê retry seguro). |
-| Lote desaparece antes de confirmar | FORA_DO_ESCOPO_COM_JUSTIFICATIVA. |
-| Especificação inexistente | FORA_DO_ESCOPO_COM_JUSTIFICATIVA. |
+| Erro backend | RESOLVIDA (Idempotência com `id_operacao` provê retry seguro). |
+| Lote desaparece antes de confirmar | RESOLVIDA (TOCTOU mitigado: validações movidas para dentro da transação `runTransaction` na Sec 10.5). |
+| Especificação inexistente | RESOLVIDA (Leitura transacional final protege o cadastro na Sec 10.5). |
 | Especificação desativada | RESOLVIDA. |
 | Campos obrigatórios ausentes | RESOLVIDA (Campos adicionados e unificados). |
-| Duplo clique / retry final | RESOLVIDA (Sanitizado por `Operacoes`). |
+| Duplo clique / retry final | RESOLVIDA (Sanitizado por `Operacoes` e hash de payload na Sec 10.5). |
 
 ## Revisão transversal SIM/NÃO
 
