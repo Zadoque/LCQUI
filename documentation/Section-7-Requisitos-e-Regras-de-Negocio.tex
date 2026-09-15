@@ -368,4 +368,12 @@ A verificação do último chefe, do último gestor patrimonial e de cada almoxa
 Para PESQUISA\_TCC\_POS ou ESTUDO\_DEGRADACAO\_RESIDUOS com frasco vencido ou validade desconhecida liberado com termo, obter aceite em sessão autenticada do retirante. Persistir tcr\_versao, tcr\_aceito\_em (servidor), tcr\_aceito\_por e tcr\_auditoria\_id no empréstimo, com evento correspondente em Registro\_de\_Auditoria; exigir justificativa\_metodologica de 20--2000 caracteres. Modal/checkbox são UX: backend valida versão vigente, identidade e vínculo do aceite ao frasco, finalidade e operação antes de confirmar a retirada. O TCR registra ciência e responsabilidade e não substitui regras institucionais de segurança química. Autoatendimento só quando não houver outro gestor ativo, calculado pelo servidor com justificativa e notificação à chefia. Registrar abertura\_historica\_desconhecida quando a data anterior não for conhecida; nunca inventar a data.
 
 \paragraph{Retenção V1 (DP-D02).}
-Retenção indefinida de históricos e auditoria é política conservadora de rastreabilidade do LCQUI/UENF, sujeita à futura política arquivística/LGPD institucional. Não se atribui essa duração a exigência normativa genérica de órgãos de controle. Notificação expirada é preservada e marcada, sem expurgo automatizado.
+Retenção indefinida de históricos e auditoria é política conservadora de rastreabilidade do LCQUI/UENF. A desativação lógica (\textit{soft delete}) é o padrão do sistema. A exclusão física de registros deve ocorrer somente quando houver fundamento normativo/operacional aplicável e ausência de referências impeditivas, não devendo a LGPD ser utilizada como justificativa genérica ou única base para deletar dados transacionais e históricos.
+
+\paragraph{Proteção e Escopo do localStorage.}
+O uso do \texttt{localStorage} para persistência de rascunhos de wizards deve respeitar rigorosamente os seguintes controles:
+\begin{itemize}
+    \item \textbf{Namespace e Segurança:} Utilizar o UID como namespace das chaves, embora isso não garanta isolamento contra XSS/same-origin. Tokens, PII, documentos fiscais completos e anexos jamais devem ser armazenados.
+    \item \textbf{Ciclo de Vida:} Aplicar TTL (Time to Live) e verificá-lo tanto no \textit{boot} quanto na leitura. Ocorrerá limpeza compulsória após o sucesso do fluxo (salvamento no backend), no logout e em qualquer troca de identidade.
+    \item \textbf{Robustez:} Utilizar \textit{schema versioning} e tratar cenários de múltiplas abas, limitando o escopo estritamente aos dados de catálogo (\textit{whitelist} de formulários autorizados).
+\end{itemize}
