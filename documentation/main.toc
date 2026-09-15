@@ -1,317 +1,318 @@
 \babel@toc {brazilian}{}\relax 
-\contentsline {section}{\numberline {1}Introdução}{7}{section.1}%
-\contentsline {section}{\numberline {2}Como vai ser o Sistema}{7}{section.2}%
-\contentsline {section}{\numberline {3}Stakeholders}{7}{section.3}%
-\contentsline {subsection}{\numberline {3.1}Chefe Geral}{7}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}Gestor de Almoxarifado}{8}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}Gestor de Bens Patrimoniais}{8}{subsection.3.3}%
-\contentsline {subsection}{\numberline {3.4}Professor}{9}{subsection.3.4}%
-\contentsline {subsection}{\numberline {3.5}Aluno}{10}{subsection.3.5}%
-\contentsline {subsection}{\numberline {3.6}Bolsista}{10}{subsection.3.6}%
-\contentsline {subsection}{\numberline {3.7}Matriz de Papéis e Permissões}{11}{subsection.3.7}%
-\contentsline {section}{\numberline {4}Modelagem Entidades SQL - 3FN}{12}{section.4}%
-\contentsline {subsection}{\numberline {4.1}Usuario}{12}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}Chefe Geral}{12}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}Gestor de Almoxarifado}{12}{subsection.4.3}%
-\contentsline {subsection}{\numberline {4.4}Tabela Gestor de Almoxarifado $\times $ Almoxarifado (N para N)}{12}{subsection.4.4}%
-\contentsline {subsection}{\numberline {4.5}Gestor de bens patrimoniais}{13}{subsection.4.5}%
-\contentsline {subsection}{\numberline {4.6}Bem patrimonial}{13}{subsection.4.6}%
-\contentsline {subsection}{\numberline {4.7}Resumo bem patrimonial}{13}{subsection.4.7}%
-\contentsline {subsection}{\numberline {4.8}Historico bem patrimonial}{15}{subsection.4.8}%
-\contentsline {subsection}{\numberline {4.9}Alteracao bem patrimonial}{15}{subsection.4.9}%
-\contentsline {subsection}{\numberline {4.10}Requisicao Professor edicao Bem patrimonial}{16}{subsection.4.10}%
-\contentsline {subsection}{\numberline {4.11}Requisicao Professor adicao Bem patrimonial}{17}{subsection.4.11}%
-\contentsline {subsection}{\numberline {4.12}Lock de Requisição de Patrimônio}{17}{subsection.4.12}%
-\contentsline {subsection}{\numberline {4.13}Impressão de Etiquetas de Frasco}{18}{subsection.4.13}%
-\contentsline {subsection}{\numberline {4.14}Almoxarifado}{19}{subsection.4.14}%
-\contentsline {subsection}{\numberline {4.15}Substância Química}{19}{subsection.4.15}%
-\contentsline {subsection}{\numberline {4.16}Resumo do Reagente / Solvente}{20}{subsection.4.16}%
-\contentsline {subsection}{\numberline {4.17}Composição do Reagente}{23}{subsection.4.17}%
-\contentsline {subsection}{\numberline {4.18}Especificação do Reagente / Solvente}{24}{subsection.4.18}%
-\contentsline {subsection}{\numberline {4.19}Estoque Mínimo por Almoxarifado}{24}{subsection.4.19}%
-\contentsline {subsection}{\numberline {4.20}Lote}{25}{subsection.4.20}%
-\contentsline {subsection}{\numberline {4.21}Frasco de Reagente / Solvente}{25}{subsection.4.21}%
-\contentsline {subsection}{\numberline {4.22}Histórico do Frasco de Reagente / Solvente}{27}{subsection.4.22}%
-\contentsline {subsection}{\numberline {4.23}Empréstimo de Reagente / Solvente}{28}{subsection.4.23}%
-\contentsline {subsection}{\numberline {4.24}Métricas Agregadas do Reagente}{29}{subsection.4.24}%
-\contentsline {subsection}{\numberline {4.25}Turma}{30}{subsection.4.25}%
-\contentsline {subsection}{\numberline {4.26}Historico de Alunos na Turma}{30}{subsection.4.26}%
-\contentsline {subsection}{\numberline {4.27}Historico de Posts na Turma}{31}{subsection.4.27}%
-\contentsline {subsection}{\numberline {4.28}Historico de Comentario em um Post}{31}{subsection.4.28}%
-\contentsline {subsection}{\numberline {4.29}Roteiro de Experimento}{31}{subsection.4.29}%
-\contentsline {subsection}{\numberline {4.30}Roteiro Professor Compartilhado}{32}{subsection.4.30}%
-\contentsline {subsection}{\numberline {4.31}Professor}{32}{subsection.4.31}%
-\contentsline {subsection}{\numberline {4.32}Materia}{32}{subsection.4.32}%
-\contentsline {subsection}{\numberline {4.33}Tabela Professor $\times $ Materia (N para N)}{32}{subsection.4.33}%
-\contentsline {subsection}{\numberline {4.34}Aluno}{33}{subsection.4.34}%
-\contentsline {subsection}{\numberline {4.35}Bolsista}{33}{subsection.4.35}%
-\contentsline {subsection}{\numberline {4.36}Convite para Aluno}{33}{subsection.4.36}%
-\contentsline {subsection}{\numberline {4.37}Notificação (Unificada)}{34}{subsection.4.37}%
-\contentsline {subsection}{\numberline {4.38}Tabela Aluno Turma (N para N)}{35}{subsection.4.38}%
-\contentsline {subsection}{\numberline {4.39}Local}{35}{subsection.4.39}%
-\contentsline {subsection}{\numberline {4.40}Post}{35}{subsection.4.40}%
-\contentsline {subsection}{\numberline {4.41}Comentario}{36}{subsection.4.41}%
-\contentsline {subsection}{\numberline {4.42}Registro de Auditoria}{36}{subsection.4.42}%
-\contentsline {subsection}{\numberline {4.43}Especificação de Integridade do Modelo 3FN}{37}{subsection.4.43}%
-\contentsline {subsubsection}{\numberline {4.43.1}Cardinalidades}{37}{subsubsection.4.43.1}%
-\contentsline {subsubsection}{\numberline {4.43.2}Nullabilidade}{38}{subsubsection.4.43.2}%
-\contentsline {subsubsection}{\numberline {4.43.3}Chaves e constraints}{38}{subsubsection.4.43.3}%
-\contentsline {subsubsection}{\numberline {4.43.4}Regras químicas fechadas}{39}{subsubsection.4.43.4}%
-\contentsline {subsubsection}{\numberline {4.43.5}Máquina de estados e invariantes do frasco}{39}{subsubsection.4.43.5}%
-\contentsline {subsubsection}{\numberline {4.43.6}Fechamento dos estados automáticos}{40}{subsubsection.4.43.6}%
-\contentsline {subsection}{\numberline {4.44}Checklist de Fechamento do Domínio e do Modelo}{40}{subsection.4.44}%
-\contentsline {section}{\numberline {5}Notas de Mapeamento para Firestore}{42}{section.5}%
-\contentsline {subsection}{\numberline {5.1}Reintrodução de \textit {letra\textunderscore \allowbreak inicial}}{42}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}Estado físico canônico do catálogo}{43}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}Espelhamento de \textit {nome\textunderscore \allowbreak equipamento} e Localização em \textit {Bem\textunderscore \allowbreak Patrimonial}}{43}{subsection.5.3}%
-\contentsline {subsection}{\numberline {5.4}Composição embutida na especificação}{43}{subsection.5.4}%
-\contentsline {subsection}{\numberline {5.5}Tabelas ``Materialized'' são coleções próprias, não \textit {views} do SGBD}{44}{subsection.5.5}%
-\contentsline {subsection}{\numberline {5.6}Unicidade de \texttt {numero\textunderscore \allowbreak patrimonio\textunderscore \allowbreak proposto} no Firestore}{44}{subsection.5.6}%
-\contentsline {subsection}{\numberline {5.7}Mecanismo de Sequenciamento Atômico via Documento Singleton (\textit {Contador\textunderscore \allowbreak Codigo\textunderscore \allowbreak Frasco})}{44}{subsection.5.7}%
-\contentsline {subsection}{\numberline {5.8}Índices Compostos Obrigatórios}{44}{subsection.5.8}%
-\contentsline {subsection}{\numberline {5.9}Mapeamento Completo de Coleções e Sub-coleções Firestore}{45}{subsection.5.9}%
-\contentsline {subsubsection}{\numberline {5.9.1}Dicionário de dados completo e convenções físicas}{50}{subsubsection.5.9.1}%
-\contentsline {paragraph}{Usuario}{50}{section*.2}%
-\contentsline {paragraph}{Chefe\textunderscore \allowbreak Geral}{50}{section*.3}%
-\contentsline {paragraph}{Gestor\textunderscore \allowbreak Almoxarifado}{50}{section*.4}%
-\contentsline {paragraph}{Gestor\textunderscore \allowbreak Almoxarifado\textunderscore \allowbreak x\textunderscore \allowbreak Almoxarifado}{51}{section*.5}%
-\contentsline {paragraph}{Gestor\textunderscore \allowbreak Bens\textunderscore \allowbreak Patrimoniais}{51}{section*.6}%
-\contentsline {paragraph}{Bem\textunderscore \allowbreak Patrimonial}{51}{section*.7}%
-\contentsline {paragraph}{Resumo\textunderscore \allowbreak Bem\textunderscore \allowbreak Patrimonial}{52}{section*.8}%
-\contentsline {paragraph}{Historico\textunderscore \allowbreak Bem\textunderscore \allowbreak Patrimonial}{52}{section*.9}%
-\contentsline {paragraph}{Alteracao\textunderscore \allowbreak Bem\textunderscore \allowbreak Patrimonial}{52}{section*.10}%
-\contentsline {paragraph}{Requisicao\textunderscore \allowbreak Edicao\textunderscore \allowbreak Bem\textunderscore \allowbreak Patrimonial}{53}{section*.11}%
-\contentsline {paragraph}{Requisicao\textunderscore \allowbreak Adicao\textunderscore \allowbreak Bem\textunderscore \allowbreak Patrimonial}{54}{section*.12}%
-\contentsline {paragraph}{Locks\textunderscore \allowbreak Requisicao\textunderscore \allowbreak Patrimonio}{55}{section*.13}%
-\contentsline {paragraph}{Impressao\textunderscore \allowbreak Etiqueta\textunderscore \allowbreak Frasco}{55}{section*.14}%
-\contentsline {paragraph}{Almoxarifado}{55}{section*.15}%
-\contentsline {paragraph}{Estoques\textunderscore \allowbreak Configurados}{56}{section*.16}%
-\contentsline {paragraph}{Substancia\textunderscore \allowbreak Quimica}{56}{section*.17}%
-\contentsline {paragraph}{Resumo\textunderscore \allowbreak Reagente}{57}{section*.18}%
-\contentsline {paragraph}{Composicao\textunderscore \allowbreak Reagente}{57}{section*.19}%
-\contentsline {paragraph}{Especificacao\textunderscore \allowbreak Reagente}{58}{section*.20}%
-\contentsline {paragraph}{Lote}{59}{section*.21}%
-\contentsline {paragraph}{Frasco\textunderscore \allowbreak Reagente}{59}{section*.22}%
-\contentsline {paragraph}{Historico\textunderscore \allowbreak Frasco\textunderscore \allowbreak Reagente}{61}{section*.23}%
-\contentsline {paragraph}{Emprestimo\textunderscore \allowbreak Reagente}{62}{section*.24}%
-\contentsline {paragraph}{Turma}{64}{section*.25}%
-\contentsline {paragraph}{Historico\textunderscore \allowbreak Alunos\textunderscore \allowbreak Turma}{64}{section*.26}%
-\contentsline {paragraph}{Historico\textunderscore \allowbreak Posts\textunderscore \allowbreak Turma}{65}{section*.27}%
-\contentsline {paragraph}{Historico\textunderscore \allowbreak Comentario}{65}{section*.28}%
-\contentsline {paragraph}{Roteiro\textunderscore \allowbreak Experimento}{66}{section*.29}%
-\contentsline {paragraph}{Professor}{67}{section*.30}%
-\contentsline {paragraph}{Materia}{67}{section*.31}%
-\contentsline {paragraph}{Professor\textunderscore \allowbreak x\textunderscore \allowbreak Materia}{67}{section*.32}%
-\contentsline {paragraph}{Aluno}{67}{section*.33}%
-\contentsline {paragraph}{Bolsista}{68}{section*.34}%
-\contentsline {paragraph}{Convite\textunderscore \allowbreak Aluno}{68}{section*.35}%
-\contentsline {paragraph}{Notificacao}{69}{section*.36}%
-\contentsline {paragraph}{Aluno\textunderscore \allowbreak x\textunderscore \allowbreak Turma}{70}{section*.37}%
-\contentsline {paragraph}{Local}{70}{section*.38}%
-\contentsline {paragraph}{Post}{70}{section*.39}%
-\contentsline {paragraph}{Comentario}{71}{section*.40}%
-\contentsline {paragraph}{Registro\textunderscore \allowbreak de\textunderscore \allowbreak Auditoria}{72}{section*.41}%
-\contentsline {paragraph}{Lote\textunderscore \allowbreak Materializado}{72}{section*.42}%
-\contentsline {paragraph}{Auditoria\textunderscore \allowbreak Reconciliacao}{73}{section*.43}%
-\contentsline {paragraph}{Resumo\textunderscore \allowbreak Almoxarifado\textunderscore \allowbreak Diario}{73}{section*.44}%
-\contentsline {paragraph}{Resumo\textunderscore \allowbreak Reagente\textunderscore \allowbreak Diario}{74}{section*.45}%
-\contentsline {paragraph}{Resumo\textunderscore \allowbreak Bem\textunderscore \allowbreak Patrimonial\textunderscore \allowbreak Diario}{75}{section*.46}%
-\contentsline {paragraph}{Atividade\textunderscore \allowbreak Gestor\textunderscore \allowbreak Almoxarifado\textunderscore \allowbreak Mensal}{76}{section*.47}%
-\contentsline {paragraph}{Atividade\textunderscore \allowbreak Gestor\textunderscore \allowbreak Bens\textunderscore \allowbreak Patrimoniais\textunderscore \allowbreak Mensal}{77}{section*.48}%
-\contentsline {paragraph}{Complementos físicos obrigatórios e fontes de verdade.}{78}{section*.49}%
-\contentsline {paragraph}{Consultas e integridade do dicionário.}{81}{section*.50}%
-\contentsline {subsection}{\numberline {5.10}Estratégia de Busca Textual no Firestore}{81}{subsection.5.10}%
-\contentsline {subsubsection}{\numberline {5.10.1}Reagentes}{81}{subsubsection.5.10.1}%
-\contentsline {subsubsection}{\numberline {5.10.2}Bens Patrimoniais}{81}{subsubsection.5.10.2}%
-\contentsline {subsubsection}{\numberline {5.10.3}Alunos}{82}{subsubsection.5.10.3}%
-\contentsline {subsubsection}{\numberline {5.10.4}Professores}{82}{subsubsection.5.10.4}%
-\contentsline {subsection}{\numberline {5.11}Espelhamento Bidirecional da Associação Aluno--Turma}{82}{subsection.5.11}%
-\contentsline {section}{\numberline {6}Materialized (Views)}{83}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Tabela Materialized para Lote}{83}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}Tabela Resumo de Almoxarifado - Diário}{83}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}Tabela Resumo de Reagente/Solvente - Diário}{86}{subsection.6.3}%
-\contentsline {subsection}{\numberline {6.4}Tabela Resumo de Bens Patrimoniais - Diário}{87}{subsection.6.4}%
-\contentsline {subsection}{\numberline {6.5}Tabela de Atividade Mensal - Gestor de Almoxarifado}{87}{subsection.6.5}%
-\contentsline {subsection}{\numberline {6.6}Tabela de Atividade Mensal - Gestor de Bens Patrimoniais}{88}{subsection.6.6}%
-\contentsline {subsection}{\numberline {6.7}Catálogo de Métricas Disponíveis por Domínio}{88}{subsection.6.7}%
-\contentsline {section}{\numberline {7}Requisitos e Regras de Negócio}{89}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Requisitos funcionais}{89}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}Regras de Negócio Gerais}{90}{subsection.7.2}%
-\contentsline {subsubsection}{\numberline {7.2.1}Status de um frasco de reagente}{90}{subsubsection.7.2.1}%
-\contentsline {subsubsection}{\numberline {7.2.2}Seleção do tipo em Resumo de Reagente}{90}{subsubsection.7.2.2}%
-\contentsline {subsubsection}{\numberline {7.2.3}Excluindo um Aluno de uma turma}{90}{subsubsection.7.2.3}%
-\contentsline {subsubsection}{\numberline {7.2.4}Chefe Geral}{91}{subsubsection.7.2.4}%
-\contentsline {subsubsection}{\numberline {7.2.5}O responsável pelo bem patrimonial não é um Usuário do sistema LCQUI}{91}{subsubsection.7.2.5}%
-\contentsline {subsubsection}{\numberline {7.2.6}Historico de Posts na Turma}{91}{subsubsection.7.2.6}%
-\contentsline {subsubsection}{\numberline {7.2.7}Não compartilhar o mesmo roteiro 2 vezes com um professor}{91}{subsubsection.7.2.7}%
-\contentsline {subsubsection}{\numberline {7.2.8}Densidade e concentração na especificação do reagente}{91}{subsubsection.7.2.8}%
-\contentsline {subsubsection}{\numberline {7.2.9}Regra para código do frasco de Reagente}{92}{subsubsection.7.2.9}%
-\contentsline {subsubsection}{\numberline {7.2.10}Segurança na Reimpressão de Frascos Cadastrados}{92}{subsubsection.7.2.10}%
-\contentsline {subsubsection}{\numberline {7.2.11}Regra em Notificação para Professor}{92}{subsubsection.7.2.11}%
-\contentsline {subsubsection}{\numberline {7.2.12}Regra para convidar um aluno que não está no sistema}{93}{subsubsection.7.2.12}%
-\contentsline {subsubsection}{\numberline {7.2.13}Regra para registrar um patrimônio como dado baixa}{93}{subsubsection.7.2.13}%
-\contentsline {subsubsection}{\numberline {7.2.14}Cálculo de Volume e Peso de Reagentes (Padrão de Laboratório)}{93}{subsubsection.7.2.14}%
-\contentsline {subsubsection}{\numberline {7.2.15}Exclusividade na retirada de reagentes}{94}{subsubsection.7.2.15}%
-\contentsline {subsubsection}{\numberline {7.2.16}Usuário Multi-role, exceto Chefe Geral}{94}{subsubsection.7.2.16}%
-\contentsline {subsubsection}{\numberline {7.2.17}Usuário Multi-role, Aluno não pode ser professor}{95}{subsubsection.7.2.17}%
-\contentsline {subsubsection}{\numberline {7.2.18}Usuário Multi-role, Quais multi papeis podem existir}{95}{subsubsection.7.2.18}%
-\contentsline {subsubsection}{\numberline {7.2.19}Aluno que é bolsista}{95}{subsubsection.7.2.19}%
-\contentsline {subsubsection}{\numberline {7.2.20}Status, vencimento e descarte de frascos}{95}{subsubsection.7.2.20}%
-\contentsline {subsubsection}{\numberline {7.2.21}Limites de Geração de Relatórios}{96}{subsubsection.7.2.21}%
-\contentsline {subsubsection}{\numberline {7.2.22}Almoxarifado inativo: operações bloqueadas e encerramento ordenado}{96}{subsubsection.7.2.22}%
-\contentsline {subsection}{\numberline {7.3}Matriz formal de obrigatoriedade e dependência de campos}{97}{subsection.7.3}%
-\contentsline {subsection}{\numberline {7.4}Matriz de combinações Multi-Role}{98}{subsection.7.4}%
-\contentsline {subsection}{\numberline {7.5}Fluxo obrigatório para mutações críticas}{98}{subsection.7.5}%
-\contentsline {subsection}{\numberline {7.6}Atribuição e revogação de papéis}{98}{subsection.7.6}%
-\contentsline {subsubsection}{\numberline {7.6.1}RN-ROLE-01 — Chefe Geral não pode possuir múltiplos papéis}{98}{subsubsection.7.6.1}%
-\contentsline {subsubsection}{\numberline {7.6.2}RN-ROLE-02 — Chefe Geral não pode revogar o papel de outro Chefe Geral}{99}{subsubsection.7.6.2}%
-\contentsline {subsubsection}{\numberline {7.6.3}RN-ROLE-03 — Auto-revogação de Chefe Geral}{99}{subsubsection.7.6.3}%
-\contentsline {subsubsection}{\numberline {7.6.4}RN-ROLE-04 — Revogação de Chefe Geral desativa a conta}{99}{subsubsection.7.6.4}%
-\contentsline {subsubsection}{\numberline {7.6.5}RN-ROLE-05 — Almoxarifado deve possuir pelo menos um gestor}{99}{subsubsection.7.6.5}%
-\contentsline {subsubsection}{\numberline {7.6.6}RN-ROLE-06 — Gestores de Almoxarifado não possuem exclusividade sobre movimentações}{99}{subsubsection.7.6.6}%
-\contentsline {subsubsection}{\numberline {7.6.7}RN-ROLE-07 — Revogação de Gestor de Almoxarifado em usuário Multi-Role}{100}{subsubsection.7.6.7}%
-\contentsline {subsubsection}{\numberline {7.6.8}RN-ROLE-08 — Revogação de Gestor de Bens Patrimoniais em usuário Multi-Role}{100}{subsubsection.7.6.8}%
-\contentsline {subsubsection}{\numberline {7.6.9}RN-ROLE-09 — Gestor de Bens Patrimoniais não pode ser o único}{100}{subsubsection.7.6.9}%
-\contentsline {subsubsection}{\numberline {7.6.10}RN-ROLE-10 — Revogação do último papel desativa a conta}{100}{subsubsection.7.6.10}%
-\contentsline {subsubsection}{\numberline {7.6.11}RN-ROLE-11 — Revogação de papel não significa exclusão do usuário}{100}{subsubsection.7.6.11}%
-\contentsline {subsubsection}{\numberline {7.6.12}RN-ROLE-12 — Usuário Multi-Role}{101}{subsubsection.7.6.12}%
-\contentsline {subsubsection}{\numberline {7.6.13}RN-ROLE-13 — Usuário com apenas um papel}{101}{subsubsection.7.6.13}%
-\contentsline {subsubsection}{\numberline {7.6.14}RN-ROLE-14 — Recalculo dos Custom Claims}{101}{subsubsection.7.6.14}%
-\contentsline {subsubsection}{\numberline {7.6.15}RN-ROLE-15 — Auditoria das alterações de papéis}{101}{subsubsection.7.6.15}%
-\contentsline {paragraph}{Execução concorrente e sincronização de identidade.}{101}{section*.51}%
-\contentsline {paragraph}{Q04 e Q14: contrato de aceite e autoatendimento.}{101}{section*.52}%
-\contentsline {paragraph}{Retenção V1 (DP-D02).}{102}{section*.53}%
-\contentsline {paragraph}{Proteção e Escopo do localStorage.}{102}{section*.54}%
-\contentsline {section}{\numberline {8}Descrição das telas (Dashboards)}{102}{section.8}%
-\contentsline {subsection}{\numberline {8.1}Header em comum em todos os papeis}{102}{subsection.8.1}%
-\contentsline {subsection}{\numberline {8.2}Header quando o usuário é Multi-Role}{102}{subsection.8.2}%
-\contentsline {subsection}{\numberline {8.3}Dashboard-Chefe Geral}{103}{subsection.8.3}%
-\contentsline {subsubsection}{\numberline {8.3.1}Aba: Almoxarifados}{103}{subsubsection.8.3.1}%
-\contentsline {subsubsection}{\numberline {8.3.2}Aba: Bens Patrimoniais}{103}{subsubsection.8.3.2}%
-\contentsline {subsubsection}{\numberline {8.3.3}Aba: Professores}{104}{subsubsection.8.3.3}%
-\contentsline {subsubsection}{\numberline {8.3.4}Aba: Alunos}{104}{subsubsection.8.3.4}%
-\contentsline {subsection}{\numberline {8.4}Dashboard-Professor}{104}{subsection.8.4}%
-\contentsline {subsection}{\numberline {8.5}Dashboard-Gestor de Almoxarifado}{106}{subsection.8.5}%
-\contentsline {subsection}{\numberline {8.6}Dashboard-Gestor de Bens Patrimoniais}{107}{subsection.8.6}%
-\contentsline {subsection}{\numberline {8.7}Dashboard-Aluno}{108}{subsection.8.7}%
-\contentsline {subsection}{\numberline {8.8}Contratos detalhados das telas e modais}{109}{subsection.8.8}%
-\contentsline {subsubsection}{\numberline {8.8.1}UI-01: acesso, sessão, perfil e troca de papel}{109}{subsubsection.8.8.1}%
-\contentsline {paragraph}{Padrão visual, acessibilidade e estados.}{109}{section*.55}%
-\contentsline {subsubsection}{\numberline {8.8.2}UI-02: usuários, gestores e atribuição de papéis}{110}{subsubsection.8.8.2}%
-\contentsline {subsubsection}{\numberline {8.8.3}UI-03: almoxarifado, local e matéria}{110}{subsubsection.8.8.3}%
-\contentsline {subsubsection}{\numberline {8.8.4}UI-04: pesquisa, catálogo e detalhes}{111}{subsubsection.8.8.4}%
-\contentsline {subsubsection}{\numberline {8.8.5}UI-05: resumo químico, substância, especificação e lote}{111}{subsubsection.8.8.5}%
-\contentsline {subsubsection}{\numberline {8.8.6}UI-06: cadastrar, editar e pesar frasco}{112}{subsubsection.8.8.6}%
-\contentsline {subsubsection}{\numberline {8.8.7}UI-07: retirada, devolução, quarentena e descarte}{113}{subsubsection.8.8.7}%
-\contentsline {subsubsection}{\numberline {8.8.8}UI-08: etiquetas virgens e segunda via}{113}{subsubsection.8.8.8}%
-\contentsline {subsubsection}{\numberline {8.8.9}UI-09: patrimônio e análise de requisições}{114}{subsubsection.8.8.9}%
-\contentsline {subsubsection}{\numberline {8.8.10}UI-10: turmas, membros e convites}{114}{subsubsection.8.8.10}%
-\contentsline {subsubsection}{\numberline {8.8.11}UI-11: roteiros, posts e comentários}{115}{subsubsection.8.8.11}%
-\contentsline {subsubsection}{\numberline {8.8.12}UI-12: notificações, empréstimos próprios e relatórios}{116}{subsubsection.8.8.12}%
-\contentsline {subsubsection}{\numberline {8.8.13}UI-13: consultas, cache e armazenamento no navegador}{116}{subsubsection.8.8.13}%
-\contentsline {paragraph}{Q04 e Q14: contrato de aceite e autoatendimento.}{117}{section*.56}%
-\contentsline {section}{\numberline {9}Exemplos de fluxos}{118}{section.9}%
-\contentsline {subsection}{\numberline {9.1}Fluxos complementares e critérios de completude}{118}{subsection.9.1}%
-\contentsline {subsubsection}{\numberline {9.1.1}Concessão do papel Bolsista}{118}{subsubsection.9.1.1}%
-\contentsline {subsubsection}{\numberline {9.1.2}Aceitação de convite}{118}{subsubsection.9.1.2}%
-\contentsline {subsubsection}{\numberline {9.1.3}Arquivamento e desarquivamento de turma}{118}{subsubsection.9.1.3}%
-\contentsline {subsubsection}{\numberline {9.1.4}Retirada de reagente}{118}{subsubsection.9.1.4}%
-\contentsline {subsubsection}{\numberline {9.1.5}Devolução de reagente}{118}{subsubsection.9.1.5}%
-\contentsline {subsection}{\numberline {9.2}Fluxos do usuário Gestor de Bem Patrimonial}{119}{subsection.9.2}%
-\contentsline {subsubsection}{\numberline {9.2.1}Adicionando um bem patrimonial do LCQUI no sistema}{119}{subsubsection.9.2.1}%
-\contentsline {subsubsection}{\numberline {9.2.2}Baixando a lista de bens inservíveis para dar baixa no SEI}{119}{subsubsection.9.2.2}%
-\contentsline {subsubsection}{\numberline {9.2.3}Baixando o relatório mensal Geral do Mês de Agosto}{119}{subsubsection.9.2.3}%
-\contentsline {subsubsection}{\numberline {9.2.4}Baixando relatório de bens materiais filtrado (Prédio P5, Andar 1)}{119}{subsubsection.9.2.4}%
-\contentsline {subsubsection}{\numberline {9.2.5}Verificando requisições pendentes de professores}{120}{subsubsection.9.2.5}%
-\contentsline {subsubsection}{\numberline {9.2.6}Aprovando uma requisição pendente}{120}{subsubsection.9.2.6}%
-\contentsline {subsubsection}{\numberline {9.2.7}Alterando um bem patrimonial para: Dado baixa}{120}{subsubsection.9.2.7}%
-\contentsline {subsection}{\numberline {9.3}Fluxos do usuário Professor}{120}{subsection.9.3}%
-\contentsline {subsubsection}{\numberline {9.3.1}Criando uma turma}{120}{subsubsection.9.3.1}%
-\contentsline {subsubsection}{\numberline {9.3.2}Adicionando Alunos em uma turma}{121}{subsubsection.9.3.2}%
-\contentsline {subsubsection}{\numberline {9.3.3}Criando um Post em uma turma}{121}{subsubsection.9.3.3}%
-\contentsline {subsubsection}{\numberline {9.3.4}Excluindo um Aluno de uma turma}{121}{subsubsection.9.3.4}%
-\contentsline {subsubsection}{\numberline {9.3.5}Respondendo um comentário de um aluno}{121}{subsubsection.9.3.5}%
-\contentsline {subsubsection}{\numberline {9.3.6}Pesquisando Reagente Químico para checar disponibilidade}{121}{subsubsection.9.3.6}%
-\contentsline {subsubsection}{\numberline {9.3.7}Pesquisando um bem patrimonial pelo Nome}{121}{subsubsection.9.3.7}%
-\contentsline {subsubsection}{\numberline {9.3.8}Pesquisando um bem patrimonial pelo número de patrimônio}{122}{subsubsection.9.3.8}%
-\contentsline {subsubsection}{\numberline {9.3.9}Requisitando alteração de conservação (de Bom para Ruim)}{122}{subsubsection.9.3.9}%
-\contentsline {subsubsection}{\numberline {9.3.10}Upload de Roteiro e compartilhamento com outros professores}{122}{subsubsection.9.3.10}%
-\contentsline {subsection}{\numberline {9.4}Fluxos do usuário Chefe Geral}{122}{subsection.9.4}%
-\contentsline {subsubsection}{\numberline {9.4.1}Criando um usuário Professor e usuário Gestor de Almoxarifado}{122}{subsubsection.9.4.1}%
-\contentsline {subsection}{\numberline {9.5}Fluxos do usuário Aluno}{122}{subsection.9.5}%
-\contentsline {subsubsection}{\numberline {9.5.1}Ingressando em uma Turma}{122}{subsubsection.9.5.1}%
-\contentsline {subsubsection}{\numberline {9.5.2}Baixando um roteiro e realizando um comentário}{123}{subsubsection.9.5.2}%
-\contentsline {subsection}{\numberline {9.6}Fluxos do Usuário Gestor de Almoxarifado}{123}{subsection.9.6}%
-\contentsline {subsubsection}{\numberline {9.6.1}Adicionando um frasco fechado de um reagente existente}{123}{subsubsection.9.6.1}%
-\contentsline {subsubsection}{\numberline {9.6.2}Adicionando um frasco já aberto de um novo reagente}{123}{subsubsection.9.6.2}%
-\contentsline {subsubsection}{\numberline {9.6.3}Realizando empréstimo (Retirada) de um frasco}{123}{subsubsection.9.6.3}%
-\contentsline {subsubsection}{\numberline {9.6.4}Devolvendo um frasco (Cálculo de Consumo)}{124}{subsubsection.9.6.4}%
-\contentsline {subsection}{\numberline {9.7}Cobertura operacional por papel e ação}{124}{subsection.9.7}%
-\contentsline {subsubsection}{\numberline {9.7.1}COM-01 --- Todos: Login, recuperar senha, perfil, sair e alternar papel}{124}{subsubsection.9.7.1}%
-\contentsline {subsubsection}{\numberline {9.7.2}CHE-01 --- Chefe: Criar usuário e atribuir Bolsista ou outro papel}{124}{subsubsection.9.7.2}%
-\contentsline {subsubsection}{\numberline {9.7.3}CHE-02 --- Chefe: Revogar papel ou autorrevogar chefia}{125}{subsubsection.9.7.3}%
-\contentsline {subsubsection}{\numberline {9.7.4}CHE-03 --- Chefe: Criar/ativar almoxarifado e vincular gestores}{125}{subsubsection.9.7.4}%
-\contentsline {subsubsection}{\numberline {9.7.5}CHE-04 --- Chefe: Consultar pessoas, turmas e atividade mensal}{125}{subsubsection.9.7.5}%
-\contentsline {subsubsection}{\numberline {9.7.6}CHE-05 --- Chefe: Operar catálogo, patrimônio, matéria, etiquetas e relatórios}{125}{subsubsection.9.7.6}%
-\contentsline {subsubsection}{\numberline {9.7.7}MAT-01 --- Professor/Chefe: Cadastrar e editar matéria}{125}{subsubsection.9.7.7}%
-\contentsline {subsubsection}{\numberline {9.7.8}PRO-01 --- Professor: Criar turma e copiar código}{125}{subsubsection.9.7.8}%
-\contentsline {subsubsection}{\numberline {9.7.9}PRO-02 --- Professor: Arquivar e desarquivar turma}{125}{subsubsection.9.7.9}%
-\contentsline {subsubsection}{\numberline {9.7.10}PRO-03 --- Professor: Convidar aluno com ou sem turma}{126}{subsubsection.9.7.10}%
-\contentsline {subsubsection}{\numberline {9.7.11}PRO-04 --- Professor: Gerenciar membros e remover aluno}{126}{subsubsection.9.7.11}%
-\contentsline {subsubsection}{\numberline {9.7.12}PRO-05 --- Professor: Cadastrar, visualizar e baixar roteiro}{126}{subsubsection.9.7.12}%
-\contentsline {subsubsection}{\numberline {9.7.13}PRO-06 --- Professor: Compartilhar, acompanhar e revogar compartilhamento}{126}{subsubsection.9.7.13}%
-\contentsline {subsubsection}{\numberline {9.7.14}PRO-07 --- Professor: Publicar/editar post e vincular roteiro próprio ou recebido}{126}{subsubsection.9.7.14}%
-\contentsline {subsubsection}{\numberline {9.7.15}PRO-08 --- Professor: Responder comentário e navegar por notificação}{126}{subsubsection.9.7.15}%
-\contentsline {subsubsection}{\numberline {9.7.16}PRO-09 --- Professor: Consultar reagentes, receber empréstimo e acompanhar consumo}{127}{subsubsection.9.7.16}%
-\contentsline {subsubsection}{\numberline {9.7.17}PRO-10 --- Professor: Pesquisar patrimônio e requisitar adição/edição}{127}{subsubsection.9.7.17}%
-\contentsline {subsubsection}{\numberline {9.7.18}ALU-01 --- Aluno: Aceitar convite ou ingressar por código}{127}{subsubsection.9.7.18}%
-\contentsline {subsubsection}{\numberline {9.7.19}ALU-02 --- Aluno: Visualizar turmas, colegas, posts e baixar roteiro}{127}{subsubsection.9.7.19}%
-\contentsline {subsubsection}{\numberline {9.7.20}ALU-03 --- Aluno: Comentar e ler notificações}{127}{subsubsection.9.7.20}%
-\contentsline {subsubsection}{\numberline {9.7.21}ALU-04 --- Aluno: Consultar estoque sem retirar}{127}{subsubsection.9.7.21}%
-\contentsline {subsubsection}{\numberline {9.7.22}BOL-01 --- Bolsista: Ações acadêmicas, consulta e retirada/devolução como destinatário}{127}{subsubsection.9.7.22}%
-\contentsline {subsubsection}{\numberline {9.7.23}ALM-01 --- Gestor Almox.: Cadastrar/editar resumo, substância, especificação e lote}{128}{subsubsection.9.7.23}%
-\contentsline {subsubsection}{\numberline {9.7.24}ALM-02 --- Gestor Almox.: Cadastrar frasco fechado ou aberto}{128}{subsubsection.9.7.24}%
-\contentsline {subsubsection}{\numberline {9.7.25}ALM-03 --- Gestor Almox.: Pesquisar, editar localização, abrir e ajustar estoque por pesagem}{128}{subsubsection.9.7.25}%
-\contentsline {subsubsection}{\numberline {9.7.26}ALM-04 --- Gestor Almox.: Registrar retirada e autorizar uso didático de vencido}{128}{subsubsection.9.7.26}%
-\contentsline {subsubsection}{\numberline {9.7.27}ALM-05 --- Gestor Almox.: Receber devolução de empréstimo próprio ou de outro gestor}{128}{subsubsection.9.7.27}%
-\contentsline {subsubsection}{\numberline {9.7.28}ALM-06 --- Gestor Almox.: Tratar alertas, quarentena, extravio, reencontro, vazio, quebra e descarte}{128}{subsubsection.9.7.28}%
-\contentsline {subsubsection}{\numberline {9.7.29}ALM-07 --- Gestor Almox.: Imprimir etiquetas virgens ou segunda via}{129}{subsubsection.9.7.29}%
-\contentsline {subsubsection}{\numberline {9.7.30}ALM-08 --- Gestor Almox.: Gerar relatório de um ou todos os almoxarifados autorizados}{129}{subsubsection.9.7.30}%
-\contentsline {subsubsection}{\numberline {9.7.31}PAT-01 --- Gestor Patr.: Criar resumo, cadastrar e editar bem}{129}{subsubsection.9.7.31}%
-\contentsline {subsubsection}{\numberline {9.7.32}PAT-02 --- Gestor Patr.: Pesquisar, filtrar e consultar histórico}{129}{subsubsection.9.7.32}%
-\contentsline {subsubsection}{\numberline {9.7.33}PAT-03 --- Gestor Patr.: Analisar, aprovar ou rejeitar pedido}{129}{subsubsection.9.7.33}%
-\contentsline {subsubsection}{\numberline {9.7.34}PAT-04 --- Gestor Patr.: Gerar relação de inservíveis e registrar baixa após SEI}{129}{subsubsection.9.7.34}%
-\contentsline {subsubsection}{\numberline {9.7.35}PAT-05 --- Gestor Patr.: Gerar relatório mensal, personalizado ou individual}{130}{subsubsection.9.7.35}%
-\contentsline {paragraph}{Q04 e Q14: contrato de aceite e autoatendimento.}{130}{section*.57}%
-\contentsline {section}{\numberline {10}Tecnologia e Relatórios (Vercel / Firebase)}{131}{section.10}%
-\contentsline {subsection}{\numberline {10.1}Para relatórios}{131}{subsection.10.1}%
-\contentsline {subsubsection}{\numberline {10.1.1}Assinatura Lógica de Relatórios (Hash Canônico)}{131}{subsubsection.10.1.1}%
-\contentsline {subsubsection}{\numberline {10.1.2}Prevenção de Limites de Leitura Firestore (N+1)}{131}{subsubsection.10.1.2}%
-\contentsline {subsubsection}{\numberline {10.1.3}Módulo de Geração de Etiquetas (PDF)}{131}{subsubsection.10.1.3}%
-\contentsline {subsection}{\numberline {10.2}Princípio: nunca confiar no \textit {client-side}}{132}{subsection.10.2}%
-\contentsline {subsubsection}{\numberline {10.2.1}Funções de Apoio (Autorização)}{132}{subsubsection.10.2.1}%
-\contentsline {subsubsection}{\numberline {10.2.2}Revogação de Papel com Singleton de Controle de Concorrência (M-14, N-01)}{135}{subsubsection.10.2.2}%
-\contentsline {subsubsection}{\numberline {10.2.3}Fluxo de Reagentes: Cadastro, Retirada e Devolução}{138}{subsubsection.10.2.3}%
-\contentsline {subsubsection}{\numberline {10.2.4}Validação síncrona de validade no cadastro e na abertura}{157}{subsubsection.10.2.4}%
-\contentsline {subsubsection}{\numberline {10.2.5}Jobs Agendados: Vencimento, Atraso e Materialização}{157}{subsubsection.10.2.5}%
-\contentsline {subsubsection}{\numberline {10.2.6}Fluxo de Bens Patrimoniais: Requisições}{166}{subsubsection.10.2.6}%
-\contentsline {subsubsection}{\numberline {10.2.7}Relatórios em PDF}{180}{subsubsection.10.2.7}%
-\contentsline {subsection}{\numberline {10.3}Consolidação do planejamento complementar e contrato de execução}{186}{subsection.10.3}%
-\contentsline {paragraph}{Etiquetas e geometria.}{186}{section*.58}%
-\contentsline {paragraph}{Contador e auditoria.}{186}{section*.59}%
-\contentsline {paragraph}{Relatórios, transporte e integridade.}{187}{section*.60}%
-\contentsline {paragraph}{Garantias de execução.}{187}{section*.61}%
-\contentsline {paragraph}{Ambiente e documentação operacional.}{187}{section*.62}%
-\contentsline {paragraph}{Referências técnicas verificadas.}{187}{section*.63}%
-\contentsline {paragraph}{Contratos dos auxiliares Q04/Q14.}{187}{section*.64}%
-\contentsline {subsubsection}{\numberline {10.3.1}Contratos complementares pós-auditoria}{188}{subsubsection.10.3.1}%
-\contentsline {section}{\numberline {11}Regras de Segurança do Firestore (Security Rules)}{195}{section.11}%
-\contentsline {subsection}{\numberline {11.1}Regras por Coleção}{195}{subsection.11.1}%
-\contentsline {subsection}{\numberline {11.2}Contrato de acesso para os fluxos detalhados}{197}{subsection.11.2}%
-\contentsline {subsection}{\numberline {11.3}Moderação: autorização por documento e resposta filtrada}{198}{subsection.11.3}%
-\contentsline {section}{\numberline {12}Implementações em Estudo para Versões Futuras}{199}{section.12}%
-\contentsline {subsection}{\numberline {12.1}Por que \texttt {GASOSO} sozinho não basta}{199}{subsection.12.1}%
-\contentsline {subsection}{\numberline {12.2}Proposta de campos (apenas ilustrativa)}{199}{subsection.12.2}%
-\contentsline {subsection}{\numberline {12.3}Além do enum: medição de gases não é pesagem}{200}{subsection.12.3}%
-\contentsline {subsection}{\numberline {12.4}Horários de Turma}{200}{subsection.12.4}%
-\contentsline {subsection}{\numberline {12.5}Lotação física de professores (V2)}{200}{subsection.12.5}%
+\contentsline {section}{\numberline {1}Introdução}{9}{section.1}%
+\contentsline {section}{\numberline {2}Como vai ser o Sistema}{9}{section.2}%
+\contentsline {section}{\numberline {3}Stakeholders}{9}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Chefe Geral}{9}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Gestor de Almoxarifado}{10}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Gestor de Bens Patrimoniais}{10}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Professor}{11}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Aluno}{12}{subsection.3.5}%
+\contentsline {subsection}{\numberline {3.6}Bolsista}{12}{subsection.3.6}%
+\contentsline {subsection}{\numberline {3.7}Matriz de Papéis e Permissões}{13}{subsection.3.7}%
+\contentsline {section}{\numberline {4}Modelagem Entidades SQL - 3FN}{14}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Usuario}{14}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Chefe Geral}{14}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Gestor de Almoxarifado}{14}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Tabela Gestor de Almoxarifado $\times $ Almoxarifado (N para N)}{14}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}Gestor de bens patrimoniais}{15}{subsection.4.5}%
+\contentsline {subsection}{\numberline {4.6}Bem patrimonial}{15}{subsection.4.6}%
+\contentsline {subsection}{\numberline {4.7}Resumo bem patrimonial}{15}{subsection.4.7}%
+\contentsline {subsection}{\numberline {4.8}Historico bem patrimonial}{17}{subsection.4.8}%
+\contentsline {subsection}{\numberline {4.9}Alteracao bem patrimonial}{17}{subsection.4.9}%
+\contentsline {subsection}{\numberline {4.10}Requisicao Professor edicao Bem patrimonial}{18}{subsection.4.10}%
+\contentsline {subsection}{\numberline {4.11}Requisicao Professor adicao Bem patrimonial}{19}{subsection.4.11}%
+\contentsline {subsection}{\numberline {4.12}Lock de Requisição de Patrimônio}{19}{subsection.4.12}%
+\contentsline {subsection}{\numberline {4.13}Impressão de Etiquetas de Frasco}{20}{subsection.4.13}%
+\contentsline {subsection}{\numberline {4.14}Almoxarifado}{21}{subsection.4.14}%
+\contentsline {subsection}{\numberline {4.15}Substância Química}{21}{subsection.4.15}%
+\contentsline {subsection}{\numberline {4.16}Resumo do Reagente / Solvente}{22}{subsection.4.16}%
+\contentsline {subsection}{\numberline {4.17}Composição do Reagente}{25}{subsection.4.17}%
+\contentsline {subsection}{\numberline {4.18}Especificação do Reagente / Solvente}{26}{subsection.4.18}%
+\contentsline {subsection}{\numberline {4.19}Estoque Mínimo por Almoxarifado}{26}{subsection.4.19}%
+\contentsline {subsection}{\numberline {4.20}Lote}{27}{subsection.4.20}%
+\contentsline {subsection}{\numberline {4.21}Frasco de Reagente / Solvente}{27}{subsection.4.21}%
+\contentsline {subsection}{\numberline {4.22}Histórico do Frasco de Reagente / Solvente}{29}{subsection.4.22}%
+\contentsline {subsection}{\numberline {4.23}Empréstimo de Reagente / Solvente}{30}{subsection.4.23}%
+\contentsline {subsection}{\numberline {4.24}Métricas Agregadas do Reagente}{31}{subsection.4.24}%
+\contentsline {subsection}{\numberline {4.25}Turma}{32}{subsection.4.25}%
+\contentsline {subsection}{\numberline {4.26}Historico de Alunos na Turma}{32}{subsection.4.26}%
+\contentsline {subsection}{\numberline {4.27}Historico de Posts na Turma}{33}{subsection.4.27}%
+\contentsline {subsection}{\numberline {4.28}Historico de Comentario em um Post}{33}{subsection.4.28}%
+\contentsline {subsection}{\numberline {4.29}Roteiro de Experimento}{34}{subsection.4.29}%
+\contentsline {subsection}{\numberline {4.30}Roteiro Professor Compartilhado}{34}{subsection.4.30}%
+\contentsline {subsection}{\numberline {4.31}Professor}{34}{subsection.4.31}%
+\contentsline {subsection}{\numberline {4.32}Materia}{34}{subsection.4.32}%
+\contentsline {subsection}{\numberline {4.33}Tabela Professor $\times $ Materia (N para N)}{34}{subsection.4.33}%
+\contentsline {subsection}{\numberline {4.34}Aluno}{35}{subsection.4.34}%
+\contentsline {subsection}{\numberline {4.35}Bolsista}{35}{subsection.4.35}%
+\contentsline {subsection}{\numberline {4.36}Convite para Aluno}{35}{subsection.4.36}%
+\contentsline {subsection}{\numberline {4.37}Notificação (Unificada)}{36}{subsection.4.37}%
+\contentsline {subsection}{\numberline {4.38}Tabela Aluno Turma (N para N)}{37}{subsection.4.38}%
+\contentsline {subsection}{\numberline {4.39}Local}{37}{subsection.4.39}%
+\contentsline {subsection}{\numberline {4.40}Post}{37}{subsection.4.40}%
+\contentsline {subsection}{\numberline {4.41}Comentario}{38}{subsection.4.41}%
+\contentsline {subsection}{\numberline {4.42}Registro de Auditoria}{38}{subsection.4.42}%
+\contentsline {subsection}{\numberline {4.43}Especificação de Integridade do Modelo 3FN}{39}{subsection.4.43}%
+\contentsline {subsubsection}{\numberline {4.43.1}Cardinalidades}{39}{subsubsection.4.43.1}%
+\contentsline {subsubsection}{\numberline {4.43.2}Nullabilidade}{40}{subsubsection.4.43.2}%
+\contentsline {subsubsection}{\numberline {4.43.3}Chaves e constraints}{40}{subsubsection.4.43.3}%
+\contentsline {subsubsection}{\numberline {4.43.4}Regras químicas fechadas}{41}{subsubsection.4.43.4}%
+\contentsline {subsubsection}{\numberline {4.43.5}Máquina de estados e invariantes do frasco}{41}{subsubsection.4.43.5}%
+\contentsline {subsubsection}{\numberline {4.43.6}Fechamento dos estados automáticos}{42}{subsubsection.4.43.6}%
+\contentsline {subsection}{\numberline {4.44}Checklist de Fechamento do Domínio e do Modelo}{42}{subsection.4.44}%
+\contentsline {section}{\numberline {5}Notas de Mapeamento para Firestore}{44}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Reintrodução de \textit {letra\textunderscore \allowbreak inicial}}{44}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Estado físico canônico do catálogo}{45}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Espelhamento de \textit {nome\textunderscore \allowbreak equipamento} e Localização em \textit {Bem\textunderscore \allowbreak Patrimonial}}{45}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Composição embutida na especificação}{45}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.5}Tabelas ``Materialized'' são coleções próprias, não \textit {views} do SGBD}{46}{subsection.5.5}%
+\contentsline {subsection}{\numberline {5.6}Unicidade de \texttt {numero\textunderscore \allowbreak patrimonio\textunderscore \allowbreak proposto} no Firestore}{46}{subsection.5.6}%
+\contentsline {subsection}{\numberline {5.7}Mecanismo de Sequenciamento Atômico via Documento Singleton (\textit {Contador\textunderscore \allowbreak Codigo\textunderscore \allowbreak Frasco})}{46}{subsection.5.7}%
+\contentsline {subsection}{\numberline {5.8}Índices Compostos Obrigatórios}{46}{subsection.5.8}%
+\contentsline {subsection}{\numberline {5.9}Mapeamento Completo de Coleções e Sub-coleções Firestore}{47}{subsection.5.9}%
+\contentsline {subsubsection}{\numberline {5.9.1}Dicionário de dados completo e convenções físicas}{52}{subsubsection.5.9.1}%
+\contentsline {paragraph}{Usuario}{52}{section*.2}%
+\contentsline {paragraph}{Chefe\textunderscore \allowbreak Geral}{52}{section*.3}%
+\contentsline {paragraph}{Gestor\textunderscore \allowbreak Almoxarifado}{52}{section*.4}%
+\contentsline {paragraph}{Gestor\textunderscore \allowbreak Almoxarifado\textunderscore \allowbreak x\textunderscore \allowbreak Almoxarifado}{53}{section*.5}%
+\contentsline {paragraph}{Gestor\textunderscore \allowbreak Bens\textunderscore \allowbreak Patrimoniais}{53}{section*.6}%
+\contentsline {paragraph}{Bem\textunderscore \allowbreak Patrimonial}{53}{section*.7}%
+\contentsline {paragraph}{Resumo\textunderscore \allowbreak Bem\textunderscore \allowbreak Patrimonial}{54}{section*.8}%
+\contentsline {paragraph}{Historico\textunderscore \allowbreak Bem\textunderscore \allowbreak Patrimonial}{54}{section*.9}%
+\contentsline {paragraph}{Alteracao\textunderscore \allowbreak Bem\textunderscore \allowbreak Patrimonial}{54}{section*.10}%
+\contentsline {paragraph}{Requisicao\textunderscore \allowbreak Edicao\textunderscore \allowbreak Bem\textunderscore \allowbreak Patrimonial}{55}{section*.11}%
+\contentsline {paragraph}{Requisicao\textunderscore \allowbreak Adicao\textunderscore \allowbreak Bem\textunderscore \allowbreak Patrimonial}{56}{section*.12}%
+\contentsline {paragraph}{Locks\textunderscore \allowbreak Requisicao\textunderscore \allowbreak Patrimonio}{57}{section*.13}%
+\contentsline {paragraph}{Impressao\textunderscore \allowbreak Etiqueta\textunderscore \allowbreak Frasco}{57}{section*.14}%
+\contentsline {paragraph}{Almoxarifado}{57}{section*.15}%
+\contentsline {paragraph}{Estoques\textunderscore \allowbreak Configurados}{58}{section*.16}%
+\contentsline {paragraph}{Substancia\textunderscore \allowbreak Quimica}{58}{section*.17}%
+\contentsline {paragraph}{Resumo\textunderscore \allowbreak Reagente}{59}{section*.18}%
+\contentsline {paragraph}{Composicao\textunderscore \allowbreak Reagente}{59}{section*.19}%
+\contentsline {paragraph}{Especificacao\textunderscore \allowbreak Reagente}{60}{section*.20}%
+\contentsline {paragraph}{Lote}{61}{section*.21}%
+\contentsline {paragraph}{Frasco\textunderscore \allowbreak Reagente}{61}{section*.22}%
+\contentsline {paragraph}{Historico\textunderscore \allowbreak Frasco\textunderscore \allowbreak Reagente}{64}{section*.23}%
+\contentsline {paragraph}{Emprestimo\textunderscore \allowbreak Reagente}{64}{section*.24}%
+\contentsline {paragraph}{Turma}{66}{section*.25}%
+\contentsline {paragraph}{Historico\textunderscore \allowbreak Alunos\textunderscore \allowbreak Turma}{67}{section*.26}%
+\contentsline {paragraph}{Historico\textunderscore \allowbreak Posts\textunderscore \allowbreak Turma}{67}{section*.27}%
+\contentsline {paragraph}{Historico\textunderscore \allowbreak Comentario}{68}{section*.28}%
+\contentsline {paragraph}{Roteiro\textunderscore \allowbreak Experimento}{68}{section*.29}%
+\contentsline {paragraph}{Professor}{69}{section*.30}%
+\contentsline {paragraph}{Materia}{69}{section*.31}%
+\contentsline {paragraph}{Professor\textunderscore \allowbreak x\textunderscore \allowbreak Materia}{70}{section*.32}%
+\contentsline {paragraph}{Aluno}{70}{section*.33}%
+\contentsline {paragraph}{Bolsista}{70}{section*.34}%
+\contentsline {paragraph}{Convite\textunderscore \allowbreak Aluno}{70}{section*.35}%
+\contentsline {paragraph}{Notificacao}{71}{section*.36}%
+\contentsline {paragraph}{Aluno\textunderscore \allowbreak x\textunderscore \allowbreak Turma}{72}{section*.37}%
+\contentsline {paragraph}{Local}{72}{section*.38}%
+\contentsline {paragraph}{Post}{73}{section*.39}%
+\contentsline {paragraph}{Comentario}{73}{section*.40}%
+\contentsline {paragraph}{Registro\textunderscore \allowbreak de\textunderscore \allowbreak Auditoria}{74}{section*.41}%
+\contentsline {paragraph}{Lote\textunderscore \allowbreak Materializado}{74}{section*.42}%
+\contentsline {paragraph}{Auditoria\textunderscore \allowbreak Reconciliacao}{75}{section*.43}%
+\contentsline {paragraph}{Resumo\textunderscore \allowbreak Almoxarifado\textunderscore \allowbreak Diario}{75}{section*.44}%
+\contentsline {paragraph}{Resumo\textunderscore \allowbreak Reagente\textunderscore \allowbreak Diario}{76}{section*.45}%
+\contentsline {paragraph}{Resumo\textunderscore \allowbreak Bem\textunderscore \allowbreak Patrimonial\textunderscore \allowbreak Diario}{78}{section*.46}%
+\contentsline {paragraph}{Atividade\textunderscore \allowbreak Gestor\textunderscore \allowbreak Almoxarifado\textunderscore \allowbreak Mensal}{79}{section*.47}%
+\contentsline {paragraph}{Atividade\textunderscore \allowbreak Gestor\textunderscore \allowbreak Bens\textunderscore \allowbreak Patrimoniais\textunderscore \allowbreak Mensal}{79}{section*.48}%
+\contentsline {paragraph}{Complementos físicos obrigatórios e fontes de verdade.}{80}{section*.49}%
+\contentsline {paragraph}{Consultas e integridade do dicionário.}{83}{section*.50}%
+\contentsline {subsection}{\numberline {5.10}Estratégia de Busca Textual no Firestore}{83}{subsection.5.10}%
+\contentsline {subsubsection}{\numberline {5.10.1}Reagentes}{83}{subsubsection.5.10.1}%
+\contentsline {subsubsection}{\numberline {5.10.2}Bens Patrimoniais}{84}{subsubsection.5.10.2}%
+\contentsline {subsubsection}{\numberline {5.10.3}Alunos}{84}{subsubsection.5.10.3}%
+\contentsline {subsubsection}{\numberline {5.10.4}Professores}{84}{subsubsection.5.10.4}%
+\contentsline {subsection}{\numberline {5.11}Espelhamento Bidirecional da Associação Aluno--Turma}{84}{subsection.5.11}%
+\contentsline {section}{\numberline {6}Materialized (Views)}{86}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Tabela Materialized para Lote}{86}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Tabela Resumo de Almoxarifado - Diário}{86}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Tabela Resumo de Reagente/Solvente - Diário}{89}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}Tabela Resumo de Bens Patrimoniais - Diário}{90}{subsection.6.4}%
+\contentsline {subsection}{\numberline {6.5}Tabela de Atividade Mensal - Gestor de Almoxarifado}{90}{subsection.6.5}%
+\contentsline {subsection}{\numberline {6.6}Tabela de Atividade Mensal - Gestor de Bens Patrimoniais}{91}{subsection.6.6}%
+\contentsline {subsection}{\numberline {6.7}Catálogo de Métricas Disponíveis por Domínio}{91}{subsection.6.7}%
+\contentsline {section}{\numberline {7}Requisitos e Regras de Negócio}{92}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Requisitos funcionais}{92}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Regras de Negócio Gerais}{93}{subsection.7.2}%
+\contentsline {subsubsection}{\numberline {7.2.1}Status de um frasco de reagente}{93}{subsubsection.7.2.1}%
+\contentsline {subsubsection}{\numberline {7.2.2}Seleção do tipo em Resumo de Reagente}{93}{subsubsection.7.2.2}%
+\contentsline {subsubsection}{\numberline {7.2.3}Excluindo um Aluno de uma turma}{93}{subsubsection.7.2.3}%
+\contentsline {subsubsection}{\numberline {7.2.4}Chefe Geral}{94}{subsubsection.7.2.4}%
+\contentsline {subsubsection}{\numberline {7.2.5}O responsável pelo bem patrimonial não é um Usuário do sistema LCQUI}{94}{subsubsection.7.2.5}%
+\contentsline {subsubsection}{\numberline {7.2.6}Historico de Posts na Turma}{94}{subsubsection.7.2.6}%
+\contentsline {subsubsection}{\numberline {7.2.7}Não compartilhar o mesmo roteiro 2 vezes com um professor}{94}{subsubsection.7.2.7}%
+\contentsline {subsubsection}{\numberline {7.2.8}Densidade e concentração na especificação do reagente}{94}{subsubsection.7.2.8}%
+\contentsline {subsubsection}{\numberline {7.2.9}Regra para código do frasco de Reagente}{95}{subsubsection.7.2.9}%
+\contentsline {subsubsection}{\numberline {7.2.10}Segurança na Reimpressão de Frascos Cadastrados}{95}{subsubsection.7.2.10}%
+\contentsline {subsubsection}{\numberline {7.2.11}Regra em Notificação para Professor}{95}{subsubsection.7.2.11}%
+\contentsline {subsubsection}{\numberline {7.2.12}Regra para convidar um aluno que não está no sistema}{96}{subsubsection.7.2.12}%
+\contentsline {subsubsection}{\numberline {7.2.13}Regra para registrar um patrimônio como dado baixa}{96}{subsubsection.7.2.13}%
+\contentsline {subsubsection}{\numberline {7.2.14}Cálculo de Volume e Peso de Reagentes (Padrão de Laboratório)}{96}{subsubsection.7.2.14}%
+\contentsline {subsubsection}{\numberline {7.2.15}Exclusividade na retirada de reagentes}{97}{subsubsection.7.2.15}%
+\contentsline {subsubsection}{\numberline {7.2.16}Usuário Multi-role, exceto Chefe Geral}{97}{subsubsection.7.2.16}%
+\contentsline {subsubsection}{\numberline {7.2.17}Usuário Multi-role, Aluno não pode ser professor}{98}{subsubsection.7.2.17}%
+\contentsline {subsubsection}{\numberline {7.2.18}Usuário Multi-role, Quais multi papeis podem existir}{98}{subsubsection.7.2.18}%
+\contentsline {subsubsection}{\numberline {7.2.19}Aluno que é bolsista}{98}{subsubsection.7.2.19}%
+\contentsline {subsubsection}{\numberline {7.2.20}Status, vencimento e descarte de frascos}{98}{subsubsection.7.2.20}%
+\contentsline {subsubsection}{\numberline {7.2.21}Limites de Geração de Relatórios}{99}{subsubsection.7.2.21}%
+\contentsline {subsubsection}{\numberline {7.2.22}Almoxarifado inativo: operações bloqueadas e encerramento ordenado}{99}{subsubsection.7.2.22}%
+\contentsline {subsection}{\numberline {7.3}Matriz formal de obrigatoriedade e dependência de campos}{100}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Matriz de combinações Multi-Role}{101}{subsection.7.4}%
+\contentsline {subsection}{\numberline {7.5}Fluxo obrigatório para mutações críticas}{101}{subsection.7.5}%
+\contentsline {subsection}{\numberline {7.6}Atribuição e revogação de papéis}{101}{subsection.7.6}%
+\contentsline {subsubsection}{\numberline {7.6.1}RN-ROLE-01 — Chefe Geral não pode possuir múltiplos papéis}{101}{subsubsection.7.6.1}%
+\contentsline {subsubsection}{\numberline {7.6.2}RN-ROLE-02 — Chefe Geral não pode revogar o papel de outro Chefe Geral}{102}{subsubsection.7.6.2}%
+\contentsline {subsubsection}{\numberline {7.6.3}RN-ROLE-03 — Auto-revogação de Chefe Geral}{102}{subsubsection.7.6.3}%
+\contentsline {subsubsection}{\numberline {7.6.4}RN-ROLE-04 — Revogação de Chefe Geral desativa a conta}{102}{subsubsection.7.6.4}%
+\contentsline {subsubsection}{\numberline {7.6.5}RN-ROLE-05 — Almoxarifado deve possuir pelo menos um gestor}{102}{subsubsection.7.6.5}%
+\contentsline {subsubsection}{\numberline {7.6.6}RN-ROLE-06 — Gestores de Almoxarifado não possuem exclusividade sobre movimentações}{102}{subsubsection.7.6.6}%
+\contentsline {subsubsection}{\numberline {7.6.7}RN-ROLE-07 — Revogação de Gestor de Almoxarifado em usuário Multi-Role}{103}{subsubsection.7.6.7}%
+\contentsline {subsubsection}{\numberline {7.6.8}RN-ROLE-08 — Revogação de Gestor de Bens Patrimoniais em usuário Multi-Role}{103}{subsubsection.7.6.8}%
+\contentsline {subsubsection}{\numberline {7.6.9}RN-ROLE-09 — Gestor de Bens Patrimoniais não pode ser o único}{103}{subsubsection.7.6.9}%
+\contentsline {subsubsection}{\numberline {7.6.10}RN-ROLE-10 — Revogação do último papel desativa a conta}{103}{subsubsection.7.6.10}%
+\contentsline {subsubsection}{\numberline {7.6.11}RN-ROLE-11 — Revogação de papel não significa exclusão do usuário}{103}{subsubsection.7.6.11}%
+\contentsline {subsubsection}{\numberline {7.6.12}RN-ROLE-12 — Usuário Multi-Role}{104}{subsubsection.7.6.12}%
+\contentsline {subsubsection}{\numberline {7.6.13}RN-ROLE-13 — Usuário com apenas um papel}{104}{subsubsection.7.6.13}%
+\contentsline {subsubsection}{\numberline {7.6.14}RN-ROLE-14 — Recalculo dos Custom Claims}{104}{subsubsection.7.6.14}%
+\contentsline {subsubsection}{\numberline {7.6.15}RN-ROLE-15 — Auditoria das alterações de papéis}{104}{subsubsection.7.6.15}%
+\contentsline {paragraph}{Execução concorrente e sincronização de identidade.}{104}{section*.51}%
+\contentsline {paragraph}{Q04 e Q14: contrato de aceite e autoatendimento.}{104}{section*.52}%
+\contentsline {paragraph}{Retenção V1 (DP-D02).}{105}{section*.53}%
+\contentsline {paragraph}{Proteção e Escopo do localStorage.}{105}{section*.54}%
+\contentsline {section}{\numberline {8}Descrição das telas (Dashboards)}{105}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Header em comum em todos os papeis}{105}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Header quando o usuário é Multi-Role}{105}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}Dashboard-Chefe Geral}{106}{subsection.8.3}%
+\contentsline {subsubsection}{\numberline {8.3.1}Aba: Almoxarifados}{106}{subsubsection.8.3.1}%
+\contentsline {subsubsection}{\numberline {8.3.2}Aba: Bens Patrimoniais}{106}{subsubsection.8.3.2}%
+\contentsline {subsubsection}{\numberline {8.3.3}Aba: Professores}{107}{subsubsection.8.3.3}%
+\contentsline {subsubsection}{\numberline {8.3.4}Aba: Alunos}{107}{subsubsection.8.3.4}%
+\contentsline {subsection}{\numberline {8.4}Dashboard-Professor}{107}{subsection.8.4}%
+\contentsline {subsection}{\numberline {8.5}Dashboard-Gestor de Almoxarifado}{109}{subsection.8.5}%
+\contentsline {subsection}{\numberline {8.6}Dashboard-Gestor de Bens Patrimoniais}{110}{subsection.8.6}%
+\contentsline {subsection}{\numberline {8.7}Dashboard-Aluno}{111}{subsection.8.7}%
+\contentsline {subsection}{\numberline {8.8}Contratos detalhados das telas e modais}{112}{subsection.8.8}%
+\contentsline {subsubsection}{\numberline {8.8.1}UI-01: acesso, sessão, perfil e troca de papel}{112}{subsubsection.8.8.1}%
+\contentsline {paragraph}{Padrão visual, acessibilidade e estados.}{112}{section*.55}%
+\contentsline {subsubsection}{\numberline {8.8.2}UI-02: usuários, gestores e atribuição de papéis}{113}{subsubsection.8.8.2}%
+\contentsline {subsubsection}{\numberline {8.8.3}UI-03: almoxarifado, local e matéria}{113}{subsubsection.8.8.3}%
+\contentsline {subsubsection}{\numberline {8.8.4}UI-04: pesquisa, catálogo e detalhes}{114}{subsubsection.8.8.4}%
+\contentsline {subsubsection}{\numberline {8.8.5}UI-05: resumo químico, substância, especificação e lote}{114}{subsubsection.8.8.5}%
+\contentsline {subsubsection}{\numberline {8.8.6}UI-06: cadastrar, editar e pesar frasco}{115}{subsubsection.8.8.6}%
+\contentsline {subsubsection}{\numberline {8.8.7}UI-07: retirada, devolução, quarentena e descarte}{116}{subsubsection.8.8.7}%
+\contentsline {subsubsection}{\numberline {8.8.8}UI-08: etiquetas virgens e segunda via}{116}{subsubsection.8.8.8}%
+\contentsline {subsubsection}{\numberline {8.8.9}UI-09: patrimônio e análise de requisições}{117}{subsubsection.8.8.9}%
+\contentsline {subsubsection}{\numberline {8.8.10}UI-10: turmas, membros e convites}{117}{subsubsection.8.8.10}%
+\contentsline {subsubsection}{\numberline {8.8.11}UI-11: roteiros, posts e comentários}{118}{subsubsection.8.8.11}%
+\contentsline {subsubsection}{\numberline {8.8.12}UI-12: notificações, empréstimos próprios e relatórios}{119}{subsubsection.8.8.12}%
+\contentsline {subsubsection}{\numberline {8.8.13}UI-13: consultas, cache e armazenamento no navegador}{119}{subsubsection.8.8.13}%
+\contentsline {paragraph}{Q04 e Q14: contrato de aceite e autoatendimento.}{120}{section*.56}%
+\contentsline {section}{\numberline {9}Exemplos de fluxos}{121}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Fluxos complementares e critérios de completude}{121}{subsection.9.1}%
+\contentsline {subsubsection}{\numberline {9.1.1}Concessão do papel Bolsista}{121}{subsubsection.9.1.1}%
+\contentsline {subsubsection}{\numberline {9.1.2}Aceitação de convite}{121}{subsubsection.9.1.2}%
+\contentsline {subsubsection}{\numberline {9.1.3}Arquivamento e desarquivamento de turma}{121}{subsubsection.9.1.3}%
+\contentsline {subsubsection}{\numberline {9.1.4}Retirada de reagente}{121}{subsubsection.9.1.4}%
+\contentsline {subsubsection}{\numberline {9.1.5}Devolução de reagente}{121}{subsubsection.9.1.5}%
+\contentsline {subsection}{\numberline {9.2}Fluxos do usuário Gestor de Bem Patrimonial}{122}{subsection.9.2}%
+\contentsline {subsubsection}{\numberline {9.2.1}Adicionando um bem patrimonial do LCQUI no sistema}{122}{subsubsection.9.2.1}%
+\contentsline {subsubsection}{\numberline {9.2.2}Baixando a lista de bens inservíveis para dar baixa no SEI}{122}{subsubsection.9.2.2}%
+\contentsline {subsubsection}{\numberline {9.2.3}Baixando o relatório mensal Geral do Mês de Agosto}{122}{subsubsection.9.2.3}%
+\contentsline {subsubsection}{\numberline {9.2.4}Baixando relatório de bens materiais filtrado (Prédio P5, Andar 1)}{122}{subsubsection.9.2.4}%
+\contentsline {subsubsection}{\numberline {9.2.5}Verificando requisições pendentes de professores}{123}{subsubsection.9.2.5}%
+\contentsline {subsubsection}{\numberline {9.2.6}Aprovando uma requisição pendente}{123}{subsubsection.9.2.6}%
+\contentsline {subsubsection}{\numberline {9.2.7}Alterando um bem patrimonial para: Dado baixa}{123}{subsubsection.9.2.7}%
+\contentsline {subsection}{\numberline {9.3}Fluxos do usuário Professor}{123}{subsection.9.3}%
+\contentsline {subsubsection}{\numberline {9.3.1}Criando uma turma}{123}{subsubsection.9.3.1}%
+\contentsline {subsubsection}{\numberline {9.3.2}Adicionando Alunos em uma turma}{124}{subsubsection.9.3.2}%
+\contentsline {subsubsection}{\numberline {9.3.3}Criando um Post em uma turma}{124}{subsubsection.9.3.3}%
+\contentsline {subsubsection}{\numberline {9.3.4}Excluindo um Aluno de uma turma}{124}{subsubsection.9.3.4}%
+\contentsline {subsubsection}{\numberline {9.3.5}Respondendo um comentário de um aluno}{124}{subsubsection.9.3.5}%
+\contentsline {subsubsection}{\numberline {9.3.6}Pesquisando Reagente Químico para checar disponibilidade}{124}{subsubsection.9.3.6}%
+\contentsline {subsubsection}{\numberline {9.3.7}Pesquisando um bem patrimonial pelo Nome}{124}{subsubsection.9.3.7}%
+\contentsline {subsubsection}{\numberline {9.3.8}Pesquisando um bem patrimonial pelo número de patrimônio}{125}{subsubsection.9.3.8}%
+\contentsline {subsubsection}{\numberline {9.3.9}Requisitando alteração de conservação (de Bom para Ruim)}{125}{subsubsection.9.3.9}%
+\contentsline {subsubsection}{\numberline {9.3.10}Upload de Roteiro e compartilhamento com outros professores}{125}{subsubsection.9.3.10}%
+\contentsline {subsection}{\numberline {9.4}Fluxos do usuário Chefe Geral}{125}{subsection.9.4}%
+\contentsline {subsubsection}{\numberline {9.4.1}Criando um usuário Professor e usuário Gestor de Almoxarifado}{125}{subsubsection.9.4.1}%
+\contentsline {subsection}{\numberline {9.5}Fluxos do usuário Aluno}{125}{subsection.9.5}%
+\contentsline {subsubsection}{\numberline {9.5.1}Ingressando em uma Turma}{125}{subsubsection.9.5.1}%
+\contentsline {subsubsection}{\numberline {9.5.2}Baixando um roteiro e realizando um comentário}{126}{subsubsection.9.5.2}%
+\contentsline {subsection}{\numberline {9.6}Fluxos do Usuário Gestor de Almoxarifado}{126}{subsection.9.6}%
+\contentsline {subsubsection}{\numberline {9.6.1}Adicionando um frasco fechado de um reagente existente}{126}{subsubsection.9.6.1}%
+\contentsline {subsubsection}{\numberline {9.6.2}Adicionando um frasco já aberto de um novo reagente}{126}{subsubsection.9.6.2}%
+\contentsline {subsubsection}{\numberline {9.6.3}Realizando empréstimo (Retirada) de um frasco}{126}{subsubsection.9.6.3}%
+\contentsline {subsubsection}{\numberline {9.6.4}Devolvendo um frasco (Cálculo de Consumo)}{127}{subsubsection.9.6.4}%
+\contentsline {subsection}{\numberline {9.7}Cobertura operacional por papel e ação}{127}{subsection.9.7}%
+\contentsline {subsubsection}{\numberline {9.7.1}COM-01 --- Todos: Login, recuperar senha, perfil, sair e alternar papel}{127}{subsubsection.9.7.1}%
+\contentsline {subsubsection}{\numberline {9.7.2}CHE-01 --- Chefe: Criar usuário e atribuir Bolsista ou outro papel}{127}{subsubsection.9.7.2}%
+\contentsline {subsubsection}{\numberline {9.7.3}CHE-02 --- Chefe: Revogar papel ou autorrevogar chefia}{128}{subsubsection.9.7.3}%
+\contentsline {subsubsection}{\numberline {9.7.4}CHE-03 --- Chefe: Criar/ativar almoxarifado e vincular gestores}{128}{subsubsection.9.7.4}%
+\contentsline {subsubsection}{\numberline {9.7.5}CHE-04 --- Chefe: Consultar pessoas, turmas e atividade mensal}{128}{subsubsection.9.7.5}%
+\contentsline {subsubsection}{\numberline {9.7.6}CHE-05 --- Chefe: Operar catálogo, patrimônio, matéria, etiquetas e relatórios}{128}{subsubsection.9.7.6}%
+\contentsline {subsubsection}{\numberline {9.7.7}MAT-01 --- Professor/Chefe: Cadastrar e editar matéria}{128}{subsubsection.9.7.7}%
+\contentsline {subsubsection}{\numberline {9.7.8}PRO-01 --- Professor: Criar turma e copiar código}{128}{subsubsection.9.7.8}%
+\contentsline {subsubsection}{\numberline {9.7.9}PRO-02 --- Professor: Arquivar e desarquivar turma}{128}{subsubsection.9.7.9}%
+\contentsline {subsubsection}{\numberline {9.7.10}PRO-03 --- Professor: Convidar aluno com ou sem turma}{129}{subsubsection.9.7.10}%
+\contentsline {subsubsection}{\numberline {9.7.11}PRO-04 --- Professor: Gerenciar membros e remover aluno}{129}{subsubsection.9.7.11}%
+\contentsline {subsubsection}{\numberline {9.7.12}PRO-05 --- Professor: Cadastrar, visualizar e baixar roteiro}{129}{subsubsection.9.7.12}%
+\contentsline {subsubsection}{\numberline {9.7.13}PRO-06 --- Professor: Compartilhar, acompanhar e revogar compartilhamento}{129}{subsubsection.9.7.13}%
+\contentsline {subsubsection}{\numberline {9.7.14}PRO-07 --- Professor: Publicar/editar post e vincular roteiro próprio ou recebido}{129}{subsubsection.9.7.14}%
+\contentsline {subsubsection}{\numberline {9.7.15}PRO-08 --- Professor: Responder comentário e navegar por notificação}{129}{subsubsection.9.7.15}%
+\contentsline {subsubsection}{\numberline {9.7.16}PRO-09 --- Professor: Consultar reagentes, receber empréstimo e acompanhar consumo}{130}{subsubsection.9.7.16}%
+\contentsline {subsubsection}{\numberline {9.7.17}PRO-10 --- Professor: Pesquisar patrimônio e requisitar adição/edição}{130}{subsubsection.9.7.17}%
+\contentsline {subsubsection}{\numberline {9.7.18}ALU-01 --- Aluno: Aceitar convite ou ingressar por código}{130}{subsubsection.9.7.18}%
+\contentsline {subsubsection}{\numberline {9.7.19}ALU-02 --- Aluno: Visualizar turmas, colegas, posts e baixar roteiro}{130}{subsubsection.9.7.19}%
+\contentsline {subsubsection}{\numberline {9.7.20}ALU-03 --- Aluno: Comentar e ler notificações}{130}{subsubsection.9.7.20}%
+\contentsline {subsubsection}{\numberline {9.7.21}ALU-04 --- Aluno: Consultar estoque sem retirar}{130}{subsubsection.9.7.21}%
+\contentsline {subsubsection}{\numberline {9.7.22}BOL-01 --- Bolsista: Ações acadêmicas, consulta e retirada/devolução como destinatário}{130}{subsubsection.9.7.22}%
+\contentsline {subsubsection}{\numberline {9.7.23}ALM-01 --- Gestor Almox.: Cadastrar/editar resumo, substância, especificação e lote}{131}{subsubsection.9.7.23}%
+\contentsline {subsubsection}{\numberline {9.7.24}ALM-02 --- Gestor Almox.: Cadastrar frasco fechado ou aberto}{131}{subsubsection.9.7.24}%
+\contentsline {subsubsection}{\numberline {9.7.25}ALM-03 --- Gestor Almox.: Pesquisar, editar localização, abrir e ajustar estoque por pesagem}{131}{subsubsection.9.7.25}%
+\contentsline {subsubsection}{\numberline {9.7.26}ALM-04 --- Gestor Almox.: Registrar retirada e autorizar uso didático de vencido}{131}{subsubsection.9.7.26}%
+\contentsline {subsubsection}{\numberline {9.7.27}ALM-05 --- Gestor Almox.: Receber devolução de empréstimo próprio ou de outro gestor}{131}{subsubsection.9.7.27}%
+\contentsline {subsubsection}{\numberline {9.7.28}ALM-06 --- Gestor Almox.: Tratar alertas, quarentena, extravio, reencontro, vazio, quebra e descarte}{131}{subsubsection.9.7.28}%
+\contentsline {subsubsection}{\numberline {9.7.29}ALM-07 --- Gestor Almox.: Imprimir etiquetas virgens ou segunda via}{132}{subsubsection.9.7.29}%
+\contentsline {subsubsection}{\numberline {9.7.30}ALM-08 --- Gestor Almox.: Gerar relatório de um ou todos os almoxarifados autorizados}{132}{subsubsection.9.7.30}%
+\contentsline {subsubsection}{\numberline {9.7.31}PAT-01 --- Gestor Patr.: Criar resumo, cadastrar e editar bem}{132}{subsubsection.9.7.31}%
+\contentsline {subsubsection}{\numberline {9.7.32}PAT-02 --- Gestor Patr.: Pesquisar, filtrar e consultar histórico}{132}{subsubsection.9.7.32}%
+\contentsline {subsubsection}{\numberline {9.7.33}PAT-03 --- Gestor Patr.: Analisar, aprovar ou rejeitar pedido}{132}{subsubsection.9.7.33}%
+\contentsline {subsubsection}{\numberline {9.7.34}PAT-04 --- Gestor Patr.: Gerar relação de inservíveis e registrar baixa após SEI}{132}{subsubsection.9.7.34}%
+\contentsline {subsubsection}{\numberline {9.7.35}PAT-05 --- Gestor Patr.: Gerar relatório mensal, personalizado ou individual}{133}{subsubsection.9.7.35}%
+\contentsline {paragraph}{Q04 e Q14: contrato de aceite e autoatendimento.}{133}{section*.57}%
+\contentsline {section}{\numberline {10}Tecnologia e Relatórios (Vercel / Firebase)}{134}{section.10}%
+\contentsline {subsection}{\numberline {10.1}Para relatórios}{134}{subsection.10.1}%
+\contentsline {subsubsection}{\numberline {10.1.1}Assinatura Lógica de Relatórios (Hash Canônico)}{134}{subsubsection.10.1.1}%
+\contentsline {subsubsection}{\numberline {10.1.2}Prevenção de Limites de Leitura Firestore (N+1)}{134}{subsubsection.10.1.2}%
+\contentsline {subsubsection}{\numberline {10.1.3}Módulo de Geração de Etiquetas (PDF)}{134}{subsubsection.10.1.3}%
+\contentsline {subsection}{\numberline {10.2}Princípio: nunca confiar no \textit {client-side}}{135}{subsection.10.2}%
+\contentsline {subsubsection}{\numberline {10.2.1}Funções de Apoio (Autorização)}{135}{subsubsection.10.2.1}%
+\contentsline {subsubsection}{\numberline {10.2.2}Revogação de Papel com Singleton de Controle de Concorrência (M-14, N-01)}{138}{subsubsection.10.2.2}%
+\contentsline {subsubsection}{\numberline {10.2.3}Fluxo de Reagentes: Cadastro, Retirada e Devolução}{141}{subsubsection.10.2.3}%
+\contentsline {subsubsection}{\numberline {10.2.4}Validação síncrona de validade no cadastro e na abertura}{164}{subsubsection.10.2.4}%
+\contentsline {subsubsection}{\numberline {10.2.5}Jobs Agendados: Vencimento, Atraso e Materialização}{165}{subsubsection.10.2.5}%
+\contentsline {paragraph}{Pré-requisito: Backfill Legado e Reconciliação (R3.1)}{172}{section*.58}%
+\contentsline {subsubsection}{\numberline {10.2.6}Fluxo de Bens Patrimoniais: Requisições}{175}{subsubsection.10.2.6}%
+\contentsline {subsubsection}{\numberline {10.2.7}Relatórios em PDF}{188}{subsubsection.10.2.7}%
+\contentsline {subsection}{\numberline {10.3}Consolidação do planejamento complementar e contrato de execução}{194}{subsection.10.3}%
+\contentsline {paragraph}{Etiquetas e geometria.}{195}{section*.59}%
+\contentsline {paragraph}{Contador e auditoria.}{195}{section*.60}%
+\contentsline {paragraph}{Relatórios, transporte e integridade.}{195}{section*.61}%
+\contentsline {paragraph}{Garantias de execução.}{195}{section*.62}%
+\contentsline {paragraph}{Ambiente e documentação operacional.}{196}{section*.63}%
+\contentsline {paragraph}{Referências técnicas verificadas.}{196}{section*.64}%
+\contentsline {paragraph}{Contratos dos auxiliares Q04/Q14.}{196}{section*.65}%
+\contentsline {subsubsection}{\numberline {10.3.1}Contratos complementares pós-auditoria}{196}{subsubsection.10.3.1}%
+\contentsline {section}{\numberline {11}Regras de Segurança do Firestore (Security Rules)}{204}{section.11}%
+\contentsline {subsection}{\numberline {11.1}Regras por Coleção}{204}{subsection.11.1}%
+\contentsline {subsection}{\numberline {11.2}Contrato de acesso para os fluxos detalhados}{206}{subsection.11.2}%
+\contentsline {subsection}{\numberline {11.3}Moderação: autorização por documento e resposta filtrada}{207}{subsection.11.3}%
+\contentsline {section}{\numberline {12}Implementações em Estudo para Versões Futuras}{208}{section.12}%
+\contentsline {subsection}{\numberline {12.1}Por que \texttt {GASOSO} sozinho não basta}{208}{subsection.12.1}%
+\contentsline {subsection}{\numberline {12.2}Proposta de campos (apenas ilustrativa)}{208}{subsection.12.2}%
+\contentsline {subsection}{\numberline {12.3}Além do enum: medição de gases não é pesagem}{209}{subsection.12.3}%
+\contentsline {subsection}{\numberline {12.4}Horários de Turma}{209}{subsection.12.4}%
+\contentsline {subsection}{\numberline {12.5}Lotação física de professores (V2)}{209}{subsection.12.5}%
