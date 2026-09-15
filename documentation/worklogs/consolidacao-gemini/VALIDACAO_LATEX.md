@@ -19,7 +19,7 @@ Registro de todas as compilações desta sessão. Cada lote requer build indepen
 | 2026-09-14T14:40 | Lote 2.2 Complemento V6 | dc9c50db | `... latexmk -cd -pdf -interaction=nonstopmode -halt-on-error -outdir=/tmp/lcqui-tex-lote2-2-complemento-v6 documentation/main.tex > ...` | **0** | **199** | **0** | **0** | — | — | limpo | Sim (PDF-016) | PDF-016 exclusão corrigida: removida trigger baseada em event.time. Adotado evento de domínio (outbox) `FRASCO_REMOVIDO` gravado transacionalmente com serverTimestamp(). Temporalidade 100% Spanner. |
 | 2026-09-14T15:13 | Lote 3A (Vocabulário e Modelo Canônico) | 9db6707a | `... latexmk -cd -pdf -interaction=nonstopmode -halt-on-error -outdir=/tmp/lcqui-tex-lote3a documentation/main.tex > ...` | **0** | **199** | **0** | **0** | — | — | limpo | Sim (Sec 4, 5, 6, 11, 12) | PDF-012, EXTRA-001, PDF-022, PDF-024, EXTRA-003. |
 | 2026-09-14T15:23 | Complemento 3A.1 | 7c4be0f2 | `... latexmk -cd -pdf -interaction=nonstopmode -halt-on-error -outdir=/tmp/lcqui-tex-lote3a1 documentation/main.tex > ...` | **0** | **200** | **0** | **0** | — | — | limpo | Sim (Sec 4, 12) | Correção da regressão 3FN em Lote (PDF-012), removendo a FK id_resumo_reagente da Sec 4. Acerto do Contract Card correspondente e da menção ao modelo Firestore (Sec 5) na Sec 12. |
-
+| 2026-09-14T23:06 | Lote 3B.1-R3.1 (Correção Semântica) | 7d8d0b4c | `nix shell nixpkgs#texliveFull -c latexmk -cd -pdf -interaction=nonstopmode -halt-on-error -outdir=/tmp/lcqui-tex-final documentation/main.tex` | **0** | **208** | **0** | **0** | — | — | limpo | Sim (Sec 4, 5, 10.5, 10.7, 10.9) | Compilação aprovada após correção de sintaxe (`\end{lstlisting}`). PDF gerado com 208 páginas. |
 ## Regras
 
 - Build anterior de outra sessão NÃO valida alterações desta sessão.
