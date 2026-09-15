@@ -7,7 +7,7 @@ import PDFDocument from "pdfkit-table";
 // PDF-026: Diferenciação Nominal vs Físico e Extravio
 // 1. O relatório deve usar EXCLUSIVAMENTE a propriedade medida_utilizada (saldo físico real e consumo medido)
 //    e JAMAIS considerar conteudo_nominal como estoque disponível, evitando que saldos desconhecidos sejam mascarados.
-// 2. Frascos com estado EXTRAVIADO possuem disponibilidade INDISPONIVEL e não devem ser contados 
+// 2. Frascos com estado EXTRAVIADO não devem ser contados como aptos. O predicado apto_para_retirada exige estado_fisico_frasco IN {FECHADO, ABERTO}.
 //    como estoque ativo. Eles devem aparecer segregados em seções de perdas/extravios.
 
 interface FiltrosAlmoxarifado {
