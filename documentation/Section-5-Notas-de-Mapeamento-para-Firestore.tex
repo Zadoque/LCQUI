@@ -276,6 +276,7 @@ Caminho: \texttt{Almoxarifado/\{id\}}.
 \item[\texttt{id\_local}] string; O. Identificador da entidade local, cuja existência e escopo são verificados no servidor.
 \item[\texttt{nome}] string; O. Nome de apresentação; não substitui a chave do documento. Máximo 100 caracteres.
 \item[\texttt{descricao}] string; O. Valor de descricao, validado pelo formulário e pelo servidor conforme regras do domínio. Máximo 500 caracteres.
+\item[\texttt{ativo}] boolean; O. Indica se o almoxarifado está ativo (necessário para jobs automáticos).
 \end{description}
 
 \paragraph{Estoques\_Configurados}\mbox{}\par
@@ -561,7 +562,7 @@ Caminho: \texttt{Usuarios/\{uid\}/Notificacoes/\{id\}}.
 \item[\texttt{lida}] boolean; O. Estado de leitura da notificação; true preserva o registro em vez de excluí-lo.
 \item[\texttt{lida\_em}] Timestamp; N. Instante servidor de marcação de leitura; null enquanto não lida.
 \item[\texttt{emitida\_em}] Timestamp; O. Data/instante de emitida em, com ordem temporal validada e autoria do relógio do servidor para eventos.
-\item[\texttt{expira\_em}] Timestamp; O. Instante de expiração de convite/notificação; não equivale a autorização de excluir auditoria.
+\item[\texttt{expira\_em}] Timestamp; N. Instante de expiração de convite/notificação. Condicional: é NULL para notificações que constituem registros operacionais persistentes (ex: ESCASSEZ\_ESTOQUE). Expiração não equivale à exclusão automática sem regra específica.
 \end{description}
 
 \paragraph{Aluno\_x\_Turma}\mbox{}\par
@@ -749,7 +750,7 @@ Caminho: \texttt{Atividade\_Gestor\_Bens\_Patrimoniais\_Mensal/\{id\}}.
 \item[Locks] Locks\_Requisicao\_Patrimonio contém \texttt{id\_requisicao}, \texttt{tipo} (ADICAO/EDICAO), \texttt{chave\_recurso} (string O) e \texttt{criado\_em} (Timestamp O). Lock e requisição são atômicos; limpeza só após verificar inexistência de pendência vinculada.
 \item[Unicidade técnica] \texttt{Chaves\_Unicas/chaveHash}: \texttt{tipo}, \texttt{id\_recurso} (strings O), \texttt{criado\_em} (Timestamp O). Chave determinística derivada do valor normalizado e domínio (ex: \texttt{Bem\_Patrimonial\_\_\{numero\}} para plaqueta, matrícula, CAS, matéria, local, código turma, lote ou convite pendente); nunca expor e-mail na chave. Criar/liberar na mesma transação do recurso. A implementação exige \textbf{backfill} populando esta coleção para todos os registros preexistentes antes de ativar a verificação transacional.
 \item[Deduplicação de Eventos] \texttt{Eventos\_Processados/eventId}: \texttt{processado\_em} (Timestamp O). Usado em transações originadas por triggers (ex: \texttt{onDocumentCreated}) para converter a entrega "at-least-once" do Cloud Functions em processamento "exactly-once".
-\item[Operações técnicas] \texttt{Operacoes/id}: \texttt{uid}, \texttt{acao}, \texttt{recurso}, \texttt{hash\_entrada} (strings O), \texttt{status} (PENDENTE/CONCLUIDA/FALHOU), \texttt{resultado} (map N), \texttt{criado\_em}, \texttt{atualizado\_em} (Timestamp O). Chave é vinculada ao ator/ação; repetição com entrada diferente é rejeitada. Suporta idempotência, notificações e reconciliação Auth/Storage. Leitura restrita ao solicitante por resposta mínima; escrita servidor.
+\item[Operações técnicas] \texttt{Operacoes/id}: \texttt{uid}, \texttt{tipo\_operacao}, \texttt{payload\_hash} (strings O, hash SHA-256 canônico do payload), \texttt{status} (PENDENTE/CONCLUIDA/FALHOU), \texttt{resultado} (map N), \texttt{criado\_em}, \texttt{atualizado\_em} (Timestamp O). Chave é vinculada ao ator/ação e payload; repetição com entrada diferente é rejeitada com ALREADY\_EXISTS (idempotência semântica rigorosa). Leitura restrita ao solicitante por resposta mínima; escrita servidor.
 \item[Controle de papéis] \texttt{Controle\_Papeis/singleton}: \texttt{chefes\_ativos}, \texttt{gestores\_patrimoniais\_ativos} (inteiros não negativos O), \texttt{versao} (inteiro O). Atualizado na mesma transação das concessões/revogações para impedir retirada concorrente do último responsável.
 \item[Materializações] Chaves por lote; data+almoxarifado; data+resumo+almoxarifado; data+local (sentinela GERAL); gestor+ano+mês. Todos os campos de métricas do dicionário são calculados no servidor. Acrescentar \texttt{calculado\_em} (Timestamp O) e \texttt{versao\_calculo} (inteiro O); reprocessar a mesma janela substitui resultado ou deduplica eventos, sem somar duas vezes. Não somar linha GERAL às linhas locais. Métrica legada de volume total usado é alias do consumo ml e não uma parcela adicional.
 \end{description}
