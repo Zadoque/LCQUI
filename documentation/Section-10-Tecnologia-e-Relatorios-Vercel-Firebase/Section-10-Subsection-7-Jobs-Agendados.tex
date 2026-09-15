@@ -238,3 +238,67 @@ export const reconciliarContadoresLote = onSchedule({
 });
 \end{lstlisting}
 
+\begin{lstlisting}[language=TypeScript, title={Escassez de Estoque Baseada em Configuração por Almoxarifado}]
+import { DateTime } from "luxon";
+
+export const verificarEscassezDeEstoque = onSchedule({
+  schedule: "every day 04:00",
+  timeZone: "America/Sao_Paulo"
+}, async () => {
+  const db = admin.firestore();
+  const hojeISO = DateTime.now().setZone("America/Sao_Paulo").toISODate();
+  
+  const almoxarifados = await db.collection("Almoxarifado").get();
+  
+  for (const almoxDoc of almoxarifados.docs) {
+    const idAlmox = almoxDoc.id;
+    
+    // 1. Busca configurações ativas de escassez para o almoxarifado
+    const estoquesConfig = await db.collection(`Almoxarifado/${idAlmox}/Estoques_Configurados`)
+      .where("ativo", "==", true)
+      .where("notificacao_ativa", "==", true)
+      .get();
+      
+    for (const configDoc of estoquesConfig.docs) {
+      const config = configDoc.data();
+      const qtdLimiar = config.qtd_limiar_escassez;
+      
+      // 2. Conta saldo físico disponível
+      // (Não entra EXTRAVIADO, DESCARTADO, etc. Vencidos ou em quarentena também são isolados)
+      const frascosAptosQuery = db.collection("Frasco_Reagente")
+        .where("id_almoxarifado", "==", idAlmox)
+        .where("id_especificacao_reagente", "==", config.id_especificacao_reagente)
+        .where("estado_fisico_frasco", "in", ["FECHADO", "ABERTO"])
+        .where("em_quarentena", "==", false)
+        .where("vencido", "==", false);
+        
+      const aptosSnap = await frascosAptosQuery.count().get();
+      const qtdAptos = aptosSnap.data().count;
+      
+      // 3. Emite notificação idempotente se o saldo for menor ou igual ao limiar
+      if (qtdAptos <= qtdLimiar) {
+        const notifId = `${configDoc.id}_${hojeISO}`;
+        const notifRef = db.collection("Notificacao").doc(notifId);
+        
+        try {
+          // Idempotência via create(). Nunca usar set(.., { merge: true }) com propriedade 'lida: false'
+          // senão reexecuções do job apagarão o status de lida da notificação já vista pelo usuário.
+          await notifRef.create({
+            tipo: "ESCASSEZ_ESTOQUE",
+            id_almoxarifado: idAlmox,
+            id_especificacao_reagente: config.id_especificacao_reagente,
+            qtd_atual: qtdAptos,
+            qtd_limiar: qtdLimiar,
+            lida: false,
+            criado_em: admin.firestore.FieldValue.serverTimestamp()
+          });
+        } catch (error: any) {
+          if (error.code !== 6) { // 6 = ALREADY_EXISTS (esperado na idempotência)
+            console.error("Erro inesperado ao criar notificação de escassez:", error);
+          }
+        }
+      }
+    }
+  }
+});
+\end{lstlisting}
