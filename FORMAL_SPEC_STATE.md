@@ -80,7 +80,7 @@ M0 IMPLEMENTED. Pipeline CUE → IR → Alloy/resultados → Rust → .tex → L
 - Worklog durável: documentation/worklogs/formal-spec/M0_VALIDATION.md.
 
 ## 11. Trabalho em andamento
-Fechamento documental e commit final de integração. Não há processo de build necessário pendente. CI hospedada não conectada; o gate local just formal-check está executável e validado em ambiente provisionado. A homologação operacional completa da aplicação não foi afirmada.
+Sessão encerrada a pedido do usuário para desligar o computador. Commit final de integração concluído; nenhuma tarefa nova iniciada. Não há processo de build necessário pendente. CI hospedada não conectada; o gate local just formal-check está executável e validado em ambiente provisionado. A homologação operacional completa da aplicação não foi afirmada.
 
 ## 12. Próxima ação EXATA
 Na retomada, confirmar branch/status/log, executar `just formal-check` com o ambiente da seção 6. Antes de marcar M0 integralmente VALIDATED ou iniciar M1, reproduzir as duas falhas preexistentes com os comandos da seção 14 e ler `frontend/src/app/reagentes/page.tsx:524`, a interface ModalProps correspondente (localizar `rg -n 'interface ModalProps|tipoSubstanciaResumo' frontend/src`) e `functions/src/__tests__/domain/roles.test.ts` junto de `functions/src/auth.ts:96`. Preparar diagnóstico separado dessas falhas; não alterar regra 3B, não reescrever UI/backend nem mascarar teste para obter PASS. Definir tratamento das pendências fora da fatia formal antes de declarar aplicação completamente validada. Não repetir auditoria documental inteira.
@@ -156,10 +156,10 @@ Frasco completo, Firestore/projeções, contratos completos de retirada, demais 
 - 672fc65a — chore(spec): add formal specification state (somente estado, antes da camada).
 - 0f679e33 — feat(spec): validate partial bottle model with CUE and Alloy.
 - 2e5c8f79 — feat(spec-doc): generate deterministic bottle documentation.
-- Próximo commit: docs(spec): integrate and validate M0 formal documentation. SHA será registrado após execução; um commit não pode conter o próprio SHA.
+- cbd0eba4 — docs(spec): integrate and validate M0 formal documentation.
 
 ## 20. Estado do Git
-Antes do commit final: somente estado, justfile, READMEs/knowledge, worklog formal, Formal-Spec-M0.tex e main.tex/main.pdf alterados/novos. Generated está commitado e sem diff após regeneração. Aplicação/configuração/worklogs 3B intactos. Conferir status após commit. Atualização pós-commit do próprio estado pode ficar pendente intencionalmente para registrar SHA sem recursão de commits.
+Após cbd0eba4, git status confirmou árvore limpa na branch correta. Em seguida, somente FORMAL_SPEC_STATE.md foi atualizado para registrar o SHA e o encerramento solicitado pelo usuário. O usuário solicitou em seguida commitar também esta atualização e enviar a branch para origin (git@github.com:Zadoque/LCQUI.git). Este checkpoint será salvo no commit de assunto `chore(spec): save final handoff state`; identificar seu SHA com `git log -1 --format=%H --grep="save final handoff state"`. O resultado do push deve ser confirmado por `git status --short --branch` e `git ls-remote origin refs/heads/feat/formal-spec-cue-alloy`; não presumir sucesso apenas deste registro anterior ao envio. Todo código, documentação, PDF e generated estão commitados. Aplicação/configuração/worklogs 3B intactos. Não há processo necessário em execução.
 
 ## 21. Como uma nova IA deve continuar
 Ler este arquivo; confirmar status/log/branch; ler fontes indicadas; repetir gates mínimos e seguir seção 12. Não replanejar do zero nem reabrir 3B. Atualizar este arquivo após unidades pequenas, validações, descobertas, antes de tarefas longas e antes/depois de commits. Nunca descartar atualização pós-commit do estado. Usar NOT_STARTED/IN_PROGRESS/BLOCKED/IMPLEMENTED/VALIDATED; só VALIDATED conclui um escopo. Não marcar homologação operacional com testes falhando.
