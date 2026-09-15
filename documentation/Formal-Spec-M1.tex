@@ -1,0 +1,35 @@
+\clearpage
+\section{Camada formal M1: catálogo de reagentes}
+A primeira ampliação cobre os registros normalizados de resumo e especificação
+das Seções 4 e 5. Os schemas CUE descrevem registros existentes, com todos os
+campos presentes: um campo que admite nulo recebe \texttt{null} explicitamente.
+Essa representação não é um payload de criação, não insere valores padrão e
+não é o corpo de um documento Firestore. Os IDs relacionais são inteiros; no
+Firestore, o docId e as referências são strings, conforme o mapeamento existente.
+
+A condição de pesagem exige frequência inteira positiva quando habilitada e
+nulo quando desabilitada. O schema do par resumo/especificação exige que a FK
+aponte para o resumo apresentado; para líquido, exige densidade positiva.
+Isso não comprova existência de registros no banco nem imutabilidade após
+confirmação. Essas verificações continuam sendo responsabilidade das transações
+e das futuras especificações comportamentais.
+
+\input{generated/entities/resumo_reagente.tex}
+\input{generated/firestore/resumo_reagente.tex}
+
+\clearpage
+\input{generated/entities/especificacao_reagente.tex}
+\input{generated/firestore/especificacao_reagente.tex}
+
+\subsection*{Limites da migração M1}
+Composição, estoque mínimo, identidade química global, normalização de nomes,
+imutabilidade e autorização não foram migrados integralmente. As notas de
+mapeamento acima registram decisões existentes, sem constituir um schema
+Firestore completo. Nenhum campo foi movido entre resumo e especificação;
+nenhuma implementação de interface ou backend foi gerada ou substituída.
+
+Os testes CUE incluem exemplos aceitos e rejeitados, limites de texto Unicode,
+escala decimal, ausência versus nulo, enums e condições entre registros.
+O IR v2 transporta várias entidades; o gerador ainda lê o IR v1 do M0 e mantém
+seus fragmentos. As assertions Alloy apresentadas na seção anterior continuam
+restritas à retirada abstrata do M0, não ao catálogo M1.

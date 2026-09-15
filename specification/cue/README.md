@@ -1,22 +1,31 @@
-# CUE estrutural — fatia M0
+# CUE estrutural — M0 e M1
 
-Fonte: `domain/frasco.cue`. `#Frasco` é parcial e fechado: valida somente a fatia,
-não um documento Firestore completo. Todos os três campos são obrigatórios e
-não aceitam null; disponibilidade não implica aptidão. Descritores normativos de campo
-geram tanto o schema (#Valor) quanto a projeção documental. `docs/projection.cue` contém uma
-projeção concreta com exemplo unificado ao schema, não exporta `#Definition`
-implicitamente. Tipos e obrigatoriedade são derivados dos descritores #Enum/#Boolean e da
-compreensão que constrói #Frasco; não há segundo schema documental.
+- `domain/frasco.cue`: fatia M0 fechada de três dimensões do frasco.
+- `domain/resumo_reagente.cue`: registro normalizado de Resumo_Reagente.
+- `domain/especificacao_reagente.cue`: registro normalizado e par com resumo.
+- `domain/campos_catalogo.cue`: descritores que geram constraints e documentação.
+- `docs/projection.cue`: IR v2 concreto de três entidades, com exemplos validados.
+- `firestore/mapeamentos.cue`: notas documentais de mapeamento, não schemas de
+  documentos completos. Composição ainda não migrada.
+
+Os registros M1 têm IDs relacionais inteiros, todos os campos presentes e null
+explícito quando permitido. Não são payloads de criação: defaults SQL não são
+injetados. DocIds e FKs Firestore são strings; o mapeamento não muda o backend.
+
+Fontes: Seção 4, entidades Resumo/Especificação; Seção 5, dicionário físico.
+`#ParCatalogo` valida igualdade da FK e exige densidade para LIQUIDO. A existência
+global da FK e a imutabilidade de densidade não são provadas por um par estático.
 
 ```sh
 cd specification/cue
 cue fmt ./...
 cue vet ./...
-cue vet -c ./domain ./tests/valid/fechado.json -d '#Frasco'
+cue vet -c ./domain ./tests/catalogo/resumo/valid/liquido.json -d '#ResumoReagente'
+cue vet -c ./domain ./tests/catalogo/par/valid/liquido.json -d '#ParCatalogo'
 cue export ./docs -e ir
 ```
 
-Na raiz: `just spec-check` inclui fixtures negativas e gate de formatação;
-`just spec-export` valida e escreve `build/spec-ir.json`.
-Fonte congelada: Seção 4, entidade Frasco_Reagente; Seção 10.5, retirada.
-Campos de pesos, datas e projeções Firestore aguardam próximos milestones.
+Na raiz, `just spec-check` inclui todos os grupos de fixtures e gate de formatação;
+`just spec-export` escreve build/spec-ir.json. Não exportar #Definition supondo
+que será incluída automaticamente; o objeto concreto `ir` importa o domínio.
+Campos `!` em M1 exigem presença, mesmo se a constraint puder inferir null.

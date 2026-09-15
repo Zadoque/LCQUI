@@ -22,3 +22,7 @@ inclui hashes do modelo e IR. Falhas retêm receipt e instâncias em /tmp; regis
 CONTRAEXEMPLO PÓS-3B no estado antes de corrigir. O vínculo CUE/Alloy é rastreado
 por hash e vocabulário, sem alegar tradução automática ou equivalência completa.
 `just alloy-check` atualiza `build/formal-validation.json`.
+
+Com IR v2, o wrapper seleciona somente a entidade `frasco_reagente` para conferir
+vocabulário. Os hashes vinculam o IR completo aos resultados, mas a presença de
+Resumo/Especificação no IR não amplia o escopo dos checks Alloy M0.

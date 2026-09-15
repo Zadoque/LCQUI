@@ -1,7 +1,7 @@
 # Documentação LCQUI
 
 `main.tex` continua reunindo o conteúdo humano existente. A adição M0 está em
-`Formal-Spec-M0.tex`, que inclui fragmentos mecânicos de `generated/`. Não editar
+`Formal-Spec-M0.tex`; M1 está em `Formal-Spec-M1.tex`. Ambos incluem fragmentos mecânicos de `generated/`. Não editar
 esses fragmentos manualmente. Os worklogs da Fase 3B permanecem intactos.
 
 O procedimento completo de Nix, logs e inspeção visual está em

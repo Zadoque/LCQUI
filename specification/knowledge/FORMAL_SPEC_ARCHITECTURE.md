@@ -13,3 +13,11 @@ CUE → spec-ir.json e Alloy → formal-validation.json → Rust → generated �
 O validador exporta CUE antes de Alloy e vincula hashes; não há geração de Alloy
 pelo Rust. Não presumir equivalência semântica automática entre linguagens.
 `just formal-check` é o gate local utilizável por CI em ambiente provisionado.
+
+## Ampliação M1
+
+Os registros normalizados de resumo/especificação usam IDs relacionais inteiros
+conforme Seção 4 e campos nullable explícitos. As notas da Seção 5 documentam
+IDs string/docId e denormalizações; não são um segundo schema do catálogo nem
+validação completa de Firestore. CUE valida o par local; Alloy permanece M0.
+IR v2 contém entidades[] e Rust 0.2.0 mantém compatibilidade de leitura v1.

@@ -1,8 +1,7 @@
 # lcqui-spec-doc
 
 Gerador Rust determinístico, sem lógica de backend. Lê `build/spec-ir.json` e
-`build/formal-validation.json`, verifica hashes e resultados, renderiza dois
-fragmentos e `MANIFEST.json`. Nenhum timestamp ou caminho local entra na saída.
+`build/formal-validation.json`, verifica hashes e resultados, renderiza fragmentos de entidades, mapeamentos e invariantes, além de `MANIFEST.json`. Nenhum timestamp ou caminho local entra na saída.
 
 Dependências: serde/serde_json (IR tipado, JSON e manifest) e sha2 (proveniência).
 Cargo.lock fixa versões; templates simples são funções Rust em `src/render.rs`.

@@ -1,59 +1,65 @@
 # LCQUI — Formal Specification State
 
 ## 1. Propósito desta fase
-Camada formal ADITIVA: CUE + Alloy especificam a aplicação existente; Rust apenas gera documentação LaTeX determinística. Nesta sessão foi implementado somente M0. Não reiniciar auditoria, não fazer migração big-bang, não criar branch nem substituir UI/backend.
+Camada formal ADITIVA. CUE + Alloy especificam a aplicação; Rust somente gera documentação LaTeX determinística. M0 e M1 foram concluídos em rodadas separadas. Não reiniciar auditoria, fazer big-bang, criar branch ou substituir UI/backend. Nesta rodada foi implementado somente M1.
 
 ## 2. Baseline congelado da Fase 3B
 - FUNCTIONAL_SHA = db29ea2f17dc785fb0b44ffb3aec16db29c45e94
 - EVIDENCE_HEAD = 9d97ed30b4e7b7805f3d71802816d5d16abc496e
 - SEMANTIC_GATE = PASS; FASE 3B = ENCERRADA.
-- Worklogs finais lidos: CHECKPOINT.md, VALIDACAO_LATEX.md, LOTE_3B_CONTRACT_CARDS.md em documentation/worklogs/consolidacao-gemini/. A auditoria terminou com liberação para CUE/Alloy. O CHECKPOINT histórico menciona 208 páginas; o registro final db29ea2f em VALIDACAO_LATEX documenta 211. Nenhum deles foi alterado.
-- Regras congeladas: unknown/nonmeasurable/peso ausente != zero; disponibilidade DISPONIVEL|EMPRESTADO indica ausência/presença de empréstimo ativo, não aptidão; conteudo_nominal é original do fabricante/rótulo; extravio não inventa peso_retorno; reencontro exige quarentena e não reabre empréstimo; Q06=max(0,peso_saida-peso_retorno), tara posterior não reescreve histórico; mesma chave+ator+payload canônico produz mesmo resultado, divergência rejeitada; estoque mínimo Especificação×Almoxarifado, escassez qtd_aptos<limite; timezone America/Sao_Paulo.
+- Auditoria terminou com liberação CUE/Alloy nos worklogs CHECKPOINT.md, VALIDACAO_LATEX.md e LOTE_3B_CONTRACT_CARDS.md em documentation/worklogs/consolidacao-gemini/. Foram lidos e preservados. CHECKPOINT histórico menciona 208 páginas; registro final db29ea2f documenta 211. Não reabrir essa auditoria.
+- Regras congeladas: unknown/nonmeasurable/peso ausente != zero; disponibilidade DISPONIVEL|EMPRESTADO significa ausência/presença de empréstimo ativo, não aptidão; conteudo_nominal é original do fabricante; extravio não inventa peso_retorno; reencontro exige quarentena e não reabre empréstimo; Q06=max(0,peso_saida-peso_retorno), tara posterior não reescreve histórico; mesma chave+ator+payload canônico produz mesmo resultado, divergência rejeitada; estoque mínimo Especificação×Almoxarifado, escassez qtd_aptos<limite; timezone America/Sao_Paulo.
 
 ## 3. Branch atual
-`feat/formal-spec-cue-alloy`. Confirmada antes de qualquer escrita; HEAD inicial EVIDENCE_HEAD. Não criar outra branch.
+`feat/formal-spec-cue-alloy`. Não criar outra branch. HEAD inicial da fase: EVIDENCE_HEAD; HEAD inicial desta rodada M1: 182447d3, Git limpo e sincronizado com referência origin. Push anterior confirmado na sessão.
 
 ## 4. Estrutura existente preservada
-Inventário real realizado antes de criar specification/ ou tools/spec-doc/; Git inicialmente limpo:
-- `frontend/` EXISTE (sem hífen; não há `front-end/`): UI Next/React/TypeScript e package.json próprios preservados; única correção posterior: remoção de prop não consumida em reagentes/page.tsx (d13d25d3).
-- `functions/` EXISTE: backend Firebase/Cloud Functions TypeScript, testes Jest, package.json, assets e scripts preservados; única correção posterior: fixtures de roles.test.ts (d13d25d3). Nenhuma lógica de backend foi alterada.
-- Raiz: README.md, firebase.json, firestore.rules, storage.rules, .firebaserc, flake.nix/lock preservados. Não existem package.json nem firestore.indexes.json na raiz; não foram inventados.
-- documentation/: seções 1–12, archive, decisões e worklogs 3B preservados. main.tex recebeu somente input aditivo; main.pdf atualizado após build e inspeção. main.aux/log/toc históricos não foram sobrescritos.
-- .gitignore recebeu apenas exclusões de tools/spec-doc/target e build/latex. .agents e .codex protegidos; frontend/AGENTS.md e os guias Next locais de TypeScript/componentes foram lidos antes da correção pontual da UI.
-- Diff contra EVIDENCE_HEAD inicialmente vazio. Agora contém somente a prop removida e fixtures corrigidas em frontend/functions; Firebase/flake/worklogs 3B e lógica de backend continuam sem alterações.
+Inventário real efetuado antes da criação da camada formal:
+- `frontend/` EXISTE, sem hífen (não há front-end/). UI Next/React/TypeScript com package.json próprio.
+- `functions/` EXISTE, backend Firebase/Cloud Functions TypeScript, assets, testes Jest e package.json próprios.
+- Raiz: README.md, firebase.json, firestore.rules, storage.rules, .firebaserc, flake.nix/lock preservados. Não existem package.json nem firestore.indexes.json na raiz; não inventar substitutos.
+- Documentação original, Sections 1–12, archive, decisões e worklogs 3B preservados. main.tex recebeu somente inputs aditivos M0/M1. main.pdf atualizado após build/inspeção; main.aux/log/toc históricos não sobrescritos.
+- .gitignore recebeu apenas tools/spec-doc/target e build/latex. .agents/.codex protegidos.
+- Únicas correções de aplicação desde o baseline: d13d25d3 remove prop não consumida em frontend/src/app/reagentes/page.tsx e separa fixtures de functions/src/__tests__/domain/roles.test.ts. Nenhuma lógica de backend modificada. frontend/AGENTS.md e guias Next locais foram lidos antes dessa edição.
+- Nesta rodada M1, diff de frontend/functions/configurações/worklogs 3B contra 182447d3 é vazio.
 
 ## 5. Divisão de autoridade
 - frontend: UI real.
 - functions: backend real TypeScript/Firebase.
 - Firestore: banco operacional real.
-- CUE: estrutura/tipos/enums/nulabilidade da fatia migrada.
-- Alloy: relações, invariantes e transição abstrata no scope declarado.
+- CUE: estrutura, tipos, enums e nulabilidade da fatia migrada.
+- Alloy: relações/invariantes/transição abstrata no scope declarado.
 - Rust: transformação determinística, sem backend ou geração de aplicação.
-- LaTeX: apresentação, rationale, UX e conteúdo humano preservado.
+- LaTeX: apresentação, rationale, UX e conteúdo humano.
 Baseline 3B continua normativo para todo conteúdo ainda não migrado.
 
 ## 6. Ambiente e ferramentas
-Confirmados: CUE linguagem v0.17.1 (build devel), Alloy 6.2.0, cargo 1.97.0, rustc 1.97.1, rustfmt, Node v26.8.1, jq. Just 1.58.0 disponibilizado via Nix; latexmk 4.87/TeX Live Nix já existente. Python ausente. Docker não introduzido; flake da aplicação intacto.
+Confirmados: CUE linguagem v0.17.1 (build devel), Alloy 6.2.0, cargo 1.97.0, rustc 1.97.1, rustfmt, Node v26.8.1, jq, just 1.58.0, latexmk 4.87/TeX Live Nix. Python ausente. Docker não introduzido; flake da aplicação intacto.
 Guia seguido: documentation/COMPILACAO_NIX_LCQUI.md.
-Nesta máquina, comandos completos sem nova resolução Nix:
+Ambiente local reutilizável, confirmar caminhos se mudar de máquina:
 ```sh
 export CARGO_HOME=/tmp/lcqui-cargo
 export PATH=/nix/store/z4czsax3mdyxx77mwb0yjarnzb1rip00-just-1.58.0/bin:/nix/store/hl0dgwqvnh7ls66xn4hmdxay7alrviy3-texlive-2025-r78234-final-env/bin:$PATH
 just formal-check
 ```
-Esses caminhos são evidência local, não contrato portável. Alternativa: `nix shell nixpkgs#texliveFull nixpkgs#just -c just formal-check`, mantendo CUE/Alloy/Node/Rust disponíveis. Cargo.lock versionado; dependências serde/serde_json/sha2 baixadas em /tmp/lcqui-cargo. Em máquina nova usar cargo fetch --locked antes de modo offline. Versões do gerador fixadas pelo lock; revisão do ambiente CI hospedado ainda não provisionada.
-Sandbox: .git somente leitura exige escalonamento para commits; daemon Nix exige escalonamento; subprocessos Node (spawnSync cue) retornam EPERM no sandbox, wrapper executado escalonado; cargo fetch inicialmente falhou por DNS e foi repetido escalonado com sucesso. Nenhuma rejeição automática pendente.
+Alternativa: `nix shell nixpkgs#texliveFull nixpkgs#just -c just formal-check`, mantendo CUE/Alloy/Node/Rust disponíveis. Cargo.lock versionado; serde/serde_json/sha2 em /tmp/lcqui-cargo. Em máquina nova, cargo fetch --locked antes de --offline. Gerador 0.2.0; mesmas dependências do M0.
+Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spawnSync cue retorna EPERM no sandbox, wrapper executado escalonado. Cargo fetch inicialmente falhou por DNS e passou escalonado. Nenhuma rejeição automática pendente. Poppler via Nix usado para inspeção PDF.
 
 ## 7. Arquitetura formal
-`specification/cue/domain/frasco.cue` contém descritores normativos #Enum/#Boolean. Eles geram #Frasco e metadados documentais, sem segundo schema. `docs/projection.cue` exporta ir concreto, com exemplo unificado a #Frasco.
-`cue export` → build/spec-ir.json; Alloy CLI real → receipt temporário → build/formal-validation.json; Rust → documentation/generated/{entities,invariants} e MANIFEST.json; Formal-Spec-M0.tex integra fragmentos em main.tex → PDF.
-A orquestração Node apenas executa ferramentas/normaliza resultados. Rust não gera Alloy nem TypeScript. Hash do IR vincula etapas, verificação de vocabulário reduz drift; não se afirma tradução ou equivalência semântica automática CUE/Alloy.
+- CUE: domain/frasco.cue (três dimensões M0), campos_catalogo.cue, resumo_reagente.cue e especificacao_reagente.cue. Descritores geram constraints e metadados; não há segundo schema documental.
+- M1 representa registros normalizados com IDs inteiros e campos obrigatórios mesmo quando nullable (null explícito). Não são payloads de criação nem documentos Firestore.
+- #ParCatalogo verifica FK no par e densidade de líquido; não prova existência global/imutabilidade.
+- firestore/mapeamentos.cue contém notas de projeção (docIds/FKs string, unidade derivada, composição embutida), não schema Firestore completo.
+- docs/projection.cue exporta IR v2 concreto com entidades[] (Frasco, Resumo, Especificação) e exemplos unificados ao domínio.
+- Node executa CUE/Alloy e normaliza receipt. Hash do IR completo vincula entradas; Alloy continua verificando somente assertions M0. Verificação de vocabulário seleciona somente frasco_reagente.
+- Rust 0.2.0 lê IR v1/v2, valida proveniência e nomes seguros/únicos, gera seis fragmentos .tex e MANIFEST.json. Os dois fragmentos M0 ficaram idênticos.
+- main.tex inclui seções humanas Formal-Spec-M0.tex e Formal-Spec-M1.tex. Nenhum TypeScript gerado/substituído.
 
 ## 8. Milestones planejados
 | Milestone | Escopo | Estado |
 |---|---|---|
 | M0 | Infraestrutura e fatia vertical | VALIDATED |
-| M1 | Resumo_Reagente + Especificacao_Reagente | NOT_STARTED |
+| M1 | Resumo_Reagente + Especificacao_Reagente | VALIDATED |
 | M2 | Frasco completo | NOT_STARTED |
 | M3 | Empréstimo | NOT_STARTED |
 | M4 | Retirada/devolução completas | NOT_STARTED |
@@ -67,35 +73,34 @@ A orquestração Node apenas executa ferramentas/normaliza resultados. Rust não
 | M12 | Integração/redução de duplicação normativa | NOT_STARTED |
 
 ## 9. Milestone atual
-M0 VALIDATED. Pipeline CUE → IR → Alloy/resultados → Rust → .tex → LaTeX/PDF validado; as duas pendências preexistentes foram diagnosticadas e resolvidas no commit d13d25d3. TypeScript de frontend/functions e 12 testes de domínio passam. A aplicação existente continua nos mesmos diretórios; regras 3B e lógica de backend intactas. Essa validação cobre a fatia M0 e os checks descritos, não homologação ponta a ponta ou Firebase Emulator. M1 continua NOT_STARTED.
+M1 VALIDATED no recorte de registros normalizados, constraints estruturais e notas de mapeamento. M0 permanece VALIDATED. Gate integrado, 42 fixtures CUE, 4 testes Rust, determinismo/stale e PDF de 216 páginas passaram. Não afirmar composição completa, integridade global, imutabilidade, autorização ou Firebase Emulator como validados pelo M1. M2 não iniciado.
 
 ## 10. Trabalho concluído
-- Inventário, estado inicial e commit exclusivo 672fc65a antes da camada formal.
-- CUE: três campos (estado_fisico_frasco, disponibilidade, em_quarentena), schema fechado parcial, projeção concreta, 2 fixtures válidas e 5 inválidas.
-- Alloy: INV-FRASCO-001/BloqueioFisico e INV-EMPRESTIMO-001/Unicidade, duas testemunhas, scopes explícitos.
-- Wrapper tools/formal/check.mjs exige comandos/scopes/resultados esperados e normaliza receipt sem timestamps. Falhas preservam receipt em /tmp.
-- Rust: módulos main/ir/latex/render/validation; escaping central para _ % & # $ { } ~ ^ e barra invertida; hashes SHA-256; saída ordenada; --check rejeita stale/arquivos extras.
-- READMEs de todas as camadas e cinco knowledge docs; justfile com todos os comandos previstos mais rust-check.
-- Integração LaTeX aditiva e main.pdf de 213 páginas revisado.
-- Worklogs duráveis: documentation/worklogs/formal-spec/M0_VALIDATION.md e M0_BASELINE_DIAGNOSIS.md.
-- APP-BASELINE-001/002 resolvidas por manutenção pontual em d13d25d3: uma prop não consumida removida; fixtures de duas regras distintas separadas, sem alterar autorização.
+- Inventário e commit exclusivo do estado 672fc65a antes da camada formal.
+- M0: CUE/IR/Alloy/Rust/LaTeX/PDF, escaping central, manifest SHA-256, dois invariantes e duas testemunhas.
+- Duas falhas preexistentes de aplicação diagnosticadas e reparadas em d13d25d3; TypeScript de ambos os projetos e 12 testes de domínio passaram no fechamento M0.
+- M1: 8 campos de Resumo e 11 de Especificação, frequência condicional, densidade NUMERIC(8,4), limites VARCHAR, enums, null e par com FK coerente; 35 fixtures novas além das 7 M0.
+- IR v2 de três entidades, leitura v1 mantida, quatro fragmentos adicionais de entidades/mapeamentos; arquivos M0 idênticos.
+- READMEs e knowledge atualizados; justfile mantém todos os comandos previstos mais rust-check.
+- LaTeX aditivo e main.pdf de 216 páginas revisado.
+- Worklogs duráveis: M0_VALIDATION.md, M0_BASELINE_DIAGNOSIS.md e M1_VALIDATION.md em documentation/worklogs/formal-spec/.
 
 ## 11. Trabalho em andamento
-Fechamento do M0 concluído; nenhuma implementação de M1 iniciada nesta rodada. Preparando commit documental de fechamento e sincronização da branch. CI hospedada ainda não conectada; just formal-check é o gate local validado. Nenhum processo de validação pendente.
+M1 concluído; preparando commit final de integração humana/PDF/READMEs/estado e push na mesma branch. Nenhuma validação pendente ou processo necessário em execução. CI hospedada e testes specification→Firebase Emulator continuam futuros. M2 não iniciado.
 
 ## 12. Próxima ação EXATA
-Iniciar somente M1 na próxima rodada: confirmar branch/status/log e executar just formal-check com o ambiente da seção 6; ler as entidades Resumo_Reagente e Especificacao_Reagente na Section-4-Modelagem-Entidades-SQL-3FN.tex e respectivas projeções na Section-5-Notas-de-Mapeamento-para-Firestore.tex. Registrar no estado o recorte e as fontes antes de criar specification/cue/domain/resumo_reagente.cue e especificacao_reagente.cue. Derivar tipos/enums/nulabilidade do baseline, adicionar fixtures válidas/inválidas e planejar evolução compatível da projeção IR (hoje singular, versão 1) e do gerador. Executar cue fmt/vet antes do primeiro commit M1. Não modelar Frasco completo, Q06 ou outros milestones junto; qualquer inconsistência deve ser registrada como CONTRAEXEMPLO PÓS-3B antes de mudar regra.
+Iniciar somente M2 na próxima rodada: confirmar branch/status/log e executar just formal-check no ambiente da seção 6. Ler Frasco_Reagente na Section-4-Modelagem-Entidades-SQL-3FN.tex (~340–390) e seu dicionário na Section-5-Notas-de-Mapeamento-para-Firestore.tex. Antes de editar, registrar recorte/fontes/representação da expansão: #Frasco M0 contém três campos e é usado por fixtures/assertions que devem permanecer válidas. Criar schema adicional do registro completo sem substituir silenciosamente #Frasco; derivar campos, nulabilidade, enums e vínculo lote/especificação do baseline, adicionar fixtures e projeção IR v2. Executar cue fmt/vet e atualizar estado antes de commit. Não migrar empréstimo/Q06/concorrência no mesmo milestone. Registrar inconsistências como CONTRAEXEMPLO PÓS-3B antes de alterar regras.
 
 ## 13. Arquivos que devem ser lidos para continuar
 1. Este arquivo, ponto único de retomada.
-2. documentation/worklogs/formal-spec/M0_VALIDATION.md e specification/README.md.
-3. specification/cue/domain/frasco.cue, docs/projection.cue, tests/.
+2. documentation/worklogs/formal-spec/M1_VALIDATION.md e specification/README.md.
+3. specification/cue/domain/{frasco,campos_catalogo,resumo_reagente,especificacao_reagente}.cue; docs/projection.cue; firestore/mapeamentos.cue; tests/.
 4. specification/alloy/reagents/withdrawal.als e tools/formal/check.mjs.
-5. tools/spec-doc/src/ e Cargo.toml/lock; justfile.
-6. specification/knowledge/AI_HANDOFF.md e FORMAL_SPEC_ARCHITECTURE.md.
-7. documentation/COMPILACAO_NIX_LCQUI.md, Formal-Spec-M0.tex.
-8. Fonte semântica: Section-4-Modelagem-Entidades-SQL-3FN.tex (Frasco, linhas ~340–390) e Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-5-Fluxo-de-Reagentes.tex (retirada ~407–446). Seção 10.7 contém jobs, não retirada.
-9. Para M1: documentation/Section-5-Notas-de-Mapeamento-para-Firestore.tex, junto das entidades correspondentes da Seção 4. O diagnóstico de aplicação está concluído em M0_BASELINE_DIAGNOSIS.md.
+5. tools/spec-doc/src/{ir,render,main,validation,latex}.rs, Cargo.toml/lock, tests/fixtures/ir-v1.json e justfile.
+6. specification/knowledge/{AI_HANDOFF,FORMAL_SPEC_ARCHITECTURE,CUE_KNOWLEDGE,RUST_LATEX_GENERATOR}.md.
+7. documentation/COMPILACAO_NIX_LCQUI.md e Formal-Spec-M0.tex/Formal-Spec-M1.tex.
+8. Fontes M2: Section-4-Modelagem-Entidades-SQL-3FN.tex e Section-5-Notas-de-Mapeamento-para-Firestore.tex, trechos Frasco_Reagente. Fluxo operacional está em Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-5-Fluxo-de-Reagentes.tex; Seção 10.7 contém jobs.
+9. Diagnóstico de aplicação já concluído em M0_BASELINE_DIAGNOSIS.md, somente se necessário; não reiniciar auditoria.
 
 ## 14. Comandos de validação
 Na raiz, após configurar ambiente:
@@ -112,80 +117,73 @@ just docs-check
 just docs-build
 just formal-check
 ```
-Não executar docs-generate antes do gate stale quando a intenção é detectar divergência. formal-check não regenera .tex; recalcula entradas, exige --check, compila e roda git diff generated.
+Não executar docs-generate antes do gate stale quando a intenção é detectar divergência. formal-check recalcula entradas mas não regenera .tex: exige --check, compila e roda git diff generated.
 Direto: `cd specification/cue && cue fmt ./... && cue vet ./... && cue export ./docs -e ir`.
-Preservação:
+Preservação M1:
 ```sh
-git diff 9d97ed30 -- frontend functions
-git diff 9d97ed30 --exit-code -- functions/src/auth.ts firebase.json firestore.rules storage.rules .firebaserc flake.nix flake.lock documentation/worklogs/consolidacao-gemini
+git diff 182447d3 --exit-code -- frontend functions firebase.json firestore.rules storage.rules .firebaserc flake.nix flake.lock documentation/worklogs/consolidacao-gemini
+```
+Checks de aplicação executados no fechamento M0 (não repetidos no M1, pois código intacto):
+```sh
 functions/node_modules/.bin/tsc --noEmit -p functions/tsconfig.json
 frontend/node_modules/.bin/tsc --noEmit --incremental false -p frontend/tsconfig.json
 npm test --prefix functions -- --runInBand src/__tests__/domain
 ```
-Todas essas verificações passaram após d13d25d3. O diff frontend/functions deve conter apenas as duas correções descritas na seção 16, até iniciar nova manutenção autorizada. `functions` build script usa `|| true`, por isso foi usado tsc direto, sem mascarar erro.
-PDF: `just docs-build` grava build/latex/main.pdf; inspecionar log final e páginas alteradas antes de copiar para documentation/main.pdf. Build sozinho não homologa aplicação.
+Usar tsc direto: script build de functions contém `|| true`. Não mascarar erro.
+PDF: just docs-build grava build/latex/main.pdf; inspecionar log final/páginas alteradas antes de copiar para documentation/main.pdf.
 
 ## 15. Validações já executadas
-- CUE fmt/vet/export e todas as fixtures PASS.
-- Alloy 6.2.0, SAT4J: BloqueioFisico e Unicidade UNSAT; Testemunha e DisponivelNaoApto SAT; scope 4, exatamente 2 Estado, bitwidth 4. Nenhum contraexemplo encontrado.
-- Rust fmt/test (2 testes)/clippy --all-targets -D warnings PASS. Testes cobrem escaping e rejeição de hashes/resultados alterados.
-- --check PASS; alteração deliberada em cópia /tmp detectada como stale; duas gerações em cópia /tmp comparadas recursivamente, bytes idênticos.
-- just docs-generate, docs-check e formal-check PASS. Última mudança tipográfica validada depois com just docs-build.
-- PDF final: exit 0, 213 páginas, zero erros/referências indefinidas, 21 Overfulls herdados (mesma quantidade do baseline), nenhum no trecho M0. Páginas 212–213 renderizadas com Poppler e inspecionadas após correção. Copiado para main.pdf somente depois.
-- Retomada: falhas preexistentes reproduzidas antes das correções. Após correção: tsc functions PASS, tsc frontend PASS, Jest domain 2 suítes/12 testes PASS.
-- just formal-check repetido na retomada: PASS após escalonamento conhecido para Node; CUE/Alloy/Rust/stale reexecutados. latexmk confirmou PDF atualizado (fontes LaTeX não mudaram, nenhuma recompilação ou nova cópia do PDF necessária).
-- Diff de preservação: somente prop e fixtures reparadas; lógica de backend/configurações/worklogs 3B intactos; git diff --check PASS.
+- M0: pipeline completo, 7 fixtures, 2 testes Rust, determinismo/stale, PDF de 213 páginas revisado; reparos de aplicação com TypeScript PASS e 12 testes Jest PASS.
+- M1: cue fmt/vet/export e 42 fixtures (7 M0 + 35 M1) PASS; IR v2 com três exemplos unificados aos schemas.
+- Alloy 6.2.0/SAT4J reexecutado: BloqueioFisico e Unicidade UNSAT; Testemunha e DisponivelNaoApto SAT; scope 4, exatamente 2 Estado, bitwidth 4. Mesmos checks M0, não nova prova M1.
+- Rust 0.2.0 fmt/test (4)/clippy --all-targets -D warnings PASS: escaping, proveniência/resultados adulterados, leitura v1/v2, nomes inseguros/duplicados e versão desconhecida.
+- docs-generate/docs-check PASS; duas gerações comparadas recursivamente idênticas; alteração deliberada de Resumo em cópia /tmp rejeitada como stale. Dois .tex M0 idênticos byte a byte.
+- just formal-check final PASS, log /tmp/lcqui-m1-final-check.log. Build real anterior desta rodada: exit 0, 216 páginas, zero erros/referências indefinidas, 21 Overfulls herdados, nenhum no trecho M1. Páginas 214–216 renderizadas com Poppler e aprovadas; main.pdf copiado depois. Gate final confirmou PDF atualizado.
+- Diff de aplicação/configurações/worklogs 3B contra 182447d3 vazio; git diff --check PASS.
 
 ## 16. Contraexemplos / problemas encontrados
-Nenhum CONTRAEXEMPLO PÓS-3B encontrado pelo Alloy. Se surgir, registrar antes de alterar regra: ID, assertion, scope, estado inicial/final, regra 3B, interpretação, classificação BUG_MODELO_FORMAL/TRADUCAO_INCORRETA/LACUNA_POS_3B/CONTRADICAO_REAL.
-Problemas de implementação preexistentes RESOLVIDOS (não são contraexemplos formais):
-- APP-BASELINE-001: frontend/src/app/reagentes/page.tsx:524, TS2322: prop tipoSubstanciaResumo não existe em ModalProps. Resolvido em d13d25d3 removendo somente a prop não declarada nem consumida. Typecheck PASS; nenhuma alteração no comportamento interno do modal.
-- APP-BASELINE-002: roles.test.ts, caso Bolsista+Gestor sem Aluno, espera mensagem de incompatibilidade, recebe "Bolsista exige papel Aluno." em auth.ts:98. Resolvido em d13d25d3: casos sem Aluno preservados em teste específico; fixture Aluno+Bolsista+Gestor atinge a validação de incompatibilidade. Expectativas específicas e classe HttpsError mantidas; 12/12 testes passam. A função de autorização não foi modificada.
-Problemas instrumentais resolvidos: alloy6 --help não existe (usar alloy6 help exec); Python ausente (Node usado); CUE extensão de definição fechada com & rejeitada (corrigido por embedding, sem mudar regra); caminho longo do manifest causou Overfull (corrigido e reinspecionado). Bloqueios de sandbox e respectivas soluções na seção 6.
+Nenhum contraexemplo Alloy encontrado. Registrar novos casos antes de alterar regra: ID, assertion, scope, estado inicial/final, fonte 3B, interpretação e classificação BUG_MODELO_FORMAL/TRADUCAO_INCORRETA/LACUNA_POS_3B/CONTRADICAO_REAL.
+CONTRAEXEMPLO PÓS-3B CUE-M1-001 (RESOLVIDO), classificação TRADUCAO_INCORRETA:
+- Propriedade: frequência nullable deve estar explicitamente presente no registro normalizado M1.
+- Scope: uma fixture tests/catalogo/resumo/invalid/nullable_ausente.json, não assertion Alloy.
+- Estado inicial: requer_pesagem_frequente=false, frequência ausente; resultado original: vet aceitava por completação de null.
+- Fonte: dicionário nullable da Seção 5 e convenção explícita de linha completa escolhida no M1, não política de ausência do Firestore.
+- Interpretação/correção: usar campos obrigatórios `!`, inclusive nas condições, para distinguir presença de valor inferido. Fixture agora rejeitada; nenhuma regra 3B alterada. Detalhes em M1_VALIDATION.md.
+Problemas preexistentes de aplicação RESOLVIDOS no M0:
+- APP-BASELINE-001: TS2322 em frontend/src/app/reagentes/page.tsx:524. Prop tipoSubstanciaResumo não declarada/consumida removida em d13d25d3; typecheck passou, comportamento interno do modal não mudou.
+- APP-BASELINE-002: teste de Bolsista+Gestor sem Aluno esperava a segunda validação mas recebia "Bolsista exige papel Aluno." Casos separados em d13d25d3, mantendo classe/mensagens e usando Aluno+Bolsista+Gestor na incompatibilidade. Autorização não alterada; 12/12 testes passaram.
+Problemas instrumentais resolvidos: usar alloy6 help exec (não --help); CUE embedding/referências locais corrigidos; Overfull M0 do caminho do manifest corrigido; Clippy M1 pediu colapsar if (corrigido sem supressão). Sandbox na seção 6. Uma tentativa de consolidar este estado via script Node falhou em sintaxe antes de escrever; arquivo consolidado integralmente depois, sem perda dos resultados.
 
 ## 17. Decisões tomadas nesta fase
-- Preservar árvore real frontend/ e functions/; nunca inventar árvore idealizada.
-- M0 é filtro físico necessário, não elegibilidade operacional completa. Validade, autorização, aceite, Q06, idempotência e concorrência Firestore fora do modelo.
-- Coerência inicial é hipótese Alloy; coerência final é assertion, não fact. Estado abstrato não envolvido em transição não é certificado operacionalmente.
-- EXTRAVIADO + DISPONIVEL é fixture válida e testemunha não apta; nenhuma regra de recuperação redefinida.
-- Gerar apenas conteúdo mecânico; rationale escrito à mão no LaTeX. Templates simples em funções Rust, sem diretórios vazios.
-- Resultados normalizados e generated versionados; target e build/latex ignorados. PDF humano com today não promete identidade binária entre datas/TeX diferentes; fragmentos/manifest são determinísticos.
-- As duas falhas registradas receberam diagnóstico e correções pontuais em unidade separada (d13d25d3), sem redesign da aplicação, regra 3B ou alteração da lógica de autorização. Não ampliar esse reparo para uma reauditoria.
+- Preservar árvore real e regras 3B; reparos pontuais de aplicação foram unidade separada, não reauditoria.
+- M0 é filtro físico necessário, não elegibilidade operacional completa. Coerência inicial é hipótese Alloy; final é assertion. EXTRAVIADO+DISPONIVEL é fixture/testemunha válida e não apta.
+- M1 representa linhas completas; nullable não é optional, defaults de criação não são injetados. IDs inteiros são relacionais; docIds/FKs string são Firestore.
+- Frequência condicional e densidade de líquido verificadas em CUE. Existência global, composição, imutabilidade e autorização não são inferidas de par estático.
+- HTTPS é padrão estrutural com host não vazio, não parsing completo/acessibilidade de recurso.
+- Notas de mapeamento não são segundo schema. IR v2 preserva leitor v1 e fragmentos M0. Rust somente apresenta constraints, não implementa backend.
+- Generated/IR/resultados versionados, sem dados voláteis; target e build/latex ignorados. PDF humano com today não promete identidade binária entre datas/TeX diferentes.
+- Escopo Alloy não aumenta por o IR incluir mais entidades. Não gerar UX/rationale; texto humano continua no LaTeX.
 
 ## 18. Itens ainda não migrados
-Frasco completo, Firestore/projeções, contratos completos de retirada, demais domínios M1–M12, testes de ligação specification→Firebase Emulator e CI hospedada. Nenhuma aplicação TypeScript gerada/substituída. Documentação humana não foi desnormatizada em massa.
+Frasco completo e demais domínios M2–M12; composição, integridade global/imutabilidade do catálogo, contratos completos de retirada, schemas Firestore completos, testes specification→Firebase Emulator e CI hospedada. M1 já contém os dois registros normalizados e notas de mapeamento. Nenhuma aplicação TypeScript gerada/substituída. Documentação humana original preservada.
 
 ## 19. Commits desta fase
-- 672fc65a — chore(spec): add formal specification state (somente estado, antes da camada).
+- 672fc65a — chore(spec): add formal specification state.
 - 0f679e33 — feat(spec): validate partial bottle model with CUE and Alloy.
 - 2e5c8f79 — feat(spec-doc): generate deterministic bottle documentation.
 - cbd0eba4 — docs(spec): integrate and validate M0 formal documentation.
-- e95a42ab — chore(spec): save final handoff state (push anterior concluído).
+- e95a42ab — chore(spec): save final handoff state.
 - d13d25d3 — fix: resolve baseline typecheck and role test failures.
-- Checkpoint de fechamento desta rodada: assunto `docs(spec): mark M0 validated and prepare M1 handoff`; resolver SHA por `git log -1 --format=%H --grep="mark M0 validated"` (um commit não contém seu próprio SHA).
+- 182447d3 — docs(spec): mark M0 validated and prepare M1 handoff (HEAD inicial M1, push anterior concluído).
+- c38a7f67 — feat(cue): model reagent summary and specification records.
+- f577dafb — feat(spec-doc): support catalog IR and preserve M0 output.
+- Checkpoint final M1: assunto `docs(spec): integrate validated M1 catalog documentation`; resolver SHA com `git log -1 --format=%H --grep="validated M1 catalog"` (um commit não contém seu próprio SHA).
 
 ## 20. Estado do Git
-Após d13d25d3: árvore limpa, branch correta, um commit à frente de origin. Em seguida apenas estado e worklog M0 foram atualizados para fechamento documental. O checkpoint de assunto indicado na seção 19 será commitado e enviado a origin/feat/formal-spec-cue-alloy; confirmar o resultado por git status --short --branch e git log, sem presumir sucesso apenas deste registro pré-envio. Manter tudo commitado para retomada em outra máquina. Nenhum processo necessário em execução.
+Após c38a7f67 e f577dafb: branch correta, dois commits à frente de origin; generated e IR commitados e sem diff após gate final. Pendências apenas estado, seção humana M1/main.tex/main.pdf, READMEs/knowledge e worklog M1. O checkpoint documental indicado na seção 19 será commitado e enviado à mesma branch; confirmar sucesso com git status --short --branch e git log, sem presumir envio deste registro pré-push. Nenhuma alteração alheia detectada.
 
 ## 21. Como uma nova IA deve continuar
-Ler este arquivo; confirmar status/log/branch; ler fontes indicadas; repetir gates mínimos e seguir seção 12. Não replanejar do zero nem reabrir 3B. Atualizar este arquivo após unidades pequenas, validações, descobertas, antes de tarefas longas e antes/depois de commits. Nunca descartar atualização pós-commit do estado. Usar NOT_STARTED/IN_PROGRESS/BLOCKED/IMPLEMENTED/VALIDATED; só VALIDATED conclui um escopo. Não marcar homologação operacional com testes falhando.
+Ler este arquivo; confirmar status/log/branch; ler fontes indicadas; repetir gates mínimos e seguir seção 12. Não replanejar do zero nem reabrir 3B. Atualizar estado após unidades pequenas/validações/descobertas, antes de tarefas longas e antes/depois de commits. Manter tudo salvo para retomada em outra máquina. Usar NOT_STARTED/IN_PROGRESS/BLOCKED/IMPLEMENTED/VALIDATED; só VALIDATED conclui um escopo. Não alegar homologação integral a partir de checks limitados.
 
 ## 22. Definition of Done restante
-Nenhum item obrigatório de M0 pendente no escopo validado. A fatia vertical, determinismo, rejeição de stale, PDF, continuidade e preservação arquitetural foram verificados; as duas pendências de checks da aplicação foram resolvidas. Permanecem para etapas futuras: M1–M12, CI hospedada e testes specification→Firebase Emulator. Não confundir fechamento do M0 com certificação integral da aplicação. Próxima unidade exata na seção 12; não iniciar outro milestone silenciosamente.
-
-## Checkpoint M1 — início antes da implementação
-HEAD inicial 182447d3; branch correta e Git limpo/sincronizado. M0 permanece VALIDATED; M1 agora IN_PROGRESS. Escopo: registros normalizados Resumo_Reagente e Especificacao_Reagente das Seções 4 (~215–304) e 5 (~303–343), limites VARCHAR, enums, nulabilidade explícita, frequência condicional e par resumo/especificação com FK coerente e densidade de líquido positiva. IDs do schema normalizado permanecem inteiros; docId/FKs string são transformação Firestore documentada separadamente, sem impor o schema SQL ao banco.
-Não migrar composição, estoque ou frasco completo. Não alterar frontend/functions/configurações. Evoluir IR para coleção de entidades, preservar caminhos/fragmentos M0 e manter leitura do IR legado pelo gerador. Alloy continua verificando somente as assertions M0; regras M1 estruturais via CUE, sem alegar nova prova comportamental.
-Próxima ação EXATA: criar descritores de campos M1 e schemas resumo_reagente.cue/especificacao_reagente.cue, fixtures positivas/negativas e gate por schema; rodar cue fmt/vet. Depois evoluir projeção IR/Rust, integrar .tex e validar PDF. Gates da retomada em execução (/tmp/lcqui-m1-baseline.log). Consultadas docs oficiais CUE de strings.MaxRunes e math.MultipleOf para limites de texto e escala decimal.
-
-### M1 — schemas e fixtures validados antes do primeiro commit
-Criados campos_catalogo.cue, resumo_reagente.cue, especificacao_reagente.cue e fixtures em tests/catalogo/{resumo,especificacao,par}. Wrapper agora valida cada grupo com sua definição. cue fmt/vet e node tools/formal/check.mjs spec-check PASS. Gate baseline M0 também PASS.
-Problema de tradução detectado por fixture (nenhuma contradição 3B): CONTRAEXEMPLO PÓS-3B CUE-M1-001, classificação TRADUCAO_INCORRETA. Assertion equivalente: presença explícita de frequencia_pesagem_dias no registro normalizado. Scope: uma fixture resumo/invalid/nullable_ausente.json; estado inicial: requer_pesagem_frequente=false sem campo frequência; resultado inicial: aceito por completação CUE de null. Regra fonte: dicionário Seção 5 (nullable distinto de ausência na representação de linha escolhida). Corrigido usando campos obrigatórios `!` em vez de campos regulares que podem materializar valores; fixture agora rejeitada. Nenhuma regra de domínio alterada. Problema inicial de referências lexicais CUE em campos embutidos também resolvido com declarações locais `_`.
-Arquivos do commit: três schemas, fixtures M1, wrapper e este estado. Próxima ação EXATA: evoluir IR para v2 com lista de entidades, manter leitor v1 e fragmentos M0; renderizar limites/nulabilidade dos descritores e notas de mapeamento Firestore sem afirmar schema completo de composição. Não avançar M2.
-
-### Pós-commit c38a7f67 / IR e gerador M1
-Commit dos schemas: c38a7f67; status pós-commit sem alterações alheias. IR v2 implementado com lista de três entidades; gerador 0.2.0 mantém leitor do IR v1 e caminhos M0. Mapeamentos Firestore são notas documentais (não schema do corpo completo); registros CUE continuam normalizados. Rust agora renderiza limites, escala, nulabilidade e observações dos descritores. Testes adicionais: leitura v1/v2, rejeição de nomes de saída com travessia e nomes duplicados. Cargo test em andamento; próximo passo: reexportar IR/resultados via Alloy, gerar fragmentos, verificar compatibilidade M0/determinismo/stale e integrar seção humana M1.
-
-### M1 — gerador e documentação mecânica validados antes do commit
-IR v2 e resultados Alloy reexportados; Rust 0.2.0 fmt/test (4)/clippy PASS, docs-generate/docs-check PASS. Clippy inicialmente apontou if aninhado; corrigido sem supressão. Duas gerações comparadas recursivamente idênticas; alteração deliberada de resumo_reagente.tex em cópia /tmp rejeitada como stale. Frasco e invariantes M0 sem diff byte a byte. 42 fixtures CUE no total (7 M0 + 35 M1) passam no gate.
-Build LaTeX: 216 páginas, exit 0, zero erros/referências indefinidas, 21 Overfulls herdados, nenhum no trecho M1. Páginas 214–216 renderizadas com Poppler e aprovadas visualmente. Próximo commit inclui IR/projeção/mapeamentos, gerador/fixture v1, generated e wrapper; integração humana/PDF/READMEs finais ficam em commit separado. M1 ainda IN_PROGRESS até gate integrado e estado final. Não há alteração de frontend/functions/configurações/worklogs 3B nesta rodada.
+M0 e M1 VALIDATED nos recortes documentados. Nenhuma tarefa obrigatória M1 pendente: schemas/fixtures, IR compatível, Rust determinístico, generated, PDF revisado, gate integrado e continuidade concluídos. Ainda faltam M2–M12 e integrações da seção 18. Não alegar certificação integral de aplicação/Firebase, composição ou comportamento do catálogo. Próxima unidade exata na seção 12; não iniciar M2 nesta rodada.
