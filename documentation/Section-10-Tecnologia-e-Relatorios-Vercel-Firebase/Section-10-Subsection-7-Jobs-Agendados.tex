@@ -247,58 +247,70 @@ export const verificarEscassezDeEstoque = onSchedule({
 }, async () => {
   const db = admin.firestore();
   const hojeISO = DateTime.now().setZone("America/Sao_Paulo").toISODate();
-  
-  const almoxarifados = await db.collection("Almoxarifado").get();
-  
+
+  const almoxarifados = await db.collection("Almoxarifado").where("ativo", "==", true).get();
+  const bw = db.bulkWriter();
+
   for (const almoxDoc of almoxarifados.docs) {
     const idAlmox = almoxDoc.id;
-    
+
     // 1. Busca configurações ativas de escassez para o almoxarifado
     const estoquesConfig = await db.collection(`Almoxarifado/${idAlmox}/Estoques_Configurados`)
       .where("ativo", "==", true)
       .where("notificacao_ativa", "==", true)
       .get();
-      
+
+    if (estoquesConfig.empty) continue;
+
+    // Busca os gestores vinculados ao almoxarifado
+    const gestoresSnap = await db.collection("Gestor_Almoxarifado_x_Almoxarifado")
+      .where("id_almoxarifado", "==", idAlmox)
+      .get();
+
+    const gestoresIds = gestoresSnap.docs.map(d => d.data().id_gestor_almoxarifado);
+
     for (const configDoc of estoquesConfig.docs) {
       const config = configDoc.data();
       const qtdLimiar = config.qtd_limiar_escassez;
-      
-      // 2. Conta saldo físico disponível
-      // (Não entra EXTRAVIADO, DESCARTADO, etc. Vencidos ou em quarentena também são isolados)
+
+      // 2. Conta saldo físico apto para retirada
       const frascosAptosQuery = db.collection("Frasco_Reagente")
         .where("id_almoxarifado", "==", idAlmox)
+        .where("id_resumo_reagente", "==", config.id_resumo_reagente)
         .where("id_especificacao_reagente", "==", config.id_especificacao_reagente)
+        .where("disponibilidade", "==", "DISPONIVEL")
         .where("estado_fisico_frasco", "in", ["FECHADO", "ABERTO"])
         .where("em_quarentena", "==", false)
         .where("vencido", "==", false);
-        
+
       const aptosSnap = await frascosAptosQuery.count().get();
       const qtdAptos = aptosSnap.data().count;
-      
-      // 3. Emite notificação idempotente se o saldo for menor ou igual ao limiar
-      if (qtdAptos <= qtdLimiar) {
-        const notifId = `${configDoc.id}_${hojeISO}`;
-        const notifRef = db.collection("Notificacao").doc(notifId);
-        
-        try {
-          // Idempotência via create(). Nunca usar set(.., { merge: true }) com propriedade 'lida: false'
-          // senão reexecuções do job apagarão o status de lida da notificação já vista pelo usuário.
-          await notifRef.create({
+
+      // 3. Emite notificação idempotente se o saldo for ESTRITAMENTE MENOR que o limiar
+      if (qtdAptos < qtdLimiar) {
+        for (const gestorId of gestoresIds) {
+          const notifId = `escassez_${idAlmox}_${configDoc.id}_${hojeISO}_${gestorId}`;
+          const notifRef = db.collection("Usuarios").doc(gestorId).collection("Notificacoes").doc(notifId);
+
+          // Idempotência via create() do BulkWriter. Se já existir para hoje, ignora sem falhar o job.
+          bw.create(notifRef, {
             tipo: "ESCASSEZ_ESTOQUE",
             id_almoxarifado: idAlmox,
+            id_resumo_reagente: config.id_resumo_reagente,
             id_especificacao_reagente: config.id_especificacao_reagente,
             qtd_atual: qtdAptos,
             qtd_limiar: qtdLimiar,
             lida: false,
             criado_em: admin.firestore.FieldValue.serverTimestamp()
           });
-        } catch (error: any) {
-          if (error.code !== 6) { // 6 = ALREADY_EXISTS (esperado na idempotência)
-            console.error("Erro inesperado ao criar notificação de escassez:", error);
-          }
         }
       }
     }
   }
+
+  // Executa e trata falhas parciais (ex: ALREADY_EXISTS é ignorado por padrão ou logado sem derrubar o job)
+  await bw.close().catch((err) => {
+    console.error("Erro parcial no BulkWriter:", err);
+  });
 });
 \end{lstlisting}
