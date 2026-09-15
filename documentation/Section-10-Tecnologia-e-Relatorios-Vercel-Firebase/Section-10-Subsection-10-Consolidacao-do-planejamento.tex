@@ -85,56 +85,6 @@ async function gerarCodigoTurmaTx(
 \end{lstlisting}
 
 
-\begin{lstlisting}[language=TypeScript, title={M-16: job de escassez com idempotência por docId (REAGENTE\_ESCASSO)}]
-// M-16: job agendado diário que emite REAGENTE_ESCASSO quando a contagem de
-// frascos disponíveis cai abaixo de qtd_em_que_e_considerado_escasso.
-// Idempotência: docId = `escassez_{idResumo}_{dataHoje}_{idAlmoxarifado}`
-// garante que múltiplas execuções do mesmo job não gerem duplicatas.
-export const verificarEscassezReagentes = onSchedule("every day 04:00", async () => {
-  const hoje = new Date().toISOString().slice(0, 10);
-  const resumos = await admin.firestore().collection("Resumo_Reagente").get();
-  const writer = admin.firestore().bulkWriter();
-
-  for (const resumoDoc of resumos.docs) {
-    const { qtd_em_que_e_considerado_escasso } = resumoDoc.data();
-    // Contar frascos DISPONIVEL por resumo (query por id_resumo_reagente denormalizado)
-    const frascos = await admin.firestore().collection("Frasco_Reagente")
-      .where("id_resumo_reagente", "==", resumoDoc.id)
-      .where("disponibilidade", "==", "DISPONIVEL")
-      .where("estado_fisico_frasco", "not-in", ["VAZIO", "QUEBRADO", "DESCARTADO"])
-      .count().get();
-    const qtd = frascos.data().count;
-    if (qtd < qtd_em_que_e_considerado_escasso) {
-      // Emitir para cada gestor dos almoxarifados que têm este reagente
-      const gestores = await admin.firestore()
-        .collection("Gestor_Almoxarifado_x_Almoxarifado").get();
-      const uidsNotificados = new Set<string>();
-      for (const v of gestores.docs) {
-        const uid = v.data().id_gestor_almoxarifado;
-        if (uidsNotificados.has(uid)) continue;
-        uidsNotificados.add(uid);
-        const notifId = `escassez_${resumoDoc.id}_${hoje}_${uid}`;
-        const notifRef = admin.firestore()
-          .collection("Usuarios").doc(uid)
-          .collection("Notificacoes").doc(notifId);
-        writer.set(notifRef, {
-          id_destinatario: uid,
-          papel_destinatario: "Gestor_Almoxarifado",
-          tipo: "REAGENTE_ESCASSO",
-          id_alvo: resumoDoc.id,
-          entidade_alvo: "Resumo_Reagente",
-          quantidade: qtd,
-          lida: false,
-          emitida_em: admin.firestore.FieldValue.serverTimestamp(),
-          expira_em: admin.firestore.Timestamp.fromMillis(Date.now() + 7 * 86400000),
-        }, { merge: false }); // set sem merge: NOP se já existir (idempotência)
-      }
-    }
-  }
-  await writer.close();
-});
-\end{lstlisting}
-
 \begin{lstlisting}[language=TypeScript, title={N-12: aceitarConviteAluno com criação condicional de conta Firebase Auth}]
 // N-12: ao aceitar um convite, o aluno pode já ter conta Firebase Auth (login Google
 // prévio) ou não. A Cloud Function deve reutilizar o UID existente pelo e-mail,
