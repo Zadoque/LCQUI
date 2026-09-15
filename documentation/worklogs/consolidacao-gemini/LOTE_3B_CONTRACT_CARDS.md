@@ -15,7 +15,7 @@
 | Campo | Contrato / diagnóstico |
 |---|---|
 | ID | PDF-014 |
-| Estado atual no baseline | VALIDADO_LATEX após 3B.1; contratos operacionais consolidados e integridade transversal restaurada. |
+| Estado atual no baseline | VALIDADO_LATEX após 3B.1-R3; contratos operacionais consolidados e integridade transversal restaurada. |
 | Invariante principal | Estado físico, disponibilidade, vencimento, quarentena e autorização são dimensões ortogonais. EMPRESTADO exige exatamente um empréstimo EM_USO/ATRASADO. VAZIO/QUEBRADO/DESCARTADO não admitem nova retirada. |
 | Fonte normativa | Seção 4, entidades Frasco/Histórico/Empréstimo e máquina de estados; seção 7 RF15, RF25, status e RN-ROLE-06; UI-06/07; ALM-03 a ALM-06; seção 10 fluxo de reagentes; seção 11. |
 | Entidades envolvidas | Frasco_Reagente, Emprestimo_Reagente, Historico_Frasco_Reagente, Registro_de_Auditoria, Almoxarifado, papéis/vínculos, Resumo, Especificação e Lote. |
@@ -65,7 +65,7 @@ Os atores comuns são Gestor vinculado/Chefe; histórico e auditoria são obriga
 | Campo | Contrato / diagnóstico |
 |---|---|
 | ID | PDF-021 |
-| Estado atual no baseline | VALIDADO_LATEX após 3B.1. Assistente e dependências operacionais corrigidos. |
+| Estado atual no baseline | VALIDADO_LATEX após 3B.1-R3. Assistente e dependências operacionais corrigidos. |
 | Invariante principal | Um fluxo Resumo → Especificação → Composição → Lote opcional → Frasco; entidades distintas, nenhuma criação parcial inválida. |
 | Fonte normativa | Fase_3, UI-05/06, ALM-01/02, seções 4/5 e matriz de obrigatoriedade da seção 7; contratos de cadastro da seção 10. |
 | Entidades envolvidas | Resumo_Reagente, Especificacao_Reagente, Composicao_Reagente, Substancia_Quimica, Lote, Frasco_Reagente, histórico e auditoria. |
@@ -110,7 +110,7 @@ Em todas as etapas: ator Gestor/Chefe, loading durante consulta/confirmação, e
 | Campo | Contrato / diagnóstico |
 |---|---|
 | ID | PDF-025 |
-| Estado atual no baseline | VALIDADO_LATEX e PASS no realinhamento 3B.1. Exemplos da seção 9 harmonizados. |
+| Estado atual no baseline | VALIDADO_LATEX e PASS no realinhamento 3B.1-R3. Exemplos da seção 9 harmonizados. |
 | Invariante principal | Peso bruto de saída é a base da tolerância; leitura física real preservada; consumo não negativo, ajuste separado. |
 | Fonte normativa | Seção 4, regra Q06; seção 7 Controle de Volume via Pesagem; seção 10 registrarDevolucao; UI-07. |
 | Entidades envolvidas | Frasco, Empréstimo, Histórico e Auditoria. |
@@ -243,7 +243,7 @@ SEMANTIC_GATE = PASS
 - Correções em todas as seções (4, 5, 6, 7, 8, 9, 10, 11) validadas e alinhadas.
 - Idempotência, contratos quantitativos, e transições de EXTRAVIADO/REENCONTRO adicionados e testados.
 - `git diff --check`: exit 0.
-- LaTeX: executado com sucesso (exit 0). Inspeção visual do Lote 3B.1 conferida via diff_3B1.patch.
-- main.pdf: atualizado com sucesso.
-- Próxima ação: Criar o commit funcional exato do HEAD validado.
-- Status: LIBERADO PARA LOTE 3C. O realinhamento corretivo foi plenamente executado.
+- LOTE 3B.1 = CONCLUÍDO
+- SEMANTIC_GATE = PASS
+- LIBERAÇÃO PARA 3C = SIM
+- Próxima ação: Concluído Realinhamento Corretivo 3B.1-R3.
