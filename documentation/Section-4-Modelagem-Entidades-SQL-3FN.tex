@@ -344,7 +344,7 @@ O campo \textit{notificacao\_ativa} indica que a emissão automática do alerta 
 \campo{detalhe\_local\_armazenamento}{TEXT}{NULL}
 \campo{codigo\_frasco}{TEXT}{UNIQUE, NOT NULL}
 \campo{data\_ultima\_pesagem}{TIMESTAMP}{NULL}
-\campo{conteudo\_nominal}{NUMERIC(10,3)}{NOT NULL}
+\campo{conteudo\_nominal}{NUMERIC(10,3)}{NULL}
 \campo{peso\_no\_cadastrado}{NUMERIC(10,3)}{NOT NULL}
 \campo{peso\_atual}{NUMERIC(10,3)}{NOT NULL}
 \campo{peso\_frasco\_vazio}{NUMERIC(10,3)}{NULL}
@@ -370,7 +370,7 @@ O campo \textit{notificacao\_ativa} indica que a emissão automática do alerta 
 \end{regra}
 
 \begin{explicacao}
-\textit{conteudo\_nominal} (antigo \textit{capacidade\_nominal}) representa o conteúdo declarado no cadastro: para líquidos, é o volume nominal em mL; para sólidos, é a massa nominal em g. A renomeação elimina a ambiguidade semântica entre volume e massa.
+\textit{conteudo\_nominal} (antigo \textit{capacidade\_nominal}) representa o conteúdo declarado no cadastro: para líquidos, é o volume nominal em mL; para sólidos, é a massa nominal em g. Se NULL, o valor original do rótulo é desconhecido ou ilegível (não usar zero para representar desconhecido).
 
 \textit{peso\_no\_cadastrado} é o peso total (frasco + conteúdo) registrado no momento do cadastro. Este campo é \textbf{imutável} após o cadastro -- nunca é sobrescrito. \textit{peso\_atual} é o peso total corrente, inicializado com o valor de \textit{peso\_no\_cadastrado} e atualizado a cada devolução de empréstimo ou pesagem de rotina.
 
@@ -407,12 +407,12 @@ O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre 
 \campo{peso\_anterior}{NUMERIC(10,3)}{NULL}
 \campo{peso\_novo}{NUMERIC(10,3)}{NULL}
 \campo{medida\_ajustada}{NUMERIC(10,3)}{NULL}
-\campo{unidade\_medida\_ajustada}{ENUM}{ml,g, NOT NULL}
+\campo{unidade\_medida\_ajustada}{ENUM}{ml,g, NULL}
 \campo{timestamp}{TIMESTAMP}{NOT NULL}
 \end{entidade}
 
 \begin{explicacao}
-\textit{peso\_anterior} e \textit{peso\_novo} são sempre leituras de balança em gramas. Já \textit{unidade\_medida\_ajustada} qualifica exclusivamente \textit{medida\_ajustada}, indicando se o ajuste concluído é reportado em massa (g, sólidos) ou volume (ml, líquidos convertidos por densidade).
+\textit{peso\_anterior} e \textit{peso\_novo} são sempre leituras de balança em gramas. Já \textit{unidade\_medida\_ajustada} qualifica exclusivamente \textit{medida\_ajustada}, indicando se o ajuste concluído é reportado em massa ou volume. Podem ser NULL caso o evento histórico não seja de natureza quantitativa.
 \end{explicacao}
 
 \subsection{Empréstimo de Reagente / Solvente}
