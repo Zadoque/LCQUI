@@ -197,8 +197,8 @@ Cada fluxo parte de sessão ativa validada por COM-01 e usa os campos/estados do
 \subsubsection{ALM-05 --- Gestor Almox.: Receber devolução de empréstimo próprio ou de outro gestor}
 \textbf{Contrato:} UI-07. Registrar Devolução > frasco/pendência > peso/quem devolveu > destino se vencido > confirmar. Servidor calcula consumo e atraso, encerra empréstimo e atualiza frasco/histórico. Peso incompatível exige revisão; qualquer gestor vinculado pode receber.
 
-\subsubsection{ALM-06 --- Gestor Almox.: Tratar alertas, quarentena, vazio, quebra, descarte e remoção lógica}
-\textbf{Contrato:} UI-07. Alertas > categoria > frasco > ação/motivo > confirmar. Validar transição e empréstimo ativo; gravar evento, manter identidade e invalidar saldo/alerta. Descarte é terminal; política de remoção lógica em Q07.
+\subsubsection{ALM-06 --- Gestor Almox.: Tratar alertas, quarentena, extravio, reencontro, vazio, quebra e descarte}
+\textbf{Contrato:} UI-07. Alertas > categoria > frasco > ação/motivo > confirmar. Validar transição e empréstimo ativo; gravar evento, manter identidade e invalidar saldo/alerta. Descarte é terminal; política de remoção lógica em Q07. Em caso de extravio, o frasco assume estado EXTRAVIADO e um eventual empréstimo ativo sofre encerramento extraordinário. Em caso de reencontro, o frasco retorna como ABERTO ou FECHADO (conforme constatado), porém obrigatoriamente com \textit{em\_quarentena = true}; o empréstimo encerrado não é reaberto.
 
 \subsubsection{ALM-07 --- Gestor Almox.: Imprimir etiquetas virgens ou segunda via}
 \textbf{Contrato:} UI-08. Mais > Imprimir > aba > intervalo/célula ou 1--10 frascos > Gerar > Baixar. Conferir código, imprimir em 100% e colar somente após confirmar cadastro. Virgens não reservam IDs; segunda via audita cada frasco e produz uma etiqueta por ficha.
