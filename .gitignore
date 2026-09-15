@@ -17,3 +17,6 @@ functions/lib/
 .env
 .env.local
 .env.*.local
+# Formal specification: local compiler output
+/tools/spec-doc/target/
+/build/latex/

@@ -6,9 +6,9 @@
     "campos": [
         {
             "nome": "estado_fisico_frasco",
-            "tipo": "enum",
             "obrigatorio": true,
             "nulo": false,
+            "tipo": "enum",
             "valores": [
                 "FECHADO",
                 "ABERTO",
@@ -20,9 +20,9 @@
         },
         {
             "nome": "disponibilidade",
-            "tipo": "enum",
             "obrigatorio": true,
             "nulo": false,
+            "tipo": "enum",
             "valores": [
                 "DISPONIVEL",
                 "EMPRESTADO"
@@ -30,9 +30,9 @@
         },
         {
             "nome": "em_quarentena",
-            "tipo": "bool",
             "obrigatorio": true,
             "nulo": false,
+            "tipo": "bool",
             "valores": []
         }
     ],

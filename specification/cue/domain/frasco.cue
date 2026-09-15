@@ -2,18 +2,34 @@ package domain
 
 // Fatia estrutural M0; não é o documento Firestore completo.
 // Baseline: Seção 4, Frasco_Reagente; fluxo físico: Seção 10.5.
-estadosFisicos: ["FECHADO", "ABERTO", "VAZIO", "QUEBRADO", "DESCARTADO", "EXTRAVIADO"]
-disponibilidades: ["DISPONIVEL", "EMPRESTADO"]
-
-#Frasco: {
-	estado_fisico_frasco: or(estadosFisicos)
-	disponibilidade:      or(disponibilidades)
-	em_quarentena:        bool
+#Campo: {
+	nome:        string
+	obrigatorio: true
+	nulo:        false
+}
+#Enum: {
+	#Campo
+	tipo: "enum"
+	valores: [...string]
+	#Valor: or(valores)
+}
+#Boolean: {
+	#Campo
+	tipo: "bool"
+	valores: []
+	#Valor: bool
 }
 
-// Metadados derivados dos mesmos domínios usados pelo schema.
+// Descritores normativos únicos: schema e documentação derivam deles.
+// Todos os campos desta fatia são obrigatórios e não nulos.
 campos: [
-	{nome: "estado_fisico_frasco", tipo: "enum", obrigatorio: true, nulo: false, valores: estadosFisicos},
-	{nome: "disponibilidade", tipo: "enum", obrigatorio: true, nulo: false, valores: disponibilidades},
-	{nome: "em_quarentena", tipo: "bool", obrigatorio: true, nulo: false, valores: []},
+	#Enum & {nome: "estado_fisico_frasco", valores: ["FECHADO", "ABERTO", "VAZIO", "QUEBRADO", "DESCARTADO", "EXTRAVIADO"]},
+	#Enum & {nome: "disponibilidade", valores: ["DISPONIVEL", "EMPRESTADO"]},
+	#Boolean & {nome: "em_quarentena"},
 ]
+
+#Frasco: {
+	for campo in campos {
+		"\(campo.nome)": campo.#Valor
+	}
+}
