@@ -250,6 +250,7 @@ export const verificarEscassezDeEstoque = onSchedule({
 
   const almoxarifados = await db.collection("Almoxarifado").where("ativo", "==", true).get();
   const bw = db.bulkWriter();
+  const promises: Promise<any>[] = [];
 
   for (const almoxDoc of almoxarifados.docs) {
     const idAlmox = almoxDoc.id;
@@ -289,28 +290,32 @@ export const verificarEscassezDeEstoque = onSchedule({
       // 3. Emite notificação idempotente se o saldo for ESTRITAMENTE MENOR que o limiar
       if (qtdAptos < qtdLimiar) {
         for (const gestorId of gestoresIds) {
-          const notifId = `escassez_${idAlmox}_${configDoc.id}_${hojeISO}_${gestorId}`;
+          const notifId = `escassez_${idAlmox}_${configDoc.id}_${hojeISO}`;
           const notifRef = db.collection("Usuarios").doc(gestorId).collection("Notificacoes").doc(notifId);
 
           // Idempotência via create() do BulkWriter. Se já existir para hoje, ignora sem falhar o job.
-          bw.create(notifRef, {
+          const prom = bw.create(notifRef, {
+            id_destinatario: gestorId,
+            papel_destinatario: "Gestor_Almoxarifado",
             tipo: "ESCASSEZ_ESTOQUE",
-            id_almoxarifado: idAlmox,
-            id_resumo_reagente: config.id_resumo_reagente,
-            id_especificacao_reagente: config.id_especificacao_reagente,
-            qtd_atual: qtdAptos,
-            qtd_limiar: qtdLimiar,
+            entidade_alvo: "Almoxarifado",
+            id_alvo: idAlmox,
             lida: false,
-            criado_em: admin.firestore.FieldValue.serverTimestamp()
+            emitida_em: admin.firestore.FieldValue.serverTimestamp(),
+            expira_em: null
+          }).catch((err) => {
+            if (err.code !== 6) { // 6 = ALREADY_EXISTS
+              console.error(`Erro ao criar notificação ${notifId} para ${gestorId}:`, err);
+            }
           });
+          promises.push(prom);
         }
       }
     }
   }
 
-  // Executa e trata falhas parciais (ex: ALREADY_EXISTS é ignorado por padrão ou logado sem derrubar o job)
-  await bw.close().catch((err) => {
-    console.error("Erro parcial no BulkWriter:", err);
-  });
+  // Aguarda todas as operações agendadas serem despachadas e resolvidas
+  await Promise.all(promises);
+  await bw.close();
 });
 \end{lstlisting}
