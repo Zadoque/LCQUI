@@ -238,6 +238,14 @@ export const reconciliarContadoresLote = onSchedule({
 });
 \end{lstlisting}
 
+\paragraph{Pré-requisito: Backfill Legado e Reconciliação (R3.1)}
+O job de escassez baseia a projeção de estoque nas chaves \texttt{id\_resumo\_reagente} e \texttt{id\_especificacao\_reagente}. Devido a cadastros legados que não possuíam \texttt{id\_especificacao\_reagente}, a ativação deste job requer a execução prévia de uma rotina \textbf{one-shot administrativa} (backfill):
+\begin{itemize}
+    \item Para legados com especificação determinística (ex: via lote conhecido): popular \texttt{id\_especificacao\_reagente}.
+    \item Para legados ambíguos: isolar como pendência de reconciliação manual. \textbf{O sistema nunca deve inventar um \texttt{id\_especificacao\_reagente} para satisfazer o schema}.
+    \item A ativação da \textit{cron} de escassez só deve ocorrer após a conclusão desta reconciliação, sob pena de gerar falsos alertas de escassez pela omissão de frascos aptos na query de contagem.
+\end{itemize}
+
 \begin{lstlisting}[language=TypeScript, title={Escassez de Estoque Baseada em Configuração por Almoxarifado}]
 import { DateTime } from "luxon";
 

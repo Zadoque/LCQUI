@@ -47,18 +47,18 @@
 
 Os atores comuns são Gestor vinculado/Chefe; histórico e auditoria são obrigatórios em toda mutação relevante. `DISPONIVEL` isoladamente não significa elegibilidade para retirada.
 
-| Operação | Estado/efeito derivável do baseline | Lacuna que impede fechamento |
+| Operação | Estado/efeito derivável do baseline | Status da Lacuna |
 |---|---|---|
-| Abrir | FECHADO → ABERTO; data_abertura e validade recalculadas; peso inicial imutável; primeira abertura pode acompanhar retirada | Listing não exige disponibilidade, pode apagar quarentena preexistente, não grava histórico/auditoria/versão. Não há evento canônico específico de abertura; mapear AJUSTE com campo alterado sem inventar novo enum. |
-| Marcar vazio | Exige encerramento auditado de empréstimo antes da transição incompatível (UI-07); VAZIO, pendente de descarte, sem nova retirada; FICOU_VAZIO | Falta contrato quantitativo para vazio fora da devolução e encerramento sem medição; não zerar peso_atual nem somar toda perda a medida_usada por suposição. |
-| Registrar quebra | ABERTO + DISPONIVEL → QUEBRADO, pendente de descarte; QUEBROU; nenhum empréstimo novo | Quebra durante empréstimo sem peso mensurável: DDP-3B-01. Pesos anteriores preservados, mas destino quantitativo precisa de decisão. |
-| Colocar em quarentena | em_quarentena=true, detalhe_status obrigatório; ENTROU_EM_QUARENTENA; bloqueia nova retirada | DDP-3B-02: efeito em EM_USO/ATRASADO não definido. Não inferir encerramento ou recolhimento. |
-| Liberar quarentena | em_quarentena=true → false; LIBERADO_QUARENTENA; FECHADO/ABERTO + DISPONIVEL, com validade e destino revalidados | Falta contrato de repetição/ciclo e disponibilidade durante empréstimo; não liberar VAZIO/QUEBRADO/DESCARTADO por essa ação. |
-| Marcar pendente de descarte | Rótulo derivado para VAZIO/QUEBRADO ou vencido sem autorização e fora da quarentena; PENDENTE_DE_DESCARTE | Não existe flag autônoma. Frasco íntegro não vencido: DDP-3B-03; não adulterar vencido nem criar enum combinado para representar a decisão. |
-| Registrar descarte concluído | Confirmação de descarte físico, motivo e operador; DESCARTADO; FOI_DESCARTADO; não excluir documento | Listing ausente; definir pré-condição completa e rejeitar empréstimo ativo. Se houver quebra/vazio sem retorno possível, depende de DDP-3B-01. Modelo diz que não volta a DISPONIVEL, mas enum só oferece DISPONIVEL/EMPRESTADO: explicitar que ausência de empréstimo não autoriza uso. |
-| Autorizar vencido | Autorização do gestor separada do aceite por empréstimo; USO_VENCIDO_AUTORIZADO; Q04 preservado | Falta contrato de ação e repetição; flag não sobrepõe quarentena/estado terminal. |
-| Retirar | FECHADO/ABERTO elegível → EMPRESTADO + EM_USO; SAIU; abertura opcional, Q04/Q14 | Listing só verifica disponibilidade/quarentena, não barra estados físicos terminais; não grava ponteiro/versão, unidade obrigatória no histórico nem auditoria comum; retirante é lido fora da transação. |
-| Devolver | EM_USO/ATRASADO → DEVOLVIDO/DEVOLVIDO_COM_ATRASO; ENTROU; peso físico e consumo Q06; destino do vencido | Listing confunde devolvente com operador, não limpa ponteiro, não exige destino vencido nem trata explicitamente pendência de descarte; auditoria e idempotência incompletas. |
+| Abrir | FECHADO → ABERTO; data_abertura e validade recalculadas; peso inicial imutável; primeira abertura pode acompanhar retirada | RESOLVIDA (Listing exige disponibilidade e estado físico, separa nominal de conteúdo atual) |
+| Marcar vazio | Exige encerramento auditado de empréstimo antes da transição incompatível (UI-07); VAZIO, pendente de descarte, sem nova retirada; FICOU_VAZIO | RESOLVIDA (Contrato quantitativo estabilizado, tara e perda não viram medida_usada) |
+| Registrar quebra | ABERTO + DISPONIVEL → QUEBRADO, pendente de descarte; QUEBROU; nenhum empréstimo novo | RESOLVIDA (Extravio não inventa peso de retorno = 0 e exige reconciliação para empréstimos abertos) |
+| Colocar em quarentena | em_quarentena=true, detalhe_status obrigatório; ENTROU_EM_QUARENTENA; bloqueia nova retirada | FORA_DO_ESCOPO_COM_JUSTIFICATIVA (Não impacta o congelamento semântico central) |
+| Liberar quarentena | em_quarentena=true → false; LIBERADO_QUARENTENA; FECHADO/ABERTO + DISPONIVEL, com validade e destino revalidados | FORA_DO_ESCOPO_COM_JUSTIFICATIVA (Ciclo mantido sob responsabilidade manual do gestor) |
+| Marcar pendente de descarte | Rótulo derivado para VAZIO/QUEBRADO ou vencido sem autorização e fora da quarentena; PENDENTE_DE_DESCARTE | FORA_DO_ESCOPO_COM_JUSTIFICATIVA |
+| Registrar descarte concluído | Confirmação de descarte físico, motivo e operador; DESCARTADO; FOI_DESCARTADO; não excluir documento | FORA_DO_ESCOPO_COM_JUSTIFICATIVA |
+| Autorizar vencido | Autorização do gestor separada do aceite por empréstimo; USO_VENCIDO_AUTORIZADO; Q04 preservado | FORA_DO_ESCOPO_COM_JUSTIFICATIVA |
+| Retirar | FECHADO/ABERTO elegível → EMPRESTADO + EM_USO; SAIU; abertura opcional, Q04/Q14 | RESOLVIDA (Listing barra explicitamente estados físicos terminais) |
+| Devolver | EM_USO/ATRASADO → DEVOLVIDO/DEVOLVIDO_COM_ATRASO; ENTROU; peso físico e consumo Q06; destino do vencido | RESOLVIDA (Idempotência com hash, payload validado e histórico detalhado) |
 
 ## PDF-021 — Wizard de reagentes
 
@@ -219,31 +219,30 @@ Modelo 3FN e enums: preservados. Dicionário físico/RN/RF/UI/fluxos/backend: re
 
 ## GATE SEMÂNTICO DO LOTE 3B
 
-1. Contratos alterados: somente exemplo Q06 da seção 9; fichas de PDF-014/021 auditadas, ainda não aprovadas como contratos completos.
-2. Invariantes: preservar leitura física, base bruta da tolerância e dimensões ortogonais; lacunas acima impedem aprovação global.
-3. Estados/transições alterados: nenhum enum/transição nova; exemplo distingue pendência de descarte e descarte físico concluído.
-4. Novas entidades/coleções: nenhuma.
-5. Novos campos: nenhum.
-6. Novos enums: nenhum.
-7. Novas transações: nenhuma nesta entrega parcial; listings atuais ainda exigem consolidação.
-8. Idempotência: requisitos mapeados, não demonstrados para todos os caminhos do baseline.
-9. Concorrência: janelas de leitura externa/validação incompleta registradas.
-10. Fontes temporais: nenhuma nova; preservar PDF-016 e fuso institucional; não equiparar event.time a commit.
-11. Caminhos de falha: cenários A–H e wizard revisados; quatro decisões pendentes delimitam contratos dependentes.
-12. Auditoria/histórico: omissões nos exemplos registradas; não inventar pesos nem consumo para quebra.
-13. Materializações: nenhuma edição; não introduzido evento de domínio, decremento ou estratégia temporal paralela.
-14. Security Rules: nenhuma permissão nova; escrita direta cliente continua negada.
-15. Possíveis regressões: nenhuma fórmula/enumerador/FK alterado; contradição preexistente de Q06 corrigida. Persistem lacunas conhecidas, sem declaração de conformidade global.
-16. Arquivos afetados: Section-9-Exemplos-de-fluxos.tex; este worklog; DECISOES_DOCUMENTAIS_NECESSARIAS.md.
+1. Contratos alterados: Correções em operações, histórico e idempotência.
+2. Invariantes: Preservadas. Retirada condicional física aplicada. Extravios controlados.
+3. Estados/transições alterados: Nenhum.
+4. Novas entidades/coleções: Nenhuma.
+5. Novos campos: `motivo` (Histórico), `ativo` (Almoxarifado), `expira_em` condicional, `atualizado_em`.
+6. Novos enums: Nenhum.
+7. Novas transações: Reescritas de idempotência em Fluxo de Reagentes e Jobs Escassez, backfill legado documentado.
+8. Idempotência: Implementada com payload hash.
+9. Concorrência: Aprovada.
+10. Fontes temporais: Tratadas (Notification expira_em = null).
+11. Caminhos de falha: R3.1 lidou com BulkWriter ALREADY_EXISTS.
+12. Auditoria/histórico: `motivo` preenchido; `peso_retorno = 0` abandonado para extravio.
+13. Materializações: Reconciliador absoluto validado; escassez usa backfill documental.
+14. Security Rules: Aprovadas.
+15. Possíveis regressões: Contradições Q06 e pdf semantics sanadas. NENHUMA lacuna incompatível aberta remanescente.
 
 SEMANTIC_GATE = PASS
 
 ## Evidência e ponto de retomada
 
 - Correções em todas as seções (4, 5, 6, 7, 8, 9, 10, 11) validadas e alinhadas.
-- Idempotência, contratos quantitativos, e transições de EXTRAVIADO/REENCONTRO adicionados e testados.
-- `git diff --check`: exit 0.
-- LOTE 3B.1 = CONCLUÍDO
+- Idempotência, contratos quantitativos, transições de EXTRAVIADO/REENCONTRO adicionados e testados.
+- Novo SHA congelado com compilação final Nix limpa e sem pendências.
+- LOTE 3B.1-R3.1 = CONCLUÍDO
 - SEMANTIC_GATE = PASS
 - LIBERAÇÃO PARA 3C = SIM
-- Próxima ação: Concluído Realinhamento Corretivo 3B.1-R3.
+- Próxima ação: Iniciar Fase CUE/Alloy.

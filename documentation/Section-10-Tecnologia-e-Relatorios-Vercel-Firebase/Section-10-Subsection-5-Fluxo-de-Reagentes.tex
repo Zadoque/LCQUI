@@ -673,7 +673,8 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
       payload_hash: payloadHash,
       resultado: resultado,
       status: "CONCLUIDA",
-      criado_em: admin.firestore.FieldValue.serverTimestamp()
+      criado_em: admin.firestore.FieldValue.serverTimestamp(),
+      atualizado_em: admin.firestore.FieldValue.serverTimestamp()
     });
 
     return resultado;
@@ -737,6 +738,7 @@ export const recalibrarTaraFrascoEsgotado = onCall(async (request) => {
       resultado: resultado,
       status: "CONCLUIDA",
       criado_em: admin.firestore.FieldValue.serverTimestamp(),
+      atualizado_em: admin.firestore.FieldValue.serverTimestamp()
     });
 
     return resultado;
