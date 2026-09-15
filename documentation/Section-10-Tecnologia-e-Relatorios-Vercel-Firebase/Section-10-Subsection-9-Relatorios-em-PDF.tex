@@ -4,6 +4,12 @@ Pseudo-códigos das funções de relatório, revisados: os nomes de campo passam
 \begin{lstlisting}[language=TypeScript, title={Configuração Base e Relatório de Almoxarifado}]
 import PDFDocument from "pdfkit-table";
 
+// PDF-026: Diferenciação Nominal vs Físico e Extravio
+// 1. O relatório deve usar EXCLUSIVAMENTE a propriedade medida_utilizada (saldo físico real e consumo medido)
+//    e JAMAIS considerar conteudo_nominal como estoque disponível, evitando que saldos desconhecidos sejam mascarados.
+// 2. Frascos com estado EXTRAVIADO possuem disponibilidade INDISPONIVEL e não devem ser contados 
+//    como estoque ativo. Eles devem aparecer segregados em seções de perdas/extravios.
+
 interface FiltrosAlmoxarifado {
   idAlmoxarifado: string;
   mes: number;
