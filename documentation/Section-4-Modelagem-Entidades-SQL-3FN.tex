@@ -219,7 +219,6 @@ O campo \textit{cas\_number} identifica a substância e permanece \textbf{UNIQUE
 \campo{tipo\_substancia}{ENUM}{PURA, MISTURA, NOT NULL}
 \campo{natureza\_quimica}{ENUM}{ORGANICO, INORGANICO, ELEMENTO, HIBRIDO, NOT NULL}
 \campo{requer\_pesagem\_frequente}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
-\campo{qtd\_em\_que\_e\_considerado\_escasso}{INTEGER}{NOT NULL}
 \campo{frequencia\_pesagem\_dias}{INTEGER}{NULL}
 \campo{estado\_fisico}{ENUM}{SOLIDO, LIQUIDO, NOT NULL}
 \campo{eh\_higroscopico}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
@@ -303,6 +302,21 @@ A especificação referencia o resumo, fonte do estado físico; a unidade é der
 \textit{GASOSO} foi removido de \textit{estado\_fisico} nesta versão: nenhum reagente gasoso está listado para o almoxarifado atual, e reagentes gasosos precisam de campos e método de medição próprios (pressão, não peso em balança) em vez de reaproveitar os campos já pensados para sólido/líquido. O estudo detalhado para reintrodução está na seção \textit{Implementações em Estudo para Versões Futuras}.
 \end{explicacao}
 
+\subsection{Estoque Mínimo por Almoxarifado}
+\begin{entidade}{Estoque\_Minimo\_Almoxarifado}
+\campo{id\_especificacao\_reagente}{INTEGER}{FK, PK, NOT NULL}
+\campo{id\_almoxarifado}{INTEGER}{FK, PK, NOT NULL}
+\campo{qtd\_limiar\_escassez}{INTEGER}{NOT NULL}
+\campo{ativo}{BOOLEAN}{DEFAULT TRUE, NOT NULL}
+\campo{notificacao\_ativa}{BOOLEAN}{DEFAULT TRUE, NOT NULL}
+\end{entidade}
+
+\begin{explicacao}
+A entidade \textit{Estoque\_Minimo\_Almoxarifado} estabelece o limiar de escassez (em quantidade de frascos) de uma \textit{Especificacao\_Reagente} para um determinado \textit{Almoxarifado}. O par Especificação × Almoxarifado é a identidade unívoca da configuração. 
+O campo \textit{ativo} indica que o par continua configurado ou intencionalmente estocado. 
+O campo \textit{notificacao\_ativa} indica que a emissão automática do alerta está habilitada (útil para silenciar alertas sem excluir a intenção de estocar a especificação).
+\end{explicacao}
+
 \subsection{Lote}
 \begin{entidade}{Lote}
 \campo{id}{SERIAL}{PK}
@@ -340,7 +354,7 @@ A especificação referencia o resumo, fonte do estado físico; a unidade é der
 \campo{validade\_efetiva}{DATE}{NULL}
 \campo{validade\_desconhecida}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
 \campo{validade\_apos\_aberto\_dias}{INTEGER}{NULL}
-\campo{estado\_fisico\_frasco}{ENUM}{FECHADO,ABERTO,VAZIO,QUEBRADO,DESCARTADO, NOT NULL}
+\campo{estado\_fisico\_frasco}{ENUM}{FECHADO,ABERTO,VAZIO,QUEBRADO,DESCARTADO,EXTRAVIADO, NOT NULL}
 \campo{disponibilidade}{ENUM}{DISPONIVEL,EMPRESTADO, NOT NULL}
 \campo{vencido}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
 \campo{em\_quarentena}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
@@ -385,7 +399,7 @@ O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre 
     CADASTRO, SAIU, ENTROU, FICOU\_VAZIO, QUEBROU, FOI\_DESCARTADO,\\
     VENCEU, INVENTARIO\_ROTINA, EVAPORACAO, AJUSTE, CONCLUSAO,\\
     ENTROU\_EM\_QUARENTENA, LIBERADO\_QUARENTENA, PENDENTE\_DE\_DESCARTE,\\
-    USO\_VENCIDO\_AUTORIZADO%
+    USO\_VENCIDO\_AUTORIZADO, EXTRAVIO, REENCONTRO%
   }
 }{NOT NULL}
 \campo{campo\_ajustado}{VARCHAR(30)}{NULL}
@@ -407,7 +421,7 @@ O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre 
 \campo{id\_frasco\_reagente}{INTEGER}{FK, NOT NULL}
 \campo{id\_usuario\_retirou}{INTEGER}{FK, NOT NULL}
 \campo{id\_gestor\_retirada}{INTEGER}{FK, NOT NULL}
-\campo{status}{ENUM}{EM\_USO,ATRASADO,DEVOLVIDO,DEVOLVIDO\_COM\_ATRASO, NOT NULL}
+\campo{status}{ENUM}{EM\_USO,ATRASADO,DEVOLVIDO,DEVOLVIDO\_COM\_ATRASO,ENCERRADO\_EXTRAORDINARIO, NOT NULL}
 \campo{data\_retirada}{TIMESTAMP}{NOT NULL}
 \campo{data\_devolucao\_prevista}{DATE}{NOT NULL}
 \campo{data\_devolucao\_efetuada}{TIMESTAMP}{NULL}
