@@ -16,12 +16,13 @@ const hash = data => crypto.createHash('sha256').update(data).digest('hex');
 function write(file, data) { fs.mkdirSync(path.dirname(file), {recursive:true}); fs.writeFileSync(file,data); }
 function specCheck() {
   run('cue',['vet','./...'],cueDir);
-  for (const kind of ['valid','invalid']) {
-    const files = fs.readdirSync(`${cueDir}/tests/${kind}`).sort();
+  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo']];
+  for (const [directory, definition] of groups) for (const kind of ['valid','invalid']) {
+    const files = fs.readdirSync(`${cueDir}/${directory}/${kind}`).sort();
     if (!files.length) throw new Error(`Sem fixtures ${kind}`);
     for (const file of files) {
-      const r=spawnSync('cue',['vet','-c','./domain',`./tests/${kind}/${file}`,'-d','#Frasco'],{cwd:cueDir,encoding:'utf8'});
-      if (r.error || (kind==='valid' ? r.status!==0 : r.status!==1)) throw new Error(`Fixture ${kind}/${file}: ${r.error ?? r.stderr}`);
+      const r=spawnSync('cue',['vet','-c','./domain',`./${directory}/${kind}/${file}`,'-d',definition],{cwd:cueDir,encoding:'utf8'});
+      if (r.error || (kind==='valid' ? r.status!==0 : r.status!==1)) throw new Error(`Fixture ${directory}/${kind}/${file}: ${r.error ?? r.stderr}`);
     }
   }
   // cue fmt deve ser um gate sem modificar as fontes.

@@ -1,0 +1,10 @@
+{
+  "id": 1,
+  "nome": "áááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááá",
+  "tipo_substancia": "MISTURA",
+  "natureza_quimica": "HIBRIDO",
+  "requer_pesagem_frequente": false,
+  "frequencia_pesagem_dias": null,
+  "estado_fisico": "SOLIDO",
+  "eh_higroscopico": false
+}

@@ -1,0 +1,13 @@
+{
+  "id": 2,
+  "id_resumo_reagente": 1,
+  "descricao": "Etanol PA",
+  "fabricante": null,
+  "codigo_produto_fabricante": null,
+  "grau_pureza": null,
+  "densidade": -1,
+  "classe_inflamabilidade": "CLASSE_1",
+  "eh_controlado_pf": false,
+  "eh_controlado_eb": false,
+  "link_fds_fispq": null
+}

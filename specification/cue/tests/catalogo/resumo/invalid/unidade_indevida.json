@@ -1,0 +1,11 @@
+{
+  "id": 1,
+  "nome": "Etanol",
+  "tipo_substancia": "PURA",
+  "natureza_quimica": "ORGANICO",
+  "requer_pesagem_frequente": false,
+  "frequencia_pesagem_dias": null,
+  "estado_fisico": "LIQUIDO",
+  "eh_higroscopico": false,
+  "unidade_de_medida": "ml"
+}

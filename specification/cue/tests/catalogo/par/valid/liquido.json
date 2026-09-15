@@ -1,0 +1,25 @@
+{
+  "resumo": {
+    "id": 1,
+    "nome": "Etanol",
+    "tipo_substancia": "PURA",
+    "natureza_quimica": "ORGANICO",
+    "requer_pesagem_frequente": false,
+    "frequencia_pesagem_dias": null,
+    "estado_fisico": "LIQUIDO",
+    "eh_higroscopico": false
+  },
+  "especificacao": {
+    "id": 2,
+    "id_resumo_reagente": 1,
+    "descricao": "Etanol PA",
+    "fabricante": null,
+    "codigo_produto_fabricante": null,
+    "grau_pureza": null,
+    "densidade": 0.7893,
+    "classe_inflamabilidade": "CLASSE_1",
+    "eh_controlado_pf": false,
+    "eh_controlado_eb": false,
+    "link_fds_fispq": null
+  }
+}
