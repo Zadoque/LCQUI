@@ -1,0 +1,9 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{Mapeamento: Especificacao\_Reagente}
+Caminho: \texttt{Resumo\_Reagente/\{resumoId\}/Especificacoes/\{id\}}.
+\begin{itemize}
+\item id torna-se docId string; id\_resumo\_reagente string deve corresponder ao pai, validado pelo servidor.
+\item unidade\_de\_medida é projeção opcional derivada do estado do resumo: g ou ml; não é fonte canônica.
+\item composicao é array de mapas embutido; sua migração formal ainda não está incluída no M1.
+\item Precisão/escala e limites VARCHAR permanecem válidos; densidade é positiva e obrigatória para líquido.
+\end{itemize}

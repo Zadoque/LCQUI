@@ -23,3 +23,16 @@ arquivos ausentes, alterados ou extras, sem escrever generated. Hash é vínculo
 de proveniência, não assinatura; sempre reexecute Alloy no gate completo.
 Escaping único em `src/latex.rs`; não inserir LaTeX bruto no IR.
 Para reprodução offline, use `cargo fetch --locked` previamente e `--offline`.
+
+## Formatos suportados
+
+Versão 0.2.0: lê IR v1 (singular M0) e IR v2 (entidades[]), emitido pelo CUE M1.
+A saída M0 permanece idêntica; novos arquivos entities/resumo_reagente.tex,
+entities/especificacao_reagente.tex e os correspondentes firestore/*.tex são
+aditivos. O manifest registra versão 0.2.0 e os novos hashes. O gerador rejeita
+nomes de saída inseguros/duplicados e versões desconhecidas.
+
+Quatro testes verificam escaping, proveniência/resultados adulterados,
+compatibilidade de leitura e nomes de saída. Limites e padrões vêm dos
+metadados normativos CUE. Notas de mapeamento não constituem validação de um
+documento Firestore completo.

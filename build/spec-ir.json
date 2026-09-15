@@ -1,44 +1,293 @@
 {
-    "versao": 1,
+    "versao": 2,
     "baseline": "db29ea2f17dc785fb0b44ffb3aec16db29c45e94",
-    "entidade": "Frasco_Reagente",
-    "escopo": "M0 parcial: filtro físico; não equivale à autorização completa de retirada.",
-    "campos": [
+    "entidades": [
         {
-            "nome": "estado_fisico_frasco",
-            "obrigatorio": true,
-            "nulo": false,
-            "tipo": "enum",
-            "valores": [
-                "FECHADO",
-                "ABERTO",
-                "VAZIO",
-                "QUEBRADO",
-                "DESCARTADO",
-                "EXTRAVIADO"
-            ]
+            "arquivo": "frasco_reagente",
+            "entidade": "Frasco_Reagente",
+            "etapa": "fatia M0",
+            "escopo": "M0 parcial: filtro físico; não equivale à autorização completa de retirada.",
+            "campos": [
+                {
+                    "nome": "estado_fisico_frasco",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "tipo": "enum",
+                    "valores": [
+                        "FECHADO",
+                        "ABERTO",
+                        "VAZIO",
+                        "QUEBRADO",
+                        "DESCARTADO",
+                        "EXTRAVIADO"
+                    ]
+                },
+                {
+                    "nome": "disponibilidade",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "tipo": "enum",
+                    "valores": [
+                        "DISPONIVEL",
+                        "EMPRESTADO"
+                    ]
+                },
+                {
+                    "nome": "em_quarentena",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "tipo": "bool",
+                    "valores": []
+                }
+            ],
+            "exemplo": {
+                "estado_fisico_frasco": "FECHADO",
+                "disponibilidade": "DISPONIVEL",
+                "em_quarentena": false
+            }
         },
         {
-            "nome": "disponibilidade",
-            "obrigatorio": true,
-            "nulo": false,
-            "tipo": "enum",
-            "valores": [
-                "DISPONIVEL",
-                "EMPRESTADO"
-            ]
+            "arquivo": "resumo_reagente",
+            "entidade": "Resumo_Reagente",
+            "etapa": "modelo normalizado M1",
+            "escopo": "Registro normalizado: todos os campos presentes, incluindo null explícito quando permitido. Não é payload de criação nem corpo Firestore.",
+            "campos": [
+                {
+                    "nome": "id",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "tipo": "int",
+                    "minimo": 1,
+                    "observacao": "Identidade relacional SERIAL; Firestore usa docId string, fora do corpo."
+                },
+                {
+                    "nome": "nome",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "tipo": "string",
+                    "max_caracteres": 150,
+                    "padrao": ".*"
+                },
+                {
+                    "nome": "tipo_substancia",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [
+                        "PURA",
+                        "MISTURA"
+                    ],
+                    "observacao": "",
+                    "tipo": "enum"
+                },
+                {
+                    "nome": "natureza_quimica",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [
+                        "ORGANICO",
+                        "INORGANICO",
+                        "ELEMENTO",
+                        "HIBRIDO"
+                    ],
+                    "observacao": "",
+                    "tipo": "enum"
+                },
+                {
+                    "nome": "requer_pesagem_frequente",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "tipo": "bool"
+                },
+                {
+                    "nome": "frequencia_pesagem_dias",
+                    "obrigatorio": true,
+                    "minimo": 1,
+                    "nulo": true,
+                    "tipo": "int",
+                    "valores": [],
+                    "observacao": "Positiva quando requer pesagem frequente; null caso contrário (Seção 5)."
+                },
+                {
+                    "nome": "estado_fisico",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [
+                        "SOLIDO",
+                        "LIQUIDO"
+                    ],
+                    "observacao": "",
+                    "tipo": "enum"
+                },
+                {
+                    "nome": "eh_higroscopico",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "tipo": "bool"
+                }
+            ],
+            "exemplo": {
+                "frequencia_pesagem_dias": null,
+                "requer_pesagem_frequente": false,
+                "id": 1,
+                "nome": "Etanol",
+                "tipo_substancia": "PURA",
+                "natureza_quimica": "ORGANICO",
+                "estado_fisico": "LIQUIDO",
+                "eh_higroscopico": false
+            },
+            "mapeamento": {
+                "caminho": "Resumo_Reagente/{id}",
+                "notas": [
+                    "id SERIAL torna-se docId string fora do corpo; FKs no Firestore são strings.",
+                    "letra_inicial é denormalização exclusiva do Firestore, recalculada pelo servidor junto de nome.",
+                    "estado_fisico e eh_higroscopico pertencem ao resumo; unidade é derivada e não editável."
+                ]
+            }
         },
         {
-            "nome": "em_quarentena",
-            "obrigatorio": true,
-            "nulo": false,
-            "tipo": "bool",
-            "valores": []
+            "arquivo": "especificacao_reagente",
+            "entidade": "Especificacao_Reagente",
+            "etapa": "modelo normalizado M1",
+            "escopo": "A densidade depende do estado do resumo no par validado. Composição, imutabilidade e existência global de FKs não estão modeladas nesta fatia.",
+            "campos": [
+                {
+                    "nome": "id",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "tipo": "int",
+                    "minimo": 1,
+                    "observacao": "Identidade relacional SERIAL; Firestore usa docId string."
+                },
+                {
+                    "nome": "id_resumo_reagente",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "tipo": "int",
+                    "minimo": 1,
+                    "observacao": "FK para Resumo_Reagente; existência validada pelo servidor. Firestore usa string."
+                },
+                {
+                    "nome": "descricao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "tipo": "string",
+                    "max_caracteres": 150,
+                    "padrao": ".*"
+                },
+                {
+                    "nome": "fabricante",
+                    "obrigatorio": true,
+                    "max_caracteres": 150,
+                    "nulo": true,
+                    "tipo": "string",
+                    "valores": [],
+                    "observacao": "",
+                    "padrao": ".*"
+                },
+                {
+                    "nome": "codigo_produto_fabricante",
+                    "obrigatorio": true,
+                    "max_caracteres": 100,
+                    "nulo": true,
+                    "tipo": "string",
+                    "valores": [],
+                    "observacao": "",
+                    "padrao": ".*"
+                },
+                {
+                    "nome": "grau_pureza",
+                    "obrigatorio": true,
+                    "max_caracteres": 30,
+                    "nulo": true,
+                    "tipo": "string",
+                    "valores": [],
+                    "observacao": "",
+                    "padrao": ".*"
+                },
+                {
+                    "nome": "densidade",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "NUMERIC(8,4), g/mL; positiva quando informada; obrigatória para líquido no par com resumo. Imutabilidade depende de transição, fora de M1.",
+                    "tipo": "number",
+                    "minimo_exclusivo": 0,
+                    "maximo_exclusivo": 10000,
+                    "multiplo": 0.0001
+                },
+                {
+                    "nome": "classe_inflamabilidade",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [
+                        "NAO_INFLAMAVEL",
+                        "CLASSE_1",
+                        "CLASSE_2",
+                        "CLASSE_3"
+                    ],
+                    "observacao": "",
+                    "tipo": "enum"
+                },
+                {
+                    "nome": "eh_controlado_pf",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "tipo": "bool"
+                },
+                {
+                    "nome": "eh_controlado_eb",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "tipo": "bool"
+                },
+                {
+                    "nome": "link_fds_fispq",
+                    "obrigatorio": true,
+                    "max_caracteres": 255,
+                    "nulo": true,
+                    "tipo": "string",
+                    "valores": [],
+                    "padrao": "^https://[^/?#[:space:]]+[^[:space:]]*$",
+                    "observacao": "HTTPS com host não vazio; acessibilidade e autorização do recurso não verificadas por CUE."
+                }
+            ],
+            "exemplo": {
+                "densidade": 0.7893,
+                "id_resumo_reagente": 1,
+                "id": 2,
+                "descricao": "Etanol PA",
+                "fabricante": null,
+                "codigo_produto_fabricante": null,
+                "grau_pureza": null,
+                "classe_inflamabilidade": "CLASSE_1",
+                "eh_controlado_pf": false,
+                "eh_controlado_eb": false,
+                "link_fds_fispq": null
+            },
+            "mapeamento": {
+                "caminho": "Resumo_Reagente/{resumoId}/Especificacoes/{id}",
+                "notas": [
+                    "id torna-se docId string; id_resumo_reagente string deve corresponder ao pai, validado pelo servidor.",
+                    "unidade_de_medida é projeção opcional derivada do estado do resumo: g ou ml; não é fonte canônica.",
+                    "composicao é array de mapas embutido; sua migração formal ainda não está incluída no M1.",
+                    "Precisão/escala e limites VARCHAR permanecem válidos; densidade é positiva e obrigatória para líquido."
+                ]
+            }
         }
-    ],
-    "exemplo": {
-        "estado_fisico_frasco": "FECHADO",
-        "disponibilidade": "DISPONIVEL",
-        "em_quarentena": false
-    }
+    ]
 }

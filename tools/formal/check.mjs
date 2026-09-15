@@ -49,7 +49,9 @@ function alloyCheck() {
   const source=fs.readFileSync(model);
   const ir=fs.readFileSync('build/spec-ir.json');
   // Guard contra drift entre vocabulário estrutural e relacional.
-  for(const field of JSON.parse(ir).campos) for(const value of field.valores)
+  const bottle=JSON.parse(ir).entidades.find(e=>e.arquivo==='frasco_reagente');
+  if(!bottle) throw new Error('Fatia Frasco ausente do IR');
+  for(const field of bottle.campos) for(const value of field.valores)
     if(!new RegExp(`\\b${value}\\b`).test(source.toString())) throw new Error(`Enum ausente no Alloy: ${value}`);
   const temp=fs.mkdtempSync(path.join(os.tmpdir(),'lcqui-alloy-'));
   run('alloy6',['exec','-q','-c','*','-s','sat4j','-t','json','-o',path.join(temp,'result'),model]);

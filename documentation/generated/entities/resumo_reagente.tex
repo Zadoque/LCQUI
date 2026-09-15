@@ -1,0 +1,21 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{Resumo\_Reagente --- modelo normalizado M1}
+Registro normalizado: todos os campos presentes, incluindo null explícito quando permitido. Não é payload de criação nem corpo Firestore.
+\begin{description}
+\item[id] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+Mínimo: 1.
+Identidade relacional SERIAL; Firestore usa docId string, fora do corpo.
+\item[nome] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+Máximo: 150 caracteres.
+\item[tipo\_substancia] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+Valores: PURA, MISTURA.
+\item[natureza\_quimica] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+Valores: ORGANICO, INORGANICO, ELEMENTO, HIBRIDO.
+\item[requer\_pesagem\_frequente] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+\item[frequencia\_pesagem\_dias] Tipo: int. Obrigatório: sim. Aceita nulo: sim.
+Mínimo: 1.
+Positiva quando requer pesagem frequente; null caso contrário (Seção 5).
+\item[estado\_fisico] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+Valores: SOLIDO, LIQUIDO.
+\item[eh\_higroscopico] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+\end{description}

@@ -10,12 +10,10 @@ type Fallible<T> = Result<T, Box<dyn Error>>;
 fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let raw = fs::read(root.join("build/spec-ir.json"))?;
     let results = fs::read(root.join("build/formal-validation.json"))?;
-    let ir: ir::Ir = serde_json::from_slice(&raw)?;
+    let ir = ir::parse(&raw)?;
     let v: validation::Validation = serde_json::from_slice(&results)?;
-    if ir.versao != 1
+    if !ir.valid()
         || ir.baseline != "db29ea2f17dc785fb0b44ffb3aec16db29c45e94"
-        || ir.campos.is_empty()
-        || !ir.exemplo.is_object()
         || v.model != "specification/alloy/reagents/withdrawal.als"
         || !v.check(&raw, &fs::read(root.join(&v.model))?)
     {

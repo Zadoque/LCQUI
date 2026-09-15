@@ -1,9 +1,13 @@
 {
   "files": {
+    "entities/especificacao_reagente.tex": "3e0e20034ee6be5a0886983bb90511fdc35a7f6f30bab12a54a136bb96284e35",
     "entities/frasco_reagente.tex": "0f275e180b00b75633928a1131f86f8aa9da960ca6a009cced892b433e5cf542",
+    "entities/resumo_reagente.tex": "212f4af5e48a5f0913668ce4fc5e8c46d62e3741d95f743a0839c173b3f2ab95",
+    "firestore/especificacao_reagente.tex": "7adffa8e41d645dc0cba1ea456ab2274200120dca09e048bac1d9ac7b302f65d",
+    "firestore/resumo_reagente.tex": "f1ce6ab343400b84f4abbb5aa37829bf7718221e54cfae325ac4d0f3fcc98030",
     "invariants/retirar_frasco.tex": "ab607b69abfbec410749c606ae53428693a07ba72d8e97412dac899dec2a5efe"
   },
-  "formal_validation_sha256": "75b0cd82c633131cbd41ce52517ec2fff9b7193d3af3fa6ad3f542512fe14c09",
-  "generator_version": "0.1.0",
-  "spec_ir_sha256": "5bd407e5df545dc766ff1cca004214162a1bfe65645025fbcd6edba56de23c4d"
+  "formal_validation_sha256": "76566fbcdc4a9e0f6e42d2fd5815f3bf459bcfb9040b4db8e7aa46cc1019d3b4",
+  "generator_version": "0.2.0",
+  "spec_ir_sha256": "b5dae541a2fed71f3242049b4df6112827a44364706ee4a2dce7c13e3b170bf2"
 }

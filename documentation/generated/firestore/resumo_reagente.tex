@@ -1,0 +1,8 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{Mapeamento: Resumo\_Reagente}
+Caminho: \texttt{Resumo\_Reagente/\{id\}}.
+\begin{itemize}
+\item id SERIAL torna-se docId string fora do corpo; FKs no Firestore são strings.
+\item letra\_inicial é denormalização exclusiva do Firestore, recalculada pelo servidor junto de nome.
+\item estado\_fisico e eh\_higroscopico pertencem ao resumo; unidade é derivada e não editável.
+\end{itemize}

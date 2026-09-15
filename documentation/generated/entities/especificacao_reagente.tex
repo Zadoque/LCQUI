@@ -1,0 +1,32 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{Especificacao\_Reagente --- modelo normalizado M1}
+A densidade depende do estado do resumo no par validado. Composição, imutabilidade e existência global de FKs não estão modeladas nesta fatia.
+\begin{description}
+\item[id] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+Mínimo: 1.
+Identidade relacional SERIAL; Firestore usa docId string.
+\item[id\_resumo\_reagente] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+Mínimo: 1.
+FK para Resumo\_Reagente; existência validada pelo servidor. Firestore usa string.
+\item[descricao] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+Máximo: 150 caracteres.
+\item[fabricante] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+Máximo: 150 caracteres.
+\item[codigo\_produto\_fabricante] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+Máximo: 100 caracteres.
+\item[grau\_pureza] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+Máximo: 30 caracteres.
+\item[densidade] Tipo: number. Obrigatório: sim. Aceita nulo: sim.
+Maior que 0.
+Menor que 10000.
+Múltiplo de 0.0001.
+NUMERIC(8,4), g/mL; positiva quando informada; obrigatória para líquido no par com resumo. Imutabilidade depende de transição, fora de M1.
+\item[classe\_inflamabilidade] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+Valores: NAO\_INFLAMAVEL, CLASSE\_1, CLASSE\_2, CLASSE\_3.
+\item[eh\_controlado\_pf] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+\item[eh\_controlado\_eb] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+\item[link\_fds\_fispq] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+Máximo: 255 caracteres.
+Padrão: \textasciicircum{}https://[\textasciicircum{}/?\#[:space:]]+[\textasciicircum{}[:space:]]*\$.
+HTTPS com host não vazio; acessibilidade e autorização do recurso não verificadas por CUE.
+\end{description}
