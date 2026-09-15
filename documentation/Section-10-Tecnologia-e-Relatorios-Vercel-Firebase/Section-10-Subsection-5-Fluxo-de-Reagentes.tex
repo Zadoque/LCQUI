@@ -10,7 +10,7 @@ interface CadastroFrascoFechado {
   // Para sólidos: volumeNominal representa a massa nominal em g
   // Para líquidos: volumeNominal representa o volume nominal em mL (M-17)
   pesoTotal: number;
-  volumeNominal: number;
+  volumeNominal?: number;
   validadeFechado?: string;
   validadeDesconhecida?: boolean;
   decisaoSeJaVencido?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
@@ -43,16 +43,17 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
   const resumo = (await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).get()).data()!;
   const estadoFisico = resumo.estado_fisico;
 
-  let pesoVazio: number;
-  if (estadoFisico === "LIQUIDO") {
-    if (!densidade || densidade <= 0) throw new HttpsError("failed-precondition", "Líquido exige densidade positiva.");
-    pesoVazio = dados.pesoTotal - (dados.volumeNominal * densidade);
-  } else {
-    pesoVazio = dados.pesoTotal - dados.volumeNominal; // g
-  }
-
-  if (pesoVazio <= 0) {
-    throw new HttpsError("invalid-argument", "Peso total incompatível com o volume nominal para esta densidade.");
+  let pesoVazio: number | null = null;
+  if (dados.volumeNominal != null) {
+    if (estadoFisico === "LIQUIDO") {
+      if (!densidade || densidade <= 0) throw new HttpsError("failed-precondition", "Líquido exige densidade positiva.");
+      pesoVazio = dados.pesoTotal - (dados.volumeNominal * densidade);
+    } else {
+      pesoVazio = dados.pesoTotal - dados.volumeNominal; // g
+    }
+    if (pesoVazio <= 0) {
+      throw new HttpsError("invalid-argument", "Peso total incompatível com o volume nominal para esta densidade.");
+    }
   }
 
   const agora = new Date();
@@ -82,7 +83,7 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
       id_resumo_reagente: dados.idResumoReagente,
       eh_higroscopico: resumo.eh_higroscopico, // snapshot servidor imutável
       codigo_frasco: novoCodigo,
-      conteudo_nominal: dados.volumeNominal,
+      conteudo_nominal: dados.volumeNominal ?? null,
       peso_no_cadastrado: dados.pesoTotal,
       peso_atual: dados.pesoTotal,
       peso_frasco_vazio: pesoVazio,
@@ -128,7 +129,8 @@ interface CadastroFrascoAberto {
   // SOLIDO:  "CONHECE_TARA" | "ESTIMA_MASSA"
   modalidade: "CONHECE_TARA" | "ESTIMA_VOLUME" | "ESTIMA_MASSA";
   pesoTotalBalanca: number;            // sempre leitura de balança em g
-  pesoFrascoVazioInformado?: number;  // Opção A (ambos estados físicos)
+  volumeNominal?: number;              // declaracao original do fabricante (g ou mL)
+  pesoFrascoVazioInformado?: number;   // Opção A (ambos estados físicos)
   volumeAtualEstimado?: number;        // Opção B LIQUIDO: volume visual em mL
   massaAtualEstimada?: number;         // Opção B SOLIDO: estimativa em g
   dataAbertura?: string;
@@ -152,8 +154,8 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
   const densidade: number | null = especData.densidade ?? null;
 
   // C5: bifurcação explícita por estado físico
-  let pesoVazio: number;
-  let conteudoNominal: number; // g para sólidos, mL para líquidos
+  let pesoVazio: number | null = null;
+  const conteudoNominal = dados.volumeNominal ?? null;
 
   if (estadoFisico === "SOLIDO") {
     // Sólidos: tudo em gramas; densidade não é usada para cálculo de volume
@@ -161,15 +163,13 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
       if (dados.pesoFrascoVazioInformado == null)
         throw new HttpsError("invalid-argument", "CONHECE_TARA exige pesoFrascoVazioInformado.");
       pesoVazio = dados.pesoFrascoVazioInformado;
-      conteudoNominal = dados.pesoTotalBalanca - pesoVazio;
     } else { // ESTIMA_MASSA
       if (dados.massaAtualEstimada == null)
         throw new HttpsError("invalid-argument", "ESTIMA_MASSA exige massaAtualEstimada.");
-      conteudoNominal = dados.massaAtualEstimada;
-      pesoVazio = dados.pesoTotalBalanca - conteudoNominal;
+      pesoVazio = dados.pesoTotalBalanca - dados.massaAtualEstimada;
     }
     if (pesoVazio <= 0)
-      throw new HttpsError("invalid-argument", "Massa atual maior que o peso total medido na balança.");
+      throw new HttpsError("invalid-argument", "Massa atual incompatível ou maior que o peso total medido na balança.");
   } else { // LIQUIDO
     if (!densidade || densidade <= 0)
       throw new HttpsError("failed-precondition", "Líquido exige densidade positiva cadastrada na especificação.");
@@ -177,14 +177,12 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
       if (dados.pesoFrascoVazioInformado == null)
         throw new HttpsError("invalid-argument", "CONHECE_TARA exige pesoFrascoVazioInformado.");
       pesoVazio = dados.pesoFrascoVazioInformado;
-      conteudoNominal = (dados.pesoTotalBalanca - pesoVazio) / densidade;
     } else { // ESTIMA_VOLUME
       if (dados.volumeAtualEstimado == null)
         throw new HttpsError("invalid-argument", "ESTIMA_VOLUME exige volumeAtualEstimado.");
-      conteudoNominal = dados.volumeAtualEstimado;
-      pesoVazio = dados.pesoTotalBalanca - (conteudoNominal * densidade);
+      pesoVazio = dados.pesoTotalBalanca - (dados.volumeAtualEstimado * densidade);
     }
-    if (conteudoNominal <= 0 || pesoVazio <= 0)
+    if (pesoVazio <= 0)
       throw new HttpsError("invalid-argument", "Dados de volume/peso inconsistentes com a densidade.");
   }
 
@@ -350,6 +348,9 @@ export const registrarRetirada = onCall(async (request) => {
     await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
     if (frasco.disponibilidade !== "DISPONIVEL") {
       throw new HttpsError("failed-precondition", "Frasco não está disponível para retirada.");
+    }
+    if (frasco.estado_fisico_frasco !== "FECHADO" && frasco.estado_fisico_frasco !== "ABERTO") {
+      throw new HttpsError("failed-precondition", "Estado físico incompatível com retirada.");
     }
     if (frasco.em_quarentena) {
       throw new HttpsError("failed-precondition", "Frasco em quarentena não pode ser retirado.");
@@ -578,14 +579,21 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
   const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.id_operacao);
 
   return admin.firestore().runTransaction(async (tx) => {
+    const crypto = require("crypto");
+    const payloadRelevante = dados.acao === "EXTRAVIAR"
+      ? { acao: dados.acao, idFrasco: dados.idFrasco, motivo: dados.motivo }
+      : { acao: dados.acao, idFrasco: dados.idFrasco, motivo: dados.motivo, estadoConstatadoAoReencontrar: dados.estadoConstatadoAoReencontrar };
+    const payloadStr = JSON.stringify(payloadRelevante, Object.keys(payloadRelevante).sort());
+    const payloadHash = crypto.createHash("sha256").update(payloadStr).digest("hex");
+
     // 1. ler registro de idempotência
     const opSnap = await tx.get(operacaoRef);
     if (opSnap.exists) {
       const op = opSnap.data()!;
-      if (op.acao === dados.acao && op.id_frasco === dados.idFrasco) {
-        return { status: "OK", mensagem: "Operação já havia sido processada com sucesso." };
+      if (op.uid === request.auth!.uid && op.payload_hash === payloadHash) {
+        return op.resultado;
       }
-      throw new HttpsError("already-exists", "id_operacao duplicada para ação divergente.");
+      throw new HttpsError("already-exists", "id_operacao duplicada: payload_hash ou ator divergente.");
     }
 
     // 2. ler frasco
@@ -615,9 +623,11 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
 
       if (!emprestimoAberto.empty) {
         const docEmprestimo = emprestimoAberto.docs[0];
+        if (docEmprestimo.data().peso_retorno != null) {
+          throw new HttpsError("failed-precondition", "Empréstimo já possui medição de peso_retorno. Reconciliação manual necessária.");
+        }
         tx.update(docEmprestimo.ref, {
           status: "ENCERRADO_EXTRAORDINARIO",
-          peso_retorno: 0, // Sem inventar devolução física
           data_devolucao_efetuada: admin.firestore.FieldValue.serverTimestamp(),
           id_usuario_devolveu: request.auth!.uid,
           detalhe_encerramento: "Encerrado devido a extravio: " + dados.motivo,
@@ -655,17 +665,18 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
       });
     }
 
+    const resultado = { status: "OK" };
     // Grava operação para garantir idempotência
     tx.set(operacaoRef, {
+      tipo_operacao: dados.acao,
       uid: request.auth!.uid,
-      acao: dados.acao,
-      id_frasco: dados.idFrasco,
+      payload_hash: payloadHash,
+      resultado: resultado,
       status: "CONCLUIDA",
-      criado_em: admin.firestore.FieldValue.serverTimestamp(),
-      atualizado_em: admin.firestore.FieldValue.serverTimestamp()
+      criado_em: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    return { status: "OK" };
+    return resultado;
   });
 });
 
@@ -685,12 +696,18 @@ export const recalibrarTaraFrascoEsgotado = onCall(async (request) => {
   const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.id_operacao);
 
   return admin.firestore().runTransaction(async (tx) => {
+    const crypto = require("crypto");
+    const payloadRelevante = { acao: "RECALIBRAR_TARA", id_frasco: dados.id_frasco, peso_vazio_real: dados.peso_vazio_real, motivo: dados.motivo };
+    const payloadStr = JSON.stringify(payloadRelevante, Object.keys(payloadRelevante).sort());
+    const payloadHash = crypto.createHash("sha256").update(payloadStr).digest("hex");
+
     const opSnap = await tx.get(operacaoRef);
     if (opSnap.exists) {
-      if (opSnap.data()!.acao === "RECALIBRAR_TARA" && opSnap.data()!.id_frasco === dados.id_frasco) {
-        return { status: "OK", mensagem: "Operação já havia sido processada com sucesso." };
+      const op = opSnap.data()!;
+      if (op.uid === request.auth!.uid && op.payload_hash === payloadHash) {
+        return op.resultado;
       }
-      throw new HttpsError("already-exists", "id_operacao duplicada para ação divergente.");
+      throw new HttpsError("already-exists", "id_operacao duplicada: payload_hash ou ator divergente.");
     }
 
     const frascoSnap = await tx.get(frascoRef);
@@ -712,15 +729,16 @@ export const recalibrarTaraFrascoEsgotado = onCall(async (request) => {
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 
+    const resultado = { status: "OK" };
     tx.set(operacaoRef, {
+      tipo_operacao: "RECALIBRAR_TARA",
       uid: request.auth!.uid,
-      acao: "RECALIBRAR_TARA",
-      id_frasco: dados.id_frasco,
+      payload_hash: payloadHash,
+      resultado: resultado,
       status: "CONCLUIDA",
       criado_em: admin.firestore.FieldValue.serverTimestamp(),
-      atualizado_em: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    return { status: "OK" };
+    return resultado;
   });
 });
