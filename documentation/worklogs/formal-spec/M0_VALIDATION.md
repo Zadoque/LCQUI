@@ -41,3 +41,21 @@ Build final: exit 0, 213 páginas, zero erros/referências indefinidas, 21 Overf
 (mesma quantidade do log versionado do baseline; nenhum no trecho M0). Páginas
 212–213 renderizadas novamente com Poppler e aprovadas visualmente. PDF final
 copiado de `build/latex/main.pdf` para `documentation/main.pdf` após a revisão.
+
+## Retomada e fechamento do M0
+
+As falhas preexistentes foram reproduzidas, diagnosticadas e resolvidas em
+`d13d25d3`. Detalhes e justificativa em [M0_BASELINE_DIAGNOSIS.md](M0_BASELINE_DIAGNOSIS.md).
+
+- TypeScript frontend e functions: PASS.
+- Jest domain: 2 suítes e 12 testes PASS.
+- `just formal-check`: PASS; CUE, Alloy, Rust e stale reexecutados. latexmk
+  confirmou o PDF atualizado; fontes LaTeX e PDF publicado não mudaram.
+- Diff de aplicação agora contém somente uma prop não consumida removida e
+  fixtures de papéis separadas por regra. A lógica de backend e o baseline
+  documental permanecem intactos.
+
+M0: **VALIDATED** no escopo descrito. M1: **NOT_STARTED**. Isso não constitui
+homologação ponta a ponta ou certificação Firebase Emulator; esses testes
+continuam em etapas futuras. Os resultados iniciais de falha acima são histórico,
+não pendências atuais.

@@ -15,12 +15,12 @@ Camada formal ADITIVA: CUE + Alloy especificam a aplicação existente; Rust ape
 
 ## 4. Estrutura existente preservada
 Inventário real realizado antes de criar specification/ ou tools/spec-doc/; Git inicialmente limpo:
-- `frontend/` EXISTE (sem hífen; não há `front-end/`): UI Next/React/TypeScript e package.json próprios, preservados integralmente.
-- `functions/` EXISTE: backend Firebase/Cloud Functions TypeScript, testes Jest, package.json, assets e scripts, preservados integralmente.
+- `frontend/` EXISTE (sem hífen; não há `front-end/`): UI Next/React/TypeScript e package.json próprios preservados; única correção posterior: remoção de prop não consumida em reagentes/page.tsx (d13d25d3).
+- `functions/` EXISTE: backend Firebase/Cloud Functions TypeScript, testes Jest, package.json, assets e scripts preservados; única correção posterior: fixtures de roles.test.ts (d13d25d3). Nenhuma lógica de backend foi alterada.
 - Raiz: README.md, firebase.json, firestore.rules, storage.rules, .firebaserc, flake.nix/lock preservados. Não existem package.json nem firestore.indexes.json na raiz; não foram inventados.
 - documentation/: seções 1–12, archive, decisões e worklogs 3B preservados. main.tex recebeu somente input aditivo; main.pdf atualizado após build e inspeção. main.aux/log/toc históricos não foram sobrescritos.
-- .gitignore recebeu apenas exclusões de tools/spec-doc/target e build/latex. .agents e .codex protegidos; frontend/AGENTS.md não se aplica à camada formal e UI não foi editada.
-- Diff contra EVIDENCE_HEAD de frontend/functions/Firebase/flake/worklogs 3B: vazio, confirmado.
+- .gitignore recebeu apenas exclusões de tools/spec-doc/target e build/latex. .agents e .codex protegidos; frontend/AGENTS.md e os guias Next locais de TypeScript/componentes foram lidos antes da correção pontual da UI.
+- Diff contra EVIDENCE_HEAD inicialmente vazio. Agora contém somente a prop removida e fixtures corrigidas em frontend/functions; Firebase/flake/worklogs 3B e lógica de backend continuam sem alterações.
 
 ## 5. Divisão de autoridade
 - frontend: UI real.
@@ -52,7 +52,7 @@ A orquestração Node apenas executa ferramentas/normaliza resultados. Rust não
 ## 8. Milestones planejados
 | Milestone | Escopo | Estado |
 |---|---|---|
-| M0 | Infraestrutura e fatia vertical | IMPLEMENTED; pipeline formal VALIDATED; ressalva operacional abaixo |
+| M0 | Infraestrutura e fatia vertical | VALIDATED |
 | M1 | Resumo_Reagente + Especificacao_Reagente | NOT_STARTED |
 | M2 | Frasco completo | NOT_STARTED |
 | M3 | Empréstimo | NOT_STARTED |
@@ -67,7 +67,7 @@ A orquestração Node apenas executa ferramentas/normaliza resultados. Rust não
 | M12 | Integração/redução de duplicação normativa | NOT_STARTED |
 
 ## 9. Milestone atual
-M0 IMPLEMENTED. Pipeline CUE → IR → Alloy/resultados → Rust → .tex → LaTeX/PDF VALIDATED. Não declarar M0 integralmente VALIDATED sob o critério estrito de aplicação funcional: há duas falhas preexistentes de verificação da aplicação (seção 16), mantida intacta. Nenhuma regressão de código introduzida. Não avançar M1 silenciosamente.
+M0 VALIDATED. Pipeline CUE → IR → Alloy/resultados → Rust → .tex → LaTeX/PDF validado; as duas pendências preexistentes foram diagnosticadas e resolvidas no commit d13d25d3. TypeScript de frontend/functions e 12 testes de domínio passam. A aplicação existente continua nos mesmos diretórios; regras 3B e lógica de backend intactas. Essa validação cobre a fatia M0 e os checks descritos, não homologação ponta a ponta ou Firebase Emulator. M1 continua NOT_STARTED.
 
 ## 10. Trabalho concluído
 - Inventário, estado inicial e commit exclusivo 672fc65a antes da camada formal.
@@ -77,13 +77,14 @@ M0 IMPLEMENTED. Pipeline CUE → IR → Alloy/resultados → Rust → .tex → L
 - Rust: módulos main/ir/latex/render/validation; escaping central para _ % & # $ { } ~ ^ e barra invertida; hashes SHA-256; saída ordenada; --check rejeita stale/arquivos extras.
 - READMEs de todas as camadas e cinco knowledge docs; justfile com todos os comandos previstos mais rust-check.
 - Integração LaTeX aditiva e main.pdf de 213 páginas revisado.
-- Worklog durável: documentation/worklogs/formal-spec/M0_VALIDATION.md.
+- Worklogs duráveis: documentation/worklogs/formal-spec/M0_VALIDATION.md e M0_BASELINE_DIAGNOSIS.md.
+- APP-BASELINE-001/002 resolvidas por manutenção pontual em d13d25d3: uma prop não consumida removida; fixtures de duas regras distintas separadas, sem alterar autorização.
 
 ## 11. Trabalho em andamento
-Sessão encerrada a pedido do usuário para desligar o computador. Commit final de integração concluído; nenhuma tarefa nova iniciada. Não há processo de build necessário pendente. CI hospedada não conectada; o gate local just formal-check está executável e validado em ambiente provisionado. A homologação operacional completa da aplicação não foi afirmada.
+Fechamento do M0 concluído; nenhuma implementação de M1 iniciada nesta rodada. Preparando commit documental de fechamento e sincronização da branch. CI hospedada ainda não conectada; just formal-check é o gate local validado. Nenhum processo de validação pendente.
 
 ## 12. Próxima ação EXATA
-Na retomada, confirmar branch/status/log, executar `just formal-check` com o ambiente da seção 6. Antes de marcar M0 integralmente VALIDATED ou iniciar M1, reproduzir as duas falhas preexistentes com os comandos da seção 14 e ler `frontend/src/app/reagentes/page.tsx:524`, a interface ModalProps correspondente (localizar `rg -n 'interface ModalProps|tipoSubstanciaResumo' frontend/src`) e `functions/src/__tests__/domain/roles.test.ts` junto de `functions/src/auth.ts:96`. Preparar diagnóstico separado dessas falhas; não alterar regra 3B, não reescrever UI/backend nem mascarar teste para obter PASS. Definir tratamento das pendências fora da fatia formal antes de declarar aplicação completamente validada. Não repetir auditoria documental inteira.
+Iniciar somente M1 na próxima rodada: confirmar branch/status/log e executar just formal-check com o ambiente da seção 6; ler as entidades Resumo_Reagente e Especificacao_Reagente na Section-4-Modelagem-Entidades-SQL-3FN.tex e respectivas projeções na Section-5-Notas-de-Mapeamento-para-Firestore.tex. Registrar no estado o recorte e as fontes antes de criar specification/cue/domain/resumo_reagente.cue e especificacao_reagente.cue. Derivar tipos/enums/nulabilidade do baseline, adicionar fixtures válidas/inválidas e planejar evolução compatível da projeção IR (hoje singular, versão 1) e do gerador. Executar cue fmt/vet antes do primeiro commit M1. Não modelar Frasco completo, Q06 ou outros milestones junto; qualquer inconsistência deve ser registrada como CONTRAEXEMPLO PÓS-3B antes de mudar regra.
 
 ## 13. Arquivos que devem ser lidos para continuar
 1. Este arquivo, ponto único de retomada.
@@ -94,7 +95,7 @@ Na retomada, confirmar branch/status/log, executar `just formal-check` com o amb
 6. specification/knowledge/AI_HANDOFF.md e FORMAL_SPEC_ARCHITECTURE.md.
 7. documentation/COMPILACAO_NIX_LCQUI.md, Formal-Spec-M0.tex.
 8. Fonte semântica: Section-4-Modelagem-Entidades-SQL-3FN.tex (Frasco, linhas ~340–390) e Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-5-Fluxo-de-Reagentes.tex (retirada ~407–446). Seção 10.7 contém jobs, não retirada.
-9. Arquivos de diagnóstico da seção 12, se tratar a ressalva operacional.
+9. Para M1: documentation/Section-5-Notas-de-Mapeamento-para-Firestore.tex, junto das entidades correspondentes da Seção 4. O diagnóstico de aplicação está concluído em M0_BASELINE_DIAGNOSIS.md.
 
 ## 14. Comandos de validação
 Na raiz, após configurar ambiente:
@@ -115,12 +116,13 @@ Não executar docs-generate antes do gate stale quando a intenção é detectar 
 Direto: `cd specification/cue && cue fmt ./... && cue vet ./... && cue export ./docs -e ir`.
 Preservação:
 ```sh
-git diff 9d97ed30 --exit-code -- frontend functions firebase.json firestore.rules storage.rules .firebaserc flake.nix flake.lock documentation/worklogs/consolidacao-gemini
+git diff 9d97ed30 -- frontend functions
+git diff 9d97ed30 --exit-code -- functions/src/auth.ts firebase.json firestore.rules storage.rules .firebaserc flake.nix flake.lock documentation/worklogs/consolidacao-gemini
 functions/node_modules/.bin/tsc --noEmit -p functions/tsconfig.json
 frontend/node_modules/.bin/tsc --noEmit --incremental false -p frontend/tsconfig.json
 npm test --prefix functions -- --runInBand src/__tests__/domain
 ```
-As duas últimas verificações têm falhas conhecidas (seção 16). `functions` build script usa `|| true`, por isso foi usado tsc direto, sem mascarar erro.
+Todas essas verificações passaram após d13d25d3. O diff frontend/functions deve conter apenas as duas correções descritas na seção 16, até iniciar nova manutenção autorizada. `functions` build script usa `|| true`, por isso foi usado tsc direto, sem mascarar erro.
 PDF: `just docs-build` grava build/latex/main.pdf; inspecionar log final e páginas alteradas antes de copiar para documentation/main.pdf. Build sozinho não homologa aplicação.
 
 ## 15. Validações já executadas
@@ -130,14 +132,15 @@ PDF: `just docs-build` grava build/latex/main.pdf; inspecionar log final e pági
 - --check PASS; alteração deliberada em cópia /tmp detectada como stale; duas gerações em cópia /tmp comparadas recursivamente, bytes idênticos.
 - just docs-generate, docs-check e formal-check PASS. Última mudança tipográfica validada depois com just docs-build.
 - PDF final: exit 0, 213 páginas, zero erros/referências indefinidas, 21 Overfulls herdados (mesma quantidade do baseline), nenhum no trecho M0. Páginas 212–213 renderizadas com Poppler e inspecionadas após correção. Copiado para main.pdf somente depois.
-- tsc functions PASS; tsc frontend FAIL preexistente; Jest domain 9/10 PASS (ver seção 16).
-- Diff de preservação contra baseline vazio; git diff --check PASS.
+- Retomada: falhas preexistentes reproduzidas antes das correções. Após correção: tsc functions PASS, tsc frontend PASS, Jest domain 2 suítes/12 testes PASS.
+- just formal-check repetido na retomada: PASS após escalonamento conhecido para Node; CUE/Alloy/Rust/stale reexecutados. latexmk confirmou PDF atualizado (fontes LaTeX não mudaram, nenhuma recompilação ou nova cópia do PDF necessária).
+- Diff de preservação: somente prop e fixtures reparadas; lógica de backend/configurações/worklogs 3B intactos; git diff --check PASS.
 
 ## 16. Contraexemplos / problemas encontrados
 Nenhum CONTRAEXEMPLO PÓS-3B encontrado pelo Alloy. Se surgir, registrar antes de alterar regra: ID, assertion, scope, estado inicial/final, regra 3B, interpretação, classificação BUG_MODELO_FORMAL/TRADUCAO_INCORRETA/LACUNA_POS_3B/CONTRADICAO_REAL.
-Problemas de implementação preexistentes (não são contraexemplos formais):
-- APP-BASELINE-001: frontend/src/app/reagentes/page.tsx:524, TS2322: prop tipoSubstanciaResumo não existe em ModalProps. Código idêntico ao baseline; não corrigido nesta fatia aditiva.
-- APP-BASELINE-002: roles.test.ts, caso Bolsista+Gestor sem Aluno, espera mensagem de incompatibilidade, recebe "Bolsista exige papel Aluno." em auth.ts:98. 1/10 testes falha; revogação passa. Código/testes idênticos ao baseline; não modificar regra ou expectativa silenciosamente.
+Problemas de implementação preexistentes RESOLVIDOS (não são contraexemplos formais):
+- APP-BASELINE-001: frontend/src/app/reagentes/page.tsx:524, TS2322: prop tipoSubstanciaResumo não existe em ModalProps. Resolvido em d13d25d3 removendo somente a prop não declarada nem consumida. Typecheck PASS; nenhuma alteração no comportamento interno do modal.
+- APP-BASELINE-002: roles.test.ts, caso Bolsista+Gestor sem Aluno, espera mensagem de incompatibilidade, recebe "Bolsista exige papel Aluno." em auth.ts:98. Resolvido em d13d25d3: casos sem Aluno preservados em teste específico; fixture Aluno+Bolsista+Gestor atinge a validação de incompatibilidade. Expectativas específicas e classe HttpsError mantidas; 12/12 testes passam. A função de autorização não foi modificada.
 Problemas instrumentais resolvidos: alloy6 --help não existe (usar alloy6 help exec); Python ausente (Node usado); CUE extensão de definição fechada com & rejeitada (corrigido por embedding, sem mudar regra); caminho longo do manifest causou Overfull (corrigido e reinspecionado). Bloqueios de sandbox e respectivas soluções na seção 6.
 
 ## 17. Decisões tomadas nesta fase
@@ -147,7 +150,7 @@ Problemas instrumentais resolvidos: alloy6 --help não existe (usar alloy6 help 
 - EXTRAVIADO + DISPONIVEL é fixture válida e testemunha não apta; nenhuma regra de recuperação redefinida.
 - Gerar apenas conteúdo mecânico; rationale escrito à mão no LaTeX. Templates simples em funções Rust, sem diretórios vazios.
 - Resultados normalizados e generated versionados; target e build/latex ignorados. PDF humano com today não promete identidade binária entre datas/TeX diferentes; fragmentos/manifest são determinísticos.
-- Não corrigir falhas preexistentes da aplicação sob pretexto de infraestrutura formal.
+- As duas falhas registradas receberam diagnóstico e correções pontuais em unidade separada (d13d25d3), sem redesign da aplicação, regra 3B ou alteração da lógica de autorização. Não ampliar esse reparo para uma reauditoria.
 
 ## 18. Itens ainda não migrados
 Frasco completo, Firestore/projeções, contratos completos de retirada, demais domínios M1–M12, testes de ligação specification→Firebase Emulator e CI hospedada. Nenhuma aplicação TypeScript gerada/substituída. Documentação humana não foi desnormatizada em massa.
@@ -157,24 +160,15 @@ Frasco completo, Firestore/projeções, contratos completos de retirada, demais 
 - 0f679e33 — feat(spec): validate partial bottle model with CUE and Alloy.
 - 2e5c8f79 — feat(spec-doc): generate deterministic bottle documentation.
 - cbd0eba4 — docs(spec): integrate and validate M0 formal documentation.
+- e95a42ab — chore(spec): save final handoff state (push anterior concluído).
+- d13d25d3 — fix: resolve baseline typecheck and role test failures.
+- Checkpoint de fechamento desta rodada: assunto `docs(spec): mark M0 validated and prepare M1 handoff`; resolver SHA por `git log -1 --format=%H --grep="mark M0 validated"` (um commit não contém seu próprio SHA).
 
 ## 20. Estado do Git
-Após cbd0eba4, git status confirmou árvore limpa na branch correta. Em seguida, somente FORMAL_SPEC_STATE.md foi atualizado para registrar o SHA e o encerramento solicitado pelo usuário. O usuário solicitou em seguida commitar também esta atualização e enviar a branch para origin (git@github.com:Zadoque/LCQUI.git). Este checkpoint será salvo no commit de assunto `chore(spec): save final handoff state`; identificar seu SHA com `git log -1 --format=%H --grep="save final handoff state"`. O resultado do push deve ser confirmado por `git status --short --branch` e `git ls-remote origin refs/heads/feat/formal-spec-cue-alloy`; não presumir sucesso apenas deste registro anterior ao envio. Todo código, documentação, PDF e generated estão commitados. Aplicação/configuração/worklogs 3B intactos. Não há processo necessário em execução.
+Após d13d25d3: árvore limpa, branch correta, um commit à frente de origin. Em seguida apenas estado e worklog M0 foram atualizados para fechamento documental. O checkpoint de assunto indicado na seção 19 será commitado e enviado a origin/feat/formal-spec-cue-alloy; confirmar o resultado por git status --short --branch e git log, sem presumir sucesso apenas deste registro pré-envio. Manter tudo commitado para retomada em outra máquina. Nenhum processo necessário em execução.
 
 ## 21. Como uma nova IA deve continuar
 Ler este arquivo; confirmar status/log/branch; ler fontes indicadas; repetir gates mínimos e seguir seção 12. Não replanejar do zero nem reabrir 3B. Atualizar este arquivo após unidades pequenas, validações, descobertas, antes de tarefas longas e antes/depois de commits. Nunca descartar atualização pós-commit do estado. Usar NOT_STARTED/IN_PROGRESS/BLOCKED/IMPLEMENTED/VALIDATED; só VALIDATED conclui um escopo. Não marcar homologação operacional com testes falhando.
 
 ## 22. Definition of Done restante
-Pipeline vertical e preservação de arquivos foram validados. Para M0 integralmente VALIDATED sob o critério de aplicação funcional, falta resolver/aceitar explicitamente a separação das duas falhas preexistentes APP-BASELINE-001/002, sem regressão semântica e fora do escopo aditivo já concluído. Não alegar validação Firebase Emulator que não foi executada. CI hospedada e expansão de domínios são trabalho posterior, não implementados nesta sessão. Estado e evidências permitem retomada sem contexto da conversa.
-
-## Retomada — diagnóstico antes das correções pontuais
-- HEAD inicial desta rodada: e95a42ab; branch correta, Git limpo. Commit/push anterior concluídos conforme histórico da sessão.
-- Duas falhas reproduzidas; diff frontend/functions/configurações/worklogs contra baseline vazio antes das correções.
-- Diagnóstico durável: documentation/worklogs/formal-spec/M0_BASELINE_DIAGNOSIS.md.
-- Tratamento escolhido para a próxima unidade: remover somente a prop não consumida tipoSubstanciaResumo da chamada do modal; separar as fixtures das regras Bolsista exige Aluno e Bolsista incompatível com Gestor. Não alterar lógica de autorização ou regra 3B. Correções explicitamente separadas da infraestrutura formal, para fechar as pendências registradas; não são reescrita da aplicação.
-- frontend/AGENTS.md e guias Next locais de TypeScript/componentes lidos antes da edição.
-- Gate formal repetido: Rust PASS; primeira tentativa bloqueada pelo sandbox em spawnSync cue (EPERM); reexecução escalonada em andamento.
-- Próxima ação EXATA desta unidade: aplicar as duas correções descritas no diagnóstico, rodar tsc de ambos os projetos e Jest domain, verificar conclusão do gate formal e registrar resultados antes do commit. M1 continua NOT_STARTED.
-
-### Resultado da unidade / preparação do commit
-Correções pontuais aplicadas conforme diagnóstico: uma prop não consumida removida de frontend/src/app/reagentes/page.tsx; somente fixtures de functions/src/__tests__/domain/roles.test.ts ajustadas e ampliadas. Nenhuma lógica de backend modificada. TypeScript dos dois projetos PASS; Jest domain 12/12 PASS; gate just formal-check PASS, generated sem diff, PDF já atualizado confirmado por latexmk. APP-BASELINE-001/002 resolvidas nos checks descritos. Antes do commit: git diff --check PASS; arquivos a incluir: os dois arquivos reparados, este estado e M0_BASELINE_DIAGNOSIS.md. Após registrar o SHA, consolidar seções correntes do estado e marcar M0 VALIDATED com limites explícitos; M1 não iniciado.
+Nenhum item obrigatório de M0 pendente no escopo validado. A fatia vertical, determinismo, rejeição de stale, PDF, continuidade e preservação arquitetural foram verificados; as duas pendências de checks da aplicação foram resolvidas. Permanecem para etapas futuras: M1–M12, CI hospedada e testes specification→Firebase Emulator. Não confundir fechamento do M0 com certificação integral da aplicação. Próxima unidade exata na seção 12; não iniciar outro milestone silenciosamente.
