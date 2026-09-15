@@ -4,7 +4,6 @@
 interface CadastroFrascoFechado {
   idResumoReagente: string;
   idOperacao: string;
-  idResumoReagente: string;
   idEspecificacaoReagente: string;
   idAlmoxarifado: string;
   idLote?: string;
@@ -19,9 +18,10 @@ interface CadastroFrascoFechado {
 export const cadastrarFrascoFechado = onCall(async (request) => {
   const dados = request.data as CadastroFrascoFechado;
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
-  await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, dados.idAlmoxarifado);
 
-  const payloadString = JSON.stringify(dados);
+  const crypto = require("crypto");
+  const { idOperacao, ...payloadRelevante } = dados;
+  const payloadString = JSON.stringify(payloadRelevante, Object.keys(payloadRelevante).sort());
   const payloadHash = crypto.createHash("sha256").update(payloadString).digest("hex");
 
   const agora = new Date();
@@ -38,11 +38,16 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
 
   // Execução atômica no Firestore: Sequenciamento + Cadastro do Frasco
   return admin.firestore().runTransaction(async (tx) => {
+    await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, dados.idAlmoxarifado);
+
     const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.idOperacao);
     const operacaoSnap = await tx.get(operacaoRef);
     if (operacaoSnap.exists) {
-      if (operacaoSnap.data()!.status === "CONCLUIDA") return operacaoSnap.data()!.resultado;
-      throw new HttpsError("failed-precondition", "Operação pendente ou em conflito.");
+      const op = operacaoSnap.data()!;
+      if (op.uid === request.auth!.uid && op.tipo_operacao === "CADASTRAR_FECHADO" && op.payload_hash === payloadHash) {
+        return op.resultado;
+      }
+      throw new HttpsError("already-exists", "id_operacao reutilizada com ator ou payload divergente.");
     }
 
     const resumoRef = admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente);
@@ -137,7 +142,7 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
     return resultado;
   });
 });
-\end.lstlisting}
+\end{lstlisting}
 
 \begin{lstlisting}[language=TypeScript, title={cadastrarFrascoAberto com bifurcação SÓLIDO/LÍQUIDO (C5)}]
 // C5: modalidade para SÓLIDO usa ESTIMA_MASSA (não ESTIMA_VOLUME)
@@ -164,9 +169,10 @@ interface CadastroFrascoAberto {
 export const cadastrarFrascoAberto = onCall(async (request) => {
   const dados = request.data as CadastroFrascoAberto;
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
-  await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, dados.idAlmoxarifado);
 
-  const payloadString = JSON.stringify(dados);
+  const crypto = require("crypto");
+  const { idOperacao, ...payloadRelevante } = dados;
+  const payloadString = JSON.stringify(payloadRelevante, Object.keys(payloadRelevante).sort());
   const payloadHash = crypto.createHash("sha256").update(payloadString).digest("hex");
 
   const agora = new Date();
@@ -180,11 +186,16 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status.");
 
   return admin.firestore().runTransaction(async (tx) => {
+    await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, dados.idAlmoxarifado);
+
     const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.idOperacao);
     const operacaoSnap = await tx.get(operacaoRef);
     if (operacaoSnap.exists) {
-      if (operacaoSnap.data()!.status === "CONCLUIDA") return operacaoSnap.data()!.resultado;
-      throw new HttpsError("failed-precondition", "Operação pendente ou em conflito.");
+      const op = operacaoSnap.data()!;
+      if (op.uid === request.auth!.uid && op.tipo_operacao === "CADASTRAR_ABERTO" && op.payload_hash === payloadHash) {
+        return op.resultado;
+      }
+      throw new HttpsError("already-exists", "id_operacao reutilizada com ator ou payload divergente.");
     }
 
     const resumoRef = admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente);
@@ -328,7 +339,7 @@ export const registrarAberturaFrasco = onCall(async (request) => {
     const snap = await tx.get(frascoRef);
     if (!snap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     const frasco = snap.data()!;
-    await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
+    await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, frasco.id_almoxarifado);
 
     if (frasco.estado_fisico_frasco !== "FECHADO") {
       throw new HttpsError("failed-precondition", "Somente um frasco FECHADO pode ser aberto por esta operação.");
@@ -404,7 +415,7 @@ export const registrarRetirada = onCall(async (request) => {
     if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     const frasco = frascoSnap.data()!;
 
-    await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
+    await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, frasco.id_almoxarifado);
     if (frasco.disponibilidade !== "DISPONIVEL") {
       throw new HttpsError("failed-precondition", "Frasco não está disponível para retirada.");
     }
@@ -515,7 +526,7 @@ export const registrarDevolucao = onCall(async (request) => {
     const frascoSnap = await tx.get(frascoRef);
     if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     const frasco = frascoSnap.data()!;
-    await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
+    await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, frasco.id_almoxarifado);
 
     const liquido = emprestimo.unidade_medida_utilizada === "ml";
     const densidade = liquido ? emprestimo.densidade_aplicada : null;
@@ -661,7 +672,7 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
     const frasco = frascoSnap.data()!;
 
     // 3. validar versão/estado e vínculo
-    await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
+    await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, frasco.id_almoxarifado);
 
     // 4. ler eventual empréstimo EM_USO|ATRASADO (se for EXTRAVIAR)
     if (dados.acao === "EXTRAVIAR") {
@@ -773,7 +784,7 @@ export const recalibrarTaraFrascoEsgotado = onCall(async (request) => {
     const frascoSnap = await tx.get(frascoRef);
     if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     const frasco = frascoSnap.data()!;
-    await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
+    await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, frasco.id_almoxarifado);
 
     tx.update(frascoRef, { peso_frasco_vazio: dados.peso_vazio_real });
 

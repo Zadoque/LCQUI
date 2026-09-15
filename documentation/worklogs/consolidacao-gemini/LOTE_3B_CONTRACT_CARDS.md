@@ -28,7 +28,7 @@
 | Resultados terminais | not-found, failed-precondition, invalid-argument, permission-denied. |
 | Erros técnicos | Idempotência hash-based permite retry seguro. |
 | Valor retornado | Deriva da decisão persistida via transação. |
-| Idempotência | RESOLVIDA: Mesma operação/hash retorna resultado original (tx.set Operacoes). |
+| Idempotência | RESOLVIDA: Mesma operação/hash canônico e uid retornam resultado original (tx.get Operacoes). |
 | Lock/unicidade | No máximo um empréstimo ativo por frasco; verificado fisicamente em `retirarFrasco`. |
 | Concorrência | Aprovada para `retirarFrasco`, extravio e calibração de tara. |
 | Fonte temporal | Instantes servidor; datas civis America/Sao_Paulo. |
@@ -76,7 +76,7 @@
 | Resultados terminais | invalid-argument, not-found, failed-precondition. |
 | Erros técnicos | Idempotência e retries suportados. |
 | Valor retornado | ID persistido. |
-| Idempotência | RESOLVIDA: Operacoes aplicada aos listings com payload_hash rigoroso. |
+| Idempotência | RESOLVIDA: Idempotência estrita implementada com validação de hash canônico e ator (uid) em tx.get. |
 | Lock/unicidade | Chaves_Unicas e sequenciador de código preservados. |
 | Concorrência | Revalidação transacional. |
 | Fonte temporal | Timestamp servidor (criado_em, atualizado_em). |
@@ -124,7 +124,7 @@
 | G — liberação | FORA_DO_ESCOPO_COM_JUSTIFICATIVA (Regra definida na Sec 4: retorna a DISPONIVEL e reavalia destino. Aplicação restrita de Alloy na 3C). |
 | H — vazio | RESOLVIDA (Semântica clarificada). |
 | Duas retiradas / quebra versus retirada | RESOLVIDA (Restrito fisicamente). |
-| Gestor revogado / FK inexistente | FORA_DO_ESCOPO_COM_JUSTIFICATIVA (Integridade de vínculos coberta nas Security Rules 3D). |
+| Gestor revogado / FK inexistente | RESOLVIDA (Validação de autorização movida para dentro da transação para fechar TOCTOU). |
 | Evento atrasado / retry de consumidor | RESOLVIDA (Idempotência hash-based implementada). |
 | Legado sem snapshot/ponteiro | RESOLVIDA (Backfill administrativo one-shot documentado). |
 
