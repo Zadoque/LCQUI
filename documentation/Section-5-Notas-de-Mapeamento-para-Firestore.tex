@@ -277,6 +277,18 @@ Caminho: \texttt{Almoxarifado/\{id\}}.
 \item[\texttt{descricao}] string; O. Valor de descricao, validado pelo formulário e pelo servidor conforme regras do domínio. Máximo 500 caracteres.
 \end{description}
 
+\paragraph{Estoques\_Configurados}\mbox{}\par
+Caminho: \texttt{Almoxarifado/\{almoxId\}/Estoques\_Configurados/\{configId\}}.
+\begin{description}
+\item[\texttt{configId}] docId string; O. Chave do documento, gerada de forma determinística: \texttt{\{id\_resumo\_reagente\}\_\{id\_especificacao\_reagente\}}, garantindo unicidade do par.
+\item[\texttt{id\_especificacao\_reagente}] string; O. Identificador da especificação do reagente configurada.
+\item[\texttt{id\_resumo\_reagente}] string; O. Identificador do resumo do reagente, mantido no documento para consultas otimizadas e manter a identidade composta.
+\item[\texttt{id\_almoxarifado}] string; O. Identificador do almoxarifado (redundante à URL, porém canônico).
+\item[\texttt{qtd\_limiar\_escassez}] number; O. Limiar inteiro não negativo de quantidade de frascos para este almoxarifado.
+\item[\texttt{ativo}] boolean; O. Indica se o par continua configurado/intencionalmente estocado.
+\item[\texttt{notificacao\_ativa}] boolean; O. Indica se a emissão automática do alerta está habilitada (permitindo silenciar sem apagar a configuração).
+\end{description}
+
 \paragraph{Substancia\_Quimica}\mbox{}\par
 Caminho: \texttt{Substancia\_Quimica/\{id\}}.
 \begin{description}
@@ -295,7 +307,6 @@ Caminho: \texttt{Resumo\_Reagente/\{id\}}.
 \item[\texttt{tipo\_substancia}] string enum; O. Valor de tipo substancia, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: PURA, MISTURA.
 \item[\texttt{natureza\_quimica}] string enum; O. Classificação curada do item do catálogo, independente de fabricante ou frasco. Valores: ORGANICO, INORGANICO, ELEMENTO, HIBRIDO.
 \item[\texttt{requer\_pesagem\_frequente}] boolean; O. Indica necessidade de alertas periódicos de pesagem; true exige frequência positiva.
-\item[\texttt{qtd\_em\_que\_e\_considerado\_escasso}] number; O. Limiar inteiro positivo de quantidade de frascos, usado para alerta de escassez do resumo.
 \item[\texttt{frequencia\_pesagem\_dias}] number; N. Intervalo inteiro positivo entre verificações; null quando não exige pesagem frequente.
 \item[\texttt{estado\_fisico}] string enum; O. SOLIDO/LIQUIDO; fonte canônica do catálogo, filtro por igualdade.
 \item[\texttt{eh\_higroscopico}] boolean; O, padrão false. Fonte canônica da higroscopicidade; não propagar mudanças para snapshots de frascos já cadastrados.
