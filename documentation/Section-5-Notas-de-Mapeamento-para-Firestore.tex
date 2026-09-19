@@ -52,6 +52,10 @@ Para garantir a integridade das \textit{queries} e ordenações cruciais, os seg
     \item \textbf{M-23} Collection-group \texttt{Historico}: \texttt{id\_gestor (ASC)} + \texttt{timestamp (DESC)} -- suporta relatório de atividade por operador.
     \item \textbf{M-23} \texttt{Emprestimo\_Reagente}: \texttt{id\_almoxarifado (ASC)} + \texttt{data\_retirada (DESC)} -- suporta relatório mensal por almoxarifado.
     \item \texttt{Frasco\_Reagente}: \texttt{id\_almoxarifado (ASC)} + \texttt{id\_resumo\_reagente (ASC)} + \texttt{id\_especificacao\_reagente (ASC)} + \texttt{disponibilidade (ASC)} + \texttt{estado\_fisico\_frasco (ASC)} + \texttt{em\_quarentena (ASC)} + \texttt{vencido (ASC)} -- suporta job agendado de escassez.
+    \item 	\texttt{Emprestimo\_Reagente}: 	\texttt{status (ASC)} + 	\texttt{data\_devolucao\_prevista (ASC)} -- suporta job agendado de vencimentos e atrasos.
+    \item 	\texttt{Frasco\_Reagente}: 	\texttt{vencido (ASC)} + 	\texttt{validade\_efetiva (ASC)} -- suporta job agendado de frascos vencendo.
+    \item 	\texttt{Emprestimo\_Reagente}: 	\texttt{id\_almoxarifado (ASC)} + 	\texttt{data\_devolucao\_efetuada (ASC)} -- suporta relatório de movimentação e consumo por almoxarifado.
+    \item 	\texttt{Historico\_Frasco\_Reagente}: 	\texttt{id\_almoxarifado (ASC)} + 	\texttt{timestamp (ASC)} -- suporta relatório de histórico de eventos por almoxarifado.
 \end{enumerate}
 \subsection{Mapeamento Completo de Coleções e Sub-coleções Firestore}
 \label{subsec:mapeamento-colecoes}
@@ -567,7 +571,7 @@ Caminho: \texttt{Usuarios/\{uid\}/Notificacoes/\{id\}}.
 \begin{description}
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{id\_destinatario}] string; O. Identificador da entidade destinatario, cuja existência e escopo são verificados no servidor.
-\item[\texttt{papel\_destinatario}] string enum; O. Contexto de exibição da notificação, sem conceder esse papel ao usuário. Inclui Aluno, Professor, Bolsista, Gestor\_Bens\_Patrimoniais e Gestor\_Almoxarifado.
+\item[\texttt{papel\_destinatario}] string enum; O. Contexto de exibição da notificação, sem conceder esse papel ao usuário. Inclui Aluno, Professor, Bolsista, Gestor\_Bens\_Patrimoniais, Gestor\_Almoxarifado e Chefe\_Geral.
 \item[\texttt{id\_quem\_fez\_acao}] string; N. Identificador da entidade quem fez acao, cuja existência e escopo são verificados no servidor.
 \item[\texttt{id\_turma}] string; N. Identificador da entidade turma, cuja existência e escopo são verificados no servidor.
 \item[\texttt{quantidade}] number; N. Quantidade agregada de ocorrências agrupadas na notificação, quando aplicável.
