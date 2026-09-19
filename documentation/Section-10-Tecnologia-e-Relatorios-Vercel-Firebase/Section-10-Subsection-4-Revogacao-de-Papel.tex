@@ -14,6 +14,7 @@ export const revogarPapel = onCall(async (request) => {
     // 1. Leitura do singleton - bloqueia outras transacoes concorrentes que
     //    tambem escrevam no singleton (transacao serializada pelo Firestore)
     const singletonSnap = await tx.get(singletonRef);
+    const singletonData = singletonSnap.data() || { chefes_ativos: 0, gestores_patrimoniais_ativos: 0 };
 
     // 2. Verificar invariantes de RN-ROLE antes de qualquer escrita
     let vinculos: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null = null;
@@ -22,10 +23,7 @@ export const revogarPapel = onCall(async (request) => {
       if (uidAlvo !== request.auth!.uid)
         throw new HttpsError("permission-denied", "Chefe Geral não pode revogar outro Chefe Geral.");
       // RN-ROLE-03: auto-revogação só com outro Chefe ativo
-      const outrosChefes = await tx.get(
-        admin.firestore().collection("Chefe_Geral").where("id_usuario", "!=", uidAlvo).limit(1)
-      );
-      if (outrosChefes.empty)
+      if (singletonData.chefes_ativos <= 1)
         throw new HttpsError("failed-precondition", "Único Chefe Geral: auto-revogação bloqueada (RN-ROLE-03).");
     }
     if (papel === "Gestor_Almoxarifado") {
@@ -48,11 +46,7 @@ export const revogarPapel = onCall(async (request) => {
     }
     if (papel === "Gestor_Bens_Patrimoniais") {
       // RN-ROLE-09: deve existir ao menos outro gestor patrimonial
-      const outrosGestores = await tx.get(
-        admin.firestore().collection("Gestor_Bens_Patrimoniais")
-          .where("id_usuario", "!=", uidAlvo).limit(1)
-      );
-      if (outrosGestores.empty)
+      if (singletonData.gestores_patrimoniais_ativos <= 1)
         throw new HttpsError("failed-precondition",
           "Único Gestor de Bens Patrimoniais: revogação bloqueada (RN-ROLE-09).");
     }
