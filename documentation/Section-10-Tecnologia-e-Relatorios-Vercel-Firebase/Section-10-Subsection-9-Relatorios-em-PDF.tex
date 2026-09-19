@@ -131,6 +131,7 @@ interface DadosEtiquetasVirgens {
   codigoFinal: number;
   startRow?: number; // 1 a 10 (Grid A4)
   startCol?: number; // 1 a 3
+  idOperacao?: string;
 }
 
 export const gerarPdfEtiquetasVirgens = onCall(async (request) => {
@@ -148,6 +149,10 @@ export const gerarPdfEtiquetasVirgens = onCall(async (request) => {
     gerado_por: request.auth!.uid,
     codigo_inicial: dados.codigoInicial,
     codigo_final: dados.codigoFinal,
+    start_row: dados.startRow || 1,
+    start_col: dados.startCol || 1,
+    status_geracao: "CONCLUIDA",
+    id_operacao: dados.idOperacao || `op_etiquetas_${Date.now()}`,
   });
 
   const codigos = Array.from({ length: total }, (_, i) => `LCQUI-${dados.codigoInicial + i}`);
