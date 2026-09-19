@@ -4,7 +4,10 @@
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated } from "firebase-functions/v2/firestore";
 
-export const verificarVencimentosEAtrasos = onSchedule("every day 03:00", async () => {
+export const verificarVencimentosEAtrasos = onSchedule({
+  schedule: "every day 03:00",
+  timeZone: "America/Sao_Paulo"
+}, async () => {
   const agora = new Date();
   const inicioHoje = inicioDoDiaInstitucional(agora);
   const fimDeAmanha = fimDoDiaInstitucional(adicionarDias(inicioHoje, 1));
@@ -39,12 +42,33 @@ export const verificarVencimentosEAtrasos = onSchedule("every day 03:00", async 
     await notificarProfessorDevolucaoUmaVez(item.idUsuario, item.idEmprestimo, item.quando);
   }
 
-  const totalAtrasados = emprestimosNaJanela.docs.filter((doc) => {
-    const prevista = doc.data().data_devolucao_prevista.toDate();
-    return prevista < inicioHoje;
-  }).length;
-  if (totalAtrasados > 0) {
-    await notificarGestoresDeReagentes("ENTREGA_ATRASADA", totalAtrasados);
+  // Segmentação por almoxarifado para notificações de atraso (PDF-005)
+  const atrasadosPorAlmox: Record<string, number> = {};
+  emprestimosNaJanela.docs.forEach((doc) => {
+    const dados = doc.data();
+    const prevista = dados.data_devolucao_prevista.toDate();
+    if (prevista < inicioHoje) {
+      atrasadosPorAlmox[dados.id_almoxarifado] = (atrasadosPorAlmox[dados.id_almoxarifado] || 0) + 1;
+    }
+  });
+
+  for (const [idAlmox, count] of Object.entries(atrasadosPorAlmox)) {
+    const gestoresSnap = await admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
+      .where("id_almoxarifado", "==", idAlmox).get();
+    for (const gDoc of gestoresSnap.docs) {
+      const gestorId = gDoc.data().id_gestor_almoxarifado;
+      await admin.firestore().collection("Usuarios").doc(gestorId).collection("Notificacoes").add({
+        id_destinatario: gestorId,
+        papel_destinatario: "Gestor_Almoxarifado",
+        tipo: "ENTREGA_ATRASADA",
+        entidade_alvo: "Almoxarifado",
+        id_alvo: idAlmox,
+        quantidade: count,
+        lida: false,
+        emitida_em: admin.firestore.FieldValue.serverTimestamp(),
+        expira_em: null,
+      });
+    }
   }
 
   const frascosVencendo = await admin.firestore().collection("Frasco_Reagente")
@@ -59,6 +83,7 @@ export const verificarVencimentosEAtrasos = onSchedule("every day 03:00", async 
     batchVencidos.set(histRef, {
       id_frasco_reagente: doc.id,
       id_almoxarifado: doc.data().id_almoxarifado,
+      id_gestor: "__SISTEMA__",
       tipo: "VENCEU",
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
