@@ -56,6 +56,7 @@ A chave primária composta \textit{(id\_gestor\_almoxarifado, id\_almoxarifado)}
 \campo{nome\_responsavel\_sei}{VARCHAR(150)}{NOT NULL}
 \campo{status}{ENUM}{Ativo, Inservivel, Ja\_dado\_baixa, NOT NULL}
 \campo{descricao\_complementar}{VARCHAR(200)}{NULL}
+\campo{versao}{INTEGER}{DEFAULT 1, NOT NULL}
 \end{entidade}
 
 \begin{explicacao}
@@ -104,7 +105,7 @@ A chave primária composta \textit{(id\_gestor\_almoxarifado, id\_almoxarifado)}
 \campo{id\_usuario\_solicitante}{INTEGER}{FK, NOT NULL}
 \campo{id\_usuario\_respondente}{INTEGER}{FK, NULL}
 \campo{novo\_nome}{VARCHAR(150)}{NULL}
-\campo{novo\_status}{ENUM}{Ativo, Inservivel, Ja\_dado\_baixa, NULL}
+\campo{novo\_status}{ENUM}{Ativo, Inservivel, NULL}
 \campo{novo\_estado\_conservacao}{ENUM}{BOM, REGULAR, RUIM, NULL}
 \campo{novo\_id\_local}{INTEGER}{FK, NULL}
 \campo{nova\_photo\_url}{TEXT}{NULL}
@@ -136,6 +137,7 @@ RF10: \textit{UNIQUE(id\_bem\_patrimonial) WHERE status = 'pendente'} -- impede 
 \campo{nome\_resumo\_proposto}{VARCHAR(150)}{NULL}
 \campo{descricao\_resumo\_proposta}{TEXT}{NULL}
 \campo{motivo}{TEXT}{NOT NULL}
+\campo{justificativa\_resposta}{TEXT}{NULL}
 \end{entidade}
 
 \begin{explicacao}
@@ -428,6 +430,7 @@ O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre 
 \campo{data\_devolucao\_efetuada}{TIMESTAMP}{NULL}
 \campo{id\_local\_usado}{INTEGER}{FK, NOT NULL}
 \campo{id\_usuario\_devolveu}{INTEGER}{FK, NULL}
+\campo{id\_gestor\_devolucao}{INTEGER}{FK, NULL}
 \campo{peso\_saida}{NUMERIC(10,3)}{NOT NULL}
 \campo{peso\_retorno}{NUMERIC(10,3)}{NULL}
 \campo{medida\_utilizada}{NUMERIC(10,3)}{NULL}
@@ -442,10 +445,16 @@ O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre 
 \campo{tcr\_aceito\_em}{TIMESTAMP}{NULL}
 \campo{tcr\_aceito\_por}{INTEGER}{FK, NULL}
 \campo{tcr\_auditoria\_id}{INTEGER}{FK, NULL}
+\campo{tipo\_encerramento\_excepcional}{ENUM}{QUEBRA\_ACIDENTAL, EXTRAVIO\_SINISTRO, NULL}
+\campo{motivo\_encerramento\_excepcional}{TEXT}{NULL}
+\campo{id\_gestor\_encerramento}{INTEGER}{FK, NULL}
+\campo{massa\_perda\_estimada\_g}{NUMERIC(10,3)}{NULL}
 \end{entidade}
 
 \begin{explicacao}
 \textbf{Semântica dos atores da retirada:} \textit{id\_usuario\_retirou} identifica o \textbf{portador físico} -- o Professor ou Bolsista que receberá e usará o reagente. \textit{id\_gestor\_retirada} identifica o \textbf{operador do almoxarifado} -- o Gestor de Almoxarifado (ou Chefe Geral) que registrou a operação no sistema. No autoatendimento, os dois UIDs coincidem e a flag \textit{auto\_atendimento} fica \texttt{true}. Esta separação é essencial para rastreabilidade de auditoria: o relatório de atividade do gestor parte de \textit{id\_gestor\_retirada}, enquanto o painel ``Meus Reagentes'' do professor parte de \textit{id\_usuario\_retirou}.
+
+\textbf{Semântica dos atores da devolução:} \textit{id\_usuario\_devolveu} identifica o portador físico que entrega o frasco ao balcão, enquanto \textit{id\_gestor\_devolucao} identifica o Gestor de Almoxarifado que operou e registrou a devolução na balança.
 
 \textit{peso\_saida} e \textit{peso\_retorno} são sempre leituras de balança em gramas. \textit{unidade\_medida\_utilizada} qualifica exclusivamente \textit{medida\_utilizada} -- o consumo calculado, reportado em massa (g) para sólidos ou em volume (ml) para líquidos, via $V = \Delta m / \rho$.
 \end{explicacao}
@@ -502,6 +511,8 @@ Caso a capacidade seja atingida, o sistema rejeita o ingresso por código. Apena
 \campo{id\_turma}{INTEGER}{FK, NOT NULL}
 \campo{tipo}{ENUM}{inclusao\_aluno, exclusao\_aluno, NOT NULL}
 \campo{id\_aluno}{INTEGER}{FK, NOT NULL}
+\campo{modo\_ingresso}{ENUM}{CODIGO, CONVITE, NULL}
+\campo{justificativa}{TEXT}{NULL}
 \campo{timestamp}{TIMESTAMP}{NOT NULL}
 \end{entidade}
 
@@ -594,6 +605,10 @@ A chave primária composta \textit{(id\_professor, id\_materia)} impede vincular
 \campo{numero\_matricula}{VARCHAR(20)}{NULL}
 \campo{token\_hash}{VARCHAR(100)}{NOT NULL}
 \campo{ultimo\_reenvio\_por}{INTEGER}{FK, NULL}
+\campo{exceder\_capacidade}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+\campo{justificativa\_excecao}{TEXT}{NULL}
+\campo{aceitado\_por}{INTEGER}{FK, NULL}
+\campo{aceitado\_em}{TIMESTAMP}{NULL}
 \end{entidade}
 
 \begin{regra}
@@ -624,7 +639,8 @@ A combinação \textit{email + id\_turma} não pode possuir mais de um convite \
     BEM\_INSERVIVEL,\\
     ENTREGA\_ATRASADA, FRASCOS\_VAZIOS, FRASCOS\_QUEBRADOS,\\
     FRASCOS\_VENCIDOS, FRASCOS\_A\_SEREM\_PESADOS,\\
-    FRASCOS\_EM\_QUARENTENA, REAGENTE\_ESCASSO%
+    FRASCOS\_EM\_QUARENTENA, ESCASSEZ\_ESTOQUE,\\
+    AUTO\_ATENDIMENTO\_RETIRADA%
   }
 }{NOT NULL}
 \campo{id\_quem\_fez\_acao}{INTEGER}{FK, NULL}
@@ -635,13 +651,13 @@ A combinação \textit{email + id\_turma} não pode possuir mais de um convite \
 \campo{lida}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
 \campo{lida\_em}{TIMESTAMP}{NULL}
 \campo{emitida\_em}{TIMESTAMP}{NOT NULL}
-\campo{expira\_em}{TIMESTAMP}{NOT NULL}
+\campo{expira\_em}{TIMESTAMP}{ NULL}
 \end{entidade}
 
 \begin{explicacao}[Unificação das Notificações]
 As quatro tabelas de notificação anteriores (\textit{Notificacao\_para\_Aluno}, \textit{Notificacao\_para\_Professor}, \textit{Notificacao\_para\_Gestor\_de\_bens\_Patrimoniais}, \textit{Notificacao\_para\_Gestor\_de\_Reagentes}) foram consolidadas em uma única entidade \textit{Notificacao}. O campo \textit{papel\_destinatario} indica em qual contexto de papel a notificação deve ser exibida.
 
-No Firestore, esta entidade é implementada como sub-coleção \texttt{Usuarios/\{uid\}/Notificacoes}, eliminando a necessidade de queries em múltiplas coleções para usuários multi-role. A ação de ``Limpar tudo'' na interface marca \texttt{lida = true} e \texttt{lida\_em = NOW()} em todas as notificações ativas do usuário, preservando o histórico de auditoria. Os campos \textit{entidade\_alvo} e \textit{id\_alvo} viabilizam a navegação direta (\textit{deep linking}) para o objeto de origem ao clicar no aviso.
+No Firestore, esta entidade é implementada como sub-coleção \texttt{Usuarios/\{uid\}/Notificacoes}, eliminando a necessidade de queries em múltiplas coleções para usuários multi-role. A ação de ``Limpar tudo'' na interface marca \texttt{lida = true} e \texttt{lida\_em = NOW()} em todas as notificações ativas do usuário, preservando o histórico de auditoria. Os campos \textit{entidade\_alvo} e \textit{id\_alvo} viabilizam a navegação direta (\textit{deep linking}) para o objeto de origem ao clicar no aviso. O campo \textit{expira\_em} é nulo para notificações operacionais persistentes (como \texttt{ESCASSEZ\_ESTOQUE}), que não possuem expiração temporal automática.
 \end{explicacao}
 
 \subsection{Tabela Aluno Turma (N para N)}

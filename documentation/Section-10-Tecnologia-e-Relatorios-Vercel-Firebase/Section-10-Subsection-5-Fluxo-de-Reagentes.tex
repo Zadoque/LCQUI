@@ -25,9 +25,9 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
   const payloadHash = crypto.createHash("sha256").update(payloadString).digest("hex");
 
   const agora = new Date();
-  const validadeFechado = dados.validadeFechado ? new Date(dados.validadeFechado) : null;
-  const validadeEfetiva = dados.validadeDesconhecida ? null : validadeFechado;
-  const venceuNoCadastro = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+  const validadeFechadoStr = dados.validadeDesconhecida ? null : (dados.validadeFechado ?? null);
+  const validadeData = validadeFechadoStr ? new Date(validadeFechadoStr) : null;
+  const venceuNoCadastro = Boolean(validadeData && validadeData <= agora);
 
   if (venceuNoCadastro && !dados.decisaoSeJaVencido) {
     throw new HttpsError("failed-precondition", "O frasco está vencido no cadastro e exige uma decisão do gestor.");
@@ -104,8 +104,8 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
       medida_usada: 0,
       estado_fisico_frasco: "FECHADO",
       disponibilidade: "DISPONIVEL",
-      validade_fechado: validadeEfetiva,
-      validade_efetiva: validadeEfetiva,
+      validade_fechado: validadeFechadoStr,
+      validade_efetiva: validadeFechadoStr,
       validade_desconhecida: dados.validadeDesconhecida ?? false,
       vencido: venceuNoCadastro,
       em_quarentena: venceuNoCadastro && dados.decisaoSeJaVencido === "QUARENTENA",
@@ -176,9 +176,9 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
   const payloadHash = crypto.createHash("sha256").update(payloadString).digest("hex");
 
   const agora = new Date();
-  const validade = dados.validadeAberto ? new Date(dados.validadeAberto) : null;
-  const validadeEfetiva = dados.validadeDesconhecida ? null : validade;
-  const jaVencido = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+  const validadeAbertoStr = dados.validadeDesconhecida ? null : (dados.validadeAberto ?? null);
+  const validadeData = validadeAbertoStr ? new Date(validadeAbertoStr) : null;
+  const jaVencido = Boolean(validadeData && validadeData <= agora);
 
   if (jaVencido && !dados.decisaoSeJaVencido)
     throw new HttpsError("failed-precondition", "O frasco está vencido no cadastro e exige uma decisão do gestor.");
@@ -265,7 +265,7 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
       abertura_historica_desconhecida: dados.aberturaHistoricaDesconhecida,
       estado_fisico_frasco: "ABERTO",
       disponibilidade: "DISPONIVEL",
-      validade_efetiva: validadeEfetiva,
+      validade_efetiva: validadeAbertoStr,
       validade_desconhecida: dados.validadeDesconhecida ?? false,
       vencido: jaVencido,
       em_quarentena: jaVencido && dados.decisaoSeJaVencido === "QUARENTENA",
@@ -358,8 +358,8 @@ export const registrarAberturaFrasco = onCall(async (request) => {
 
     tx.update(frascoRef, {
       estado_fisico_frasco: "ABERTO",
-      data_abertura: agora,
-      validade_efetiva: validadeEfetiva,
+      data_abertura: DateTime.fromJSDate(agora, { zone: "America/Sao_Paulo" }).toISODate(),
+      validade_efetiva: validadeEfetiva ? DateTime.fromJSDate(validadeEfetiva, { zone: "America/Sao_Paulo" }).toISODate() : null,
       vencido: venceu,
       em_quarentena: venceu && dados.destinoSeVencerNaAbertura === "QUARENTENA",
       uso_vencido_autorizado: venceu && dados.destinoSeVencerNaAbertura === "DISPONIVEL",
@@ -433,7 +433,6 @@ export const registrarRetirada = onCall(async (request) => {
     if (dados.abrirNoEmprestimo && frasco.estado_fisico_frasco === "FECHADO") {
       validadeEfetiva = calcularValidadeEfetivaNaAbertura(frasco, agora);
       frascoVencido = Boolean(validadeEfetiva && validadeEfetiva <= agora);
-
     }
 
     const excepcional = frascoVencido || frasco.validade_desconhecida;
@@ -480,8 +479,9 @@ export const registrarRetirada = onCall(async (request) => {
     tx.update(frascoRef, {
       disponibilidade: "EMPRESTADO",
       ...(dados.abrirNoEmprestimo && frasco.estado_fisico_frasco === "FECHADO"
-        ? { estado_fisico_frasco: "ABERTO", data_abertura: agora,
-            validade_efetiva: validadeEfetiva, vencido: frascoVencido } : {}),
+        ? { estado_fisico_frasco: "ABERTO", data_abertura: DateTime.fromJSDate(agora, { zone: "America/Sao_Paulo" }).toISODate(),
+            validade_efetiva: validadeEfetiva ? DateTime.fromJSDate(validadeEfetiva, { zone: "America/Sao_Paulo" }).toISODate() : null,
+            vencido: frascoVencido } : {}),
     });
     if (aceite) vincularAceiteEAuditoriaTx(tx, aceite, emprestimoRef.id);
     if (autoAtendimento) registrarNotificacaoChefiaTx(tx, emprestimoRef.id);
@@ -505,6 +505,7 @@ export const registrarRetirada = onCall(async (request) => {
 interface DevolucaoFrasco {
   idEmprestimo: string;
   pesoRetorno: number;
+  idUsuarioDevolveu: string; // Portador físico que entrega o frasco ao almoxarifado
   destinoPosDevolucao?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
 }
 
@@ -552,6 +553,10 @@ export const registrarDevolucao = onCall(async (request) => {
     if (!Number.isFinite(dados.pesoRetorno) || dados.pesoRetorno <= 0) {
       throw new HttpsError("invalid-argument", "Peso de retorno inválido.");
     }
+    // PDF-025 / N-10: Verificação de tara na devolução (Q06)
+    if (frasco.peso_frasco_vazio != null && dados.pesoRetorno < frasco.peso_frasco_vazio) {
+      throw new HttpsError("failed-precondition", "Peso de retorno menor que a tara cadastrada. Operação ordinária bloqueada: desviar para recalibração de tara ou esgotamento (Q06).");
+    }
     // PDF-025: Ganho acima da tolerância bloqueia por anomalia.
     if (dados.pesoRetorno > limiteMaxRetorno) {
       throw new HttpsError("invalid-argument", "Ganho de massa excede tolerância Q06 (possível erro ou contaminação). Bloqueado por anomalia.");
@@ -585,12 +590,17 @@ export const registrarDevolucao = onCall(async (request) => {
     } else if (frascoVencido && dados.destinoPosDevolucao === "DISPONIVEL") {
       atualizacaoFrasco.em_quarentena = false;
       atualizacaoFrasco.uso_vencido_autorizado = true;
+    } else if (frascoVencido && dados.destinoPosDevolucao === "PENDENTE_DE_DESCARTE") {
+      atualizacaoFrasco.em_quarentena = false;
+      atualizacaoFrasco.uso_vencido_autorizado = false;
+      atualizacaoFrasco.detalhe_status = "Frasco vencido aguardando processo institucional de descarte.";
     }
 
     tx.update(emprestimoRef, {
       status: atrasado ? "DEVOLVIDO_COM_ATRASO" : "DEVOLVIDO",
       data_devolucao_efetuada: admin.firestore.FieldValue.serverTimestamp(),
-      id_usuario_devolveu: request.auth!.uid,
+      id_usuario_devolveu: dados.idUsuarioDevolveu,
+      id_gestor_devolucao: request.auth!.uid,
       peso_retorno: dados.pesoRetorno,
       medida_utilizada: volumeUtilizado,
       unidade_medida_utilizada: densidade ? "ml" : "g",
@@ -696,11 +706,19 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
         if (docEmprestimo.data().peso_retorno != null) {
           throw new HttpsError("failed-precondition", "Empréstimo já possui medição de peso_retorno. Reconciliação manual necessária.");
         }
+        const pesoSaida = docEmprestimo.data().peso_saida || 0;
+        const pesoVazio = frasco.peso_frasco_vazio != null ? frasco.peso_frasco_vazio : null;
+        const perdaEstimada = pesoVazio != null ? Math.max(0, pesoSaida - pesoVazio) : pesoSaida;
+
         tx.update(docEmprestimo.ref, {
           status: "ENCERRADO_EXTRAORDINARIO",
+          tipo_encerramento_excepcional: "EXTRAVIO_SINISTRO",
+          motivo_encerramento_excepcional: dados.motivo,
+          id_gestor_encerramento: request.auth!.uid,
+          massa_perda_estimada_g: perdaEstimada,
+          peso_retorno: null,
+          medida_utilizada: 0,
           data_devolucao_efetuada: admin.firestore.FieldValue.serverTimestamp(),
-          id_usuario_devolveu: request.auth!.uid,
-          detalhe_encerramento: "Encerrado devido a extravio: " + dados.motivo,
         });
       }
 
@@ -805,7 +823,7 @@ export const recalibrarTaraFrascoEsgotado = onCall(async (request) => {
       tipo_operacao: "RECALIBRAR_TARA",
       uid: request.auth!.uid,
       payload_hash: payloadHash,
-      resultado: resultado,
+      resultado,
       status: "CONCLUIDA",
       criado_em: admin.firestore.FieldValue.serverTimestamp(),
       atualizado_em: admin.firestore.FieldValue.serverTimestamp()

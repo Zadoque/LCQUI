@@ -73,7 +73,7 @@ async function gerarCodigoTurmaTx(
   for (let tentativa = 0; tentativa < 5; tentativa++) {
     const candidato = gerarCodigoTurmaCandidate();
     const lockRef = admin.firestore()
-      .collection("Chaves_Unicas").doc(`turma_${candidato}`);
+      .collection("Chaves_Unicas").doc(`Turma__${candidato}`);
     const lockSnap = await tx.get(lockRef);
     if (!lockSnap.exists) {
       tx.create(lockRef, { reservado_em: admin.firestore.FieldValue.serverTimestamp() });
@@ -106,12 +106,14 @@ export const aceitarConviteAluno = onCall(async (request) => {
   return admin.firestore().runTransaction(async (tx) => {
     // PASSO A: Todas as leituras
     const conviteQuery = await tx.get(admin.firestore().collection("Convite_Aluno")
-      .where("token_hash", "==", hashToken).where("status", "==", "pendente").limit(1));
-    if (conviteQuery.empty) throw new HttpsError("not-found", "Convite invalido, expirado ou ja aceito.");
+      .where("token_hash", "==", hashToken).limit(1));
+    if (conviteQuery.empty) throw new HttpsError("not-found", "Convite invalido.");
 
     const conviteDoc = conviteQuery.docs[0];
     const convite = conviteDoc.data();
 
+    if (convite.status !== "pendente")
+      throw new HttpsError("failed-precondition", "Convite ja aceito ou cancelado.");
     if (new Date() > convite.expira_em.toDate())
       throw new HttpsError("failed-precondition", "Convite expirado.");
     if (emailNorm !== convite.email)
@@ -136,12 +138,13 @@ export const aceitarConviteAluno = onCall(async (request) => {
       turma = turmaSnap.data()!;
       if (turma.status !== "Ativo") throw new HttpsError("failed-precondition", "Turma inativa.");
 
-      alunosSnap = await tx.get(turmaRef.collection("Alunos"));
-      jaMatriculado = alunosSnap.docs.some(d => d.id === uid);
+      const alunoNaTurmaSnap = await tx.get(turmaRef.collection("Alunos").doc(uid));
+      jaMatriculado = alunoNaTurmaSnap.exists;
 
-      // Validacao de capacidade (ignorado se exceder_capacidade = true ou se ja for matriculado)
+      // Validacao de capacidade transacional (PDF-008: evita leitura O(N))
       if (!jaMatriculado && !convite.exceder_capacidade) {
-        if (alunosSnap.size >= turma.capacidade) {
+        const qtdAlunosAtual = turma.qtd_alunos || 0;
+        if (qtdAlunosAtual >= turma.capacidade) {
           throw new HttpsError("resource-exhausted", "Turma lotada.");
         }
       }

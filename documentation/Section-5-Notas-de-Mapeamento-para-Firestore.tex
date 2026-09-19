@@ -200,8 +200,8 @@ Caminho: \texttt{Bem\_Patrimonial/\{id\}/Historico/\{eventoId\}}.
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{id\_bem\_patrimonial}] string; O. Identificador da entidade bem patrimonial, cuja existência e escopo são verificados no servidor.
 \item[\texttt{timestamp}] Timestamp; O. Data/instante de timestamp, com ordem temporal validada e autoria do relógio do servidor para eventos.
-\item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: cadastro, edicao, baixa.
 \item[\texttt{id\_usuario}] string; O. Identificador da entidade usuario, cuja existência e escopo são verificados no servidor.
+\item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: cadastro, edicao, baixa.
 \end{description}
 
 \paragraph{Alteracao\_Bem\_Patrimonial}\mbox{}\par
@@ -223,12 +223,14 @@ Caminho: \texttt{Requisicao\_Edicao\_Bem\_Patrimonial/\{id\}}.
 \item[\texttt{id\_usuario\_solicitante}] string; O. Identificador da entidade usuario solicitante, cuja existência e escopo são verificados no servidor.
 \item[\texttt{id\_usuario\_respondente}] string; N. Identificador da entidade usuario respondente, cuja existência e escopo são verificados no servidor.
 \item[\texttt{novo\_nome}] string; N. Valor novo nome, restrito ao campo correspondente da entidade de origem; preservar ausência legítima. Máximo 150 caracteres.
-\item[\texttt{novo\_status}] string enum; N. Valor novo status, restrito ao campo correspondente da entidade de origem; preservar ausência legítima. Valores: Ativo, Inservivel, Ja\_dado\_baixa.
+\item[\texttt{novo\_status}] string enum; N. Valor novo status, restrito ao campo correspondente da entidade de origem; preservar ausência legítima. Valores: Ativo, Inservivel.
 \item[\texttt{novo\_estado\_conservacao}] string enum; N. Valor novo estado conservacao, restrito ao campo correspondente da entidade de origem; preservar ausência legítima. Valores: BOM, REGULAR, RUIM.
 \item[\texttt{novo\_id\_local}] string; N. Valor novo id local, restrito ao campo correspondente da entidade de origem; preservar ausência legítima.
 \item[\texttt{nova\_photo\_url}] string; N. Valor nova photo url, restrito ao campo correspondente da entidade de origem; preservar ausência legítima.
 \item[\texttt{motivo}] string; O. Valor de motivo, validado pelo formulário e pelo servidor conforme regras do domínio.
 \item[\texttt{justificativa\_resposta}] string; N. Justificativa obrigatória ao aprovar ou rejeitar; ausente enquanto pendente.
+\item[\texttt{versao\_bem\_origem}] number; O. Versão do bem observada pelo solicitante para controle otimista de concorrência.
+\item[\texttt{novo\_id\_resumo\_bem\_patrimonial}] string; N. Novo modelo catalográfico em caso de reclassificação do equipamento.
 \end{description}
 
 \paragraph{Requisicao\_Adicao\_Bem\_Patrimonial}\mbox{}\par
@@ -250,6 +252,7 @@ Caminho: \texttt{Requisicao\_Adicao\_Bem\_Patrimonial/\{id\}}.
 \item[\texttt{nome\_resumo\_proposto}] string; N. Valor de nome resumo proposto, validado pelo formulário e pelo servidor conforme regras do domínio. Máximo 150 caracteres.
 \item[\texttt{descricao\_resumo\_proposta}] string; N. Valor de descricao resumo proposta, validado pelo formulário e pelo servidor conforme regras do domínio.
 \item[\texttt{motivo}] string; O. Valor de motivo, validado pelo formulário e pelo servidor conforme regras do domínio.
+\item[\texttt{justificativa\_resposta}] string; N. Justificativa obrigatória ao aprovar ou rejeitar; ausente enquanto pendente.
 \end{description}
 
 \paragraph{Locks\_Requisicao\_Patrimonio}\mbox{}\par
@@ -418,6 +421,7 @@ Caminho: \texttt{Emprestimo\_Reagente/\{id\}}.
 \item[\texttt{data\_devolucao\_efetuada}] Timestamp; N. Data/instante de data devolucao efetuada, com ordem temporal validada e autoria do relógio do servidor para eventos.
 \item[\texttt{id\_local\_usado}] string; O. Identificador da entidade local usado, cuja existência e escopo são verificados no servidor.
 \item[\texttt{id\_usuario\_devolveu}] string; N. Identificador da entidade usuario devolveu, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_gestor\_devolucao}] string; N. Identificador do gestor de almoxarifado operador que recebeu e registrou a devolução na balança, preenchido no retorno.
 \item[\texttt{peso\_saida}] number; O. Peso bruto em g medido na retirada; referência imutável para o consumo deste empréstimo.
 \item[\texttt{peso\_retorno}] number; N. Peso bruto em g medido na devolução; null antes do retorno e validado contra tara/saída.
 \item[\texttt{medida\_utilizada}] number; N. Consumo não negativo calculado na unidade do empréstimo; massa = max(0, saída menos retorno), conversão em mL só para líquido com densidade histórica positiva.
@@ -431,6 +435,10 @@ Caminho: \texttt{Emprestimo\_Reagente/\{id\}}.
 \item[\texttt{tcr\_aceito\_em}] Timestamp; C em Q04. Instante servidor do aceite.
 \item[\texttt{tcr\_aceito\_por}] string; C em Q04. UID autenticado do solicitante/retirante, não do gestor que atende.
 \item[\texttt{tcr\_auditoria\_id}] string; C em Q04. Evento imutável em Registro\_de\_Auditoria com frasco, operação, finalidade, versão, instante e aceitante; backend verifica correspondência e consumo único do aceite.
+\item[\texttt{tipo\_encerramento\_excepcional}] string enum; N. Valores: QUEBRA\_ACIDENTAL, EXTRAVIO\_SINISTRO.
+\item[\texttt{motivo\_encerramento\_excepcional}] string; N. Justificativa circunstanciada obrigatória em caso de encerramento extraordinário.
+\item[\texttt{id\_gestor\_encerramento}] string; N. UID do gestor que homologou o sinistro.
+\item[\texttt{massa\_perda\_estimada\_g}] number; N. Estimativa gravimétrica de resíduo perdido no sinistro.
 \end{description}
 
 \paragraph{Turma}\mbox{}\par
@@ -446,6 +454,9 @@ Caminho: \texttt{Turma/\{id\}}.
 \item[\texttt{capacidade}] number; O. Quantidade máxima ordinária de alunos; inteiro positivo, validado na transação de ingresso.
 \item[\texttt{codigo\_turma}] string; O. Código único de ingresso, não concede acesso sem validação. Máximo 20 caracteres. Unicidade garantida por chave determinística/registro de unicidade no servidor.
 \item[\texttt{data\_criacao}] Timestamp; O. Data/instante de data criacao, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{qtd\_alunos}] number; O. Contador transacional atômico de alunos matriculados ativos.
+\item[\texttt{versao}] number; O. Versão inteira para detecção de edições concorrentes.
+\item[\texttt{nome\_materia}] string; O. Nome denormalizado da matéria para exibição direta em listagens.
 \end{description}
 
 \paragraph{Historico\_Alunos\_Turma}\mbox{}\par
@@ -545,6 +556,10 @@ Caminho: \texttt{Convite\_Aluno/\{id\}}.
 \item[\texttt{numero\_matricula}] string; N. Matrícula institucional textual, com zeros iniciais; obrigatória e única em Aluno, opcional e não única em Convite. Máximo 20 caracteres.
 \item[\texttt{token\_hash}] string; O. SHA-256 do token aleatório de 32 bytes (CSPRNG); nunca token em claro. Reenvio substitui hash e expiração atomicamente; comparação constante e aceitação única no servidor.
 \item[\texttt{ultimo\_reenvio\_por}] string; N. UID servidor do operador do último reenvio. DocId derivado por HMAC-SHA-256 de contexto e e-mail normalizado com segredo servidor; não usar hash simples público de e-mail.
+\item[\texttt{exceder\_capacidade}] boolean; O, padrão false. Indicador de exceção nominal de capacidade autorizada pelo docente.
+\item[\texttt{justificativa\_excecao}] string; C quando exceder\_capacidade for true.
+\item[\texttt{aceitado\_por}] string; N. UID do aluno que aceitou o convite.
+\item[\texttt{aceitado\_em}] Timestamp; N. Instante em que o convite foi aceito.
 \end{description}
 
 \paragraph{Notificacao}\mbox{}\par
@@ -553,7 +568,6 @@ Caminho: \texttt{Usuarios/\{uid\}/Notificacoes/\{id\}}.
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{id\_destinatario}] string; O. Identificador da entidade destinatario, cuja existência e escopo são verificados no servidor.
 \item[\texttt{papel\_destinatario}] string enum; O. Contexto de exibição da notificação, sem conceder esse papel ao usuário. Inclui Aluno, Professor, Bolsista, Gestor\_Bens\_Patrimoniais e Gestor\_Almoxarifado.
-\item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio.
 \item[\texttt{id\_quem\_fez\_acao}] string; N. Identificador da entidade quem fez acao, cuja existência e escopo são verificados no servidor.
 \item[\texttt{id\_turma}] string; N. Identificador da entidade turma, cuja existência e escopo são verificados no servidor.
 \item[\texttt{quantidade}] number; N. Quantidade agregada de ocorrências agrupadas na notificação, quando aplicável.
@@ -563,6 +577,7 @@ Caminho: \texttt{Usuarios/\{uid\}/Notificacoes/\{id\}}.
 \item[\texttt{lida\_em}] Timestamp; N. Instante servidor de marcação de leitura; null enquanto não lida.
 \item[\texttt{emitida\_em}] Timestamp; O. Data/instante de emitida em, com ordem temporal validada e autoria do relógio do servidor para eventos.
 \item[\texttt{expira\_em}] Timestamp; N. Instante de expiração de convite/notificação. Condicional: é NULL para notificações que constituem registros operacionais persistentes (ex: ESCASSEZ\_ESTOQUE). Expiração não equivale à exclusão automática sem regra específica.
+\item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: ADICIONADO, POST, COMENTARIO, REMOVIDO, TURMA\_ARQUIVADA, TURMA\_DESARQUIVADA, REQUISICAO\_BEM, DATA\_DEVOLUCAO\_REAGENTE, ROTEIRO\_COMPARTILHADO, REQUISICAO\_EDICAO\_BEM, REQUISICAO\_ADICAO\_BEM, BEM\_INSERVIVEL, ENTREGA\_ATRASADA, FRASCOS\_VAZIOS, FRASCOS\_QUEBRADOS, FRASCOS\_VENCIDOS, FRASCOS\_A\_SEREM\_PESADOS, FRASCOS\_EM\_QUARENTENA, ESCASSEZ\_ESTOQUE, AUTO\_ATENDIMENTO\_RETIRADA.
 \end{description}
 
 \paragraph{Aluno\_x\_Turma}\mbox{}\par
