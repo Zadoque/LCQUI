@@ -35,9 +35,9 @@ Todas as exceções são declaradas explicitamente abaixo.
 \nolinkurl{Usuarios/\{uid\}} & Read: \texttt{request.auth.uid == uid} (usuário lê só o próprio documento). Write: negado ao cliente (só Cloud Function).\\
 \nolinkurl{Usuarios/\{uid\}/Turmas/\{turmaId\}} & Read: \texttt{request.auth.uid == uid} (o aluno lê em tempo real apenas as turmas em que está matriculado). Write: negado ao cliente (gerenciada exclusivamente pelas Cloud Functions).\\
 \texttt{Chefe\_Geral}, \texttt{Gestor\_Almoxarifado}, etc.~(coleções de papel) & Read: \texttt{request.auth.uid == docId} (cada usuário lê só o próprio documento de papel). Write: negado ao cliente.\\
-\nolinkurl{Turma/\{turmaId\}} & Read: usuário é professor da turma (\texttt{resource.data.id\_professor == request.auth.uid}) OU está na sub-coleção \texttt{Alunos}. Write: negado ao cliente.\\
+\nolinkurl{Turma/\{turmaId\}} & Read: usuário é professor da turma (\texttt{resource.data.id\_professor == request.auth.uid}) OU está na sub-coleção \texttt{Alunos} OU \texttt{'Chefe\_Geral' in request.auth.token.roles}. Write: negado ao cliente.\\
 \nolinkurl{Turma/\{turmaId\}/Alunos} & Read: \texttt{request.auth.uid == resource.data.id\_aluno} OU membro ativo da mesma turma, apenas em projeção mínima sem matrícula/e-mail.\\
-\nolinkurl{Turma/\{turmaId\}/Posts} & Read: membro da turma (professor ou aluno matriculado). Write: negado.\\
+\nolinkurl{Turma/\{turmaId\}/Posts} & Read: membro da turma (professor ou aluno matriculado) OU \texttt{'Chefe\_Geral' in request.auth.token.roles}. Write: negado.\\
 \nolinkurl{Turma/\{turmaId\}/Posts/\{postId\}/Comentarios} & Original moderado: somente autor, Professor responsável ou Chefe Geral com acesso ao contexto. Colegas recebem aviso por endpoint autorizado. Escrita direta negada.\\
 \nolinkurl{Usuarios/\{uid\}/Notificacoes} & Read: \texttt{request.auth.uid == uid}. Write: negado ao cliente.\\
 \nolinkurl{Resumo\_Reagente/\{resumoId\}} & Read: qualquer usuário com papel ativo no sistema (token de acesso válido). Write: negado ao cliente.\\
