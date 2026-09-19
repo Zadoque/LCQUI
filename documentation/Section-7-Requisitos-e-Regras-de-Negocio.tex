@@ -133,13 +133,13 @@ No empréstimo, registra-se o \textit{peso\_saida}. Na devolução, registra-se 
 $Volume_{utilizado} = \frac{\max(0, Peso_{saida} - Peso_{retorno})}{Densidade}$ (líquidos); sólidos usam a diferença não negativa em g. Ganho tolerado segue Q06, com consumo zero e ajuste separado.
 
 \textbf{Tolerância de Devolução (Regra Q06 - PDF-025):}\\
-A margem de tolerância é estritamente baseada no \textbf{peso bruto de saída}. Rejeita-se explicitamente o cálculo sobre massa líquida, pois a variância incide sobre a totalidade do corpo medido na balança (incluindo o frasco).
+A margem de tolerância é estritamente baseada no \textbf{peso bruto de saída} ($Peso_{saida}$). Rejeita-se explicitamente o cálculo sobre massa líquida, pois a variância incide sobre a totalidade do corpo medido na balança (incluindo o frasco).
 \begin{itemize}
-    \item Reagente normal: $max(1g; 0,5\% \times Peso_{saida})$
-    \item Reagente higroscópico: $max(2g; 2,0\% \times Peso_{saida})$
+    \item Reagente normal: $\max(1\,g, 0{,}005 \times Peso_{saida})$
+    \item Reagente higroscópico: $\max(2\,g, 0{,}02 \times Peso_{saida})$
 \end{itemize}
 A avaliação de ganho máximo permitido segue estritamente a fórmula: $Peso_{retorno} > Peso_{saida} + Tolerancia$. 
-Um ganho de massa acima dessa tolerância bloqueia a devolução por anomalia (indicando possível contaminação ou erro de balança). Retornos abaixo da tara, no entanto, não acionam esse bloqueio e seguem o fluxo de esgotamento/recalibração.
+Um ganho de massa acima dessa tolerância bloqueia a devolução por anomalia (indicando possível contaminação ou erro de balança). Retornos abaixo da tara ($Peso_{retorno} < Peso_{vazio}$), no entanto, bloqueiam a devolução ordinária, exigindo transição imediata para o fluxo de esgotamento (diferença até 5g) ou recalibração metrológica (diferença maior) com notificação e confirmação do gestor.
 \end{regra}
 
 \subsubsection{Exclusividade na retirada de reagentes}
@@ -359,8 +359,8 @@ Os Custom Claims devem representar o conjunto efetivo de papéis do usuário ap�
 \subsubsection{RN-ROLE-15 — Auditoria das alterações de papéis}
 Toda atribuição e toda revogação de papel devem gerar registro de auditoria contendo: usuário afetado, usuário que executou a operação, papel adicionado/removido, data/hora, resultado, justificativa e situação da conta. Revogações rejeitadas também devem ser registradas.
 
-
-
+\subsubsection{RN-ROLE-16 — Invariante Bolsista}
+A revogação do papel Aluno para um usuário é TERMINANTEMENTE BLOQUEADA pelo backend caso ele possua o papel Bolsista ativo. A revogação do papel de Bolsista deverá ocorrer de maneira prévia ou simultânea à perda do vínculo discente.
 
 \paragraph{Execução concorrente e sincronização de identidade.}
 A verificação do último chefe, do último gestor patrimonial e de cada almoxarifado deve compartilhar um documento de controle transacional; duas revogações concorrentes não podem ambas remover o último responsável. Revogar Aluno exige remover Bolsista na mesma operação ou rejeitar a solicitação. O modal explicita o conjunto resultante antes de confirmar. A gravação dos papéis e da auditoria ocorre no Firestore; a atualização do Firebase Auth é uma etapa externa, recuperável e idempotente. Uma falha nessa etapa mantém a autorização bloqueada até a reconciliação, sem anunciar conclusão prematura.
