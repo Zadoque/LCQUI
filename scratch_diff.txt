@@ -1,0 +1,1217 @@
+diff --git a/documentation/Section-1-Introducao.tex b/documentation/Section-1-Introducao.tex
+old mode 100755
+new mode 100644
+diff --git a/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-10-Consolidacao-do-planejamento.tex b/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-10-Consolidacao-do-planejamento.tex
+index 6ffad5a1..23912977 100644
+--- a/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-10-Consolidacao-do-planejamento.tex
++++ b/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-10-Consolidacao-do-planejamento.tex
+@@ -73,7 +73,7 @@ async function gerarCodigoTurmaTx(
+   for (let tentativa = 0; tentativa < 5; tentativa++) {
+     const candidato = gerarCodigoTurmaCandidate();
+     const lockRef = admin.firestore()
+-      .collection("Chaves_Unicas").doc(`turma_${candidato}`);
++      .collection("Chaves_Unicas").doc(`Turma__${candidato}`);
+     const lockSnap = await tx.get(lockRef);
+     if (!lockSnap.exists) {
+       tx.create(lockRef, { reservado_em: admin.firestore.FieldValue.serverTimestamp() });
+@@ -106,12 +106,14 @@ export const aceitarConviteAluno = onCall(async (request) => {
+   return admin.firestore().runTransaction(async (tx) => {
+     // PASSO A: Todas as leituras
+     const conviteQuery = await tx.get(admin.firestore().collection("Convite_Aluno")
+-      .where("token_hash", "==", hashToken).where("status", "==", "pendente").limit(1));
+-    if (conviteQuery.empty) throw new HttpsError("not-found", "Convite invalido, expirado ou ja aceito.");
++      .where("token_hash", "==", hashToken).limit(1));
++    if (conviteQuery.empty) throw new HttpsError("not-found", "Convite invalido.");
+ 
+     const conviteDoc = conviteQuery.docs[0];
+     const convite = conviteDoc.data();
+ 
++    if (convite.status !== "pendente")
++      throw new HttpsError("failed-precondition", "Convite ja aceito ou cancelado.");
+     if (new Date() > convite.expira_em.toDate())
+       throw new HttpsError("failed-precondition", "Convite expirado.");
+     if (emailNorm !== convite.email)
+@@ -136,12 +138,13 @@ export const aceitarConviteAluno = onCall(async (request) => {
+       turma = turmaSnap.data()!;
+       if (turma.status !== "Ativo") throw new HttpsError("failed-precondition", "Turma inativa.");
+ 
+-      alunosSnap = await tx.get(turmaRef.collection("Alunos"));
+-      jaMatriculado = alunosSnap.docs.some(d => d.id === uid);
++      const alunoNaTurmaSnap = await tx.get(turmaRef.collection("Alunos").doc(uid));
++      jaMatriculado = alunoNaTurmaSnap.exists;
+ 
+-      // Validacao de capacidade (ignorado se exceder_capacidade = true ou se ja for matriculado)
++      // Validacao de capacidade transacional (PDF-008: evita leitura O(N))
+       if (!jaMatriculado && !convite.exceder_capacidade) {
+-        if (alunosSnap.size >= turma.capacidade) {
++        const qtdAlunosAtual = turma.qtd_alunos || 0;
++        if (qtdAlunosAtual >= turma.capacidade) {
+           throw new HttpsError("resource-exhausted", "Turma lotada.");
+         }
+       }
+diff --git a/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-4-Revogacao-de-Papel.tex b/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-4-Revogacao-de-Papel.tex
+index 61ad52a0..e06094b0 100644
+--- a/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-4-Revogacao-de-Papel.tex
++++ b/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-4-Revogacao-de-Papel.tex
+@@ -89,12 +89,18 @@ export const revogarPapel = onCall(async (request) => {
+       tx.update(admin.firestore().collection("Usuarios").doc(uidAlvo), { ativo: false });
+     }
+ 
+-    // 5. Atualizar singleton (marca a operação; invalida leituras concorrentes)
+-    tx.set(singletonRef, {
++    // 5. Atualizar singleton (marca a operação, invalida leituras concorrentes e decrementa contadores canônicos)
++    const atualizacaoSingleton: Record<string, any> = {
+       ultima_operacao: { tipo: "REVOGACAO", papel, uid_alvo: uidAlvo,
+         uid_operador: request.auth!.uid,
+         ts: admin.firestore.FieldValue.serverTimestamp() },
+-    }, { merge: true });
++    };
++    if (papel === "Chefe_Geral") {
++      atualizacaoSingleton.chefes_ativos = admin.firestore.FieldValue.increment(-1);
++    } else if (papel === "Gestor_Bens_Patrimoniais") {
++      atualizacaoSingleton.gestores_patrimoniais_ativos = admin.firestore.FieldValue.increment(-1);
++    }
++    tx.set(singletonRef, atualizacaoSingleton, { merge: true });
+ 
+     return { desativado: semPapeis };
+   });
+diff --git a/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-5-Fluxo-de-Reagentes.tex b/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-5-Fluxo-de-Reagentes.tex
+index e864a74c..fc588a7f 100644
+--- a/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-5-Fluxo-de-Reagentes.tex
++++ b/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-5-Fluxo-de-Reagentes.tex
+@@ -25,9 +25,9 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
+   const payloadHash = crypto.createHash("sha256").update(payloadString).digest("hex");
+ 
+   const agora = new Date();
+-  const validadeFechado = dados.validadeFechado ? new Date(dados.validadeFechado) : null;
+-  const validadeEfetiva = dados.validadeDesconhecida ? null : validadeFechado;
+-  const venceuNoCadastro = Boolean(validadeEfetiva && validadeEfetiva <= agora);
++  const validadeFechadoStr = dados.validadeDesconhecida ? null : (dados.validadeFechado ?? null);
++  const validadeData = validadeFechadoStr ? new Date(validadeFechadoStr) : null;
++  const venceuNoCadastro = Boolean(validadeData && validadeData <= agora);
+ 
+   if (venceuNoCadastro && !dados.decisaoSeJaVencido) {
+     throw new HttpsError("failed-precondition", "O frasco está vencido no cadastro e exige uma decisão do gestor.");
+@@ -104,8 +104,8 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
+       medida_usada: 0,
+       estado_fisico_frasco: "FECHADO",
+       disponibilidade: "DISPONIVEL",
+-      validade_fechado: validadeEfetiva,
+-      validade_efetiva: validadeEfetiva,
++      validade_fechado: validadeFechadoStr,
++      validade_efetiva: validadeFechadoStr,
+       validade_desconhecida: dados.validadeDesconhecida ?? false,
+       vencido: venceuNoCadastro,
+       em_quarentena: venceuNoCadastro && dados.decisaoSeJaVencido === "QUARENTENA",
+@@ -176,9 +176,9 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
+   const payloadHash = crypto.createHash("sha256").update(payloadString).digest("hex");
+ 
+   const agora = new Date();
+-  const validade = dados.validadeAberto ? new Date(dados.validadeAberto) : null;
+-  const validadeEfetiva = dados.validadeDesconhecida ? null : validade;
+-  const jaVencido = Boolean(validadeEfetiva && validadeEfetiva <= agora);
++  const validadeAbertoStr = dados.validadeDesconhecida ? null : (dados.validadeAberto ?? null);
++  const validadeData = validadeAbertoStr ? new Date(validadeAbertoStr) : null;
++  const jaVencido = Boolean(validadeData && validadeData <= agora);
+ 
+   if (jaVencido && !dados.decisaoSeJaVencido)
+     throw new HttpsError("failed-precondition", "O frasco está vencido no cadastro e exige uma decisão do gestor.");
+@@ -265,7 +265,7 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
+       abertura_historica_desconhecida: dados.aberturaHistoricaDesconhecida,
+       estado_fisico_frasco: "ABERTO",
+       disponibilidade: "DISPONIVEL",
+-      validade_efetiva: validadeEfetiva,
++      validade_efetiva: validadeAbertoStr,
+       validade_desconhecida: dados.validadeDesconhecida ?? false,
+       vencido: jaVencido,
+       em_quarentena: jaVencido && dados.decisaoSeJaVencido === "QUARENTENA",
+@@ -358,8 +358,8 @@ export const registrarAberturaFrasco = onCall(async (request) => {
+ 
+     tx.update(frascoRef, {
+       estado_fisico_frasco: "ABERTO",
+-      data_abertura: agora,
+-      validade_efetiva: validadeEfetiva,
++      data_abertura: DateTime.fromJSDate(agora, { zone: "America/Sao_Paulo" }).toISODate(),
++      validade_efetiva: validadeEfetiva ? DateTime.fromJSDate(validadeEfetiva, { zone: "America/Sao_Paulo" }).toISODate() : null,
+       vencido: venceu,
+       em_quarentena: venceu && dados.destinoSeVencerNaAbertura === "QUARENTENA",
+       uso_vencido_autorizado: venceu && dados.destinoSeVencerNaAbertura === "DISPONIVEL",
+@@ -433,7 +433,6 @@ export const registrarRetirada = onCall(async (request) => {
+     if (dados.abrirNoEmprestimo && frasco.estado_fisico_frasco === "FECHADO") {
+       validadeEfetiva = calcularValidadeEfetivaNaAbertura(frasco, agora);
+       frascoVencido = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+-
+     }
+ 
+     const excepcional = frascoVencido || frasco.validade_desconhecida;
+@@ -480,8 +479,9 @@ export const registrarRetirada = onCall(async (request) => {
+     tx.update(frascoRef, {
+       disponibilidade: "EMPRESTADO",
+       ...(dados.abrirNoEmprestimo && frasco.estado_fisico_frasco === "FECHADO"
+-        ? { estado_fisico_frasco: "ABERTO", data_abertura: agora,
+-            validade_efetiva: validadeEfetiva, vencido: frascoVencido } : {}),
++        ? { estado_fisico_frasco: "ABERTO", data_abertura: DateTime.fromJSDate(agora, { zone: "America/Sao_Paulo" }).toISODate(),
++            validade_efetiva: validadeEfetiva ? DateTime.fromJSDate(validadeEfetiva, { zone: "America/Sao_Paulo" }).toISODate() : null,
++            vencido: frascoVencido } : {}),
+     });
+     if (aceite) vincularAceiteEAuditoriaTx(tx, aceite, emprestimoRef.id);
+     if (autoAtendimento) registrarNotificacaoChefiaTx(tx, emprestimoRef.id);
+@@ -505,6 +505,7 @@ export const registrarRetirada = onCall(async (request) => {
+ interface DevolucaoFrasco {
+   idEmprestimo: string;
+   pesoRetorno: number;
++  idUsuarioDevolveu: string; // Portador físico que entrega o frasco ao almoxarifado
+   destinoPosDevolucao?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
+ }
+ 
+@@ -552,6 +553,10 @@ export const registrarDevolucao = onCall(async (request) => {
+     if (!Number.isFinite(dados.pesoRetorno) || dados.pesoRetorno <= 0) {
+       throw new HttpsError("invalid-argument", "Peso de retorno inválido.");
+     }
++    // PDF-025 / N-10: Verificação de tara na devolução (Q06)
++    if (frasco.peso_frasco_vazio != null && dados.pesoRetorno < frasco.peso_frasco_vazio) {
++      throw new HttpsError("failed-precondition", "Peso de retorno menor que a tara cadastrada. Operação ordinária bloqueada: desviar para recalibração de tara ou esgotamento (Q06).");
++    }
+     // PDF-025: Ganho acima da tolerância bloqueia por anomalia.
+     if (dados.pesoRetorno > limiteMaxRetorno) {
+       throw new HttpsError("invalid-argument", "Ganho de massa excede tolerância Q06 (possível erro ou contaminação). Bloqueado por anomalia.");
+@@ -585,12 +590,17 @@ export const registrarDevolucao = onCall(async (request) => {
+     } else if (frascoVencido && dados.destinoPosDevolucao === "DISPONIVEL") {
+       atualizacaoFrasco.em_quarentena = false;
+       atualizacaoFrasco.uso_vencido_autorizado = true;
++    } else if (frascoVencido && dados.destinoPosDevolucao === "PENDENTE_DE_DESCARTE") {
++      atualizacaoFrasco.em_quarentena = false;
++      atualizacaoFrasco.uso_vencido_autorizado = false;
++      atualizacaoFrasco.detalhe_status = "Frasco vencido aguardando processo institucional de descarte.";
+     }
+ 
+     tx.update(emprestimoRef, {
+       status: atrasado ? "DEVOLVIDO_COM_ATRASO" : "DEVOLVIDO",
+       data_devolucao_efetuada: admin.firestore.FieldValue.serverTimestamp(),
+-      id_usuario_devolveu: request.auth!.uid,
++      id_usuario_devolveu: dados.idUsuarioDevolveu,
++      id_gestor_devolucao: request.auth!.uid,
+       peso_retorno: dados.pesoRetorno,
+       medida_utilizada: volumeUtilizado,
+       unidade_medida_utilizada: densidade ? "ml" : "g",
+@@ -696,11 +706,19 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
+         if (docEmprestimo.data().peso_retorno != null) {
+           throw new HttpsError("failed-precondition", "Empréstimo já possui medição de peso_retorno. Reconciliação manual necessária.");
+         }
++        const pesoSaida = docEmprestimo.data().peso_saida || 0;
++        const pesoVazio = frasco.peso_frasco_vazio != null ? frasco.peso_frasco_vazio : null;
++        const perdaEstimada = pesoVazio != null ? Math.max(0, pesoSaida - pesoVazio) : pesoSaida;
++
+         tx.update(docEmprestimo.ref, {
+           status: "ENCERRADO_EXTRAORDINARIO",
++          tipo_encerramento_excepcional: "EXTRAVIO_SINISTRO",
++          motivo_encerramento_excepcional: dados.motivo,
++          id_gestor_encerramento: request.auth!.uid,
++          massa_perda_estimada_g: perdaEstimada,
++          peso_retorno: null,
++          medida_utilizada: 0,
+           data_devolucao_efetuada: admin.firestore.FieldValue.serverTimestamp(),
+-          id_usuario_devolveu: request.auth!.uid,
+-          detalhe_encerramento: "Encerrado devido a extravio: " + dados.motivo,
+         });
+       }
+ 
+@@ -805,7 +823,7 @@ export const recalibrarTaraFrascoEsgotado = onCall(async (request) => {
+       tipo_operacao: "RECALIBRAR_TARA",
+       uid: request.auth!.uid,
+       payload_hash: payloadHash,
+-      resultado: resultado,
++      resultado,
+       status: "CONCLUIDA",
+       criado_em: admin.firestore.FieldValue.serverTimestamp(),
+       atualizado_em: admin.firestore.FieldValue.serverTimestamp()
+@@ -814,4 +832,4 @@ export const recalibrarTaraFrascoEsgotado = onCall(async (request) => {
+     return resultado;
+   });
+ });
+-\end{lstlisting}
++\end{lstlisting}
+\ No newline at end of file
+diff --git a/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-7-Jobs-Agendados.tex b/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-7-Jobs-Agendados.tex
+index 2c78ef91..d09bf18a 100644
+--- a/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-7-Jobs-Agendados.tex
++++ b/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-7-Jobs-Agendados.tex
+@@ -4,7 +4,10 @@
+ import { onSchedule } from "firebase-functions/v2/scheduler";
+ import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated } from "firebase-functions/v2/firestore";
+ 
+-export const verificarVencimentosEAtrasos = onSchedule("every day 03:00", async () => {
++export const verificarVencimentosEAtrasos = onSchedule({
++  schedule: "every day 03:00",
++  timeZone: "America/Sao_Paulo"
++}, async () => {
+   const agora = new Date();
+   const inicioHoje = inicioDoDiaInstitucional(agora);
+   const fimDeAmanha = fimDoDiaInstitucional(adicionarDias(inicioHoje, 1));
+@@ -39,12 +42,33 @@ export const verificarVencimentosEAtrasos = onSchedule("every day 03:00", async
+     await notificarProfessorDevolucaoUmaVez(item.idUsuario, item.idEmprestimo, item.quando);
+   }
+ 
+-  const totalAtrasados = emprestimosNaJanela.docs.filter((doc) => {
+-    const prevista = doc.data().data_devolucao_prevista.toDate();
+-    return prevista < inicioHoje;
+-  }).length;
+-  if (totalAtrasados > 0) {
+-    await notificarGestoresDeReagentes("ENTREGA_ATRASADA", totalAtrasados);
++  // Segmentação por almoxarifado para notificações de atraso (PDF-005)
++  const atrasadosPorAlmox: Record<string, number> = {};
++  emprestimosNaJanela.docs.forEach((doc) => {
++    const dados = doc.data();
++    const prevista = dados.data_devolucao_prevista.toDate();
++    if (prevista < inicioHoje) {
++      atrasadosPorAlmox[dados.id_almoxarifado] = (atrasadosPorAlmox[dados.id_almoxarifado] || 0) + 1;
++    }
++  });
++
++  for (const [idAlmox, count] of Object.entries(atrasadosPorAlmox)) {
++    const gestoresSnap = await admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
++      .where("id_almoxarifado", "==", idAlmox).get();
++    for (const gDoc of gestoresSnap.docs) {
++      const gestorId = gDoc.data().id_gestor_almoxarifado;
++      await admin.firestore().collection("Usuarios").doc(gestorId).collection("Notificacoes").add({
++        id_destinatario: gestorId,
++        papel_destinatario: "Gestor_Almoxarifado",
++        tipo: "ENTREGA_ATRASADA",
++        entidade_alvo: "Almoxarifado",
++        id_alvo: idAlmox,
++        quantidade: count,
++        lida: false,
++        emitida_em: admin.firestore.FieldValue.serverTimestamp(),
++        expira_em: null,
++      });
++    }
+   }
+ 
+   const frascosVencendo = await admin.firestore().collection("Frasco_Reagente")
+@@ -59,6 +83,7 @@ export const verificarVencimentosEAtrasos = onSchedule("every day 03:00", async
+     batchVencidos.set(histRef, {
+       id_frasco_reagente: doc.id,
+       id_almoxarifado: doc.data().id_almoxarifado,
++      id_gestor: "__SISTEMA__",
+       tipo: "VENCEU",
+       timestamp: admin.firestore.FieldValue.serverTimestamp(),
+     });
+diff --git a/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-8-Fluxo-de-Bens-Patrimoniais.tex b/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-8-Fluxo-de-Bens-Patrimoniais.tex
+index e979ff17..4028e4d2 100644
+--- a/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-8-Fluxo-de-Bens-Patrimoniais.tex
++++ b/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-8-Fluxo-de-Bens-Patrimoniais.tex
+@@ -3,43 +3,52 @@
+ \begin{lstlisting}[language=TypeScript, title={Criação e Resposta de Requisição de Edição (C2: lock determinístico)}]
+ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
+   await validarPermissao(request, ["Professor"]);
+-  const dados = request.data as { idBemPatrimonial: string; novoNome?: string; novoStatus?: string; novoEstadoConservacao?: string; novoIdLocal?: string; motivo: string };
++  const dados = request.data as { idBemPatrimonial: string; novoNome?: string; novoStatus?: string; novoEstadoConservacao?: string; novoIdLocal?: string; novaPhotoUrl?: string; motivo: string };
++  if (dados.novoStatus === "Ja\_dado\_baixa") {
++    throw new HttpsError("invalid-argument", "Professor não pode solicitar baixa diretamente (RF12).");
++  }
+ 
+   // C2: Lock determinístico - elimina phantom reads em transações Firestore.
+   // Se dois professores enviarem simultaneamente, apenas um cria o lock; o outro
+-  // recebe ALREADY_EXISTS da transação e falha antes de criar a requisição.
+-  const lockId = `bem_edicao_${dados.idBemPatrimonial}`;
+-  const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(lockId);
+-  const reqRef  = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc();
++  // recebe ALREADY\_EXISTS da transação e falha antes de criar a requisição.
++  const lockId = `bem\_edicao\_${dados.idBemPatrimonial}`;
++  const lockRef = admin.firestore().collection("Locks\_Requisicao\_Patrimonio").doc(lockId);
++  const reqRef  = admin.firestore().collection("Requisicao\_Edicao\_Bem\_Patrimonial").doc();
+ 
+   return admin.firestore().runTransaction(async (tx) => {
+     const lockSnap = await tx.get(lockRef);
+     if (lockSnap.exists) {
+       throw new HttpsError("failed-precondition", "Já existe uma requisição de edição pendente para este bem.");
+     }
+-    const bemSnap = await tx.get(admin.firestore().collection("Bem_Patrimonial").doc(dados.idBemPatrimonial));
++    const bemSnap = await tx.get(admin.firestore().collection("Bem\_Patrimonial").doc(dados.idBemPatrimonial));
+     if (!bemSnap.exists) throw new HttpsError("not-found", "Bem não encontrado.");
+     // Cria lock e requisição atomicamente
+-    tx.set(lockRef, { criado_em: admin.firestore.FieldValue.serverTimestamp() });
++    tx.set(lockRef, {
++      id\_requisicao: reqRef.id,
++      tipo: "EDICAO",
++      chave\_recurso: dados.idBemPatrimonial,
++      criado\_em: admin.firestore.FieldValue.serverTimestamp()
++    });
+     tx.set(reqRef, {
+-      id_bem_patrimonial: dados.idBemPatrimonial,
+-      novo_nome: dados.novoNome ?? null,
+-      versao_bem_origem: bemSnap.data()!.versao,
+-      novo_id_resumo_bem_patrimonial: null,
+-      novo_status: dados.novoStatus ?? null,
+-      novo_estado_conservacao: dados.novoEstadoConservacao ?? null,
+-      novo_id_local: dados.novoIdLocal ?? null,
++      id\_bem\_patrimonial: dados.idBemPatrimonial,
++      novo\_nome: dados.novoNome ?? null,
++      versao\_bem\_origem: bemSnap.data()!.versao,
++      novo\_id\_resumo\_bem\_patrimonial: null,
++      novo\_status: dados.novoStatus ?? null,
++      novo\_estado\_conservacao: dados.novoEstadoConservacao ?? null,
++      novo\_id\_local: dados.novoIdLocal ?? null,
++      nova\_photo\_url: dados.novaPhotoUrl ?? null,
+       motivo: dados.motivo,
+       status: "pendente",
+-      feita_em: admin.firestore.FieldValue.serverTimestamp(),
+-      id_usuario_solicitante: request.auth!.uid,
++      feita\_em: admin.firestore.FieldValue.serverTimestamp(),
++      id\_usuario\_solicitante: request.auth!.uid,
+     });
+     return { idRequisicao: reqRef.id };
+   });
+ });
+ 
+ // N-02 (PDF-001): Algoritmo normativo de resposta a requisição de edição.
+-// INVARIANTE DE LOCK: o lock bem_edicao_{idBem} DEVE ser liberado em todos os desfechos:
++// INVARIANTE DE LOCK: o lock bem\_edicao\_{idBem} DEVE ser liberado em todos os desfechos:
+ //   - aprovação com sucesso: liberado na linha tx.delete abaixo;
+ //   - rejeição: liberado na mesma transação, sem verificação de versão;
+ //   - conflito de versão na aprovação: a transação deve rejeitar a requisição E liberar o lock,
+@@ -51,29 +60,34 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
+ //   4. SE APROVAÇÃO: verificar versão;
+ //      a. Conflito de versão -> rejeitar requisição como conflito; liberar lock (não abortar sem liberar);
+ //      b. Sem conflito -> aplicar alterações; incrementar versão; histórico; liberar lock.
+-// UNICIDADE DE PLAQUETA: criarRequisicaoAdicaoBem usa Lock C2 por numero_patrimonio_proposto;
+-//   a aprovação cria o bem apenas depois de verificar Chaves_Unicas/Bem_Patrimonial__{numero}
++// UNICIDADE DE PLAQUETA: criarRequisicaoAdicaoBem usa Lock C2 por numero\_patrimonio\_proposto;
++//   a aprovação cria o bem apenas depois de verificar Chaves\_Unicas/Bem\_Patrimonial\_\_{numero}
+ //   dentro da mesma transação, garantindo que duas aprovações concorrentes não criem duplicatas.
+ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
+-  await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"], true);
++  await validarPermissao(request, ["Chefe\_Geral", "Gestor\_Bens\_Patrimoniais"], true);
+   const { idRequisicao, aprovar, justificativa, idResumoAlvo } = request.data;
+-  const lockColl = admin.firestore().collection("Locks_Requisicao_Patrimonio");
++  const lockColl = admin.firestore().collection("Locks\_Requisicao\_Patrimonio");
+   return admin.firestore().runTransaction(async (tx) => {
+     // PASSO 1: Todas as leituras antes de qualquer escrita (obrigatório em transações Firestore)
+-    const reqRef = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc(idRequisicao);
++    const chefeSnap = await tx.get(admin.firestore().collection("Chefe_Geral").doc(request.auth!.uid));
++    if (!chefeSnap.exists) {
++      const gestorSnap = await tx.get(admin.firestore().collection("Gestor_Bens_Patrimoniais").doc(request.auth!.uid));
++      if (!gestorSnap.exists) throw new HttpsError("permission-denied", "Usuário sem papel de Gestor de Bens ativo.");
++    }
++    const reqRef = admin.firestore().collection("Requisicao\_Edicao\_Bem\_Patrimonial").doc(idRequisicao);
+     const req = (await tx.get(reqRef)).data();
+     if (!req || req.status !== "pendente") throw new HttpsError("failed-precondition", "Requisição indisponível.");
+-    const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(req.id_bem_patrimonial);
+-    const lockRef = lockColl.doc(`bem_edicao_${bemRef.id}`);
++    const bemRef = admin.firestore().collection("Bem\_Patrimonial").doc(req.id\_bem\_patrimonial);
++    const lockRef = lockColl.doc(`bem\_edicao\_${bemRef.id}`);
+     const bem = (await tx.get(bemRef)).data();
+ 
+     // PASSO 2: Rejeição não depende de verificação de versão (PDF-001: lock liberado em todos os desfechos)
+     if (!aprovar) {
+       tx.update(reqRef, {
+         status: "rejeitada",
+-        respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+-        id_usuario_respondente: request.auth!.uid,
+-        justificativa_resposta: justificativa,
++        respondida\_em: admin.firestore.FieldValue.serverTimestamp(),
++        id\_usuario\_respondente: request.auth!.uid,
++        justificativa\_resposta: justificativa,
+       });
+       tx.delete(lockRef); // INVARIANTE: lock liberado mesmo na rejeição
+       return { status: "rejeitada" };
+@@ -81,47 +95,47 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
+ 
+     // PASSO 3: Aprovação -- verificar versão (conflito)
+     // N-02: se o bem foi alterado após a abertura da requisição, a versão diverge.
+-    if (!bem || bem.versao !== req.versao_bem_origem) {
++    if (!bem || bem.versao !== req.versao\_bem\_origem) {
+       tx.update(reqRef, {
+         status: "rejeitada",
+-        respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+-        id_usuario_respondente: request.auth!.uid,
+-        justificativa_resposta: "Conflito de versão: o bem foi alterado após a abertura desta requisição. Revise a proposta com os dados atuais e abra nova requisição.",
++        respondida\_em: admin.firestore.FieldValue.serverTimestamp(),
++        id\_usuario\_respondente: request.auth!.uid,
++        justificativa\_resposta: "Conflito de versão: o bem foi alterado após a abertura desta requisição. Revise a proposta com os dados atuais e abra nova requisição.",
+       });
+       tx.delete(lockRef); // INVARIANTE: lock liberado no conflito de versão
+-      return { status: "rejeitada", motivo: "CONFLITO_VERSAO" };
++      return { status: "rejeitada", motivo: "CONFLITO\_VERSAO" };
+     }
+ 
+     // PASSO 4: Leituras secundárias do caminho de aprovação (preserva leituras antes das escritas deste fluxo)
+     let localSnap: FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData> | null = null;
+-    if (req.novo_id_local) {
+-      localSnap = await tx.get(admin.firestore().collection("Local").doc(req.novo_id_local));
++    if (req.novo\_id\_local) {
++      localSnap = await tx.get(admin.firestore().collection("Local").doc(req.novo\_id\_local));
+       if (!localSnap.exists) {
+         // Rejeição sistêmica: local não existe, o lock precisa ser liberado.
+         tx.update(reqRef, {
+           status: "rejeitada",
+-          respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+-          id_usuario_respondente: request.auth!.uid,
+-          justificativa_resposta: "Local referenciado na requisição não encontrado ou excluído.",
++          respondida\_em: admin.firestore.FieldValue.serverTimestamp(),
++          id\_usuario\_respondente: request.auth!.uid,
++          justificativa\_resposta: "Local referenciado na requisição não encontrado ou excluído.",
+         });
+         tx.delete(lockRef);
+-        return { status: "rejeitada", motivo: "LOCAL_NAO_ENCONTRADO" };
++        return { status: "rejeitada", motivo: "LOCAL\_NAO\_ENCONTRADO" };
+       }
+     }
+     // Resolve alvo existente ou prepara criação; helper só lê nesta etapa.
+-    const alvo = req.novo_nome
+-      ? await prepararResumoAlvoTx(tx, idResumoAlvo, req.novo_nome) : null;
++    const alvo = req.novo\_nome
++      ? await prepararResumoAlvoTx(tx, idResumoAlvo, req.novo\_nome) : null;
+     const alteracoes = calcularAlteracoesPermitidas(req, bem);
+     if (alvo) {
+       if (alvo.novo) tx.create(alvo.ref, alvo.dados);
+-      alteracoes.id_resumo_bem_patrimonial = alvo.ref.id;
+-      alteracoes.nome_equipamento = alvo.dados.nome;
++      alteracoes.id\_resumo\_bem\_patrimonial = alvo.ref.id;
++      alteracoes.nome\_equipamento = alvo.dados.nome;
+     }
+-    // M-02: quando novo_id_local está presente, propagar predio/andar/sala denormalizados
+-    if (req.novo_id_local && localSnap) {
++    // M-02: quando novo\_id\_local está presente, propagar predio/andar/sala denormalizados
++    if (req.novo\_id\_local && localSnap) {
+       const local = localSnap.data()!;
+       // Atualizar as projeções denormalizadas conforme Seção 5 (Espelhamento de Local)
+-      alteracoes.id_local = req.novo_id_local;
++      alteracoes.id\_local = req.novo\_id\_local;
+       alteracoes.predio = local.predio;
+       alteracoes.andar = local.andar;
+       alteracoes.sala = local.sala;
+@@ -131,9 +145,9 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
+     registrarHistoricoBemTx(tx, bemRef, bem, alteracoes, request.auth!.uid);
+     tx.update(reqRef, {
+       status: "aprovada",
+-      novo_id_resumo_bem_patrimonial: alvo?.ref.id ?? null,
+-      respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+-      id_usuario_respondente: request.auth!.uid, justificativa_resposta: justificativa,
++      novo\_id\_resumo\_bem\_patrimonial: alvo?.ref.id ?? null,
++      respondida\_em: admin.firestore.FieldValue.serverTimestamp(),
++      id\_usuario\_respondente: request.auth!.uid, justificativa\_resposta: justificativa,
+     });
+     tx.delete(lockRef); // INVARIANTE: lock liberado na aprovação
+     return { status: "aprovada" };
+@@ -162,9 +176,9 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
+ 
+   // C2: Lock determinístico por número de patrimônio proposto (normalizado)
+   const numeroNormalizado = dados.numeroPatrimonioProposto.trim().toUpperCase();
+-  const lockId = `bem_adicao_${numeroNormalizado}`;
+-  const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(lockId);
+-  const reqRef  = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc();
++  const lockId = `bem\_adicao\_${numeroNormalizado}`;
++  const lockRef = admin.firestore().collection("Locks\_Requisicao\_Patrimonio").doc(lockId);
++  const reqRef  = admin.firestore().collection("Requisicao\_Adicao\_Bem\_Patrimonial").doc();
+ 
+   return admin.firestore().runTransaction(async (tx) => {
+     const lockSnap = await tx.get(lockRef);
+@@ -172,56 +186,61 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
+       throw new HttpsError("failed-precondition", "Já existe requisição pendente para este número de patrimônio.");
+     }
+ 
+-    // Validar existência prévia do patrimônio na coleção Chaves_Unicas
+-    const chaveUnicaRef = admin.firestore().collection("Chaves_Unicas").doc(`Bem_Patrimonial__${numeroNormalizado}`);
++    // Validar existência prévia do patrimônio na coleção Chaves\_Unicas
++    const chaveUnicaRef = admin.firestore().collection("Chaves\_Unicas").doc(`Bem\_Patrimonial\_\_${numeroNormalizado}`);
+     const chaveUnicaSnap = await tx.get(chaveUnicaRef);
+     if (chaveUnicaSnap.exists) {
+       throw new HttpsError("already-exists", "O número de patrimônio proposto já está em uso por outro bem.");
+     }
+     tx.set(lockRef, {
+-      id_requisicao: reqRef.id,
++      id\_requisicao: reqRef.id,
+       tipo: "ADICAO",
+-      chave_recurso: numeroNormalizado,
+-      criado_em: admin.firestore.FieldValue.serverTimestamp()
++      chave\_recurso: numeroNormalizado,
++      criado\_em: admin.firestore.FieldValue.serverTimestamp()
+     });
+     tx.set(reqRef, {
+-      numero_patrimonio_proposto: dados.numeroPatrimonioProposto,
+-      estado_conservacao_proposto: dados.estadoConservacaoProposto,
+-      photo_url_proposta: dados.photoUrlProposta,
+-      nome_responsavel_proposto: dados.nomeResponsavelProposto,
+-      id_local: dados.idLocal,
+-      id_resumo_bem_patrimonial: dados.idResumoBemPatrimonial ?? null,
+-      nome_resumo_proposto: dados.nomeResumoProposto ?? null,
+-      descricao_resumo_proposta: dados.descricaoResumoProposta ?? null,
++      numero\_patrimonio\_proposto: dados.numeroPatrimonioProposto,
++      estado\_conservacao\_proposto: dados.estadoConservacaoProposto,
++      photo\_url\_proposta: dados.photoUrlProposta,
++      nome\_responsavel\_proposto: dados.nomeResponsavelProposto,
++      id\_local: dados.idLocal,
++      id\_resumo\_bem\_patrimonial: dados.idResumoBemPatrimonial ?? null,
++      nome\_resumo\_proposto: dados.nomeResumoProposto ?? null,
++      descricao\_resumo\_proposta: dados.descricaoResumoProposta ?? null,
+       motivo: dados.motivo,
+       status: "pendente",
+-      feita_em: admin.firestore.FieldValue.serverTimestamp(),
+-      id_usuario_solicitante: request.auth!.uid,
+-      respondida_em: null,
+-      id_usuario_respondente: null,
++      feita\_em: admin.firestore.FieldValue.serverTimestamp(),
++      id\_usuario\_solicitante: request.auth!.uid,
++      respondida\_em: null,
++      id\_usuario\_respondente: null,
+     });
+     return { idRequisicao: reqRef.id };
+   });
+ });
+ 
+ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
+-  await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"], true);
++  await validarPermissao(request, ["Chefe\_Geral", "Gestor\_Bens\_Patrimoniais"], true);
+   const { idRequisicao, aprovar, justificativa } = request.data as { idRequisicao: string; aprovar: boolean; justificativa: string };
+-  const reqRef = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc(idRequisicao);
++  const reqRef = admin.firestore().collection("Requisicao\_Adicao\_Bem\_Patrimonial").doc(idRequisicao);
+ 
+   return admin.firestore().runTransaction(async (tx) => {
+     // PASSO A: Leituras primárias
++    const chefeSnap = await tx.get(admin.firestore().collection("Chefe_Geral").doc(request.auth!.uid));
++    if (!chefeSnap.exists) {
++      const gestorSnap = await tx.get(admin.firestore().collection("Gestor_Bens_Patrimoniais").doc(request.auth!.uid));
++      if (!gestorSnap.exists) throw new HttpsError("permission-denied", "Usuário sem papel de Gestor de Bens ativo.");
++    }
+     const reqSnap = await tx.get(reqRef);
+     if (!reqSnap.exists) throw new HttpsError("not-found", "Requisição não encontrada.");
+     const req = reqSnap.data()!;
+     if (req.status !== "pendente") throw new HttpsError("failed-precondition", "Requisição já respondida.");
+ 
+-    const numeroNormalizado = req.numero_patrimonio_proposto.trim().toUpperCase();
+-    const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(`bem_adicao_${numeroNormalizado}`);
++    const numeroNormalizado = req.numero\_patrimonio\_proposto.trim().toUpperCase();
++    const lockRef = admin.firestore().collection("Locks\_Requisicao\_Patrimonio").doc(`bem\_adicao\_${numeroNormalizado}`);
+     const lockSnap = await tx.get(lockRef);
+ 
+     let chaveUnicaRef: FirebaseFirestore.DocumentReference | null = null;
+-    let resumoNome = req.nome_resumo_proposto ?? "";
++    let resumoNome = req.nome\_resumo\_proposto ?? "";
+     let localSnapData: any = null;
+     let letraInicial = "";
+ 
+@@ -229,20 +248,20 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
+     let aprovarInterno = aprovar;
+     let justificativaFinal = justificativa;
+ 
+-    if (aprovarInterno && !req.photo_url_proposta) {
++    if (aprovarInterno && !req.photo\_url\_proposta) {
+       aprovarInterno = false;
+       justificativaFinal = "Rejeição sistêmica: Foto obrigatória ausente no pedido legado.";
+     }
+ 
+     if (aprovarInterno) {
+-      chaveUnicaRef = admin.firestore().collection("Chaves_Unicas").doc(`Bem_Patrimonial__${numeroNormalizado}`);
++      chaveUnicaRef = admin.firestore().collection("Chaves\_Unicas").doc(`Bem\_Patrimonial\_\_${numeroNormalizado}`);
+       const chaveUnicaSnap = await tx.get(chaveUnicaRef);
+       if (chaveUnicaSnap.exists) {
+         throw new HttpsError("already-exists", "O número de patrimônio aprovado já está em uso por outro bem.");
+       }
+ 
+-      if (req.id_resumo_bem_patrimonial) {
+-        const resumoSnap = await tx.get(admin.firestore().collection("Resumo_Bem_Patrimonial").doc(req.id_resumo_bem_patrimonial));
++      if (req.id\_resumo\_bem\_patrimonial) {
++        const resumoSnap = await tx.get(admin.firestore().collection("Resumo\_Bem\_Patrimonial").doc(req.id\_resumo\_bem\_patrimonial));
+         if (!resumoSnap.exists) {
+           aprovarInterno = false;
+           justificativaFinal = "Rejeição sistêmica: Resumo referenciado não existe.";
+@@ -252,7 +271,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
+       }
+ 
+       if (aprovarInterno) { // Só lê local se ainda for aprovar
+-        const localSnap = await tx.get(admin.firestore().collection("Local").doc(req.id_local));
++        const localSnap = await tx.get(admin.firestore().collection("Local").doc(req.id\_local));
+         if (!localSnap.exists) {
+           aprovarInterno = false;
+           justificativaFinal = "Rejeição sistêmica: Local referenciado não existe.";
+@@ -262,11 +281,11 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
+         }
+       }
+ 
+-      if (aprovarInterno && !req.id_resumo_bem_patrimonial) {
+-        if (!req.nome_resumo_proposto?.trim()) {
++      if (aprovarInterno && !req.id\_resumo\_bem\_patrimonial) {
++        if (!req.nome\_resumo\_proposto?.trim()) {
+           aprovarInterno = false;
+           justificativaFinal = "Rejeição sistêmica: A aprovação exige vincular ou criar um resumo patrimonial válido.";
+-        } else if (!req.descricao_resumo_proposta?.trim()) {
++        } else if (!req.descricao\_resumo\_proposta?.trim()) {
+           aprovarInterno = false;
+           justificativaFinal = "Rejeição sistêmica: A criação de um novo resumo exige descrição obrigatória conforme o dicionário.";
+         }
+@@ -276,7 +295,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
+     // PASSO C: Escritas (remoção do lock e resposta)
+     if (lockSnap.exists) {
+       const lockData = lockSnap.data()!;
+-      if (lockData.id_requisicao === idRequisicao) {
++      if (lockData.id\_requisicao === idRequisicao) {
+         tx.delete(lockRef);
+       } else {
+         throw new HttpsError("failed-precondition", "Conflito de integridade: Lock pertence a outra requisição.");
+@@ -286,16 +305,16 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
+     let idBemCriado: string | null = null;
+ 
+     if (aprovarInterno) {
+-      let idResumo = req.id_resumo_bem_patrimonial;
++      let idResumo = req.id\_resumo\_bem\_patrimonial;
+ 
+-      // Se não havia resumo existente, cria atômica e transacionalmente o Resumo_Bem_Patrimonial
+-      if (!idResumo && req.nome_resumo_proposto) {
+-        const novoResumoRef = admin.firestore().collection("Resumo_Bem_Patrimonial").doc();
+-        const nomeNorm = req.nome_resumo_proposto.trim();
++      // Se não havia resumo existente, cria atômica e transacionalmente o Resumo\_Bem\_Patrimonial
++      if (!idResumo && req.nome\_resumo\_proposto) {
++        const novoResumoRef = admin.firestore().collection("Resumo\_Bem\_Patrimonial").doc();
++        const nomeNorm = req.nome\_resumo\_proposto.trim();
+         tx.set(novoResumoRef, {
+           nome: nomeNorm,
+-          descricao: req.descricao_resumo_proposta!.trim(),
+-          foto_url: null,
++          descricao: req.descricao\_resumo\_proposta!.trim(),
++          foto\_url: null,
+           versao: 1
+         });
+         idResumo = novoResumoRef.id;
+@@ -303,47 +322,47 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
+         letraInicial = nomeNorm.charAt(0).toUpperCase();
+       }
+ 
+-      const bemRef = admin.firestore().collection("Bem_Patrimonial").doc();
++      const bemRef = admin.firestore().collection("Bem\_Patrimonial").doc();
+       idBemCriado = bemRef.id;
+ 
+       tx.set(bemRef, {
+-        id_resumo_bem_patrimonial: idResumo,
+-        nome_equipamento: resumoNome,
+-        numero_patrimonio: req.numero_patrimonio_proposto,
+-        estado_conservacao: req.estado_conservacao_proposto,
+-        id_local: req.id_local,
+-        photo_url: req.photo_url_proposta, // ausência rejeitada antes das escritas
+-        documento_dado_baixa_pdf_url: null,
+-        nome_responsavel_sei: req.nome_responsavel_proposto,
++        id\_resumo\_bem\_patrimonial: idResumo,
++        nome\_equipamento: resumoNome,
++        numero\_patrimonio: req.numero\_patrimonio\_proposto,
++        estado\_conservacao: req.estado\_conservacao\_proposto,
++        id\_local: req.id\_local,
++        photo\_url: req.photo\_url\_proposta, // ausência rejeitada antes das escritas
++        documento\_dado\_baixa\_pdf\_url: null,
++        nome\_responsavel\_sei: req.nome\_responsavel\_proposto,
+         status: "Ativo",
+         versao: 1,
+         predio: localSnapData.predio,
+         andar: localSnapData.andar,
+         sala: localSnapData.sala,
+-        letra_inicial_nome: letraInicial,
+-        cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
++        letra\_inicial\_nome: letraInicial,
++        cadastrado\_em: admin.firestore.FieldValue.serverTimestamp(),
+       });
+ 
+       // PDF-001: Gravação da chave única associada ao novo bem
+       tx.set(chaveUnicaRef!, {
+-        tipo: "Bem_Patrimonial",
+-        id_recurso: idBemCriado,
+-        criado_em: admin.firestore.FieldValue.serverTimestamp()
++        tipo: "Bem\_Patrimonial",
++        id\_recurso: idBemCriado,
++        criado\_em: admin.firestore.FieldValue.serverTimestamp()
+       });
+ 
+       tx.update(reqRef, {
+         status: "aprovada",
+-        respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+-        id_usuario_respondente: request.auth!.uid,
+-        id_bem_patrimonial_se_aprovado: idBemCriado,
+-        justificativa_resposta: justificativaFinal,
++        respondida\_em: admin.firestore.FieldValue.serverTimestamp(),
++        id\_usuario\_respondente: request.auth!.uid,
++        id\_bem\_patrimonial\_se\_aprovado: idBemCriado,
++        justificativa\_resposta: justificativaFinal,
+       });
+     } else {
+       tx.update(reqRef, {
+         status: "rejeitada",
+-        respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+-        id_usuario_respondente: request.auth!.uid,
+-        justificativa_resposta: justificativaFinal,
++        respondida\_em: admin.firestore.FieldValue.serverTimestamp(),
++        id\_usuario\_respondente: request.auth!.uid,
++        justificativa\_resposta: justificativaFinal,
+       });
+     }
+ 
+@@ -369,18 +388,18 @@ async function commitEmChunks(
+ }
+ 
+ export const onResumoBemPatrimonialNomeAtualizado = onDocumentUpdated(
+-  "Resumo_Bem_Patrimonial/{resumoId}",
++  "Resumo\_Bem\_Patrimonial/{resumoId}",
+   async (event) => {
+     const antes = event.data?.before.data();
+     const depois = event.data?.after.data();
+     if (!antes || !depois || antes.nome === depois.nome) return;
+ 
+-    const bens = await admin.firestore().collection("Bem_Patrimonial")
+-      .where("id_resumo_bem_patrimonial", "==", event.params.resumoId)
++    const bens = await admin.firestore().collection("Bem\_Patrimonial")
++      .where("id\_resumo\_bem\_patrimonial", "==", event.params.resumoId)
+       .get();
+ 
+     // PDF-007: único mecanismo de propagação de nome (chunks de 400 -- sem BulkWriter concorrente)
+-    const ops = bens.docs.map((bem) => ({ ref: bem.ref, dados: { nome_equipamento: depois.nome } }));
++    const ops = bens.docs.map((bem) => ({ ref: bem.ref, dados: { nome\_equipamento: depois.nome } }));
+     await commitEmChunks(ops);
+   }
+ );
+@@ -393,8 +412,8 @@ export const onLocalAtualizado = onDocumentUpdated(
+     if (!antes || !depois) return;
+     if (antes.predio === depois.predio && antes.andar === depois.andar && antes.sala === depois.sala) return;
+ 
+-    const bens = await admin.firestore().collection("Bem_Patrimonial")
+-      .where("id_local", "==", event.params.localId)
++    const bens = await admin.firestore().collection("Bem\_Patrimonial")
++      .where("id\_local", "==", event.params.localId)
+       .get();
+ 
+     // PDF-017: chunks de 400 garantem que locais com muitos bens (ex: 600+) não excedam o limite
+@@ -411,7 +430,7 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
+   const { codigoTurma } = request.data as { codigoTurma: string };
+ 
+   const turmaSnap = await admin.firestore().collection("Turma")
+-    .where("codigo_turma", "==", codigoTurma)
++    .where("codigo\_turma", "==", codigoTurma)
+     .where("status", "==", "Ativo")
+     .limit(1).get();
+   if (turmaSnap.empty) throw new HttpsError("not-found", "Turma não encontrada ou arquivada.");
+@@ -419,27 +438,28 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
+   const turma = turmaDoc.data();
+ 
+   return admin.firestore().runTransaction(async (tx) => {
+-    // Checar capacidade
+-    const alunosSnap = await tx.get(
+-      turmaDoc.ref.collection("Alunos")
+-    );
+-    if (alunosSnap.size >= turma.capacidade) {
++    // Checar capacidade lendo o documento da turma na transação (PDF-008)
++    const turmaLiveSnap = await tx.get(turmaDoc.ref);
++    if (!turmaLiveSnap.exists) throw new HttpsError("not-found", "Turma não encontrada.");
++    const turmaLive = turmaLiveSnap.data()!;
++    if (turmaLive.status !== "Ativo") throw new HttpsError("failed-precondition", "Turma inativa.");
++
++    const qtdAlunosAtual = turmaLive.qtd_alunos || 0;
++    if (qtdAlunosAtual >= turmaLive.capacidade) {
+       throw new HttpsError("failed-precondition", "Turma lotada.");
+     }
+ 
+-    // Checar se já está matriculado
+-    const jaMatriculado = alunosSnap.docs.some(
+-      (d) => d.id === request.auth!.uid
+-    );
+-    if (jaMatriculado) {
++    // Checar se já está matriculado lendo apenas o documento individual (evita leitura O(N))
++    const alunoSnap = await tx.get(turmaDoc.ref.collection("Alunos").doc(request.auth!.uid));
++    if (alunoSnap.exists) {
+       throw new HttpsError("already-exists", "Você já está nesta turma.");
+     }
+ 
+     // P14: Checar se foi removido anteriormente
+     const historico = await tx.get(
+       turmaDoc.ref.collection("HistoricoAlunos")
+-        .where("id_aluno", "==", request.auth!.uid)
+-        .where("tipo", "==", "exclusao_aluno")
++        .where("id\_aluno", "==", request.auth!.uid)
++        .where("tipo", "==", "exclusao\_aluno")
+         .limit(1)
+     );
+     if (!historico.empty) {
+@@ -451,39 +471,87 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
+     // Matrícula requer dois documentos consistentes na mesma transação:
+     //   1. Turma/{turmaId}/Alunos/{uid}  -- o aluno vê a turma no feed;
+     //   2. Usuarios/{uid}/Turmas/{turmaId} -- a turma aparece na home do aluno.
+-    // Ambos devem ser criados ou nenhum (atomicidade). O contador qtd_alunos
++    // Ambos devem ser criados ou nenhum (atomicidade). O contador qtd\_alunos
+     // é atualizado com FieldValue.increment(1) na mesma transação.
+     tx.set(turmaDoc.ref.collection("Alunos").doc(request.auth!.uid), {
+-      id_aluno: request.auth!.uid,
+-      ingressou_em: admin.firestore.FieldValue.serverTimestamp(),
++      id\_aluno: request.auth!.uid,
++      ingressou\_em: admin.firestore.FieldValue.serverTimestamp(),
+     });
+     // Espelho reverso: aluno encontra a turma em Usuarios/{uid}/Turmas
+     tx.set(
+       admin.firestore().collection("Usuarios").doc(request.auth!.uid)
+         .collection("Turmas").doc(turmaDoc.id),
+       {
+-        id_turma: turmaDoc.id,
+-        id_professor: turma.id_professor,
+-        id_materia: turma.id_materia,
+-        nome_turma: turma.nome_turma,
+-        nome_materia: turma.nome_materia,
++        id\_turma: turmaDoc.id,
++        id\_professor: turma.id\_professor,
++        id\_materia: turma.id\_materia,
++        nome\_turma: turma.nome\_turma,
++        nome\_materia: turma.nome\_materia,
+         ano: turma.ano,
+         semestre: turma.semestre,
+         status: turma.status,
+-        ingressou_em: admin.firestore.FieldValue.serverTimestamp(),
++        ingressou\_em: admin.firestore.FieldValue.serverTimestamp(),
+       }
+     );
+     // Contador transacional (sem leitura prévia) -- idempotente para o atômico
+-    tx.update(turmaDoc.ref, { qtd_alunos: admin.firestore.FieldValue.increment(1) });
++    tx.update(turmaDoc.ref, { qtd\_alunos: admin.firestore.FieldValue.increment(1) });
+     tx.set(turmaDoc.ref.collection("HistoricoAlunos").doc(), {
+-      id_aluno: request.auth!.uid,
+-      tipo: "inclusao_aluno",
+-      modo_ingresso: "CODIGO",
++      id\_aluno: request.auth!.uid,
++      tipo: "inclusao\_aluno",
++      modo\_ingresso: "CODIGO",
+       timestamp: admin.firestore.FieldValue.serverTimestamp(),
+     });
+ 
+-    return { idTurma: turmaDoc.id, nomeTurma: turma.nome_turma };
++    return { idTurma: turmaDoc.id, nomeTurma: turma.nome\_turma };
++  });
++});
++
++export const removerAlunoTurma = onCall(async (request) => {
++  await validarPermissao(request, ["Professor", "Chefe_Geral"], true);
++  const { idTurma, idAluno } = request.data as { idTurma: string; idAluno: string };
++
++  const turmaRef = admin.firestore().collection("Turma").doc(idTurma);
++
++  return admin.firestore().runTransaction(async (tx) => {
++    const turmaSnap = await tx.get(turmaRef);
++    if (!turmaSnap.exists) throw new HttpsError("not-found", "Turma não encontrada.");
++    const turma = turmaSnap.data()!;
++
++    // Apenas professor da turma ou Chefe Geral
++    const isChefe = (await tx.get(admin.firestore().collection("Chefe_Geral").doc(request.auth!.uid))).exists;
++    if (!isChefe && turma.id_professor !== request.auth!.uid) {
++      throw new HttpsError("permission-denied", "Apenas o professor responsável pode remover alunos da turma.");
++    }
++
++    const alunoDocRef = turmaRef.collection("Alunos").doc(idAluno);
++    const alunoSnap = await tx.get(alunoDocRef);
++    if (!alunoSnap.exists) throw new HttpsError("not-found", "Aluno não está matriculado nesta turma.");
++
++    // Exclusão espelhada atômica (PDF-003 / Secção 5.11 / PRO-04)
++    tx.delete(alunoDocRef);
++    tx.delete(admin.firestore().collection("Usuarios").doc(idAluno).collection("Turmas").doc(idTurma));
++
++    // Decremento do contador de alunos e gravação no histórico da turma
++    tx.update(turmaRef, { qtd_alunos: admin.firestore.FieldValue.increment(-1) });
++    tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
++      id_aluno: idAluno,
++      tipo: "exclusao_aluno",
++      removido_por: request.auth!.uid,
++      timestamp: admin.firestore.FieldValue.serverTimestamp(),
++    });
++
++    // Registro na auditoria geral
++    tx.set(admin.firestore().collection("Registro_de_Auditoria").doc(), {
++      id_usuario: request.auth!.uid,
++      acao: "REMOCAO_ALUNO_TURMA",
++      tipo_entidade_sofre_acao: "TURMA",
++      id_do_objeto_da_entidade: idTurma,
++      acao_feita_em: admin.firestore.FieldValue.serverTimestamp(),
++      metadata: { id_aluno_removido: idAluno },
++    });
++
++    return { status: "ALUNO_REMOVIDO" };
+   });
+ });
+-\end{lstlisting}
+ 
++\end{lstlisting}
+\ No newline at end of file
+diff --git a/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-9-Relatorios-em-PDF.tex b/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-9-Relatorios-em-PDF.tex
+index e9df5a46..47e9733c 100644
+--- a/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-9-Relatorios-em-PDF.tex
++++ b/documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-9-Relatorios-em-PDF.tex
+@@ -131,6 +131,7 @@ interface DadosEtiquetasVirgens {
+   codigoFinal: number;
+   startRow?: number; // 1 a 10 (Grid A4)
+   startCol?: number; // 1 a 3
++  idOperacao?: string;
+ }
+ 
+ export const gerarPdfEtiquetasVirgens = onCall(async (request) => {
+@@ -148,6 +149,10 @@ export const gerarPdfEtiquetasVirgens = onCall(async (request) => {
+     gerado_por: request.auth!.uid,
+     codigo_inicial: dados.codigoInicial,
+     codigo_final: dados.codigoFinal,
++    start_row: dados.startRow || 1,
++    start_col: dados.startCol || 1,
++    status_geracao: "CONCLUIDA",
++    id_operacao: dados.idOperacao || `op_etiquetas_${Date.now()}`,
+   });
+ 
+   const codigos = Array.from({ length: total }, (_, i) => `LCQUI-${dados.codigoInicial + i}`);
+diff --git a/documentation/Section-11-Regras-de-Seguranca-do-Firestore-Security-Rules.tex b/documentation/Section-11-Regras-de-Seguranca-do-Firestore-Security-Rules.tex
+old mode 100755
+new mode 100644
+index 532504b0..7614e5d5
+--- a/documentation/Section-11-Regras-de-Seguranca-do-Firestore-Security-Rules.tex
++++ b/documentation/Section-11-Regras-de-Seguranca-do-Firestore-Security-Rules.tex
+@@ -51,6 +51,12 @@ Todas as exceções são declaradas explicitamente abaixo.
+ \texttt{Registro\_de\_Auditoria} & Read: \texttt{Chefe\_Geral} no token. Write: negado ao cliente.\\
+ \texttt{Roteiro\_Experimento} & Read: \texttt{resource.data.id\_professor\_upload == uid} OU \texttt{uid} pertence ao array \texttt{professores\_compartilhados}. Write: negado.\\
+ \texttt{Contador\_Codigo\_Frasco} & Read: \texttt{request.auth != null} (qualquer logado lê). Write: negado ao cliente (só Cloud Function atualiza o sequenciador).\\
++\texttt{Almoxarifado} & Read: qualquer usuário com papel ativo no sistema (token de acesso válido). Write: negado ao cliente.\\
++\texttt{Local} & Read: qualquer usuário com papel ativo no sistema. Write: negado ao cliente.\\
++\texttt{Materia} & Read: qualquer usuário com papel ativo no sistema. Write: negado ao cliente.\\
++\texttt{Substancia\_Quimica} & Read: qualquer usuário com papel ativo no sistema (catálogo público interno). Write: negado ao cliente.\\
++\texttt{Lote} & Read: papel \texttt{roles} no token contém \texttt{Chefe\_Geral} OU \texttt{Gestor\_Almoxarifado} (leitura restrita). Write: negado ao cliente.\\
++Coleções de Relatórios e Materializações (\texttt{Resumo\_*\_Diario}, \texttt{Atividade\_Gestor\_*\_Mensal}) & Read: \texttt{Chefe\_Geral}, \texttt{Gestor\_Almoxarifado} ou \texttt{Gestor\_Bens\_Patrimoniais} conforme o respectivo domínio. Write: negado ao cliente.\\
+ \end{longtable}
+ 
+ 
+@@ -83,4 +89,4 @@ Estas são exigências da especificação; firestore.rules e storage.rules atuai
+ \subsection{Moderação: autorização por documento e resposta filtrada}
+ Firestore Rules autorizam ou negam documentos completos; não fazem projeção nem substituição do campo texto. Não implementar ``texto vazio via Rules''. Para o modelo físico descrito, negar leitura direta de Comentarios e histórico a quem não pode conhecer o original; a listagem de comentários é fornecida por endpoint autenticado que valida vínculo com a turma e devolve somente aviso institucional para comentários moderados de colegas. Autor recebe original marcado; Professor responsável e Chefe Geral recebem conteúdo necessário à auditoria. Não retornar original em campos auxiliares, cache, notificações ou mensagens de erro. Consulta ampla cliente que possa incluir documentos proibidos deve ser rejeitada e substituída pelo endpoint, nunca filtrada apenas no frontend. Backend valida também autoria da edição, motivo e papel de moderação, status ativo da turma e registra histórico/auditoria.
+ 
+-Coleções Controle\_Papeis, Operacoes e Chaves\_Unicas são exclusivas de Admin SDK; leitura e escrita diretas de clientes são negadas. O deny-all atual já as protege, sem allow concorrente; matches explícitos constituem hardening documental. Esta seção descreve o alvo; a implementação atual de moderação permanece pendente.
++Coleções Controle\_Papeis, Operacoes e Chaves\_Unicas são exclusivas de Admin SDK; leitura e escrita diretas de clientes são negadas. O deny-all atual já as protege, sem allow concorrente; matches explícitos constituem hardening documental. Esta seção descreve o alvo; a implementação atual de moderação permanece pendente.
+\ No newline at end of file
+diff --git a/documentation/Section-12-Implementacoes-em-Estudo-para-Versoes-Futuras.tex b/documentation/Section-12-Implementacoes-em-Estudo-para-Versoes-Futuras.tex
+old mode 100755
+new mode 100644
+diff --git a/documentation/Section-2-Como-vai-ser-o-Sistema.tex b/documentation/Section-2-Como-vai-ser-o-Sistema.tex
+old mode 100755
+new mode 100644
+diff --git a/documentation/Section-3-Stakeholders.tex b/documentation/Section-3-Stakeholders.tex
+old mode 100755
+new mode 100644
+diff --git a/documentation/Section-4-Modelagem-Entidades-SQL-3FN.tex b/documentation/Section-4-Modelagem-Entidades-SQL-3FN.tex
+old mode 100755
+new mode 100644
+index 113d48b5..12fee1a5
+--- a/documentation/Section-4-Modelagem-Entidades-SQL-3FN.tex
++++ b/documentation/Section-4-Modelagem-Entidades-SQL-3FN.tex
+@@ -56,6 +56,7 @@ A chave primária composta \textit{(id\_gestor\_almoxarifado, id\_almoxarifado)}
+ \campo{nome\_responsavel\_sei}{VARCHAR(150)}{NOT NULL}
+ \campo{status}{ENUM}{Ativo, Inservivel, Ja\_dado\_baixa, NOT NULL}
+ \campo{descricao\_complementar}{VARCHAR(200)}{NULL}
++\campo{versao}{INTEGER}{DEFAULT 1, NOT NULL}
+ \end{entidade}
+ 
+ \begin{explicacao}
+@@ -104,7 +105,7 @@ A chave primária composta \textit{(id\_gestor\_almoxarifado, id\_almoxarifado)}
+ \campo{id\_usuario\_solicitante}{INTEGER}{FK, NOT NULL}
+ \campo{id\_usuario\_respondente}{INTEGER}{FK, NULL}
+ \campo{novo\_nome}{VARCHAR(150)}{NULL}
+-\campo{novo\_status}{ENUM}{Ativo, Inservivel, Ja\_dado\_baixa, NULL}
++\campo{novo\_status}{ENUM}{Ativo, Inservivel, NULL}
+ \campo{novo\_estado\_conservacao}{ENUM}{BOM, REGULAR, RUIM, NULL}
+ \campo{novo\_id\_local}{INTEGER}{FK, NULL}
+ \campo{nova\_photo\_url}{TEXT}{NULL}
+@@ -136,6 +137,7 @@ RF10: \textit{UNIQUE(id\_bem\_patrimonial) WHERE status = 'pendente'} -- impede
+ \campo{nome\_resumo\_proposto}{VARCHAR(150)}{NULL}
+ \campo{descricao\_resumo\_proposta}{TEXT}{NULL}
+ \campo{motivo}{TEXT}{NOT NULL}
++\campo{justificativa\_resposta}{TEXT}{NULL}
+ \end{entidade}
+ 
+ \begin{explicacao}
+@@ -428,6 +430,7 @@ O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre
+ \campo{data\_devolucao\_efetuada}{TIMESTAMP}{NULL}
+ \campo{id\_local\_usado}{INTEGER}{FK, NOT NULL}
+ \campo{id\_usuario\_devolveu}{INTEGER}{FK, NULL}
++\campo{id\_gestor\_devolucao}{INTEGER}{FK, NULL}
+ \campo{peso\_saida}{NUMERIC(10,3)}{NOT NULL}
+ \campo{peso\_retorno}{NUMERIC(10,3)}{NULL}
+ \campo{medida\_utilizada}{NUMERIC(10,3)}{NULL}
+@@ -442,11 +445,17 @@ O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre
+ \campo{tcr\_aceito\_em}{TIMESTAMP}{NULL}
+ \campo{tcr\_aceito\_por}{INTEGER}{FK, NULL}
+ \campo{tcr\_auditoria\_id}{INTEGER}{FK, NULL}
++\campo{tipo\_encerramento\_excepcional}{ENUM}{QUEBRA\_ACIDENTAL, EXTRAVIO\_SINISTRO, NULL}
++\campo{motivo\_encerramento\_excepcional}{TEXT}{NULL}
++\campo{id\_gestor\_encerramento}{INTEGER}{FK, NULL}
++\campo{massa\_perda\_estimada\_g}{NUMERIC(10,3)}{NULL}
+ \end{entidade}
+ 
+ \begin{explicacao}
+ \textbf{Semântica dos atores da retirada:} \textit{id\_usuario\_retirou} identifica o \textbf{portador físico} -- o Professor ou Bolsista que receberá e usará o reagente. \textit{id\_gestor\_retirada} identifica o \textbf{operador do almoxarifado} -- o Gestor de Almoxarifado (ou Chefe Geral) que registrou a operação no sistema. No autoatendimento, os dois UIDs coincidem e a flag \textit{auto\_atendimento} fica \texttt{true}. Esta separação é essencial para rastreabilidade de auditoria: o relatório de atividade do gestor parte de \textit{id\_gestor\_retirada}, enquanto o painel ``Meus Reagentes'' do professor parte de \textit{id\_usuario\_retirou}.
+ 
++\textbf{Semântica dos atores da devolução:} \textit{id\_usuario\_devolveu} identifica o portador físico que entrega o frasco ao balcão, enquanto \textit{id\_gestor\_devolucao} identifica o Gestor de Almoxarifado que operou e registrou a devolução na balança.
++
+ \textit{peso\_saida} e \textit{peso\_retorno} são sempre leituras de balança em gramas. \textit{unidade\_medida\_utilizada} qualifica exclusivamente \textit{medida\_utilizada} -- o consumo calculado, reportado em massa (g) para sólidos ou em volume (ml) para líquidos, via $V = \Delta m / \rho$.
+ \end{explicacao}
+ 
+@@ -502,6 +511,8 @@ Caso a capacidade seja atingida, o sistema rejeita o ingresso por código. Apena
+ \campo{id\_turma}{INTEGER}{FK, NOT NULL}
+ \campo{tipo}{ENUM}{inclusao\_aluno, exclusao\_aluno, NOT NULL}
+ \campo{id\_aluno}{INTEGER}{FK, NOT NULL}
++\campo{modo\_ingresso}{ENUM}{CODIGO, CONVITE, NULL}
++\campo{justificativa}{TEXT}{NULL}
+ \campo{timestamp}{TIMESTAMP}{NOT NULL}
+ \end{entidade}
+ 
+@@ -594,6 +605,10 @@ A chave primária composta \textit{(id\_professor, id\_materia)} impede vincular
+ \campo{numero\_matricula}{VARCHAR(20)}{NULL}
+ \campo{token\_hash}{VARCHAR(100)}{NOT NULL}
+ \campo{ultimo\_reenvio\_por}{INTEGER}{FK, NULL}
++\campo{exceder\_capacidade}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
++\campo{justificativa\_excecao}{TEXT}{NULL}
++\campo{aceitado\_por}{INTEGER}{FK, NULL}
++\campo{aceitado\_em}{TIMESTAMP}{NULL}
+ \end{entidade}
+ 
+ \begin{regra}
+@@ -624,7 +639,8 @@ A combinação \textit{email + id\_turma} não pode possuir mais de um convite \
+     BEM\_INSERVIVEL,\\
+     ENTREGA\_ATRASADA, FRASCOS\_VAZIOS, FRASCOS\_QUEBRADOS,\\
+     FRASCOS\_VENCIDOS, FRASCOS\_A\_SEREM\_PESADOS,\\
+-    FRASCOS\_EM\_QUARENTENA, REAGENTE\_ESCASSO%
++    FRASCOS\_EM\_QUARENTENA, ESCASSEZ\_ESTOQUE,\\
++    AUTO\_ATENDIMENTO\_RETIRADA%
+   }
+ }{NOT NULL}
+ \campo{id\_quem\_fez\_acao}{INTEGER}{FK, NULL}
+@@ -635,13 +651,13 @@ A combinação \textit{email + id\_turma} não pode possuir mais de um convite \
+ \campo{lida}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+ \campo{lida\_em}{TIMESTAMP}{NULL}
+ \campo{emitida\_em}{TIMESTAMP}{NOT NULL}
+-\campo{expira\_em}{TIMESTAMP}{NOT NULL}
++\campo{expira\_em}{TIMESTAMP}{ NULL}
+ \end{entidade}
+ 
+ \begin{explicacao}[Unificação das Notificações]
+ As quatro tabelas de notificação anteriores (\textit{Notificacao\_para\_Aluno}, \textit{Notificacao\_para\_Professor}, \textit{Notificacao\_para\_Gestor\_de\_bens\_Patrimoniais}, \textit{Notificacao\_para\_Gestor\_de\_Reagentes}) foram consolidadas em uma única entidade \textit{Notificacao}. O campo \textit{papel\_destinatario} indica em qual contexto de papel a notificação deve ser exibida.
+ 
+-No Firestore, esta entidade é implementada como sub-coleção \texttt{Usuarios/\{uid\}/Notificacoes}, eliminando a necessidade de queries em múltiplas coleções para usuários multi-role. A ação de ``Limpar tudo'' na interface marca \texttt{lida = true} e \texttt{lida\_em = NOW()} em todas as notificações ativas do usuário, preservando o histórico de auditoria. Os campos \textit{entidade\_alvo} e \textit{id\_alvo} viabilizam a navegação direta (\textit{deep linking}) para o objeto de origem ao clicar no aviso.
++No Firestore, esta entidade é implementada como sub-coleção \texttt{Usuarios/\{uid\}/Notificacoes}, eliminando a necessidade de queries em múltiplas coleções para usuários multi-role. A ação de ``Limpar tudo'' na interface marca \texttt{lida = true} e \texttt{lida\_em = NOW()} em todas as notificações ativas do usuário, preservando o histórico de auditoria. Os campos \textit{entidade\_alvo} e \textit{id\_alvo} viabilizam a navegação direta (\textit{deep linking}) para o objeto de origem ao clicar no aviso. O campo \textit{expira\_em} é nulo para notificações operacionais persistentes (como \texttt{ESCASSEZ\_ESTOQUE}), que não possuem expiração temporal automática.
+ \end{explicacao}
+ 
+ \subsection{Tabela Aluno Turma (N para N)}
+diff --git a/documentation/Section-5-Notas-de-Mapeamento-para-Firestore.tex b/documentation/Section-5-Notas-de-Mapeamento-para-Firestore.tex
+old mode 100755
+new mode 100644
+index 3c026e00..5014ed51
+--- a/documentation/Section-5-Notas-de-Mapeamento-para-Firestore.tex
++++ b/documentation/Section-5-Notas-de-Mapeamento-para-Firestore.tex
+@@ -200,8 +200,8 @@ Caminho: \texttt{Bem\_Patrimonial/\{id\}/Historico/\{eventoId\}}.
+ \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+ \item[\texttt{id\_bem\_patrimonial}] string; O. Identificador da entidade bem patrimonial, cuja existência e escopo são verificados no servidor.
+ \item[\texttt{timestamp}] Timestamp; O. Data/instante de timestamp, com ordem temporal validada e autoria do relógio do servidor para eventos.
+-\item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: cadastro, edicao, baixa.
+ \item[\texttt{id\_usuario}] string; O. Identificador da entidade usuario, cuja existência e escopo são verificados no servidor.
++\item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: cadastro, edicao, baixa.
+ \end{description}
+ 
+ \paragraph{Alteracao\_Bem\_Patrimonial}\mbox{}\par
+@@ -223,12 +223,14 @@ Caminho: \texttt{Requisicao\_Edicao\_Bem\_Patrimonial/\{id\}}.
+ \item[\texttt{id\_usuario\_solicitante}] string; O. Identificador da entidade usuario solicitante, cuja existência e escopo são verificados no servidor.
+ \item[\texttt{id\_usuario\_respondente}] string; N. Identificador da entidade usuario respondente, cuja existência e escopo são verificados no servidor.
+ \item[\texttt{novo\_nome}] string; N. Valor novo nome, restrito ao campo correspondente da entidade de origem; preservar ausência legítima. Máximo 150 caracteres.
+-\item[\texttt{novo\_status}] string enum; N. Valor novo status, restrito ao campo correspondente da entidade de origem; preservar ausência legítima. Valores: Ativo, Inservivel, Ja\_dado\_baixa.
++\item[\texttt{novo\_status}] string enum; N. Valor novo status, restrito ao campo correspondente da entidade de origem; preservar ausência legítima. Valores: Ativo, Inservivel.
+ \item[\texttt{novo\_estado\_conservacao}] string enum; N. Valor novo estado conservacao, restrito ao campo correspondente da entidade de origem; preservar ausência legítima. Valores: BOM, REGULAR, RUIM.
+ \item[\texttt{novo\_id\_local}] string; N. Valor novo id local, restrito ao campo correspondente da entidade de origem; preservar ausência legítima.
+ \item[\texttt{nova\_photo\_url}] string; N. Valor nova photo url, restrito ao campo correspondente da entidade de origem; preservar ausência legítima.
+ \item[\texttt{motivo}] string; O. Valor de motivo, validado pelo formulário e pelo servidor conforme regras do domínio.
+ \item[\texttt{justificativa\_resposta}] string; N. Justificativa obrigatória ao aprovar ou rejeitar; ausente enquanto pendente.
++\item[\texttt{versao\_bem\_origem}] number; O. Versão do bem observada pelo solicitante para controle otimista de concorrência.
++\item[\texttt{novo\_id\_resumo\_bem\_patrimonial}] string; N. Novo modelo catalográfico em caso de reclassificação do equipamento.
+ \end{description}
+ 
+ \paragraph{Requisicao\_Adicao\_Bem\_Patrimonial}\mbox{}\par
+@@ -250,6 +252,7 @@ Caminho: \texttt{Requisicao\_Adicao\_Bem\_Patrimonial/\{id\}}.
+ \item[\texttt{nome\_resumo\_proposto}] string; N. Valor de nome resumo proposto, validado pelo formulário e pelo servidor conforme regras do domínio. Máximo 150 caracteres.
+ \item[\texttt{descricao\_resumo\_proposta}] string; N. Valor de descricao resumo proposta, validado pelo formulário e pelo servidor conforme regras do domínio.
+ \item[\texttt{motivo}] string; O. Valor de motivo, validado pelo formulário e pelo servidor conforme regras do domínio.
++\item[\texttt{justificativa\_resposta}] string; N. Justificativa obrigatória ao aprovar ou rejeitar; ausente enquanto pendente.
+ \end{description}
+ 
+ \paragraph{Locks\_Requisicao\_Patrimonio}\mbox{}\par
+@@ -418,6 +421,7 @@ Caminho: \texttt{Emprestimo\_Reagente/\{id\}}.
+ \item[\texttt{data\_devolucao\_efetuada}] Timestamp; N. Data/instante de data devolucao efetuada, com ordem temporal validada e autoria do relógio do servidor para eventos.
+ \item[\texttt{id\_local\_usado}] string; O. Identificador da entidade local usado, cuja existência e escopo são verificados no servidor.
+ \item[\texttt{id\_usuario\_devolveu}] string; N. Identificador da entidade usuario devolveu, cuja existência e escopo são verificados no servidor.
++\item[\texttt{id\_gestor\_devolucao}] string; N. Identificador do gestor de almoxarifado operador que recebeu e registrou a devolução na balança, preenchido no retorno.
+ \item[\texttt{peso\_saida}] number; O. Peso bruto em g medido na retirada; referência imutável para o consumo deste empréstimo.
+ \item[\texttt{peso\_retorno}] number; N. Peso bruto em g medido na devolução; null antes do retorno e validado contra tara/saída.
+ \item[\texttt{medida\_utilizada}] number; N. Consumo não negativo calculado na unidade do empréstimo; massa = max(0, saída menos retorno), conversão em mL só para líquido com densidade histórica positiva.
+@@ -431,6 +435,10 @@ Caminho: \texttt{Emprestimo\_Reagente/\{id\}}.
+ \item[\texttt{tcr\_aceito\_em}] Timestamp; C em Q04. Instante servidor do aceite.
+ \item[\texttt{tcr\_aceito\_por}] string; C em Q04. UID autenticado do solicitante/retirante, não do gestor que atende.
+ \item[\texttt{tcr\_auditoria\_id}] string; C em Q04. Evento imutável em Registro\_de\_Auditoria com frasco, operação, finalidade, versão, instante e aceitante; backend verifica correspondência e consumo único do aceite.
++\item[\texttt{tipo\_encerramento\_excepcional}] string enum; N. Valores: QUEBRA\_ACIDENTAL, EXTRAVIO\_SINISTRO.
++\item[\texttt{motivo\_encerramento\_excepcional}] string; N. Justificativa circunstanciada obrigatória em caso de encerramento extraordinário.
++\item[\texttt{id\_gestor\_encerramento}] string; N. UID do gestor que homologou o sinistro.
++\item[\texttt{massa\_perda\_estimada\_g}] number; N. Estimativa gravimétrica de resíduo perdido no sinistro.
+ \end{description}
+ 
+ \paragraph{Turma}\mbox{}\par
+@@ -446,6 +454,9 @@ Caminho: \texttt{Turma/\{id\}}.
+ \item[\texttt{capacidade}] number; O. Quantidade máxima ordinária de alunos; inteiro positivo, validado na transação de ingresso.
+ \item[\texttt{codigo\_turma}] string; O. Código único de ingresso, não concede acesso sem validação. Máximo 20 caracteres. Unicidade garantida por chave determinística/registro de unicidade no servidor.
+ \item[\texttt{data\_criacao}] Timestamp; O. Data/instante de data criacao, com ordem temporal validada e autoria do relógio do servidor para eventos.
++\item[\texttt{qtd\_alunos}] number; O. Contador transacional atômico de alunos matriculados ativos.
++\item[\texttt{versao}] number; O. Versão inteira para detecção de edições concorrentes.
++\item[\texttt{nome\_materia}] string; O. Nome denormalizado da matéria para exibição direta em listagens.
+ \end{description}
+ 
+ \paragraph{Historico\_Alunos\_Turma}\mbox{}\par
+@@ -545,6 +556,10 @@ Caminho: \texttt{Convite\_Aluno/\{id\}}.
+ \item[\texttt{numero\_matricula}] string; N. Matrícula institucional textual, com zeros iniciais; obrigatória e única em Aluno, opcional e não única em Convite. Máximo 20 caracteres.
+ \item[\texttt{token\_hash}] string; O. SHA-256 do token aleatório de 32 bytes (CSPRNG); nunca token em claro. Reenvio substitui hash e expiração atomicamente; comparação constante e aceitação única no servidor.
+ \item[\texttt{ultimo\_reenvio\_por}] string; N. UID servidor do operador do último reenvio. DocId derivado por HMAC-SHA-256 de contexto e e-mail normalizado com segredo servidor; não usar hash simples público de e-mail.
++\item[\texttt{exceder\_capacidade}] boolean; O, padrão false. Indicador de exceção nominal de capacidade autorizada pelo docente.
++\item[\texttt{justificativa\_excecao}] string; C quando exceder\_capacidade for true.
++\item[\texttt{aceitado\_por}] string; N. UID do aluno que aceitou o convite.
++\item[\texttt{aceitado\_em}] Timestamp; N. Instante em que o convite foi aceito.
+ \end{description}
+ 
+ \paragraph{Notificacao}\mbox{}\par
+@@ -553,7 +568,6 @@ Caminho: \texttt{Usuarios/\{uid\}/Notificacoes/\{id\}}.
+ \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+ \item[\texttt{id\_destinatario}] string; O. Identificador da entidade destinatario, cuja existência e escopo são verificados no servidor.
+ \item[\texttt{papel\_destinatario}] string enum; O. Contexto de exibição da notificação, sem conceder esse papel ao usuário. Inclui Aluno, Professor, Bolsista, Gestor\_Bens\_Patrimoniais e Gestor\_Almoxarifado.
+-\item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio.
+ \item[\texttt{id\_quem\_fez\_acao}] string; N. Identificador da entidade quem fez acao, cuja existência e escopo são verificados no servidor.
+ \item[\texttt{id\_turma}] string; N. Identificador da entidade turma, cuja existência e escopo são verificados no servidor.
+ \item[\texttt{quantidade}] number; N. Quantidade agregada de ocorrências agrupadas na notificação, quando aplicável.
+@@ -563,6 +577,7 @@ Caminho: \texttt{Usuarios/\{uid\}/Notificacoes/\{id\}}.
+ \item[\texttt{lida\_em}] Timestamp; N. Instante servidor de marcação de leitura; null enquanto não lida.
+ \item[\texttt{emitida\_em}] Timestamp; O. Data/instante de emitida em, com ordem temporal validada e autoria do relógio do servidor para eventos.
+ \item[\texttt{expira\_em}] Timestamp; N. Instante de expiração de convite/notificação. Condicional: é NULL para notificações que constituem registros operacionais persistentes (ex: ESCASSEZ\_ESTOQUE). Expiração não equivale à exclusão automática sem regra específica.
++\item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: ADICIONADO, POST, COMENTARIO, REMOVIDO, TURMA\_ARQUIVADA, TURMA\_DESARQUIVADA, REQUISICAO\_BEM, DATA\_DEVOLUCAO\_REAGENTE, ROTEIRO\_COMPARTILHADO, REQUISICAO\_EDICAO\_BEM, REQUISICAO\_ADICAO\_BEM, BEM\_INSERVIVEL, ENTREGA\_ATRASADA, FRASCOS\_VAZIOS, FRASCOS\_QUEBRADOS, FRASCOS\_VENCIDOS, FRASCOS\_A\_SEREM\_PESADOS, FRASCOS\_EM\_QUARENTENA, ESCASSEZ\_ESTOQUE, AUTO\_ATENDIMENTO\_RETIRADA.
+ \end{description}
+ 
+ \paragraph{Aluno\_x\_Turma}\mbox{}\par
+diff --git a/documentation/Section-6-Materialized-Views.tex b/documentation/Section-6-Materialized-Views.tex
+old mode 100755
+new mode 100644
+diff --git a/documentation/Section-7-Requisitos-e-Regras-de-Negocio.tex b/documentation/Section-7-Requisitos-e-Regras-de-Negocio.tex
+old mode 100755
+new mode 100644
+index 29ab39db..c797bc47
+--- a/documentation/Section-7-Requisitos-e-Regras-de-Negocio.tex
++++ b/documentation/Section-7-Requisitos-e-Regras-de-Negocio.tex
+@@ -224,7 +224,8 @@ A reativação do almoxarifado (\texttt{ativo = true}) é possível e não exige
+ \endhead
+ \bottomrule
+ \endfoot
+-Resumo Reagente & sempre & nome, tipo, natureza e limiar de escassez positivo, expresso em quantidade de frascos.\\
++Resumo Reagente & sempre & nome, tipo e natureza.\\
++Estoque Mínimo Almox. & sempre & id\_especificacao\_reagente, id\_almoxarifado e limiar de escassez positivo (quantidade de frascos).\\
+ Resumo Reagente & requer pesagem frequente & frequência em dias positiva.\\
+ Especificação & SOLIDO & unidade = g; densidade opcional.\\
+ Especificação & LIQUIDO & unidade = ml; densidade positiva obrigatória.\\
+diff --git a/documentation/Section-8-Descricao-das-telas-Dashboards.tex b/documentation/Section-8-Descricao-das-telas-Dashboards.tex
+old mode 100755
+new mode 100644
+diff --git a/documentation/Section-9-Exemplos-de-fluxos.tex b/documentation/Section-9-Exemplos-de-fluxos.tex
+old mode 100755
+new mode 100644
+diff --git a/documentation/main.tex b/documentation/main.tex
+old mode 100755
+new mode 100644
