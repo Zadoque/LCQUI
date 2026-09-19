@@ -25,8 +25,9 @@ export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
   await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, idAlmoxarifado);
 
-  const dataInicio = new Date(ano, mes - 1, 1);
-  const dataFim = new Date(`${ano}-${String(mes).padStart(2, "0")}-${new Date(ano, mes, 0).getDate()}T23:59:59.999-03:00`);
+  const { DateTime } = require("luxon");
+  const dataInicio = DateTime.fromObject({ year: ano, month: mes, day: 1 }, { zone: "America/Sao_Paulo" }).startOf("day").toJSDate();
+  const dataFim = DateTime.fromObject({ year: ano, month: mes }, { zone: "America/Sao_Paulo" }).endOf("month").toJSDate();
 
   const devolucoesSnapshot = await admin.firestore().collection("Emprestimo_Reagente")
     .where("id_almoxarifado", "==", idAlmoxarifado)
