@@ -66,9 +66,10 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
       if (loteSnap.data()!.id_especificacao_reagente !== dados.idEspecificacaoReagente)
         throw new HttpsError("failed-precondition", "Lote não pertence à especificação informada.");
       
-      const jaExistem = await tx.get(admin.firestore().collection("Frasco_Reagente").where("id_lote", "==", dados.idLote).count());
+      const loteMatSnap = await tx.get(admin.firestore().collection("Lote_Materializado").doc(dados.idLote));
+      const countAtual = loteMatSnap.exists ? (loteMatSnap.data()!.count || 0) : 0;
       const qtdComprados = loteSnap.data()!.qtd_frascos_comprados as number;
-      if (jaExistem.data().count >= qtdComprados)
+      if (countAtual >= qtdComprados)
         throw new HttpsError("failed-precondition", `Limite de frascos do lote atingido (${qtdComprados} comprados).`);
     }
 
@@ -116,6 +117,12 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
       cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
       cadastrado_por: request.auth!.uid,
     });
+
+    if (dados.idLote) {
+      tx.set(admin.firestore().collection("Lote_Materializado").doc(dados.idLote), {
+        count: admin.firestore.FieldValue.increment(1)
+      }, { merge: true });
+    }
 
     // M-15: evento CADASTRO no histórico do frasco, gravado na mesma transação
     const historicoRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
@@ -215,9 +222,10 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
       if (loteSnap.data()!.id_especificacao_reagente !== dados.idEspecificacaoReagente)
         throw new HttpsError("failed-precondition", "Lote não pertence à especificação informada.");
       
-      const jaExistem = await tx.get(admin.firestore().collection("Frasco_Reagente").where("id_lote", "==", dados.idLote).count());
+      const loteMatSnap = await tx.get(admin.firestore().collection("Lote_Materializado").doc(dados.idLote));
+      const countAtual = loteMatSnap.exists ? (loteMatSnap.data()!.count || 0) : 0;
       const qtdComprados = loteSnap.data()!.qtd_frascos_comprados as number;
-      if (jaExistem.data().count >= qtdComprados)
+      if (countAtual >= qtdComprados)
         throw new HttpsError("failed-precondition", `Limite de frascos do lote atingido (${qtdComprados} comprados).`);
     }
 
@@ -277,6 +285,12 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
       cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
       cadastrado_por: request.auth!.uid,
     });
+
+    if (dados.idLote) {
+      tx.set(admin.firestore().collection("Lote_Materializado").doc(dados.idLote), {
+        count: admin.firestore.FieldValue.increment(1)
+      }, { merge: true });
+    }
 
     const historicoRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
     tx.set(historicoRef, {
