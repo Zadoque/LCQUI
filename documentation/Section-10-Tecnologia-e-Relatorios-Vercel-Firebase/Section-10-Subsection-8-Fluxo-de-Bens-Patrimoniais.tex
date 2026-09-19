@@ -3,43 +3,52 @@
 \begin{lstlisting}[language=TypeScript, title={Criação e Resposta de Requisição de Edição (C2: lock determinístico)}]
 export const criarRequisicaoEdicaoBem = onCall(async (request) => {
   await validarPermissao(request, ["Professor"]);
-  const dados = request.data as { idBemPatrimonial: string; novoNome?: string; novoStatus?: string; novoEstadoConservacao?: string; novoIdLocal?: string; motivo: string };
+  const dados = request.data as { idBemPatrimonial: string; novoNome?: string; novoStatus?: string; novoEstadoConservacao?: string; novoIdLocal?: string; novaPhotoUrl?: string; motivo: string };
+  if (dados.novoStatus === "Ja\_dado\_baixa") {
+    throw new HttpsError("invalid-argument", "Professor não pode solicitar baixa diretamente (RF12).");
+  }
 
   // C2: Lock determinístico - elimina phantom reads em transações Firestore.
   // Se dois professores enviarem simultaneamente, apenas um cria o lock; o outro
-  // recebe ALREADY_EXISTS da transação e falha antes de criar a requisição.
-  const lockId = `bem_edicao_${dados.idBemPatrimonial}`;
-  const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(lockId);
-  const reqRef  = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc();
+  // recebe ALREADY\_EXISTS da transação e falha antes de criar a requisição.
+  const lockId = `bem\_edicao\_${dados.idBemPatrimonial}`;
+  const lockRef = admin.firestore().collection("Locks\_Requisicao\_Patrimonio").doc(lockId);
+  const reqRef  = admin.firestore().collection("Requisicao\_Edicao\_Bem\_Patrimonial").doc();
 
   return admin.firestore().runTransaction(async (tx) => {
     const lockSnap = await tx.get(lockRef);
     if (lockSnap.exists) {
       throw new HttpsError("failed-precondition", "Já existe uma requisição de edição pendente para este bem.");
     }
-    const bemSnap = await tx.get(admin.firestore().collection("Bem_Patrimonial").doc(dados.idBemPatrimonial));
+    const bemSnap = await tx.get(admin.firestore().collection("Bem\_Patrimonial").doc(dados.idBemPatrimonial));
     if (!bemSnap.exists) throw new HttpsError("not-found", "Bem não encontrado.");
     // Cria lock e requisição atomicamente
-    tx.set(lockRef, { criado_em: admin.firestore.FieldValue.serverTimestamp() });
+    tx.set(lockRef, {
+      id\_requisicao: reqRef.id,
+      tipo: "EDICAO",
+      chave\_recurso: dados.idBemPatrimonial,
+      criado\_em: admin.firestore.FieldValue.serverTimestamp()
+    });
     tx.set(reqRef, {
-      id_bem_patrimonial: dados.idBemPatrimonial,
-      novo_nome: dados.novoNome ?? null,
-      versao_bem_origem: bemSnap.data()!.versao,
-      novo_id_resumo_bem_patrimonial: null,
-      novo_status: dados.novoStatus ?? null,
-      novo_estado_conservacao: dados.novoEstadoConservacao ?? null,
-      novo_id_local: dados.novoIdLocal ?? null,
+      id\_bem\_patrimonial: dados.idBemPatrimonial,
+      novo\_nome: dados.novoNome ?? null,
+      versao\_bem\_origem: bemSnap.data()!.versao,
+      novo\_id\_resumo\_bem\_patrimonial: null,
+      novo\_status: dados.novoStatus ?? null,
+      novo\_estado\_conservacao: dados.novoEstadoConservacao ?? null,
+      novo\_id\_local: dados.novoIdLocal ?? null,
+      nova\_photo\_url: dados.novaPhotoUrl ?? null,
       motivo: dados.motivo,
       status: "pendente",
-      feita_em: admin.firestore.FieldValue.serverTimestamp(),
-      id_usuario_solicitante: request.auth!.uid,
+      feita\_em: admin.firestore.FieldValue.serverTimestamp(),
+      id\_usuario\_solicitante: request.auth!.uid,
     });
     return { idRequisicao: reqRef.id };
   });
 });
 
 // N-02 (PDF-001): Algoritmo normativo de resposta a requisição de edição.
-// INVARIANTE DE LOCK: o lock bem_edicao_{idBem} DEVE ser liberado em todos os desfechos:
+// INVARIANTE DE LOCK: o lock bem\_edicao\_{idBem} DEVE ser liberado em todos os desfechos:
 //   - aprovação com sucesso: liberado na linha tx.delete abaixo;
 //   - rejeição: liberado na mesma transação, sem verificação de versão;
 //   - conflito de versão na aprovação: a transação deve rejeitar a requisição E liberar o lock,
@@ -51,29 +60,34 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
 //   4. SE APROVAÇÃO: verificar versão;
 //      a. Conflito de versão -> rejeitar requisição como conflito; liberar lock (não abortar sem liberar);
 //      b. Sem conflito -> aplicar alterações; incrementar versão; histórico; liberar lock.
-// UNICIDADE DE PLAQUETA: criarRequisicaoAdicaoBem usa Lock C2 por numero_patrimonio_proposto;
-//   a aprovação cria o bem apenas depois de verificar Chaves_Unicas/Bem_Patrimonial__{numero}
+// UNICIDADE DE PLAQUETA: criarRequisicaoAdicaoBem usa Lock C2 por numero\_patrimonio\_proposto;
+//   a aprovação cria o bem apenas depois de verificar Chaves\_Unicas/Bem\_Patrimonial\_\_{numero}
 //   dentro da mesma transação, garantindo que duas aprovações concorrentes não criem duplicatas.
 export const responderRequisicaoEdicaoBem = onCall(async (request) => {
-  await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"], true);
+  await validarPermissao(request, ["Chefe\_Geral", "Gestor\_Bens\_Patrimoniais"], true);
   const { idRequisicao, aprovar, justificativa, idResumoAlvo } = request.data;
-  const lockColl = admin.firestore().collection("Locks_Requisicao_Patrimonio");
+  const lockColl = admin.firestore().collection("Locks\_Requisicao\_Patrimonio");
   return admin.firestore().runTransaction(async (tx) => {
     // PASSO 1: Todas as leituras antes de qualquer escrita (obrigatório em transações Firestore)
-    const reqRef = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc(idRequisicao);
+    const chefeSnap = await tx.get(admin.firestore().collection("Chefe_Geral").doc(request.auth!.uid));
+    if (!chefeSnap.exists) {
+      const gestorSnap = await tx.get(admin.firestore().collection("Gestor_Bens_Patrimoniais").doc(request.auth!.uid));
+      if (!gestorSnap.exists) throw new HttpsError("permission-denied", "Usuário sem papel de Gestor de Bens ativo.");
+    }
+    const reqRef = admin.firestore().collection("Requisicao\_Edicao\_Bem\_Patrimonial").doc(idRequisicao);
     const req = (await tx.get(reqRef)).data();
     if (!req || req.status !== "pendente") throw new HttpsError("failed-precondition", "Requisição indisponível.");
-    const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(req.id_bem_patrimonial);
-    const lockRef = lockColl.doc(`bem_edicao_${bemRef.id}`);
+    const bemRef = admin.firestore().collection("Bem\_Patrimonial").doc(req.id\_bem\_patrimonial);
+    const lockRef = lockColl.doc(`bem\_edicao\_${bemRef.id}`);
     const bem = (await tx.get(bemRef)).data();
 
     // PASSO 2: Rejeição não depende de verificação de versão (PDF-001: lock liberado em todos os desfechos)
     if (!aprovar) {
       tx.update(reqRef, {
         status: "rejeitada",
-        respondida_em: admin.firestore.FieldValue.serverTimestamp(),
-        id_usuario_respondente: request.auth!.uid,
-        justificativa_resposta: justificativa,
+        respondida\_em: admin.firestore.FieldValue.serverTimestamp(),
+        id\_usuario\_respondente: request.auth!.uid,
+        justificativa\_resposta: justificativa,
       });
       tx.delete(lockRef); // INVARIANTE: lock liberado mesmo na rejeição
       return { status: "rejeitada" };
@@ -81,47 +95,47 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
 
     // PASSO 3: Aprovação -- verificar versão (conflito)
     // N-02: se o bem foi alterado após a abertura da requisição, a versão diverge.
-    if (!bem || bem.versao !== req.versao_bem_origem) {
+    if (!bem || bem.versao !== req.versao\_bem\_origem) {
       tx.update(reqRef, {
         status: "rejeitada",
-        respondida_em: admin.firestore.FieldValue.serverTimestamp(),
-        id_usuario_respondente: request.auth!.uid,
-        justificativa_resposta: "Conflito de versão: o bem foi alterado após a abertura desta requisição. Revise a proposta com os dados atuais e abra nova requisição.",
+        respondida\_em: admin.firestore.FieldValue.serverTimestamp(),
+        id\_usuario\_respondente: request.auth!.uid,
+        justificativa\_resposta: "Conflito de versão: o bem foi alterado após a abertura desta requisição. Revise a proposta com os dados atuais e abra nova requisição.",
       });
       tx.delete(lockRef); // INVARIANTE: lock liberado no conflito de versão
-      return { status: "rejeitada", motivo: "CONFLITO_VERSAO" };
+      return { status: "rejeitada", motivo: "CONFLITO\_VERSAO" };
     }
 
     // PASSO 4: Leituras secundárias do caminho de aprovação (preserva leituras antes das escritas deste fluxo)
     let localSnap: FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData> | null = null;
-    if (req.novo_id_local) {
-      localSnap = await tx.get(admin.firestore().collection("Local").doc(req.novo_id_local));
+    if (req.novo\_id\_local) {
+      localSnap = await tx.get(admin.firestore().collection("Local").doc(req.novo\_id\_local));
       if (!localSnap.exists) {
         // Rejeição sistêmica: local não existe, o lock precisa ser liberado.
         tx.update(reqRef, {
           status: "rejeitada",
-          respondida_em: admin.firestore.FieldValue.serverTimestamp(),
-          id_usuario_respondente: request.auth!.uid,
-          justificativa_resposta: "Local referenciado na requisição não encontrado ou excluído.",
+          respondida\_em: admin.firestore.FieldValue.serverTimestamp(),
+          id\_usuario\_respondente: request.auth!.uid,
+          justificativa\_resposta: "Local referenciado na requisição não encontrado ou excluído.",
         });
         tx.delete(lockRef);
-        return { status: "rejeitada", motivo: "LOCAL_NAO_ENCONTRADO" };
+        return { status: "rejeitada", motivo: "LOCAL\_NAO\_ENCONTRADO" };
       }
     }
     // Resolve alvo existente ou prepara criação; helper só lê nesta etapa.
-    const alvo = req.novo_nome
-      ? await prepararResumoAlvoTx(tx, idResumoAlvo, req.novo_nome) : null;
+    const alvo = req.novo\_nome
+      ? await prepararResumoAlvoTx(tx, idResumoAlvo, req.novo\_nome) : null;
     const alteracoes = calcularAlteracoesPermitidas(req, bem);
     if (alvo) {
       if (alvo.novo) tx.create(alvo.ref, alvo.dados);
-      alteracoes.id_resumo_bem_patrimonial = alvo.ref.id;
-      alteracoes.nome_equipamento = alvo.dados.nome;
+      alteracoes.id\_resumo\_bem\_patrimonial = alvo.ref.id;
+      alteracoes.nome\_equipamento = alvo.dados.nome;
     }
-    // M-02: quando novo_id_local está presente, propagar predio/andar/sala denormalizados
-    if (req.novo_id_local && localSnap) {
+    // M-02: quando novo\_id\_local está presente, propagar predio/andar/sala denormalizados
+    if (req.novo\_id\_local && localSnap) {
       const local = localSnap.data()!;
       // Atualizar as projeções denormalizadas conforme Seção 5 (Espelhamento de Local)
-      alteracoes.id_local = req.novo_id_local;
+      alteracoes.id\_local = req.novo\_id\_local;
       alteracoes.predio = local.predio;
       alteracoes.andar = local.andar;
       alteracoes.sala = local.sala;
@@ -131,9 +145,9 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
     registrarHistoricoBemTx(tx, bemRef, bem, alteracoes, request.auth!.uid);
     tx.update(reqRef, {
       status: "aprovada",
-      novo_id_resumo_bem_patrimonial: alvo?.ref.id ?? null,
-      respondida_em: admin.firestore.FieldValue.serverTimestamp(),
-      id_usuario_respondente: request.auth!.uid, justificativa_resposta: justificativa,
+      novo\_id\_resumo\_bem\_patrimonial: alvo?.ref.id ?? null,
+      respondida\_em: admin.firestore.FieldValue.serverTimestamp(),
+      id\_usuario\_respondente: request.auth!.uid, justificativa\_resposta: justificativa,
     });
     tx.delete(lockRef); // INVARIANTE: lock liberado na aprovação
     return { status: "aprovada" };
@@ -162,9 +176,9 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
 
   // C2: Lock determinístico por número de patrimônio proposto (normalizado)
   const numeroNormalizado = dados.numeroPatrimonioProposto.trim().toUpperCase();
-  const lockId = `bem_adicao_${numeroNormalizado}`;
-  const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(lockId);
-  const reqRef  = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc();
+  const lockId = `bem\_adicao\_${numeroNormalizado}`;
+  const lockRef = admin.firestore().collection("Locks\_Requisicao\_Patrimonio").doc(lockId);
+  const reqRef  = admin.firestore().collection("Requisicao\_Adicao\_Bem\_Patrimonial").doc();
 
   return admin.firestore().runTransaction(async (tx) => {
     const lockSnap = await tx.get(lockRef);
@@ -172,56 +186,61 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
       throw new HttpsError("failed-precondition", "Já existe requisição pendente para este número de patrimônio.");
     }
 
-    // Validar existência prévia do patrimônio na coleção Chaves_Unicas
-    const chaveUnicaRef = admin.firestore().collection("Chaves_Unicas").doc(`Bem_Patrimonial__${numeroNormalizado}`);
+    // Validar existência prévia do patrimônio na coleção Chaves\_Unicas
+    const chaveUnicaRef = admin.firestore().collection("Chaves\_Unicas").doc(`Bem\_Patrimonial\_\_${numeroNormalizado}`);
     const chaveUnicaSnap = await tx.get(chaveUnicaRef);
     if (chaveUnicaSnap.exists) {
       throw new HttpsError("already-exists", "O número de patrimônio proposto já está em uso por outro bem.");
     }
     tx.set(lockRef, {
-      id_requisicao: reqRef.id,
+      id\_requisicao: reqRef.id,
       tipo: "ADICAO",
-      chave_recurso: numeroNormalizado,
-      criado_em: admin.firestore.FieldValue.serverTimestamp()
+      chave\_recurso: numeroNormalizado,
+      criado\_em: admin.firestore.FieldValue.serverTimestamp()
     });
     tx.set(reqRef, {
-      numero_patrimonio_proposto: dados.numeroPatrimonioProposto,
-      estado_conservacao_proposto: dados.estadoConservacaoProposto,
-      photo_url_proposta: dados.photoUrlProposta,
-      nome_responsavel_proposto: dados.nomeResponsavelProposto,
-      id_local: dados.idLocal,
-      id_resumo_bem_patrimonial: dados.idResumoBemPatrimonial ?? null,
-      nome_resumo_proposto: dados.nomeResumoProposto ?? null,
-      descricao_resumo_proposta: dados.descricaoResumoProposta ?? null,
+      numero\_patrimonio\_proposto: dados.numeroPatrimonioProposto,
+      estado\_conservacao\_proposto: dados.estadoConservacaoProposto,
+      photo\_url\_proposta: dados.photoUrlProposta,
+      nome\_responsavel\_proposto: dados.nomeResponsavelProposto,
+      id\_local: dados.idLocal,
+      id\_resumo\_bem\_patrimonial: dados.idResumoBemPatrimonial ?? null,
+      nome\_resumo\_proposto: dados.nomeResumoProposto ?? null,
+      descricao\_resumo\_proposta: dados.descricaoResumoProposta ?? null,
       motivo: dados.motivo,
       status: "pendente",
-      feita_em: admin.firestore.FieldValue.serverTimestamp(),
-      id_usuario_solicitante: request.auth!.uid,
-      respondida_em: null,
-      id_usuario_respondente: null,
+      feita\_em: admin.firestore.FieldValue.serverTimestamp(),
+      id\_usuario\_solicitante: request.auth!.uid,
+      respondida\_em: null,
+      id\_usuario\_respondente: null,
     });
     return { idRequisicao: reqRef.id };
   });
 });
 
 export const responderRequisicaoAdicaoBem = onCall(async (request) => {
-  await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"], true);
+  await validarPermissao(request, ["Chefe\_Geral", "Gestor\_Bens\_Patrimoniais"], true);
   const { idRequisicao, aprovar, justificativa } = request.data as { idRequisicao: string; aprovar: boolean; justificativa: string };
-  const reqRef = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc(idRequisicao);
+  const reqRef = admin.firestore().collection("Requisicao\_Adicao\_Bem\_Patrimonial").doc(idRequisicao);
 
   return admin.firestore().runTransaction(async (tx) => {
     // PASSO A: Leituras primárias
+    const chefeSnap = await tx.get(admin.firestore().collection("Chefe_Geral").doc(request.auth!.uid));
+    if (!chefeSnap.exists) {
+      const gestorSnap = await tx.get(admin.firestore().collection("Gestor_Bens_Patrimoniais").doc(request.auth!.uid));
+      if (!gestorSnap.exists) throw new HttpsError("permission-denied", "Usuário sem papel de Gestor de Bens ativo.");
+    }
     const reqSnap = await tx.get(reqRef);
     if (!reqSnap.exists) throw new HttpsError("not-found", "Requisição não encontrada.");
     const req = reqSnap.data()!;
     if (req.status !== "pendente") throw new HttpsError("failed-precondition", "Requisição já respondida.");
 
-    const numeroNormalizado = req.numero_patrimonio_proposto.trim().toUpperCase();
-    const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(`bem_adicao_${numeroNormalizado}`);
+    const numeroNormalizado = req.numero\_patrimonio\_proposto.trim().toUpperCase();
+    const lockRef = admin.firestore().collection("Locks\_Requisicao\_Patrimonio").doc(`bem\_adicao\_${numeroNormalizado}`);
     const lockSnap = await tx.get(lockRef);
 
     let chaveUnicaRef: FirebaseFirestore.DocumentReference | null = null;
-    let resumoNome = req.nome_resumo_proposto ?? "";
+    let resumoNome = req.nome\_resumo\_proposto ?? "";
     let localSnapData: any = null;
     let letraInicial = "";
 
@@ -229,20 +248,20 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
     let aprovarInterno = aprovar;
     let justificativaFinal = justificativa;
 
-    if (aprovarInterno && !req.photo_url_proposta) {
+    if (aprovarInterno && !req.photo\_url\_proposta) {
       aprovarInterno = false;
       justificativaFinal = "Rejeição sistêmica: Foto obrigatória ausente no pedido legado.";
     }
 
     if (aprovarInterno) {
-      chaveUnicaRef = admin.firestore().collection("Chaves_Unicas").doc(`Bem_Patrimonial__${numeroNormalizado}`);
+      chaveUnicaRef = admin.firestore().collection("Chaves\_Unicas").doc(`Bem\_Patrimonial\_\_${numeroNormalizado}`);
       const chaveUnicaSnap = await tx.get(chaveUnicaRef);
       if (chaveUnicaSnap.exists) {
         throw new HttpsError("already-exists", "O número de patrimônio aprovado já está em uso por outro bem.");
       }
 
-      if (req.id_resumo_bem_patrimonial) {
-        const resumoSnap = await tx.get(admin.firestore().collection("Resumo_Bem_Patrimonial").doc(req.id_resumo_bem_patrimonial));
+      if (req.id\_resumo\_bem\_patrimonial) {
+        const resumoSnap = await tx.get(admin.firestore().collection("Resumo\_Bem\_Patrimonial").doc(req.id\_resumo\_bem\_patrimonial));
         if (!resumoSnap.exists) {
           aprovarInterno = false;
           justificativaFinal = "Rejeição sistêmica: Resumo referenciado não existe.";
@@ -252,7 +271,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
       }
 
       if (aprovarInterno) { // Só lê local se ainda for aprovar
-        const localSnap = await tx.get(admin.firestore().collection("Local").doc(req.id_local));
+        const localSnap = await tx.get(admin.firestore().collection("Local").doc(req.id\_local));
         if (!localSnap.exists) {
           aprovarInterno = false;
           justificativaFinal = "Rejeição sistêmica: Local referenciado não existe.";
@@ -262,11 +281,11 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
         }
       }
 
-      if (aprovarInterno && !req.id_resumo_bem_patrimonial) {
-        if (!req.nome_resumo_proposto?.trim()) {
+      if (aprovarInterno && !req.id\_resumo\_bem\_patrimonial) {
+        if (!req.nome\_resumo\_proposto?.trim()) {
           aprovarInterno = false;
           justificativaFinal = "Rejeição sistêmica: A aprovação exige vincular ou criar um resumo patrimonial válido.";
-        } else if (!req.descricao_resumo_proposta?.trim()) {
+        } else if (!req.descricao\_resumo\_proposta?.trim()) {
           aprovarInterno = false;
           justificativaFinal = "Rejeição sistêmica: A criação de um novo resumo exige descrição obrigatória conforme o dicionário.";
         }
@@ -276,7 +295,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
     // PASSO C: Escritas (remoção do lock e resposta)
     if (lockSnap.exists) {
       const lockData = lockSnap.data()!;
-      if (lockData.id_requisicao === idRequisicao) {
+      if (lockData.id\_requisicao === idRequisicao) {
         tx.delete(lockRef);
       } else {
         throw new HttpsError("failed-precondition", "Conflito de integridade: Lock pertence a outra requisição.");
@@ -286,16 +305,16 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
     let idBemCriado: string | null = null;
 
     if (aprovarInterno) {
-      let idResumo = req.id_resumo_bem_patrimonial;
+      let idResumo = req.id\_resumo\_bem\_patrimonial;
 
-      // Se não havia resumo existente, cria atômica e transacionalmente o Resumo_Bem_Patrimonial
-      if (!idResumo && req.nome_resumo_proposto) {
-        const novoResumoRef = admin.firestore().collection("Resumo_Bem_Patrimonial").doc();
-        const nomeNorm = req.nome_resumo_proposto.trim();
+      // Se não havia resumo existente, cria atômica e transacionalmente o Resumo\_Bem\_Patrimonial
+      if (!idResumo && req.nome\_resumo\_proposto) {
+        const novoResumoRef = admin.firestore().collection("Resumo\_Bem\_Patrimonial").doc();
+        const nomeNorm = req.nome\_resumo\_proposto.trim();
         tx.set(novoResumoRef, {
           nome: nomeNorm,
-          descricao: req.descricao_resumo_proposta!.trim(),
-          foto_url: null,
+          descricao: req.descricao\_resumo\_proposta!.trim(),
+          foto\_url: null,
           versao: 1
         });
         idResumo = novoResumoRef.id;
@@ -303,47 +322,47 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
         letraInicial = nomeNorm.charAt(0).toUpperCase();
       }
 
-      const bemRef = admin.firestore().collection("Bem_Patrimonial").doc();
+      const bemRef = admin.firestore().collection("Bem\_Patrimonial").doc();
       idBemCriado = bemRef.id;
 
       tx.set(bemRef, {
-        id_resumo_bem_patrimonial: idResumo,
-        nome_equipamento: resumoNome,
-        numero_patrimonio: req.numero_patrimonio_proposto,
-        estado_conservacao: req.estado_conservacao_proposto,
-        id_local: req.id_local,
-        photo_url: req.photo_url_proposta, // ausência rejeitada antes das escritas
-        documento_dado_baixa_pdf_url: null,
-        nome_responsavel_sei: req.nome_responsavel_proposto,
+        id\_resumo\_bem\_patrimonial: idResumo,
+        nome\_equipamento: resumoNome,
+        numero\_patrimonio: req.numero\_patrimonio\_proposto,
+        estado\_conservacao: req.estado\_conservacao\_proposto,
+        id\_local: req.id\_local,
+        photo\_url: req.photo\_url\_proposta, // ausência rejeitada antes das escritas
+        documento\_dado\_baixa\_pdf\_url: null,
+        nome\_responsavel\_sei: req.nome\_responsavel\_proposto,
         status: "Ativo",
         versao: 1,
         predio: localSnapData.predio,
         andar: localSnapData.andar,
         sala: localSnapData.sala,
-        letra_inicial_nome: letraInicial,
-        cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+        letra\_inicial\_nome: letraInicial,
+        cadastrado\_em: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       // PDF-001: Gravação da chave única associada ao novo bem
       tx.set(chaveUnicaRef!, {
-        tipo: "Bem_Patrimonial",
-        id_recurso: idBemCriado,
-        criado_em: admin.firestore.FieldValue.serverTimestamp()
+        tipo: "Bem\_Patrimonial",
+        id\_recurso: idBemCriado,
+        criado\_em: admin.firestore.FieldValue.serverTimestamp()
       });
 
       tx.update(reqRef, {
         status: "aprovada",
-        respondida_em: admin.firestore.FieldValue.serverTimestamp(),
-        id_usuario_respondente: request.auth!.uid,
-        id_bem_patrimonial_se_aprovado: idBemCriado,
-        justificativa_resposta: justificativaFinal,
+        respondida\_em: admin.firestore.FieldValue.serverTimestamp(),
+        id\_usuario\_respondente: request.auth!.uid,
+        id\_bem\_patrimonial\_se\_aprovado: idBemCriado,
+        justificativa\_resposta: justificativaFinal,
       });
     } else {
       tx.update(reqRef, {
         status: "rejeitada",
-        respondida_em: admin.firestore.FieldValue.serverTimestamp(),
-        id_usuario_respondente: request.auth!.uid,
-        justificativa_resposta: justificativaFinal,
+        respondida\_em: admin.firestore.FieldValue.serverTimestamp(),
+        id\_usuario\_respondente: request.auth!.uid,
+        justificativa\_resposta: justificativaFinal,
       });
     }
 
@@ -369,18 +388,18 @@ async function commitEmChunks(
 }
 
 export const onResumoBemPatrimonialNomeAtualizado = onDocumentUpdated(
-  "Resumo_Bem_Patrimonial/{resumoId}",
+  "Resumo\_Bem\_Patrimonial/{resumoId}",
   async (event) => {
     const antes = event.data?.before.data();
     const depois = event.data?.after.data();
     if (!antes || !depois || antes.nome === depois.nome) return;
 
-    const bens = await admin.firestore().collection("Bem_Patrimonial")
-      .where("id_resumo_bem_patrimonial", "==", event.params.resumoId)
+    const bens = await admin.firestore().collection("Bem\_Patrimonial")
+      .where("id\_resumo\_bem\_patrimonial", "==", event.params.resumoId)
       .get();
 
     // PDF-007: único mecanismo de propagação de nome (chunks de 400 -- sem BulkWriter concorrente)
-    const ops = bens.docs.map((bem) => ({ ref: bem.ref, dados: { nome_equipamento: depois.nome } }));
+    const ops = bens.docs.map((bem) => ({ ref: bem.ref, dados: { nome\_equipamento: depois.nome } }));
     await commitEmChunks(ops);
   }
 );
@@ -393,8 +412,8 @@ export const onLocalAtualizado = onDocumentUpdated(
     if (!antes || !depois) return;
     if (antes.predio === depois.predio && antes.andar === depois.andar && antes.sala === depois.sala) return;
 
-    const bens = await admin.firestore().collection("Bem_Patrimonial")
-      .where("id_local", "==", event.params.localId)
+    const bens = await admin.firestore().collection("Bem\_Patrimonial")
+      .where("id\_local", "==", event.params.localId)
       .get();
 
     // PDF-017: chunks de 400 garantem que locais com muitos bens (ex: 600+) não excedam o limite
@@ -411,7 +430,7 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
   const { codigoTurma } = request.data as { codigoTurma: string };
 
   const turmaSnap = await admin.firestore().collection("Turma")
-    .where("codigo_turma", "==", codigoTurma)
+    .where("codigo\_turma", "==", codigoTurma)
     .where("status", "==", "Ativo")
     .limit(1).get();
   if (turmaSnap.empty) throw new HttpsError("not-found", "Turma não encontrada ou arquivada.");
@@ -419,27 +438,28 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
   const turma = turmaDoc.data();
 
   return admin.firestore().runTransaction(async (tx) => {
-    // Checar capacidade
-    const alunosSnap = await tx.get(
-      turmaDoc.ref.collection("Alunos")
-    );
-    if (alunosSnap.size >= turma.capacidade) {
+    // Checar capacidade lendo o documento da turma na transação (PDF-008)
+    const turmaLiveSnap = await tx.get(turmaDoc.ref);
+    if (!turmaLiveSnap.exists) throw new HttpsError("not-found", "Turma não encontrada.");
+    const turmaLive = turmaLiveSnap.data()!;
+    if (turmaLive.status !== "Ativo") throw new HttpsError("failed-precondition", "Turma inativa.");
+
+    const qtdAlunosAtual = turmaLive.qtd_alunos || 0;
+    if (qtdAlunosAtual >= turmaLive.capacidade) {
       throw new HttpsError("failed-precondition", "Turma lotada.");
     }
 
-    // Checar se já está matriculado
-    const jaMatriculado = alunosSnap.docs.some(
-      (d) => d.id === request.auth!.uid
-    );
-    if (jaMatriculado) {
+    // Checar se já está matriculado lendo apenas o documento individual (evita leitura O(N))
+    const alunoSnap = await tx.get(turmaDoc.ref.collection("Alunos").doc(request.auth!.uid));
+    if (alunoSnap.exists) {
       throw new HttpsError("already-exists", "Você já está nesta turma.");
     }
 
     // P14: Checar se foi removido anteriormente
     const historico = await tx.get(
       turmaDoc.ref.collection("HistoricoAlunos")
-        .where("id_aluno", "==", request.auth!.uid)
-        .where("tipo", "==", "exclusao_aluno")
+        .where("id\_aluno", "==", request.auth!.uid)
+        .where("tipo", "==", "exclusao\_aluno")
         .limit(1)
     );
     if (!historico.empty) {
@@ -451,39 +471,87 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
     // Matrícula requer dois documentos consistentes na mesma transação:
     //   1. Turma/{turmaId}/Alunos/{uid}  -- o aluno vê a turma no feed;
     //   2. Usuarios/{uid}/Turmas/{turmaId} -- a turma aparece na home do aluno.
-    // Ambos devem ser criados ou nenhum (atomicidade). O contador qtd_alunos
+    // Ambos devem ser criados ou nenhum (atomicidade). O contador qtd\_alunos
     // é atualizado com FieldValue.increment(1) na mesma transação.
     tx.set(turmaDoc.ref.collection("Alunos").doc(request.auth!.uid), {
-      id_aluno: request.auth!.uid,
-      ingressou_em: admin.firestore.FieldValue.serverTimestamp(),
+      id\_aluno: request.auth!.uid,
+      ingressou\_em: admin.firestore.FieldValue.serverTimestamp(),
     });
     // Espelho reverso: aluno encontra a turma em Usuarios/{uid}/Turmas
     tx.set(
       admin.firestore().collection("Usuarios").doc(request.auth!.uid)
         .collection("Turmas").doc(turmaDoc.id),
       {
-        id_turma: turmaDoc.id,
-        id_professor: turma.id_professor,
-        id_materia: turma.id_materia,
-        nome_turma: turma.nome_turma,
-        nome_materia: turma.nome_materia,
+        id\_turma: turmaDoc.id,
+        id\_professor: turma.id\_professor,
+        id\_materia: turma.id\_materia,
+        nome\_turma: turma.nome\_turma,
+        nome\_materia: turma.nome\_materia,
         ano: turma.ano,
         semestre: turma.semestre,
         status: turma.status,
-        ingressou_em: admin.firestore.FieldValue.serverTimestamp(),
+        ingressou\_em: admin.firestore.FieldValue.serverTimestamp(),
       }
     );
     // Contador transacional (sem leitura prévia) -- idempotente para o atômico
-    tx.update(turmaDoc.ref, { qtd_alunos: admin.firestore.FieldValue.increment(1) });
+    tx.update(turmaDoc.ref, { qtd\_alunos: admin.firestore.FieldValue.increment(1) });
     tx.set(turmaDoc.ref.collection("HistoricoAlunos").doc(), {
-      id_aluno: request.auth!.uid,
-      tipo: "inclusao_aluno",
-      modo_ingresso: "CODIGO",
+      id\_aluno: request.auth!.uid,
+      tipo: "inclusao\_aluno",
+      modo\_ingresso: "CODIGO",
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    return { idTurma: turmaDoc.id, nomeTurma: turma.nome_turma };
+    return { idTurma: turmaDoc.id, nomeTurma: turma.nome\_turma };
   });
 });
-\end{lstlisting}
 
+export const removerAlunoTurma = onCall(async (request) => {
+  await validarPermissao(request, ["Professor", "Chefe_Geral"], true);
+  const { idTurma, idAluno } = request.data as { idTurma: string; idAluno: string };
+
+  const turmaRef = admin.firestore().collection("Turma").doc(idTurma);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const turmaSnap = await tx.get(turmaRef);
+    if (!turmaSnap.exists) throw new HttpsError("not-found", "Turma não encontrada.");
+    const turma = turmaSnap.data()!;
+
+    // Apenas professor da turma ou Chefe Geral
+    const isChefe = (await tx.get(admin.firestore().collection("Chefe_Geral").doc(request.auth!.uid))).exists;
+    if (!isChefe && turma.id_professor !== request.auth!.uid) {
+      throw new HttpsError("permission-denied", "Apenas o professor responsável pode remover alunos da turma.");
+    }
+
+    const alunoDocRef = turmaRef.collection("Alunos").doc(idAluno);
+    const alunoSnap = await tx.get(alunoDocRef);
+    if (!alunoSnap.exists) throw new HttpsError("not-found", "Aluno não está matriculado nesta turma.");
+
+    // Exclusão espelhada atômica (PDF-003 / Secção 5.11 / PRO-04)
+    tx.delete(alunoDocRef);
+    tx.delete(admin.firestore().collection("Usuarios").doc(idAluno).collection("Turmas").doc(idTurma));
+
+    // Decremento do contador de alunos e gravação no histórico da turma
+    tx.update(turmaRef, { qtd_alunos: admin.firestore.FieldValue.increment(-1) });
+    tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
+      id_aluno: idAluno,
+      tipo: "exclusao_aluno",
+      removido_por: request.auth!.uid,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Registro na auditoria geral
+    tx.set(admin.firestore().collection("Registro_de_Auditoria").doc(), {
+      id_usuario: request.auth!.uid,
+      acao: "REMOCAO_ALUNO_TURMA",
+      tipo_entidade_sofre_acao: "TURMA",
+      id_do_objeto_da_entidade: idTurma,
+      acao_feita_em: admin.firestore.FieldValue.serverTimestamp(),
+      metadata: { id_aluno_removido: idAluno },
+    });
+
+    return { status: "ALUNO_REMOVIDO" };
+  });
+});
+
+\end{lstlisting}
