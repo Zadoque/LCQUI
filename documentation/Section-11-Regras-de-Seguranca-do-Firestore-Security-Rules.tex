@@ -51,6 +51,12 @@ Todas as exceções são declaradas explicitamente abaixo.
 \texttt{Registro\_de\_Auditoria} & Read: \texttt{Chefe\_Geral} no token. Write: negado ao cliente.\\
 \texttt{Roteiro\_Experimento} & Read: \texttt{resource.data.id\_professor\_upload == uid} OU \texttt{uid} pertence ao array \texttt{professores\_compartilhados}. Write: negado.\\
 \texttt{Contador\_Codigo\_Frasco} & Read: \texttt{request.auth != null} (qualquer logado lê). Write: negado ao cliente (só Cloud Function atualiza o sequenciador).\\
+\texttt{Almoxarifado} & Read: qualquer usuário com papel ativo no sistema (token de acesso válido). Write: negado ao cliente.\\
+\texttt{Local} & Read: qualquer usuário com papel ativo no sistema. Write: negado ao cliente.\\
+\texttt{Materia} & Read: qualquer usuário com papel ativo no sistema. Write: negado ao cliente.\\
+\texttt{Substancia\_Quimica} & Read: qualquer usuário com papel ativo no sistema (catálogo público interno). Write: negado ao cliente.\\
+\texttt{Lote} & Read: papel \texttt{roles} no token contém \texttt{Chefe\_Geral} OU \texttt{Gestor\_Almoxarifado} (leitura restrita). Write: negado ao cliente.\\
+Coleções de Relatórios e Materializações (\texttt{Resumo\_*\_Diario}, \texttt{Atividade\_Gestor\_*\_Mensal}) & Read: \texttt{Chefe\_Geral}, \texttt{Gestor\_Almoxarifado} ou \texttt{Gestor\_Bens\_Patrimoniais} conforme o respectivo domínio. Write: negado ao cliente.\\
 \end{longtable}
 
 
