@@ -166,7 +166,7 @@ A solução é o padrão \textit{deterministic lock}: a Cloud Function tenta cri
   \item Para requisição de \textbf{adição}: docId = \texttt{bem\_adicao\_\{numero\_patrimonio\_proposto\}}
 \end{itemize}
 
-O lock é removido na transação de aprovação/rejeição. Lock e requisição são criados atomicamente; não há commit parcial dessa transação. Limpeza verifica o vínculo e jamais remove um lock apenas porque a requisição pendente tem mais de 24 horas.
+O lock é removido na transação de aprovação/rejeição ordinária. O lock \texttt{Locks\_Requisicao\_Patrimonio/bem\_edicao\_\{id\}} DEVE ser removido pela transação também em caso de rejeição por divergência de versão do bem patrimonial, solucionando deadlocks permanentes. Lock e requisição são criados atomicamente; não há commit parcial dessa transação. Limpeza verifica o vínculo e jamais remove um lock apenas porque a requisição pendente tem mais de 24 horas.
 \end{regra}
 
 \subsection{Impressão de Etiquetas de Frasco}
@@ -514,6 +514,8 @@ Caso a capacidade seja atingida, o sistema rejeita o ingresso por código. Apena
 \campo{modo\_ingresso}{ENUM}{CODIGO, CONVITE, NULL}
 \campo{justificativa}{TEXT}{NULL}
 \campo{timestamp}{TIMESTAMP}{NOT NULL}
+\campo{removido\_por}{INTEGER}{FK, NULL}
+\subcampo{Obrigatório quando tipo = 'exclusao\_aluno'}
 \end{entidade}
 
 \subsection{Historico de Posts na Turma}
@@ -857,7 +859,7 @@ Gerar token com CSPRNG de 32 bytes e armazenar somente SHA-256 do token aleatór
 \end{regra}
 
 \begin{regra}[Q06: massa, consumo e tolerância]
-Massa consumida = $\max(0, peso_{saida}-peso_{retorno})$ em g. Medida utilizada é não negativa (g para sólido, mL via densidade para líquido). Medida usada no frasco acumula apenas gramas. Tolerância normal: $\max(1\,g,0{,}005\,peso_{saida})$; higroscópico: $\max(2\,g,0{,}02\,peso_{saida})$. Ganho dentro da tolerância preserva peso físico real, consumo zero e evento AJUSTE/ganho\_massa\_higroscopia. Retorno abaixo da tara: diferença até 5 g exige confirmação de esgotamento para VAZIO e ajuste auditado; diferença maior com produto restante bloqueia e exige recalibração formal de tara com justificativa. Não converter ajuste em consumo negativo.
+Massa consumida = $\max(0, peso_{saida}-peso_{retorno})$ em g. Medida utilizada é não negativa (g para sólido, mL via densidade para líquido). Medida usada no frasco acumula apenas gramas. Tolerância normal: $\max(1\,g,0{,}005\,peso_{saida})$; higroscópico: $\max(2\,g,0{,}02\,peso_{saida})$. A fórmula de tolerância higroscópica e de variação instrumental incide estritamente sobre o \textbf{Peso Bruto de Saída ($peso_{saida}$)}. Ganho dentro da tolerância preserva peso físico real, consumo zero e evento AJUSTE/ganho\_massa\_higroscopia. Retorno abaixo da tara ($peso_{retorno} < peso_{frasco\_vazio}$): diferença até 5 g exige confirmação de esgotamento para VAZIO e ajuste auditado; diferença maior com produto restante bloqueia e exige recalibração formal de tara com justificativa. Não converter ajuste em consumo negativo.
 \end{regra}
 \begin{regra}[Q14 e Q04: rastreabilidade na retirada]
 Autoatendimento é calculado pelo servidor: só o único gestor ativo do almoxarifado pode retirar para si, com justificativa obrigatória e notificação auditável à chefia; se houver outro gestor ativo, bloquear. Para vencido ou validade desconhecida liberado com termo nas finalidades PESQUISA\_TCC\_POS ou ESTUDO\_DEGRADACAO\_RESIDUOS, exigir justificativa metodológica de 20--2000 caracteres, versão do TCR, instante servidor, UID autenticado do retirante que aceitou e referência ao Registro\_de\_Auditoria correspondente. O backend valida aceite vinculado ao frasco, finalidade e operação, nunca declaração do gestor em nome de terceiro. Sem essas condições, rejeitar. TCR registra ciência e responsabilidade, sem substituir regras institucionais de segurança química. Quarentena e pendência de descarte continuam bloqueadas.
