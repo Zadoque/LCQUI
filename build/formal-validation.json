@@ -3,8 +3,8 @@
   "alloy": "6.2.0",
   "solver": "sat4j",
   "model": "specification/alloy/reagents/withdrawal.als",
-  "model_sha256": "c99af1aeca47783044ece8a5becd50a562469fc42bd610cea5cb571e0e9bf85a",
-  "spec_ir_sha256": "b5dae541a2fed71f3242049b4df6112827a44364706ee4a2dce7c13e3b170bf2",
+  "model_sha256": "e3d6c269901a3d1fee3ba034ed0b5913bb1aa5e16f6cd17bf9e94677de3e6be5",
+  "spec_ir_sha256": "b9fe6a539c7ec30c3aad2a950b2ff213bf876c7a13dd9454a6132c32512123a6",
   "resultados": [
     {
       "id": "INV-FRASCO-001",
@@ -29,9 +29,9 @@
     },
     {
       "id": "WIT-DISPONIBILIDADE-001",
-      "assertion": "DisponivelNaoApto",
+      "assertion": "IndisponivelNaoApto",
       "tipo": "run",
-      "scope": "run DisponivelNaoApto for 4 but exactly 2 Estado",
+      "scope": "run IndisponivelNaoApto for 4 but exactly 2 Estado",
       "status": "SAT"
     }
   ]
