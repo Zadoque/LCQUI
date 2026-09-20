@@ -42,7 +42,9 @@ async function validarPermissao(
     const data = snap.data();
     if (!snap.exists || data?.ativo !== true)
       throw new HttpsError("permission-denied", "Conta desativada ou não habilitada.");
-    if (data?.versao_permissoes && request.auth.token.versao_permissoes !== data.versao_permissoes) {
+    const versaoToken = request.auth.token["versao_permissoes"] as number | undefined;
+    const versaoDoc = data?.versao_permissoes as number | undefined;
+    if (versaoDoc !== undefined && versaoToken !== versaoDoc) {
       throw new HttpsError("permission-denied", "Permissões revogadas. Faça login novamente.");
     }
   }
