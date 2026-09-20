@@ -24,7 +24,7 @@ package domain
 // Todos os campos desta fatia são obrigatórios e não nulos.
 campos: [
 	#Enum & {nome: "estado_fisico_frasco", valores: ["FECHADO", "ABERTO", "VAZIO", "QUEBRADO", "DESCARTADO", "EXTRAVIADO"]},
-	#Enum & {nome: "disponibilidade", valores: ["DISPONIVEL", "EMPRESTADO"]},
+	#Enum & {nome: "disponibilidade", valores: ["DISPONIVEL", "EMPRESTADO", "INDISPONIVEL"]},
 	#Boolean & {nome: "em_quarentena"},
 ]
 
