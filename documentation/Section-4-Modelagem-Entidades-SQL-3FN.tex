@@ -835,7 +835,7 @@ QUARENTENA & Exige detalhe de motivo e bloqueia nova retirada.\\
 VENCIDO + uso\_vencido\_autorizado = false & Exibe PENDENTE DE DESCARTE quando não estiver em quarentena; bloqueia nova retirada.\\
 VENCIDO + uso\_vencido\_autorizado = true & Pode permanecer DISPONIVEL para uso excepcional após confirmação explícita no empréstimo.\\
 DESCARTADO & É terminal; não retorna a DISPONIVEL.\\
-Devolução & Só pode ocorrer para empréstimo EM\_USO ou ATRASADO e aplica tolerância híbrida Q06: ganho tolerado produz consumo zero e evento AJUSTE; ganho acima da tolerância bloqueia.\\
+Devolução & Só pode ocorrer para empréstimo EM\_USO ou ATRASADO e aplica tolerância híbrida Q06: ganho tolerado produz consumo zero e evento AJUSTE; ganho anômalo (acima da tolerância) conclui em \texttt{DEVOLVIDO\_COM\_ANOMALIA} e quarentena compulsória, sem abortar a transação.\\
 \bottomrule
 \end{longtable}
 
