@@ -116,6 +116,10 @@ A chave primária composta \textit{(id\_gestor\_almoxarifado, id\_almoxarifado)}
 \campo{versao\_bem\_origem}{INTEGER}{NOT NULL}
 \end{entidade}
 
+\begin{explicacao}
+A alteração de nome requer a indicação do modelo catalográfico em \textit{novo\_id\_resumo\_bem\_patrimonial}. Caso o resumo não exista no catálogo, a aprovação do gestor cria um novo documento de resumo usando o texto em \textit{novo\_nome}, sem renomear o catálogo compartilhado pré-existente (conforme C001).
+\end{explicacao}
+
 \begin{regra}
 RF10: \textit{UNIQUE(id\_bem\_patrimonial) WHERE status = 'pendente'} -- impede mais de uma requisição de edição pendente simultânea para o mesmo bem patrimonial. Um índice único parcial resolve isso no PostgreSQL; no Firestore, a checagem precisa ser feita na própria \textit{Cloud Function} de criação, dentro de uma transação (ver seção \textit{Tecnologia e Relatórios}).
 \end{regra}
