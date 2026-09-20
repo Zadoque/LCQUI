@@ -119,16 +119,25 @@ Quando o aluno é convidado sem especificar uma turma, id\_turma é NULL em \tex
 O sistema adotará a pesagem como método principal de controle de volume dos frascos, utilizando a fórmula $Volume = \frac{Peso_{total} - Peso_{vazio}}{Densidade}$.
 
 \textbf{1. Cadastro de Frasco Fechado:}\\
-O usuário informa o Peso Total (frasco + reagente) medido na balança e o Volume Nominal (ex: 100mL impresso no rótulo). O sistema calcula e salva o peso do recipiente vazio:\\
-$Peso_{vazio} = Peso_{total} - (Volume_{nominal} \times Densidade)$
+O usuário informa o Peso Total (frasco + reagente) medido na balança e o Conteúdo Nominal do rótulo (volume em mL para líquidos, massa em g para sólidos). O sistema calcula e salva o peso do recipiente vazio:\\
+\begin{itemize}
+    \item Reagente Líquido ($mL$): $Peso_{vazio} = Peso_{total} - (Volume_{nominal} \times Densidade)$
+    \item Reagente Sólido ($g$): $Peso_{vazio} = Peso_{total} - Massa_{nominal}$
+\end{itemize}
 
 \textbf{2. Cadastro de Frasco já Aberto (Opção A - Conhece o peso do recipiente):}\\
-O usuário informa o Peso do Frasco Vazio e o Peso Total atual na balança. O sistema calcula o volume atual:\\
-$Volume_{atual} = \frac{Peso_{total} - Peso_{vazio}}{Densidade}$
+O usuário informa o Peso do Frasco Vazio e o Peso Total atual na balança. O sistema calcula o conteúdo atual:\\
+\begin{itemize}
+    \item Reagente Líquido ($mL$): $Volume_{atual} = \frac{Peso_{total} - Peso_{vazio}}{Densidade}$
+    \item Reagente Sólido ($g$): $Massa_{atual} = Peso_{total} - Peso_{vazio}$
+\end{itemize}
 
-\textbf{3. Cadastro de Frasco já Aberto (Opção B - Conhece o volume atual):}\\
-O usuário informa o Volume Atual visual e o Peso Total na balança. O sistema calcula o peso do frasco vazio para uso futuro:\\
-$Peso_{vazio} = Peso_{total} - (Volume_{atual} \times Densidade)$
+\textbf{3. Cadastro de Frasco já Aberto (Opção B - Conhece o conteúdo atual):}\\
+O usuário informa o conteúdo atual visual (volume em mL para líquidos, massa em g para sólidos) e o Peso Total na balança. O sistema calcula o peso do frasco vazio para uso futuro:\\
+\begin{itemize}
+    \item Reagente Líquido ($mL$): $Peso_{vazio} = Peso_{total} - (Volume_{atual} \times Densidade)$
+    \item Reagente Sólido ($g$): $Peso_{vazio} = Peso_{total} - Massa_{atual}$
+\end{itemize}
 
 \textbf{4. Empréstimo e Devolução:}\\
 No empréstimo, registra-se o \textit{peso\_saida}. Na devolução, registra-se o \textit{peso\_retorno}. O consumo é documentado precisamente na tabela \textit{Emprestimo\_Reagente} como:\\
