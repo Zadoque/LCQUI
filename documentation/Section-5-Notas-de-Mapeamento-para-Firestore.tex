@@ -395,6 +395,7 @@ Caminho: \texttt{Frasco\_Reagente/\{id\}}.
 \item[\texttt{cadastrado\_por}] string; O. Valor de cadastrado por, validado pelo formulário e pelo servidor conforme regras do domínio.
 \item[\texttt{eh\_higroscopico}] boolean; O. Snapshot físico denormalizado, imutável, preenchido pelo backend no cadastro a partir de Resumo\_Reagente.eh\_higroscopico (fonte canônica 3FN). Alterações posteriores do resumo não reescrevem frascos existentes. Não aceitar valor do cliente nem atualização direta. Permite aplicar Q06 na devolução sem leitura adicional do resumo. Frascos legados sem snapshot exigem reconciliação explícita antes da operação.
 \item[\texttt{abertura\_historica\_desconhecida}] boolean; O, padrão false. True exige data\_abertura null e estado coerente com abertura anterior, sem inventar data.
+\item[\texttt{saldo\_desconhecido}] boolean; O, padrão false. True marca frasco aberto cujo saldo atual não é quantificado; não somar em \texttt{volume\_total\_disponivel\_aferido\_ml} nem em \texttt{massa\_total\_disponivel\_aferida\_g}, contabilizando-o apenas em \texttt{qtd\_frascos\_saldo\_desconhecido}.
 \end{description}
 
 \paragraph{Historico\_Frasco\_Reagente}\mbox{}\par
@@ -431,6 +432,7 @@ Caminho: \texttt{Emprestimo\_Reagente/\{id\}}.
 \item[\texttt{peso\_retorno}] number; N. Peso bruto em g medido na devolução; null antes do retorno e validado contra tara/saída.
 \item[\texttt{medida\_utilizada}] number; N. Consumo não negativo calculado na unidade do empréstimo; massa = max(0, saída menos retorno), conversão em mL só para líquido com densidade histórica positiva.
 \item[\texttt{unidade\_medida\_utilizada}] string enum; O. Valor de unidade medida utilizada, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: ml,g.
+\item[\texttt{densidade\_aplicada}] number; N. Snapshot histórico da densidade da especificação no instante da retirada; obrigatório e positivo para líquidos e NULL para sólidos. Usado para converter consumo e evaporação em volume sem depender da densidade corrente da especificação.
 \item[\texttt{peso\_perda\_evaporacao}] number; O. Perda em g registrada separadamente de consumo; não inferir arbitrariamente.
 \item[\texttt{uso\_vencido\_aceito}] boolean; O. Ciência explícita do empréstimo específico; não concede nem substitui autorização do gestor.
 \item[\texttt{finalidade\_uso}] string enum; O. Finalidade validada na retirada. Valores: AULA\_PRATICA, DEMONSTRACAO, PESQUISA\_TCC\_POS, ESTUDO\_DEGRADACAO\_RESIDUOS. Uso excepcional de pesquisa exige rastreabilidade TCR de Q04.
@@ -683,7 +685,7 @@ Caminho: \texttt{Resumo\_Almoxarifado\_Diario/\{id\}}.
 \item[\texttt{volume\_utilizado\_no\_dia\_ml}] number; O. Métrica de volume utilizado no dia ml, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{massa\_total\_disponivel\_aferida\_g}] number; O. Métrica de massa total disponivel aferida g, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{massa\_utilizada\_no\_dia\_g}] number; O. Métrica de massa utilizada no dia g, não negativa e calculada a partir dos eventos/saldos do domínio.
-\item[\texttt{volume\_evaporado\_no\_dia\_ml}] number; O. Perda total por evaporação de líquidos no dia em mL, acumulada a partir dos campos \texttt{peso\_perda\_evaporacao} das devoluções com \texttt{unidade\_medida\_utilizada = ml}; não negativa.
+\item[\texttt{volume\_evaporado\_no\_dia\_ml}] number; O. Perda total por evaporação de líquidos no dia em mL, acumulada como \texttt{peso\_perda\_evaporacao / densidade\_aplicada} das devoluções com \texttt{unidade\_medida\_utilizada = ml}; não negativa e sem fator de conversão arbitrário.
 \item[\texttt{massa\_evaporada\_no\_dia\_g}] number; O. Perda total por evaporação de sólidos/pós no dia em g, acumulada a partir dos campos \texttt{peso\_perda\_evaporacao} das devoluções com \texttt{unidade\_medida\_utilizada = g}; não negativa.
 \item[\texttt{created\_at}] Timestamp; O. Instante servidor da primeira criação da materialização.
 \item[\texttt{updated\_at}] Timestamp; O. Instante servidor da última atualização da materialização; informa atualidade do resultado.
@@ -705,7 +707,7 @@ Caminho: \texttt{Resumo\_Reagente\_Diario/\{id\}}.
 \item[\texttt{qtd\_frascos\_extraviados\_dia}] number; O. Contagem de frascos extraviados no dia, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{volume\_total\_disponivel\_aferido\_ml}] number; O. Métrica de volume total disponivel aferido ml, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{volume\_utilizado\_no\_dia\_ml}] number; O. Métrica de volume utilizado no dia ml, não negativa e calculada a partir dos eventos/saldos do domínio.
-\item[\texttt{volume\_evaporado\_no\_dia\_ml}] number; O. Métrica de volume evaporado no dia ml, não negativa e calculada a partir dos eventos/saldos do domínio.
+\item[\texttt{volume\_evaporado\_no\_dia\_ml}] number; O. Métrica de volume evaporado no dia ml, não negativa; para líquidos, acumulada como \texttt{peso\_perda\_evaporacao / densidade\_aplicada}, sem fator de conversão arbitrário.
 \item[\texttt{massa\_total\_disponivel\_aferida\_g}] number; O. Métrica de massa total disponivel aferida g, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{massa\_utilizada\_no\_dia\_g}] number; O. Métrica de massa utilizada no dia g, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{massa\_evaporada\_no\_dia\_g}] number; O. Métrica de massa evaporada no dia g, não negativa e calculada a partir dos eventos/saldos do domínio.
