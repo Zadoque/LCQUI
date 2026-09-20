@@ -39,8 +39,12 @@ async function validarPermissao(
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Usuário não autenticado.");
   if (requerAtivo) {
     const snap = await admin.firestore().collection("Usuarios").doc(request.auth.uid).get();
-    if (!snap.exists || snap.data()?.ativo !== true)
+    const data = snap.data();
+    if (!snap.exists || data?.ativo !== true)
       throw new HttpsError("permission-denied", "Conta desativada ou não habilitada.");
+    if (data?.versao_permissoes && request.auth.token.versao_permissoes !== data.versao_permissoes) {
+      throw new HttpsError("permission-denied", "Permissões revogadas. Faça login novamente.");
+    }
   }
   const papeis = resolverPapeisDoToken(request.auth);
   if (!papeisPermitidos.some((p) => papeis.includes(p)))
