@@ -29,22 +29,56 @@ export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
   const dataInicio = DateTime.fromObject({ year: ano, month: mes, day: 1 }, { zone: "America/Sao_Paulo" }).startOf("day").toJSDate();
   const dataFim = DateTime.fromObject({ year: ano, month: mes }, { zone: "America/Sao_Paulo" }).endOf("month").toJSDate();
 
-  const devolucoesSnapshot = await admin.firestore().collection("Emprestimo_Reagente")
+  // MET-08/09: Leitura via Resumo_Almoxarifado_Diario (D-1) + incremental D-0
+  const hojeISO = DateTime.now().setZone("America/Sao_Paulo").toISODate();
+  const dataFimISO = DateTime.fromJSDate(dataFim).toISODate();
+
+  // Limita os resumos consolidados estritamente até ontem (D-1) para evitar dupla contagem
+  const dataLimiteResumo = dataFimISO >= hojeISO
+    ? DateTime.now().setZone("America/Sao_Paulo").minus({ days: 1 }).toISODate()
+    : dataFimISO;
+
+  const resumosDiariosSnap = await admin.firestore().collection("Resumo_Almoxarifado_Diario")
     .where("id_almoxarifado", "==", idAlmoxarifado)
-    .where("data_devolucao_efetuada", ">=", dataInicio)
-    .where("data_devolucao_efetuada", "<=", dataFim)
+    .where("data", ">=", DateTime.fromJSDate(dataInicio).toISODate())
+    .where("data", "<=", dataLimiteResumo) // D-0 nunca é lido aqui
     .get();
 
-  const consumoPorUnidade = devolucoesSnapshot.docs.reduce((acc, doc) => {
+  let totalVolumeUsado = 0;
+  let totalMassaUsada = 0;
+  let totalVolumeEvaporado = 0;
+  let totalMassaEvaporada = 0;
+  let maxFrascosSaldoDesconhecido = 0;
+
+  resumosDiariosSnap.docs.forEach(doc => {
     const d = doc.data();
-    if (d.unidade_medida_utilizada === "ml") acc.ml += d.medida_utilizada || 0;
-    else if (d.unidade_medida_utilizada === "g") acc.g += d.medida_utilizada || 0;
-    
-    // Bateria 3.2 e 4.2: Agregação da perda por evaporação registrada na devolução
-    acc.evaporacaoG += d.peso_perda_evaporacao || 0;
-    
-    return acc;
-  }, { g: 0, ml: 0, evaporacaoG: 0 });
+    totalVolumeUsado += d.volume_utilizado_no_dia_ml || 0;
+    totalMassaUsada += d.massa_utilizada_no_dia_g || 0;
+    totalVolumeEvaporado += d.volume_evaporado_no_dia_ml || 0;
+    totalMassaEvaporada += d.massa_evaporada_no_dia_g || 0;
+    maxFrascosSaldoDesconhecido = Math.max(maxFrascosSaldoDesconhecido, d.qtd_frascos_saldo_desconhecido || 0);
+  });
+
+  // Se o período filtrado abrange o dia corrente (D-0), soma em tempo real (sem risco de duplicar)
+  if (dataFimISO >= hojeISO) {
+    const inicioHoje = DateTime.now().setZone("America/Sao_Paulo").startOf("day").toJSDate();
+    const fimHoje = DateTime.now().setZone("America/Sao_Paulo").endOf("day").toJSDate();
+
+    const devolucoesHojeSnap = await admin.firestore().collection("Emprestimo_Reagente")
+      .where("id_almoxarifado", "==", idAlmoxarifado)
+      .where("data_devolucao_efetuada", ">=", inicioHoje)
+      .where("data_devolucao_efetuada", "<=", fimHoje)
+      .get();
+
+    devolucoesHojeSnap.docs.forEach(doc => {
+      const d = doc.data();
+      if (d.unidade_medida_utilizada === "ml") totalVolumeUsado += d.medida_utilizada || 0;
+      else if (d.unidade_medida_utilizada === "g") totalMassaUsada += d.medida_utilizada || 0;
+      totalMassaEvaporada += d.peso_perda_evaporacao || 0;
+    });
+  }
+
+  const consumoPorUnidade = { g: totalMassaUsada, ml: totalVolumeUsado, evaporacaoG: totalMassaEvaporada };
 
   const historicoSnapshot = await admin.firestore().collection("Historico_Frasco_Reagente")
     .where("id_almoxarifado", "==", idAlmoxarifado)
