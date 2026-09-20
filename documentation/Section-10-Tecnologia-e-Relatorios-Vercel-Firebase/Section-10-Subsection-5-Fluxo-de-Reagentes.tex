@@ -528,6 +528,7 @@ export const registrarRetirada = onCall(async (request) => {
 interface DevolucaoFrasco {
   idEmprestimo: string;
   pesoRetorno: number;
+  pesoPerdaEvaporacao?: number;
   confirmarEsgotamento?: boolean;
   idUsuarioDevolveu: string; // Portador físico que entrega o frasco ao almoxarifado
   destinoPosDevolucao?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
@@ -636,6 +637,7 @@ export const registrarDevolucao = onCall(async (request) => {
       id_usuario_devolveu: dados.idUsuarioDevolveu,
       id_gestor_devolucao: request.auth!.uid,
       peso_retorno: dados.pesoRetorno,
+      peso_perda_evaporacao: dados.pesoPerdaEvaporacao || 0,
       medida_utilizada: volumeUtilizado,
       unidade_medida_utilizada: densidade ? "ml" : "g",
     ...(avisoHigroscopico && { aviso: "higroscopico_suspeito" }),
