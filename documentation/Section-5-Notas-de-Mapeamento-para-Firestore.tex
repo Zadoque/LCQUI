@@ -386,7 +386,7 @@ Caminho: \texttt{Frasco\_Reagente/\{id\}}.
 \item[\texttt{validade\_desconhecida}] boolean; O. Ausência explícita de informação de validade; não significa validade ilimitada.
 \item[\texttt{validade\_apos\_aberto\_dias}] number; N. Prazo inteiro positivo após abertura quando declarado; compõe o mínimo da validade efetiva.
 \item[\texttt{estado\_fisico\_frasco}] string enum; O. Condição do recipiente/conteúdo; quarentena e vencimento são dimensões separadas. Valores: FECHADO,ABERTO,VAZIO,QUEBRADO,DESCARTADO,EXTRAVIADO.
-\item[\texttt{disponibilidade}] string enum; O. Disponível ou emprestado; exige coerência com empréstimo ativo. Valores: DISPONIVEL,EMPRESTADO.
+\item[\texttt{disponibilidade}] string enum; O. Disponível, emprestado ou indisponível; exige coerência com empréstimo ativo. Valores: DISPONIVEL, EMPRESTADO, INDISPONIVEL.
 \item[\texttt{vencido}] boolean; O. Projeção de validade comparada ao relógio do servidor; reavaliar em cada operação crítica.
 \item[\texttt{em\_quarentena}] boolean; O. Bloqueio operacional independente de abertura e vencimento; true exige motivo.
 \item[\texttt{uso\_vencido\_autorizado}] boolean; O. Decisão expressa de gestor para uso excepcional conforme Q04, auditada; pesquisa exige TCR e justificativa.
@@ -472,6 +472,9 @@ Caminho: \texttt{Turma/\{id\}/HistoricoAlunos/\{eventoId\}}.
 \item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: inclusao\_aluno, exclusao\_aluno.
 \item[\texttt{id\_aluno}] string; O. Identificador da entidade aluno, cuja existência e escopo são verificados no servidor.
 \item[\texttt{timestamp}] Timestamp; O. Data/instante de timestamp, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{modo\_ingresso}] string enum; N. Modo de ingresso na turma (CODIGO ou CONVITE), obrigatório se tipo == "inclusao\_aluno".
+\item[\texttt{justificativa}] string; N. Texto descritivo para exceção de capacidade ou exclusão.
+\item[\texttt{removido\_por}] string; N. UID do operador, obrigatório se tipo == "exclusao\_aluno".
 \end{description}
 
 \paragraph{Historico\_Posts\_Turma}\mbox{}\par
@@ -694,6 +697,7 @@ Caminho: \texttt{Resumo\_Reagente\_Diario/\{id\}}.
 \item[\texttt{qtd\_frascos\_em\_uso}] number; O. Contagem de frascos em uso, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_vazios}] number; O. Contagem de frascos vazios, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_descartados\_dia}] number; O. Contagem de frascos descartados dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_frascos\_extraviados\_dia}] number; O. Contagem de frascos extraviados no dia, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{volume\_total\_disponivel\_ml}] number; O. Métrica de volume total disponivel ml, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{volume\_utilizado\_no\_dia\_ml}] number; O. Métrica de volume utilizado no dia ml, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{volume\_evaporado\_no\_dia\_ml}] number; O. Métrica de volume evaporado no dia ml, não negativa e calculada a partir dos eventos/saldos do domínio.
