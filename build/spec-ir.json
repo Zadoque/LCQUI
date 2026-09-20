@@ -29,7 +29,8 @@
                     "tipo": "enum",
                     "valores": [
                         "DISPONIVEL",
-                        "EMPRESTADO"
+                        "EMPRESTADO",
+                        "INDISPONIVEL"
                     ]
                 },
                 {
