@@ -207,7 +207,7 @@ Relações/IR/documentação do Frasco completo e demais domínios M3–M12; com
 - Checkpoint final M1: assunto `docs(spec): integrate validated M1 catalog documentation`; resolver SHA com `git log -1 --format=%H --grep="validated M1 catalog"` (um commit não contém seu próprio SHA).
 
 ## 20. Estado do Git
-M2.1b entrada de874a4b, sem alterações preexistentes. Commits desta unidade (resolver SHA por `git log --format=%H --grep=<assunto>`): checkpoint 1 `docs(frasco): reconcile registration, balance and quarantine semantics`; checkpoint 2 `docs(materialization): define rebuildable daily summaries`; checkpoint final `docs(spec): record reconciled M2 documentation state`. Todos na mesma branch, com push confirmado. `git diff --check` PASS; árvore sincronizada após o envio.
+M2.1b entrada de874a4b, sem alterações preexistentes. Commits desta unidade: checkpoint 1 `33c462fc` (`docs(frasco): reconcile registration, balance and quarantine semantics`); checkpoint 2 `252e4e50` (`docs(materialization): define rebuildable daily summaries`); checkpoint final `facd2882` (`docs(spec): record reconciled M2 documentation state`); complemento de gates `docs(spec): finalize M2.1b gate record`. Todos na mesma branch, com push confirmado. `git diff --check` PASS; árvore sincronizada após o envio. Compilação LaTeX exit 0, 267 páginas, zero erros/refs indefinidas; `documentation/main.pdf` atualizado.
 Registro histórico: M2.1a entrada ce299d42; checkpoints documentais 4e0e60e5/88f913fe; CUE f340500f (fix(cue): align bottle schema with audited local constraints).
 
 ## 21. Como uma nova IA deve continuar

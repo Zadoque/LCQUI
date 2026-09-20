@@ -151,15 +151,25 @@ materializações e executou buscas léxicas.
 - Ambientes LaTeX balanceados em todos os `.tex` alterados (begin/end).
 - Buscas léxicas: resíduos somente em material histórico/archive ou em negativas
   explícitas.
-- Compilação LaTeX: registrada abaixo.
+- Compilação LaTeX: exit 0, `documentation/main.pdf` com 267 páginas, zero erros,
+  zero referências indefinidas; 27 avisos tipográficos Overfull herdados/novos.
+  Uma correção foi necessária: um travessão (—) introduzido em comentário de
+  `lstlisting` quebrava a leitura UTF-8 do pacote `listings`; trocado por hífen.
+  Inspeção textual via Poppler confirmou `condicao_inicial_cadastro`, operações
+  de quarentena, `consolidarResumosDiarios`/`calculado_em`/`versao_calculo` e o
+  erratum do M0 no PDF.
+- Nenhum caminho protegido alterado (`specification/`, `functions/`, `frontend/`,
+  `firestore.rules`, `storage.rules`, `tools/`, `generated/`): diff vazio.
 
 ## Commits
 
-- Checkpoint 1: `docs(frasco): reconcile registration, balance and quarantine semantics`.
-- Checkpoint 2: `docs(materialization): define rebuildable daily summaries`.
-- Checkpoint final: `docs(spec): record reconciled M2 documentation state`.
-- SHAs resolvidos por `git log --format=%H --grep=<assunto>` (um commit não
-  contém o próprio SHA). HEAD final desta unidade: o commit final acima.
+- Checkpoint 1: `docs(frasco): reconcile registration, balance and quarantine semantics` — `33c462fc`.
+- Checkpoint 2: `docs(materialization): define rebuildable daily summaries` — `252e4e50`.
+- Checkpoint final: `docs(spec): record reconciled M2 documentation state` — `facd2882`.
+- Complemento de registro de gates: `docs(spec): finalize M2.1b gate record`.
+- HEAD final desta unidade: resolver por
+  `git log -1 --format=%H --grep='finalize M2.1b gate record'` (um commit não
+  contém o próprio SHA). Todos pushados em `origin/feat/formal-spec-cue-alloy`.
 
 ## Próxima ação EXATA
 
