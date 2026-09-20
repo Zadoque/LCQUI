@@ -87,7 +87,7 @@ M2 IN_PROGRESS: M2.0 VALIDATED; M2.1 VALIDATED; M2.2–M2.4 NOT_STARTED. M0/M1 V
 
 ## 11. Trabalho em andamento
 M2.1 VALIDATED. HEAD de entrada: 0ee6c0ce5c688359cbf88a10f64c7403df662413, árvore inicialmente limpa. #FrascoCompleto adicional com 27 campos, descritores compartilhados de valor/metadados, presença ! e null explícito, sem defaults SQL. XOR local, abertura histórica implica data null, prazo declarado positivo. DATE é string YYYY-MM-DD apenas lexical; TIMESTAMP string sem formato/timezone imposto. Sem regras físicas inventadas. Worklog: documentation/worklogs/formal-spec/M2_1_CUE_FRASCO_COMPLETO.md.
-Gates PASS: just spec-check (M0 7 + M1 35 + M2.1 19 = 61 fixtures, fmt/vet), 27/27 remoções individuais rejeitadas, diagnósticos das 14 inválidas conferidos, 27 nomes/ordem comparados ao SQL, git diff --check. M0 e todos os arquivos fora do recorte preservados contra HEAD de entrada. Não executados Alloy, export IR, Rust, LaTeX/PDF. Consolidar commit/push e parar; não iniciar M2.2 nesta execução.
+Gates PASS: just spec-check (M0 7 + M1 35 + M2.1 19 = 61 fixtures, fmt/vet), 27/27 remoções individuais rejeitadas, diagnósticos das 14 inválidas conferidos, 27 nomes/ordem comparados ao SQL, git diff --check. M0 e todos os arquivos fora do recorte preservados contra HEAD de entrada. Não executados Alloy, export IR, Rust, LaTeX/PDF. Implementação commitada em b475cd2e e push confirmado; encerrar nesta unidade, sem iniciar M2.2.
 
 ## 12. Próxima ação EXATA
 Auditar M2.1 e iniciar M2.2 Alloy para identidade química, preservando assertions M0.
@@ -196,7 +196,7 @@ Relações/IR/documentação do Frasco completo e demais domínios M3–M12; com
 - Checkpoint final M1: assunto `docs(spec): integrate validated M1 catalog documentation`; resolver SHA com `git log -1 --format=%H --grep="validated M1 catalog"` (um commit não contém seu próprio SHA).
 
 ## 20. Estado do Git
-M2.0 commitado/pushado em bc57fbac, handoff 0ee6c0ce. M2.1 tem entrada limpa em 0ee6c0ce. Arquivos desta unidade: domain/campos_frasco.cue, domain/frasco_completo.cue, 19 fixtures tests/frasco-completo, uma adição de grupo em tools/formal/check.mjs, estado e worklog M2.1. Commit previsto: feat(cue): model complete reagent bottle record; gates já PASS. Push será registrado após commit. Nenhuma mudança local preexistente.
+M2.0 commitado/pushado em bc57fbac, handoff 0ee6c0ce. M2.1 tem entrada limpa em 0ee6c0ce. Arquivos desta unidade: domain/campos_frasco.cue, domain/frasco_completo.cue, 19 fixtures tests/frasco-completo, uma adição de grupo em tools/formal/check.mjs, estado e worklog M2.1. Commit validado: b475cd2e — feat(cue): model complete reagent bottle record. Push confirmado para origin/feat/formal-spec-cue-alloy (0ee6c0ce..b475cd2e). Este registro é o handoff documental adicional, a ser enviado à mesma branch. Nenhuma mudança local preexistente.
 
 ## 21. Como uma nova IA deve continuar
 Ler este arquivo; confirmar status/log/branch; ler fontes indicadas; repetir gates mínimos e seguir seção 12. Não replanejar do zero nem reabrir 3B. Atualizar estado após unidades pequenas/validações/descobertas, antes de tarefas longas e antes/depois de commits. Manter tudo salvo para retomada em outra máquina. Usar NOT_STARTED/IN_PROGRESS/BLOCKED/IMPLEMENTED/VALIDATED; só VALIDATED conclui um escopo. Não alegar homologação integral a partir de checks limitados.
