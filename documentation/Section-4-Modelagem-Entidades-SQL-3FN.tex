@@ -429,7 +429,7 @@ O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre 
 \campo{id\_frasco\_reagente}{INTEGER}{FK, NOT NULL}
 \campo{id\_usuario\_retirou}{INTEGER}{FK, NOT NULL}
 \campo{id\_gestor\_retirada}{INTEGER}{FK, NOT NULL}
-\campo{status}{ENUM}{EM\_USO,ATRASADO,DEVOLVIDO,DEVOLVIDO\_COM\_ATRASO,ENCERRADO\_EXTRAORDINARIO, NOT NULL}
+\campo{status}{ENUM}{EM\_USO,ATRASADO,DEVOLVIDO,DEVOLVIDO\_COM\_ATRASO,DEVOLVIDO\_COM\_ANOMALIA,ENCERRADO\_EXTRAORDINARIO, NOT NULL}
 \campo{data\_retirada}{TIMESTAMP}{NOT NULL}
 \campo{data\_devolucao\_prevista}{DATE}{NOT NULL}
 \campo{data\_devolucao\_efetuada}{TIMESTAMP}{NULL}
