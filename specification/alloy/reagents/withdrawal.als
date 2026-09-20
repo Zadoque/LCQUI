@@ -3,7 +3,7 @@ module reagents/withdrawal
 abstract sig EstadoFisico {}
 one sig FECHADO, ABERTO, VAZIO, QUEBRADO, DESCARTADO, EXTRAVIADO extends EstadoFisico {}
 abstract sig Disponibilidade {}
-one sig DISPONIVEL, EMPRESTADO extends Disponibilidade {}
+one sig DISPONIVEL, EMPRESTADO, INDISPONIVEL extends Disponibilidade {}
 sig Frasco {}
 sig Emprestimo {}
 sig Estado {
@@ -15,8 +15,9 @@ sig Estado {
 
 // Correspondência da projeção operacional; não equivale à aptidão.
 pred coerente[s: Estado] {
-  all f: Frasco | (s.disponibilidade[f] = DISPONIVEL iff no s.ativos[f])
+  all f: Frasco | (s.disponibilidade[f] = EMPRESTADO iff some s.ativos[f])
   all f: Frasco | lone s.ativos[f]
+  all f: Frasco | (s.fisico[f] in VAZIO + QUEBRADO + DESCARTADO + EXTRAVIADO or f in s.quarentena) implies s.disponibilidade[f] = INDISPONIVEL
 }
 pred filtroFisico[s: Estado, f: Frasco] {
   s.fisico[f] in FECHADO + ABERTO
@@ -47,12 +48,12 @@ assert Unicidade {
 pred Testemunha {
   some disj a,b: Estado, f: Frasco, e: Emprestimo | retirar[a,b,f,e]
 }
-pred DisponivelNaoApto {
+pred IndisponivelNaoApto {
   some s: Estado, f: Frasco |
     coerente[s] and s.fisico[f] = EXTRAVIADO and
-    s.disponibilidade[f] = DISPONIVEL and not filtroFisico[s,f]
+    s.disponibilidade[f] = INDISPONIVEL and not filtroFisico[s,f]
 }
 check BloqueioFisico for 4 but exactly 2 Estado
 check Unicidade for 4 but exactly 2 Estado
 run Testemunha for 4 but exactly 2 Estado
-run DisponivelNaoApto for 4 but exactly 2 Estado
+run IndisponivelNaoApto for 4 but exactly 2 Estado
