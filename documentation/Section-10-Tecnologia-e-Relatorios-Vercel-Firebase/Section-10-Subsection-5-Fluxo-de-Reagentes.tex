@@ -7,7 +7,7 @@ interface CadastroFrascoFechado {
   idEspecificacaoReagente: string;
   idAlmoxarifado: string;
   idLote?: string;
-  conteudoNominal?: number;
+  conteudoNominal: number; // OBRIGATÓRIO (MET-04)
   pesoTotal: number;
   validadeFechado?: string;
   validadeDesconhecida?: boolean;
@@ -74,16 +74,22 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
         throw new HttpsError("failed-precondition", `Limite de frascos do lote atingido (${qtdComprados} comprados).`);
     }
 
-    let pesoVazio: number | null = null;
-    if (dados.conteudoNominal != null) {
-      if (estadoFisico === "LIQUIDO") {
-        if (!densidade || densidade <= 0) throw new HttpsError("failed-precondition", "Líquido exige densidade positiva.");
-        pesoVazio = dados.pesoTotal - (dados.conteudoNominal * densidade);
-      } else {
-        pesoVazio = dados.pesoTotal - dados.conteudoNominal;
-      }
+    // MET-04: conteudoNominal obrigatório para frasco FECHADO
+    if (!dados.conteudoNominal || dados.conteudoNominal <= 0) {
+      throw new HttpsError("invalid-argument", "Frasco fechado exige conteúdo nominal positivo.");
+    }
+
+    let pesoVazio: number;
+    if (estadoFisico === "LIQUIDO") {
+      if (!densidade || densidade <= 0) throw new HttpsError("failed-precondition", "Líquido exige densidade positiva.");
+      pesoVazio = dados.pesoTotal - (dados.conteudoNominal * densidade);
       if (pesoVazio <= 0) {
-        throw new HttpsError("invalid-argument", "Peso total incompatível com o conteúdo nominal para esta densidade.");
+        throw new HttpsError("invalid-argument", "Peso total incompatível com o volume nominal para esta densidade.");
+      }
+    } else {
+      pesoVazio = dados.pesoTotal - dados.conteudoNominal;
+      if (pesoVazio <= 0) {
+        throw new HttpsError("invalid-argument", "Peso total incompatível com a massa nominal informada.");
       }
     }
 
