@@ -96,3 +96,39 @@ export const registrarPesagemRotina = onCall(async (request) => {
 
 \paragraph{Confirmação de uploads (AUDITORIA-7, C011).}
 Antes de criar post ou cadastrar roteiro, executar \texttt{validarDocumentoStorage(url, uid, formatoEsperado)} para cada anexo e persistir somente a referência à geração validada. Esse auxiliar lê o cabeçalho binário no bucket autorizado e confere PDF/JPEG/PNG conforme seção 11. Para roteiro, o formato esperado é PDF; para anexos de post, apenas os formatos autorizados pelo formulário. A rejeição de qualquer anexo impede a criação do documento. Quando o post usa roteiro já cadastrado, conferir propriedade/compartilhamento e o PDF validado antes de criar o snapshot.
+
+\begin{lstlisting}[language=TypeScript, title={Download Seguro de Roteiro (C009)}]
+export const obterUrlDownloadRoteiro = onCall(async (request) => {
+  const { idTurma, idPost } = request.data;
+  const uid = request.auth!.uid;
+
+  // Valida que solicitante é aluno ativo ou professor da turma
+  await validarVinculoTurma(request, idTurma);
+
+  const postRef = admin.firestore().doc(`Turma/${idTurma}/Posts/${idPost}`);
+  const postSnap = await postRef.get();
+  if (!postSnap.exists) throw new HttpsError("not-found", "Post inexistente.");
+  
+  const roteiroAnexo = postSnap.data()!.roteiro_anexo;
+  if (!roteiroAnexo || !roteiroAnexo.storage_path) {
+    throw new HttpsError("not-found", "Anexo não encontrado.");
+  }
+
+  // Valida formato e emite URL assinada por 15 minutos
+  const bucket = admin.storage().bucket();
+  const file = bucket.file(roteiroAnexo.storage_path);
+  
+  const [metadata] = await file.getMetadata();
+  if (metadata.contentType !== "application/pdf") {
+    throw new HttpsError("failed-precondition", "Arquivo inválido (não é PDF).");
+  }
+
+  const [url] = await file.getSignedUrl({
+    version: 'v4',
+    action: 'read',
+    expires: Date.now() + 15 * 60 * 1000 // 15 minutos
+  });
+
+  return { downloadUrl: url };
+});
+\end{lstlisting}
