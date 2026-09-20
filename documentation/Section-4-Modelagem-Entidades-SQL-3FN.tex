@@ -370,6 +370,7 @@ O campo \textit{notificacao\_ativa} indica que a emissão automática do alerta 
 \campo{cadastrado\_em}{TIMESTAMP}{NOT NULL}
 \campo{cadastrado\_por}{INTEGER}{FK, NOT NULL}
 \campo{abertura\_historica\_desconhecida}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+\campo{saldo\_desconhecido}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
 \end{entidade}
 
 \begin{regra}[Constraint de Identidade Química do Frasco]
@@ -440,6 +441,7 @@ O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre 
 \campo{peso\_retorno}{NUMERIC(10,3)}{NULL}
 \campo{medida\_utilizada}{NUMERIC(10,3)}{NULL}
 \campo{unidade\_medida\_utilizada}{ENUM}{ml,g, NOT NULL}
+\campo{densidade\_aplicada}{NUMERIC(10,5)}{NULL}
 \campo{peso\_perda\_evaporacao}{NUMERIC(10,3)}{DEFAULT 0, NOT NULL}
 \campo{uso\_vencido\_aceito}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
 \campo{finalidade\_uso}{ENUM}{NOT NULL}
@@ -461,7 +463,7 @@ O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre 
 
 \textbf{Semântica dos atores da devolução:} \textit{id\_usuario\_devolveu} identifica o portador físico que entrega o frasco ao balcão, enquanto \textit{id\_gestor\_devolucao} identifica o Gestor de Almoxarifado que operou e registrou a devolução na balança.
 
-\textit{peso\_saida} e \textit{peso\_retorno} são sempre leituras de balança em gramas. \textit{unidade\_medida\_utilizada} qualifica exclusivamente \textit{medida\_utilizada} -- o consumo calculado, reportado em massa (g) para sólidos ou em volume (ml) para líquidos, via $V = \Delta m / \rho$.
+\textit{peso\_saida} e \textit{peso\_retorno} são sempre leituras de balança em gramas. \textit{unidade\_medida\_utilizada} qualifica exclusivamente \textit{medida\_utilizada} -- o consumo calculado, reportado em massa (g) para sólidos ou em volume (ml) para líquidos, via $V = \Delta m / \rho$. \textit{densidade\_aplicada} é o snapshot histórico da densidade da especificação no instante da retirada, imutável, obrigatório para líquidos e NULL para sólidos; participa da conversão de consumo e de evaporação sem depender da densidade corrente da especificação.
 
 O campo \textit{data\_devolucao\_prevista} em nível NoSQL físico armazena uma string civil no padrão YYYY-MM-DD (fuso America/Sao\_Paulo), e o vencimento legal encerra-se estritamente às 23:59:59.999 do referido dia civil.
 \end{explicacao}
