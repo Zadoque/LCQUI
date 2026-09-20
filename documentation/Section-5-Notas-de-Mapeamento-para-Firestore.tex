@@ -404,7 +404,7 @@ Caminho: \texttt{Historico\_Frasco\_Reagente/\{id\}}.
 \item[\texttt{id\_frasco\_reagente}] string; O. Identificador da entidade frasco reagente, cuja existência e escopo são verificados no servidor.
 \item[\texttt{id\_almoxarifado}] string; O. Identificador da entidade almoxarifado, cuja existência e escopo são verificados no servidor.
 \item[\texttt{id\_gestor}] string; O. Identificador da entidade gestor, cuja existência e escopo são verificados no servidor.
-\item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: CADASTRO, SAIU, ENTROU, AJUSTE, FICOU\_VAZIO, EXTRAVIO, REENCONTRO, EVAPORACAO, FOI\_DESCARTADO.
+\item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: CADASTRO, SAIU, ENTROU, AJUSTE, FICOU\_VAZIO, EXTRAVIO, REENCONTRO, EVAPORACAO, FOI\_DESCARTADO, VENCEU, INVENTARIO\_ROTINA.
 \item[\texttt{campo\_ajustado}] string; N. Nome permitido do atributo alterado no evento; não é caminho arbitrário para atualização de documento. Máximo 30 caracteres.
 \item[\texttt{id\_emprestimo\_reagente}] string; N. Identificador da entidade emprestimo reagente, cuja existência e escopo são verificados no servidor.
 \item[\texttt{peso\_anterior}] number; N. Peso bruto em g imediatamente antes do evento de ajuste/pesagem, quando aplicável.
@@ -673,14 +673,15 @@ Caminho: \texttt{Resumo\_Almoxarifado\_Diario/\{id\}}.
 \item[\texttt{qtd\_frascos\_fechados\_no\_fim\_do\_dia}] number; O. Contagem de frascos fechados no fim do dia, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_abertos\_no\_fim\_do\_dia}] number; O. Contagem de frascos abertos no fim do dia, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_emprestados\_no\_fim\_do\_dia}] number; O. Contagem de frascos emprestados no fim do dia, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_frascos\_saldo\_desconhecido}] number; O. Contagem de frascos com saldo desconhecido, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_cadastrados\_fechados\_durante\_o\_dia}] number; O. Contagem de frascos cadastrados fechados durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_cadastrados\_abertos\_durante\_o\_dia}] number; O. Contagem de frascos cadastrados abertos durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_emprestados\_durante\_o\_dia}] number; O. Contagem de frascos emprestados durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_devolvidos\_durante\_o\_dia}] number; O. Contagem de frascos devolvidos durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{volume\_total\_usado\_nos\_frascos\_devolvidos\_durante\_o\_dia}] number; O. Métrica de volume total usado nos frascos devolvidos durante o dia, não negativa e calculada a partir dos eventos/saldos do domínio.
-\item[\texttt{volume\_total\_disponivel\_ml}] number; O. Métrica de volume total disponivel ml, não negativa e calculada a partir dos eventos/saldos do domínio.
+\item[\texttt{volume\_total\_disponivel\_aferido\_ml}] number; O. Métrica de volume total disponivel aferido ml, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{volume\_utilizado\_no\_dia\_ml}] number; O. Métrica de volume utilizado no dia ml, não negativa e calculada a partir dos eventos/saldos do domínio.
-\item[\texttt{massa\_total\_disponivel\_g}] number; O. Métrica de massa total disponivel g, não negativa e calculada a partir dos eventos/saldos do domínio.
+\item[\texttt{massa\_total\_disponivel\_aferida\_g}] number; O. Métrica de massa total disponivel aferida g, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{massa\_utilizada\_no\_dia\_g}] number; O. Métrica de massa utilizada no dia g, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{created\_at}] Timestamp; O. Instante servidor da primeira criação da materialização.
 \item[\texttt{updated\_at}] Timestamp; O. Instante servidor da última atualização da materialização; informa atualidade do resultado.
@@ -696,13 +697,14 @@ Caminho: \texttt{Resumo\_Reagente\_Diario/\{id\}}.
 \item[\texttt{qtd\_frascos\_fechados\_disponiveis}] number; O. Contagem de frascos fechados disponiveis, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_abertos\_disponiveis}] number; O. Contagem de frascos abertos disponiveis, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_em\_uso}] number; O. Contagem de frascos em uso, inteira não negativa; não editável pelo cliente quando materializada.
+\item[\texttt{qtd\_frascos\_saldo\_desconhecido}] number; O. Contagem de frascos com saldo desconhecido, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_vazios}] number; O. Contagem de frascos vazios, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_descartados\_dia}] number; O. Contagem de frascos descartados dia, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_extraviados\_dia}] number; O. Contagem de frascos extraviados no dia, inteira não negativa; não editável pelo cliente quando materializada.
-\item[\texttt{volume\_total\_disponivel\_ml}] number; O. Métrica de volume total disponivel ml, não negativa e calculada a partir dos eventos/saldos do domínio.
+\item[\texttt{volume\_total\_disponivel\_aferido\_ml}] number; O. Métrica de volume total disponivel aferido ml, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{volume\_utilizado\_no\_dia\_ml}] number; O. Métrica de volume utilizado no dia ml, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{volume\_evaporado\_no\_dia\_ml}] number; O. Métrica de volume evaporado no dia ml, não negativa e calculada a partir dos eventos/saldos do domínio.
-\item[\texttt{massa\_total\_disponivel\_g}] number; O. Métrica de massa total disponivel g, não negativa e calculada a partir dos eventos/saldos do domínio.
+\item[\texttt{massa\_total\_disponivel\_aferida\_g}] number; O. Métrica de massa total disponivel aferida g, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{massa\_utilizada\_no\_dia\_g}] number; O. Métrica de massa utilizada no dia g, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{massa\_evaporada\_no\_dia\_g}] number; O. Métrica de massa evaporada no dia g, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{created\_at}] Timestamp; O. Instante servidor da primeira criação da materialização.
