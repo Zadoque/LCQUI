@@ -25,5 +25,6 @@
   "cadastrado_em": 123,
   "cadastrado_por": 1,
   "abertura_historica_desconhecida": false,
-  "saldo_desconhecido": false
+  "saldo_desconhecido": false,
+  "condicao_inicial_cadastro": "FECHADO"
 }

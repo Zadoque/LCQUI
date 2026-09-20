@@ -16,7 +16,7 @@
   "validade_efetiva": null,
   "validade_desconhecida": true,
   "validade_apos_aberto_dias": null,
-  "estado_fisico_frasco": "FECHADO",
+  "estado_fisico_frasco": "ABERTO",
   "disponibilidade": "DISPONIVEL",
   "vencido": false,
   "em_quarentena": false,
@@ -25,5 +25,6 @@
   "cadastrado_em": "2026-09-20 10:00:00",
   "cadastrado_por": 1,
   "abertura_historica_desconhecida": true,
-  "saldo_desconhecido": false
+  "saldo_desconhecido": false,
+  "condicao_inicial_cadastro": "JA_ABERTO"
 }

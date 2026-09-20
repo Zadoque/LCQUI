@@ -1,6 +1,7 @@
 package domain
 
 // Baseline M2: 9df335bc, Seção 4 (Frasco_Reagente) e Seção 5 (dicionário).
+// M2.1c: realinhado à documentação reconciliada M2.1b; 28 colunas.
 // DATE/TIMESTAMP são strings de intercâmbio/teste, não novos tipos SQL.
 // DATE: apenas formato YYYY-MM-DD; sem validação de calendário neste recorte.
 // TIMESTAMP: transporte textual sem impor formato/timezone não normatizado.
@@ -30,8 +31,9 @@ frascoCompletoCampos: [
 	#CampoFrasco & {nome: "detalhe_status", sql: "TEXT", nulo: true, observacao: "M2.1a: não nulo em quarentena. Mínimo 20 após trim pertence à entrada humana obrigatória, não ao campo persistido sem autoria."},
 	#CampoFrasco & {nome: "cadastrado_em", sql: "TIMESTAMP"},
 	#CampoFrasco & {nome: "cadastrado_por", sql: "INTEGER"},
-	#CampoFrasco & {nome: "abertura_historica_desconhecida", sql: "BOOLEAN", observacao: "Seção 5: true implica data_abertura null; não restringe ao estado atual ABERTO."},
-	#CampoFrasco & {nome: "saldo_desconhecido", sql: "BOOLEAN", observacao: "Sem inferir peso zero/null, estado atual ou regras de agregação."},
+	#CampoFrasco & {nome: "abertura_historica_desconhecida", sql: "BOOLEAN", observacao: "Seção 5: flag histórica; true implica data_abertura null e estado físico corrente != FECHADO; preservada em estados posteriores."},
+	#CampoFrasco & {nome: "saldo_desconhecido", sql: "BOOLEAN", observacao: "M2.1b: desconhecimento atual, não flag histórica; ciclo de vida é operacional, não invariante de linha."},
+	#CampoFrasco & {nome: "condicao_inicial_cadastro", sql: "ENUM", valores: ["FECHADO", "JA_ABERTO"], observacao: "M2.1b: dimensão histórica imutável, distinta de saldo_desconhecido; enum da Seção 4."},
 ]
 
 // Registro relacional completo, não payload de criação nem documento Firestore.
@@ -45,6 +47,9 @@ frascoCompletoCampos: [
 	if id_lote == null {id_especificacao_reagente!: !=null}
 	if id_lote != null {id_especificacao_reagente!: null}
 	if abertura_historica_desconhecida {data_abertura!: null}
+
+	// M2.1b, Seção 4: abertura histórica desconhecida => estado físico corrente != FECHADO.
+	if abertura_historica_desconhecida {estado_fisico_frasco!: !="FECHADO"}
 
 	// Seções 4/5, auditoria M2.1a: motivo associado à quarentena.
 	if em_quarentena {detalhe_status!: !=null}
