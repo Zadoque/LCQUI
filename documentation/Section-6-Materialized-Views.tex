@@ -21,6 +21,7 @@ Corrigido o typo \texttt{SERAIL} $\rightarrow$ \texttt{SERIAL}. \textit{id\_lote
 \campo{qtd\_frascos\_fechados\_no\_fim\_do\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_abertos\_no\_fim\_do\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_emprestados\_no\_fim\_do\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_frascos\_saldo\_desconhecido}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_cadastrados\_fechados\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_cadastrados\_abertos\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_emprestados\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
@@ -29,9 +30,9 @@ Corrigido o typo \texttt{SERAIL} $\rightarrow$ \texttt{SERIAL}. \textit{id\_lote
 % Não usar em novas queries. Utilizar volume\_utilizado\_no\_dia\_ml (líquidos)
 % e massa\_utilizada\_no\_dia\_g (sólidos). Descontinuar na próxima migração.
 \campo{volume\_total\_usado\_nos\_frascos\_devolvidos\_durante\_o\_dia}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL -- LEGADO N-07}
-\campo{volume\_total\_disponivel\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+\campo{volume\_total\_disponivel\_aferido\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{volume\_utilizado\_no\_dia\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
-\campo{massa\_total\_disponivel\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+\campo{massa\_total\_disponivel\_aferida\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{massa\_utilizada\_no\_dia\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{created\_at}{TIMESTAMP}{NOT NULL}
 \campo{updated\_at}{TIMESTAMP}{NOT NULL}
@@ -53,13 +54,14 @@ Para eliminar distorções métricas em sólidos com densidade desconhecida ou n
 \campo{qtd\_frascos\_fechados\_disponiveis}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_abertos\_disponiveis}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_em\_uso}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{qtd\_frascos\_saldo\_desconhecido}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_vazios}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_descartados\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_extraviados\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
-\campo{volume\_total\_disponivel\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+\campo{volume\_total\_disponivel\_aferido\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{volume\_utilizado\_no\_dia\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{volume\_evaporado\_no\_dia\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
-\campo{massa\_total\_disponivel\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+\campo{massa\_total\_disponivel\_aferida\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{massa\_utilizada\_no\_dia\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{massa\_evaporada\_no\_dia\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{created\_at}{TIMESTAMP}{NOT NULL}
