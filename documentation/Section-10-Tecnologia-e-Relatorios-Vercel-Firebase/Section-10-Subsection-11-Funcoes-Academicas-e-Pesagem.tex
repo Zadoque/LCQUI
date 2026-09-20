@@ -124,8 +124,8 @@ export const obterUrlDownloadRoteiro = onCall(async (request) => {
   }
 
   const [url] = await file.getSignedUrl({
-    version: 'v4',
-    action: 'read',
+    version: "v4",
+    action: "read",
     expires: Date.now() + 15 * 60 * 1000 // 15 minutos
   });
 
