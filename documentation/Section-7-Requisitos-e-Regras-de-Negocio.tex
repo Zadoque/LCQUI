@@ -141,7 +141,8 @@ A margem de tolerância é estritamente baseada no \textbf{peso bruto de saída}
     \item Reagente higroscópico: $\max(2\,g, 0{,}02 \times Peso_{saida})$
 \end{itemize}
 A avaliação de ganho máximo permitido segue estritamente a fórmula: $Peso_{retorno} > Peso_{saida} + Tolerancia$. 
-Um ganho de massa acima dessa tolerância bloqueia a devolução por anomalia (indicando possível contaminação ou erro de balança). Retorno abaixo da tara por até 5 g é aceito na própria devolução quando \texttt{confirmarEsgotamento = true}: consome todo o saldo restante, passa a VAZIO/INDISPONIVEL e registra FICOU\_VAZIO com ajuste metrológico. Diferença superior a 5 g ou ausência da confirmação bloqueia a devolução ordinária e exige \texttt{recalibrarTaraFrascoEsgotado}.
+Um ganho de massa acima dessa tolerância \textbf{não aborta a operação via rollback}. O sistema conclui a devolução em modalidade extraordinária: o empréstimo transiciona para \texttt{DEVOLVIDO\_COM\_ANOMALIA}, e o frasco transiciona compulsoriamente para \texttt{disponibilidade = INDISPONIVEL} e \texttt{em\_quarentena = true}, com \texttt{detalhe\_status} registrando suspeita de contaminação/adulteração. É terminantemente proibido registrar evento de higroscopia (\texttt{ganho\_massa\_higroscopia}) para frascos não-higroscópicos ou com ganhos fora da tolerância legal.
+Retorno abaixo da tara em até 5 g é aceito na própria devolução quando \texttt{confirmarEsgotamento = true}: consome todo o saldo restante, passa a VAZIO/INDISPONIVEL e registra FICOU\_VAZIO com ajuste metrológico. O esgotamento homologa a tara real do recipiente: o sistema \textbf{atualiza} \texttt{peso\_frasco\_vazio} e \texttt{peso\_atual} com o peso aferido na devolução, eliminando o resíduo metrológico. Diferença superior a 5 g ou ausência da confirmação bloqueia a devolução ordinária e exige recalibração formal, salvo quando acompanhada de \texttt{recalibrarTaraParcial = true} com \texttt{novoPesoVazioEstimado} e \texttt{motivoRecalibracao} --- caso em que o frasco permanece ABERTO, a nova tara estimada é persistida e o evento é auditado.
 \end{regra}
 
 \subsubsection{Exclusividade na retirada de reagentes}
@@ -183,6 +184,7 @@ Apenas o chefe geral consegue colocar um aluno como bolsista.
     \item Em cadastro, quando a validade efetiva já tiver expirado no instante da operação, o gestor é obrigado a escolher um desses três destinos: \texttt{QUARENTENA}, \texttt{PENDENTE\_DE\_DESCARTE} ou \texttt{DISPONIVEL} com uso vencido explicitamente autorizado conforme Q04.
     \item O frasco em quarentena não pode ser retirado; o frasco pendente de descarte não pode ser retirado; o frasco vencido com uso explicitamente autorizado pode ser retirado, mas a interface deve alertar transparentemente antes da confirmação do empréstimo.
     \item Se um frasco vencer enquanto estiver emprestado, o empréstimo continua válido. Na devolução, o servidor deve recalcular o vencimento com a hora atual e permitir ao gestor registrar o destino pós-validade.
+    \item A ação de descarte institucional (\texttt{descartarFrasco}) é permitida para: (1) frascos com estado físico \texttt{VAZIO}, (2) frascos \texttt{QUEBRADO}, e (3) frascos com \texttt{vencido = true} e \texttt{uso\_vencido\_autorizado = false} (situação de \textit{PENDENTE\_DE\_DESCARTE}), mesmo que ainda possuam conteúdo químico remanescente nos estados \texttt{ABERTO} ou \texttt{FECHADO}, formalizando a baixa do passivo químico perigoso. O sistema impõe que o frasco não esteja \texttt{disponibilidade = EMPRESTADO} no momento do descarte.
 \end{itemize}
 \end{regra}
 
@@ -235,7 +237,7 @@ Especificação & MISTURA & pelo menos uma composição válida.\\
 Frasco & QUARENTENA & detalhe do status obrigatório.\\
 Frasco & validade conhecida & validade\_fechado e validade\_efetiva devem ser consistentes; se já expirada, exige decisão de destino.\\
 Frasco & validade expirada & exige destino QUARENTENA, PENDENTE\_DE\_DESCARTE ou DISPONIVEL com uso\_vencido\_autorizado.\\
-Frasco & FECHADO & capacidade nominal e peso total; peso vazio calculado.\\
+Frasco & FECHADO & conteudo\_nominal obrigat\'orio ($> 0$), peso\_total obrigat\'orio ($> 0$); c\'alculo compuls\'orio de peso\_frasco\_vazio na inser\c{c}\~ao (tara nula rejeitada).\\
 Frasco & abertura & data\_abertura e validade\_efetiva calculadas no servidor; aplicar mínimo entre validade fechada e prazo após abertura quando ambos existirem.\\
 Frasco & ABERTO & peso total e dados de estimativa conforme modalidade escolhida.\\
 Patrimônio & sempre & id\_resumo, numero\_patrimonio, estado\_conservacao, id\_local, photo\_url, nome\_responsavel\_sei e status.\\
