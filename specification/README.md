@@ -1,7 +1,7 @@
 # Especificação formal LCQUI
 
 Camada aditiva à UI `frontend/`, backend `functions/` e Firestore. O baseline 3B
-é `db29ea2f17dc785fb0b44ffb3aec16db29c45e94`, evidência `9d97ed30`.
+é `10c86c001e35efc0c5338e581a89819a0ff59646`, evidência `9d97ed30`.
 Comece por [estado de continuidade](../FORMAL_SPEC_STATE.md).
 
 M0 cobre somente três dimensões de Frasco_Reagente, filtro físico de retirada e
