@@ -59,7 +59,7 @@ Validação textual/diff:
 - Três chamadas detalheStatus presentes; nenhum antigo && !dados.detalheStatus.
 - Linhas de payload/hash/canonicalização e identidade comparadas ao HEAD de
   entrada: idênticas. Novas validações de motivo executam após replay idempotente.
-- Ambientes begin/end balanceados nos seis .tex. Não equivale a compilação PDF.
+- Verificação inicial de ambientes interrompida: faltava end{lstlisting} antes de Registrar Retirada, já no HEAD de entrada (5 aberturas/4 fechamentos). Delimitador reparado nesta auditoria; verificação final balanceada nos seis .tex. Não equivale a compilação PDF.
 - Busca repetida para motivos/quarentena e lote/especificação em documentation
   e specification; históricos/archive/generated não reescritos como normas novas.
 - Textos automáticos de devolução continuam presentes; entrada em quarentena
@@ -69,3 +69,9 @@ Validação textual/diff:
 Próxima ação deste checkpoint: commit/push documental; depois apenas CUE
 em_quarentena=true implica detalhe_status!=null e duas fixtures. Não impor
 mínimo global no registro sem informação de autoria.
+
+Correção de evidência pós-checkpoint 4e0e60e5: o primeiro comparador de linhas
+incluiu prosa nova e falhou; restringido aos listings, confirmou código de
+payload/hash/identidade idêntico. A checagem subsequente encontrou o delimitador
+preexistente acima; o registro inicial de PASS de ambientes era prematuro e foi
+corrigido antes da etapa CUE. Correção documental adicional, sem regra de domínio.
