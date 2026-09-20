@@ -30,7 +30,12 @@ impl Validation {
             ("INV-FRASCO-001", "BloqueioFisico", "check", "UNSAT"),
             ("INV-EMPRESTIMO-001", "Unicidade", "check", "UNSAT"),
             ("WIT-RETIRADA-001", "Testemunha", "run", "SAT"),
-            ("WIT-DISPONIBILIDADE-001", "DisponivelNaoApto", "run", "SAT"),
+            (
+                "WIT-DISPONIBILIDADE-001",
+                "IndisponivelNaoApto",
+                "run",
+                "SAT",
+            ),
         ];
         self.versao == 1
             && self.alloy == "6.2.0"
