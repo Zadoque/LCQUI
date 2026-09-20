@@ -1,9 +1,11 @@
 \subsubsection{Fluxo de Reagentes: Cadastro, Retirada e Devolução}
 
-\paragraph{Contratos humanos auditados (M2.1a).}
-O lote é opcional nos dois cadastros: \texttt{idLote} ausente persiste como NULL; a especificação permanece obrigatória. O lote informado é consultado e deve corresponder à especificação. A ausência de lote não implica quarentena.
+\paragraph{Contratos humanos reconciliados (M2.1b).}
+O lote é opcional nos dois cadastros: \texttt{idLote} ausente persiste como NULL; a especificação permanece obrigatória. O lote informado é consultado e deve corresponder à especificação. A ausência de lote não implica quarentena, indisponibilidade nem cadastro inválido.
 
-A justificativa humana obrigatória deve satisfazer \texttt{trim(texto).length >= 20}. Nos exemplos TypeScript, \texttt{length} é a contagem técnica da string JavaScript após \texttt{trim}; não há avaliação semântica do texto. A validação não modifica o payload original, a canonicalização nem o hash de idempotência. O texto validado pode ser materializado em \texttt{detalhe\_status} ou no histórico, conforme o fluxo já definido. Mensagens automáticas não passam por validação de entrada humana. Descarte, pesagem de rotina e necessidade de justificativa adicional na devolução estão sob esclarecimento de escopo; não recebem novas exigências por inferência. O mínimo geral não cria máximo; limites específicos preexistentes, como Q04, permanecem.
+Todo frasco registra, de forma histórica e imutável, \texttt{condicao\_inicial\_cadastro}: \texttt{FECHADO} quando o recipiente entrou fisicamente fechado e \texttt{JA\_ABERTO} quando já estava aberto ao passar ao controle do LCQUI. Essa dimensão é distinta de \texttt{saldo\_desconhecido}, que é uma propriedade metrológica atual. O cadastro de frasco já aberto não fabrica tara nem saldo inicial: inicia com \texttt{peso\_frasco\_vazio = NULL} e \texttt{saldo\_desconhecido = true}, recebendo apenas o peso total medido e, quando conhecido ou legível, o \texttt{conteudo\_nominal} original do fabricante (NULL quando desconhecido, nunca $0$). A tara real é exclusivamente o peso do recipiente efetivamente vazio medido na balança; não existe recalibração parcial de tara a partir de estimativa com produto restante.
+
+A justificativa humana obrigatória deve satisfazer \texttt{trim(texto).length >= 20}. A regra vale somente para os contratos humanos enumerados: entrada manual em quarentena; saída/liberação de quarentena; decisão de quarentena no cadastro vencido; decisão de quarentena na primeira abertura; extravio; reencontro; descarte institucional; recalibração de tara real; autoatendimento; justificativa metodológica Q04/Q14 (preservando seu máximo específico preexistente); e correção administrativa de ação do gestor. Não é regra genérica para toda string \texttt{motivo}, \texttt{detalhe} ou \texttt{observacao}, e não impõe mínimo global ao \texttt{detalhe\_status} persistido. Nos exemplos TypeScript, \texttt{length} é a contagem técnica da string JavaScript após \texttt{trim}; não há avaliação semântica do texto. A validação não modifica o payload original, a canonicalização nem o hash de idempotência. Mensagens automáticas não passam por validação de entrada humana. Pesagem de rotina permanece sob esclarecimento de escopo; não recebe nova exigência por inferência. O mínimo geral não cria máximo; limites específicos preexistentes, como Q04, permanecem.
 
 \begin{lstlisting}[language=TypeScript, title={Validação de justificativa humana obrigatória}]
 function validarJustificativaHumana(texto: unknown): void {
@@ -122,8 +124,11 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
       conteudo_nominal: dados.conteudoNominal ?? null,
       peso_no_cadastrado: dados.pesoTotal,
       peso_atual: dados.pesoTotal,
+      // Tara inicial apenas derivada (peso total - conteúdo nominal) enquanto há produto;
+      // não é medição física definitiva. Vira tara real quando o recipiente for pesado vazio.
       peso_frasco_vazio: pesoVazio,
       medida_usada: 0,
+      condicao_inicial_cadastro: "FECHADO", // dimensão histórica imutável
       estado_fisico_frasco: "FECHADO",
       disponibilidade: "DISPONIVEL",
       validade_fechado: validadeFechadoStr,
@@ -172,20 +177,17 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
 });
 \end{lstlisting}
 
-\begin{lstlisting}[language=TypeScript, title={cadastrarFrascoAberto com bifurcação SÓLIDO/LÍQUIDO (C5)}]
-// C5: modalidade para SÓLIDO usa ESTIMA_MASSA (não ESTIMA_VOLUME)
+\begin{lstlisting}[language=TypeScript, title={cadastrarFrascoAberto sem fabricar tara nem saldo inicial (M2.1b)}]
+// M2.1b: cadastro de frasco já aberto registra apenas dados reais disponíveis.
+// Não existem modalidades de tara informada nem de estimativa de volume ou massa.
 interface CadastroFrascoAberto {
   idOperacao: string;
   idResumoReagente: string;
   idEspecificacaoReagente: string;
   idAlmoxarifado: string;
   idLote?: string;
-  modalidade: "CONHECE_TARA" | "ESTIMA_VOLUME" | "ESTIMA_MASSA" | "SALDO_DESCONHECIDO";
-  pesoTotalBalanca: number;
-  conteudoNominal?: number;
-  pesoFrascoVazioInformado?: number;
-  volumeAtualEstimado?: number;
-  massaAtualEstimada?: number;
+  pesoTotalBalanca: number; // peso total atual medido na balança
+  conteudoNominal?: number; // rótulo original do fabricante; NULL se desconhecido/ilegível (nunca 0)
   dataAbertura?: string;
   aberturaHistoricaDesconhecida: boolean;
   validadeAberto?: string;
@@ -233,10 +235,7 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
     const [resumoSnap, especSnap] = await Promise.all([tx.get(resumoRef), tx.get(especRef)]);
     if (!especSnap.exists) throw new HttpsError("not-found", "Especificação não encontrada.");
     
-    const especData = especSnap.data()!;
     const resumo = resumoSnap.data()!;
-    const estadoFisico: "SOLIDO" | "LIQUIDO" = resumo.estado_fisico;
-    const densidade: number | null = especData.densidade ?? null;
 
     if (dados.idLote) {
       const loteSnap = await tx.get(admin.firestore().collection("Lote").doc(dados.idLote));
@@ -251,35 +250,18 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
         throw new HttpsError("failed-precondition", `Limite de frascos do lote atingido (${qtdComprados} comprados).`);
     }
 
-    // C5 + MET-10: bifurcação explícita por estado físico, com modalidade SALDO_DESCONHECIDO
-    let pesoVazio: number | null = null;
-    let saldoDesconhecido = false;
-    const conteudoNominal = dados.conteudoNominal ?? null;
-
-    if (dados.modalidade === "SALDO_DESCONHECIDO") {
-      // Saldo não quantificado: não inferir tara nem inventar quantidade atual.
-      saldoDesconhecido = true;
-      pesoVazio = null;
-    } else if (estadoFisico === "SOLIDO") {
-      if (dados.modalidade === "CONHECE_TARA") {
-        if (dados.pesoFrascoVazioInformado == null) throw new HttpsError("invalid-argument", "CONHECE_TARA exige pesoFrascoVazioInformado.");
-        pesoVazio = dados.pesoFrascoVazioInformado;
-      } else {
-        if (dados.massaAtualEstimada == null) throw new HttpsError("invalid-argument", "ESTIMA_MASSA exige massaAtualEstimada.");
-        pesoVazio = dados.pesoTotalBalanca - dados.massaAtualEstimada;
-      }
-      if (pesoVazio <= 0) throw new HttpsError("invalid-argument", "Massa atual incompatível ou maior que o peso medido.");
-    } else {
-      if (!densidade || densidade <= 0) throw new HttpsError("failed-precondition", "Líquido exige densidade positiva.");
-      if (dados.modalidade === "CONHECE_TARA") {
-        if (dados.pesoFrascoVazioInformado == null) throw new HttpsError("invalid-argument", "CONHECE_TARA exige pesoFrascoVazioInformado.");
-        pesoVazio = dados.pesoFrascoVazioInformado;
-      } else {
-        if (dados.volumeAtualEstimado == null) throw new HttpsError("invalid-argument", "ESTIMA_VOLUME exige volumeAtualEstimado.");
-        pesoVazio = dados.pesoTotalBalanca - (dados.volumeAtualEstimado * densidade);
-      }
-      if (pesoVazio <= 0) throw new HttpsError("invalid-argument", "Dados inconsistentes com a densidade.");
-    }
+    // M2.1b: o frasco cadastrado já aberto não fabrica tara nem saldo inicial.
+    // Não se converte estimativa visual ou informação não aferida em verdade física.
+    // A tara real somente nasce do esgotamento medido (peso do recipiente vazio).
+    const conteudoNominal = dados.conteudoNominal ?? null; // NULL significa desconhecido; nunca 0
+    const pesoVazio: number | null = null;
+    const saldoDesconhecido = true;
+    // Validade efetiva quando a abertura histórica é desconhecida: não é possível
+    // calcular data_abertura + validade_apos_aberto_dias, então a validade exata fica desconhecida.
+    // Isso não implica vencido=false: outra informação (ex.: validade_fechado já expirada)
+    // pode provar vencimento mesmo sem a data exata.
+    const validadeDesconhecida =
+      Boolean(dados.validadeDesconhecida) || Boolean(dados.aberturaHistoricaDesconhecida);
 
     const { novoCodigo } = await obterProximoCodigoFrascoTx(tx);
     const frascoRef = admin.firestore().collection("Frasco_Reagente").doc();
@@ -294,15 +276,16 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
       conteudo_nominal: conteudoNominal,
       peso_no_cadastrado: dados.pesoTotalBalanca,
       peso_atual: dados.pesoTotalBalanca,
-      peso_frasco_vazio: pesoVazio,
+      peso_frasco_vazio: pesoVazio, // NULL: tara do recipiente ainda não conhecida
       medida_usada: 0,
+      condicao_inicial_cadastro: "JA_ABERTO", // dimensão histórica imutável
       data_abertura: dados.aberturaHistoricaDesconhecida ? null : dados.dataAbertura,
       abertura_historica_desconhecida: dados.aberturaHistoricaDesconhecida,
       saldo_desconhecido: saldoDesconhecido,
       estado_fisico_frasco: "ABERTO",
       disponibilidade: "DISPONIVEL",
-      validade_efetiva: validadeAbertoStr,
-      validade_desconhecida: dados.validadeDesconhecida ?? false,
+      validade_efetiva: validadeDesconhecida ? null : validadeAbertoStr,
+      validade_desconhecida: validadeDesconhecida,
       vencido: jaVencido,
       em_quarentena: jaVencido && dados.decisaoSeJaVencido === "QUARENTENA",
       uso_vencido_autorizado: jaVencido && dados.decisaoSeJaVencido === "DISPONIVEL",
@@ -578,10 +561,9 @@ interface DevolucaoFrasco {
   idEmprestimo: string;
   pesoRetorno: number;
   pesoPerdaEvaporacao?: number;
+  // "O frasco ficou vazio nesta devolução?" - autoridade do gestor, válida para
+  // frascos originalmente FECHADOS e para frascos cadastrados JA_ABERTO.
   confirmarEsgotamento?: boolean;
-  motivoRecalibracao?: string;
-  recalibrarTaraParcial?: boolean;       // MET-04: flag para tara danificada com remanescente
-  novoPesoVazioEstimado?: number;        // MET-04: nova tara estimada quando recalibrarTaraParcial = true
   idUsuarioDevolveu: string; // Portador físico que entrega o frasco ao almoxarifado
   destinoPosDevolucao?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
 }
@@ -631,26 +613,16 @@ export const registrarDevolucao = onCall(async (request) => {
     if (!Number.isFinite(dados.pesoRetorno) || dados.pesoRetorno <= 0) {
       throw new HttpsError("invalid-argument", "Peso de retorno inválido.");
     }
-    // PDF-025 / N-10: Verificação de tara na devolução (Q06)
-    const diferencaTara = frasco.peso_frasco_vazio == null
-      ? 0 : frasco.peso_frasco_vazio - dados.pesoRetorno;
-    const esgotado = (diferencaTara > 0 && diferencaTara <= 5 && dados.confirmarEsgotamento === true) || 
-                     (diferencaTara > 5 && dados.confirmarEsgotamento === true && dados.motivoRecalibracao != null);
-    // MET-04: Recalibração parcial para frasco com tara danificada que ainda contém reagente
-    const recalibracaoParcial = diferencaTara > 0 && !esgotado &&
-                                dados.recalibrarTaraParcial === true &&
-                                dados.motivoRecalibracao != null &&
-                                dados.novoPesoVazioEstimado != null;
-    if ((esgotado && diferencaTara > 5) || recalibracaoParcial) {
-      validarJustificativaHumana(dados.motivoRecalibracao);
+    // M2.1b / Q06: o esgotamento é decisão explícita do gestor, não consequência
+    // automática da comparação com a tara. A tolerância de pesagem permanece
+    // apenas como sinal de anomalia/justificativa, nunca como autoridade de vazio.
+    const ficouVazio = dados.confirmarEsgotamento === true;
+    const pesoVazioReferencia = frasco.peso_frasco_vazio; // NULL para frasco cadastrado JA_ABERTO
+    // Evita consumo negativo: retorno abaixo da tara exige confirmação explícita de vazio.
+    if (!ficouVazio && pesoVazioReferencia != null && dados.pesoRetorno < pesoVazioReferencia) {
+      throw new HttpsError("failed-precondition", "Retorno abaixo da tara exige a confirmação explícita de que o frasco ficou vazio.");
     }
-    if (diferencaTara > 0 && !esgotado && !recalibracaoParcial) {
-      throw new HttpsError("failed-precondition", "Retorno abaixo da tara exige confirmação de esgotamento ou parâmetros de recalibração parcial de recipiente.");
-    }
-    if (esgotado) pesoConsumido = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno);
-    else if (recalibracaoParcial) {
-      pesoConsumido = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno - perdaEvaporacao);
-    }
+    if (ficouVazio) pesoConsumido = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno);
     // PDF-025: Ganho acima da tolerância bloqueia por anomalia.
     let reterPorAnomalia = false;
     if (dados.pesoRetorno > limiteMaxRetorno) {
@@ -676,19 +648,17 @@ export const registrarDevolucao = onCall(async (request) => {
     const frascoVencido = Boolean(frasco.vencido || venceuAgora);
 
     const atualizacaoFrasco: Record<string, unknown> = {
-      disponibilidade: esgotado || reterPorAnomalia ? "INDISPONIVEL" : "DISPONIVEL",
-      ...(esgotado && {
+      disponibilidade: ficouVazio || reterPorAnomalia ? "INDISPONIVEL" : "DISPONIVEL",
+      ...(ficouVazio && {
         estado_fisico_frasco: "VAZIO",
-        peso_frasco_vazio: dados.pesoRetorno, // MET-01: Homologa a tara real na devolução
+        peso_frasco_vazio: dados.pesoRetorno, // tara real: recipiente efetivamente vazio medido na balança
+        saldo_desconhecido: false,            // saldo passa a ser 0 g / 0 mL conhecido
         peso_atual: dados.pesoRetorno
       }),
-      ...(!esgotado && {
-        peso_atual: dados.pesoRetorno,
-        ...(recalibracaoParcial && { peso_frasco_vazio: dados.novoPesoVazioEstimado }) // MET-04: Persiste nova tara estimada
-      }),
+      ...(!ficouVazio && { peso_atual: dados.pesoRetorno }),
       data_ultima_pesagem: admin.firestore.FieldValue.serverTimestamp(),
       medida_usada: admin.firestore.FieldValue.increment(pesoConsumido), // sempre g
-      vencido: frascoVencido,
+      vencido: frascoVencido, // derivado das regras reais de validade; nunca forçado para bloquear
     };
 
     if (reterPorAnomalia) {
@@ -742,19 +712,9 @@ export const registrarDevolucao = onCall(async (request) => {
     });
     tx.update(frascoRef, atualizacaoFrasco);
 
-    // MET-04: Histórico de recalibração parcial de tara
-    if (recalibracaoParcial) {
-      tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
-        id_frasco_reagente: frascoRef.id,
-        id_almoxarifado: frasco.id_almoxarifado,
-        id_gestor: request.auth!.uid,
-        id_emprestimo_reagente: emprestimoRef.id,
-        tipo: "AJUSTE", campo_ajustado: "recalibracao_tara_parcial",
-        peso_anterior: frasco.peso_frasco_vazio, peso_novo: dados.novoPesoVazioEstimado,
-        motivo: dados.motivoRecalibracao,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    }
+    // M2.1b: não existe recalibração parcial de tara a partir de estimativa com
+    // produto restante. A única recalibração válida é a tara real medida com o
+    // recipiente efetivamente vazio, registrada em recalibrarTaraFrascoEsgotado.
 
     // MET-02: Retenção por anomalia registra compulsoriamente a entrada em quarentena
     if (reterPorAnomalia) {
@@ -784,13 +744,13 @@ export const registrarDevolucao = onCall(async (request) => {
       });
     }
 
-    if (esgotado) {
+    if (ficouVazio) {
       tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
         id_frasco_reagente: frascoRef.id, id_almoxarifado: frasco.id_almoxarifado,
         id_gestor: request.auth!.uid, id_emprestimo_reagente: emprestimoRef.id,
-        tipo: "FICOU_VAZIO", campo_ajustado: "esgotamento_abaixo_tara",
-        peso_medido: dados.pesoRetorno, tara_aplicada: frasco.peso_frasco_vazio,
-        medida_ajustada: diferencaTara, unidade_medida_ajustada: "g",
+        tipo: "FICOU_VAZIO", campo_ajustado: "tara_real_homologada",
+        peso_medido: dados.pesoRetorno, tara_aplicada: dados.pesoRetorno,
+        peso_anterior: frasco.peso_frasco_vazio,
         confirmado_esgotamento: true, timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
     }
@@ -923,7 +883,7 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
       if (!dados.estadoConstatadoAoReencontrar)
         throw new HttpsError("invalid-argument", "Estado constatado é obrigatório.");
 
-      // MET-06: Reencontro impõe INDISPONIVEL e recalcula validade pós-abertura se era FECHADO
+      // M2.1b: reencontro impõe quarentena e INDISPONIVEL e não fabrica data de abertura.
       const agora = new Date();
       const { DateTime } = require("luxon");
 
@@ -932,14 +892,14 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
           ? frasco.validade_efetiva.toDate()
           : DateTime.fromISO(frasco.validade_efetiva, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate())
         : null;
-      let dataAberturaCalculada = frasco.data_abertura ?? null;
 
-      // MET-04: só era FECHADO se nunca houve abertura. Data ausente com
-      // abertura_historica_desconhecida=true não autoriza fabricar a data (Q05).
+      // Só era FECHADO se nunca houve abertura conhecida. Se for encontrado ABERTO
+      // e a data da primeira abertura for indeterminável, a flag histórica é marcada
+      // e a validade efetiva exata passa a ser desconhecida (D9/D9b). Não inventar data.
       const eraFechadoAntes = frasco.data_abertura == null && frasco.abertura_historica_desconhecida !== true;
-      if (dados.estadoConstatadoAoReencontrar === "ABERTO" && eraFechadoAntes) {
-        validadeCalculada = calcularValidadeEfetivaNaAbertura(frasco, agora);
-        dataAberturaCalculada = DateTime.fromJSDate(agora, { zone: "America/Sao_Paulo" }).toISODate();
+      const encontradoAbertoSemData = dados.estadoConstatadoAoReencontrar === "ABERTO" && eraFechadoAntes;
+      if (encontradoAbertoSemData) {
+        validadeCalculada = null; // validade efetiva indeterminável sem a data de abertura
       }
 
       const venceuAgora = Boolean(validadeCalculada && validadeCalculada <= agora);
@@ -947,12 +907,17 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
 
       tx.update(frascoRef, {
         estado_fisico_frasco: dados.estadoConstatadoAoReencontrar,
-        disponibilidade: "INDISPONIVEL", // MET-06: Quarentena impõe compulsoriamente INDISPONIVEL
+        disponibilidade: "INDISPONIVEL", // quarentena impõe compulsoriamente INDISPONIVEL
         em_quarentena: true,
-        data_abertura: dataAberturaCalculada,
+        ...(encontradoAbertoSemData && {
+          abertura_historica_desconhecida: true,
+          data_abertura: null,
+          validade_desconhecida: true,
+        }),
         validade_efetiva: validadeCalculada ? DateTime.fromJSDate(validadeCalculada, { zone: "America/Sao_Paulo" }).toISODate() : null,
-        vencido: frascoVencido,
+        vencido: frascoVencido, // derivado das regras reais de validade; nunca forçado pelo reencontro
         detalhe_status: `Reencontrado em quarentena: ${dados.motivo}`,
+        // saldo_desconhecido permanece como estava, salvo medição/evento válido posterior
       });
 
       tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
@@ -1017,7 +982,17 @@ export const recalibrarTaraFrascoEsgotado = onCall(async (request) => {
     const frasco = frascoSnap.data()!;
     await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, frasco.id_almoxarifado);
 
-    tx.update(frascoRef, { peso_frasco_vazio: dados.peso_vazio_real });
+    // M2.1b/D4: tara real = peso do recipiente efetivamente vazio medido na balança.
+    // Não se recalibra tara com produto restante nem por estimativa.
+    if (frasco.estado_fisico_frasco !== "VAZIO" && frasco.estado_fisico_frasco !== "DESCARTADO") {
+      throw new HttpsError("failed-precondition", "A tara real só pode ser homologada com o recipiente efetivamente vazio e pesado.");
+    }
+
+    tx.update(frascoRef, {
+      peso_frasco_vazio: dados.peso_vazio_real,
+      peso_atual: dados.peso_vazio_real,
+      saldo_desconhecido: false,
+    });
 
     tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
       id_frasco_reagente: dados.id_frasco,
@@ -1119,6 +1094,242 @@ export const descartarFrasco = onCall(async (request) => {
       atualizado_em: admin.firestore.FieldValue.serverTimestamp()
     });
 
+    return resultado;
+  });
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Quarentena manual: entrada transacional com proteção TOCTOU}]
+interface ColocarEmQuarentena {
+  idFrasco: string;
+  idOperacao: string;
+  motivo: string; // justificativa humana obrigatória: trim >= 20
+}
+
+export const colocarFrascoEmQuarentena = onCall(async (request) => {
+  const dados = request.data as ColocarEmQuarentena;
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
+  if (!dados.idOperacao) throw new HttpsError("invalid-argument", "idOperacao é obrigatório.");
+
+  const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
+  const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.idOperacao);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const crypto = require("crypto");
+    const payloadStr = JSON.stringify({ idFrasco: dados.idFrasco, motivo: dados.motivo });
+    const payloadHash = crypto.createHash("sha256").update(payloadStr).digest("hex");
+
+    // Idempotência
+    const opSnap = await tx.get(operacaoRef);
+    if (opSnap.exists) {
+      const op = opSnap.data()!;
+      if (op.uid === request.auth!.uid && op.payload_hash === payloadHash) return op.resultado;
+      throw new HttpsError("already-exists", "idOperacao duplicada ou ator divergente.");
+    }
+
+    validarJustificativaHumana(dados.motivo);
+
+    // Leitura do estado atual DENTRO da transação (TOCTOU)
+    const frascoSnap = await tx.get(frascoRef);
+    if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
+    const frasco = frascoSnap.data()!;
+    // Escopo do almoxarifado relido dentro da transação
+    await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, frasco.id_almoxarifado);
+
+    if (frasco.em_quarentena === true)
+      throw new HttpsError("failed-precondition", "Frasco já está em quarentena.");
+    if (frasco.disponibilidade === "EMPRESTADO")
+      throw new HttpsError("failed-precondition", "Frasco com empréstimo ativo exige devolução ou encerramento extraordinário antes da quarentena.");
+
+    tx.update(frascoRef, {
+      em_quarentena: true,
+      disponibilidade: "INDISPONIVEL",
+      detalhe_status: dados.motivo,
+      // Preserva vencido, estado_fisico_frasco, saldo_desconhecido e validade.
+    });
+
+    tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+      id_frasco_reagente: dados.idFrasco,
+      id_almoxarifado: frasco.id_almoxarifado,
+      id_gestor: request.auth!.uid,
+      tipo: "ENTROU_EM_QUARENTENA",
+      motivo: dados.motivo,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    const resultado = { status: "OK" };
+    tx.set(operacaoRef, {
+      tipo_operacao: "COLOCAR_EM_QUARENTENA",
+      uid: request.auth!.uid,
+      payload_hash: payloadHash,
+      resultado,
+      status: "CONCLUIDA",
+      criado_em: admin.firestore.FieldValue.serverTimestamp(),
+      atualizado_em: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return resultado;
+  });
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Saída de quarentena: decisão única, transacional, sem revalidar validade}]
+interface ResolverQuarentena {
+  idFrasco: string;
+  idOperacao: string;
+  decisao: "VOLTAR_A_DISPONIVEL" | "PENDENTE_DE_DESCARTE";
+  motivo: string; // justificativa/laudo humano obrigatório: trim >= 20
+}
+
+export const resolverQuarentenaFrasco = onCall(async (request) => {
+  const dados = request.data as ResolverQuarentena;
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
+  if (!dados.idOperacao) throw new HttpsError("invalid-argument", "idOperacao é obrigatório.");
+
+  const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
+  const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.idOperacao);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const crypto = require("crypto");
+    const payloadStr = JSON.stringify({ idFrasco: dados.idFrasco, decisao: dados.decisao, motivo: dados.motivo });
+    const payloadHash = crypto.createHash("sha256").update(payloadStr).digest("hex");
+
+    const opSnap = await tx.get(operacaoRef);
+    if (opSnap.exists) {
+      const op = opSnap.data()!;
+      if (op.uid === request.auth!.uid && op.payload_hash === payloadHash) return op.resultado;
+      throw new HttpsError("already-exists", "idOperacao duplicada ou ator divergente.");
+    }
+
+    validarJustificativaHumana(dados.motivo);
+
+    const frascoSnap = await tx.get(frascoRef);
+    if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
+    const frasco = frascoSnap.data()!;
+    await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, frasco.id_almoxarifado);
+
+    // TOCTOU: a decisão concorrente encontra a pré-condição já consumida e é rejeitada.
+    if (frasco.em_quarentena !== true)
+      throw new HttpsError("failed-precondition", "Frasco não está mais em quarentena.");
+
+    const voltarDisponivel = dados.decisao === "VOLTAR_A_DISPONIVEL";
+    // Demais regras independentes continuam aplicáveis: frasco vencido sem uso
+    // autorizado não volta a DISPONIVEL por esta decisão.
+    if (voltarDisponivel && frasco.vencido === true && frasco.uso_vencido_autorizado !== true) {
+      throw new HttpsError("failed-precondition", "Frasco vencido sem uso autorizado não pode voltar a DISPONIVEL; escolha pendência de descarte ou trate a validade pelas regras próprias.");
+    }
+    tx.update(frascoRef, {
+      em_quarentena: false,
+      disponibilidade: voltarDisponivel ? "DISPONIVEL" : "INDISPONIVEL",
+      detalhe_status: voltarDisponivel
+        ? null
+        : "Quarentena encerrada: frasco pendente de descarte institucional.",
+      // vencido, estado_fisico_frasco, saldo_desconhecido e validade não são alterados.
+      // Não existe revalidação de validade: sair da quarentena não renova vencimento.
+    });
+
+    tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+      id_frasco_reagente: dados.idFrasco,
+      id_almoxarifado: frasco.id_almoxarifado,
+      id_gestor: request.auth!.uid,
+      tipo: "SAIU_DA_QUARENTENA",
+      decisao_quarentena: dados.decisao,
+      motivo: dados.motivo,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    const resultado = { status: "OK", decisao: dados.decisao };
+    tx.set(operacaoRef, {
+      tipo_operacao: "RESOLVER_QUARENTENA",
+      uid: request.auth!.uid,
+      payload_hash: payloadHash,
+      resultado,
+      status: "CONCLUIDA",
+      criado_em: admin.firestore.FieldValue.serverTimestamp(),
+      atualizado_em: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return resultado;
+  });
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Correção compensatória de erro operacional do gestor}]
+interface CorrigirOperacao {
+  idOperacao: string;            // nova operação corretora (idempotência)
+  idOperacaoCorrigida: string;   // operação original preservada
+  tipoCorrecao: "RETIRADA_RETIRANTE_INCORRETO";
+  idUsuarioRetirouCorreto?: string; // obrigatório no tipo acima
+  motivo: string;                // justificativa humana obrigatória: trim >= 20
+}
+
+export const corrigirOperacao = onCall(async (request) => {
+  const dados = request.data as CorrigirOperacao;
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
+  if (!dados.idOperacao || !dados.idOperacaoCorrigida)
+    throw new HttpsError("invalid-argument", "idOperacao e idOperacaoCorrigida são obrigatórios.");
+
+  const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.idOperacao);
+  const originalRef = admin.firestore().collection("Operacoes").doc(dados.idOperacaoCorrigida);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const crypto = require("crypto");
+    const payloadStr = JSON.stringify({
+      idOperacaoCorrigida: dados.idOperacaoCorrigida, tipoCorrecao: dados.tipoCorrecao,
+      idUsuarioRetirouCorreto: dados.idUsuarioRetirouCorreto, motivo: dados.motivo,
+    });
+    const payloadHash = crypto.createHash("sha256").update(payloadStr).digest("hex");
+
+    const opSnap = await tx.get(operacaoRef);
+    if (opSnap.exists) {
+      const op = opSnap.data()!;
+      if (op.uid === request.auth!.uid && op.payload_hash === payloadHash) return op.resultado;
+      throw new HttpsError("already-exists", "idOperacao duplicada ou ator divergente.");
+    }
+
+    validarJustificativaHumana(dados.motivo);
+
+    // A operação original NÃO é apagada; a trilha histórica é preservada.
+    const originalSnap = await tx.get(originalRef);
+    if (!originalSnap.exists) throw new HttpsError("not-found", "Operação original não encontrada.");
+    const original = originalSnap.data()!;
+
+    const emprestimoRef = admin.firestore().collection("Emprestimo_Reagente").doc(original.resultado?.idEmprestimo);
+    const emprestimoSnap = await tx.get(emprestimoRef);
+    if (!emprestimoSnap.exists) throw new HttpsError("not-found", "Empréstimo da operação original não encontrado.");
+    const emprestimo = emprestimoSnap.data()!;
+    await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, emprestimo.id_almoxarifado);
+
+    if (!dados.idUsuarioRetirouCorreto)
+      throw new HttpsError("invalid-argument", "Correção de retirante exige idUsuarioRetirouCorreto.");
+
+    // Efeito efetivo corrigido: apenas o vínculo do retirante. Frasco, peso de saída,
+    // instante físico original e local de uso permanecem inalterados.
+    tx.update(emprestimoRef, { id_usuario_retirou: dados.idUsuarioRetirouCorreto });
+
+    // Vínculo auditável entre operação original e operação corretora.
+    tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+      id_frasco_reagente: emprestimo.id_frasco_reagente,
+      id_almoxarifado: emprestimo.id_almoxarifado,
+      id_gestor: request.auth!.uid,
+      tipo: "CORRECAO_OPERACIONAL",
+      operacao_corrigida: dados.idOperacaoCorrigida,
+      tipo_correcao: dados.tipoCorrecao,
+      id_usuario_retirou_anterior: emprestimo.id_usuario_retirou,
+      id_usuario_retirou_novo: dados.idUsuarioRetirouCorreto,
+      motivo: dados.motivo,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    const resultado = { status: "OK", operacaoCorrigida: dados.idOperacaoCorrigida };
+    tx.set(operacaoRef, {
+      tipo_operacao: "CORRIGIR_OPERACAO",
+      operacao_corrigida: dados.idOperacaoCorrigida,
+      uid: request.auth!.uid,
+      payload_hash: payloadHash,
+      resultado,
+      status: "CONCLUIDA",
+      criado_em: admin.firestore.FieldValue.serverTimestamp(),
+      atualizado_em: admin.firestore.FieldValue.serverTimestamp(),
+    });
     return resultado;
   });
 });

@@ -48,9 +48,9 @@ Para acomodar a incerteza instrumental de balanças de bancada sem permitir disc
 
 ### 2.3 Tratamento de Anomalia $Peso\_{retorno} \< Tara$ e Recalibração
 
-* Se o peso de retorno for inferior à tara cadastrada ($Peso\_{frasco\_vazio}$):
-  * Diferença $\\le 5\\text{ g}$: O sistema sugere frasco esgotado. Confirmado pelo gestor, `estado_fisico_frasco` migra para `VAZIO`, tara é reajustada ao peso atual e consumo consome o saldo restante.
-  * Diferença $\> 5\\text{ g}$ com produto restante: Bloqueia a devolução e exige o fluxo formal de **Recalibração de Tara** (`AJUSTE_TARA` em UI-06) com justificativa obrigatória do gestor.
+* Se o peso de retorno for inferior à tara cadastrada ($Peso\_{frasco\_vazio}$), trata-se de **anomalia metrológica**: a diferença (por exemplo, até $5\\text{ g}$) serve apenas para sinalizar o caso e exigir confirmação e justificativa humana, nunca para decidir automaticamente que o frasco ficou vazio.
+  * O esgotamento é confirmado **explicitamente pelo gestor** na devolução (``O frasco ficou vazio nesta devolução? [ ] Sim''). Confirmado, `estado_fisico_frasco` migra para `VAZIO`, `saldo_desconhecido` passa a `false`, o peso de retorno vira a **tara real** (`peso_frasco_vazio = peso_atual = peso_retorno`) e o consumo consome o saldo restante.
+  * Sem a confirmação, a devolução ordinária é bloqueada e o caso é tratado como anomalia com justificativa. Não existe recalibração parcial de tara com produto restante: recalibrar tara exige recipiente efetivamente vazio com peso vazio real medido, com justificativa obrigatória do gestor.
 
 ---
 
@@ -121,8 +121,8 @@ Para acomodar a incerteza instrumental de balanças de bancada sem permitir disc
 
 * **Princípio Fundamental de Governança**: *O software não deve forçar o usuário a mentir para o banco de dados.* No laboratório acadêmico, pesquisas de TCC, Pós-Graduação e projetos de tratamento de resíduos frequentemente utilizam reagentes vencidos de forma intencional ou viável.
 * **Destinos no Cadastro de Validade Desconhecida**:
-  1. `QUARENTENA` (bloqueado para uso);
-  2. `PENDENTE_DE_DESCARTE` (`vencido = true`);
+  1. `QUARENTENA` (bloqueado para uso, com `em_quarentena = true` e disponibilidade indisponível; não forçar `vencido`);
+  2. `PENDENTE_DE_DESCARTE` (disponibilidade indisponível e status de pendência; `vencido` continua derivado apenas das regras reais de validade, ortogonal à quarentena);
   3. `LIBERADO_COM_TERMO` (liberado sob consentimento informado).
 * **Termo de Assunção de Responsabilidade Metodológica na Retirada**:
   * Ao retirar reagente vencido ou com validade desconhecida para pesquisa acadêmica (`PESQUISA_TCC_POS` ou `ESTUDO_DEGRADACAO_RESIDUOS`), o sistema não bloqueia, mas exige:

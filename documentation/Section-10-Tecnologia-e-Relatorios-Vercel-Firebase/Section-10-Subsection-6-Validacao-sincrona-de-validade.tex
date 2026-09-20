@@ -7,3 +7,7 @@ Na abertura do frasco, a função \textit{calcularValidadeEfetivaNaAbertura} apl
 \]
 quando os dois limites existem.
 
+Quando a abertura histórica é desconhecida (\textit{abertura\_historica\_desconhecida = true}) e existe regra de \textit{validade\_apos\_aberto\_dias}, não é possível calcular exatamente \textit{data\_abertura} $+$ \textit{validade\_apos\_aberto\_dias}. Salvo quando outra informação for suficiente, o sistema marca \textit{validade\_desconhecida = true} e \textit{validade\_efetiva = null}; não se cria uma flag redundante nem se fabrica a data de abertura.
+
+Documentar \textit{validade\_desconhecida = true} não implica \textit{vencido = false}: pode existir informação suficiente para concluir que o frasco já venceu mesmo sem a data exata (por exemplo, \textit{validade\_fechado} conhecida e já expirada). Distinguem-se, portanto, duas coisas: conhecer a data exata de validade e ser possível concluir que já venceu. A quarentena permanece ortogonal à validade: \textit{vencido = true} nunca é usado como mecanismo para bloquear um frasco, e a entrada em quarentena não altera \textit{vencido}. Não existe revalidação de validade; sair da quarentena não renova, estende, recalcula nem zera o vencimento.
+
