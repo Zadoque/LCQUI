@@ -1,0 +1,91 @@
+\subsection{Funções Acadêmicas e Pesagem (C012, C016)}
+
+Como as regras do Firestore bloqueiam a escrita direta nos nós de Turmas, Comentários e Roteiros (\texttt{allow write: if false;}), as operações de criação, moderação e compartilhamento são intermediadas por \textit{Cloud Functions} para garantir trilha de auditoria e sanitização de entradas.
+
+\begin{lstlisting}[language=TypeScript, title={Moderação de Comentários e Posts}]
+export const adicionarComentario = onCall(async (request) => {
+  const { idTurma, idPost, texto } = request.data as { idTurma: string; idPost: string; texto: string };
+  await validarVinculoTurma(request, idTurma); // Lança erro se não matriculado/professor
+
+  const comentarioRef = admin.firestore().collection(`Turma/${idTurma}/Posts/${idPost}/Comentarios`).doc();
+  await comentarioRef.set({
+    id_autor: request.auth!.uid,
+    texto: texto,
+    moderado: false,
+    criado_em: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  return { id: comentarioRef.id };
+});
+
+export const moderarComentario = onCall(async (request) => {
+  const { idTurma, idPost, idComentario, motivo } = request.data;
+  await validarPermissaoAcademica(request, idTurma); // Professor ou Chefe Geral
+
+  const comentarioRef = admin.firestore().collection(`Turma/${idTurma}/Posts/${idPost}/Comentarios`).doc(idComentario);
+  await admin.firestore().runTransaction(async (tx) => {
+    const snap = await tx.get(comentarioRef);
+    if (!snap.exists) throw new HttpsError("not-found", "Comentário inexistente.");
+    
+    // Grava histórico de moderação
+    tx.set(comentarioRef.collection("Historico").doc(), {
+      texto_original: snap.data()!.texto,
+      motivo: motivo,
+      moderado_por: request.auth!.uid,
+      data: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Mascara o conteúdo atual
+    tx.update(comentarioRef, {
+      texto: "[Comentário removido pela moderação]",
+      moderado: true,
+      data_moderacao: admin.firestore.FieldValue.serverTimestamp()
+    });
+  });
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Compartilhamento de Roteiros}]
+export const compartilharRoteiro = onCall(async (request) => {
+  const { idRoteiro, idTurma } = request.data;
+  await validarPermissaoAcademica(request, idTurma); // Somente professor da turma
+  
+  const roteiroRef = admin.firestore().collection("Roteiro").doc(idRoteiro);
+  await admin.firestore().runTransaction(async (tx) => {
+    const snap = await tx.get(roteiroRef);
+    if (snap.data()!.id_autor !== request.auth!.uid && !request.auth!.token.Chefe_Geral) {
+      throw new HttpsError("permission-denied", "Somente o autor pode compartilhar.");
+    }
+    tx.set(admin.firestore().collection(`Turma/${idTurma}/Roteiros_Compartilhados`).doc(idRoteiro), {
+      adicionado_por: request.auth!.uid,
+      data: admin.firestore.FieldValue.serverTimestamp()
+    });
+  });
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Pesagem de Rotina (UI-06)}]
+export const registrarPesagemRotina = onCall(async (request) => {
+  const { idFrasco, pesoAtual, motivo } = request.data as { idFrasco: string; pesoAtual: number; motivo: string };
+  await validarPermissao(request, ["Gestor_Almoxarifado", "Chefe_Geral"]);
+
+  const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(idFrasco);
+  await admin.firestore().runTransaction(async (tx) => {
+    const snap = await tx.get(frascoRef);
+    if (!snap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
+    
+    tx.update(frascoRef, {
+      peso_atual: pesoAtual,
+      ultima_pesagem: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+      id_frasco_reagente: idFrasco,
+      tipo: "PESAGEM_ROTINA",
+      peso_registrado: pesoAtual,
+      motivo: motivo,
+      id_gestor: request.auth!.uid,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+  });
+});
+\end{lstlisting}

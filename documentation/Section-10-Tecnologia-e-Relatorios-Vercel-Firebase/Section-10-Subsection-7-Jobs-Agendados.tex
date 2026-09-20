@@ -11,6 +11,7 @@ export const verificarVencimentosEAtrasos = onSchedule({
   const agora = new Date();
   const inicioHoje = inicioDoDiaInstitucional(agora);
   const fimDeAmanha = fimDoDiaInstitucional(adicionarDias(inicioHoje, 1));
+  const hojeISO = DateTime.now().setZone("America/Sao_Paulo").toISODate();
 
   const emprestimosNaJanela = await admin.firestore().collection("Emprestimo_Reagente")
     .where("status", "==", "EM_USO")
@@ -57,17 +58,22 @@ export const verificarVencimentosEAtrasos = onSchedule({
       .where("id_almoxarifado", "==", idAlmox).get();
     for (const gDoc of gestoresSnap.docs) {
       const gestorId = gDoc.data().id_gestor_almoxarifado;
-      await admin.firestore().collection("Usuarios").doc(gestorId).collection("Notificacoes").add({
-        id_destinatario: gestorId,
-        papel_destinatario: "Gestor_Almoxarifado",
-        tipo: "ENTREGA_ATRASADA",
-        entidade_alvo: "Almoxarifado",
-        id_alvo: idAlmox,
-        quantidade: count,
-        lida: false,
-        emitida_em: admin.firestore.FieldValue.serverTimestamp(),
-        expira_em: null,
-      });
+      const docIdAtraso = `atraso_${idAlmox}_${hojeISO}`;
+      try {
+        await admin.firestore().collection("Usuarios").doc(gestorId).collection("Notificacoes").doc(docIdAtraso).set({
+          id_destinatario: gestorId,
+          papel_destinatario: "Gestor_Almoxarifado",
+          tipo: "ENTREGA_ATRASADA",
+          entidade_alvo: "Almoxarifado",
+          id_alvo: idAlmox,
+          quantidade: count,
+          lida: false,
+          emitida_em: admin.firestore.FieldValue.serverTimestamp(),
+          expira_em: null,
+        }, { merge: false });
+      } catch (err: any) {
+        if (err.code !== 6 && err.code !== "ALREADY_EXISTS") throw err; // Ignora apenas duplicidade
+      }
     }
   }
 
@@ -76,21 +82,45 @@ export const verificarVencimentosEAtrasos = onSchedule({
     .where("validade_efetiva", "<=", agora)
     .get();
 
+  const vencidosPorAlmox: Record<string, number> = {};
   const batchVencidos = admin.firestore().batch();
   frascosVencendo.docs.forEach((doc) => {
     batchVencidos.update(doc.ref, { vencido: true });
+    const idAlmox = doc.data().id_almoxarifado;
+    vencidosPorAlmox[idAlmox] = (vencidosPorAlmox[idAlmox] || 0) + 1;
     const histRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
     batchVencidos.set(histRef, {
       id_frasco_reagente: doc.id,
-      id_almoxarifado: doc.data().id_almoxarifado,
+      id_almoxarifado: idAlmox,
       id_gestor: "__SISTEMA__",
       tipo: "VENCEU",
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
   });
   await batchVencidos.commit();
-  if (!frascosVencendo.empty) {
-    await notificarGestoresDeReagentes("FRASCOS_VENCIDOS", frascosVencendo.size);
+
+  for (const [idAlmox, count] of Object.entries(vencidosPorAlmox)) {
+    const gestoresSnap = await admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
+      .where("id_almoxarifado", "==", idAlmox).get();
+    for (const gDoc of gestoresSnap.docs) {
+      const gestorId = gDoc.data().id_gestor_almoxarifado;
+      const docIdVencidos = `vencidos_${idAlmox}_${hojeISO}`;
+      try {
+        await admin.firestore().collection("Usuarios").doc(gestorId).collection("Notificacoes").doc(docIdVencidos).set({
+          id_destinatario: gestorId,
+          papel_destinatario: "Gestor_Almoxarifado",
+          tipo: "FRASCOS_VENCIDOS",
+          entidade_alvo: "Almoxarifado",
+          id_alvo: idAlmox,
+          quantidade: count,
+          lida: false,
+          emitida_em: admin.firestore.FieldValue.serverTimestamp(),
+          expira_em: null,
+        }, { merge: false });
+      } catch (err: any) {
+        if (err.code !== 6 && err.code !== "ALREADY_EXISTS") throw err;
+      }
+    }
   }
 });
 
@@ -142,14 +172,6 @@ function fimDoDiaInstitucional(data: Date): Date {
   return DateTime.fromJSDate(data, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate();
 }
 
-export const onFrascoCriado = onDocumentCreated("Frasco_Reagente/{frascoId}", async (event) => {
-  const data = event.data?.data();
-  if (data?.id_lote && event.data?.createTime) {
-    // Para criação, usamos createTime (ou updateTime), que é um FirebaseFirestore.Timestamp
-    // exato do commit no Spanner, permitindo uma comparação canônica inquestionável.
-    await atualizarContadorLoteIdempotente(event.id, data.id_lote, +1, event.data.createTime);
-  }
-});
 
 export const onEventoRemocaoFrasco = onDocumentCreated("Eventos_Dominio_Contagem/{eventoId}", async (event) => {
   const data = event.data?.data();

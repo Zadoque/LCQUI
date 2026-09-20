@@ -27,21 +27,22 @@ export const revogarPapel = onCall(async (request) => {
         throw new HttpsError("failed-precondition", "Único Chefe Geral: auto-revogação bloqueada (RN-ROLE-03).");
     }
     if (papel === "Gestor_Almoxarifado") {
-      // RN-ROLE-05: cada almoxarifado vinculado deve ter outro gestor
+      // RN-ROLE-05: Transação bloqueia Almoxarifado/{id} e valida qtd_gestores_ativos (C003)
       vinculos = await tx.get(
         admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
           .where("id_gestor_almoxarifado", "==", uidAlvo)
       );
       for (const v of vinculos.docs) {
         const idAlmox = v.data().id_almoxarifado;
-        const outrosGestores = await tx.get(
-          admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
-            .where("id_almoxarifado", "==", idAlmox)
-            .where("id_gestor_almoxarifado", "!=", uidAlvo).limit(1)
-        );
-        if (outrosGestores.empty)
-          throw new HttpsError("failed-precondition",
-            `Almoxarifado ${idAlmox} ficaria sem gestor (RN-ROLE-05).`);
+        const almoxRef = admin.firestore().collection("Almoxarifado").doc(idAlmox);
+        const almoxSnap = await tx.get(almoxRef);
+        if (almoxSnap.exists) {
+          const almox = almoxSnap.data()!;
+          if (almox.ativo && (almox.qtd_gestores_ativos || 0) <= 1) {
+            throw new HttpsError("failed-precondition",
+              `Almoxarifado ${idAlmox} ficaria sem gestor ativo (RN-ROLE-05).`);
+          }
+        }
       }
     }
     if (papel === "Gestor_Bens_Patrimoniais") {
@@ -75,8 +76,15 @@ export const revogarPapel = onCall(async (request) => {
     tx.delete(papelRef);
     
     if (papel === "Gestor_Almoxarifado" && vinculos) {
-      // Limpeza em cascata dos vínculos (obtidos no passo 2)
-      vinculos.docs.forEach((doc) => tx.delete(doc.ref));
+      // Limpeza em cascata dos vínculos e atualização transacional do contador (C003)
+      vinculos.docs.forEach((doc) => {
+        tx.delete(doc.ref);
+        const idAlmox = doc.data().id_almoxarifado;
+        const almoxRef = admin.firestore().collection("Almoxarifado").doc(idAlmox);
+        tx.update(almoxRef, {
+          qtd_gestores_ativos: admin.firestore.FieldValue.increment(-1)
+        });
+      });
     }
 
     if (semPapeis) {

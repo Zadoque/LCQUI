@@ -76,14 +76,18 @@ export const gerarRelatorioBensPredio = onCall(async (request) => {
   let query: FirebaseFirestore.Query = admin.firestore().collection("Bem_Patrimonial");
   if (isHistorico) {
     query = admin.firestore().collectionGroup("Historico");
-    // Aqui se aplica também os filtros de timestamp para fechar o mês informado
+    query = query.where("predio", "==", filtros.predio);
+    if (filtros.andar) query = query.where("andar", "==", filtros.andar);
+    if (filtros.sala) query = query.where("sala", "==", filtros.sala);
+    // C004: Filtros de status e estado_conservacao omitidos aqui na query NoSQL, 
+    // serão resolvidos em memoria no buildPredioPdfBuffer iterando sobre o array_alteracoes.
+  } else {
+    query = query.where("predio", "==", filtros.predio);
+    if (filtros.andar) query = query.where("andar", "==", filtros.andar);
+    if (filtros.sala) query = query.where("sala", "==", filtros.sala);
+    if (filtros.estadoConservacao) query = query.where("estado_conservacao", "==", filtros.estadoConservacao);
+    if (filtros.status) query = query.where("status", "==", filtros.status);
   }
-
-  query = query.where("predio", "==", filtros.predio);
-  if (filtros.andar) query = query.where("andar", "==", filtros.andar);
-  if (filtros.sala) query = query.where("sala", "==", filtros.sala);
-  if (filtros.estadoConservacao) query = query.where("estado_conservacao", "==", filtros.estadoConservacao);
-  if (filtros.status) query = query.where("status", "==", filtros.status);
 
   const bensSnapshot = await query.get();
 
@@ -100,14 +104,16 @@ interface FiltrosGeralEPersonalizado {
   dataFim: string;
   entidade: "Bens_Patrimoniais" | "Reagentes";
   prediosSelecionados?: string[];
+  almoxarifadosSelecionados?: string[];
 }
 
 export const gerarRelatorioPersonalizado = onCall(async (request) => {
-  const { dataInicio, dataFim, entidade, prediosSelecionados } = request.data as FiltrosGeralEPersonalizado;
+  const { dataInicio, dataFim, entidade, prediosSelecionados, almoxarifadosSelecionados } = request.data as FiltrosGeralEPersonalizado;
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais", "Gestor_Almoxarifado"]);
 
-  const dataIniObj = new Date(dataInicio);
-  const dataFimObj = new Date(dataFim);
+  const { DateTime } = require("luxon");
+  const dataIniObj = DateTime.fromISO(dataInicio, { zone: "America/Sao_Paulo" }).startOf("day").toJSDate();
+  const dataFimObj = DateTime.fromISO(dataFim, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate();
   const agora = new Date();
 
   const diffDias = Math.ceil((dataFimObj.getTime() - dataIniObj.getTime()) / (1000 * 3600 * 24));
@@ -129,10 +135,27 @@ export const gerarRelatorioPersonalizado = onCall(async (request) => {
     }
     snapshot = await query.get();
   } else {
-    snapshot = await admin.firestore().collection("Emprestimo_Reagente")
+    let queryReq = admin.firestore().collection("Emprestimo_Reagente")
       .where("data_devolucao_efetuada", ">=", dataIniObj)
-      .where("data_devolucao_efetuada", "<=", dataFimObj)
-      .get();
+      .where("data_devolucao_efetuada", "<=", dataFimObj);
+      
+    // C005: Validar escopo de almoxarifados para Gestores de Almoxarifado
+    if (request.auth!.token.Chefe_Geral !== true && request.auth!.token.Gestor_Almoxarifado === true) {
+      if (!almoxarifadosSelecionados || almoxarifadosSelecionados.length === 0) {
+        throw new HttpsError("invalid-argument", "Gestores devem especificar os almoxarifados autorizados.");
+      }
+      for (const idAlmox of almoxarifadosSelecionados) {
+        const snap = await admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
+          .where("id_gestor_almoxarifado", "==", request.auth!.uid)
+          .where("id_almoxarifado", "==", idAlmox).limit(1).get();
+        if (snap.empty) throw new HttpsError("permission-denied", "Sem autorização para o almoxarifado " + idAlmox);
+      }
+      queryReq = queryReq.where("id_almoxarifado", "in", almoxarifadosSelecionados);
+    } else if (almoxarifadosSelecionados && almoxarifadosSelecionados.length > 0) {
+      queryReq = queryReq.where("id_almoxarifado", "in", almoxarifadosSelecionados);
+    }
+
+    snapshot = await queryReq.get();
   }
 
   const doc = new PDFDocument({ layout: "landscape", size: "A4" });

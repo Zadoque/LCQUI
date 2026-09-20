@@ -20,13 +20,14 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
 
   const crypto = require("crypto");
+  const { DateTime } = require("luxon");
   const { idOperacao, ...payloadRelevante } = dados;
   const payloadString = JSON.stringify(payloadRelevante, Object.keys(payloadRelevante).sort());
   const payloadHash = crypto.createHash("sha256").update(payloadString).digest("hex");
 
   const agora = new Date();
   const validadeFechadoStr = dados.validadeDesconhecida ? null : (dados.validadeFechado ?? null);
-  const validadeData = validadeFechadoStr ? new Date(validadeFechadoStr) : null;
+  const validadeData = validadeFechadoStr ? DateTime.fromISO(validadeFechadoStr, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate() : null;
   const venceuNoCadastro = Boolean(validadeData && validadeData <= agora);
 
   if (venceuNoCadastro && !dados.decisaoSeJaVencido) {
@@ -67,7 +68,7 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
         throw new HttpsError("failed-precondition", "Lote não pertence à especificação informada.");
       
       const loteMatSnap = await tx.get(admin.firestore().collection("Lote_Materializado").doc(dados.idLote));
-      const countAtual = loteMatSnap.exists ? (loteMatSnap.data()!.count || 0) : 0;
+      const countAtual = loteMatSnap.exists ? (loteMatSnap.data()!.qtd_frascos_cadastrados || 0) : 0;
       const qtdComprados = loteSnap.data()!.qtd_frascos_comprados as number;
       if (countAtual >= qtdComprados)
         throw new HttpsError("failed-precondition", `Limite de frascos do lote atingido (${qtdComprados} comprados).`);
@@ -120,7 +121,7 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
 
     if (dados.idLote) {
       tx.set(admin.firestore().collection("Lote_Materializado").doc(dados.idLote), {
-        count: admin.firestore.FieldValue.increment(1)
+        qtd\_frascos\_cadastrados: admin.firestore.FieldValue.increment(1)
       }, { merge: true });
     }
 
@@ -178,13 +179,14 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
 
   const crypto = require("crypto");
+  const { DateTime } = require("luxon");
   const { idOperacao, ...payloadRelevante } = dados;
   const payloadString = JSON.stringify(payloadRelevante, Object.keys(payloadRelevante).sort());
   const payloadHash = crypto.createHash("sha256").update(payloadString).digest("hex");
 
   const agora = new Date();
   const validadeAbertoStr = dados.validadeDesconhecida ? null : (dados.validadeAberto ?? null);
-  const validadeData = validadeAbertoStr ? new Date(validadeAbertoStr) : null;
+  const validadeData = validadeAbertoStr ? DateTime.fromISO(validadeAbertoStr, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate() : null;
   const jaVencido = Boolean(validadeData && validadeData <= agora);
 
   if (jaVencido && !dados.decisaoSeJaVencido)
@@ -223,7 +225,7 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
         throw new HttpsError("failed-precondition", "Lote não pertence à especificação informada.");
       
       const loteMatSnap = await tx.get(admin.firestore().collection("Lote_Materializado").doc(dados.idLote));
-      const countAtual = loteMatSnap.exists ? (loteMatSnap.data()!.count || 0) : 0;
+      const countAtual = loteMatSnap.exists ? (loteMatSnap.data()!.qtd_frascos_cadastrados || 0) : 0;
       const qtdComprados = loteSnap.data()!.qtd_frascos_comprados as number;
       if (countAtual >= qtdComprados)
         throw new HttpsError("failed-precondition", `Limite de frascos do lote atingido (${qtdComprados} comprados).`);
@@ -288,7 +290,7 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
 
     if (dados.idLote) {
       tx.set(admin.firestore().collection("Lote_Materializado").doc(dados.idLote), {
-        count: admin.firestore.FieldValue.increment(1)
+        qtd\_frascos\_cadastrados: admin.firestore.FieldValue.increment(1)
       }, { merge: true });
     }
 
@@ -325,11 +327,11 @@ function calcularValidadeEfetivaNaAbertura(frasco: any, dataAbertura: Date): Dat
   const validadeFechado = frasco.validade_fechado
     ? (typeof frasco.validade_fechado.toDate === "function"
       ? frasco.validade_fechado.toDate()
-      : new Date(frasco.validade_fechado))
+      : DateTime.fromISO(frasco.validade\_fechado, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate())
     : null;
   const diasDepoisDeAberto = frasco.validade_apos_aberto_dias;
   const validadeDepoisDaAbertura = diasDepoisDeAberto != null
-    ? new Date(dataAbertura.getTime() + diasDepoisDeAberto * 24 * 60 * 60 * 1000)
+    ? DateTime.fromJSDate(new Date(dataAbertura.getTime() + diasDepoisDeAberto * 24 * 60 * 60 * 1000), { zone: "America/Sao_Paulo" }).endOf("day").toJSDate()
     : null;
 
   if (validadeFechado && validadeDepoisDaAbertura) {
@@ -441,7 +443,12 @@ export const registrarRetirada = onCall(async (request) => {
     }
 
     const agora = new Date();
-    let validadeEfetiva = frasco.validade_efetiva ? frasco.validade_efetiva.toDate() : null;
+    const { DateTime } = require("luxon");
+    let validadeEfetiva = frasco.validade_efetiva
+      ? (typeof frasco.validade_efetiva.toDate === "function"
+        ? frasco.validade_efetiva.toDate()
+        : DateTime.fromISO(frasco.validade_efetiva, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate())
+      : null;
     let frascoVencido = Boolean(validadeEfetiva && validadeEfetiva <= agora);
 
     if (dados.abrirNoEmprestimo && frasco.estado_fisico_frasco === "FECHADO") {
@@ -475,8 +482,9 @@ export const registrarRetirada = onCall(async (request) => {
       id_almoxarifado: frasco.id_almoxarifado,
       status: "EM_USO",
       data_retirada: admin.firestore.FieldValue.serverTimestamp(),
-      data_devolucao_prevista: new Date(dados.dataDevolucaoPrevista),
-      id_local_usado: dados.idLocalUsado,
+      data\_devolucao\_prevista: DateTime.fromISO(dados.dataDevolucaoPrevista, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate(),
+      peso\_perda\_evaporacao: 0,
+      id\_local\_usado: dados.idLocalUsado,
       peso_saida: dados.pesoSaida,
       uso_vencido_aceito: Boolean(frascoVencido),
       finalidade_uso: finalidade,
@@ -585,7 +593,11 @@ export const registrarDevolucao = onCall(async (request) => {
       .endOf("day").toJSDate();
     const atrasado = agora > prazoLimite;
 
-    const validadeEfetiva = frasco.validade_efetiva?.toDate?.() ?? frasco.validade_efetiva ?? null;
+    const validadeEfetiva = frasco.validade_efetiva
+      ? (typeof frasco.validade_efetiva.toDate === "function"
+        ? frasco.validade_efetiva.toDate()
+        : DateTime.fromISO(frasco.validade_efetiva, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate())
+      : null;
     const venceuAgora = Boolean(validadeEfetiva && validadeEfetiva <= agora);
     const frascoVencido = Boolean(frasco.vencido || venceuAgora);
 
@@ -710,9 +722,9 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
       const emprestimoAberto = await tx.get(queryEmprestimo);
 
       tx.update(frascoRef, {
-        estado_fisico_frasco: "EXTRAVIADO",
-        disponibilidade: "DISPONIVEL", // Apenas significa que não há empréstimo ativo
-        detalhe_status: dados.motivo,
+        estado\_fisico\_frasco: "EXTRAVIADO",
+        disponibilidade: "INDISPONIVEL",
+        detalhe\_status: dados.motivo,
       });
 
       if (!emprestimoAberto.empty) {

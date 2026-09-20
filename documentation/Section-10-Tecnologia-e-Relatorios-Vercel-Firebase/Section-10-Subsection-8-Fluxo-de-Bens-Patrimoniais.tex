@@ -3,7 +3,7 @@
 \begin{lstlisting}[language=TypeScript, title={Criação e Resposta de Requisição de Edição (C2: lock determinístico)}]
 export const criarRequisicaoEdicaoBem = onCall(async (request) => {
   await validarPermissao(request, ["Professor"]);
-  const dados = request.data as { idBemPatrimonial: string; novoNome?: string; novoStatus?: string; novoEstadoConservacao?: string; novoIdLocal?: string; novaPhotoUrl?: string; motivo: string };
+  const dados = request.data as { idBemPatrimonial: string; novoNome?: string; novoIdResumoBemPatrimonial?: string; novoStatus?: string; novoEstadoConservacao?: string; novoIdLocal?: string; novaPhotoUrl?: string; motivo: string };
   if (dados.novoStatus === "Ja\_dado\_baixa") {
     throw new HttpsError("invalid-argument", "Professor não pode solicitar baixa diretamente (RF12).");
   }
@@ -33,7 +33,7 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
       id\_bem\_patrimonial: dados.idBemPatrimonial,
       novo\_nome: dados.novoNome ?? null,
       versao\_bem\_origem: bemSnap.data()!.versao,
-      novo\_id\_resumo\_bem\_patrimonial: null,
+      novo\_id\_resumo\_bem\_patrimonial: dados.novoIdResumoBemPatrimonial ?? null,
       novo\_status: dados.novoStatus ?? null,
       novo\_estado\_conservacao: dados.novoEstadoConservacao ?? null,
       novo\_id\_local: dados.novoIdLocal ?? null,
