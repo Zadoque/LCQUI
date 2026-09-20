@@ -3,8 +3,8 @@
 \begin{lstlisting}[language=TypeScript, title={Criação e Resposta de Requisição de Edição (C2: lock determinístico)}]
 export const criarRequisicaoEdicaoBem = onCall(async (request) => {
   await validarPermissao(request, ["Professor"]);
-  const dados = request.data as { idBemPatrimonial: string; novoNome?: string; novoIdResumoBemPatrimonial?: string; novoStatus?: string; novoEstadoConservacao?: string; novoIdLocal?: string; novaPhotoUrl?: string; motivo: string };
-  if (dados.novoStatus === "Ja\_dado\_baixa") {
+  const dados = request.data as { idBemPatrimonial: string; novoNome?: string; novoIdResumoBemPatrimonial?: string; novoStatus?: "Ativo" | "Inservivel" | null; novoEstadoConservacao?: string; novoIdLocal?: string; novaPhotoUrl?: string; motivo: string };
+  if (dados.novoStatus != null && !["Ativo", "Inservivel"].includes(dados.novoStatus)) {
     throw new HttpsError("invalid-argument", "Professor não pode solicitar baixa diretamente (RF12).");
   }
 
@@ -123,8 +123,16 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
       }
     }
     // Resolve alvo existente ou prepara criação; helper só lê nesta etapa.
-    const alvo = req.novo\_nome
-      ? await prepararResumoAlvoTx(tx, idResumoAlvo, req.novo\_nome) : null;
+    let alvo = null;
+    if (req.novo\_id\_resumo\_bem\_patrimonial) {
+      const ref = admin.firestore().collection("Resumo_Bem_Patrimonial")
+        .doc(req.novo\_id\_resumo\_bem\_patrimonial);
+      const snap = await tx.get(ref);
+      if (!snap.exists) throw new HttpsError("failed-precondition", "Resumo alvo inexistente.");
+      alvo = { ref, dados: snap.data()!, novo: false };
+    } else if (req.novo\_nome) {
+      alvo = await prepararResumoAlvoTx(tx, idResumoAlvo, req.novo\_nome);
+    }
     const alteracoes = calcularAlteracoesPermitidas(req, bem);
     if (alvo) {
       if (alvo.novo) tx.create(alvo.ref, alvo.dados);
@@ -534,6 +542,8 @@ export const removerAlunoTurma = onCall(async (request) => {
     tx.update(turmaRef, { qtd_alunos: admin.firestore.FieldValue.increment(-1) });
     tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
       id_aluno: idAluno,
+      id_turma: idTurma,
+      justificativa: request.data.justificativa ?? null,
       tipo: "exclusao_aluno",
       removido_por: request.auth!.uid,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -554,3 +564,5 @@ export const removerAlunoTurma = onCall(async (request) => {
 });
 
 \end{lstlisting}
+\paragraph{Contratos de histórico e notificação (AUDITORIA-7, C004/C007/C015).}
+\texttt{registrarHistoricoBemTx} grava exclusivamente em \texttt{Bem\_Patrimonial/\{id\}/Historico\_Patrimonio}, preservando snapshot imutável de localização e alterações. Históricos acadêmicos usam \texttt{HistoricoPosts} e \texttt{HistoricoComentarios}. Abrir requisição emite REQUISICAO\_ADICAO\_BEM ou REQUISICAO\_EDICAO\_BEM aos gestores patrimoniais; todo desfecho (aprovação, rejeição ou rejeição por conflito) emite REQUISICAO\_BEM ao Professor solicitante na transação ou outbox idempotente do mesmo commit.

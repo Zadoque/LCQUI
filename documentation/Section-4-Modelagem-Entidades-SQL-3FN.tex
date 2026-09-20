@@ -106,6 +106,7 @@ A chave primária composta \textit{(id\_gestor\_almoxarifado, id\_almoxarifado)}
 \campo{id\_usuario\_respondente}{INTEGER}{FK, NULL}
 \campo{novo\_nome}{VARCHAR(150)}{NULL}
 \campo{novo\_status}{ENUM}{Ativo, Inservivel, NULL}
+\subcampo{A requisição docente não aceita Ja\_dado\_baixa; a baixa é exclusiva do Gestor pelo rito institucional SEI (RF12).}
 \campo{novo\_estado\_conservacao}{ENUM}{BOM, REGULAR, RUIM, NULL}
 \campo{novo\_id\_local}{INTEGER}{FK, NULL}
 \campo{nova\_photo\_url}{TEXT}{NULL}
@@ -372,7 +373,7 @@ O campo \textit{notificacao\_ativa} indica que a emissão automática do alerta 
 \end{regra}
 
 \begin{explicacao}
-\textit{conteudo\_nominal} (antigo \textit{capacidade\_nominal}) representa o conteúdo declarado no cadastro: para líquidos, é o volume nominal em mL; para sólidos, é a massa nominal em g. Se NULL, o valor original do rótulo é desconhecido ou ilegível (não usar zero para representar desconhecido).
+\textit{conteudo\_nominal} representa o conteúdo declarado no cadastro: para líquidos, é o volume nominal em mL; para sólidos, é a massa nominal em g. Se NULL, o valor original do rótulo é desconhecido ou ilegível (não usar zero para representar desconhecido).
 
 \textit{peso\_no\_cadastrado} é o peso total (frasco + conteúdo) registrado no momento do cadastro. Este campo é \textbf{imutável} após o cadastro -- nunca é sobrescrito. \textit{peso\_atual} é o peso total corrente, inicializado com o valor de \textit{peso\_no\_cadastrado} e atualizado a cada devolução de empréstimo ou pesagem de rotina.
 
@@ -624,6 +625,7 @@ A combinação \textit{email + id\_turma} não pode possuir mais de um convite \
 \end{explicacao}
 
 \subsection{Notificação (Unificada)}
+\noindent REQUISICAO\_ADICAO\_BEM e REQUISICAO\_EDICAO\_BEM notificam os gestores na abertura; REQUISICAO\_BEM notifica o Professor solicitante na resposta, aprovada ou rejeitada.
 \begin{entidade}{Notificacao}
 \campo{id}{SERIAL}{PK}
 \campo{id\_destinatario}{INTEGER}{FK, NOT NULL}
@@ -707,6 +709,7 @@ A combinação de prédio, andar e sala deve ser única (\textit{UNIQUE(predio, 
 \campo{moderado}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
 \campo{motivo\_moderacao}{TEXT}{NULL}
 \campo{moderado\_por}{INTEGER}{FK, NULL}
+\campo{moderado\_em}{TIMESTAMP}{NULL; obrigatório quando moderado}
 \end{entidade}
 
 \subsection{Registro de Auditoria}
@@ -861,7 +864,7 @@ Gerar token com CSPRNG de 32 bytes e armazenar somente SHA-256 do token aleatór
 \end{regra}
 
 \begin{regra}[Q06: massa, consumo e tolerância]
-Massa consumida = $\max(0, peso_{saida}-peso_{retorno})$ em g. Medida utilizada é não negativa (g para sólido, mL via densidade para líquido). Medida usada no frasco acumula apenas gramas. Tolerância normal: $\max(1\,g,0{,}005\,peso_{saida})$; higroscópico: $\max(2\,g,0{,}02\,peso_{saida})$. A fórmula de tolerância higroscópica e de variação instrumental incide estritamente sobre o \textbf{Peso Bruto de Saída ($peso_{saida}$)}. Ganho dentro da tolerância preserva peso físico real, consumo zero e evento AJUSTE/ganho\_massa\_higroscopia. Retorno abaixo da tara ($peso_{retorno} < peso_{vazio}$): diferença até 5 g exige confirmação de esgotamento para VAZIO e ajuste auditado; diferença maior com produto restante bloqueia e exige recalibração formal de tara com justificativa. Não converter ajuste em consumo negativo.
+Massa consumida = $\max(0, peso_{saida}-peso_{retorno})$ em g. Medida utilizada é não negativa (g para sólido, mL via densidade para líquido). Medida usada no frasco acumula apenas gramas. Tolerância normal: $\max(1\,g,0{,}005\,peso_{saida})$; higroscópico: $\max(2\,g,0{,}02\,peso_{saida})$. A fórmula de tolerância higroscópica e de variação instrumental incide estritamente sobre o \textbf{Peso Bruto de Saída ($peso_{saida}$)}. Ganho dentro da tolerância preserva peso físico real, consumo zero e evento AJUSTE/ganho\_massa\_higroscopia. Retorno abaixo da tara ($peso_{retorno} < peso_{vazio}$): diferença até 5 g com \texttt{confirmarEsgotamento = true} permite devolução para VAZIO/INDISPONIVEL e evento FICOU\_VAZIO com ajuste auditado. Nesse caso, a massa consumida é todo o saldo restante, $\max(0, peso_{saida}-peso_{vazio})$; preservar a leitura bruta no empréstimo e normalizar o peso de estoque à tara. Diferença superior a 5 g ou ausência da confirmação bloqueia a devolução ordinária e exige recalibração formal de tara com justificativa. Não converter ajuste em consumo negativo.
 \end{regra}
 \begin{regra}[Q14 e Q04: rastreabilidade na retirada]
 Autoatendimento é calculado pelo servidor: só o único gestor ativo do almoxarifado pode retirar para si, com justificativa obrigatória e notificação auditável à chefia; se houver outro gestor ativo, bloquear. Para vencido ou validade desconhecida liberado com termo nas finalidades PESQUISA\_TCC\_POS ou ESTUDO\_DEGRADACAO\_RESIDUOS, exigir justificativa metodológica de 20--2000 caracteres, versão do TCR, instante servidor, UID autenticado do retirante que aceitou e referência ao Registro\_de\_Auditoria correspondente. O backend valida aceite vinculado ao frasco, finalidade e operação, nunca declaração do gestor em nome de terceiro. Sem essas condições, rejeitar. TCR registra ciência e responsabilidade, sem substituir regras institucionais de segurança química. Quarentena e pendência de descarte continuam bloqueadas.

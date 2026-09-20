@@ -122,7 +122,7 @@ Gerenciar usuários e papéis & \checkmark & -- & -- & -- & -- & --\\
 Gerenciar almoxarifados & \checkmark & -- & -- & -- & -- & --\\
 Consultar estoque de reagentes & \checkmark & \checkmark & -- & \checkmark & \checkmark & \checkmark\\
 Cadastrar/editar reagente e frasco & \checkmark & \checkmark & -- & -- & -- & --\\
-Registrar retirada/devolução & \checkmark & \checkmark & -- & retirante & -- & retirante\\
+Registrar retirada/devolução (operação de balcão) & \checkmark & \checkmark & -- & retirante & -- & retirante\\
 Gerenciar bens patrimoniais & \checkmark & -- & \checkmark & leitura & -- & --\\
 Abrir requisição de patrimônio & \checkmark & -- & -- & \checkmark & -- & --\\
 Responder requisição de patrimônio & \checkmark & -- & \checkmark & -- & -- & --\\
@@ -140,3 +140,6 @@ Gerar etiquetas de frasco & \checkmark & \checkmark & -- & -- & -- & --\\
 \begin{explicacao}[Regra de autorização]
 A Cloud Function responsável por cada mutação deve resolver os papéis a partir dos registros persistidos e, quando aplicável, validar também o escopo do recurso. Por exemplo, um Gestor de Almoxarifado só atua sobre almoxarifados aos quais está vinculado. O frontend pode ocultar ou desabilitar ações, mas não constitui autorização.
 \end{explicacao}
+
+\paragraph{Operador e retirante (AUDITORIA-7, C002).}
+A autorização de Chefe Geral na matriz refere-se a operar o balcão, identificado por \texttt{id\_gestor\_retirada}. O destinatário \texttt{id\_usuario\_retirou} deve ser Professor ou Bolsista ativo. Chefe Geral não pode ser retirante, pois seu papel é exclusivo (RN-ROLE-01).

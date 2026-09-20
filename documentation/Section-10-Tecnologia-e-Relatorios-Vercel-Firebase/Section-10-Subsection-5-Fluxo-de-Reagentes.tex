@@ -412,13 +412,14 @@ export const registrarRetirada = onCall(async (request) => {
 
   // M-05: verificar conta ativa do tomador (Professor ou Bolsista)
   // Custom Claims não estão disponíveis para terceiros; leitura Firestore necessária (1 ou 2 leituras).
-  const [profSnap, bolsSnap, tomadorSnap] = await Promise.all([
+  const [profSnap, bolsSnap, tomadorSnap, chefeTomadorSnap] = await Promise.all([
     admin.firestore().collection("Professor").doc(dados.idUsuarioRetirou).get(),
     admin.firestore().collection("Bolsista").doc(dados.idUsuarioRetirou).get(),
     admin.firestore().collection("Usuarios").doc(dados.idUsuarioRetirou).get(),
+    admin.firestore().collection("Chefe_Geral").doc(dados.idUsuarioRetirou).get(),
   ]);
-  if (!profSnap.exists && !bolsSnap.exists) {
-    throw new HttpsError("failed-precondition", "Usuário selecionado não é Professor nem Bolsista.");
+  if (chefeTomadorSnap.exists || (!profSnap.exists && !bolsSnap.exists)) {
+    throw new HttpsError("failed-precondition", "Retirante deve ser Professor ou Bolsista e não pode ser Chefe Geral.");
   }
   if (!tomadorSnap.exists || tomadorSnap.data()?.ativo !== true) {
     throw new HttpsError("failed-precondition", "Conta do tomador está desativada ou não encontrada.");
@@ -527,6 +528,7 @@ export const registrarRetirada = onCall(async (request) => {
 interface DevolucaoFrasco {
   idEmprestimo: string;
   pesoRetorno: number;
+  confirmarEsgotamento?: boolean;
   idUsuarioDevolveu: string; // Portador físico que entrega o frasco ao almoxarifado
   destinoPosDevolucao?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
 }
@@ -555,7 +557,7 @@ export const registrarDevolucao = onCall(async (request) => {
     const densidade = liquido ? emprestimo.densidade_aplicada : null;
     if (liquido && (!Number.isFinite(densidade) || densidade <= 0))
       throw new HttpsError("failed-precondition", "Densidade histórica inválida.");
-    const pesoConsumido = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno);
+    let pesoConsumido = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno);
 
     if (typeof frasco.eh_higroscopico !== "boolean")
       throw new HttpsError("failed-precondition", "Snapshot histórico ausente: reconciliar frasco.");
@@ -576,9 +578,14 @@ export const registrarDevolucao = onCall(async (request) => {
       throw new HttpsError("invalid-argument", "Peso de retorno inválido.");
     }
     // PDF-025 / N-10: Verificação de tara na devolução (Q06)
-    if (frasco.peso_frasco_vazio != null && dados.pesoRetorno < frasco.peso_frasco_vazio) {
-      throw new HttpsError("failed-precondition", "Peso de retorno menor que a tara cadastrada. Operação ordinária bloqueada: desviar para recalibração de tara ou esgotamento (Q06).");
+    const diferencaTara = frasco.peso_frasco_vazio == null
+      ? 0 : frasco.peso_frasco_vazio - dados.pesoRetorno;
+    const esgotado = diferencaTara > 0 && diferencaTara <= 5
+      && dados.confirmarEsgotamento === true;
+    if (diferencaTara > 0 && !esgotado) {
+      throw new HttpsError("failed-precondition", "Requer recalibrarTaraFrascoEsgotado: diferença superior a 5 g ou esgotamento não confirmado.");
     }
+    if (esgotado) pesoConsumido = Math.max(0, emprestimo.peso_saida - frasco.peso_frasco_vazio);
     // PDF-025: Ganho acima da tolerância bloqueia por anomalia.
     if (dados.pesoRetorno > limiteMaxRetorno) {
       throw new HttpsError("invalid-argument", "Ganho de massa excede tolerância Q06 (possível erro ou contaminação). Bloqueado por anomalia.");
@@ -602,9 +609,10 @@ export const registrarDevolucao = onCall(async (request) => {
     const frascoVencido = Boolean(frasco.vencido || venceuAgora);
 
     const atualizacaoFrasco: Record<string, unknown> = {
-      disponibilidade: "DISPONIVEL",
+      disponibilidade: esgotado ? "INDISPONIVEL" : "DISPONIVEL",
+      ...(esgotado && { estado_fisico_frasco: "VAZIO" }),
       data_ultima_pesagem: admin.firestore.FieldValue.serverTimestamp(),
-      peso_atual: dados.pesoRetorno,
+      peso_atual: esgotado ? frasco.peso_frasco_vazio : dados.pesoRetorno,
       medida_usada: admin.firestore.FieldValue.increment(pesoConsumido), // sempre g
       vencido: frascoVencido,
     };
@@ -648,6 +656,16 @@ export const registrarDevolucao = onCall(async (request) => {
       });
     }
 
+    if (esgotado) {
+      tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+        id_frasco_reagente: frascoRef.id, id_almoxarifado: frasco.id_almoxarifado,
+        id_gestor: request.auth!.uid, id_emprestimo_reagente: emprestimoRef.id,
+        tipo: "FICOU_VAZIO", campo_ajustado: "esgotamento_abaixo_tara",
+        peso_medido: dados.pesoRetorno, tara_aplicada: frasco.peso_frasco_vazio,
+        medida_ajustada: diferencaTara, unidade_medida_ajustada: "g",
+        confirmado_esgotamento: true, timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
     // Registro obrigatório de devolução no histórico
     const histRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
     tx.set(histRef, {

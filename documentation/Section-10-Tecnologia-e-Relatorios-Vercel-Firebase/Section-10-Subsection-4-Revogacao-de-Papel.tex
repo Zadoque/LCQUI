@@ -14,7 +14,10 @@ export const revogarPapel = onCall(async (request) => {
     // 1. Leitura do singleton - bloqueia outras transacoes concorrentes que
     //    tambem escrevam no singleton (transacao serializada pelo Firestore)
     const singletonSnap = await tx.get(singletonRef);
-    const singletonData = singletonSnap.data() || { chefes_ativos: 0, gestores_patrimoniais_ativos: 0 };
+    if (!singletonSnap.exists) throw new HttpsError("failed-precondition", "Reconciliar contadores antes da revogação.");
+    const singletonData = singletonSnap.data()!;
+    const papelExistente = await tx.get(admin.firestore().collection(papel).doc(uidAlvo));
+    if (!papelExistente.exists) return { semAlteracao: true }; // não decrementar novamente
 
     // 2. Verificar invariantes de RN-ROLE antes de qualquer escrita
     let vinculos: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null = null;
@@ -113,3 +116,35 @@ export const revogarPapel = onCall(async (request) => {
 
 
 
+
+\paragraph{Concessão simétrica à revogação (AUDITORIA-7, C008).}
+O pseudocódigo usa auxiliares normativos: \texttt{validarConcessaoTx} somente lê e valida conta do operador, matriz RN-ROLE, identidade e vínculos; \texttt{persistirConcessaoTx} somente escreve perfil, conta ativa e auditoria com dados já validados. Contadores devem estar inicializados e reconciliados antes da primeira mutação; não assumir zero para uma base existente.
+\begin{lstlisting}[language=TypeScript, title={Conceder papel com contadores atômicos}]
+export const concederPapel = onCall(async (request) => {
+  await validarPermissao(request, ["Chefe_Geral"], true);
+  const { uidAlvo, papel } = request.data;
+  const db = admin.firestore();
+  const papeis = ["Chefe_Geral", "Gestor_Bens_Patrimoniais", "Gestor_Almoxarifado", "Professor", "Aluno", "Bolsista"];
+  if (!papeis.includes(papel)) throw new HttpsError("invalid-argument", "Papel inválido.");
+  const resultado = await db.runTransaction(async tx => {
+    const controleRef = db.collection("Controle_Papeis").doc("singleton");
+    const controle = await tx.get(controleRef);
+    const papelRef = db.collection(papel).doc(uidAlvo);
+    const existente = await tx.get(papelRef);
+    const plano = await validarConcessaoTx(tx, request.auth!.uid, uidAlvo, papel);
+    if (!controle.exists) throw new HttpsError("failed-precondition", "Reconciliar contadores antes da concessão.");
+    if (existente.exists) return { concedido: false }; // retry não duplica contagem
+    const atualizacao: Record<string, unknown> = {
+      ultima_operacao: { tipo: "CONCESSAO", papel, uid_alvo: uidAlvo,
+        uid_operador: request.auth!.uid, ts: admin.firestore.FieldValue.serverTimestamp() },
+    };
+    if (papel === "Chefe_Geral") atualizacao.chefes_ativos = admin.firestore.FieldValue.increment(1);
+    if (papel === "Gestor_Bens_Patrimoniais") atualizacao.gestores_patrimoniais_ativos = admin.firestore.FieldValue.increment(1);
+    persistirConcessaoTx(tx, papelRef, plano);
+    tx.update(controleRef, atualizacao);
+    return { concedido: true };
+  });
+  await recalcularCustomClaims(uidAlvo); // fora do callback; retry reconcilia Auth
+  return resultado;
+});
+\end{lstlisting}

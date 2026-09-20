@@ -98,7 +98,9 @@ O job pode usar uma única consulta por \texttt{status = EM\_USO} e \texttt{data
 Deve aparecer na interface:
 \begin{itemize}
     \item COMENTÁRIO: x novos comentários de Fulano de Tal na turma y;
-    \item REQUISICAO\_BEM: Nova atualização em sua requisição de Bem patrimonial;
+    \item REQUISICAO\_BEM: resposta de aprovação ou rejeição enviada ao Professor solicitante;
+    \item REQUISICAO\_ADICAO\_BEM: nova solicitação de adição enviada aos Gestores de Bens Patrimoniais;
+    \item REQUISICAO\_EDICAO\_BEM: nova solicitação de edição enviada aos Gestores de Bens Patrimoniais;
     \item DATA\_DEVOLUCAO\_REAGENTE: a data de devolução de um ou mais frasco(s) está expirando [amanhã, hoje];
     \item ROTEIRO\_COMPARTILHADO: Você tem x novo(s) roteiro(s) compartilhado(s) com você.
 \end{itemize}
@@ -139,12 +141,12 @@ A margem de tolerância é estritamente baseada no \textbf{peso bruto de saída}
     \item Reagente higroscópico: $\max(2\,g, 0{,}02 \times Peso_{saida})$
 \end{itemize}
 A avaliação de ganho máximo permitido segue estritamente a fórmula: $Peso_{retorno} > Peso_{saida} + Tolerancia$. 
-Um ganho de massa acima dessa tolerância bloqueia a devolução por anomalia (indicando possível contaminação ou erro de balança). Retornos abaixo da tara ($Peso_{retorno} < Peso_{vazio}$), no entanto, bloqueiam a devolução ordinária, exigindo transição imediata para o fluxo de esgotamento (diferença até 5g) ou recalibração metrológica (diferença maior) com notificação e confirmação do gestor.
+Um ganho de massa acima dessa tolerância bloqueia a devolução por anomalia (indicando possível contaminação ou erro de balança). Retorno abaixo da tara por até 5 g é aceito na própria devolução quando \texttt{confirmarEsgotamento = true}: consome todo o saldo restante, passa a VAZIO/INDISPONIVEL e registra FICOU\_VAZIO com ajuste metrológico. Diferença superior a 5 g ou ausência da confirmação bloqueia a devolução ordinária e exige \texttt{recalibrarTaraFrascoEsgotado}.
 \end{regra}
 
 \subsubsection{Exclusividade na retirada de reagentes}
 \begin{regra}
-Apenas os usuários cadastrados como \textit{Professor} ou \textit{Bolsista} têm permissão para retirar reagentes do almoxarifado (o \textit{Emprestimo\_Reagente.id\_usuario\_retirou} deve corresponder a um \textit{Usuario} com uma dessas duas linhas associadas). Demais Alunos (mesmo de iniciação científica ou TCC, sem o papel de Bolsista) não possuem autorização no sistema para esta ação. Esta regra foi corrigida para não contradizer a seção \textit{Bolsista} (3.6), que descreve explicitamente o gestor de reagentes fazendo empréstimos para usuários Bolsista. O autoatendimento é exclusivo de usuários portadores da combinação \texttt{Professor + Gestor\_Almoxarifado}. Usuários no papel \texttt{Aluno + Gestor\_Almoxarifado} são terminantemente impedidos pelo backend de retirar reagentes para si mesmos, em respeito à matriz de segregação de funções (SOD).
+O Chefe Geral atua como operador de balcão, nunca como destinatário/retirante. Apenas os usuários cadastrados como \textit{Professor} ou \textit{Bolsista} têm permissão para retirar reagentes do almoxarifado (o \textit{Emprestimo\_Reagente.id\_usuario\_retirou} deve corresponder a um \textit{Usuario} com uma dessas duas linhas associadas). Demais Alunos (mesmo de iniciação científica ou TCC, sem o papel de Bolsista) não possuem autorização no sistema para esta ação. Esta regra foi corrigida para não contradizer a seção \textit{Bolsista} (3.6), que descreve explicitamente o gestor de reagentes fazendo empréstimos para usuários Bolsista. O autoatendimento é exclusivo de usuários portadores da combinação \texttt{Professor + Gestor\_Almoxarifado}. Usuários no papel \texttt{Aluno + Gestor\_Almoxarifado} são terminantemente impedidos pelo backend de retirar reagentes para si mesmos, em respeito à matriz de segregação de funções (SOD).
 \end{regra}
 
 \subsubsection{Usuário Multi-role, exceto Chefe Geral}
@@ -378,3 +380,6 @@ O uso do \texttt{localStorage} para persistência de rascunhos de wizards deve r
     \item \textbf{Ciclo de Vida:} Aplicar TTL (Time to Live) e verificá-lo tanto no \textit{boot} quanto na leitura. Ocorrerá limpeza compulsória após o sucesso do fluxo (salvamento no backend), no logout e em qualquer troca de identidade.
     \item \textbf{Robustez:} Utilizar \textit{schema versioning} e tratar cenários de múltiplas abas, limitando o escopo estritamente aos dados de catálogo (\textit{whitelist} de formulários autorizados).
 \end{itemize}
+
+\paragraph{Concessão e contadores de papéis (AUDITORIA-7, C008).}
+Toda concessão de papel é transacional e compartilha \texttt{Controle\_Papeis/singleton} com a revogação. Ao criar papel ativo de Chefe Geral ou Gestor de Bens Patrimoniais, incrementar respectivamente \texttt{chefes\_ativos} ou \texttt{gestores\_patrimoniais\_ativos}, na mesma transação da identidade, papel e auditoria. Repetir concessão já efetivada não incrementa novamente. Inicialização e reconciliação dos contadores precedem o uso; Auth/Custom Claims são sincronizados depois do commit.

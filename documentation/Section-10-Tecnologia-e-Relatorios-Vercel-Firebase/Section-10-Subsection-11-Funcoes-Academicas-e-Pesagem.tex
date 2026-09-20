@@ -27,7 +27,7 @@ export const moderarComentario = onCall(async (request) => {
     if (!snap.exists) throw new HttpsError("not-found", "Comentário inexistente.");
     
     // Grava histórico de moderação
-    tx.set(comentarioRef.collection("Historico").doc(), {
+    tx.set(comentarioRef.collection("HistoricoComentarios").doc(), {
       texto_original: snap.data()!.texto,
       motivo: motivo,
       moderado_por: request.auth!.uid,
@@ -38,7 +38,9 @@ export const moderarComentario = onCall(async (request) => {
     // O endpoint listarComentariosPost aplicará a máscara dinamicamente para terceiros
     tx.update(comentarioRef, {
       moderado: true,
-      data_moderacao: admin.firestore.FieldValue.serverTimestamp()
+      motivo_moderacao: motivo,
+      moderado_por: request.auth!.uid,
+      moderado_em: admin.firestore.FieldValue.serverTimestamp()
     });
   });
 });
@@ -91,3 +93,6 @@ export const registrarPesagemRotina = onCall(async (request) => {
   });
 });
 \end{lstlisting}
+
+\paragraph{Confirmação de uploads (AUDITORIA-7, C011).}
+Antes de criar post ou cadastrar roteiro, executar \texttt{validarDocumentoStorage(url, uid, formatoEsperado)} para cada anexo e persistir somente a referência à geração validada. Esse auxiliar lê o cabeçalho binário no bucket autorizado e confere PDF/JPEG/PNG conforme seção 11. Para roteiro, o formato esperado é PDF; para anexos de post, apenas os formatos autorizados pelo formulário. A rejeição de qualquer anexo impede a criação do documento. Quando o post usa roteiro já cadastrado, conferir propriedade/compartilhamento e o PDF validado antes de criar o snapshot.

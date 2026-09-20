@@ -75,7 +75,7 @@ export const gerarRelatorioBensPredio = onCall(async (request) => {
 
   let query: FirebaseFirestore.Query = admin.firestore().collection("Bem_Patrimonial");
   if (isHistorico) {
-    query = admin.firestore().collectionGroup("Historico");
+    query = admin.firestore().collectionGroup("Historico_Patrimonio");
     query = query.where("predio", "==", filtros.predio);
     if (filtros.andar) query = query.where("andar", "==", filtros.andar);
     if (filtros.sala) query = query.where("sala", "==", filtros.sala);
@@ -127,7 +127,7 @@ export const gerarRelatorioPersonalizado = onCall(async (request) => {
   let snapshot;
 
   if (entidade === "Bens_Patrimoniais") {
-    let query = admin.firestore().collectionGroup("Historico") // somente caminhos Bem_Patrimonial/{id}/Historico
+    let query = admin.firestore().collectionGroup("Historico_Patrimonio") // somente caminhos Bem_Patrimonial/{id}/Historico_Patrimonio
       .where("timestamp", ">=", dataIniObj)
       .where("timestamp", "<=", dataFimObj);
     if (prediosSelecionados && prediosSelecionados.length > 0) {

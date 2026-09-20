@@ -48,8 +48,8 @@ Para garantir a integridade das \textit{queries} e ordenações cruciais, os seg
     \item \texttt{Emprestimo\_Reagente}: \texttt{id\_frasco\_reagente (ASC)} + \texttt{data\_retirada (DESC)}.
     \item \textbf{M-23} \texttt{Bem\_Patrimonial}: \texttt{predio (ASC)} + \texttt{andar (ASC)} + \texttt{sala (ASC)} -- suporta o relatório personalizado por localização (Seção~9 fluxo ALM-01).
     \item \textbf{M-23} \texttt{Bem\_Patrimonial}: \texttt{id\_resumo\_bem\_patrimonial (ASC)} + \texttt{status (ASC)} -- suporta a listagem de bens por tipo e status.
-    \item \textbf{M-23 / N-08} Collection-group \texttt{Historico} (sub-coleção de \texttt{Bem\_Patrimonial}): \texttt{predio (ASC)} + \texttt{timestamp (DESC)} -- suporta relatório histórico por prédio/período.
-    \item \textbf{M-23} Collection-group \texttt{Historico}: \texttt{id\_gestor (ASC)} + \texttt{timestamp (DESC)} -- suporta relatório de atividade por operador.
+    \item \textbf{M-23 / N-08} Collection-group \texttt{Historico\_Patrimonio} (sub-coleção de \texttt{Bem\_Patrimonial}): \texttt{predio (ASC)} + \texttt{timestamp (DESC)} -- suporta relatório histórico por prédio/período.
+    \item \textbf{M-23} Collection-group \texttt{Historico\_Patrimonio}: \texttt{id\_gestor (ASC)} + \texttt{timestamp (DESC)} -- suporta relatório de atividade por operador.
     \item \textbf{M-23} \texttt{Emprestimo\_Reagente}: \texttt{id\_almoxarifado (ASC)} + \texttt{data\_retirada (DESC)} -- suporta relatório mensal por almoxarifado.
     \item \texttt{Frasco\_Reagente}: \texttt{id\_almoxarifado (ASC)} + \texttt{id\_resumo\_reagente (ASC)} + \texttt{id\_especificacao\_reagente (ASC)} + \texttt{disponibilidade (ASC)} + \texttt{estado\_fisico\_frasco (ASC)} + \texttt{em\_quarentena (ASC)} + \texttt{vencido (ASC)} -- suporta job agendado de escassez.
     \item 	\texttt{Emprestimo\_Reagente}: 	\texttt{status (ASC)} + 	\texttt{data\_devolucao\_prevista (ASC)} -- suporta job agendado de vencimentos e atrasos.
@@ -94,8 +94,8 @@ Estoque\_Minimo\_Almoxarifado & Sub-coleção \nolinkurl{Almoxarifado/\{id\}/Est
 Local & Coleção raiz & Referenciado por múltiplas entidades; campos \texttt{predio}, \texttt{andar}, \texttt{sala} denormalizados em \texttt{Bem\_Patrimonial} via trigger.\\
 Resumo\_Bem\_Patrimonial & Coleção raiz. Denorm: \texttt{letra\_inicial\_nome} & Agrupador de bens; filtro alfabético por letra inicial.\\
 Bem\_Patrimonial & Coleção raiz. Denorm: \texttt{nome\_equipamento}, \texttt{predio}, \texttt{andar}, \texttt{sala}, \texttt{letra\_inicial\_nome} & Entidade central pesquisada diretamente; evita JOINs em listagens e relatórios.\\
-Historico\_Bem\_Patrimonial & Sub-coleção \nolinkurl{Bem\_Patrimonial/\{id\}/Historico}. Denorm (N-08): \texttt{predio}, \texttt{andar}, \texttt{sala} -- snapshot imutável do local no momento do evento & Sempre consultado a partir de um bem conhecido. O snapshot de localização é gravado no momento da criação do evento histórico e não é atualizado quando o bem muda de sala; isso garante rastreabilidade do bem antes e depois da mudança. Requerido pelo relatório personalizado por prédio/período.\\
-Alteracao\_Bem\_Patrimonial & Campo \texttt{alteracoes} (array de maps) dentro de cada doc de \texttt{Historico} & Poucos campos por alteração; relação 1:N estreita, nunca consultada independentemente.\\
+Historico\_Bem\_Patrimonial & Sub-coleção \nolinkurl{Bem\_Patrimonial/\{id\}/Historico\_Patrimonio}. Denorm (N-08): \texttt{predio}, \texttt{andar}, \texttt{sala} -- snapshot imutável do local no momento do evento & Consultado por bem ou pelo collection-group exclusivo \texttt{Historico\_Patrimonio}. O snapshot de localização é gravado no momento da criação do evento histórico e não é atualizado quando o bem muda de sala; isso garante rastreabilidade do bem antes e depois da mudança. Requerido pelo relatório personalizado por prédio/período.\\
+Alteracao\_Bem\_Patrimonial & Campo \texttt{alteracoes} (array de maps) dentro de cada doc de \texttt{Historico\_Patrimonio} & Poucos campos por alteração; relação 1:N estreita, nunca consultada independentemente.\\
 Requisicao\_Edicao\_Bem\_Patrimonial & Coleção raiz. Denorm: \texttt{nome\_equipamento}, \texttt{numero\_patrimonio} & Listada independentemente nos painéis de gestores por qualquer filtro de status.\\
 Requisicao\_Adicao\_Bem\_Patrimonial & Coleção raiz & Mesma lógica; query por status e número de patrimônio proposto.\\
 Impressao\_Etiqueta\_Frasco & Coleção raiz & Refere-se a impressão em lote (virgens). Reimpressões avulsas de frascos já cadastrados usam o Registro de Auditoria.\\
@@ -115,8 +115,8 @@ Turma & Coleção raiz. Denorm: \texttt{nome\_materia} & Acesso direto por \text
 Historico\_Alunos\_Turma & Sub-coleção \nolinkurl{Turma/\{id\}/HistoricoAlunos} & Auditoria de inclusão/exclusão sempre por turma.\\
 Post & Sub-coleção \nolinkurl{Turma/\{id\}/Posts} & Feed cronológico da turma; nunca consultado globalmente.\\
 Comentario & Sub-coleção \nolinkurl{Turma/\{id\}/Posts/\{postId\}/Comentarios} & Thread aninhada ao post.\\
-Historico\_Posts\_Turma & Sub-coleção \nolinkurl{Turma/\{id\}/Posts/\{postId\}/Historico} & Auditoria de edição sempre a partir do post.\\
-Historico\_Comentario & Sub-coleção \nolinkurl{Turma/\{id\}/Posts/\{postId\}/Comentarios/\{id\}/Historico} & Auditoria de edição sempre a partir do comentário.\\
+Historico\_Posts\_Turma & Sub-coleção \nolinkurl{Turma/\{id\}/Posts/\{postId\}/HistoricoPosts} & Auditoria de edição sempre a partir do post.\\
+Historico\_Comentario & Sub-coleção \nolinkurl{Turma/\{id\}/Posts/\{postId\}/Comentarios/\{id\}/HistoricoComentarios} & Auditoria de edição sempre a partir do comentário.\\
 Roteiro\_Experimento & Coleção raiz & Compartilhamento cross-professor exige acesso sem partir de uma turma.\\
 Convite\_Aluno & Coleção raiz & Query por e-mail normalizado e status independentemente de turma.\\
 Notificacao & Sub-coleção \nolinkurl{Usuarios/\{uid\}/Notificacoes} & Query natural por usuário; funciona automaticamente para usuários multi-role sem necessidade de multiple reads.\\
@@ -200,7 +200,7 @@ Caminho: \texttt{Resumo\_Bem\_Patrimonial/\{id\}}.
 \end{description}
 
 \paragraph{Historico\_Bem\_Patrimonial}\mbox{}\par
-Caminho: \texttt{Bem\_Patrimonial/\{id\}/Historico/\{eventoId\}}.
+Caminho: \texttt{Bem\_Patrimonial/\{id\}/Historico\_Patrimonio/\{eventoId\}}.
 \begin{description}
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{id\_bem\_patrimonial}] string; O. Identificador da entidade bem patrimonial, cuja existência e escopo são verificados no servidor.
@@ -210,7 +210,7 @@ Caminho: \texttt{Bem\_Patrimonial/\{id\}/Historico/\{eventoId\}}.
 \end{description}
 
 \paragraph{Alteracao\_Bem\_Patrimonial}\mbox{}\par
-Caminho: \texttt{Bem\_Patrimonial/\{id\}/Historico/\{eventoId\}: alteracoes[]}.
+Caminho: \texttt{Bem\_Patrimonial/\{id\}/Historico\_Patrimonio/\{eventoId\}: alteracoes[]}.
 \begin{description}
 \item[\texttt{campo}] string; O. Valor de campo, validado pelo formulário e pelo servidor conforme regras do domínio. Máximo 60 caracteres.
 \item[\texttt{valor\_anterior}] string; O. Valor de valor anterior, validado pelo formulário e pelo servidor conforme regras do domínio.
@@ -478,7 +478,7 @@ Caminho: \texttt{Turma/\{id\}/HistoricoAlunos/\{eventoId\}}.
 \end{description}
 
 \paragraph{Historico\_Posts\_Turma}\mbox{}\par
-Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}/Historico/\{eventoId\}}.
+Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}/HistoricoPosts/\{eventoId\}}.
 \begin{description}
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{id\_post}] string; O. Identificador da entidade post, cuja existência e escopo são verificados no servidor.
@@ -492,7 +492,7 @@ Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}/Historico/\{eventoId\}}.
 \end{description}
 
 \paragraph{Historico\_Comentario}\mbox{}\par
-Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}/Comentarios/\{id\}/Historico/\{eventoId\}}.
+Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}/Comentarios/\{id\}/HistoricoComentarios/\{eventoId\}}.
 \begin{description}
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{id\_comentario}] string; O. Identificador da entidade comentario, cuja existência e escopo são verificados no servidor.
@@ -630,6 +630,7 @@ Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}/Comentarios/\{id\}}.
 \item[\texttt{moderado}] boolean; O, padrão false. Visibilidade conforme DP-C02.
 \item[\texttt{motivo\_moderacao}] string; C quando moderado, até 2000 caracteres não vazios.
 \item[\texttt{moderado\_por}] string; C quando moderado. UID autenticado do moderador, preenchido pelo servidor.
+\item[\texttt{moderado\_em}] Timestamp; C quando moderado. Instante do servidor, gravado atomicamente com motivo, moderador e histórico.
 \end{description}
 
 \paragraph{Registro\_de\_Auditoria}\mbox{}\par
@@ -770,7 +771,7 @@ Caminho: \texttt{Atividade\_Gestor\_Bens\_Patrimoniais\_Mensal/\{id\}}.
 \item[Requisições] Adição inclui \texttt{justificativa\_resposta} (string N, obrigatória após resposta). Edição inclui \texttt{versao\_bem\_origem} (inteiro O), \texttt{novo\_id\_resumo\_bem\_patrimonial} (string N, reclassificação) e \texttt{novo\_documento\_baixa} (string N, C para proposta de baixa). Projeções nome/plaqueta são identificadores de leitura, não autorização. Resposta nunca inventa foto ausente.
 \item[Convite] \texttt{exceder\_capacidade} (boolean O, default false) e \texttt{justificativa\_excecao} (string C quando true), \texttt{aceitado\_por} (string N), \texttt{aceitado\_em} (Timestamp N), \texttt{token\_hash} (string O, SHA-256 do token aleatório). Nunca guardar token em claro. Status aceitado exige UID e instante; matrícula obrigatória na identidade final.
 \item[Arquivos] Roteiros, fotos e comprovantes mantêm \texttt{storage\_path} (string O quando upload), \texttt{content\_type} (string O), \texttt{tamanho\_bytes} (inteiro positivo O), \texttt{owner\_uid} (string O), \texttt{criado\_em} (Timestamp O) no registro/metadados aplicável. \texttt{file\_url}/\texttt{photo\_url} são referências legadas; URL assinada transitória não é fonte de autorização nem conteúdo persistente. Arquivo e Firestore não têm transação única: usar upload provisório e reconciliação de órfãos, preservando anexos referenciados.
-\item[Etiquetas] \texttt{Contador\_Codigo\_Frasco/singleton}: \texttt{ultimo\_codigo\_gerado} (inteiro não negativo O). Não criar simultaneamente Contadores/codigo\_frasco. Impressao\_Etiqueta\_Frasco acrescenta \texttt{start\_row} (1--10), \texttt{start\_col} (1--3), \texttt{id\_operacao} (string O) e \texttt{status\_geracao} (SOLICITADA/CONCLUIDA/FALHOU). Segunda via fica na auditoria; metadata inclui operação, frasco, motivo e resultado, sem duplicar registro como lote virgem.
+\item[Etiquetas] \texttt{Contador\_Codigo\_Frasco/singleton}: \texttt{ultimo\_codigo\_gerado} (inteiro não negativo O). Este é o único sequenciador; não criar caminhos alternativos. Impressao\_Etiqueta\_Frasco acrescenta \texttt{start\_row} (1--10), \texttt{start\_col} (1--3), \texttt{id\_operacao} (string O) e \texttt{status\_geracao} (SOLICITADA/CONCLUIDA/FALHOU). Segunda via fica na auditoria; metadata inclui operação, frasco, motivo e resultado, sem duplicar registro como lote virgem.
 \item[Locks] Locks\_Requisicao\_Patrimonio contém \texttt{id\_requisicao}, \texttt{tipo} (ADICAO/EDICAO), \texttt{chave\_recurso} (string O) e \texttt{criado\_em} (Timestamp O). Lock e requisição são atômicos; limpeza só após verificar inexistência de pendência vinculada.
 \item[Unicidade técnica] \texttt{Chaves\_Unicas/chaveHash}: \texttt{tipo}, \texttt{id\_recurso} (strings O), \texttt{criado\_em} (Timestamp O). Chave determinística derivada do valor normalizado e domínio (ex: \texttt{Bem\_Patrimonial\_\_\{numero\}} para plaqueta, matrícula, CAS, matéria, local, código turma, lote ou convite pendente); nunca expor e-mail na chave. Criar/liberar na mesma transação do recurso. A implementação exige \textbf{backfill} populando esta coleção para todos os registros preexistentes antes de ativar a verificação transacional.
 \item[Deduplicação de Eventos] \texttt{Eventos\_Processados/eventId}: \texttt{processado\_em} (Timestamp O). Usado em transações originadas por triggers (ex: \texttt{onDocumentCreated}) para converter a entrega "at-least-once" do Cloud Functions em processamento "exactly-once".

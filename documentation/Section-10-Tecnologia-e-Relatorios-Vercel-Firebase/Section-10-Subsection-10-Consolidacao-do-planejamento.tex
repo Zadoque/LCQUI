@@ -8,7 +8,7 @@ O planejamento de etiquetas foi incorporado às seções 4 (auditoria), 5.9 (con
 Papel A4 210 por 297 mm; três colunas e dez linhas; etiqueta 65 por 26,5 mm; margens laterais 7,5 mm e superior/inferior 16 mm; espaçamentos horizontal/vertical zero. Linhas cinza contínuas orientam corte. Offset é aplicado apenas na primeira página; ao completar a grade, reiniciar na célula 1/1 da seguinte. Etiqueta virgem contém código, espaço manuscrito para data/reagente e Code 128. Segunda via contém nome e data cadastrados e uma etiqueta centralizada por ficha. Gerar barras em memória com bwip-js e PDF com pdfkit; preservar proporção e área livre ao redor do código, testar leitura física e códigos longos. Casos mínimos: uma etiqueta, coluna 3, offset 4/2, última célula 10/3, 30/36 itens, nome longo, frasco sem histórico e rejeição de 11 IDs na segunda via. Os testes relatados no planejamento são evidência histórica de protótipo, não homologação da aplicação atual.
 
 \paragraph{Contador e auditoria.}
-Adota-se o caminho já usado pelo sistema, Contador\_Codigo\_Frasco/singleton e ultimo\_codigo\_gerado. Contadores/codigo\_frasco no planejamento é proposta antiga, não outro contador ativo. Cadastro incrementa contador e cria frasco atomicamente; impressão não reserva código. Lotes virgens usam Impressao\_Etiqueta\_Frasco; segunda via usa Registro\_de\_Auditoria. A sugestão contraditória de armazenar segunda via também em Impressao não é adotada. Custos reais incluem todas as escritas/leitura de domínio, índices, histórico e tentativas; não reutilizar estimativa de ``1 leitura e 2 escritas'' como custo total.
+Adota-se o caminho já usado pelo sistema, Contador\_Codigo\_Frasco/singleton e ultimo\_codigo\_gerado. Este é o único caminho normativo do sequenciador, sem contador alternativo. Cadastro incrementa contador e cria frasco atomicamente; impressão não reserva código. Lotes virgens usam Impressao\_Etiqueta\_Frasco; segunda via usa Registro\_de\_Auditoria. A sugestão contraditória de armazenar segunda via também em Impressao não é adotada. Custos reais incluem todas as escritas/leitura de domínio, índices, histórico e tentativas; não reutilizar estimativa de ``1 leitura e 2 escritas'' como custo total.
 
 \paragraph{Relatórios, transporte e integridade.}
 O backend atual retorna PDF em base64; a especificação adota esse transporte para relatórios limitados, com conversão em Blob no cliente e liberação da URL temporária. Roteiros e comprovantes permanecem no Storage. Relatórios maiores exigem decisão de infraestrutura antes de ampliar limites. Um hash simples de parâmetros/data não é assinatura digital nem prova de autoria; tratá-lo como identificador de rastreabilidade. Relatórios históricos usam eventos/snapshots da época, não somente o cadastro atual.
@@ -246,7 +246,7 @@ export const aceitarConviteAluno = onCall(async (request) => {
 export const registrarBaixaBemPatrimonial = onCall(async (request) => {
   const { idBem, documentoUrl } = request.data as { idBem: string; documentoUrl: string };
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"], true);
-  await validarDocumentoStorage(documentoUrl, request.auth!.uid); // verifica existência no bucket
+  await validarDocumentoStorage(documentoUrl, request.auth!.uid, "PDF"); // existência, ACL, tamanho e magic bytes %PDF-; fixa geração validada
   return admin.firestore().runTransaction(async (tx) => {
     const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(idBem);
     const snap = await tx.get(bemRef);
