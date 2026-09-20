@@ -166,7 +166,7 @@ interface CadastroFrascoAberto {
   idEspecificacaoReagente: string;
   idAlmoxarifado: string;
   idLote?: string;
-  modalidade: "CONHECE_TARA" | "ESTIMA_VOLUME" | "ESTIMA_MASSA";
+  modalidade: "CONHECE_TARA" | "ESTIMA_VOLUME" | "ESTIMA_MASSA" | "SALDO_DESCONHECIDO";
   pesoTotalBalanca: number;
   conteudoNominal?: number;
   pesoFrascoVazioInformado?: number;
@@ -237,11 +237,16 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
         throw new HttpsError("failed-precondition", `Limite de frascos do lote atingido (${qtdComprados} comprados).`);
     }
 
-    // C5: bifurcação explícita por estado físico
+    // C5 + MET-10: bifurcação explícita por estado físico, com modalidade SALDO_DESCONHECIDO
     let pesoVazio: number | null = null;
+    let saldoDesconhecido = false;
     const conteudoNominal = dados.conteudoNominal ?? null;
 
-    if (estadoFisico === "SOLIDO") {
+    if (dados.modalidade === "SALDO_DESCONHECIDO") {
+      // Saldo não quantificado: não inferir tara nem inventar quantidade atual.
+      saldoDesconhecido = true;
+      pesoVazio = null;
+    } else if (estadoFisico === "SOLIDO") {
       if (dados.modalidade === "CONHECE_TARA") {
         if (dados.pesoFrascoVazioInformado == null) throw new HttpsError("invalid-argument", "CONHECE_TARA exige pesoFrascoVazioInformado.");
         pesoVazio = dados.pesoFrascoVazioInformado;
@@ -279,6 +284,7 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
       medida_usada: 0,
       data_abertura: dados.aberturaHistoricaDesconhecida ? null : dados.dataAbertura,
       abertura_historica_desconhecida: dados.aberturaHistoricaDesconhecida,
+      saldo_desconhecido: saldoDesconhecido,
       estado_fisico_frasco: "ABERTO",
       disponibilidade: "DISPONIVEL",
       validade_efetiva: validadeAbertoStr,
@@ -392,10 +398,26 @@ export const registrarAberturaFrasco = onCall(async (request) => {
         : null,
     });
 
+    // MET-07: registro transacional do evento de abertura no histórico
+    tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+      id_frasco_reagente: frascoRef.id,
+      id_almoxarifado: frasco.id_almoxarifado,
+      id_gestor: request.auth!.uid,
+      tipo: !venceu
+        ? "AJUSTE"
+        : dados.destinoSeVencerNaAbertura === "QUARENTENA"
+          ? "ENTROU_EM_QUARENTENA"
+          : dados.destinoSeVencerNaAbertura === "DISPONIVEL"
+            ? "USO_VENCIDO_AUTORIZADO"
+            : "PENDENTE_DE_DESCARTE",
+      ...(venceu ? {} : { campo_ajustado: "data_abertura" }),
+      motivo: "Primeira abertura física do recipiente.",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
     return { validadeEfetiva, venceu, destino: dados.destinoSeVencerNaAbertura ?? null };
   });
 });
-\end{lstlisting}
 
 \begin{lstlisting}[language=TypeScript, title={Registrar Retirada (Empréstimo)}]
 interface RetiradaFrasco {
@@ -409,8 +431,6 @@ interface RetiradaFrasco {
   finalidadeUso: "AULA_PRATICA" | "DEMONSTRACAO" | "PESQUISA_TCC_POS" | "ESTUDO_DEGRADACAO_RESIDUOS";
   justificativaMetodologica?: string;
   idAceiteTcr?: string; // evento prévio autenticado pelo retirante
-  tcrFisicoAssinado?: boolean;
-  idTermoUpload?: string;
   justificativaAutoAtendimento?: string;
 }
 
@@ -474,14 +494,11 @@ export const registrarRetirada = onCall(async (request) => {
     // Aceite foi criado por endpoint autenticado do retirante, não pelo gestor.
     let aceite = null;
     if (excepcional && pesquisa) {
-      if (dados.tcrFisicoAssinado) {
-        if (!dados.idTermoUpload) throw new HttpsError("invalid-argument", "O termo físico assinado exige o id do upload.");
-      } else {
-        aceite = await validarAceiteTcrTx(tx, dados.idAceiteTcr, {
-          retirante: dados.idUsuarioRetirou, frasco: dados.idFrasco,
-          finalidade, justificativa: dados.justificativaMetodologica,
-        });
-      }
+      // Q04/Q14: o aceite é sempre emitido em sessão autenticada do retirante; o gestor nunca o declara em nome de terceiro.
+      aceite = await validarAceiteTcrTx(tx, dados.idAceiteTcr, {
+        retirante: dados.idUsuarioRetirou, frasco: dados.idFrasco,
+        finalidade, justificativa: dados.justificativaMetodologica,
+      });
     }
     const autoAtendimento = await validarAutoAtendimentoTx(tx, request.auth!.uid,
       dados.idUsuarioRetirou, frasco.id_almoxarifado, dados.justificativaAutoAtendimento);
@@ -505,10 +522,10 @@ export const registrarRetirada = onCall(async (request) => {
       finalidade_uso: finalidade,
       auto_atendimento: autoAtendimento,
       justificativa_metodologica: dados.justificativaMetodologica ?? null,
-      tcr_versao: aceite?.versao ?? (dados.tcrFisicoAssinado ? "1.0" : null),
-      tcr_aceito_em: aceite?.aceito_em ?? (dados.tcrFisicoAssinado ? admin.firestore.FieldValue.serverTimestamp() : null),
-      tcr_aceito_por: aceite?.uid ?? (dados.tcrFisicoAssinado ? dados.idUsuarioRetirou : null),
-      tcr_auditoria_id: aceite?.auditoria_id ?? (dados.idTermoUpload ?? null),
+      tcr_versao: aceite?.versao ?? null,
+      tcr_aceito_em: aceite?.aceito_em ?? null,
+      tcr_aceito_por: aceite?.uid ?? null,
+      tcr_auditoria_id: aceite?.auditoria_id ?? null,
       unidade_medida_utilizada: quimica.unidade,
       densidade_aplicada: quimica.densidade,
     });
@@ -609,7 +626,7 @@ export const registrarDevolucao = onCall(async (request) => {
     if (diferencaTara > 0 && !esgotado && !recalibracaoParcial) {
       throw new HttpsError("failed-precondition", "Retorno abaixo da tara exige confirmação de esgotamento ou parâmetros de recalibração parcial de recipiente.");
     }
-    if (esgotado) pesoConsumido = Math.max(0, emprestimo.peso_saida - frasco.peso_frasco_vazio);
+    if (esgotado) pesoConsumido = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno);
     else if (recalibracaoParcial) {
       pesoConsumido = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno - perdaEvaporacao);
     }
@@ -618,7 +635,8 @@ export const registrarDevolucao = onCall(async (request) => {
     if (dados.pesoRetorno > limiteMaxRetorno) {
       reterPorAnomalia = true;
     }
-    const avisoHigroscopico = dados.pesoRetorno > emprestimo.peso_saida;
+    const ganhoMassa = dados.pesoRetorno > emprestimo.peso_saida;
+    const avisoHigroscopico = ganhoMassa && frasco.eh_higroscopico === true && !reterPorAnomalia;
     const volumeUtilizado = densidade ? pesoConsumido / densidade : pesoConsumido;
 
     const agora = new Date();
@@ -669,6 +687,27 @@ export const registrarDevolucao = onCall(async (request) => {
       atualizacaoFrasco.detalhe_status = "Frasco vencido aguardando processo institucional de descarte.";
     }
 
+    // MET-07: Emissão obrigatória do evento de domínio correspondente ao destino do frasco vencido
+    if (!reterPorAnomalia && frascoVencido) {
+      const tipoDestino = dados.destinoPosDevolucao === "QUARENTENA"
+        ? "ENTROU_EM_QUARENTENA"
+        : dados.destinoPosDevolucao === "DISPONIVEL"
+          ? "USO_VENCIDO_AUTORIZADO"
+          : dados.destinoPosDevolucao === "PENDENTE_DE_DESCARTE"
+            ? "PENDENTE_DE_DESCARTE"
+            : null;
+      if (tipoDestino) {
+        tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+          id_frasco_reagente: emprestimo.id_frasco_reagente,
+          id_almoxarifado: frasco.id_almoxarifado,
+          id_gestor: request.auth!.uid,
+          id_emprestimo_reagente: emprestimoRef.id,
+          tipo: tipoDestino,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
     tx.update(emprestimoRef, {
       status: reterPorAnomalia ? "DEVOLVIDO_COM_ANOMALIA" : (atrasado ? "DEVOLVIDO_COM_ATRASO" : "DEVOLVIDO"),
       data_devolucao_efetuada: admin.firestore.FieldValue.serverTimestamp(),
@@ -692,6 +731,19 @@ export const registrarDevolucao = onCall(async (request) => {
         tipo: "AJUSTE", campo_ajustado: "recalibracao_tara_parcial",
         peso_anterior: frasco.peso_frasco_vazio, peso_novo: dados.novoPesoVazioEstimado,
         motivo: dados.motivoRecalibracao,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    // MET-02: Retenção por anomalia registra compulsoriamente a entrada em quarentena
+    if (reterPorAnomalia) {
+      tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+        id_frasco_reagente: frascoRef.id,
+        id_almoxarifado: frasco.id_almoxarifado,
+        id_gestor: request.auth!.uid,
+        id_emprestimo_reagente: emprestimoRef.id,
+        tipo: "ENTROU_EM_QUARENTENA",
+        motivo: "Retido na devolução: Ganho de massa (" + (dados.pesoRetorno - emprestimo.peso_saida) + "g) excedeu a tolerância legal Q06.",
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
     }
@@ -860,7 +912,10 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
         : null;
       let dataAberturaCalculada = frasco.data_abertura ?? null;
 
-      if (dados.estadoConstatadoAoReencontrar === "ABERTO" && frasco.estado_fisico_frasco === "FECHADO") {
+      // MET-04: só era FECHADO se nunca houve abertura. Data ausente com
+      // abertura_historica_desconhecida=true não autoriza fabricar a data (Q05).
+      const eraFechadoAntes = frasco.data_abertura == null && frasco.abertura_historica_desconhecida !== true;
+      if (dados.estadoConstatadoAoReencontrar === "ABERTO" && eraFechadoAntes) {
         validadeCalculada = calcularValidadeEfetivaNaAbertura(frasco, agora);
         dataAberturaCalculada = DateTime.fromJSDate(agora, { zone: "America/Sao_Paulo" }).toISODate();
       }
@@ -1017,6 +1072,7 @@ export const descartarFrasco = onCall(async (request) => {
     tx.update(frascoRef, {
       estado_fisico_frasco: "DESCARTADO",
       disponibilidade: "INDISPONIVEL",
+      em_quarentena: false, // MET-05: descarte conclui e extingue a quarentena
       detalhe_status: "Frasco descartado institucionalmente: " + dados.motivo,
     });
 
