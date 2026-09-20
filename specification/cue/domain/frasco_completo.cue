@@ -27,7 +27,7 @@ frascoCompletoCampos: [
 	#CampoFrasco & {nome: "vencido", sql: "BOOLEAN"},
 	#CampoFrasco & {nome: "em_quarentena", sql: "BOOLEAN"},
 	#CampoFrasco & {nome: "uso_vencido_autorizado", sql: "BOOLEAN"},
-	#CampoFrasco & {nome: "detalhe_status", sql: "TEXT", nulo: true},
+	#CampoFrasco & {nome: "detalhe_status", sql: "TEXT", nulo: true, observacao: "M2.1a: não nulo em quarentena. Mínimo 20 após trim pertence à entrada humana obrigatória, não ao campo persistido sem autoria."},
 	#CampoFrasco & {nome: "cadastrado_em", sql: "TIMESTAMP"},
 	#CampoFrasco & {nome: "cadastrado_por", sql: "INTEGER"},
 	#CampoFrasco & {nome: "abertura_historica_desconhecida", sql: "BOOLEAN", observacao: "Seção 5: true implica data_abertura null; não restringe ao estado atual ABERTO."},
@@ -36,6 +36,7 @@ frascoCompletoCampos: [
 
 // Registro relacional completo, não payload de criação nem documento Firestore.
 #FrascoCompleto: {
+	em_quarentena!:                   _
 	id_lote!:                         _
 	abertura_historica_desconhecida!: _
 	for c in frascoCompletoCampos {"\(c.nome)"!: c.#Valor}
@@ -44,4 +45,7 @@ frascoCompletoCampos: [
 	if id_lote == null {id_especificacao_reagente!: !=null}
 	if id_lote != null {id_especificacao_reagente!: null}
 	if abertura_historica_desconhecida {data_abertura!: null}
+
+	// Seções 4/5, auditoria M2.1a: motivo associado à quarentena.
+	if em_quarentena {detalhe_status!: !=null}
 }

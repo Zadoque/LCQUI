@@ -1,6 +1,6 @@
 # M2.1a — Auditoria normativa independente
 
-Estado: IN_PROGRESS.
+Estado: VALIDATED (inventário inicialmente salvo como IN_PROGRESS).
 HEAD entrada: ce299d4281cfef3b4cf187c8fc8c769f73eccaf8, árvore limpa.
 Branch: feat/formal-spec-cue-alloy. Baseline M2 histórico: 9df335bc.
 Decisões adicionais: DEC-M2-HUMAN-001 (lote opcional com identidade conhecida)
@@ -75,3 +75,60 @@ incluiu prosa nova e falhou; restringido aos listings, confirmou código de
 payload/hash/identidade idêntico. A checagem subsequente encontrou o delimitador
 preexistente acima; o registro inicial de PASS de ambientes era prematuro e foi
 corrigido antes da etapa CUE. Correção documental adicional, sem regra de domínio.
+
+## Auditoria das 14 fixtures negativas M2.1
+
+Todas continuam rejeitadas individualmente no campo indicado; não são 14 bugs.
+
+| Fixture | Classificação | Fonte/propriedade |
+|---|---|---|
+| identidade_ausente | DECISAO_HUMANA | DEC-001 preserva especificação conhecida sem lote; M2.0 |
+| identidade_dupla | REGRA_DOMINIO | XOR decidido em M2-IDENTIDADE-001, texto S4 |
+| nullable_ausente | REGRA_ESTRUTURAL | Linha normalizada: presença !, null não é ausência |
+| nao_null | REGRA_ESTRUTURAL | peso_atual NOT NULL S4 |
+| estado_enum | REGRA_ESTRUTURAL | Enum físico S4/S5 |
+| disponibilidade_enum | REGRA_ESTRUTURAL | Enum de disponibilidade S4/S5 |
+| prazo_zero | REGRA_DOMINIO | Prazo positivo quando declarado, S5 |
+| abertura_historica_com_data | REGRA_DOMINIO | Flag true implica data null, S5; não decide estados |
+| escala_numerica | REPRESENTACAO_TECNICA | Escala do NUMERIC(10,3), não lei física |
+| precisao_numerica | REPRESENTACAO_TECNICA | Precisão do NUMERIC(10,3), não lei física |
+| data_formato | REPRESENTACAO_TECNICA | Intercâmbio YYYY-MM-DD lexical, não calendário |
+| timestamp_tipo | REPRESENTACAO_TECNICA | TIMESTAMP textual no intercâmbio M2.1 |
+| saldo_ausente | REGRA_ESTRUTURAL | Boolean obrigatório sem default injetado |
+| projecao_firestore | REGRA_ESTRUTURAL | Snapshot Firestore não é coluna relacional |
+
+As fixtures válidas históricas também não resolvem HQ-001/002: aceitação pelo
+schema parcial (por exemplo historico_extraviado) não declara permitido um
+ciclo de vida não especificado. Não foram alteradas para inventar uma resposta.
+
+## Fechamento do recorte M2.1a
+
+Estado final: VALIDATED, com HQ-M2-001/002/003 OPEN. M2 permanece IN_PROGRESS.
+M2.2/M2.3/M2.4 NOT_STARTED. A validação é do recorte auditado, não do domínio
+completo nem das perguntas pendentes.
+
+CUE: única nova implicação em #FrascoCompleto é em_quarentena =>
+detalhe_status != null; metadado explica escopo humano versus persistido.
+Sem campo de autoria inventado, sem mínimo 20 global. SQL TEXT NULL preservado.
+Novas fixtures: valid/quarentena_com_detalhe e invalid/quarentena_sem_detalhe.
+Mesmos valores exceto o detalhe; disponibilidade INDISPONIVEL em ambas evita
+confundir a violação local com aptidão física. A inválida falha em detalhe_status.
+
+Gates e resultados:
+- just spec-check PASS (vet, fixtures e fmt): M0 7; M1 35; M2.1a 21
+  (6 válidas, 15 inválidas), total 63 (16 válidas, 47 inválidas).
+- Diagnósticos individuais: 14 anteriores + nova inválida PASS.
+- git diff --check PASS.
+- Preservação por diff vazio contra ce299d42: M0/M1 e descritores anteriores,
+  Alloy, IR/projection, mapeamentos, Rust, wrapper, build, generated, main.tex/PDF,
+  frontend/functions/configurações. Fixtures antigas preservadas.
+- Validações textuais documentais e suas limitações descritas acima.
+- Não executados Alloy, IR export, Rust, geração ou compilação PDF integrada.
+
+Commits documentais pushados: 4e0e60e5 e 88f913fe. Commit CUE:
+resolver por git log -1 --format=%H --grep='align bottle schema with audited local constraints'.
+Resultado de envio final será registrado em FORMAL_SPEC_STATE.md.
+
+Próxima ação EXATA: apresentar ao humano M2_HUMAN_QUESTIONS.md, incorporar
+as respostas, revalidar somente constraints afetadas, e só então decidir se
+M2.2 Alloy pode começar. Não iniciar Alloy automaticamente.
