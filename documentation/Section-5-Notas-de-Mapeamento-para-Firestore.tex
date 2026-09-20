@@ -404,7 +404,7 @@ Caminho: \texttt{Historico\_Frasco\_Reagente/\{id\}}.
 \item[\texttt{id\_frasco\_reagente}] string; O. Identificador da entidade frasco reagente, cuja existência e escopo são verificados no servidor.
 \item[\texttt{id\_almoxarifado}] string; O. Identificador da entidade almoxarifado, cuja existência e escopo são verificados no servidor.
 \item[\texttt{id\_gestor}] string; O. Identificador da entidade gestor, cuja existência e escopo são verificados no servidor.
-\item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio.
+\item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: CADASTRO, SAIU, ENTROU, AJUSTE, FICOU\_VAZIO, EXTRAVIO, REENCONTRO, EVAPORACAO, FOI\_DESCARTADO.
 \item[\texttt{campo\_ajustado}] string; N. Nome permitido do atributo alterado no evento; não é caminho arbitrário para atualização de documento. Máximo 30 caracteres.
 \item[\texttt{id\_emprestimo\_reagente}] string; N. Identificador da entidade emprestimo reagente, cuja existência e escopo são verificados no servidor.
 \item[\texttt{peso\_anterior}] number; N. Peso bruto em g imediatamente antes do evento de ajuste/pesagem, quando aplicável.
@@ -420,7 +420,7 @@ Caminho: \texttt{Emprestimo\_Reagente/\{id\}}.
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{id\_frasco\_reagente}] string; O. Identificador da entidade frasco reagente, cuja existência e escopo são verificados no servidor.
 \item[\texttt{id\_usuario\_retirou}] string; O. Identificador da entidade usuario retirou, cuja existência e escopo são verificados no servidor.
-\item[\texttt{status}] string enum; O. Estado controlado pelo domínio; transições são validadas no servidor. Valores: EM\_USO,ATRASADO,DEVOLVIDO,DEVOLVIDO\_COM\_ATRASO,ENCERRADO\_EXTRAORDINARIO.
+\item[\texttt{status}] string enum; O. Estado controlado pelo domínio; transições são validadas no servidor. Valores: EM\_USO,ATRASADO,DEVOLVIDO,DEVOLVIDO\_COM\_ATRASO,DEVOLVIDO\_COM\_ANOMALIA,ENCERRADO\_EXTRAORDINARIO.
 \item[\texttt{data\_retirada}] Timestamp; O. Data/instante de data retirada, com ordem temporal validada e autoria do relógio do servidor para eventos.
 \item[\texttt{data\_devolucao\_prevista}] string civil YYYY-MM-DD (America/Sao\_Paulo); O. O vencimento legal encerra-se às 23:59:59.999 do referido dia civil.
 \item[\texttt{data\_devolucao\_efetuada}] Timestamp; N. Data/instante de data devolucao efetuada, com ordem temporal validada e autoria do relógio do servidor para eventos.
