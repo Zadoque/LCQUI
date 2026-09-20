@@ -1,7 +1,7 @@
 # LCQUI — Formal Specification State
 
 ## 1. Propósito desta fase
-Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. Rodada atual: M2.1a, auditoria normativa e harmonização conforme decisões humanas explícitas. M0/M1 permanecem históricos validados; M2 completo ainda não validado. Não reiniciar auditoria global nem substituir aplicação.
+Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. Rodada atual: M2.1b, reconciliação documental pós-decisões humanas, exclusivamente documental. M0/M1 permanecem históricos validados; M2 completo ainda não validado. CUE M2 NÃO foi realinhado nesta rodada. Não reiniciar auditoria global nem substituir aplicação.
 
 ## 2. Baseline congelado da Fase 3B
 - FUNCTIONAL_SHA = db29ea2f17dc785fb0b44ffb3aec16db29c45e94
@@ -73,7 +73,17 @@ Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spaw
 | M12 | Integração/redução de duplicação normativa | NOT_STARTED |
 
 ## 9. Milestone atual
-M2 IN_PROGRESS: M2.0 VALIDATED; M2.1 VALIDATED; M2.1a VALIDATED; M2.2–M2.4 NOT_STARTED. M0/M1 VALIDATED historicamente nos respectivos worklogs; nesta rodada somente regressão CUE reexecutada. A Auditoria 8 alterou M0 depois de M1: enum INDISPONIVEL e testemunha IndisponivelNaoApto; preservar o modelo atual, não restaurar a antiga testemunha DisponivelNaoApto.
+M2 IN_PROGRESS: M2.0 VALIDATED; M2.1 VALIDATED; M2.1a VALIDATED; M2.1b DOCUMENTATION_VALIDATED; M2.2–M2.4 NOT_STARTED.
+
+Estado formal explícito após M2.1b:
+- M0 formal = VALIDATED; M0 erratum textual = corrigido (`Formal-Spec-M0.tex`: extraviado indisponível e fisicamente inapto). CUE/Alloy/Rust/IR M0 intactos.
+- M1 = VALIDATED, não afetado; nenhum schema/generated/contrato M1 tocado.
+- M2.0 = validação histórica; M2.1 = validação histórica; M2.1a = validação histórica.
+- M2.1b = documentação atual reconciliada (M2.1b DOCUMENTATION_VALIDATED).
+- CUE M2 ainda NÃO foi realinhado às novas decisões. M2.1a permanece válido para a documentação anterior.
+- M2.2 = NOT_STARTED.
+
+M0/M1 VALIDATED historicamente nos respectivos worklogs. A Auditoria 8 alterou M0 depois de M1: enum INDISPONIVEL e testemunha IndisponivelNaoApto; preservar o modelo atual, não restaurar a antiga testemunha DisponivelNaoApto.
 
 ## 10. Trabalho concluído
 - Inventário e commit exclusivo do estado 672fc65a antes da camada formal.
@@ -86,12 +96,13 @@ M2 IN_PROGRESS: M2.0 VALIDATED; M2.1 VALIDATED; M2.1a VALIDATED; M2.2–M2.4 NOT
 - Worklogs duráveis: M0_VALIDATION.md, M0_BASELINE_DIAGNOSIS.md e M1_VALIDATION.md em documentation/worklogs/formal-spec/.
 
 ## 11. Trabalho em andamento
-M2.1a VALIDATED no recorte auditado. HEAD de entrada ce299d4281cfef3b4cf187c8fc8c769f73eccaf8; árvore inicialmente limpa. DEC-M2-HUMAN-001: lote opcional com identidade conhecida preservado. DEC-M2-HUMAN-002: mínimo 20 após trim aplicado somente à justificativa humana obrigatória nos contratos inequívocos. Textos automáticos não recebem mínimo global. Documentação Seções 4/5/7/10.5/10.6/10.10 harmonizada; CUE acrescenta somente quarentena => detalhe_status não nulo. Baseline histórico M2 permanece 9df335bc, com estas decisões humanas documentadas como evolução posterior; IR/Rust intactos.
-Worklogs: M2_1A_AUDITORIA_NORMATIVA.md e M2_HUMAN_QUESTIONS.md. Três HQ OPEN sem respostas inferidas. Gates PASS: just spec-check (M0 7 + M1 35 + M2.1a 21 = 63), diagnósticos das 15 negativas, diff --check, 11 casos do helper documental, revisão textual. Defeito preexistente de fechamento de listing corrigido; ambientes LaTeX balanceados, PDF não compilado. Commits documentais 4e0e60e5/88f913fe pushados; CUE commitado/pushado em f340500f; parar sem iniciar Alloy.
+M2.1b DOCUMENTATION_VALIDATED. HEAD de entrada de874a4bf2e9c1827feef2b6b4a52f552db06fdb; árvore inicialmente limpa. Reconciliação documental exclusiva, incorporando decisões humanas posteriores ao M2.1a: `condicao_inicial_cadastro` (FECHADO/JA_ABERTO) histórica e imutável; cadastro já aberto sem fabricar tara/saldo (`peso_frasco_vazio = NULL`, `saldo_desconhecido = true`); `conteudo_nominal` original do fabricante, NULL quando desconhecido e nunca 0; tara real = recipiente vazio medido, removida recalibração parcial estimada; esgotamento confirmado pelo gestor; ciclo de vida de `saldo_desconhecido`; `abertura_historica_desconhecida` histórica; `validade_desconhecida` para validade indeterminável e vencimento ortogonal à quarentena (sem revalidação de validade); lista fechada de justificativas `>= 20`; quarentena manual transacional (TOCTOU) com saída VOLTAR_A_DISPONIVEL/PENDENTE_DE_DESCARTE; correção compensatória de erro do gestor; resumos diários reconstruíveis com `consolidarResumosDiarios(DATA_ALVO)`, IDs determinísticos, metadados `calculado_em`/`versao_calculo` e reprocessamento por substituição; D-1 + D-0 com `evaporacaoMl`.
+Arquivos: Seções 4, 5, 6, 7, 8, 9, 10.5, 10.6, 10.7, 10.9, Formal-Spec-M0 (erratum) e MODIFICACOES_CONSOLIDADAS_LCQUI.md. Worklogs: M2_1B_DOCUMENTATION_RECONCILIATION.md e M2_HUMAN_QUESTIONS.md (HQ-001/002/003 RESOLVED; HQ-004/005/006/007 OPEN).
+Gates: `git diff --check` PASS; ambientes LaTeX balanceados; buscas léxicas sem resíduos normativos (somente archive/negativas); três rodadas consecutivas de auditoria sem inconsistências novas. CUE/Alloy/Rust/IR/functions/frontend NÃO alterados.
 
 ## 12. Próxima ação EXATA
-Apresentar ao humano documentation/worklogs/formal-spec/M2_HUMAN_QUESTIONS.md, incorporar as respostas, revalidar somente constraints afetadas, e só então decidir se M2.2 Alloy pode começar.
-HQ-M2-001: estados/vida da flag de abertura histórica; HQ-M2-002: ciclo de vida saldo_desconhecido; HQ-M2-003: operações com justificativa humana obrigatória versus texto automático/opcional. Não responder pelo humano. M2.2 permanece NOT_STARTED. Não criar fatos Alloy a partir de flags ambíguas ou fixtures aceitas pelo schema parcial.
+Auditar a documentação M2.1b e realinhar o CUE M2 (`specification/cue/domain/frasco.cue` e `frasco_completo.cue`) à nova documentação normativa, reexecutando as fixtures; somente depois considerar M2.2 Alloy. A próxima ação NÃO é Alloy.
+HQ-M2-004: cadastro FECHADO com `conteudo_nominal = NULL`; HQ-M2-005: retenção do limiar de 5 g abaixo da tara como anomalia; HQ-M2-006: suficiência de replay/snapshot de fim de dia; HQ-M2-007: pesagem de rotina. Não responder pelo humano. M2.2 permanece NOT_STARTED.
 Hash global IR/Rust continua histórico; migração somente em M2.3. CHECK OR de M2-IDENTIDADE-001 permanece visível; XOR CUE não foi reaberto.
 
 ## 13. Arquivos que devem ser lidos para continuar
@@ -196,10 +207,11 @@ Relações/IR/documentação do Frasco completo e demais domínios M3–M12; com
 - Checkpoint final M1: assunto `docs(spec): integrate validated M1 catalog documentation`; resolver SHA com `git log -1 --format=%H --grep="validated M1 catalog"` (um commit não contém seu próprio SHA).
 
 ## 20. Estado do Git
-M2.1a entrada ce299d42, sem alterações preexistentes. Checkpoints documentais 4e0e60e5 e 88f913fe commitados/pushados na mesma branch. Arquivos desta rodada: seis .tex normativos, worklog de auditoria, suíte HQ, estado; CUE frasco_completo e duas fixtures. Commit CUE f340500f — fix(cue): align bottle schema with audited local constraints, push confirmado (88f913fe..f340500f). Árvore limpa e sincronizada após o envio, diff --check PASS. Este registro constitui handoff documental adicional, também destinado à mesma branch.
+M2.1b entrada de874a4b, sem alterações preexistentes. Commits desta unidade (resolver SHA por `git log --format=%H --grep=<assunto>`): checkpoint 1 `docs(frasco): reconcile registration, balance and quarantine semantics`; checkpoint 2 `docs(materialization): define rebuildable daily summaries`; checkpoint final `docs(spec): record reconciled M2 documentation state`. Todos na mesma branch, com push confirmado. `git diff --check` PASS; árvore sincronizada após o envio.
+Registro histórico: M2.1a entrada ce299d42; checkpoints documentais 4e0e60e5/88f913fe; CUE f340500f (fix(cue): align bottle schema with audited local constraints).
 
 ## 21. Como uma nova IA deve continuar
 Ler este arquivo; confirmar status/log/branch; ler fontes indicadas; repetir gates mínimos e seguir seção 12. Não replanejar do zero nem reabrir 3B. Atualizar estado após unidades pequenas/validações/descobertas, antes de tarefas longas e antes/depois de commits. Manter tudo salvo para retomada em outra máquina. Usar NOT_STARTED/IN_PROGRESS/BLOCKED/IMPLEMENTED/VALIDATED; só VALIDATED conclui um escopo. Não alegar homologação integral a partir de checks limitados.
 
 ## 22. Definition of Done restante
-M2.0 = VALIDATED; M2.1 = VALIDATED; M2.1a = VALIDATED; M2.2/M2.3/M2.4 = NOT_STARTED; M2 = IN_PROGRESS. Perguntas humanas permanecem OPEN; incorporar respostas antes de decidir início Alloy. Faltam relações Alloy, proveniência/IR/geração e integração LaTeX/PDF com gates próprios. Esta rodada não certifica execução de backend nem compilação integrada.
+M0 = VALIDATED (erratum textual corrigido); M1 = VALIDATED (não afetado); M2.0/M2.1/M2.1a = validações históricas; M2.1b = DOCUMENTATION_VALIDATED; M2.2/M2.3/M2.4 = NOT_STARTED; M2 = IN_PROGRESS. CUE M2 ainda não realinhado. HQ-M2-004/005/006/007 permanecem OPEN; incorporar respostas antes de decidir início Alloy. Faltam relações Alloy, proveniência/IR/geração e integração LaTeX/PDF com gates próprios. Esta rodada não certifica execução de backend nem compilação integrada.

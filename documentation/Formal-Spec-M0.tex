@@ -18,7 +18,7 @@ Não há migração integral da entidade nem nova regra de negócio nesta seçã
 O modelo assume coerência entre disponibilidade e empréstimos ativos no estado
 inicial. A retirada abstrata adiciona um empréstimo e atualiza a disponibilidade;
 a coerência do estado final é verificada, não assumida. As buscas de testemunha
-exigem uma retirada possível e um frasco extraviado disponível, mas fisicamente
+exigem uma retirada possível e um frasco extraviado indisponível e fisicamente
 inapto. A existência dessas instâncias evita atribuir sucesso apenas a um
 modelo sem comportamento possível. Estados não envolvidos na transição não
 representam estados operacionais validados.
