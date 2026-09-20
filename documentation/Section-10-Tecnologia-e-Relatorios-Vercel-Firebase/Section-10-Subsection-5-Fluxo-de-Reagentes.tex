@@ -539,6 +539,8 @@ interface DevolucaoFrasco {
   pesoPerdaEvaporacao?: number;
   confirmarEsgotamento?: boolean;
   motivoRecalibracao?: string;
+  recalibrarTaraParcial?: boolean;       // MET-04: flag para tara danificada com remanescente
+  novoPesoVazioEstimado?: number;        // MET-04: nova tara estimada quando recalibrarTaraParcial = true
   idUsuarioDevolveu: string; // Portador físico que entrega o frasco ao almoxarifado
   destinoPosDevolucao?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
 }
@@ -593,10 +595,18 @@ export const registrarDevolucao = onCall(async (request) => {
       ? 0 : frasco.peso_frasco_vazio - dados.pesoRetorno;
     const esgotado = (diferencaTara > 0 && diferencaTara <= 5 && dados.confirmarEsgotamento === true) || 
                      (diferencaTara > 5 && dados.confirmarEsgotamento === true && dados.motivoRecalibracao != null);
-    if (diferencaTara > 0 && !esgotado) {
-      throw new HttpsError("failed-precondition", "Requer confirmação de esgotamento e/ou motivo de recalibração para diferenças superiores a 5 g.");
+    // MET-04: Recalibração parcial para frasco com tara danificada que ainda contém reagente
+    const recalibracaoParcial = diferencaTara > 0 && !esgotado &&
+                                dados.recalibrarTaraParcial === true &&
+                                dados.motivoRecalibracao != null &&
+                                dados.novoPesoVazioEstimado != null;
+    if (diferencaTara > 0 && !esgotado && !recalibracaoParcial) {
+      throw new HttpsError("failed-precondition", "Retorno abaixo da tara exige confirmação de esgotamento ou parâmetros de recalibração parcial de recipiente.");
     }
     if (esgotado) pesoConsumido = Math.max(0, emprestimo.peso_saida - frasco.peso_frasco_vazio);
+    else if (recalibracaoParcial) {
+      pesoConsumido = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno - perdaEvaporacao);
+    }
     // PDF-025: Ganho acima da tolerância bloqueia por anomalia.
     let reterPorAnomalia = false;
     if (dados.pesoRetorno > limiteMaxRetorno) {
@@ -624,10 +634,13 @@ export const registrarDevolucao = onCall(async (request) => {
       disponibilidade: esgotado || reterPorAnomalia ? "INDISPONIVEL" : "DISPONIVEL",
       ...(esgotado && {
         estado_fisico_frasco: "VAZIO",
-        peso_frasco_vazio: dados.pesoRetorno,
+        peso_frasco_vazio: dados.pesoRetorno, // MET-01: Homologa a tara real na devolução
         peso_atual: dados.pesoRetorno
       }),
-      ...(!esgotado && { peso_atual: dados.pesoRetorno }),
+      ...(!esgotado && {
+        peso_atual: dados.pesoRetorno,
+        ...(recalibracaoParcial && { peso_frasco_vazio: dados.novoPesoVazioEstimado }) // MET-04: Persiste nova tara estimada
+      }),
       data_ultima_pesagem: admin.firestore.FieldValue.serverTimestamp(),
       medida_usada: admin.firestore.FieldValue.increment(pesoConsumido), // sempre g
       vencido: frascoVencido,
@@ -663,7 +676,22 @@ export const registrarDevolucao = onCall(async (request) => {
     });
     tx.update(frascoRef, atualizacaoFrasco);
 
-    if (avisoHigroscopico) {
+    // MET-04: Histórico de recalibração parcial de tara
+    if (recalibracaoParcial) {
+      tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+        id_frasco_reagente: frascoRef.id,
+        id_almoxarifado: frasco.id_almoxarifado,
+        id_gestor: request.auth!.uid,
+        id_emprestimo_reagente: emprestimoRef.id,
+        tipo: "AJUSTE", campo_ajustado: "recalibracao_tara_parcial",
+        peso_anterior: frasco.peso_frasco_vazio, peso_novo: dados.novoPesoVazioEstimado,
+        motivo: dados.motivoRecalibracao,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    // MET-02: Histórico de ganho higroscópico só para frascos comprovadamente higroscópicos
+    if (avisoHigroscopico && !reterPorAnomalia && frasco.eh_higroscopico === true) {
       tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
         id_frasco_reagente: frascoRef.id,
         id_almoxarifado: frasco.id_almoxarifado,
@@ -815,21 +843,33 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
       if (!dados.estadoConstatadoAoReencontrar)
         throw new HttpsError("invalid-argument", "Estado constatado é obrigatório.");
 
+      // MET-06: Reencontro impõe INDISPONIVEL e recalcula validade pós-abertura se era FECHADO
       const agora = new Date();
       const { DateTime } = require("luxon");
-      const validadeEfetiva = frasco.validade_efetiva
+
+      let validadeCalculada = frasco.validade_efetiva
         ? (typeof frasco.validade_efetiva.toDate === "function"
           ? frasco.validade_efetiva.toDate()
           : DateTime.fromISO(frasco.validade_efetiva, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate())
         : null;
-      const venceuAgora = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+      let dataAberturaCalculada = frasco.data_abertura ?? null;
+
+      if (dados.estadoConstatadoAoReencontrar === "ABERTO" && frasco.estado_fisico_frasco === "FECHADO") {
+        validadeCalculada = calcularValidadeEfetivaNaAbertura(frasco, agora);
+        dataAberturaCalculada = DateTime.fromJSDate(agora, { zone: "America/Sao_Paulo" }).toISODate();
+      }
+
+      const venceuAgora = Boolean(validadeCalculada && validadeCalculada <= agora);
+      const frascoVencido = Boolean(frasco.vencido || venceuAgora);
 
       tx.update(frascoRef, {
         estado_fisico_frasco: dados.estadoConstatadoAoReencontrar,
-        disponibilidade: venceuAgora ? "INDISPONIVEL" : "DISPONIVEL",
+        disponibilidade: "INDISPONIVEL", // MET-06: Quarentena impõe compulsoriamente INDISPONIVEL
         em_quarentena: true,
-        vencido: venceuAgora,
-        detalhe_status: "Reencontrado - aguardando análise" + (venceuAgora ? " (vencido)" : "") + ": " + dados.motivo,
+        data_abertura: dataAberturaCalculada,
+        validade_efetiva: validadeCalculada ? DateTime.fromJSDate(validadeCalculada, { zone: "America/Sao_Paulo" }).toISODate() : null,
+        vencido: frascoVencido,
+        detalhe_status: `Reencontrado em quarentena: ${dados.motivo}`,
       });
 
       tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
@@ -955,8 +995,17 @@ export const descartarFrasco = onCall(async (request) => {
     const frasco = frascoSnap.data()!;
     await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, frasco.id_almoxarifado);
 
-    if (frasco.estado_fisico_frasco !== "VAZIO" && frasco.estado_fisico_frasco !== "QUEBRADO") {
-      throw new HttpsError("failed-precondition", "Apenas frascos vazios ou quebrados podem ser descartados institucionalmente.");
+    if (frasco.disponibilidade === "EMPRESTADO") {
+      throw new HttpsError("failed-precondition", "Frasco com empr\'estimo ativo n\~ao pode ser descartado. Registre a devolu\c{c}\~ao ou encerramento extraordin\'ario primeiro.");
+    }
+
+    // MET-05: Ampliar elegibilidade para vencidos com uso n\~ao autorizado
+    const aptoParaDescarte = frasco.estado_fisico_frasco === "VAZIO" ||
+      frasco.estado_fisico_frasco === "QUEBRADO" ||
+      (frasco.vencido === true && frasco.uso_vencido_autorizado === false);
+
+    if (!aptoParaDescarte) {
+      throw new HttpsError("failed-precondition", "Apenas frascos vazios, quebrados ou vencidos aguardando descarte podem ser descartados institucionalmente.");
     }
 
     tx.update(frascoRef, {
