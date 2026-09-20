@@ -9,7 +9,7 @@ export const adicionarComentario = onCall(async (request) => {
 
   const comentarioRef = admin.firestore().collection(`Turma/${idTurma}/Posts/${idPost}/Comentarios`).doc();
   await comentarioRef.set({
-    id_autor: request.auth!.uid,
+    id_usuario: request.auth!.uid,
     texto: texto,
     moderado: false,
     criado_em: admin.firestore.FieldValue.serverTimestamp(),
@@ -34,9 +34,9 @@ export const moderarComentario = onCall(async (request) => {
       data: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    // Mascara o conteúdo atual
+    // Marca como moderado mantendo o original intacto (para autor e DP-C02)
+    // O endpoint listarComentariosPost aplicará a máscara dinamicamente para terceiros
     tx.update(comentarioRef, {
-      texto: "[Comentário removido pela moderação]",
       moderado: true,
       data_moderacao: admin.firestore.FieldValue.serverTimestamp()
     });
@@ -46,18 +46,18 @@ export const moderarComentario = onCall(async (request) => {
 
 \begin{lstlisting}[language=TypeScript, title={Compartilhamento de Roteiros}]
 export const compartilharRoteiro = onCall(async (request) => {
-  const { idRoteiro, idTurma } = request.data;
-  await validarPermissaoAcademica(request, idTurma); // Somente professor da turma
+  const { idRoteiro, idProfessorDestino } = request.data;
+  await validarPermissao(request, ["Professor"]);
   
-  const roteiroRef = admin.firestore().collection("Roteiro").doc(idRoteiro);
+  const roteiroRef = admin.firestore().collection("Roteiro_Experimento").doc(idRoteiro);
   await admin.firestore().runTransaction(async (tx) => {
     const snap = await tx.get(roteiroRef);
-    if (snap.data()!.id_autor !== request.auth!.uid && !request.auth!.token.Chefe_Geral) {
+    if (!snap.exists) throw new HttpsError("not-found", "Roteiro não encontrado.");
+    if (snap.data()!.id_professor_upload !== request.auth!.uid && !request.auth!.token.Chefe_Geral) {
       throw new HttpsError("permission-denied", "Somente o autor pode compartilhar.");
     }
-    tx.set(admin.firestore().collection(`Turma/${idTurma}/Roteiros_Compartilhados`).doc(idRoteiro), {
-      adicionado_por: request.auth!.uid,
-      data: admin.firestore.FieldValue.serverTimestamp()
+    tx.update(roteiroRef, {
+      professores_compartilhados: admin.firestore.FieldValue.arrayUnion(idProfessorDestino)
     });
   });
 });
@@ -75,13 +75,15 @@ export const registrarPesagemRotina = onCall(async (request) => {
     
     tx.update(frascoRef, {
       peso_atual: pesoAtual,
-      ultima_pesagem: admin.firestore.FieldValue.serverTimestamp()
+      data_ultima_pesagem: admin.firestore.FieldValue.serverTimestamp()
     });
     
     tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
       id_frasco_reagente: idFrasco,
-      tipo: "PESAGEM_ROTINA",
-      peso_registrado: pesoAtual,
+      id_almoxarifado: snap.data()!.id_almoxarifado,
+      tipo: "INVENTARIO_ROTINA",
+      peso_anterior: snap.data()!.peso_atual,
+      peso_novo: pesoAtual,
       motivo: motivo,
       id_gestor: request.auth!.uid,
       timestamp: admin.firestore.FieldValue.serverTimestamp()

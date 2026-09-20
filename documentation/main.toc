@@ -307,15 +307,16 @@
 \contentsline {paragraph}{Referências técnicas verificadas.}{208}{section*.64}%
 \contentsline {paragraph}{Contratos dos auxiliares Q04/Q14.}{208}{section*.65}%
 \contentsline {subsubsection}{\numberline {10.3.1}Contratos complementares pós-auditoria}{208}{subsubsection.10.3.1}%
-\contentsline {section}{\numberline {11}Regras de Segurança do Firestore (Security Rules)}{216}{section.11}%
-\contentsline {subsection}{\numberline {11.1}Regras por Coleção}{216}{subsection.11.1}%
-\contentsline {subsection}{\numberline {11.2}Contrato de acesso para os fluxos detalhados}{218}{subsection.11.2}%
-\contentsline {subsection}{\numberline {11.3}Moderação: autorização por documento e resposta filtrada}{219}{subsection.11.3}%
-\contentsline {section}{\numberline {12}Implementações em Estudo para Versões Futuras}{220}{section.12}%
-\contentsline {subsection}{\numberline {12.1}Por que \texttt {GASOSO} sozinho não basta}{220}{subsection.12.1}%
-\contentsline {subsection}{\numberline {12.2}Proposta de campos (apenas ilustrativa)}{220}{subsection.12.2}%
-\contentsline {subsection}{\numberline {12.3}Além do enum: medição de gases não é pesagem}{221}{subsection.12.3}%
-\contentsline {subsection}{\numberline {12.4}Horários de Turma}{221}{subsection.12.4}%
-\contentsline {subsection}{\numberline {12.5}Lotação física de professores (V2)}{221}{subsection.12.5}%
-\contentsline {section}{\numberline {13}Camada formal incremental: prova de infraestrutura M0}{223}{section.13}%
-\contentsline {section}{\numberline {14}Camada formal M1: catálogo de reagentes}{225}{section.14}%
+\contentsline {subsection}{\numberline {10.4}Funções Acadêmicas e Pesagem (C012, C016)}{215}{subsection.10.4}%
+\contentsline {section}{\numberline {11}Regras de Segurança do Firestore (Security Rules)}{218}{section.11}%
+\contentsline {subsection}{\numberline {11.1}Regras por Coleção}{218}{subsection.11.1}%
+\contentsline {subsection}{\numberline {11.2}Contrato de acesso para os fluxos detalhados}{220}{subsection.11.2}%
+\contentsline {subsection}{\numberline {11.3}Moderação: autorização por documento e resposta filtrada}{221}{subsection.11.3}%
+\contentsline {section}{\numberline {12}Implementações em Estudo para Versões Futuras}{222}{section.12}%
+\contentsline {subsection}{\numberline {12.1}Por que \texttt {GASOSO} sozinho não basta}{222}{subsection.12.1}%
+\contentsline {subsection}{\numberline {12.2}Proposta de campos (apenas ilustrativa)}{222}{subsection.12.2}%
+\contentsline {subsection}{\numberline {12.3}Além do enum: medição de gases não é pesagem}{223}{subsection.12.3}%
+\contentsline {subsection}{\numberline {12.4}Horários de Turma}{223}{subsection.12.4}%
+\contentsline {subsection}{\numberline {12.5}Lotação física de professores (V2)}{223}{subsection.12.5}%
+\contentsline {section}{\numberline {13}Camada formal incremental: prova de infraestrutura M0}{225}{section.13}%
+\contentsline {section}{\numberline {14}Camada formal M1: catálogo de reagentes}{227}{section.14}%
