@@ -56,7 +56,7 @@ function alloyCheck() {
   const temp=fs.mkdtempSync(path.join(os.tmpdir(),'lcqui-alloy-'));
   run('alloy6',['exec','-q','-c','*','-s','sat4j','-t','json','-o',path.join(temp,'result'),model]);
   const receipt=JSON.parse(fs.readFileSync(path.join(temp,'result/receipt.json')));
-  const expected=[['BloqueioFisico','check','INV-FRASCO-001'],['Unicidade','check','INV-EMPRESTIMO-001'],['Testemunha','run','WIT-RETIRADA-001'],['DisponivelNaoApto','run','WIT-DISPONIBILIDADE-001']];
+  const expected=[['BloqueioFisico','check','INV-FRASCO-001'],['Unicidade','check','INV-EMPRESTIMO-001'],['Testemunha','run','WIT-RETIRADA-001'],['IndisponivelNaoApto','run','WIT-DISPONIBILIDADE-001']];
   if(Object.keys(receipt.commands).sort().join()!==expected.map(x=>x[0]).sort().join()) throw new Error('Comandos Alloy divergentes');
   const results=expected.map(([name,type,id])=>{
     const c=receipt.commands[name];
