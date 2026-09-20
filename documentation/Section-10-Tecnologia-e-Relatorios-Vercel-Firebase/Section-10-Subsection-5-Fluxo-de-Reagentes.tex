@@ -558,7 +558,8 @@ export const registrarDevolucao = onCall(async (request) => {
     const densidade = liquido ? emprestimo.densidade_aplicada : null;
     if (liquido && (!Number.isFinite(densidade) || densidade <= 0))
       throw new HttpsError("failed-precondition", "Densidade histórica inválida.");
-    let pesoConsumido = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno);
+    const perdaEvaporacao = Number.isFinite(dados.pesoPerdaEvaporacao) ? Math.max(0, dados.pesoPerdaEvaporacao!) : 0;
+    let pesoConsumido = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno - perdaEvaporacao);
 
     if (typeof frasco.eh_higroscopico !== "boolean")
       throw new HttpsError("failed-precondition", "Snapshot histórico ausente: reconciliar frasco.");
