@@ -145,7 +145,7 @@ export const aceitarConviteAluno = onCall(async (request) => {
       if (!jaMatriculado && !convite.exceder_capacidade) {
         const qtdAlunosAtual = turma.qtd_alunos || 0;
         if (qtdAlunosAtual >= turma.capacidade) {
-          throw new HttpsError("resource-exhausted", "Turma lotada.");
+          throw new HttpsError("failed-precondition", "Turma lotada.");
         }
       }
     }
