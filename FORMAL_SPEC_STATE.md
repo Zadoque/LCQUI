@@ -86,6 +86,8 @@ M2 IN_PROGRESS: M2.0 VALIDATED; M2.1 VALIDATED; M2.2–M2.4 NOT_STARTED. M0/M1 V
 - Worklogs duráveis: M0_VALIDATION.md, M0_BASELINE_DIAGNOSIS.md e M1_VALIDATION.md em documentation/worklogs/formal-spec/.
 
 ## 11. Trabalho em andamento
+M2.1a IN_PROGRESS. HEAD de entrada ce299d4281cfef3b4cf187c8fc8c769f73eccaf8; árvore limpa. Recorte: inventário normativo, decisões humanas DEC-M2-HUMAN-001/002, harmonização documental e apenas quarentena ⇒ detalhe não nulo em CUE. Perguntas abertas devem permanecer sem resposta. Não iniciar M2.2; próxima ação desta rodada: inventário e documentação antes do CUE.
+
 M2.1 VALIDATED. HEAD de entrada: 0ee6c0ce5c688359cbf88a10f64c7403df662413, árvore inicialmente limpa. #FrascoCompleto adicional com 27 campos, descritores compartilhados de valor/metadados, presença ! e null explícito, sem defaults SQL. XOR local, abertura histórica implica data null, prazo declarado positivo. DATE é string YYYY-MM-DD apenas lexical; TIMESTAMP string sem formato/timezone imposto. Sem regras físicas inventadas. Worklog: documentation/worklogs/formal-spec/M2_1_CUE_FRASCO_COMPLETO.md.
 Gates PASS: just spec-check (M0 7 + M1 35 + M2.1 19 = 61 fixtures, fmt/vet), 27/27 remoções individuais rejeitadas, diagnósticos das 14 inválidas conferidos, 27 nomes/ordem comparados ao SQL, git diff --check. M0 e todos os arquivos fora do recorte preservados contra HEAD de entrada. Não executados Alloy, export IR, Rust, LaTeX/PDF. Implementação commitada em b475cd2e e push confirmado; encerrar nesta unidade, sem iniciar M2.2.
 

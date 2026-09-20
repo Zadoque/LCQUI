@@ -369,7 +369,7 @@ Caminho: \texttt{Frasco\_Reagente/\{id\}}.
 \begin{description}
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{id\_almoxarifado}] string; O. Identificador da entidade almoxarifado, cuja existência e escopo são verificados no servidor.
-\item[\texttt{id\_lote}] string; N. Identificador da entidade lote, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_lote}] string; N. Lote opcional: NULL é permitido sem quarentena automática. Quando informado, verificar existência e correspondência com a especificação. A especificação projetada continua obrigatória mesmo sem lote.
 \item[\texttt{id\_especificacao\_reagente}] string; O. Identificador da entidade especificacao reagente, cuja existência e escopo são verificados no servidor. Projeção imutável obrigatória no Firestore.
 \item[\texttt{id\_resumo\_reagente}] string; O. Identificador da entidade resumo reagente, cuja existência e escopo são verificados no servidor. Projeção imutável obrigatória no Firestore.
 \item[\texttt{detalhe\_local\_armazenamento}] string; N. Valor de detalhe local armazenamento, validado pelo formulário e pelo servidor conforme regras do domínio.
@@ -388,9 +388,9 @@ Caminho: \texttt{Frasco\_Reagente/\{id\}}.
 \item[\texttt{estado\_fisico\_frasco}] string enum; O. Condição do recipiente/conteúdo; quarentena e vencimento são dimensões separadas. Valores: FECHADO,ABERTO,VAZIO,QUEBRADO,DESCARTADO,EXTRAVIADO.
 \item[\texttt{disponibilidade}] string enum; O. Disponível, emprestado ou indisponível; exige coerência com empréstimo ativo. Valores: DISPONIVEL, EMPRESTADO, INDISPONIVEL.
 \item[\texttt{vencido}] boolean; O. Projeção de validade comparada ao relógio do servidor; reavaliar em cada operação crítica.
-\item[\texttt{em\_quarentena}] boolean; O. Bloqueio operacional independente de abertura e vencimento; true exige motivo.
+\item[\texttt{em\_quarentena}] boolean; O. Bloqueio operacional independente de abertura e vencimento; true exige motivo associado e detalhe\_status não nulo. Na entrada manual com justificativa humana obrigatória, exigir pelo menos 20 caracteres após trim.
 \item[\texttt{uso\_vencido\_autorizado}] boolean; O. Decisão expressa de gestor para uso excepcional conforme Q04, auditada; pesquisa exige TCR e justificativa.
-\item[\texttt{detalhe\_status}] string; N. Justificativa obrigatória para quarentena e decisões que a exigem.
+\item[\texttt{detalhe\_status}] string; N. Texto associado à quarentena e às decisões que o exigem; não nulo quando em\_quarentena=true. Pode conter justificativa humana ou mensagem automática do backend. A entrada humana obrigatória exige pelo menos 20 caracteres após trim; essa regra não é um mínimo global do campo persistido.
 \item[\texttt{cadastrado\_em}] Timestamp; O. Data/instante de cadastrado em, com ordem temporal validada e autoria do relógio do servidor para eventos.
 \item[\texttt{cadastrado\_por}] string; O. Valor de cadastrado por, validado pelo formulário e pelo servidor conforme regras do domínio.
 \item[\texttt{eh\_higroscopico}] boolean; O. Snapshot físico denormalizado, imutável, preenchido pelo backend no cadastro a partir de Resumo\_Reagente.eh\_higroscopico (fonte canônica 3FN). Alterações posteriores do resumo não reescrevem frascos existentes. Não aceitar valor do cliente nem atualização direta. Permite aplicar Q06 na devolução sem leitura adicional do resumo. Frascos legados sem snapshot exigem reconciliação explícita antes da operação.
@@ -437,7 +437,7 @@ Caminho: \texttt{Emprestimo\_Reagente/\{id\}}.
 \item[\texttt{uso\_vencido\_aceito}] boolean; O. Ciência explícita do empréstimo específico; não concede nem substitui autorização do gestor.
 \item[\texttt{finalidade\_uso}] string enum; O. Finalidade validada na retirada. Valores: AULA\_PRATICA, DEMONSTRACAO, PESQUISA\_TCC\_POS, ESTUDO\_DEGRADACAO\_RESIDUOS. Uso excepcional de pesquisa exige rastreabilidade TCR de Q04.
 \item[\texttt{auto\_atendimento}] boolean; O, padrão false. Calculado pelo backend conforme Q14, justificativa e notificação à chefia obrigatórias quando true.
-\item[\texttt{justificativa\_metodologica}] string; C no uso excepcional Q04, 20--2000 caracteres não vazios.
+\item[\texttt{justificativa\_metodologica}] string; C no uso excepcional Q04, 20--2000 caracteres; o mínimo de 20 é verificado após trim (o máximo específico preexistente é preservado).
 \item[\texttt{tcr\_versao}] string; C em Q04, até 100. Versão institucional aceita, validada pelo backend.
 \item[\texttt{tcr\_aceito\_em}] Timestamp; C em Q04. Instante servidor do aceite.
 \item[\texttt{tcr\_aceito\_por}] string; C em Q04. UID autenticado do solicitante/retirante, não do gestor que atende.

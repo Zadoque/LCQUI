@@ -1,5 +1,19 @@
 \subsubsection{Fluxo de Reagentes: Cadastro, Retirada e Devolução}
 
+\paragraph{Contratos humanos auditados (M2.1a).}
+O lote é opcional nos dois cadastros: \texttt{idLote} ausente persiste como NULL; a especificação permanece obrigatória. O lote informado é consultado e deve corresponder à especificação. A ausência de lote não implica quarentena.
+
+A justificativa humana obrigatória deve satisfazer \texttt{trim(texto).length >= 20}. Nos exemplos TypeScript, \texttt{length} é a contagem técnica da string JavaScript após \texttt{trim}; não há avaliação semântica do texto. A validação não modifica o payload original, a canonicalização nem o hash de idempotência. O texto validado pode ser materializado em \texttt{detalhe\_status} ou no histórico, conforme o fluxo já definido. Mensagens automáticas não passam por validação de entrada humana. Descarte, pesagem de rotina e necessidade de justificativa adicional na devolução estão sob esclarecimento de escopo; não recebem novas exigências por inferência. O mínimo geral não cria máximo; limites específicos preexistentes, como Q04, permanecem.
+
+\begin{lstlisting}[language=TypeScript, title={Validação de justificativa humana obrigatória}]
+function validarJustificativaHumana(texto: unknown): void {
+  if (typeof texto !== "string" || texto.trim().length < 20) {
+    throw new HttpsError("invalid-argument",
+      "Justificativa humana exige no mínimo 20 caracteres após trim.");
+  }
+}
+\end{lstlisting}
+
 \begin{lstlisting}[language=TypeScript, title={Cadastro de Frasco Fechado (Regra 6.2.13, item 1)}]
 interface CadastroFrascoFechado {
   idResumoReagente: string;
@@ -33,8 +47,8 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
   if (venceuNoCadastro && !dados.decisaoSeJaVencido) {
     throw new HttpsError("failed-precondition", "O frasco está vencido no cadastro e exige uma decisão do gestor.");
   }
-  if (dados.decisaoSeJaVencido === "QUARENTENA" && !dados.detalheStatus) {
-    throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status.");
+  if (dados.decisaoSeJaVencido === "QUARENTENA") {
+    validarJustificativaHumana(dados.detalheStatus);
   }
 
   // Execução atômica no Firestore: Sequenciamento + Cadastro do Frasco
@@ -197,8 +211,8 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
 
   if (jaVencido && !dados.decisaoSeJaVencido)
     throw new HttpsError("failed-precondition", "O frasco está vencido no cadastro e exige uma decisão do gestor.");
-  if (dados.decisaoSeJaVencido === "QUARENTENA" && !dados.detalheStatus)
-    throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status.");
+  if (dados.decisaoSeJaVencido === "QUARENTENA")
+    validarJustificativaHumana(dados.detalheStatus);
 
   return admin.firestore().runTransaction(async (tx) => {
     await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, dados.idAlmoxarifado);
@@ -380,8 +394,8 @@ export const registrarAberturaFrasco = onCall(async (request) => {
     if (venceu && !dados.destinoSeVencerNaAbertura) {
       throw new HttpsError("failed-precondition", "A abertura tornou o frasco vencido. O gestor deve escolher o destino do frasco.");
     }
-    if (venceu && dados.destinoSeVencerNaAbertura === "QUARENTENA" && !dados.detalheStatus) {
-      throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status.");
+    if (venceu && dados.destinoSeVencerNaAbertura === "QUARENTENA") {
+      validarJustificativaHumana(dados.detalheStatus);
     }
 
     tx.update(frascoRef, {
@@ -494,12 +508,14 @@ export const registrarRetirada = onCall(async (request) => {
     // Aceite foi criado por endpoint autenticado do retirante, não pelo gestor.
     let aceite = null;
     if (excepcional && pesquisa) {
+      validarJustificativaHumana(dados.justificativaMetodologica);
       // Q04/Q14: o aceite é sempre emitido em sessão autenticada do retirante; o gestor nunca o declara em nome de terceiro.
       aceite = await validarAceiteTcrTx(tx, dados.idAceiteTcr, {
         retirante: dados.idUsuarioRetirou, frasco: dados.idFrasco,
         finalidade, justificativa: dados.justificativaMetodologica,
       });
     }
+    // O helper exige validarJustificativaHumana quando caracteriza autoatendimento (Q14).
     const autoAtendimento = await validarAutoAtendimentoTx(tx, request.auth!.uid,
       dados.idUsuarioRetirou, frasco.id_almoxarifado, dados.justificativaAutoAtendimento);
     const quimica = await resolverSnapshotQuimicoTx(tx, frasco);
@@ -623,6 +639,9 @@ export const registrarDevolucao = onCall(async (request) => {
                                 dados.recalibrarTaraParcial === true &&
                                 dados.motivoRecalibracao != null &&
                                 dados.novoPesoVazioEstimado != null;
+    if ((esgotado && diferencaTara > 5) || recalibracaoParcial) {
+      validarJustificativaHumana(dados.motivoRecalibracao);
+    }
     if (diferencaTara > 0 && !esgotado && !recalibracaoParcial) {
       throw new HttpsError("failed-precondition", "Retorno abaixo da tara exige confirmação de esgotamento ou parâmetros de recalibração parcial de recipiente.");
     }
@@ -842,6 +861,7 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
     }
 
     // 2. ler frasco
+    validarJustificativaHumana(dados.motivo);
     const frascoSnap = await tx.get(frascoRef);
     if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     const frasco = frascoSnap.data()!;
@@ -989,6 +1009,7 @@ export const recalibrarTaraFrascoEsgotado = onCall(async (request) => {
       throw new HttpsError("already-exists", "id_operacao duplicada: payload_hash ou ator divergente.");
     }
 
+    validarJustificativaHumana(dados.motivo);
     const frascoSnap = await tx.get(frascoRef);
     if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     const frasco = frascoSnap.data()!;
