@@ -7,7 +7,7 @@ interface CadastroFrascoFechado {
   idEspecificacaoReagente: string;
   idAlmoxarifado: string;
   idLote?: string;
-  volumeNominal?: number;
+  conteudoNominal?: number;
   pesoTotal: number;
   validadeFechado?: string;
   validadeDesconhecida?: boolean;
@@ -75,15 +75,15 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
     }
 
     let pesoVazio: number | null = null;
-    if (dados.volumeNominal != null) {
+    if (dados.conteudoNominal != null) {
       if (estadoFisico === "LIQUIDO") {
         if (!densidade || densidade <= 0) throw new HttpsError("failed-precondition", "Líquido exige densidade positiva.");
-        pesoVazio = dados.pesoTotal - (dados.volumeNominal * densidade);
+        pesoVazio = dados.pesoTotal - (dados.conteudoNominal * densidade);
       } else {
-        pesoVazio = dados.pesoTotal - dados.volumeNominal;
+        pesoVazio = dados.pesoTotal - dados.conteudoNominal;
       }
       if (pesoVazio <= 0) {
-        throw new HttpsError("invalid-argument", "Peso total incompatível com o volume nominal para esta densidade.");
+        throw new HttpsError("invalid-argument", "Peso total incompatível com o conteúdo nominal para esta densidade.");
       }
     }
 
@@ -99,7 +99,7 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
       id_resumo_reagente: dados.idResumoReagente,
       eh_higroscopico: resumo.eh_higroscopico, // snapshot servidor imutável
       codigo_frasco: novoCodigo,
-      conteudo_nominal: dados.volumeNominal ?? null,
+      conteudo_nominal: dados.conteudoNominal ?? null,
       peso_no_cadastrado: dados.pesoTotal,
       peso_atual: dados.pesoTotal,
       peso_frasco_vazio: pesoVazio,
@@ -162,7 +162,7 @@ interface CadastroFrascoAberto {
   idLote?: string;
   modalidade: "CONHECE_TARA" | "ESTIMA_VOLUME" | "ESTIMA_MASSA";
   pesoTotalBalanca: number;
-  volumeNominal?: number;
+  conteudoNominal?: number;
   pesoFrascoVazioInformado?: number;
   volumeAtualEstimado?: number;
   massaAtualEstimada?: number;
@@ -233,7 +233,7 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
 
     // C5: bifurcação explícita por estado físico
     let pesoVazio: number | null = null;
-    const conteudoNominal = dados.volumeNominal ?? null;
+    const conteudoNominal = dados.conteudoNominal ?? null;
 
     if (estadoFisico === "SOLIDO") {
       if (dados.modalidade === "CONHECE_TARA") {
@@ -403,6 +403,8 @@ interface RetiradaFrasco {
   finalidadeUso: "AULA_PRATICA" | "DEMONSTRACAO" | "PESQUISA_TCC_POS" | "ESTUDO_DEGRADACAO_RESIDUOS";
   justificativaMetodologica?: string;
   idAceiteTcr?: string; // evento prévio autenticado pelo retirante
+  tcrFisicoAssinado?: boolean;
+  idTermoUpload?: string;
   justificativaAutoAtendimento?: string;
 }
 
@@ -464,11 +466,17 @@ export const registrarRetirada = onCall(async (request) => {
     const pesquisa = ["PESQUISA_TCC_POS", "ESTUDO_DEGRADACAO_RESIDUOS"].includes(finalidade);
     // Helpers contratuais: todas as leituras devem ocorrer antes da primeira escrita.
     // Aceite foi criado por endpoint autenticado do retirante, não pelo gestor.
-    const aceite = excepcional && pesquisa
-      ? await validarAceiteTcrTx(tx, dados.idAceiteTcr, {
+    let aceite = null;
+    if (excepcional && pesquisa) {
+      if (dados.tcrFisicoAssinado) {
+        if (!dados.idTermoUpload) throw new HttpsError("invalid-argument", "O termo físico assinado exige o id do upload.");
+      } else {
+        aceite = await validarAceiteTcrTx(tx, dados.idAceiteTcr, {
           retirante: dados.idUsuarioRetirou, frasco: dados.idFrasco,
           finalidade, justificativa: dados.justificativaMetodologica,
-        }) : null;
+        });
+      }
+    }
     const autoAtendimento = await validarAutoAtendimentoTx(tx, request.auth!.uid,
       dados.idUsuarioRetirou, frasco.id_almoxarifado, dados.justificativaAutoAtendimento);
     const quimica = await resolverSnapshotQuimicoTx(tx, frasco);
@@ -491,10 +499,10 @@ export const registrarRetirada = onCall(async (request) => {
       finalidade_uso: finalidade,
       auto_atendimento: autoAtendimento,
       justificativa_metodologica: dados.justificativaMetodologica ?? null,
-      tcr_versao: aceite?.versao ?? null,
-      tcr_aceito_em: aceite?.aceito_em ?? null,
-      tcr_aceito_por: aceite?.uid ?? null,
-      tcr_auditoria_id: aceite?.auditoria_id ?? null,
+      tcr_versao: aceite?.versao ?? (dados.tcrFisicoAssinado ? 1 : null),
+      tcr_aceito_em: aceite?.aceito_em ?? (dados.tcrFisicoAssinado ? admin.firestore.FieldValue.serverTimestamp() : null),
+      tcr_aceito_por: aceite?.uid ?? (dados.tcrFisicoAssinado ? dados.idUsuarioRetirou : null),
+      tcr_auditoria_id: aceite?.auditoria_id ?? (dados.idTermoUpload ?? null),
       unidade_medida_utilizada: quimica.unidade,
       densidade_aplicada: quimica.densidade,
     });
@@ -530,6 +538,7 @@ interface DevolucaoFrasco {
   pesoRetorno: number;
   pesoPerdaEvaporacao?: number;
   confirmarEsgotamento?: boolean;
+  motivoRecalibracao?: string;
   idUsuarioDevolveu: string; // Portador físico que entrega o frasco ao almoxarifado
   destinoPosDevolucao?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
 }
@@ -582,15 +591,16 @@ export const registrarDevolucao = onCall(async (request) => {
     // PDF-025 / N-10: Verificação de tara na devolução (Q06)
     const diferencaTara = frasco.peso_frasco_vazio == null
       ? 0 : frasco.peso_frasco_vazio - dados.pesoRetorno;
-    const esgotado = diferencaTara > 0 && diferencaTara <= 5
-      && dados.confirmarEsgotamento === true;
+    const esgotado = (diferencaTara > 0 && diferencaTara <= 5 && dados.confirmarEsgotamento === true) || 
+                     (diferencaTara > 5 && dados.confirmarEsgotamento === true && dados.motivoRecalibracao != null);
     if (diferencaTara > 0 && !esgotado) {
-      throw new HttpsError("failed-precondition", "Requer recalibrarTaraFrascoEsgotado: diferença superior a 5 g ou esgotamento não confirmado.");
+      throw new HttpsError("failed-precondition", "Requer confirmação de esgotamento e/ou motivo de recalibração para diferenças superiores a 5 g.");
     }
     if (esgotado) pesoConsumido = Math.max(0, emprestimo.peso_saida - frasco.peso_frasco_vazio);
     // PDF-025: Ganho acima da tolerância bloqueia por anomalia.
+    let reterPorAnomalia = false;
     if (dados.pesoRetorno > limiteMaxRetorno) {
-      throw new HttpsError("invalid-argument", "Ganho de massa excede tolerância Q06 (possível erro ou contaminação). Bloqueado por anomalia.");
+      reterPorAnomalia = true;
     }
     const avisoHigroscopico = dados.pesoRetorno > emprestimo.peso_saida;
     const volumeUtilizado = densidade ? pesoConsumido / densidade : pesoConsumido;
@@ -611,7 +621,7 @@ export const registrarDevolucao = onCall(async (request) => {
     const frascoVencido = Boolean(frasco.vencido || venceuAgora);
 
     const atualizacaoFrasco: Record<string, unknown> = {
-      disponibilidade: esgotado ? "INDISPONIVEL" : "DISPONIVEL",
+      disponibilidade: esgotado || reterPorAnomalia ? "INDISPONIVEL" : "DISPONIVEL",
       ...(esgotado && { estado_fisico_frasco: "VAZIO" }),
       data_ultima_pesagem: admin.firestore.FieldValue.serverTimestamp(),
       peso_atual: esgotado ? frasco.peso_frasco_vazio : dados.pesoRetorno,
@@ -619,7 +629,11 @@ export const registrarDevolucao = onCall(async (request) => {
       vencido: frascoVencido,
     };
 
-    if (frascoVencido && dados.destinoPosDevolucao === "QUARENTENA") {
+    if (reterPorAnomalia) {
+      atualizacaoFrasco.em_quarentena = true;
+      atualizacaoFrasco.uso_vencido_autorizado = false;
+      atualizacaoFrasco.detalhe_status = "Frasco retido por anomalia de pesagem na devolução.";
+    } else if (frascoVencido && dados.destinoPosDevolucao === "QUARENTENA") {
       atualizacaoFrasco.em_quarentena = true;
       atualizacaoFrasco.uso_vencido_autorizado = false;
       atualizacaoFrasco.detalhe_status = "Frasco vencido retido em quarentena após devolução.";
@@ -633,7 +647,7 @@ export const registrarDevolucao = onCall(async (request) => {
     }
 
     tx.update(emprestimoRef, {
-      status: atrasado ? "DEVOLVIDO_COM_ATRASO" : "DEVOLVIDO",
+      status: reterPorAnomalia ? "DEVOLVIDO_COM_ANOMALIA" : (atrasado ? "DEVOLVIDO_COM_ATRASO" : "DEVOLVIDO"),
       data_devolucao_efetuada: admin.firestore.FieldValue.serverTimestamp(),
       id_usuario_devolveu: dados.idUsuarioDevolveu,
       id_gestor_devolucao: request.auth!.uid,
@@ -669,6 +683,20 @@ export const registrarDevolucao = onCall(async (request) => {
         confirmado_esgotamento: true, timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
     }
+
+    if (perdaEvaporacao > 0) {
+      tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+        id_frasco_reagente: emprestimo.id_frasco_reagente,
+        id_almoxarifado: frasco.id_almoxarifado,
+        id_gestor: request.auth!.uid,
+        tipo: "EVAPORACAO",
+        id_emprestimo_reagente: emprestimoRef.id,
+        medida_ajustada: perdaEvaporacao,
+        unidade_medida_ajustada: "g",
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
     // Registro obrigatório de devolução no histórico
     const histRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
     tx.set(histRef, {
@@ -783,11 +811,21 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
       if (!dados.estadoConstatadoAoReencontrar)
         throw new HttpsError("invalid-argument", "Estado constatado é obrigatório.");
 
+      const agora = new Date();
+      const { DateTime } = require("luxon");
+      const validadeEfetiva = frasco.validade_efetiva
+        ? (typeof frasco.validade_efetiva.toDate === "function"
+          ? frasco.validade_efetiva.toDate()
+          : DateTime.fromISO(frasco.validade_efetiva, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate())
+        : null;
+      const venceuAgora = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+
       tx.update(frascoRef, {
         estado_fisico_frasco: dados.estadoConstatadoAoReencontrar,
-        disponibilidade: "DISPONIVEL",
+        disponibilidade: venceuAgora ? "INDISPONIVEL" : "DISPONIVEL",
         em_quarentena: true,
-        detalhe_status: "Reencontrado - aguardando análise: " + dados.motivo,
+        vencido: venceuAgora,
+        detalhe_status: "Reencontrado - aguardando análise" + (venceuAgora ? " (vencido)" : "") + ": " + dados.motivo,
       });
 
       tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
@@ -868,6 +906,73 @@ export const recalibrarTaraFrascoEsgotado = onCall(async (request) => {
     const resultado = { status: "OK" };
     tx.set(operacaoRef, {
       tipo_operacao: "RECALIBRAR_TARA",
+      uid: request.auth!.uid,
+      payload_hash: payloadHash,
+      resultado,
+      status: "CONCLUIDA",
+      criado_em: admin.firestore.FieldValue.serverTimestamp(),
+      atualizado_em: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    return resultado;
+  });
+});
+
+interface DescarteFrasco {
+  idFrasco: string;
+  motivo: string;
+  idOperacao: string;
+}
+
+export const descartarFrasco = onCall(async (request) => {
+  const dados = request.data as DescarteFrasco;
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
+  if (!dados.idOperacao) throw new HttpsError("invalid-argument", "idOperacao é obrigatório.");
+
+  const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
+  const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.idOperacao);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const crypto = require("crypto");
+    const payloadStr = JSON.stringify({ idFrasco: dados.idFrasco, motivo: dados.motivo });
+    const payloadHash = crypto.createHash("sha256").update(payloadStr).digest("hex");
+
+    const opSnap = await tx.get(operacaoRef);
+    if (opSnap.exists) {
+      const op = opSnap.data()!;
+      if (op.uid === request.auth!.uid && op.payload_hash === payloadHash) {
+        return op.resultado;
+      }
+      throw new HttpsError("already-exists", "idOperacao duplicada ou ator divergente.");
+    }
+
+    const frascoSnap = await tx.get(frascoRef);
+    if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
+    const frasco = frascoSnap.data()!;
+    await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, frasco.id_almoxarifado);
+
+    if (frasco.estado_fisico_frasco !== "VAZIO" && frasco.estado_fisico_frasco !== "QUEBRADO") {
+      throw new HttpsError("failed-precondition", "Apenas frascos vazios ou quebrados podem ser descartados institucionalmente.");
+    }
+
+    tx.update(frascoRef, {
+      estado_fisico_frasco: "DESCARTADO",
+      disponibilidade: "INDISPONIVEL",
+      detalhe_status: "Frasco descartado institucionalmente: " + dados.motivo,
+    });
+
+    tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+      id_frasco_reagente: dados.idFrasco,
+      id_almoxarifado: frasco.id_almoxarifado,
+      id_gestor: request.auth!.uid,
+      tipo: "FOI_DESCARTADO",
+      motivo: dados.motivo,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    const resultado = { status: "OK" };
+    tx.set(operacaoRef, {
+      tipo_operacao: "DESCARTAR_FRASCO",
       uid: request.auth!.uid,
       payload_hash: payloadHash,
       resultado,
