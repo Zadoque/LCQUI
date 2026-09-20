@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025/nixos.org) (preloaded format=pdflatex 1980.1.1)  19 SEP 2026 18:50
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025/nixos.org) (preloaded format=pdflatex 1980.1.1)  20 SEP 2026 08:32
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1203,7 +1203,7 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
  [3] [4] [5] [6]
-Overfull \hbox (15.85175pt too wide) in paragraph at lines 271--271
+Overfull \hbox (15.85175pt too wide) in paragraph at lines 272--272
  [][] [][][]\T1/lmr/m/n/12 (-20) BOL-01 --- Bol-sista: Ações aca-dê-mi-cas, con
 -sulta e re-ti-rada/devolução 
  []
@@ -1253,13 +1253,13 @@ Overfull \hbox (69.14241pt too wide) in paragraph at lines 427--427
  []
 
 [30] [31] [32] [33] [34] [35] [36]
-Underfull \hbox (badness 10000) in paragraph at lines 660--661
+Underfull \hbox (badness 10000) in paragraph at lines 664--665
 []\T1/lmr/m/n/10.95 (+20) No Fi-res-tore, esta en-ti-dade é im-ple-men-tada com
 o sub-coleção
  []
 
 [37] [38] [39] [40]
-Overfull \hbox (8.7373pt too wide) in paragraph at lines 787--788
+Overfull \hbox (8.7373pt too wide) in paragraph at lines 791--792
 []\T1/lmr/m/n/10.95 (-20) Composicao_Reagente usa UNI-QUE(id_especificacao_reag
 ente, id_substancia_quimica). 
  []
@@ -1293,9 +1293,9 @@ reagente (ASC) \T1/lmr/m/n/10.95 (-20) + \T1/lmtt/m/n/10.95 id_especificacao_
  []
 
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10.95> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 113.
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 114.
 
-Overfull \hbox (13.21942pt too wide) in paragraph at lines 123--124
+Overfull \hbox (13.21942pt too wide) in paragraph at lines 124--125
 \T1/lmtt/m/n/10.95 onFrascoCriado\T1/lmr/m/n/10.95 (-20) /\T1/lmtt/m/n/10.95 on
 FrascoRemovido\T1/lmr/m/n/10.95 (-20) .|  
  []
@@ -1306,180 +1306,180 @@ ignored error: Infinite glue shrinkage found in box being split [50]
 ignored error: Infinite glue shrinkage found in box being split [51]
 ignored error: Infinite glue shrinkage found in box being split [52] [53]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <12> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 147.
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 148.
 
 [54] [55] [56] [57] [58] [59] [60]
-Underfull \hbox (badness 10000) in paragraph at lines 325--327
+Underfull \hbox (badness 10000) in paragraph at lines 326--328
 []\T1/lmr/m/n/12 (+20) Caminho: \T1/lmtt/m/n/12 Resumo_Reagente/{resumoId}/Espe
 cificacoes/{id}:
  []
 
 [61] [62] [63]
-Underfull \hbox (badness 10000) in paragraph at lines 387--388
+Underfull \hbox (badness 10000) in paragraph at lines 388--389
 []\T1/lmr/m/n/12 (+20) string enum; O. Con-di-ção do re-ci-pi-ente/conteúdo;
  []
 
 
-Underfull \hbox (badness 5878) in paragraph at lines 387--388
+Underfull \hbox (badness 5878) in paragraph at lines 388--389
 \T1/lmr/m/n/12 (+20) qua-ren-tena e ven-ci-mento são di-men-sões se-pa-ra-das. 
 Va-lo-res: FE-
  []
 
 [64] [65] [66]
-Underfull \hbox (badness 1735) in paragraph at lines 435--436
+Underfull \hbox (badness 1735) in paragraph at lines 436--437
 []\T1/lmr/m/n/12 (+20) string enum; O. Fi-na-li-dade va-li-dada na re-ti-rada. 
 Va-lo-res:
  []
 
 [67]
-Underfull \hbox (badness 10000) in paragraph at lines 442--443
+Underfull \hbox (badness 10000) in paragraph at lines 443--444
 []\T1/lmr/m/n/12 (+20) string enum; N. Va-lo-res: QUE-BRA_
  []
 
 [68] [69]
-Overfull \hbox (19.7406pt too wide) in paragraph at lines 491--493
+Overfull \hbox (19.7406pt too wide) in paragraph at lines 492--494
 []\T1/lmr/m/n/12 (-20) Caminho: \T1/lmtt/m/n/12 Turma/{id}/Posts/{postId}/Comen
 tarios/{id}/Historico/{eventoId}\T1/lmr/m/n/12 (-20) . 
  []
 
 [70] [71] [72] [73]
-Underfull \hbox (badness 1742) in paragraph at lines 584--585
+Underfull \hbox (badness 1742) in paragraph at lines 585--586
 \T1/lmr/m/n/12 (+20) FRAS-COS_VENCIDOS, FRAS-COS_A_SEREM_PESADOS, FRAS-COS_
  []
 
 [74] [75] [76]
-Underfull \hbox (badness 6944) in paragraph at lines 657--658
+Underfull \hbox (badness 6944) in paragraph at lines 658--659
 []\T1/lmr/m/n/12 (+20) number; O. Con-ta-gem que cons-tava no do-cu-mento \T1/l
 mtt/m/n/12 Lote_
  []
 
 [77] [78] [79] [80] [81] [82]
-Underfull \hbox (badness 10000) in paragraph at lines 760--761
+Underfull \hbox (badness 10000) in paragraph at lines 761--762
 []\T1/lmtt/m/n/12 Usuarios/uid/Turmas/turmaId\T1/lmr/m/n/12 (+20) : \T1/lmtt/m/
 n/12 id_turma\T1/lmr/m/n/12 (+20) , \T1/lmtt/m/n/12 id_
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 762--763
+Underfull \hbox (badness 10000) in paragraph at lines 763--764
 []\T1/lmtt/m/n/12 id_resumo_reagente\T1/lmr/m/n/12 (+20) , \T1/lmtt/m/n/12 id_e
 specificacao_reagente\T1/lmr/m/n/12 (+20) , \T1/lmtt/m/n/12 nome_
  []
 
 
-Underfull \hbox (badness 2326) in paragraph at lines 762--763
+Underfull \hbox (badness 2326) in paragraph at lines 763--764
 \T1/lmtt/m/n/12 reagente \T1/lmr/m/n/12 (+20) (strings O) são pro-je-ções ser-v
 i-dor; em Frasco, es-pe-ci-fi-ca-ção
  []
 
 
-Underfull \hbox (badness 1424) in paragraph at lines 762--763
+Underfull \hbox (badness 1424) in paragraph at lines 763--764
 \T1/lmr/m/n/12 (+20) per-ma-nece re-sol-vida mesmo com lote, como des-nor-ma-li
 -za-ção de-li-be-rada.
  []
 
 
-Underfull \hbox (badness 1286) in paragraph at lines 762--763
+Underfull \hbox (badness 1286) in paragraph at lines 763--764
 \T1/lmtt/m/n/12 versao \T1/lmr/m/n/12 (+20) (in-teiro O), \T1/lmtt/m/n/12 ultim
 a_pesagem_em \T1/lmr/m/n/12 (+20) (Ti-mes-tamp, N) e \T1/lmtt/m/n/12 modalidade
 _
  []
 
 
-Underfull \hbox (badness 1603) in paragraph at lines 762--763
+Underfull \hbox (badness 1603) in paragraph at lines 763--764
 \T1/lmtt/m/n/12 cadastro \T1/lmr/m/n/12 (+20) (FE-CHADO/CONHECE_TARA/ESTIMA_VOL
 UME/ESTIMA_
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 763--764
+Underfull \hbox (badness 10000) in paragraph at lines 764--765
 []\T1/lmtt/m/n/12 id_almoxarifado\T1/lmr/m/n/12 (+20) , \T1/lmtt/m/n/12 id_resu
 mo_reagente\T1/lmr/m/n/12 (+20) , \T1/lmtt/m/n/12 id_especificacao_
  []
 
 
-Underfull \hbox (badness 1360) in paragraph at lines 763--764
+Underfull \hbox (badness 1360) in paragraph at lines 764--765
 \T1/lmtt/m/n/12 reagente \T1/lmr/m/n/12 (+20) (strings O), \T1/lmtt/m/n/12 dens
 idade_aplicada \T1/lmr/m/n/12 (+20) (num-ber po-si-tiva C para lí-
  []
 
 [83]
-Underfull \hbox (badness 10000) in paragraph at lines 768--769
+Underfull \hbox (badness 10000) in paragraph at lines 769--770
 []\T1/lmtt/m/n/12 Contador_Codigo_Frasco/singleton\T1/lmr/m/n/12 (+20) : \T1/lm
 tt/m/n/12 ultimo_codigo_gerado \T1/lmr/m/n/12 (+20) (in-
  []
 
 
-Underfull \hbox (badness 2790) in paragraph at lines 768--769
+Underfull \hbox (badness 2790) in paragraph at lines 769--770
 \T1/lmr/m/n/12 (+20) teiro não ne-ga-tivo O). Não criar si-mul-ta-ne-a-mente Co
 n-ta-do-res/codigo_
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 768--769
+Underfull \hbox (badness 10000) in paragraph at lines 769--770
 \T1/lmr/m/n/12 (+20) frasco. Im-pres-sao_Etiqueta_Frasco acres-centa \T1/lmtt/m
 /n/12 start_row \T1/lmr/m/n/12 (+20) (1--10),
  []
 
 
-Underfull \hbox (badness 2617) in paragraph at lines 768--769
+Underfull \hbox (badness 2617) in paragraph at lines 769--770
 \T1/lmtt/m/n/12 start_col \T1/lmr/m/n/12 (+20) (1--3), \T1/lmtt/m/n/12 id_opera
 cao \T1/lmr/m/n/12 (+20) (string O) e \T1/lmtt/m/n/12 status_geracao \T1/lmr/m/
 n/12 (+20) (SO-LI-CI-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 769--770
+Underfull \hbox (badness 10000) in paragraph at lines 770--771
 []\T1/lmr/m/n/12 (+20) Locks_Requisicao_Patrimonio con-tém \T1/lmtt/m/n/12 id_r
 equisicao\T1/lmr/m/n/12 (+20) , \T1/lmtt/m/n/12 tipo \T1/lmr/m/n/12 (+20) (ADI-
 
  []
 
 
-Underfull \hbox (badness 1132) in paragraph at lines 770--771
+Underfull \hbox (badness 1132) in paragraph at lines 771--772
 []\T1/lmtt/m/n/12 Chaves_Unicas/chaveHash\T1/lmr/m/n/12 (+20) : \T1/lmtt/m/n/12
  tipo\T1/lmr/m/n/12 (+20) , \T1/lmtt/m/n/12 id_recurso \T1/lmr/m/n/12 (+20) (st
 rings O),
  []
 
 [84]
-Underfull \hbox (badness 10000) in paragraph at lines 771--772
+Underfull \hbox (badness 10000) in paragraph at lines 772--773
 []\T1/lmtt/m/n/12 Eventos_Processados/eventId\T1/lmr/m/n/12 (+20) : \T1/lmtt/m/
 n/12 processado_
  []
 
 
-Underfull \hbox (badness 2617) in paragraph at lines 771--772
+Underfull \hbox (badness 2617) in paragraph at lines 772--773
 \T1/lmtt/m/n/12 em \T1/lmr/m/n/12 (+20) (Ti-mes-tamp O). Usado em tran-sa-ções 
 ori-gi-na-das por trig-gers (ex:
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 772--773
+Underfull \hbox (badness 10000) in paragraph at lines 773--774
 []\T1/lmtt/m/n/12 Operacoes/id\T1/lmr/m/n/12 (+20) : \T1/lmtt/m/n/12 uid\T1/lmr
 /m/n/12 (+20) , \T1/lmtt/m/n/12 tipo_operacao\T1/lmr/m/n/12 (+20) , \T1/lmtt/m/
 n/12 payload_hash
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 772--773
+Underfull \hbox (badness 10000) in paragraph at lines 773--774
 \T1/lmr/m/n/12 (+20) (strings O, hash SHA-256 ca-nô-nico do pay-load), \T1/lmtt
 /m/n/12 status \T1/lmr/m/n/12 (+20) (PEN-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 772--773
+Underfull \hbox (badness 10000) in paragraph at lines 773--774
 \T1/lmr/m/n/12 (+20) DENTE/CONCLUIDA/FALHOU), \T1/lmtt/m/n/12 resultado \T1/lmr
 /m/n/12 (+20) (map N), \T1/lmtt/m/n/12 criado_em\T1/lmr/m/n/12 (+20) ,
  []
 
 
-Underfull \hbox (badness 1024) in paragraph at lines 772--773
+Underfull \hbox (badness 1024) in paragraph at lines 773--774
 \T1/lmtt/m/n/12 atualizado_em \T1/lmr/m/n/12 (+20) (Ti-mes-tamp O). Chave é vin
 -cu-lada ao ator/ação e pay-
  []
 
 
-Underfull \hbox (badness 2591) in paragraph at lines 773--774
+Underfull \hbox (badness 2591) in paragraph at lines 774--775
 []\T1/lmtt/m/n/12 Controle_Papeis/singleton\T1/lmr/m/n/12 (+20) : \T1/lmtt/m/n/
 12 chefes_ativos\T1/lmr/m/n/12 (+20) , \T1/lmtt/m/n/12 gestores_
  []
@@ -1489,8 +1489,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 31--31
 \T1/lmr/bx/it/12 (+20) volume_total_usado_nos_frascos_devolvidos_durante_o_dia
  []
 
-[88] [89] [90] [91] [92]) (./Section-7-Requisitos-e-Regras-de-Negocio.tex
-[93]
+[88] [89] [90] [91] [92] [93]) (./Section-7-Requisitos-e-Regras-de-Negocio.tex
 ignored error: Infinite glue shrinkage found in box being split [94]
 Underfull \hbox (badness 10000) in paragraph at lines 56--57
 
@@ -1504,21 +1503,21 @@ Underfull \hbox (badness 1490) in paragraph at lines 141--143
 
 [98] [99] [100] [101]
 ignored error: Infinite glue shrinkage found in box being split [102] [103]
-[104] [105] [106]) (./Section-8-Descricao-das-telas-Dashboards.tex [107]
-[108] [109] [110] [111] [112] [113] [114] [115] [116] [117] [118]
+[104] [105] [106] [107]) (./Section-8-Descricao-das-telas-Dashboards.tex
+[108] [109] [110] [111] [112] [113] [114] [115] [116] [117] [118] [119]
 Overfull \hbox (3.1063pt too wide) in paragraph at lines 242--243
 \T1/lmr/m/n/10.95 (-20) queta tex-tual até 30 ca-rac-te-res pre-ser-vando ze-ro
 s ini-ci-ais, con-ser-va-ção BOM/REGULAR/RUIM,
  []
 
-[119] [120] [121]) (./Section-9-Exemplos-de-fluxos.tex [122] [123] [124]
-[125] [126] [127] [128] [129] [130]
+[120] [121] [122]) (./Section-9-Exemplos-de-fluxos.tex [123] [124] [125]
+[126] [127] [128] [129] [130] [131]
 Overfull \hbox (6.84756pt too wide) in paragraph at lines 153--154
 \T1/lmr/bx/n/10.95 (-20) Contrato: \T1/lmr/m/n/10.95 (-20) UI-11. Mais > Novo R
 o-teiro ou Ge-ren-ciar Ro-tei-ros > upload > nome/descrição/PDF
  []
 
-[131]
+[132]
 Overfull \hbox (5.44351pt too wide) in paragraph at lines 167--167
 []\T1/lmr/bx/n/12 (-20) PRO-10 --- Pro-fes-sor: Pes-qui-sar pa-tri-mô-nio e re-
 qui-si-tar adi-ção/edição 
@@ -1536,64 +1535,64 @@ Overfull \hbox (18.58511pt too wide) in paragraph at lines 186--187
 ovo Re-a-gente > reu-ti-li-zar/criar re-sumo > com-po-si-ção/especificação
  []
 
-[132]
+[133]
 Overfull \hbox (19.59723pt too wide) in paragraph at lines 195--196
 \T1/lmr/bx/n/10.95 (-20) Contrato: \T1/lmr/m/n/10.95 (-20) UI-07. Re-gis-trar R
 e-ti-rada > có-digo > Pro-fes-sor/Bolsista > lo-cal/peso/prazo/finalidade
  []
 
-[133] [134])
+[134] [135])
 (./Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Tecnologia-e-R
-elatorios-Vercel-Firebase_main.tex [135]
+elatorios-Vercel-Firebase_main.tex [136]
 (./Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-1-P
-ara-relatorios.tex [136])
+ara-relatorios.tex [137])
 (./Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-2-P
 rincipio-nunca-confiar-no-client-side.tex)
 (./Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-3-F
-uncoes-de-Apoio-Autorizacao.tex [137] [138] [139])
+uncoes-de-Apoio-Autorizacao.tex [138] [139] [140])
 (./Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-4-R
-evogacao-de-Papel.tex [140] [141] [142] [143])
+evogacao-de-Papel.tex [141] [142] [143])
 (./Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-5-F
 luxo-de-Reagentes.tex [144] [145] [146] [147] [148] [149] [150] [151] [152]
 [153] [154] [155] [156] [157] [158] [159] [160] [161] [162] [163] [164]
-[165] [166] [167])
+[165] [166] [167] [168])
 (./Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-6-V
-alidacao-sincrona-de-validade.tex)
+alidacao-sincrona-de-validade.tex [169])
 (./Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-7-J
-obs-Agendados.tex [168] [169] [170] [171] [172] [173] [174] [175] [176]
-[177] [178])
+obs-Agendados.tex [170] [171] [172] [173] [174] [175] [176] [177] [178]
+[179])
 (./Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-8-F
-luxo-de-Bens-Patrimoniais.tex [179] [180] [181] [182] [183] [184] [185]
-[186] [187] [188] [189] [190] [191] [192] [193] [194])
+luxo-de-Bens-Patrimoniais.tex [180] [181] [182] [183] [184] [185] [186]
+[187] [188] [189] [190] [191] [192] [193] [194] [195])
 (./Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-9-R
-elatorios-em-PDF.tex [195] [196] [197] [198]
-Overfull \hbox (15.88602pt too wide) in paragraph at lines 127--128
+elatorios-em-PDF.tex [196] [197] [198] [199]
+Overfull \hbox (15.88602pt too wide) in paragraph at lines 146--147
+[][][][] 
+ []
+
+[200]
+Overfull \hbox (15.88602pt too wide) in paragraph at lines 148--149
+[][][][] 
+ []
+
+[201]
+Overfull \hbox (15.88602pt too wide) in paragraph at lines 189--190
 [][][][] 
  []
 
 
-Overfull \hbox (15.88602pt too wide) in paragraph at lines 129--130
+Overfull \hbox (15.88602pt too wide) in paragraph at lines 191--192
 [][][][] 
  []
 
-[199]
-Overfull \hbox (15.88602pt too wide) in paragraph at lines 170--171
-[][][][] 
- []
-
-
-Overfull \hbox (15.88602pt too wide) in paragraph at lines 172--173
-[][][][] 
- []
-
-[200])
+[202])
 (./Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-10-
-Consolidacao-do-planejamento.tex [201] [202] [203] [204] [205] [206] [207]
-[208] [209])) (./Section-11-Regras-de-Seguranca-do-Firestore-Security-Rules.tex
-[210]
-ignored error: Infinite glue shrinkage found in box being split [211]
-ignored error: Infinite glue shrinkage found in box being split [212] [213])
-(./Section-12-Implementacoes-em-Estudo-para-Versoes-Futuras.tex [214]
+Consolidacao-do-planejamento.tex [203] [204] [205] [206] [207] [208] [209]
+[210] [211])) (./Section-11-Regras-de-Seguranca-do-Firestore-Security-Rules.tex
+[212]
+ignored error: Infinite glue shrinkage found in box being split [213]
+ignored error: Infinite glue shrinkage found in box being split [214] [215])
+(./Section-12-Implementacoes-em-Estudo-para-Versoes-Futuras.tex [216]
 Underfull \hbox (badness 1584) in paragraph at lines 21--21
 []|\T1/lmr/m/n/10.95 (+20) Tipo de subs-tân-cia (já
  []
@@ -1608,19 +1607,19 @@ Underfull \hbox (badness 10000) in paragraph at lines 33--33
 _
  []
 
-[215]) (./Formal-Spec-M0.tex [216] [217]
+[217]) (./Formal-Spec-M0.tex [218] [219]
 (./generated/entities/frasco_reagente.tex)
-(./generated/invariants/retirar_frasco.tex) [218
+(./generated/invariants/retirar_frasco.tex) [220
 
 ]) (./Formal-Spec-M1.tex
-[219] (./generated/entities/resumo_reagente.tex)
-(./generated/firestore/resumo_reagente.tex) [220
+[221] (./generated/entities/resumo_reagente.tex)
+(./generated/firestore/resumo_reagente.tex) [222
 
 ]
 (./generated/entities/especificacao_reagente.tex)
-(./generated/firestore/especificacao_reagente.tex) [221
+(./generated/firestore/especificacao_reagente.tex) [223
 
-]) [222]
+]) [224]
 
 enddocument/afterlastpage (AED): lastpage setting LastPage.
 (./main.aux)
@@ -1630,11 +1629,11 @@ L3 programming layer <2026-01-19>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 36532 strings out of 467535
- 703585 string characters out of 5388798
- 1604551 words of memory out of 5000000
- 61418 multiletter control sequences out of 15000+600000
- 757575 words of font info for 354 fonts, out of 8000000 for 9000
+ 36566 strings out of 467535
+ 704114 string characters out of 5388798
+ 1588668 words of memory out of 5000000
+ 61427 multiletter control sequences out of 15000+600000
+ 757409 words of font info for 352 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  98i,12n,108p,1200b,2159s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </nix/store/ff99w9369azw8z5njzjs1zs86s18znyq-texlive-2025-r78234-final-env-te
@@ -1672,10 +1671,10 @@ e1/public/lm/lmtt8.pfb></nix/store/ff99w9369azw8z5njzjs1zs86s18znyq-texlive-202
 5-r78234-final-env-texmfdist/fonts/type1/public/lm/lmtti10.pfb></nix/store/ff99
 w9369azw8z5njzjs1zs86s18znyq-texlive-2025-r78234-final-env-texmfdist/fonts/type
 1/public/amsfonts/symbols/msam10.pfb>
-Output written on main.pdf (222 pages, 1224463 bytes).
+Output written on main.pdf (224 pages, 1230366 bytes).
 PDF statistics:
- 5713 PDF objects out of 6186 (max. 8388607)
- 5384 compressed objects within 54 object streams
- 2939 named destinations out of 2984 (max. 500000)
- 67589 words of extra memory for PDF output out of 74296 (max. 10000000)
+ 5762 PDF objects out of 6186 (max. 8388607)
+ 5430 compressed objects within 55 object streams
+ 2968 named destinations out of 2984 (max. 500000)
+ 67597 words of extra memory for PDF output out of 74296 (max. 10000000)
 
