@@ -140,6 +140,13 @@ export const concederPapel = onCall(async (request) => {
     };
     if (papel === "Chefe_Geral") atualizacao.chefes_ativos = admin.firestore.FieldValue.increment(1);
     if (papel === "Gestor_Bens_Patrimoniais") atualizacao.gestores_patrimoniais_ativos = admin.firestore.FieldValue.increment(1);
+    
+    // Incremento simétrico de qtd_gestores_ativos na concessão/vinculação (C011)
+    if (papel === "Gestor_Almoxarifado" && plano.idAlmoxarifado) {
+      const almoxRef = db.collection("Almoxarifado").doc(plano.idAlmoxarifado);
+      tx.update(almoxRef, { qtd_gestores_ativos: admin.firestore.FieldValue.increment(1) });
+    }
+
     persistirConcessaoTx(tx, papelRef, plano);
     tx.update(controleRef, atualizacao);
     return { concedido: true };
