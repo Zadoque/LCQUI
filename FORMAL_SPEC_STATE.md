@@ -86,7 +86,7 @@ M2 IN_PROGRESS: M2.0 VALIDATED; M2.1–M2.4 NOT_STARTED. M0/M1 VALIDATED histori
 - Worklogs duráveis: M0_VALIDATION.md, M0_BASELINE_DIAGNOSIS.md e M1_VALIDATION.md em documentation/worklogs/formal-spec/.
 
 ## 11. Trabalho em andamento
-Recorte M2.0: reconciliar proveniência e registrar divergência de identidade, sem mudar CUE, Alloy, Rust, IR, generated, PDF ou fontes normativas. Worklog: documentation/worklogs/formal-spec/M2_0_BASELINE_RECONCILIATION.md. Gates M2.0 PASS: tabela-verdade de quatro casos, git diff --check e diff vazio contra 9df335bc para CUE/Alloy/Rust/IR/generated, fontes Seções 4/5, worklogs M0/M1 e aplicação. Não executados CUE/Alloy/Rust/LaTeX: nenhum desses artefatos mudou. Consolidar commit/push e encerrar antes de abrir M2.1.
+Recorte M2.0: reconciliar proveniência e registrar divergência de identidade, sem mudar CUE, Alloy, Rust, IR, generated, PDF ou fontes normativas. Worklog: documentation/worklogs/formal-spec/M2_0_BASELINE_RECONCILIATION.md. Gates M2.0 PASS: tabela-verdade de quatro casos, git diff --check e diff vazio contra 9df335bc para CUE/Alloy/Rust/IR/generated, fontes Seções 4/5, worklogs M0/M1 e aplicação. Não executados CUE/Alloy/Rust/LaTeX: nenhum desses artefatos mudou. Checkpoint commitado em bc57fbac e push confirmado; sessão encerrada antes de abrir M2.1.
 
 ## 12. Próxima ação EXATA
 Após consolidar M2.0, iniciar somente M2.1:
@@ -199,7 +199,7 @@ Frasco completo e demais domínios M2–M12; composição, integridade global/im
 - Checkpoint final M1: assunto `docs(spec): integrate validated M1 catalog documentation`; resolver SHA com `git log -1 --format=%H --grep="validated M1 catalog"` (um commit não contém seu próprio SHA).
 
 ## 20. Estado do Git
-M2.0: entrada limpa em 9df335bc. Alterações previstas somente FORMAL_SPEC_STATE.md, specification/README.md, specification/knowledge/FORMAL_SPEC_ARCHITECTURE.md e novo worklog M2.0. Commit desta unidade: resolver com git log -1 --format=%H --grep='chore(spec): reconcile M2 baseline after documentation audits'. Push ainda não executado; confirmar referência remota após commit. Nenhuma mudança local preexistente.
+M2.0: entrada limpa em 9df335bc. Commit validado bc57fbac — chore(spec): reconcile M2 baseline after documentation audits. Alterados somente FORMAL_SPEC_STATE.md, specification/README.md, specification/knowledge/FORMAL_SPEC_ARCHITECTURE.md e novo worklog M2.0. Push para origin/feat/formal-spec-cue-alloy confirmado (9df335bc..bc57fbac). Status limpo e diff --check PASS após esse commit. Este registro pós-push é um commit documental de handoff adicional; confirmar seu envio com git status --short --branch. Nenhuma mudança local preexistente.
 
 ## 21. Como uma nova IA deve continuar
 Ler este arquivo; confirmar status/log/branch; ler fontes indicadas; repetir gates mínimos e seguir seção 12. Não replanejar do zero nem reabrir 3B. Atualizar estado após unidades pequenas/validações/descobertas, antes de tarefas longas e antes/depois de commits. Manter tudo salvo para retomada em outra máquina. Usar NOT_STARTED/IN_PROGRESS/BLOCKED/IMPLEMENTED/VALIDATED; só VALIDATED conclui um escopo. Não alegar homologação integral a partir de checks limitados.
