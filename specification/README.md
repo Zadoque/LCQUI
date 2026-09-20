@@ -1,7 +1,14 @@
 # Especificação formal LCQUI
 
-Camada aditiva à UI `frontend/`, backend `functions/` e Firestore. O baseline 3B
-é `10c86c001e35efc0c5338e581a89819a0ff59646`, evidência `9d97ed30`.
+Camada aditiva à UI `frontend/`, backend `functions/` e Firestore. M0/M1 foram
+validados historicamente contra `db29ea2f17dc785fb0b44ffb3aec16db29c45e94`,
+evidência 3B `9d97ed30`. O baseline documental de entrada M2 é
+`9df335bc977bfcf16668bca4baf5f9ed50c2da1a`, após as auditorias documentais.
+O antigo apontamento isolado deste README para `10c86c00` não migrou a
+proveniência executável: `projection.cue` e `main.rs` ainda usam `db29ea2f`.
+A migração desse contrato terá checkpoint próprio antes da exportação M2.
+Detalhes e contraexemplo de identidade no
+[worklog M2.0](../documentation/worklogs/formal-spec/M2_0_BASELINE_RECONCILIATION.md).
 Comece por [estado de continuidade](../FORMAL_SPEC_STATE.md).
 
 M0 cobre somente três dimensões de Frasco_Reagente, filtro físico de retirada e

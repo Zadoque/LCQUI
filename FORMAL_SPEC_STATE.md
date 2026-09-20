@@ -1,7 +1,7 @@
 # LCQUI — Formal Specification State
 
 ## 1. Propósito desta fase
-Camada formal ADITIVA. CUE + Alloy especificam a aplicação; Rust somente gera documentação LaTeX determinística. M0 e M1 foram concluídos em rodadas separadas. Não reiniciar auditoria, fazer big-bang, criar branch ou substituir UI/backend. Nesta rodada foi implementado somente M1.
+Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. Rodada atual: M2.0, reconciliação localizada após auditorias documentais. M0/M1 permanecem históricos validados; M2 completo ainda não validado. Não reiniciar auditoria global nem substituir aplicação.
 
 ## 2. Baseline congelado da Fase 3B
 - FUNCTIONAL_SHA = db29ea2f17dc785fb0b44ffb3aec16db29c45e94
@@ -11,7 +11,7 @@ Camada formal ADITIVA. CUE + Alloy especificam a aplicação; Rust somente gera 
 - Regras congeladas: unknown/nonmeasurable/peso ausente != zero; disponibilidade DISPONIVEL|EMPRESTADO significa ausência/presença de empréstimo ativo, não aptidão; conteudo_nominal é original do fabricante; extravio não inventa peso_retorno; reencontro exige quarentena e não reabre empréstimo; Q06=max(0,peso_saida-peso_retorno), tara posterior não reescreve histórico; mesma chave+ator+payload canônico produz mesmo resultado, divergência rejeitada; estoque mínimo Especificação×Almoxarifado, escassez qtd_aptos<limite; timezone America/Sao_Paulo.
 
 ## 3. Branch atual
-`feat/formal-spec-cue-alloy`. Não criar outra branch. HEAD inicial da fase: EVIDENCE_HEAD; HEAD inicial desta rodada M1: 182447d3, Git limpo e sincronizado com referência origin. Push anterior confirmado na sessão.
+`feat/formal-spec-cue-alloy`. HEAD de entrada M2.0 e baseline documental M2: `9df335bc977bfcf16668bca4baf5f9ed50c2da1a`. Árvore inicialmente limpa, referência local origin sincronizada. Baseline histórico M0/M1: `db29ea2f17dc785fb0b44ffb3aec16db29c45e94`; fechamento M1: `18d811aee11afc730960daa956af167e638b0ba9`. Não criar branch.
 
 ## 4. Estrutura existente preservada
 Inventário real efetuado antes da criação da camada formal:
@@ -31,7 +31,7 @@ Inventário real efetuado antes da criação da camada formal:
 - Alloy: relações/invariantes/transição abstrata no scope declarado.
 - Rust: transformação determinística, sem backend ou geração de aplicação.
 - LaTeX: apresentação, rationale, UX e conteúdo humano.
-Baseline 3B continua normativo para todo conteúdo ainda não migrado.
+Para M2, usar as fontes documentais em 9df335bc; o baseline 3B da seção 2 registra a validação histórica, não congela as correções posteriores.
 
 ## 6. Ambiente e ferramentas
 Confirmados: CUE linguagem v0.17.1 (build devel), Alloy 6.2.0, cargo 1.97.0, rustc 1.97.1, rustfmt, Node v26.8.1, jq, just 1.58.0, latexmk 4.87/TeX Live Nix. Python ausente. Docker não introduzido; flake da aplicação intacto.
@@ -60,7 +60,7 @@ Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spaw
 |---|---|---|
 | M0 | Infraestrutura e fatia vertical | VALIDATED |
 | M1 | Resumo_Reagente + Especificacao_Reagente | VALIDATED |
-| M2 | Frasco completo | NOT_STARTED |
+| M2 | Frasco completo (somente M2.0 reconciliado) | IN_PROGRESS |
 | M3 | Empréstimo | NOT_STARTED |
 | M4 | Retirada/devolução completas | NOT_STARTED |
 | M5 | Extravio/reencontro/quarentena | NOT_STARTED |
@@ -73,7 +73,7 @@ Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spaw
 | M12 | Integração/redução de duplicação normativa | NOT_STARTED |
 
 ## 9. Milestone atual
-M1 VALIDATED no recorte de registros normalizados, constraints estruturais e notas de mapeamento. M0 permanece VALIDATED. Gate integrado, 42 fixtures CUE, 4 testes Rust, determinismo/stale e PDF de 216 páginas passaram. Não afirmar composição completa, integridade global, imutabilidade, autorização ou Firebase Emulator como validados pelo M1. M2 não iniciado.
+M2 IN_PROGRESS: M2.0 VALIDATED; M2.1–M2.4 NOT_STARTED. M0/M1 VALIDATED historicamente nos respectivos worklogs, sem reexecução dos gates formais nesta rodada. A Auditoria 8 alterou M0 depois de M1: enum INDISPONIVEL e testemunha IndisponivelNaoApto; preservar o modelo atual, não restaurar a antiga testemunha DisponivelNaoApto.
 
 ## 10. Trabalho concluído
 - Inventário e commit exclusivo do estado 672fc65a antes da camada formal.
@@ -86,10 +86,16 @@ M1 VALIDATED no recorte de registros normalizados, constraints estruturais e not
 - Worklogs duráveis: M0_VALIDATION.md, M0_BASELINE_DIAGNOSIS.md e M1_VALIDATION.md em documentation/worklogs/formal-spec/.
 
 ## 11. Trabalho em andamento
-M1 concluído; preparando commit final de integração humana/PDF/READMEs/estado e push na mesma branch. Nenhuma validação pendente ou processo necessário em execução. CI hospedada e testes specification→Firebase Emulator continuam futuros. M2 não iniciado.
+Recorte M2.0: reconciliar proveniência e registrar divergência de identidade, sem mudar CUE, Alloy, Rust, IR, generated, PDF ou fontes normativas. Worklog: documentation/worklogs/formal-spec/M2_0_BASELINE_RECONCILIATION.md. Gates M2.0 PASS: tabela-verdade de quatro casos, git diff --check e diff vazio contra 9df335bc para CUE/Alloy/Rust/IR/generated, fontes Seções 4/5, worklogs M0/M1 e aplicação. Não executados CUE/Alloy/Rust/LaTeX: nenhum desses artefatos mudou. Consolidar commit/push e encerrar antes de abrir M2.1.
 
 ## 12. Próxima ação EXATA
-Iniciar somente M2 na próxima rodada: confirmar branch/status/log e executar just formal-check no ambiente da seção 6. Ler Frasco_Reagente na Section-4-Modelagem-Entidades-SQL-3FN.tex (~340–390) e seu dicionário na Section-5-Notas-de-Mapeamento-para-Firestore.tex. Antes de editar, registrar recorte/fontes/representação da expansão: #Frasco M0 contém três campos e é usado por fixtures/assertions que devem permanecer válidas. Criar schema adicional do registro completo sem substituir silenciosamente #Frasco; derivar campos, nulabilidade, enums e vínculo lote/especificação do baseline, adicionar fixtures e projeção IR v2. Executar cue fmt/vet e atualizar estado antes de commit. Não migrar empréstimo/Q06/concorrência no mesmo milestone. Registrar inconsistências como CONTRAEXEMPLO PÓS-3B antes de alterar regras.
+Após consolidar M2.0, iniciar somente M2.1:
+1. Confirmar branch/status/HEAD e ler o worklog M2.0.
+2. Ler Section-4-Modelagem-Entidades-SQL-3FN.tex:329–396 e Section-5-Notas-de-Mapeamento-para-Firestore.tex:366–398 no baseline M2; ler domain/frasco.cue, descritores M1 e tools/formal/check.mjs.
+3. Registrar M2.1 IN_PROGRESS e implementar #FrascoCompleto adicional, 27 campos relacionais, presença obrigatória/null explícito, sem defaults injetados; preservar #Frasco e campos M0. Adotar exclusividade conforme M2-IDENTIDADE-001. Não adicionar id_resumo_reagente/eh_higroscopico à linha relacional.
+4. Fixtures próprias de alto valor, uma violação por caso; esclarecer apenas condicionais necessárias nas fontes referenciadas. Não inferir limites físicos positivos ou regras de transição.
+5. Executar just spec-check, corrigir, registrar resultados, commit e push antes de iniciar Alloy.
+O hash global IR/Rust ainda é histórico. Migrá-lo para 9df335bc em checkpoint separado antes de exportar M2 (M2.3), com atualização atômica da proveniência e seus artefatos/testes. Não substituir strings incidentalmente no schema M2.1.
 
 ## 13. Arquivos que devem ser lidos para continuar
 1. Este arquivo, ponto único de retomada.
@@ -142,7 +148,16 @@ PDF: just docs-build grava build/latex/main.pdf; inspecionar log final/páginas 
 - Diff de aplicação/configurações/worklogs 3B contra 182447d3 vazio; git diff --check PASS.
 
 ## 16. Contraexemplos / problemas encontrados
-Nenhum contraexemplo Alloy encontrado. Registrar novos casos antes de alterar regra: ID, assertion, scope, estado inicial/final, fonte 3B, interpretação e classificação BUG_MODELO_FORMAL/TRADUCAO_INCORRETA/LACUNA_POS_3B/CONTRADICAO_REAL.
+CONTRAEXEMPLO PÓS-M1 M2-IDENTIDADE-001 — CONTRADICAO_REAL (constraint SQL insuficiente frente ao texto, já presente em 3B):
+- Propriedade: exatamente uma rota relacional para a especificação efetiva.
+- Fonte: Seção 4, Constraint de Identidade Química do Frasco, linha 377 em 9df335bc.
+- Caso: id_lote=1, Lote[1].id_especificacao_reagente=10, id_especificacao_reagente=20.
+- CHECK OR atual: aceita as duas referências não nulas; permite resolver duas especificações distintas. Mesmo se iguais, ainda viola a exclusividade textual.
+- Texto: lote informado exige referência direta NULL; sem lote exige referência direta.
+- Interpretação adotada para M2: XOR no registro relacional; referências projetadas Firestore não seguem esse XOR. Fonte documental permanece intacta.
+- Evidência: tabela-verdade executável no worklog M2.0; não é resultado de solver Alloy. M2.2 deverá modelar ambas as rotas com testemunhas SAT e resolução única.
+
+Nenhum novo solver Alloy executado em M2.0. Contraexemplo documental M2 abaixo; registros históricos seguem. Registrar novos casos antes de alterar regra: ID, assertion, scope, estado inicial/final, fonte 3B, interpretação e classificação BUG_MODELO_FORMAL/TRADUCAO_INCORRETA/LACUNA_POS_3B/CONTRADICAO_REAL.
 CONTRAEXEMPLO PÓS-3B CUE-M1-001 (RESOLVIDO), classificação TRADUCAO_INCORRETA:
 - Propriedade: frequência nullable deve estar explicitamente presente no registro normalizado M1.
 - Scope: uma fixture tests/catalogo/resumo/invalid/nullable_ausente.json, não assertion Alloy.
@@ -160,7 +175,7 @@ Problemas instrumentais resolvidos: usar alloy6 help exec (não --help); CUE emb
 
 ## 17. Decisões tomadas nesta fase
 - Preservar árvore real e regras 3B; reparos pontuais de aplicação foram unidade separada, não reauditoria.
-- M0 é filtro físico necessário, não elegibilidade operacional completa. Coerência inicial é hipótese Alloy; final é assertion. EXTRAVIADO+DISPONIVEL é fixture/testemunha válida e não apta.
+- M0 é filtro físico necessário, não elegibilidade operacional completa. Coerência inicial é hipótese Alloy; final é assertion. Após Auditoria 8, a testemunha atual usa EXTRAVIADO+INDISPONIVEL; a aceitação estrutural de um enum pelo CUE não demonstra coerência relacional Alloy.
 - M1 representa linhas completas; nullable não é optional, defaults de criação não são injetados. IDs inteiros são relacionais; docIds/FKs string são Firestore.
 - Frequência condicional e densidade de líquido verificadas em CUE. Existência global, composição, imutabilidade e autorização não são inferidas de par estático.
 - HTTPS é padrão estrutural com host não vazio, não parsing completo/acessibilidade de recurso.
@@ -184,10 +199,10 @@ Frasco completo e demais domínios M2–M12; composição, integridade global/im
 - Checkpoint final M1: assunto `docs(spec): integrate validated M1 catalog documentation`; resolver SHA com `git log -1 --format=%H --grep="validated M1 catalog"` (um commit não contém seu próprio SHA).
 
 ## 20. Estado do Git
-Após c38a7f67 e f577dafb: branch correta, dois commits à frente de origin; generated e IR commitados e sem diff após gate final. Pendências apenas estado, seção humana M1/main.tex/main.pdf, READMEs/knowledge e worklog M1. O checkpoint documental indicado na seção 19 será commitado e enviado à mesma branch; confirmar sucesso com git status --short --branch e git log, sem presumir envio deste registro pré-push. Nenhuma alteração alheia detectada.
+M2.0: entrada limpa em 9df335bc. Alterações previstas somente FORMAL_SPEC_STATE.md, specification/README.md, specification/knowledge/FORMAL_SPEC_ARCHITECTURE.md e novo worklog M2.0. Commit desta unidade: resolver com git log -1 --format=%H --grep='chore(spec): reconcile M2 baseline after documentation audits'. Push ainda não executado; confirmar referência remota após commit. Nenhuma mudança local preexistente.
 
 ## 21. Como uma nova IA deve continuar
 Ler este arquivo; confirmar status/log/branch; ler fontes indicadas; repetir gates mínimos e seguir seção 12. Não replanejar do zero nem reabrir 3B. Atualizar estado após unidades pequenas/validações/descobertas, antes de tarefas longas e antes/depois de commits. Manter tudo salvo para retomada em outra máquina. Usar NOT_STARTED/IN_PROGRESS/BLOCKED/IMPLEMENTED/VALIDATED; só VALIDATED conclui um escopo. Não alegar homologação integral a partir de checks limitados.
 
 ## 22. Definition of Done restante
-M0 e M1 VALIDATED nos recortes documentados. Nenhuma tarefa obrigatória M1 pendente: schemas/fixtures, IR compatível, Rust determinístico, generated, PDF revisado, gate integrado e continuidade concluídos. Ainda faltam M2–M12 e integrações da seção 18. Não alegar certificação integral de aplicação/Firebase, composição ou comportamento do catálogo. Próxima unidade exata na seção 12; não iniciar M2 nesta rodada.
+M2.0 reconcilia apenas o baseline e a interpretação documentada. M2.1 CUE, M2.2 Alloy, M2.3 IR/geração e M2.4 LaTeX/PDF permanecem NOT_STARTED. M2 só será VALIDATED com todos os gates, determinismo/stale, inspeção das páginas novas e commits. Validações históricas M0/M1 não são certificação integral do sistema.

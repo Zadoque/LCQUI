@@ -7,7 +7,10 @@ desses componentes é gerado por CUE/Alloy ou reescrito em Rust.
 CUE possui autoridade estrutural apenas na fatia migrada; Alloy descreve
 relações e transições abstratas; IR/resultados transportam dados; Rust renderiza;
 LaTeX mantém texto humano. M0 cobre três dimensões, não o contrato completo.
-O baseline 3B permanece normativo para todo o conteúdo ainda não migrado.
+O baseline 3B registra a validação histórica de M0/M1. Para M2, as fontes de
+entrada são as do commit `9df335bc977bfcf16668bca4baf5f9ed50c2da1a`, conforme
+reconciliação M2.0 no estado. O hash global IR/Rust ainda é histórico; sua
+migração deve ocorrer em checkpoint separado antes de exportar M2.
 
 CUE → spec-ir.json e Alloy → formal-validation.json → Rust → generated → main.tex.
 O validador exporta CUE antes de Alloy e vincula hashes; não há geração de Alloy
