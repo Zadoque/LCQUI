@@ -49,7 +49,7 @@ Todas as exceções são declaradas explicitamente abaixo.
 \texttt{Bem\_Patrimonial} & Read: Chefe Geral, Gestor de Bens Patrimoniais ou Professor. Write: negado ao cliente.\\
 \texttt{Requisicao\_Edicao\_Bem\_Patrimonial} & Read: o solicitante (\texttt{resource.data.id\_usuario\_solicitante == uid}) OU gestores de bens (papel no token). Write: negado.\\
 \texttt{Requisicao\_Adicao\_Bem\_Patrimonial} & Idem acima.\\
-\texttt{Locks\_Requisicao\_Patrimonio} & Read/Write: negado ao cliente (exclusivo de Cloud Function).\\
+\texttt{Locks\_Requisicao\_Patrimonio}, \texttt{Chaves\_Unicas}, \texttt{Eventos\_Processados}, \texttt{Controle\_Papeis}, \texttt{Operacoes} & Read/Write: negado ao cliente (exclusivo de Cloud Function).\\
 \texttt{Registro\_de\_Auditoria} & Read: \texttt{Chefe\_Geral} no token. Write: negado ao cliente.\\
 \texttt{Roteiro\_Experimento} & Read: \texttt{resource.data.id\_professor\_upload == uid} OU \texttt{uid} pertence ao array \texttt{professores\_compartilhados}. Write: negado.\\
 \texttt{Contador\_Codigo\_Frasco} & Read: \texttt{request.auth != null} (qualquer logado lê). Write: negado ao cliente (só Cloud Function atualiza o sequenciador).\\
