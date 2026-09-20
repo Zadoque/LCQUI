@@ -142,9 +142,11 @@ export const concederPapel = onCall(async (request) => {
     if (papel === "Gestor_Bens_Patrimoniais") atualizacao.gestores_patrimoniais_ativos = admin.firestore.FieldValue.increment(1);
     
     // Incremento simétrico de qtd_gestores_ativos na concessão/vinculação (C011)
-    if (papel === "Gestor_Almoxarifado" && plano.idAlmoxarifado) {
-      const almoxRef = db.collection("Almoxarifado").doc(plano.idAlmoxarifado);
-      tx.update(almoxRef, { qtd_gestores_ativos: admin.firestore.FieldValue.increment(1) });
+    if (papel === "Gestor_Almoxarifado" && Array.isArray(plano.idsAlmoxarifados)) {
+      for (const idAlmox of plano.idsAlmoxarifados) {
+        const almoxRef = db.collection("Almoxarifado").doc(idAlmox);
+        tx.update(almoxRef, { qtd_gestores_ativos: admin.firestore.FieldValue.increment(1) });
+      }
     }
 
     persistirConcessaoTx(tx, papelRef, plano);
@@ -153,5 +155,54 @@ export const concederPapel = onCall(async (request) => {
   });
   await recalcularCustomClaims(uidAlvo); // fora do callback; retry reconcilia Auth
   return resultado;
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Gerenciamento seguro de Matérias com chave única determinística (C014)}]
+export const gerenciarMateria = onCall(async (request) => {
+    await validarPermissao(request, ["Professor", "Chefe_Geral"], true);
+    const { acao, idMateria, nome, codigoMateria } = request.data as {
+        acao: "CRIAR" | "EDITAR"; idMateria?: string; nome: string; codigoMateria: string;
+    };
+    const codNorm = codigoMateria.trim().toUpperCase();
+    const chaveRef = admin.firestore().collection("Chaves_Unicas").doc(`Materia__${codNorm}`);
+
+    return admin.firestore().runTransaction(async (tx) => {
+        if (acao === "CRIAR") {
+            const chaveSnap = await tx.get(chaveRef);
+            if (chaveSnap.exists) throw new HttpsError("already-exists", "Código de matéria já cadastrado.");
+            const matRef = admin.firestore().collection("Materia").doc();
+            tx.set(matRef, { nome: nome.trim(), codigo_materia: codNorm });
+            tx.set(chaveRef, { tipo: "Materia", id_recurso: matRef.id, criado_em: admin.firestore.FieldValue.serverTimestamp() });
+            return { idMateria: matRef.id };
+        } else {
+            const matRef = admin.firestore().collection("Materia").doc(idMateria!);
+            tx.update(matRef, { nome: nome.trim() });
+            return { idMateria };
+        }
+    });
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Arquivamento de Turma com Fan-out em Chunks de 400 para o espelho do Aluno (C006)}]
+export const alterarStatusTurma = onCall(async (request) => {
+    await validarPermissao(request, ["Professor", "Chefe_Geral"], true);
+    const { idTurma, status } = request.data as { idTurma: string; status: "Ativo" | "Arquivada" };
+    const turmaRef = admin.firestore().collection("Turma").doc(idTurma);
+
+    const matriculados = await admin.firestore().runTransaction(async (tx) => {
+        const snap = await tx.get(turmaRef);
+        if (!snap.exists) throw new HttpsError("not-found", "Turma não encontrada.");
+        tx.update(turmaRef, { status, versao: admin.firestore.FieldValue.increment(1) });
+        return (await tx.get(turmaRef.collection("Alunos"))).docs.map(d => d.id);
+    });
+
+    // Propagação assíncrona em lotes de 400 sem exceder o limite de 500 ops do Firestore
+    const ops = matriculados.map(uid => ({
+        ref: admin.firestore().collection("Usuarios").doc(uid).collection("Turmas").doc(idTurma),
+        dados: { status }
+    }));
+    await commitEmChunks(ops, 400);
+    return { status: "OK", totalAlunosSincronizados: matriculados.length };
 });
 \end{lstlisting}
