@@ -36,15 +36,32 @@ Corrigido o typo \texttt{SERAIL} $\rightarrow$ \texttt{SERIAL}. \textit{id\_lote
 \campo{massa\_total\_disponivel\_aferida\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{massa\_utilizada\_no\_dia\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{massa\_evaporada\_no\_dia\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+\campo{calculado\_em}{TIMESTAMP}{NOT NULL -- serverTimestamp da execução que produziu a projeção atual}
+\campo{versao\_calculo}{TEXT}{NOT NULL -- identificador da versão da regra/algoritmo de materialização}
 \campo{created\_at}{TIMESTAMP}{NOT NULL}
 \campo{updated\_at}{TIMESTAMP}{NOT NULL}
 \end{entidade}
+\begin{regra}
+\textit{UNIQUE(data, id\_almoxarifado)}. No Firestore, o documento usa ID determinístico \texttt{YYYY-MM-DD\_\_ALMOXARIFADO\_ID}. Reprocessar a mesma chave diária substitui a projeção existente; nunca cria um novo documento.
+\end{regra}
 \newpage
 \begin{explicacao}[Separação Física Rigorosa: Massa ($g$) vs Volume ($ml$)]
 Esta tabela consolida uma distinção única e consistente entre \textbf{estoque} (\textit{...\_no\_fim\_do\_dia}, fotografia às 23h59) e \textbf{fluxo} (\textit{...\_durante\_o\_dia}, eventos ocorridos naquele dia).
 Para eliminar distorções métricas em sólidos com densidade desconhecida ou nula, as colunas agregadas de saldo e consumo são formalmente segregadas nas duas dimensões físicas fundamentais: reagentes líquidos acumulam em \textit{volume\_...\_ml} e reagentes sólidos acumulam em \textit{massa\_...\_g}. Nunca se tenta converter gravimetria de sólidos para volume sem densidade aferida.
 
 \textbf{N-07 -- campo legado:} \texttt{volume\_total\_usado\_nos\_frascos\_devolvidos\_durante\_o\_dia} pré-existe à separação massa vs. volume e mistura unidades. Sua semântica é coberta por \texttt{volume\_utilizado\_no\_dia\_ml} e \texttt{massa\_utilizada\_no\_dia\_g}. Não preencher em novos agregadores; manter apenas para compatibilidade de relatórios históricos até a migração.
+\end{explicacao}
+
+\begin{explicacao}[Projeção Derivada, Unicidade Determinística e Snapshot Temporal]
+\textit{Resumo\_Almoxarifado\_Diario} é uma \textbf{projeção derivada, descartável, recalculável e reconstruível} a partir das fontes históricas canônicas (\textit{Historico\_Frasco\_Reagente}, \textit{Emprestimo\_Reagente} e eventos de domínio; ver Catálogo de Métricas). \textbf{Não é fonte primária de verdade.} Não se admite correção manual incremental de totais como autoridade: qualquer divergência deve ser resolvida por reprocessamento absoluto a partir das fontes.
+
+\textbf{Unicidade e ID determinístico.} A chave lógica diária é \textit{UNIQUE(data, id\_almoxarifado)}. No Firestore o ID do documento é determinístico no formato \texttt{YYYY-MM-DD\_\_ALMOXARIFADO\_ID}. Reprocessar a mesma data/almoxarifado deve \textbf{substituir} (sobrescrever) a projeção existente, jamais criar um novo documento por reprocessamento.
+
+\textbf{Metadados de cálculo.} \textit{data} identifica o dia civil agregado; \textit{calculado\_em} é o \texttt{serverTimestamp} da execução que produziu a projeção atual; \textit{versao\_calculo} identifica a versão da regra/algoritmo de materialização. \textit{calculado\_em} \textbf{não é a data do fato}: não se confunde com \textit{data} nem com o timestamp físico dos eventos agregados.
+
+\textbf{Snapshot temporal.} \textit{DATA\_ALVO} = \texttt{YYYY-MM-DD} no fuso \texttt{America/Sao\_Paulo}; a janela considerada é \texttt{00:00:00.000}–\texttt{23:59:59.999}. O snapshot é o \textbf{estado efetivo no corte 23:59:59.999}; eventos ocorridos após a virada da meia-noite \textbf{não} contaminam o fechamento do dia anterior. É \textbf{proibido} reconstruir o histórico a partir do estado atual do documento: um job executado após a meia-noite não pode ler \textit{Frasco\_Reagente} atual e assumir que aquele era o estado no corte.
+
+\textbf{Correção de fato histórico.} Uma correção administrativa que altera um fato histórico usado na agregação deve identificar a \textit{DATA\_ALVO} do fato corrigido e disparar o reprocessamento do resumo de \textbf{cada data histórica afetada}. O timestamp da correção permanece o da correção; o timestamp físico original não é reescrito.
 \end{explicacao}
 \newpage
 \subsection{Tabela Resumo de Reagente/Solvente - Diário}
@@ -66,9 +83,14 @@ Para eliminar distorções métricas em sólidos com densidade desconhecida ou n
 \campo{massa\_total\_disponivel\_aferida\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{massa\_utilizada\_no\_dia\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{massa\_evaporada\_no\_dia\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
+\campo{calculado\_em}{TIMESTAMP}{NOT NULL -- serverTimestamp da execução que produziu a projeção atual}
+\campo{versao\_calculo}{TEXT}{NOT NULL -- identificador da versão da regra/algoritmo de materialização}
 \campo{created\_at}{TIMESTAMP}{NOT NULL}
 \campo{updated\_at}{TIMESTAMP}{NOT NULL}
 \end{entidade}
+\begin{regra}
+\textit{UNIQUE(data, id\_almoxarifado, id\_resumo\_reagente)}. No Firestore, o documento usa ID determinístico \texttt{YYYY-MM-DD\_\_ALMOXARIFADO\_ID\_\_RESUMO\_REAGENTE\_ID}. Reprocessar a mesma chave diária substitui a projeção existente; nunca cria um novo documento.
+\end{regra}
 
 \begin{explicacao}[Contratos de Materialização e Saldo]
 Para garantir a exatidão das métricas agregadas e evitar divergências com a Seção 4:
@@ -77,6 +99,18 @@ Para garantir a exatidão das métricas agregadas e evitar divergências com a S
     \item \textbf{Conteúdo Nominal vs. Saldo:} O \textit{conteudo\_nominal} (capacidade original do fabricante) \textbf{não representa} o saldo atual do frasco e não deve ser somado no lugar de saldos medidos.
     \item \textbf{Saldos Desconhecidos:} Se o saldo de um frasco é desconhecido (ex.: frasco aberto sem \textit{peso\_atual} preciso registrado), ele não deve ser somado como zero (\texttt{0}) nos agregados totais de volume ou massa, pois isso distorceria a realidade física. Esses frascos devem ser segregados na camada de agregação, distinguindo claramente a ``quantidade conhecida'' da ``quantidade com saldo desconhecido''.
 \end{itemize}
+\end{explicacao}
+
+\begin{explicacao}[Projeção Derivada, Unicidade Determinística e Snapshot Temporal]
+\textit{Resumo\_Reagente\_Diario} é uma \textbf{projeção derivada, descartável, recalculável e reconstruível} a partir das fontes históricas canônicas (\textit{Historico\_Frasco\_Reagente}, \textit{Emprestimo\_Reagente} e eventos de domínio). \textbf{Não é fonte primária de verdade.} Não se admite correção manual incremental de totais como autoridade: divergências são resolvidas por reprocessamento absoluto a partir das fontes.
+
+\textbf{Unicidade e ID determinístico.} A chave lógica diária é \textit{UNIQUE(data, id\_almoxarifado, id\_resumo\_reagente)}. No Firestore o ID do documento é determinístico no formato \texttt{YYYY-MM-DD\_\_ALMOXARIFADO\_ID\_\_RESUMO\_REAGENTE\_ID}. Reprocessar a mesma chave deve \textbf{substituir} (sobrescrever) a projeção existente, jamais criar um novo documento por reprocessamento.
+
+\textbf{Metadados de cálculo.} \textit{data} identifica o dia civil agregado; \textit{calculado\_em} é o \texttt{serverTimestamp} da execução que produziu a projeção atual; \textit{versao\_calculo} identifica a versão da regra/algoritmo de materialização. \textit{calculado\_em} \textbf{não é a data do fato}.
+
+\textbf{Snapshot temporal.} \textit{DATA\_ALVO} = \texttt{YYYY-MM-DD} no fuso \texttt{America/Sao\_Paulo}; a janela considerada é \texttt{00:00:00.000}–\texttt{23:59:59.999}. O snapshot é o \textbf{estado efetivo no corte 23:59:59.999}; eventos após a virada da meia-noite \textbf{não} contaminam o fechamento anterior. É \textbf{proibido} reconstruir o histórico consultando o estado atual de \textit{Frasco\_Reagente} após a virada.
+
+\textbf{Correção de fato histórico.} Uma correção administrativa que altera um fato histórico agregado deve identificar a \textit{DATA\_ALVO} do fato corrigido e reprocessar o resumo de \textbf{cada data histórica afetada}, sem reescrever o timestamp físico original.
 \end{explicacao}
 
 \subsection{Tabela Resumo de Bens Patrimoniais - Diário}

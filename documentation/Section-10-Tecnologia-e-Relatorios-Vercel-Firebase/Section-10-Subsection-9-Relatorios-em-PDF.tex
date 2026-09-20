@@ -87,7 +87,7 @@ export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
     });
   }
 
-  const consumoPorUnidade = { g: totalMassaUsada, ml: totalVolumeUsado, evaporacaoG: totalMassaEvaporada };
+  const consumoPorUnidade = { g: totalMassaUsada, ml: totalVolumeUsado, evaporacaoG: totalMassaEvaporada, evaporacaoMl: totalVolumeEvaporado };
 
   const historicoSnapshot = await admin.firestore().collection("Historico_Frasco_Reagente")
     .where("id_almoxarifado", "==", idAlmoxarifado)

@@ -374,3 +374,63 @@ export const verificarEscassezDeEstoque = onSchedule({
   await bw.close();
 });
 \end{lstlisting}
+
+\paragraph{Consolidação de Resumos Diários -- Produtor \texttt{consolidarResumosDiarios(DATA\_ALVO)}}
+O produtor explícito das projeções diárias \textit{Resumo\_Almoxarifado\_Diario} e \textit{Resumo\_Reagente\_Diario} é o job \texttt{consolidarResumosDiarios(DATA\_ALVO)}.
+\begin{itemize}
+    \item \textbf{Execução normal:} \texttt{00:05} em \texttt{America/Sao\_Paulo}, com \textit{DATA\_ALVO} = \textbf{dia civil anterior}. O horário de execução \textbf{não} altera a janela da agregação: o alvo é sempre a data civil, não o instante em que o job roda.
+    \item \textbf{Janela:} \texttt{00:00:00.000}--\texttt{23:59:59.999} de \textit{DATA\_ALVO}; o snapshot é o estado efetivo no corte \texttt{23:59:59.999}. Eventos após a virada da meia-noite não contaminam o fechamento de \textit{DATA\_ALVO}.
+    \item \textbf{Projeções:} os resultados são gravados nas chaves determinísticas \texttt{YYYY-MM-DD\_\_ALMOXARIFADO\_ID} e \texttt{YYYY-MM-DD\_\_ALMOXARIFADO\_ID\_\_RESUMO\_REAGENTE\_ID} (Seção \textit{Materialized}).
+\end{itemize}
+
+\textbf{Reexecução.} Executar novamente o job para uma mesma \textit{DATA\_ALVO} deve \textbf{recalcular absolutamente} e \textbf{SUBSTITUIR} a projeção daquela chave diária (sobrescrita idempotente), \textbf{nunca incrementar} sobre o total existente. Dadas as mesmas fontes efetivas e a mesma \textit{versao\_calculo}, o resultado é idêntico. São gatilhos válidos de reexecução: falha do job, execução parcial, resumo ausente, correção administrativa posterior, detecção de \textit{drift}, correção da regra de agregação e \textit{backfill}/reconciliação.
+
+\textbf{Suficiência para \textit{replay}.} Pela decisão D17, o histórico/evento deve conter informação suficiente para reconstruir a projeção \textbf{sem consultar o estado atual do documento}. Um job pós-meia-noite não pode perguntar ao \textit{Frasco\_Reagente} atual ``como você estava ontem''. Snapshots mínimos (estado anterior/posterior, dimensões relevantes, timestamp do fato, identidade das entidades) devem ser persistidos \textbf{somente quando requeridos}, evitando duplicação indiscriminada.
+
+Auditoria das fontes disponíveis para reconstrução do dia:
+\begin{itemize}
+    \item \textit{Historico\_Frasco\_Reagente} registra \textit{tipo}, \textit{timestamp}, \textit{id\_frasco\_reagente}, \textit{id\_almoxarifado}, \textit{peso\_anterior}, \textit{peso\_novo}, \textit{medida\_ajustada}, \textit{unidade\_medida\_ajustada}, \textit{motivo} e \textit{id\_emprestimo\_reagente}. Cobre eventos de ciclo de vida (CADASTRO, SAIU, ENTROU, FICOU\_VAZIO, QUEBROU, FOI\_DESCARTADO, VENCEU, EVAPORACAO, AJUSTE, quarentena, EXTRAVIO, REENCONTRO).
+    \item \textit{Emprestimo\_Reagente} registra \textit{data\_retirada}, \textit{data\_devolucao\_efetuada}, \textit{medida\_utilizada}, \textit{unidade\_medida\_utilizada}, \textit{densidade\_aplicada}, \textit{peso\_saida}, \textit{peso\_retorno} e \textit{peso\_perda\_evaporacao}, além de \textit{id\_almoxarifado} denormalizado.
+    \item \textit{Registro\_de\_Auditoria} é log genérico e \textit{Eventos\_Dominio\_Contagem} cobre, hoje, apenas a remoção de frascos de lote.
+\end{itemize}
+
+\textbf{Pendências de persistência (não mascarar lendo estado atual).} Para reconstruir o \textbf{estado efetivo no corte} (contagens \textit{...\_no\_fim\_do\_dia} e dimensões como \textit{estado\_fisico\_frasco}, \textit{disponibilidade}, \textit{em\_quarentena}, \textit{vencido} e \textit{saldo\_desconhecido}), a agregação depende de que \textbf{toda} mutação de estado que afeta o resumo emita evento histórico correspondente com timestamp do fato. Se alguma mutação (ex.: pesagens de rotina, correções compensatórias da D16 ou ajustes administrativos) não gerar evento suficiente, ela \textbf{não} pode ser inferida do documento atual; deve ser registrada como evento persistido ou snapshot mínimo. A definição de quais mutações exigem evento e quais snapshots de fim de dia devem ser persistidos é uma \textbf{decisão de domínio em aberto} (pergunta humana registrada), não podendo ser suprida por leitura do estado atual.
+
+\begin{lstlisting}[language=TypeScript, title={Consolidação Diária Absoluta e Reexecutável}]
+// Produtor canonico das projecoes diarias. DATA_ALVO = dia civil anterior (America/Sao_Paulo).
+export const consolidarResumosDiarios = onSchedule({
+  schedule: "every day 00:05",
+  timeZone: "America/Sao_Paulo"
+}, async () => {
+  const dataAlvo = DateTime.now()
+    .setZone("America/Sao_Paulo")
+    .minus({ days: 1 })
+    .toISODate(); // YYYY-MM-DD
+
+  const versaoCalculo = "resumo-v1"; // versao da regra/algoritmo de materializacao
+
+  // Le SOMENTE fontes historicas (Historico_Frasco_Reagente, Emprestimo_Reagente,
+  // eventos de dominio) com timestamp dentro de [00:00:00.000, 23:59:59.999] de dataAlvo.
+  // NAO ler o estado atual de Frasco_Reagente para inferir o corte.
+
+  for (const idAlmox of await idsAlmoxarifadosAtivos()) {
+    const agregadoAlmox = await agregarDia(dataAlvo, idAlmox, versaoCalculo);
+    await admin.firestore()
+      .collection("Resumo_Almoxarifado_Diario")
+      .doc(`${dataAlvo}__${idAlmox}`)          // ID deterministico
+      .set(agregadoAlmox, { merge: false });   // SUBSTITUI a projecao da chave
+
+    for (const idResumoReagente of agregadoAlmox.idsResumoReagente) {
+      const agregadoReagente = await agregarDiaReagente(dataAlvo, idAlmox, idResumoReagente, versaoCalculo);
+      await admin.firestore()
+        .collection("Resumo_Reagente_Diario")
+        .doc(`${dataAlvo}__${idAlmox}__${idResumoReagente}`) // ID deterministico
+        .set(agregadoReagente, { merge: false });            // SUBSTITUI (nunca incrementa)
+    }
+  }
+
+  // Backfill/reconciliacao: reprocessar qualquer DATA_ALVO historica afetada por
+  // correcao administrativa que alterou fato agregado. Mesmo dataAlvo + mesma
+  // versaoCalculo + mesmas fontes efetivas => mesmo resultado.
+});
+\end{lstlisting}
