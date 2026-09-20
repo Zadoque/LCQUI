@@ -31,5 +31,6 @@ Nenhum teste funcional executado nesta sessão até esta etapa. Nenhum deploy, m
 - 11/09/2026: contratos UI, fluxos, dicionário e RN-ROLE consolidados. Build histórico de 164 páginas; resultado não reutilizado como validação atual.
 - 13/09/2026: resolução formal das 10 DPs e inclusão de P2-05/P2-06 no plano.
 - 20/09/2026: Auditoria 8 (Especificação Consolidada V5) aplicada integralmente à documentação LaTeX e validador formal M0 (CUE + Alloy + Rust) atualizado para contemplar o status INDISPONIVEL de frascos.
+- 20/09/2026: Auditoria 9 (Ciclo de vida de reagentes e frascos) aplicada aos enums NoSQL, 3FN e código Typescript, não exigindo modificação nos artefatos de infraestrutura M0 e M1. Validação M0 e M1 verificada sem regressões.
 
 Inspeção visual: páginas 61 (snapshot), 143 (TCR), 145 (Q06) e 169 (Rules) do PDF final legíveis, sem cortes de conteúdo nas amostras. Build final /tmp/lcqui-tex-final; PDF atualizado somente após aprovação.
