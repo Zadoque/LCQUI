@@ -266,6 +266,6 @@ export const registrarBaixaBemPatrimonial = onCall(async (request) => {
 \end{lstlisting}
 
 \begin{regra}[M-07: Bounds e validação na geração de etiquetas]
-O grid de etiquetas é sempre 3 colunas × 10 linhas (30 posições por página A4). A seleção de offset deve validar: coluna em $[1, 3]$, linha em $[1, 10]$, e a quantidade de etiquetas a gerar não pode exceder o número de posições restantes na folha a partir do offset escolhido ($\text{restantes} = 30 - ((\text{linha} - 1) \times 3 + (\text{coluna} - 1))$). Para segunda via, limite de 10 frascos por sessão, validado no backend antes de iniciar a geração. IDs fora do intervalo de etiquetas virgens conhecidas são rejeitados com mensagem explícita.
+O grid de etiquetas é sempre 3 colunas × 10 linhas (30 posições por página A4). A seleção de offset inicial aplica-se apenas na primeira página, validando: coluna em $[1, 3]$ e linha em $[1, 10]$. Lotes de até 50 etiquetas virgens são suportados por operação; as páginas subsequentes preenchem as posições continuamente desde a coordenada (1,1). Para segunda via, o limite é de 10 frascos por sessão, validado no backend antes de iniciar a geração. IDs fora do intervalo de etiquetas virgens conhecidas são rejeitados com mensagem explícita.
 \end{regra}
 

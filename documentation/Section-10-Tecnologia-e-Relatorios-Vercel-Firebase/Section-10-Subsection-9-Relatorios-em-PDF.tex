@@ -70,7 +70,16 @@ export const gerarRelatorioBensPredio = onCall(async (request) => {
   const filtros = request.data as FiltrosPredio;
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
 
-  let query = admin.firestore().collection("Bem_Patrimonial").where("predio", "==", filtros.predio);
+  const dataRef = new Date();
+  const isHistorico = filtros.mes && filtros.ano && (filtros.mes !== dataRef.getMonth() + 1 || filtros.ano !== dataRef.getFullYear());
+
+  let query: FirebaseFirestore.Query = admin.firestore().collection("Bem_Patrimonial");
+  if (isHistorico) {
+    query = admin.firestore().collectionGroup("Historico");
+    // Aqui se aplica também os filtros de timestamp para fechar o mês informado
+  }
+
+  query = query.where("predio", "==", filtros.predio);
   if (filtros.andar) query = query.where("andar", "==", filtros.andar);
   if (filtros.sala) query = query.where("sala", "==", filtros.sala);
   if (filtros.estadoConservacao) query = query.where("estado_conservacao", "==", filtros.estadoConservacao);
@@ -99,6 +108,16 @@ export const gerarRelatorioPersonalizado = onCall(async (request) => {
 
   const dataIniObj = new Date(dataInicio);
   const dataFimObj = new Date(dataFim);
+  const agora = new Date();
+
+  const diffDias = Math.ceil((dataFimObj.getTime() - dataIniObj.getTime()) / (1000 * 3600 * 24));
+  if (diffDias <= 0 || diffDias > 31) {
+    throw new HttpsError("invalid-argument", "O período não pode ser negativo nem superior a 31 dias corridos.");
+  }
+  if (dataFimObj > agora) {
+    throw new HttpsError("invalid-argument", "A data final não pode ser no futuro.");
+  }
+
   let snapshot;
 
   if (entidade === "Bens_Patrimoniais") {

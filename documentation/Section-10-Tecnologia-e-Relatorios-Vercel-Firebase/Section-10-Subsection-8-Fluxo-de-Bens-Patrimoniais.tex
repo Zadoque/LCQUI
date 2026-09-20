@@ -314,7 +314,6 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
         tx.set(novoResumoRef, {
           nome: nomeNorm,
           descricao: req.descricao\_resumo\_proposta!.trim(),
-          foto\_url: null,
           versao: 1
         });
         idResumo = novoResumoRef.id;
