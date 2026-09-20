@@ -90,6 +90,7 @@ Aluno & Coleção raiz \texttt{Aluno} (docId = uid). Denorm: \texttt{letra\_inic
 Bolsista & Coleção raiz \texttt{Bolsista} (docId = uid) & Idem.\\
 Gestor\_Almoxarifado\_x\_Almoxarifado & Coleção raiz & Query bidirecional: ``gestores de X'' e ``almoxarifados de Y''.\\
 Almoxarifado & Coleção raiz & Poucas dezenas de documentos.\\
+Estoque\_Minimo\_Almoxarifado & Sub-coleção \nolinkurl{Almoxarifado/\{id\}/Estoques\_Configurados/\{idResumo\_idEspec\}} & Configuração de limite mínimo para reposição.\\
 Local & Coleção raiz & Referenciado por múltiplas entidades; campos \texttt{predio}, \texttt{andar}, \texttt{sala} denormalizados em \texttt{Bem\_Patrimonial} via trigger.\\
 Resumo\_Bem\_Patrimonial & Coleção raiz. Denorm: \texttt{letra\_inicial\_nome} & Agrupador de bens; filtro alfabético por letra inicial.\\
 Bem\_Patrimonial & Coleção raiz. Denorm: \texttt{nome\_equipamento}, \texttt{predio}, \texttt{andar}, \texttt{sala}, \texttt{letra\_inicial\_nome} & Entidade central pesquisada diretamente; evita JOINs em listagens e relatórios.\\
@@ -421,7 +422,7 @@ Caminho: \texttt{Emprestimo\_Reagente/\{id\}}.
 \item[\texttt{id\_usuario\_retirou}] string; O. Identificador da entidade usuario retirou, cuja existência e escopo são verificados no servidor.
 \item[\texttt{status}] string enum; O. Estado controlado pelo domínio; transições são validadas no servidor. Valores: EM\_USO,ATRASADO,DEVOLVIDO,DEVOLVIDO\_COM\_ATRASO,ENCERRADO\_EXTRAORDINARIO.
 \item[\texttt{data\_retirada}] Timestamp; O. Data/instante de data retirada, com ordem temporal validada e autoria do relógio do servidor para eventos.
-\item[\texttt{data\_devolucao\_prevista}] string YYYY-MM-DD; O. Data civil cujo prazo termina no fim do dia no fuso institucional.
+\item[\texttt{data\_devolucao\_prevista}] string civil YYYY-MM-DD (America/Sao\_Paulo); O. O vencimento legal encerra-se às 23:59:59.999 do referido dia civil.
 \item[\texttt{data\_devolucao\_efetuada}] Timestamp; N. Data/instante de data devolucao efetuada, com ordem temporal validada e autoria do relógio do servidor para eventos.
 \item[\texttt{id\_local\_usado}] string; O. Identificador da entidade local usado, cuja existência e escopo são verificados no servidor.
 \item[\texttt{id\_usuario\_devolveu}] string; N. Identificador da entidade usuario devolveu, cuja existência e escopo são verificados no servidor.

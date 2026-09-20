@@ -71,7 +71,7 @@ A chave primária composta \textit{(id\_gestor\_almoxarifado, id\_almoxarifado)}
 \end{entidade}
 
 \begin{explicacao}[Regra de Identidade de Bens Patrimoniais]
-\textit{Resumo\_Bem\_Patrimonial} representa o modelo catalográfico do equipamento (ex.: ``Microscópio Óptico Binocular Coleman''). Vários bens físicos compartilham o mesmo resumo. A alteração do nome do resumo é restrita ao Gestor de Bens e reflete em todos os itens do modelo. Caso um professor solicite alteração de nome para um bem individual, a operação representa reclassificação para outro resumo existente ou criação de um novo modelo, preservando a integridade dos demais equipamentos.
+\textit{Resumo\_Bem\_Patrimonial} representa o modelo catalográfico do equipamento (ex.: ``Microscópio Óptico Binocular Coleman''). Vários bens físicos compartilham o mesmo resumo. A alteração do nome do resumo é restrita ao Gestor de Bens e reflete em todos os itens do modelo. Caso um professor solicite alteração de nome para um bem individual, a operação representa reclassificação para outro resumo existente ou criação de um novo modelo, preservando a integridade dos demais equipamentos. Expressamente, resumos de catálogo não possuem vínculo com arquivos fotográficos, pertencendo a imagem unicamente à unidade física cadastrada em \textit{Bem\_Patrimonial}.
 \end{explicacao}
 \newpage
 \subsection{Historico bem patrimonial}
@@ -314,7 +314,7 @@ A especificação referencia o resumo, fonte do estado físico; a unidade é der
 \end{entidade}
 
 \begin{explicacao}
-A entidade \textit{Estoque\_Minimo\_Almoxarifado} estabelece o limiar de escassez (em quantidade de frascos) de uma \textit{Especificacao\_Reagente} para um determinado \textit{Almoxarifado}. O par Especificação × Almoxarifado é a identidade unívoca da configuração. 
+A entidade \textit{Estoque\_Minimo\_Almoxarifado} estabelece o limiar de escassez (em quantidade de frascos) de uma \textit{Especificacao\_Reagente} para um determinado \textit{Almoxarifado}. O par Especificação × Almoxarifado é a identidade unívoca da configuração. No Firestore, esta entidade é implementada como a subcoleção \texttt{Almoxarifado/\{id\}/Estoques\_Configurados/\{idResumo\_idEspec\}}.
 O campo \textit{ativo} indica que o par continua configurado ou intencionalmente estocado. 
 O campo \textit{notificacao\_ativa} indica que a emissão automática do alerta está habilitada (útil para silenciar alertas sem excluir a intenção de estocar a especificação).
 \end{explicacao}
@@ -457,6 +457,8 @@ O campo \textit{uso\_vencido\_autorizado} fecha a distinção de negócio entre 
 \textbf{Semântica dos atores da devolução:} \textit{id\_usuario\_devolveu} identifica o portador físico que entrega o frasco ao balcão, enquanto \textit{id\_gestor\_devolucao} identifica o Gestor de Almoxarifado que operou e registrou a devolução na balança.
 
 \textit{peso\_saida} e \textit{peso\_retorno} são sempre leituras de balança em gramas. \textit{unidade\_medida\_utilizada} qualifica exclusivamente \textit{medida\_utilizada} -- o consumo calculado, reportado em massa (g) para sólidos ou em volume (ml) para líquidos, via $V = \Delta m / \rho$.
+
+O campo \textit{data\_devolucao\_prevista} em nível NoSQL físico armazena uma string civil no padrão YYYY-MM-DD (fuso America/Sao\_Paulo), e o vencimento legal encerra-se estritamente às 23:59:59.999 do referido dia civil.
 \end{explicacao}
 
 
