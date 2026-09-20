@@ -499,7 +499,7 @@ export const registrarRetirada = onCall(async (request) => {
       finalidade_uso: finalidade,
       auto_atendimento: autoAtendimento,
       justificativa_metodologica: dados.justificativaMetodologica ?? null,
-      tcr_versao: aceite?.versao ?? (dados.tcrFisicoAssinado ? 1 : null),
+      tcr_versao: aceite?.versao ?? (dados.tcrFisicoAssinado ? "1.0" : null),
       tcr_aceito_em: aceite?.aceito_em ?? (dados.tcrFisicoAssinado ? admin.firestore.FieldValue.serverTimestamp() : null),
       tcr_aceito_por: aceite?.uid ?? (dados.tcrFisicoAssinado ? dados.idUsuarioRetirou : null),
       tcr_auditoria_id: aceite?.auditoria_id ?? (dados.idTermoUpload ?? null),
@@ -622,9 +622,13 @@ export const registrarDevolucao = onCall(async (request) => {
 
     const atualizacaoFrasco: Record<string, unknown> = {
       disponibilidade: esgotado || reterPorAnomalia ? "INDISPONIVEL" : "DISPONIVEL",
-      ...(esgotado && { estado_fisico_frasco: "VAZIO" }),
+      ...(esgotado && {
+        estado_fisico_frasco: "VAZIO",
+        peso_frasco_vazio: dados.pesoRetorno,
+        peso_atual: dados.pesoRetorno
+      }),
+      ...(!esgotado && { peso_atual: dados.pesoRetorno }),
       data_ultima_pesagem: admin.firestore.FieldValue.serverTimestamp(),
-      peso_atual: esgotado ? frasco.peso_frasco_vazio : dados.pesoRetorno,
       medida_usada: admin.firestore.FieldValue.increment(pesoConsumido), // sempre g
       vencido: frascoVencido,
     };
