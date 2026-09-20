@@ -1,7 +1,7 @@
 # LCQUI — Formal Specification State
 
 ## 1. Propósito desta fase
-Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. Rodada atual: M2.0, reconciliação localizada após auditorias documentais. M0/M1 permanecem históricos validados; M2 completo ainda não validado. Não reiniciar auditoria global nem substituir aplicação.
+Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. Rodada atual: M2.1, registro completo do frasco em CUE. M0/M1 permanecem históricos validados; M2 completo ainda não validado. Não reiniciar auditoria global nem substituir aplicação.
 
 ## 2. Baseline congelado da Fase 3B
 - FUNCTIONAL_SHA = db29ea2f17dc785fb0b44ffb3aec16db29c45e94
@@ -60,7 +60,7 @@ Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spaw
 |---|---|---|
 | M0 | Infraestrutura e fatia vertical | VALIDATED |
 | M1 | Resumo_Reagente + Especificacao_Reagente | VALIDATED |
-| M2 | Frasco completo (somente M2.0 reconciliado) | IN_PROGRESS |
+| M2 | Frasco completo (M2.0/M2.1 validados) | IN_PROGRESS |
 | M3 | Empréstimo | NOT_STARTED |
 | M4 | Retirada/devolução completas | NOT_STARTED |
 | M5 | Extravio/reencontro/quarentena | NOT_STARTED |
@@ -73,7 +73,7 @@ Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spaw
 | M12 | Integração/redução de duplicação normativa | NOT_STARTED |
 
 ## 9. Milestone atual
-M2 IN_PROGRESS: M2.0 VALIDATED; M2.1–M2.4 NOT_STARTED. M0/M1 VALIDATED historicamente nos respectivos worklogs, sem reexecução dos gates formais nesta rodada. A Auditoria 8 alterou M0 depois de M1: enum INDISPONIVEL e testemunha IndisponivelNaoApto; preservar o modelo atual, não restaurar a antiga testemunha DisponivelNaoApto.
+M2 IN_PROGRESS: M2.0 VALIDATED; M2.1 VALIDATED; M2.2–M2.4 NOT_STARTED. M0/M1 VALIDATED historicamente nos respectivos worklogs; nesta rodada somente regressão CUE reexecutada. A Auditoria 8 alterou M0 depois de M1: enum INDISPONIVEL e testemunha IndisponivelNaoApto; preservar o modelo atual, não restaurar a antiga testemunha DisponivelNaoApto.
 
 ## 10. Trabalho concluído
 - Inventário e commit exclusivo do estado 672fc65a antes da camada formal.
@@ -86,16 +86,13 @@ M2 IN_PROGRESS: M2.0 VALIDATED; M2.1–M2.4 NOT_STARTED. M0/M1 VALIDATED histori
 - Worklogs duráveis: M0_VALIDATION.md, M0_BASELINE_DIAGNOSIS.md e M1_VALIDATION.md em documentation/worklogs/formal-spec/.
 
 ## 11. Trabalho em andamento
-Recorte M2.0: reconciliar proveniência e registrar divergência de identidade, sem mudar CUE, Alloy, Rust, IR, generated, PDF ou fontes normativas. Worklog: documentation/worklogs/formal-spec/M2_0_BASELINE_RECONCILIATION.md. Gates M2.0 PASS: tabela-verdade de quatro casos, git diff --check e diff vazio contra 9df335bc para CUE/Alloy/Rust/IR/generated, fontes Seções 4/5, worklogs M0/M1 e aplicação. Não executados CUE/Alloy/Rust/LaTeX: nenhum desses artefatos mudou. Checkpoint commitado em bc57fbac e push confirmado; sessão encerrada antes de abrir M2.1.
+M2.1 VALIDATED. HEAD de entrada: 0ee6c0ce5c688359cbf88a10f64c7403df662413, árvore inicialmente limpa. #FrascoCompleto adicional com 27 campos, descritores compartilhados de valor/metadados, presença ! e null explícito, sem defaults SQL. XOR local, abertura histórica implica data null, prazo declarado positivo. DATE é string YYYY-MM-DD apenas lexical; TIMESTAMP string sem formato/timezone imposto. Sem regras físicas inventadas. Worklog: documentation/worklogs/formal-spec/M2_1_CUE_FRASCO_COMPLETO.md.
+Gates PASS: just spec-check (M0 7 + M1 35 + M2.1 19 = 61 fixtures, fmt/vet), 27/27 remoções individuais rejeitadas, diagnósticos das 14 inválidas conferidos, 27 nomes/ordem comparados ao SQL, git diff --check. M0 e todos os arquivos fora do recorte preservados contra HEAD de entrada. Não executados Alloy, export IR, Rust, LaTeX/PDF. Consolidar commit/push e parar; não iniciar M2.2 nesta execução.
 
 ## 12. Próxima ação EXATA
-Após consolidar M2.0, iniciar somente M2.1:
-1. Confirmar branch/status/HEAD e ler o worklog M2.0.
-2. Ler Section-4-Modelagem-Entidades-SQL-3FN.tex:329–396 e Section-5-Notas-de-Mapeamento-para-Firestore.tex:366–398 no baseline M2; ler domain/frasco.cue, descritores M1 e tools/formal/check.mjs.
-3. Registrar M2.1 IN_PROGRESS e implementar #FrascoCompleto adicional, 27 campos relacionais, presença obrigatória/null explícito, sem defaults injetados; preservar #Frasco e campos M0. Adotar exclusividade conforme M2-IDENTIDADE-001. Não adicionar id_resumo_reagente/eh_higroscopico à linha relacional.
-4. Fixtures próprias de alto valor, uma violação por caso; esclarecer apenas condicionais necessárias nas fontes referenciadas. Não inferir limites físicos positivos ou regras de transição.
-5. Executar just spec-check, corrigir, registrar resultados, commit e push antes de iniciar Alloy.
-O hash global IR/Rust ainda é histórico. Migrá-lo para 9df335bc em checkpoint separado antes de exportar M2 (M2.3), com atualização atômica da proveniência e seus artefatos/testes. Não substituir strings incidentalmente no schema M2.1.
+Auditar M2.1 e iniciar M2.2 Alloy para identidade química, preservando assertions M0.
+Na próxima execução: confirmar branch/status/HEAD; ler worklog M2.1, revisar descritores/schema e fixtures, especialmente limites da representação temporal e condicionais deliberadamente adiadas. Só após auditoria independente iniciar as relações Frasco/Lote/Especificacao e testemunhas das duas rotas. Preservar BloqueioFisico, Unicidade, Testemunha e IndisponivelNaoApto e atualizar atomicamente contratos de resultados quando necessário. M2.2 permanece NOT_STARTED.
+Hash global IR/Rust continua histórico; migração explícita somente em M2.3. Não alterar a fonte SQL de M2-IDENTIDADE-001 silenciosamente.
 
 ## 13. Arquivos que devem ser lidos para continuar
 1. Este arquivo, ponto único de retomada.
@@ -184,7 +181,7 @@ Problemas instrumentais resolvidos: usar alloy6 help exec (não --help); CUE emb
 - Escopo Alloy não aumenta por o IR incluir mais entidades. Não gerar UX/rationale; texto humano continua no LaTeX.
 
 ## 18. Itens ainda não migrados
-Frasco completo e demais domínios M2–M12; composição, integridade global/imutabilidade do catálogo, contratos completos de retirada, schemas Firestore completos, testes specification→Firebase Emulator e CI hospedada. M1 já contém os dois registros normalizados e notas de mapeamento. Nenhuma aplicação TypeScript gerada/substituída. Documentação humana original preservada.
+Relações/IR/documentação do Frasco completo e demais domínios M3–M12; composição, integridade global/imutabilidade do catálogo, contratos completos de retirada, schemas Firestore completos, testes specification→Firebase Emulator e CI hospedada. M1 já contém os dois registros normalizados e notas de mapeamento. Nenhuma aplicação TypeScript gerada/substituída. Documentação humana original preservada.
 
 ## 19. Commits desta fase
 - 672fc65a — chore(spec): add formal specification state.
@@ -199,10 +196,10 @@ Frasco completo e demais domínios M2–M12; composição, integridade global/im
 - Checkpoint final M1: assunto `docs(spec): integrate validated M1 catalog documentation`; resolver SHA com `git log -1 --format=%H --grep="validated M1 catalog"` (um commit não contém seu próprio SHA).
 
 ## 20. Estado do Git
-M2.0: entrada limpa em 9df335bc. Commit validado bc57fbac — chore(spec): reconcile M2 baseline after documentation audits. Alterados somente FORMAL_SPEC_STATE.md, specification/README.md, specification/knowledge/FORMAL_SPEC_ARCHITECTURE.md e novo worklog M2.0. Push para origin/feat/formal-spec-cue-alloy confirmado (9df335bc..bc57fbac). Status limpo e diff --check PASS após esse commit. Este registro pós-push é um commit documental de handoff adicional; confirmar seu envio com git status --short --branch. Nenhuma mudança local preexistente.
+M2.0 commitado/pushado em bc57fbac, handoff 0ee6c0ce. M2.1 tem entrada limpa em 0ee6c0ce. Arquivos desta unidade: domain/campos_frasco.cue, domain/frasco_completo.cue, 19 fixtures tests/frasco-completo, uma adição de grupo em tools/formal/check.mjs, estado e worklog M2.1. Commit previsto: feat(cue): model complete reagent bottle record; gates já PASS. Push será registrado após commit. Nenhuma mudança local preexistente.
 
 ## 21. Como uma nova IA deve continuar
 Ler este arquivo; confirmar status/log/branch; ler fontes indicadas; repetir gates mínimos e seguir seção 12. Não replanejar do zero nem reabrir 3B. Atualizar estado após unidades pequenas/validações/descobertas, antes de tarefas longas e antes/depois de commits. Manter tudo salvo para retomada em outra máquina. Usar NOT_STARTED/IN_PROGRESS/BLOCKED/IMPLEMENTED/VALIDATED; só VALIDATED conclui um escopo. Não alegar homologação integral a partir de checks limitados.
 
 ## 22. Definition of Done restante
-M2.0 reconcilia apenas o baseline e a interpretação documentada. M2.1 CUE, M2.2 Alloy, M2.3 IR/geração e M2.4 LaTeX/PDF permanecem NOT_STARTED. M2 só será VALIDATED com todos os gates, determinismo/stale, inspeção das páginas novas e commits. Validações históricas M0/M1 não são certificação integral do sistema.
+M2.0 = VALIDATED; M2.1 = VALIDATED; M2.2 = NOT_STARTED; M2.3/M2.4 = NOT_STARTED. M2 completo permanece IN_PROGRESS. Faltam auditoria independente M2.1, relações Alloy, migração de proveniência/IR/geração, LaTeX/PDF e gates correspondentes. Não atribuir provas relacionais/globais à validação estrutural CUE.
