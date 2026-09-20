@@ -72,9 +72,18 @@ export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
 
     devolucoesHojeSnap.docs.forEach(doc => {
       const d = doc.data();
-      if (d.unidade_medida_utilizada === "ml") totalVolumeUsado += d.medida_utilizada || 0;
-      else if (d.unidade_medida_utilizada === "g") totalMassaUsada += d.medida_utilizada || 0;
-      totalMassaEvaporada += d.peso_perda_evaporacao || 0;
+      if (d.unidade_medida_utilizada === "ml") {
+        totalVolumeUsado += d.medida_utilizada || 0;
+        const dens = d.densidade_aplicada;
+        if (!Number.isFinite(dens) || dens <= 0) {
+          throw new HttpsError("failed-precondition",
+            "Densidade histórica aplicada ausente; não converter evaporação com fator arbitrário.");
+        }
+        totalVolumeEvaporado += (d.peso_perda_evaporacao || 0) / dens;
+      } else if (d.unidade_medida_utilizada === "g") {
+        totalMassaUsada += d.medida_utilizada || 0;
+        totalMassaEvaporada += d.peso_perda_evaporacao || 0;
+      }
     });
   }
 
