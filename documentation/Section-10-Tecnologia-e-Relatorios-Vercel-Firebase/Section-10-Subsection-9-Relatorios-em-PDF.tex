@@ -39,8 +39,12 @@ export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
     const d = doc.data();
     if (d.unidade_medida_utilizada === "ml") acc.ml += d.medida_utilizada || 0;
     else if (d.unidade_medida_utilizada === "g") acc.g += d.medida_utilizada || 0;
+    
+    // Bateria 3.2 e 4.2: Agregação da perda por evaporação registrada na devolução
+    acc.evaporacaoG += d.peso_perda_evaporacao || 0;
+    
     return acc;
-  }, { g: 0, ml: 0 });
+  }, { g: 0, ml: 0, evaporacaoG: 0 });
 
   const historicoSnapshot = await admin.firestore().collection("Historico_Frasco_Reagente")
     .where("id_almoxarifado", "==", idAlmoxarifado)
