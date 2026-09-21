@@ -1,13 +1,15 @@
 # Status atual do LCQUI
 
-Atualizado em 21/09/2026 — consolidação documental HQ-M2-004..007.
+Atualizado em 21/09/2026 — consolidação documental HQ-M2-004..007 e realinhamento formal local M2.1d.
 Branch: `feat/formal-spec-cue-alloy`.
 HEAD inicial da consolidação: `25e3825f5045a328e59f17115f2dbbda0710fb26`.
-HEAD verificada nesta atualização: `b5d3f0997c7e09674fb79afdbed9e446d14fba01`.
+HEAD de entrada do realinhamento M2.1d: `69726049708398eacb2018534e88c49633f53d06`.
 
 A consolidação foi registrada em **15 commits, um por arquivo**, de `5c625870` a `b5d3f099`. O PDF compilado foi commitado por último, em `b5d3f099` (`docs(pdf): publish compiled M2 reconciliation`). Não houve push, deploy ou alteração da aplicação nesta sequência.
 
-Após esses commits, o usuário solicitou a atualização de `M2_HUMAN_QUESTIONS.md` e deste status. Essas duas revisões Markdown estão na árvore de trabalho, ainda sem commit; não alteram as fontes LaTeX nem o PDF publicado.
+Após esses commits, o usuário solicitou a atualização de `M2_HUMAN_QUESTIONS.md` e deste status. Essas duas revisões Markdown ficaram na árvore de trabalho sem commit até serem versionadas em `69726049708398eacb2018534e88c49633f53d06` (`docs(status): update STATUS_ATUAL and M2_HUMAN_QUESTIONS with consolidated decisions and revisions`), que é a HEAD de entrada do realinhamento M2.1d.
+
+O realinhamento formal local **M2.1d** realinhou `specification/cue/` às 29 colunas documentais de `Frasco_Reagente`, introduziu `origem_tara` e suas invariantes locais de proveniência de tara. Detalhes, paridade e gates em `worklogs/formal-spec/M2_1D_CUE_REALIGNMENT.md`. M2.2 continua `NOT_STARTED`.
 
 ## Escopo efetivamente executado
 
@@ -81,7 +83,7 @@ A resolução quantitativa fica vinculada por id_resolucao_metrologica; data FLO
 | main.pdf | PDF recompilado e inspecionado. |
 | ../FORMAL_SPEC_STATE.md | Estado formal, decisões resolvidas e próximos passos sem iniciar M2.2. |
 | STATUS_ATUAL.md | Este relatório, HEAD verificada, sequência de commits e revisões posteriores. |
-| worklogs/formal-spec/M2_HUMAN_QUESTIONS.md | Revisão posterior aos 15 commits: HQ004..007 resolvidas e HQ002 reconciliada; ainda sem commit. |
+| worklogs/formal-spec/M2_HUMAN_QUESTIONS.md | Revisão posterior aos 15 commits: HQ004..007 resolvidas e HQ002 reconciliada; versionada em 69726049. |
 | worklogs/formal-spec/Consolidação das decisões humanas M2 e simplificação da arquitetura de estoque.md | Documento de entrada versionado em commit próprio, sem alteração de conteúdo. |
 
 Os arquivos Section-10-Subsection-* ficam em documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/; os demais .tex e main.pdf ficam em documentation/.
@@ -110,7 +112,7 @@ Logs locais: /tmp/m2-docs-build.log, build/latex/main.log e /tmp/m2-baseline-bui
 
 ## Formal e pendências concretas
 
-**M2.2 NÃO foi iniciado nesta tarefa.** M0/M1 e CUE M2.1c permanecem intactos. CUE não impõe FECHADO ⇒ saldo conhecido e já permite nominal/tara NULL. A nova coluna documental origem_tara torna necessária futura extensão local do recorte CUE (28 colunas anteriores versus 29 documentais); proibida nesta tarefa pelo escopo do usuário. Os gates atestam somente o recorte existente. Relações de conhecimento/tara, custódia com pendência, resolução e FLOW são entradas futuras para M2.2; geração/proveniência M2 permanece M2.3.
+**M2.2 NÃO foi iniciado.** O CUE M2.1d realinhou o recorte local a 29 colunas com `origem_tara` e as invariantes locais de proveniência de tara; M0/M1 permanecem intactos. O CUE não impõe FECHADO ⇒ saldo conhecido e permite nominal/tara NULL. Relações de conhecimento/tara, custódia com pendência, resolução e FLOW permanecem entradas futuras para M2.2; geração/proveniência M2 permanece M2.3. Os gates atestam somente o recorte local M2.1d (7/35/30 = 72 fixtures), não ciclo de vida, cache nem backend.
 
 Backend atual ainda tem contratos legados (ex.: cadastro fechado exige volumeNominal e devolução rejeita ganho acima de 102%); cache/endpoint e resolução precisam de implementação futura. Esta rodada não altera nem homologa esse código. Não há novas perguntas humanas sobre decisões já resolvidas.
 

@@ -1,7 +1,7 @@
 # LCQUI — Formal Specification State
 
 ## 1. Propósito desta fase
-Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. Rodada atual: consolidação DOCUMENTAL HQ-M2-004..007 (21/09/2026). Escopo autorizado: fontes .tex, PDF compilado e arquivos de status. Aplicação, Rules executáveis, CUE/Alloy e generated preservados. M0/M1 continuam historicamente validados; M2.2 NÃO iniciado. O CUE M2.1c valida seu recorte anterior de 28 colunas; não certifica a extensão documental origem_tara nem os novos contratos metrológicos/cache.
+Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. Rodada atual: realinhamento formal local M2.1d, pós-consolidação documental HQ-M2-004..007. Escopo autorizado: CUE `specification/cue/`, fixtures do grupo `frasco-completo` e arquivos de status. Aplicação, Rules executáveis e generated preservados. M0/M1 continuam historicamente validados; M2.2 NÃO iniciado. O CUE M2.1d realinha o recorte local a 29 colunas, incluindo `origem_tara` e invariantes locais de proveniência de tara; não certifica ciclo de vida, cache nem contratos relacionais globais, reservados a M2.2.
 
 ## 2. Baseline congelado da Fase 3B
 - FUNCTIONAL_SHA = db29ea2f17dc785fb0b44ffb3aec16db29c45e94
@@ -11,7 +11,7 @@ Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. Rodada atual: consolidação
 - Regras congeladas: unknown/nonmeasurable/peso ausente != zero; disponibilidade DISPONIVEL|EMPRESTADO significa ausência/presença de empréstimo ativo, não aptidão; conteudo_nominal é original do fabricante; extravio não inventa peso_retorno; reencontro exige quarentena e não reabre empréstimo; Q06=max(0,peso_saida-peso_retorno), tara posterior não reescreve histórico; mesma chave+ator+payload canônico produz mesmo resultado, divergência rejeitada; estoque mínimo Especificação×Almoxarifado, escassez qtd_aptos<limite; timezone America/Sao_Paulo.
 
 ## 3. Branch atual
-`feat/formal-spec-cue-alloy`. HEAD de entrada M2.0 e baseline documental M2: `9df335bc977bfcf16668bca4baf5f9ed50c2da1a`. Árvore inicialmente limpa, referência local origin sincronizada. Baseline histórico M0/M1: `db29ea2f17dc785fb0b44ffb3aec16db29c45e94`; fechamento M1: `18d811aee11afc730960daa956af167e638b0ba9`. Não criar branch.
+`feat/formal-spec-cue-alloy`. HEAD de entrada M2.0 e baseline documental M2: `9df335bc977bfcf16668bca4baf5f9ed50c2da1a`. HEAD de entrada M2.1d: `69726049708398eacb2018534e88c49633f53d06`. Árvore inicialmente limpa, referência local origin sincronizada. Baseline histórico M0/M1: `db29ea2f17dc785fb0b44ffb3aec16db29c45e94`; fechamento M1: `18d811aee11afc730960daa956af167e638b0ba9`. Não criar branch.
 
 ## 4. Estrutura existente preservada
 Inventário real efetuado antes da criação da camada formal:
@@ -73,14 +73,15 @@ Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spaw
 | M12 | Integração/redução de duplicação normativa | NOT_STARTED |
 
 ## 9. Milestone atual
-M2 IN_PROGRESS: M2.0 VALIDATED; M2.1 VALIDATED; M2.1a VALIDATED; M2.1b DOCUMENTATION_VALIDATED; M2.2–M2.4 NOT_STARTED.
+M2 IN_PROGRESS: M2.0 VALIDATED; M2.1 VALIDATED; M2.1a VALIDATED; M2.1b DOCUMENTATION_VALIDATED; M2.1c VALIDATED; M2.1d VALIDATED; M2.2–M2.4 NOT_STARTED.
 
-Estado formal explícito após M2.1b:
+Estado formal explícito após M2.1d:
 - M0 formal = VALIDATED; M0 erratum textual = corrigido (`Formal-Spec-M0.tex`: extraviado indisponível e fisicamente inapto). CUE/Alloy/Rust/IR M0 intactos.
 - M1 = VALIDATED, não afetado; nenhum schema/generated/contrato M1 tocado.
 - M2.0 = validação histórica; M2.1 = validação histórica; M2.1a = validação histórica.
 - M2.1b = documentação reconciliada historicamente; decisões HQ004..007 foram atualizadas na rodada documental atual.
 - M2.1c = CUE M2 realinhado à documentação M2.1b (VALIDATED); 28 colunas e implicação de abertura histórica.
+- M2.1d = CUE M2 realinhado à documentação pós-HQ-M2-004..007 (VALIDATED); 29 colunas com `origem_tara` e três invariantes locais de proveniência de tara.
 - M2.2 = NOT_STARTED.
 
 M0/M1 VALIDATED historicamente nos respectivos worklogs. A Auditoria 8 alterou M0 depois de M1: enum INDISPONIVEL e testemunha IndisponivelNaoApto; preservar o modelo atual, não restaurar a antiga testemunha DisponivelNaoApto.
@@ -106,9 +107,9 @@ HEAD de entrada: `25e3825f5045a328e59f17115f2dbbda0710fb26`, branch `feat/formal
 Validação atual: just docs-build PASS (275 páginas, zero erros/referências indefinidas; 28 Overfull herdados, comparação com baseline compilado de 267 páginas); spec-check/spec-export/alloy-check PASS no recorte existente; git diff --check PASS. PDF inspecionado antes da publicação. Inventário de arquivos, campos removidos, auditoria e resultados de validação desta rodada: [STATUS_ATUAL.md](documentation/STATUS_ATUAL.md). Os registros M2.1b/M2.1c e M2_HUMAN_QUESTIONS.md não foram reescritos fora do escopo autorizado; seus estados OPEN para HQ004..007 estão superados pelas decisões acima e pelas fontes .tex atuais.
 
 ## 12. Próxima ação EXATA
-Revisar a consolidação documental e planejar o realinhamento formal/implementação em tarefa própria. Não solicitar novamente decisões HQ-M2-004..007. Não iniciar M2.2 automaticamente.
+Planejar/iniciar M2.2 em tarefa separada, usando o schema local M2.1d como baseline congelado. Não solicitar novamente decisões HQ-M2-004..007. Não iniciar M2.2 automaticamente.
 
-CUE preservado por instrução: permite nominal/tara NULL e não impõe FECHADO ⇒ saldo conhecido. A nova coluna documental origem_tara requer futura extensão local do recorte de 28 colunas. Saldo corrente, origem/conhecimento de tara, custódia encerrada com pendência, quarentena, resolução auditável e independência FLOW são entradas para a futura modelagem relacional M2.2, que permanece NOT_STARTED. Não inferir prova desses contratos pelos gates históricos. Proveniência/IR/geração M2 permanece M2.3. M2-IDENTIDADE-001 não foi alterado.
+O CUE M2.1d já realinha o recorte local a 29 colunas com origem_tara e as invariantes locais de proveniência de tara. Saldo corrente, custódia encerrada com pendência, quarentena, resolução auditável, independência FLOW e transições de ciclo de vida são entradas para a futura modelagem relacional M2.2, que permanece NOT_STARTED. Não inferir prova desses contratos pelos gates históricos. Proveniência/IR/geração M2 permanece M2.3. M2-IDENTIDADE-001 não foi alterado.
 
 ## 13. Arquivos que devem ser lidos para continuar
 1. Este arquivo, ponto único de retomada.
@@ -212,6 +213,7 @@ Relações/IR/documentação do Frasco completo e demais domínios M3–M12; com
 - Checkpoint final M1: assunto `docs(spec): integrate validated M1 catalog documentation`; resolver SHA com `git log -1 --format=%H --grep="validated M1 catalog"` (um commit não contém seu próprio SHA).
 
 ## 20. Estado do Git
+M2.1d entrada `69726049708398eacb2018534e88c49633f53d06`, árvore limpa. Commits da unidade: `fd6d3bc1` (`feat(cue): realign M2 bottle schema with M2.1d origem_tara`; CUE + 22 fixtures existentes) e `c6bad174` (`test(cue): add M2.1d tara-origin fixtures`; 8 fixtures novas). Commit documental desta unidade: `docs(spec): record M2.1d CUE realignment`. Sem push nesta unidade; HEAD remota observada em `origin/feat/formal-spec-cue-alloy` = `69726049`. `git diff --check` PASS; `build/spec-ir.json` e `build/formal-validation.json` inalterados.
 M2.1c entrada fc94fa87, sem alterações preexistentes. Commit desta unidade: `1655a5bb` (`feat(cue): realign M2 bottle schema with M2.1b documentation`), com push confirmado. Alterados: `specification/cue/domain/frasco_completo.cue` e 22 fixtures do grupo `frasco-completo` (21 alteradas + 1 nova). `git diff --check` PASS; árvore sincronizada após o envio.
 Registro histórico M2.1b: entrada de874a4b; checkpoint 1 `33c462fc` (docs(frasco): reconcile registration, balance and quarantine semantics); checkpoint 2 `252e4e50` (docs(materialization): define rebuildable daily summaries); checkpoint final `facd2882` (docs(spec): record reconciled M2 documentation state); complemento de gates docs(spec): finalize M2.1b gate record. Compilação LaTeX exit 0, 267 páginas, zero erros/refs indefinidas; `documentation/main.pdf` atualizado nessa unidade.
 Registro histórico: M2.1a entrada ce299d42; checkpoints documentais 4e0e60e5/88f913fe; CUE f340500f (fix(cue): align bottle schema with audited local constraints).
@@ -220,4 +222,4 @@ Registro histórico: M2.1a entrada ce299d42; checkpoints documentais 4e0e60e5/88
 Ler este arquivo; confirmar status/log/branch; ler fontes indicadas; repetir gates mínimos e seguir seção 12. Não replanejar do zero nem reabrir 3B. Atualizar estado após unidades pequenas/validações/descobertas, antes de tarefas longas e antes/depois de commits. Manter tudo salvo para retomada em outra máquina. Usar NOT_STARTED/IN_PROGRESS/BLOCKED/IMPLEMENTED/VALIDATED; só VALIDATED conclui um escopo. Não alegar homologação integral a partir de checks limitados.
 
 ## 22. Definition of Done restante
-M0 = VALIDATED (erratum textual corrigido); M1 = VALIDATED (não afetado); M2.0/M2.1/M2.1a = validações históricas; M2.1b = DOCUMENTATION_VALIDATED; M2.1c = VALIDATED (CUE M2 realinhado); M2.2/M2.3/M2.4 = NOT_STARTED; M2 = IN_PROGRESS. HQ-M2-004/005/006/007 RESOLVED documentalmente nesta rodada; não aguardam resposta humana. Realinhamento formal das novas extensões permanece tarefa futura autorizável. Faltam relações Alloy (M2.2), proveniência/IR/geração (M2.3) e integração LaTeX/PDF com gates próprios. Esta rodada não certifica execução de backend nem compilação integrada.
+M0 = VALIDATED (erratum textual corrigido); M1 = VALIDATED (não afetado); M2.0/M2.1/M2.1a = validações históricas; M2.1b = DOCUMENTATION_VALIDATED; M2.1c = VALIDATED; M2.1d = VALIDATED (CUE local de 29 colunas, `origem_tara` e invariantes locais de proveniência de tara); M2.2/M2.3/M2.4 = NOT_STARTED; M2 = IN_PROGRESS. HQ-M2-004/005/006/007 RESOLVED documentalmente; não aguardam resposta humana. O realinhamento local das novas extensões está cumprido por M2.1d. Faltam relações Alloy (M2.2), proveniência/IR/geração (M2.3) e integração LaTeX/PDF com gates próprios. Esta rodada não certifica ciclo de vida, cache, execução de backend nem compilação integrada.
