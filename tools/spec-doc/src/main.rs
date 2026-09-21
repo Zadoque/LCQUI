@@ -3,6 +3,7 @@ mod latex;
 mod render;
 mod validation;
 mod validation_m2;
+mod validation_m24;
 
 use std::{collections::BTreeMap, error::Error, fs, path::Path};
 use validation::hash;
@@ -12,20 +13,29 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let raw = fs::read(root.join("build/spec-ir.json"))?;
     let results = fs::read(root.join("build/formal-validation.json"))?;
     let results_m2 = fs::read(root.join("build/formal-validation-m2.json"))?;
+    let results_m24 = fs::read(root.join("build/formal-validation-m24.json"))?;
     let ir = ir::parse(&raw)?;
     let v: validation::Validation = serde_json::from_slice(&results)?;
     let v2: validation_m2::ValidationM2 = serde_json::from_slice(&results_m2)?;
+    let v24: validation_m24::ValidationM24 = serde_json::from_slice(&results_m24)?;
     let identity = fs::read(root.join("specification/alloy/reagents/bottle_identity.als"))?;
     let state = fs::read(root.join("specification/alloy/reagents/bottle_state.als"))?;
+    let withdrawal = fs::read(root.join(validation_m24::ORIGINS[0]))?;
+    let composed = fs::read(root.join(validation_m24::MODEL))?;
     if !ir.valid()
         || !ir.provenance_ok()
         || v.model != "specification/alloy/reagents/withdrawal.als"
         || !v.check(&raw, &fs::read(root.join(&v.model))?)
         || !v2.check(&raw, &identity, &state)
+        || !v24.check(&raw, &composed, [&withdrawal, &identity, &state])
     {
         return Err("IR ou validação inválida/stale; execute alloy-check".into());
     }
     let mut files = render::render(&ir, &v, &v2);
+    files.insert(
+        "invariants/frasco_reagente_m2_composed.tex".into(),
+        render::render_composed(&v24),
+    );
     let entries: BTreeMap<_, _> = files
         .iter()
         .map(|(name, text)| (name.clone(), hash(text.as_bytes())))
@@ -35,6 +45,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
         "spec_ir_sha256": hash(&raw),
         "formal_validation_sha256": hash(&results),
         "formal_validation_m2_sha256": hash(&results_m2),
+        "formal_validation_m24_sha256": hash(&results_m24),
         "files": entries,
     });
     files.insert(
@@ -108,26 +119,37 @@ mod tests {
         assert!(!v.check(&raw, &model));
     }
     #[test]
-    fn manifest_links_ir_both_validations_and_outputs_deterministically() {
+    fn manifest_links_ir_all_validations_and_outputs_deterministically() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let files = generated(&root).unwrap();
         let again = generated(&root).unwrap();
         assert_eq!(files, again);
         let manifest: serde_json::Value =
             serde_json::from_str(files.get("MANIFEST.json").unwrap()).unwrap();
-        for key in [
-            "spec_ir_sha256",
-            "formal_validation_sha256",
-            "formal_validation_m2_sha256",
+        for (key, path) in [
+            ("spec_ir_sha256", "build/spec-ir.json"),
+            ("formal_validation_sha256", "build/formal-validation.json"),
+            (
+                "formal_validation_m2_sha256",
+                "build/formal-validation-m2.json",
+            ),
+            (
+                "formal_validation_m24_sha256",
+                "build/formal-validation-m24.json",
+            ),
         ] {
-            assert!(manifest[key].is_string(), "chave ausente: {key}");
+            assert_eq!(manifest[key], hash(&fs::read(root.join(path)).unwrap()));
         }
         let outputs = manifest["files"].as_object().unwrap();
+        for (name, digest) in outputs {
+            assert_eq!(*digest, hash(files[name].as_bytes()));
+        }
         for name in [
             "entities/frasco_reagente.tex",
             "entities/frasco_reagente_m2.tex",
             "invariants/retirar_frasco.tex",
             "invariants/frasco_reagente_m2.tex",
+            "invariants/frasco_reagente_m2_composed.tex",
         ] {
             assert!(outputs.contains_key(name), "saída ausente: {name}");
         }

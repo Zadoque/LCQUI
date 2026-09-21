@@ -117,3 +117,20 @@ pub fn render(ir: &Ir, v: &Validation, v2: &ValidationM2) -> BTreeMap<String, St
     files.insert("invariants/frasco_reagente_m2.tex".into(), m2);
     files
 }
+
+pub fn render_composed(v: &crate::validation_m24::ValidationM24) -> String {
+    let mut text = String::from(
+        "% Gerado por lcqui-spec-doc; não editar.\n\\subsection*{Evidência composta M2.4}\nM2.4 verifica compatibilidade de M0 e M2.2 em uma abstração integrada: mesmo Frasco, estado físico, disponibilidade e quarentena, com empréstimos ativos e identidade química.\n\\begin{description}\n",
+    );
+    for r in &v.resultados {
+        text.push_str(&format!(
+            "\\item[{}] {}: {}.\\newline Escopo: \\texttt{{{}}}.\n",
+            escape(&r.id),
+            escape(&r.assertion),
+            escape(&r.status),
+            escape(&r.scope)
+        ));
+    }
+    text.push_str("\\end{description}\nUNSAT para check: nenhum contraexemplo encontrado no escopo declarado. SAT para run: testemunha encontrada. As buscas limitadas não são prova universal.\n\nNão certifica implementação Firebase, concorrência Firestore completa, estados completos de Emprestimo\\_Reagente, metrologia Q06, autorização/RBAC nem idempotência operacional. Esses temas permanecem para milestones futuros.\n");
+    text
+}

@@ -7,6 +7,7 @@ spec-export:
     node tools/formal/check.mjs spec-export
 
 alloy-check:
+    node --test tools/formal/composition.test.mjs
     node tools/formal/check.mjs alloy-check
 
 rust-check:

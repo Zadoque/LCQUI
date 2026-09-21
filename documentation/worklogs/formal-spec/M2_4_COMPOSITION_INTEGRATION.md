@@ -128,3 +128,19 @@ EstadoFisico (detectada pelo guard antes do solver); expectativa de overall=4
 nas buscas ampliadas foi corrigida para 6 após inspeção do receipt. Não foram
 alteradas preconditions para obter verde. Modelos standalone/IR/receipts antigos
 permanecem byte a byte iguais. Nenhuma HQ nova.
+
+## Checkpoints B/C — evidência, Rust e geração
+
+Receipt separado: `build/formal-validation-m24.json`, versão 1, Alloy 6.2.0,
+SAT4J; hash do IR, do modelo composto e das três origens. Contrato Rust
+`validation_m24.rs` exige lista exata ordenada de IDs/nomes/tipos/scopes/status.
+Testes rejeitam versões/solver, hashes IR/modelo/origens, SAT↔UNSAT, scope,
+ID/nome/tipo, remoção/extra/lista vazia, path inesperado e bytes adulterados.
+O teste de manifest compara os hashes reais das quatro entradas e de cada saída;
+duas renderizações em memória também são comparadas byte a byte.
+O guard lexical tem teste de mutação de cada origem e do modelo integrado,
+incluído em `alloy-check` (logo também `formal-check`).
+
+Stale demonstrado ANTES da primeira geração: `just docs-check` exit 1,
+`Generated stale: MANIFEST.json; execute docs-generate`. Alloy PASS nessa
+execução; a rejeição veio do gerador pela nova proveniência M2.4.
