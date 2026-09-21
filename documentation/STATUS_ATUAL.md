@@ -87,7 +87,7 @@ A resolução quantitativa fica vinculada por id_resolucao_metrologica; data FLO
 | ../FORMAL_SPEC_STATE.md | Estado formal, decisões resolvidas e próximos passos sem iniciar M2.2. |
 | STATUS_ATUAL.md | Este relatório, HEAD verificada, sequência de commits e revisões posteriores. |
 | worklogs/formal-spec/M2_HUMAN_QUESTIONS.md | Revisão posterior aos 15 commits: HQ004..007 resolvidas e HQ002 reconciliada; versionada em 69726049. |
-| worklogs/formal-spec/Consolidação das decisões humanas M2 e simplificação da arquitetura de estoque.md | Documento de entrada versionado em commit próprio, sem alteração de conteúdo. |
+| worklogs/formal-spec/Consolidação das decisões humanas M2 e simplificação da arquitetura de estoque.md | Documento de entrada versionado em commit próprio, sem alteração de conteúdo; posteriormente arquivado em `archive/formal-spec/`. |
 
 Os arquivos Section-10-Subsection-* ficam em documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/; os demais .tex e main.pdf ficam em documentation/.
 

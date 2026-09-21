@@ -8,7 +8,7 @@ O antigo apontamento isolado deste README para `10c86c00` não migrou a
 proveniência executável: `projection.cue` e `main.rs` ainda usam `db29ea2f`.
 A migração desse contrato terá checkpoint próprio antes da exportação M2.
 Detalhes e contraexemplo de identidade no
-[worklog M2.0](../documentation/worklogs/formal-spec/M2_0_BASELINE_RECONCILIATION.md).
+[worklog M2.0](../documentation/archive/formal-spec/M2_0_BASELINE_RECONCILIATION.md).
 Comece por [estado de continuidade](../FORMAL_SPEC_STATE.md).
 
 M0 cobre somente três dimensões de Frasco_Reagente, filtro físico de retirada e

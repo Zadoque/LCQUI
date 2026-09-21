@@ -127,6 +127,7 @@ O CUE M2.1d já realinha o recorte local a 29 colunas com origem_tara e as invar
 7. documentation/COMPILACAO_NIX_LCQUI.md e Formal-Spec-M0.tex/Formal-Spec-M1.tex.
 8. Fontes M2: Section-4-Modelagem-Entidades-SQL-3FN.tex e Section-5-Notas-de-Mapeamento-para-Firestore.tex, trechos Frasco_Reagente. Fluxo operacional está em Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/Section-10-Subsection-5-Fluxo-de-Reagentes.tex; Seção 10.7 contém jobs.
 9. Diagnóstico de aplicação já concluído em M0_BASELINE_DIAGNOSIS.md, somente se necessário; não reiniciar auditoria.
+10. Worklogs M2 históricos (M2.0, M2.1, M2.1a, M2.1b, M2.1c) e o prompt de consolidação foram arquivados em `documentation/archive/formal-spec/`; consulte o README desse diretório. Não são estado atual.
 
 ## 14. Comandos de validação
 Na raiz, após configurar ambiente:

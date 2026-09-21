@@ -6,7 +6,7 @@ respondidas pela consolidação humana de 21/09/2026 e incorporadas às fontes
 LaTeX publicadas no commit b5d3f099. Este registro foi atualizado posteriormente
 por solicitação explícita do usuário. Nenhuma resposta foi inferida.
 
-Fonte das respostas: [Consolidação das decisões humanas M2 e simplificação da arquitetura de estoque](<Consolidação das decisões humanas M2 e simplificação da arquitetura de estoque.md>).
+Fonte das respostas: [Consolidação das decisões humanas M2 e simplificação da arquitetura de estoque](<../../archive/formal-spec/Consolidação das decisões humanas M2 e simplificação da arquitetura de estoque.md>).
 RESOLVED indica decisão de domínio consolidada documentalmente; não atesta
 implementação no backend nem cobertura pelos modelos formais. M2.2 NÃO iniciado.
 
