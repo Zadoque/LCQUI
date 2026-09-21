@@ -5,7 +5,7 @@ O lote é opcional nos dois cadastros: \texttt{idLote} ausente persiste como NUL
 
 Todo frasco registra, de forma histórica e imutável, \texttt{condicao\_inicial\_cadastro}: \texttt{FECHADO} quando o recipiente entrou fisicamente fechado e \texttt{JA\_ABERTO} quando já estava aberto ao passar ao controle do LCQUI. Essa dimensão é distinta de \texttt{saldo\_desconhecido}, que é uma propriedade metrológica atual. O cadastro de frasco já aberto não fabrica tara nem saldo inicial: inicia com \texttt{peso\_frasco\_vazio = NULL} e \texttt{saldo\_desconhecido = true}, recebendo apenas o peso total medido e, quando conhecido ou legível, o \texttt{conteudo\_nominal} original do fabricante (NULL quando desconhecido, nunca $0$). A tara real é exclusivamente o peso do recipiente efetivamente vazio medido na balança; não existe recalibração parcial de tara a partir de estimativa com produto restante.
 
-A justificativa humana obrigatória deve satisfazer \texttt{trim(texto).length >= 20}. A regra vale somente para os contratos humanos enumerados: entrada manual em quarentena; saída/liberação de quarentena; decisão de quarentena no cadastro vencido; decisão de quarentena na primeira abertura; extravio; reencontro; descarte institucional; recalibração de tara real; autoatendimento; justificativa metodológica Q04/Q14 (preservando seu máximo específico preexistente); e correção administrativa de ação do gestor. Não é regra genérica para toda string \texttt{motivo}, \texttt{detalhe} ou \texttt{observacao}, e não impõe mínimo global ao \texttt{detalhe\_status} persistido. Nos exemplos TypeScript, \texttt{length} é a contagem técnica da string JavaScript após \texttt{trim}; não há avaliação semântica do texto. A validação não modifica o payload original, a canonicalização nem o hash de idempotência. Mensagens automáticas não passam por validação de entrada humana. Pesagem de rotina permanece sob esclarecimento de escopo; não recebe nova exigência por inferência. O mínimo geral não cria máximo; limites específicos preexistentes, como Q04, permanecem.
+A justificativa humana obrigatória deve satisfazer \texttt{trim(texto).length >= 20}. A regra vale somente para os contratos humanos enumerados: entrada manual em quarentena; saída/liberação de quarentena; decisão de quarentena no cadastro vencido; decisão de quarentena na primeira abertura; extravio; reencontro; descarte institucional; recalibração de tara real; autoatendimento; justificativa metodológica Q04/Q14 (preservando seu máximo específico preexistente); e correção administrativa de ação do gestor. Não é regra genérica para toda string \texttt{motivo}, \texttt{detalhe} ou \texttt{observacao}, e não impõe mínimo global ao \texttt{detalhe\_status} persistido. Nos exemplos TypeScript, \texttt{length} é a contagem técnica da string JavaScript após \texttt{trim}; não há avaliação semântica do texto. A validação não modifica o payload original, a canonicalização nem o hash de idempotência. Mensagens automáticas não passam por validação de entrada humana. Pesagem de rotina admite observação humana opcional e descrição automática identificada como tal; não exige mínimo de 20 caracteres. O mínimo geral não cria máximo; limites específicos preexistentes, como Q04, permanecem.
 
 \begin{lstlisting}[language=TypeScript, title={Validação de justificativa humana obrigatória}]
 function validarJustificativaHumana(texto: unknown): void {
@@ -23,7 +23,7 @@ interface CadastroFrascoFechado {
   idEspecificacaoReagente: string;
   idAlmoxarifado: string;
   idLote?: string;
-  conteudoNominal: number; // OBRIGATÓRIO (MET-04)
+  conteudoNominal?: number | null; // HQ-M2-004: desconhecido é NULL
   pesoTotal: number;
   validadeFechado?: string;
   validadeDesconhecida?: boolean;
@@ -90,23 +90,16 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
         throw new HttpsError("failed-precondition", `Limite de frascos do lote atingido (${qtdComprados} comprados).`);
     }
 
-    // MET-04: conteudoNominal obrigatório para frasco FECHADO
-    if (!dados.conteudoNominal || dados.conteudoNominal <= 0) {
-      throw new HttpsError("invalid-argument", "Frasco fechado exige conteúdo nominal positivo.");
-    }
-
-    let pesoVazio: number;
-    if (estadoFisico === "LIQUIDO") {
-      if (!densidade || densidade <= 0) throw new HttpsError("failed-precondition", "Líquido exige densidade positiva.");
-      pesoVazio = dados.pesoTotal - (dados.conteudoNominal * densidade);
-      if (pesoVazio <= 0) {
-        throw new HttpsError("invalid-argument", "Peso total incompatível com o volume nominal para esta densidade.");
-      }
-    } else {
-      pesoVazio = dados.pesoTotal - dados.conteudoNominal;
-      if (pesoVazio <= 0) {
-        throw new HttpsError("invalid-argument", "Peso total incompatível com a massa nominal informada.");
-      }
+    const nominal = dados.conteudoNominal ?? null;
+    if (nominal !== null && (!Number.isFinite(nominal) || nominal <= 0))
+      throw new HttpsError("invalid-argument", "Conteúdo conhecido deve ser positivo.");
+    let pesoVazio: number | null = null;
+    if (nominal !== null) {
+      if (estadoFisico === "LIQUIDO" && (!densidade || densidade <= 0))
+        throw new HttpsError("failed-precondition", "Líquido exige densidade positiva.");
+      pesoVazio = dados.pesoTotal - nominal * (estadoFisico === "LIQUIDO" ? densidade : 1);
+      if (pesoVazio <= 0)
+        throw new HttpsError("invalid-argument", "Dados nominais incompatíveis com peso total.");
     }
 
     // 1. Gera o código sequencial estrito LCQUI-N
@@ -127,6 +120,8 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
       // Tara inicial apenas derivada (peso total - conteúdo nominal) enquanto há produto;
       // não é medição física definitiva. Vira tara real quando o recipiente for pesado vazio.
       peso_frasco_vazio: pesoVazio,
+      origem_tara: pesoVazio === null ? null : "REFERENCIA_TEORICA",
+      saldo_desconhecido: pesoVazio === null,
       medida_usada: 0,
       condicao_inicial_cadastro: "FECHADO", // dimensão histórica imutável
       estado_fisico_frasco: "FECHADO",
@@ -277,6 +272,7 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
       peso_no_cadastrado: dados.pesoTotalBalanca,
       peso_atual: dados.pesoTotalBalanca,
       peso_frasco_vazio: pesoVazio, // NULL: tara do recipiente ainda não conhecida
+      origem_tara: null,
       medida_usada: 0,
       condicao_inicial_cadastro: "JA_ABERTO", // dimensão histórica imutável
       data_abertura: dados.aberturaHistoricaDesconhecida ? null : dados.dataAbertura,
@@ -527,6 +523,8 @@ export const registrarRetirada = onCall(async (request) => {
       tcr_aceito_em: aceite?.aceito_em ?? null,
       tcr_aceito_por: aceite?.uid ?? null,
       tcr_auditoria_id: aceite?.auditoria_id ?? null,
+      consumo_validado: false, anomalia_metrologica: null,
+      peso_retorno_efetivo: null, id_resolucao_metrologica: null,
       unidade_medida_utilizada: quimica.unidade,
       densidade_aplicada: quimica.densidade,
     });
@@ -618,16 +616,16 @@ export const registrarDevolucao = onCall(async (request) => {
     // apenas como sinal de anomalia/justificativa, nunca como autoridade de vazio.
     const ficouVazio = dados.confirmarEsgotamento === true;
     const pesoVazioReferencia = frasco.peso_frasco_vazio; // NULL para frasco cadastrado JA_ABERTO
-    // Evita consumo negativo: retorno abaixo da tara exige confirmação explícita de vazio.
-    if (!ficouVazio && pesoVazioReferencia != null && dados.pesoRetorno < pesoVazioReferencia) {
-      throw new HttpsError("failed-precondition", "Retorno abaixo da tara exige a confirmação explícita de que o frasco ficou vazio.");
-    }
-    if (ficouVazio) pesoConsumido = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno);
-    // PDF-025: Ganho acima da tolerância bloqueia por anomalia.
-    let reterPorAnomalia = false;
-    if (dados.pesoRetorno > limiteMaxRetorno) {
-      reterPorAnomalia = true;
-    }
+    const taraReal = frasco.origem_tara === "MEDIDA_REAL";
+    const abaixoReferencia = pesoVazioReferencia != null && dados.pesoRetorno < pesoVazioReferencia;
+    // Qualquer divergencia de tara REAL exige revisao; Q06 nao e tolerancia de tara.
+    const discrepanciaTara = ficouVazio && taraReal && dados.pesoRetorno !== pesoVazioReferencia;
+    const anomalia = discrepanciaTara ? "DISCREPANCIA_TARA_REAL"
+      : (!ficouVazio && abaixoReferencia && taraReal) ? "RETORNO_ABAIXO_TARA_REAL"
+      : (!ficouVazio && abaixoReferencia) ? "REFERENCIA_TEORICA_INCONSISTENTE"
+      : dados.pesoRetorno > limiteMaxRetorno ? "GANHO_ACIMA_Q06" : null;
+    const reterPorAnomalia = anomalia !== null;
+    // Custodia termina mesmo com medicao inconsistente; consumo fica pendente.
     const ganhoMassa = dados.pesoRetorno > emprestimo.peso_saida;
     const avisoHigroscopico = ganhoMassa && frasco.eh_higroscopico === true && !reterPorAnomalia;
     const volumeUtilizado = densidade ? pesoConsumido / densidade : pesoConsumido;
@@ -651,16 +649,20 @@ export const registrarDevolucao = onCall(async (request) => {
       disponibilidade: ficouVazio || reterPorAnomalia ? "INDISPONIVEL" : "DISPONIVEL",
       ...(ficouVazio && {
         estado_fisico_frasco: "VAZIO",
-        peso_frasco_vazio: dados.pesoRetorno, // tara real: recipiente efetivamente vazio medido na balança
+        peso_frasco_vazio: taraReal ? pesoVazioReferencia : dados.pesoRetorno,
+        origem_tara: "MEDIDA_REAL", // nao substituir tara real sem recalibracao auditada
         saldo_desconhecido: false,            // saldo passa a ser 0 g / 0 mL conhecido
         peso_atual: dados.pesoRetorno
       }),
       ...(!ficouVazio && { peso_atual: dados.pesoRetorno }),
       data_ultima_pesagem: admin.firestore.FieldValue.serverTimestamp(),
-      medida_usada: admin.firestore.FieldValue.increment(pesoConsumido), // sempre g
+      medida_usada: admin.firestore.FieldValue.increment(reterPorAnomalia ? 0 : pesoConsumido), // g validados
       vencido: frascoVencido, // derivado das regras reais de validade; nunca forçado para bloquear
     };
 
+    if (reterPorAnomalia && !ficouVazio) atualizacaoFrasco.saldo_desconhecido = true;
+    Object.assign(atualizacaoFrasco, derivarSaldoCorrente({ ...frasco, ...atualizacaoFrasco }));
+    invalidarCacheEstoqueTx(tx, frasco);
     if (reterPorAnomalia) {
       atualizacaoFrasco.em_quarentena = true;
       atualizacaoFrasco.uso_vencido_autorizado = false;
@@ -706,7 +708,10 @@ export const registrarDevolucao = onCall(async (request) => {
       id_gestor_devolucao: request.auth!.uid,
       peso_retorno: dados.pesoRetorno,
       peso_perda_evaporacao: dados.pesoPerdaEvaporacao || 0,
-      medida_utilizada: volumeUtilizado,
+      medida_utilizada: reterPorAnomalia ? null : volumeUtilizado,
+      consumo_validado: !reterPorAnomalia,
+      anomalia_metrologica: anomalia,
+      peso_retorno_efetivo: reterPorAnomalia ? null : dados.pesoRetorno,
       unidade_medida_utilizada: densidade ? "ml" : "g",
     ...(avisoHigroscopico && { aviso: "higroscopico_suspeito" }),
     });
@@ -724,7 +729,9 @@ export const registrarDevolucao = onCall(async (request) => {
         id_gestor: request.auth!.uid,
         id_emprestimo_reagente: emprestimoRef.id,
         tipo: "ENTROU_EM_QUARENTENA",
-        motivo: "Retido na devolução: Ganho de massa (" + (dados.pesoRetorno - emprestimo.peso_saida) + "g) excedeu a tolerância legal Q06.",
+        motivo: "Inconsistência metrológica: " + anomalia, // automatico, sem trim >= 20
+        peso_medido: dados.pesoRetorno, tara_aplicada: pesoVazioReferencia,
+        origem_tara: frasco.origem_tara,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
     }
@@ -749,13 +756,14 @@ export const registrarDevolucao = onCall(async (request) => {
         id_frasco_reagente: frascoRef.id, id_almoxarifado: frasco.id_almoxarifado,
         id_gestor: request.auth!.uid, id_emprestimo_reagente: emprestimoRef.id,
         tipo: "FICOU_VAZIO", campo_ajustado: "tara_real_homologada",
-        peso_medido: dados.pesoRetorno, tara_aplicada: dados.pesoRetorno,
+        peso_medido: dados.pesoRetorno,
+        tara_aplicada: taraReal ? pesoVazioReferencia : dados.pesoRetorno,
         peso_anterior: frasco.peso_frasco_vazio,
         confirmado_esgotamento: true, timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
     }
 
-    if (perdaEvaporacao > 0) {
+    if (perdaEvaporacao > 0 && !reterPorAnomalia) {
       tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
         id_frasco_reagente: emprestimo.id_frasco_reagente,
         id_almoxarifado: frasco.id_almoxarifado,
@@ -778,12 +786,14 @@ export const registrarDevolucao = onCall(async (request) => {
       id_emprestimo_reagente: emprestimoRef.id,
       peso_anterior: emprestimo.peso_saida,
       peso_novo: dados.pesoRetorno,
-      medida_ajustada: volumeUtilizado,
+      medida_ajustada: reterPorAnomalia ? null : volumeUtilizado,
       unidade_medida_ajustada: densidade ? "ml" : "g",
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    return { pesoConsumido, volumeUtilizado, atrasado, frascoVencido,
+    return { pesoConsumido: reterPorAnomalia ? null : pesoConsumido,
+      volumeUtilizado: reterPorAnomalia ? null : volumeUtilizado,
+      consumoPendente: reterPorAnomalia, atrasado, frascoVencido,
            avisoHigroscopico: avisoHigroscopico || false };
   });
 });
@@ -984,12 +994,15 @@ export const recalibrarTaraFrascoEsgotado = onCall(async (request) => {
 
     // M2.1b/D4: tara real = peso do recipiente efetivamente vazio medido na balança.
     // Não se recalibra tara com produto restante nem por estimativa.
-    if (frasco.estado_fisico_frasco !== "VAZIO" && frasco.estado_fisico_frasco !== "DESCARTADO") {
+    if (frasco.estado_fisico_frasco !== "VAZIO") {
       throw new HttpsError("failed-precondition", "A tara real só pode ser homologada com o recipiente efetivamente vazio e pesado.");
     }
 
     tx.update(frascoRef, {
       peso_frasco_vazio: dados.peso_vazio_real,
+      origem_tara: "MEDIDA_REAL",
+      saldo_aferido_g: 0,
+      saldo_aferido_ml: frasco.saldo_aferido_ml === null ? null : 0,
       peso_atual: dados.peso_vazio_real,
       saldo_desconhecido: false,
     });
@@ -1000,7 +1013,7 @@ export const recalibrarTaraFrascoEsgotado = onCall(async (request) => {
       id_gestor: request.auth!.uid,
       tipo: "AJUSTE",
       campo_ajustado: "peso_frasco_vazio",
-      peso_anterior: frasco.peso_frasco_vazio || null,
+      peso_anterior: frasco.peso_frasco_vazio ?? null,
       peso_novo: dados.peso_vazio_real,
       motivo: dados.motivo,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -1212,6 +1225,10 @@ export const resolverQuarentenaFrasco = onCall(async (request) => {
       throw new HttpsError("failed-precondition", "Frasco não está mais em quarentena.");
 
     const voltarDisponivel = dados.decisao === "VOLTAR_A_DISPONIVEL";
+    if (voltarDisponivel && await existePendenciaMetrologicaTx(tx, frascoRef.id))
+      throw new HttpsError("failed-precondition", "Resolva a pendencia metrologica.");
+    if (voltarDisponivel && !["FECHADO", "ABERTO"].includes(frasco.estado_fisico_frasco))
+      throw new HttpsError("failed-precondition", "Estado fisico inapto para liberacao.");
     // Demais regras independentes continuam aplicáveis: frasco vencido sem uso
     // autorizado não volta a DISPONIVEL por esta decisão.
     if (voltarDisponivel && frasco.vencido === true && frasco.uso_vencido_autorizado !== true) {
@@ -1334,3 +1351,26 @@ export const corrigirOperacao = onCall(async (request) => {
   });
 });
 \end{lstlisting}
+\paragraph{Contrato de devolução física e resolução metrológica -- HQ-M2-005.}
+Uma medição observada é registrada exatamente como informada, inclusive abaixo da tara persistida. Não arredondar, aumentar ou substituir peso para fazer a validação passar. A devolução física encerra a custódia e grava \texttt{data\_devolucao\_efetuada}, mesmo quando o resultado é \texttt{DEVOLVIDO\_COM\_ANOMALIA}. A tara de referência derivada no cadastro é identificada por \texttt{origem\_tara = REFERENCIA\_TEORICA}; somente pesagem de recipiente efetivamente vazio estabelece \texttt{MEDIDA\_REAL}. Ausência de tara exige origem NULL. A origem não pode ser inferida de FECHADO/JA\_ABERTO.
+
+Sem confirmação de esgotamento, retorno abaixo da tara real registra \texttt{RETORNO\_ABAIXO\_TARA\_REAL}; abaixo de referência teórica registra \texttt{REFERENCIA\_TEORICA\_INCONSISTENTE}, sem declarar violação de limite físico real. São classificações textuais do campo de anomalia, não novos estados físicos. O frasco mantém a medição em \texttt{peso\_atual}, fica em quarentena/INDISPONIVEL, com saldo desconhecido e saldos derivados NULL. O motivo automático não exige justificativa humana de 20 caracteres. A liberação de quarentena não pode contornar pendência metrológica; nova retirada exige resolução e demais condições de aptidão.
+
+Com esgotamento explicitamente confirmado, o frasco fica VAZIO/INDISPONIVEL, com saldo conhecido zero. Se não havia tara real, o peso vazio observado substitui a referência teórica (mesmo se menor) e sua origem passa a MEDIDA\_REAL. Se havia tara real divergente, a devolução continua aceita e o peso observado é preservado, mas a tara anterior não é sobrescrita: registra-se \texttt{DISCREPANCIA\_TARA\_REAL}. Sem uma tolerância de tara já normatizada, qualquer divergência é encaminhada à revisão, sem reaproveitar Q06 nem criar limiar fixo. A discrepância não transforma vazio confirmado em saldo desconhecido. A substituição de tara real usa exclusivamente \nolinkurl{recalibrarTaraFrascoEsgotado}, com recipiente vazio, justificativa humana e auditoria de antes/depois.
+
+\paragraph{Medição original e consumo efetivo.}
+\texttt{peso\_saida}, \texttt{peso\_retorno}, instante e identidade histórica são preservados. No empréstimo, o consumo fica não validado; medida utilizada e peso de retorno efetivo ficam NULL enquanto a inconsistência quantitativa estiver pendente. Não incrementar consumo acumulado nem materializar consumo/evaporação definitiva de operação pendente. Contar a devolução física não depende dessa validação. O saldo zero do recipiente confirmado vazio não demonstra, por si só, a validade do consumo calculado de uma medição em disputa.
+
+A resolução grava evento AJUSTE vinculado ao empréstimo e à medição original, com nova medição ou decisão, autoria, instante, origem/tara aplicada e referência da resolução efetiva. O timestamp da resolução é próprio; a data FLOW de consumo permanece a da devolução física. O campo \texttt{peso\_retorno\_efetivo} aponta quantitativamente para a medição validada sem apagar \texttt{peso\_retorno}; \texttt{id\_resolucao\_metrologica} referencia o evento auditável. Nenhum relatório toma NULL como consumo confirmado zero.
+
+\begin{enumerate}
+\item \textbf{Repetir pesagem:} somente gestor do escopo, com operação idempotente, relê frasco e empréstimo; registra a nova leitura mesmo se ainda inconsistente. Quando válida, finaliza consumo com peso efetivo, unidade e densidade históricas. Não sobrescreve a leitura original. Se houver movimentação física posterior, a pesagem atual não prova o peso histórico: manter a pendência e usar somente contrato fechado que disponha de evidência suficiente; nunca replay.
+\item \textbf{Confirmar esgotamento após inspeção:} confirmação humana explícita e pesagem real do recipiente vazio aplicam o contrato de esgotamento. Não inferir vazio automaticamente da anomalia. Havendo tara real divergente, preservar a anterior até recalibração; disponibilidade continua INDISPONIVEL.
+\item \textbf{Recalibrar tara real:} reutilizar o contrato existente, somente para recipiente vazio, com motivo humano de pelo menos 20 caracteres após trim. Registrar tara anterior/nova e vínculo com a pendência; não recalibrar com reagente dentro, nem fabricar evidência histórica a partir de tara nova.
+\item \textbf{Erro administrativo suportado:} usar a correção compensatória específica e preservar o fato original. Não existe API campo/valor, undo universal ou reconstrução de cadeia até o presente.
+\end{enumerate}
+
+Ao finalizar, a transação evita dupla contabilização, aplica somente a diferença entre consumo anteriormente validado e novo consumo validado (em g no acumulado), mantém o status histórico de devolução com anomalia e registra sua resolução. A liberação operacional segue \nolinkurl{resolverQuarentenaFrasco}, com justificativa humana própria e revalidação da aptidão; resolver consumo não libera automaticamente frasco vazio ou vencido. Reprocessar somente a data FLOW da devolução e outras datas diretamente alteradas por correção suportada. Invalidar cache somente se a resolução também modifica contribuição corrente do frasco.
+
+\paragraph{Obrigações transversais dos pseudocódigos.}
+Os auxiliares de saldo e cache são contratos documentais, não implementação atestada. Toda operação desta seção que altera estado corrente deve derivar saldos no próprio frasco e invalidar as chaves afetadas conforme a Seção~\ref{sec:estoque-atual-cache}, na mesma transação; preparar todas as leituras de frasco, empréstimo, autorização e gerações antes das escritas. Isso inclui cadastro, abertura, retirada, devolução, esgotamento, extravio/reencontro, recalibração, descarte e quarentena. Não disparar recálculo no commit. Pesagem ordinária não resolve automaticamente pendência; usar os contratos explícitos acima. Correção histórica de retirante não altera peso/saldo/disponibilidade correntes nem invalida cache.
