@@ -186,7 +186,11 @@ nem integração LaTeX. Não substitui M2.3.
 - `a3bf7303` — `feat(alloy): model M2 bottle identity relations`.
 - `aeeb712c` — `feat(alloy): model M2 bottle state coherence`.
 - `ae176154` — `test(alloy): gate M2 identity and state witnesses`.
-- Commit documental desta unidade: `docs(spec): record M2.2 validation state`.
+- `7eb40930` — `docs(spec): record M2.2 validation state`.
+- Publicação: push autorizado explicitamente pelo usuário e executado nesta
+  unidade. `origin/feat/formal-spec-cue-alloy` passa a conter os commits M2.2
+  acima, os commits pendentes anteriores (`0f0505e0`, `dd46a446`) e o commit
+  documental que registra este push.
 
 ## Próxima ação EXATA
 

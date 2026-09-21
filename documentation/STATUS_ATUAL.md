@@ -10,9 +10,13 @@ A consolidação foi registrada em **15 commits, um por arquivo**, de `5c625870`
 
 Após esses commits, o usuário solicitou a atualização de `M2_HUMAN_QUESTIONS.md` e deste status. Essas duas revisões Markdown ficaram na árvore de trabalho sem commit até serem versionadas em `69726049708398eacb2018534e88c49633f53d06` (`docs(status): update STATUS_ATUAL and M2_HUMAN_QUESTIONS with consolidated decisions and revisions`), que é a HEAD de entrada do realinhamento M2.1d.
 
-O realinhamento formal local **M2.1d** realinhou `specification/cue/` às 29 colunas documentais de `Frasco_Reagente`, introduziu `origem_tara` e suas invariantes locais de proveniência de tara. Detalhes, paridade e gates em `worklogs/formal-spec/M2_1D_CUE_REALIGNMENT.md`. M2.2 continua `NOT_STARTED`.
+O realinhamento formal local **M2.1d** realinhou `specification/cue/` às 29 colunas documentais de `Frasco_Reagente`, introduziu `origem_tara` e suas invariantes locais de proveniência de tara. Detalhes, paridade e gates em `worklogs/formal-spec/M2_1D_CUE_REALIGNMENT.md`.
+
+As relações globais Alloy **M2.2** foram concluídas e VALIDATED: `bottle_identity.als` (identidade química efetiva) e `bottle_state.als` (coerência de estado e transições documentadas), com 16 `check` UNSAT e 9 testemunhas SAT. Detalhes em [worklog M2.2](worklogs/formal-spec/M2_2_ALLOY_RELATIONS.md). M2.3 continua `NOT_STARTED`.
 
 Os três commits de M2.1d (`fd6d3bc1`, `c6bad174`, `f27a7972`) foram inicialmente apenas locais. Em verificação posterior, `origin/feat/formal-spec-cue-alloy` passou a apontar para `f27a797289dfa28ec4f3b445feb5599900cd4410`, publicando-os. O Git permite afirmar apenas que a remota mudou; o push ocorreu fora da execução M2.1d e não foi executado por ela.
+
+Nesta unidade, por solicitação explícita do usuário, foi executado push de `feat/formal-spec-cue-alloy`. Foram publicados os commits pendentes anteriores (`0f0505e0`, `dd46a446`), os commits M2.2 (`a3bf7303`, `aeeb712c`, `ae176154`, `7eb40930`) e o commit documental que registra este push. A SHA final da remota não é antecipada aqui porque o commit que contém este texto ainda não possui SHA no momento da redação.
 
 ## Escopo efetivamente executado
 
