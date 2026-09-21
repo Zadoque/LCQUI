@@ -1,7 +1,7 @@
-use crate::{ir::Ir, latex::escape, validation::Validation};
+use crate::{ir::Ir, latex::escape, validation::Validation, validation_m2::ValidationM2};
 use std::collections::BTreeMap;
 
-pub fn render(ir: &Ir, v: &Validation) -> BTreeMap<String, String> {
+pub fn render(ir: &Ir, v: &Validation, v2: &ValidationM2) -> BTreeMap<String, String> {
     let mut files = BTreeMap::new();
     for entity_ir in &ir.entidades {
         let mut entity = format!(
@@ -90,5 +90,30 @@ pub fn render(ir: &Ir, v: &Validation) -> BTreeMap<String, String> {
     }
     inv.push_str("\\end{description}\nUNSAT significa ausência de contraexemplo no escopo declarado; SAT indica testemunha encontrada. Não certifica a implementação Firebase.\n");
     files.insert("invariants/retirar_frasco.tex".into(), inv);
+
+    // Evidência Alloy M2.2, gerada separadamente da evidência M0.
+    let mut m2 = String::from(
+        "% Gerado por lcqui-spec-doc; não editar.\n\\subsection*{Evidência formal M2.2 --- Frasco\\_Reagente}\n",
+    );
+    for modelo in &v2.modelos {
+        m2.push_str(&format!(
+            "\\subsection*{{{}}}\n\\begin{{description}}\n",
+            escape(&modelo.model)
+        ));
+        for r in &modelo.resultados {
+            m2.push_str(&format!(
+                "\\item[{}] {}: {}.\\newline Escopo: \\texttt{{{}}}.\n",
+                escape(&r.id),
+                escape(&r.assertion),
+                escape(&r.status),
+                escape(&r.scope)
+            ));
+        }
+        m2.push_str("\\end{description}\n");
+    }
+    m2.push_str(
+        "UNSAT para check: nenhum contraexemplo no escopo declarado. SAT para run: testemunha encontrada no escopo declarado. Os módulos M0 e M2.2 foram verificados separadamente; esta geração não constitui prova da composição M0 e M2.2, que permanece para M2.4. Não certifica a implementação backend/Firebase.\n",
+    );
+    files.insert("invariants/frasco_reagente_m2.tex".into(), m2);
     files
 }

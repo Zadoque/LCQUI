@@ -25,7 +25,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     {
         return Err("IR ou validação inválida/stale; execute alloy-check".into());
     }
-    let mut files = render::render(&ir, &v);
+    let mut files = render::render(&ir, &v, &v2);
     let entries: BTreeMap<_, _> = files
         .iter()
         .map(|(name, text)| (name.clone(), hash(text.as_bytes())))
