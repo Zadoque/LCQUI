@@ -18,22 +18,12 @@ Corrigido o typo \texttt{SERAIL} $\rightarrow$ \texttt{SERIAL}. \textit{id\_lote
 \campo{id}{SERIAL}{PK}
 \campo{data}{DATE}{NOT NULL}
 \campo{id\_almoxarifado}{INTEGER}{FK, NOT NULL}
-\campo{qtd\_frascos\_fechados\_no\_fim\_do\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
-\campo{qtd\_frascos\_abertos\_no\_fim\_do\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
-\campo{qtd\_frascos\_emprestados\_no\_fim\_do\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
-\campo{qtd\_frascos\_saldo\_desconhecido}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_cadastrados\_fechados\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_cadastrados\_abertos\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_emprestados\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_devolvidos\_durante\_o\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
-% N-07: campo abaixo é LEGADO. Redundante e ambíguo frente às colunas dimensionadas.
-% Não usar em novas queries. Utilizar volume\_utilizado\_no\_dia\_ml (líquidos)
-% e massa\_utilizada\_no\_dia\_g (sólidos). Descontinuar na próxima migração.
-\campo{volume\_total\_usado\_nos\_frascos\_devolvidos\_durante\_o\_dia}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL -- LEGADO N-07}
-\campo{volume\_total\_disponivel\_aferido\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{volume\_utilizado\_no\_dia\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{volume\_evaporado\_no\_dia\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
-\campo{massa\_total\_disponivel\_aferida\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{massa\_utilizada\_no\_dia\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{massa\_evaporada\_no\_dia\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{calculado\_em}{TIMESTAMP}{NOT NULL -- serverTimestamp da execução que produziu a projeção atual}
@@ -46,20 +36,20 @@ Corrigido o typo \texttt{SERAIL} $\rightarrow$ \texttt{SERIAL}. \textit{id\_lote
 \end{regra}
 \newpage
 \begin{explicacao}[Separação Física Rigorosa: Massa ($g$) vs Volume ($ml$)]
-Esta tabela consolida uma distinção única e consistente entre \textbf{estoque} (\textit{...\_no\_fim\_do\_dia}, fotografia às 23h59) e \textbf{fluxo} (\textit{...\_durante\_o\_dia}, eventos ocorridos naquele dia).
-Para eliminar distorções métricas em sólidos com densidade desconhecida ou nula, as colunas agregadas de saldo e consumo são formalmente segregadas nas duas dimensões físicas fundamentais: reagentes líquidos acumulam em \textit{volume\_...\_ml} e reagentes sólidos acumulam em \textit{massa\_...\_g}. Nunca se tenta converter gravimetria de sólidos para volume sem densidade aferida.
+Esta tabela consolida exclusivamente fatos FLOW do dia civil, sem posição acumulada de estoque.
+Para eliminar distorções métricas em sólidos com densidade desconhecida ou nula, as colunas agregadas de consumo e evaporação são formalmente segregadas nas duas dimensões físicas fundamentais: reagentes líquidos acumulam em \textit{volume\_...\_ml} e reagentes sólidos acumulam em \textit{massa\_...\_g}. Nunca se tenta converter gravimetria de sólidos para volume sem densidade aferida.
 
-\textbf{N-07 -- campo legado:} \texttt{volume\_total\_usado\_nos\_frascos\_devolvidos\_durante\_o\_dia} pré-existe à separação massa vs. volume e mistura unidades. Sua semântica é coberta por \texttt{volume\_utilizado\_no\_dia\_ml} e \texttt{massa\_utilizada\_no\_dia\_g}. Não preencher em novos agregadores; manter apenas para compatibilidade de relatórios históricos até a migração.
+O campo legado que misturava unidades foi removido por redundância; consumo usa exclusivamente as métricas dimensionadas em g e mL.
 \end{explicacao}
 
-\begin{explicacao}[Projeção Derivada, Unicidade Determinística e Snapshot Temporal]
+\begin{explicacao}[Projeção FLOW e Unicidade Determinística]
 \textit{Resumo\_Almoxarifado\_Diario} é uma \textbf{projeção derivada, descartável, recalculável e reconstruível} a partir das fontes históricas canônicas (\textit{Historico\_Frasco\_Reagente}, \textit{Emprestimo\_Reagente} e eventos de domínio; ver Catálogo de Métricas). \textbf{Não é fonte primária de verdade.} Não se admite correção manual incremental de totais como autoridade: qualquer divergência deve ser resolvida por reprocessamento absoluto a partir das fontes.
 
 \textbf{Unicidade e ID determinístico.} A chave lógica diária é \textit{UNIQUE(data, id\_almoxarifado)}. No Firestore o ID do documento é determinístico no formato \texttt{YYYY-MM-DD\_\_ALMOXARIFADO\_ID}. Reprocessar a mesma data/almoxarifado deve \textbf{substituir} (sobrescrever) a projeção existente, jamais criar um novo documento por reprocessamento.
 
 \textbf{Metadados de cálculo.} \textit{data} identifica o dia civil agregado; \textit{calculado\_em} é o \texttt{serverTimestamp} da execução que produziu a projeção atual; \textit{versao\_calculo} identifica a versão da regra/algoritmo de materialização. \textit{calculado\_em} \textbf{não é a data do fato}: não se confunde com \textit{data} nem com o timestamp físico dos eventos agregados.
 
-\textbf{Snapshot temporal.} \textit{DATA\_ALVO} = \texttt{YYYY-MM-DD} no fuso \texttt{America/Sao\_Paulo}; a janela considerada é \texttt{00:00:00.000}–\texttt{23:59:59.999}. O snapshot é o \textbf{estado efetivo no corte 23:59:59.999}; eventos ocorridos após a virada da meia-noite \textbf{não} contaminam o fechamento do dia anterior. É \textbf{proibido} reconstruir o histórico a partir do estado atual do documento: um job executado após a meia-noite não pode ler \textit{Frasco\_Reagente} atual e assumir que aquele era o estado no corte.
+\textbf{Janela FLOW.} O dia civil D em America/Sao\_Paulo usa o intervalo semiaberto do início de D até o início de D+1. Somente fatos efetivos pertencentes a D são agregados. Não há snapshot diário de estoque, leitura de estado corrente para fabricar passado, dependência de D-1 ou replay até hoje. Correções fechadas reprocessam somente as datas diretamente afetadas (origem e destino, se houver mudança de atribuição).
 
 \textbf{Correção de fato histórico.} Uma correção administrativa que altera um fato histórico usado na agregação deve identificar a \textit{DATA\_ALVO} do fato corrigido e disparar o reprocessamento do resumo de \textbf{cada data histórica afetada}. O timestamp da correção permanece o da correção; o timestamp físico original não é reescrito.
 \end{explicacao}
@@ -70,17 +60,10 @@ Para eliminar distorções métricas em sólidos com densidade desconhecida ou n
 \campo{data}{DATE}{NOT NULL}
 \campo{id\_resumo\_reagente}{INTEGER}{FK, NOT NULL}
 \campo{id\_almoxarifado}{INTEGER}{FK, NOT NULL}
-\campo{qtd\_frascos\_fechados\_disponiveis}{INTEGER}{DEFAULT 0, NOT NULL}
-\campo{qtd\_frascos\_abertos\_disponiveis}{INTEGER}{DEFAULT 0, NOT NULL}
-\campo{qtd\_frascos\_em\_uso}{INTEGER}{DEFAULT 0, NOT NULL}
-\campo{qtd\_frascos\_saldo\_desconhecido}{INTEGER}{DEFAULT 0, NOT NULL}
-\campo{qtd\_frascos\_vazios}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_descartados\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
 \campo{qtd\_frascos\_extraviados\_dia}{INTEGER}{DEFAULT 0, NOT NULL}
-\campo{volume\_total\_disponivel\_aferido\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{volume\_utilizado\_no\_dia\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{volume\_evaporado\_no\_dia\_ml}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
-\campo{massa\_total\_disponivel\_aferida\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{massa\_utilizada\_no\_dia\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{massa\_evaporada\_no\_dia\_g}{NUMERIC(12,2)}{DEFAULT 0, NOT NULL}
 \campo{calculado\_em}{TIMESTAMP}{NOT NULL -- serverTimestamp da execução que produziu a projeção atual}
@@ -92,8 +75,8 @@ Para eliminar distorções métricas em sólidos com densidade desconhecida ou n
 \textit{UNIQUE(data, id\_almoxarifado, id\_resumo\_reagente)}. No Firestore, o documento usa ID determinístico \texttt{YYYY-MM-DD\_\_ALMOXARIFADO\_ID\_\_RESUMO\_REAGENTE\_ID}. Reprocessar a mesma chave diária substitui a projeção existente; nunca cria um novo documento.
 \end{regra}
 
-\begin{explicacao}[Contratos de Materialização e Saldo]
-Para garantir a exatidão das métricas agregadas e evitar divergências com a Seção 4:
+\begin{explicacao}[Contratos do Estoque Atual (fora dos resumos diários)]
+As regras a seguir pertencem exclusivamente às agregações atuais protegidas no backend sobre Frasco\_Reagente, não aos resumos FLOW:
 \begin{itemize}
     \item \textbf{Frascos Extraviados:} Frascos com estado \texttt{EXTRAVIADO} \textbf{nunca} são contabilizados no saldo disponível, seja na quantidade de frascos ou na massa/volume total.
     \item \textbf{Conteúdo Nominal vs. Saldo:} O \textit{conteudo\_nominal} (capacidade original do fabricante) \textbf{não representa} o saldo atual do frasco e não deve ser somado no lugar de saldos medidos.
@@ -101,14 +84,14 @@ Para garantir a exatidão das métricas agregadas e evitar divergências com a S
 \end{itemize}
 \end{explicacao}
 
-\begin{explicacao}[Projeção Derivada, Unicidade Determinística e Snapshot Temporal]
+\begin{explicacao}[Projeção FLOW e Unicidade Determinística]
 \textit{Resumo\_Reagente\_Diario} é uma \textbf{projeção derivada, descartável, recalculável e reconstruível} a partir das fontes históricas canônicas (\textit{Historico\_Frasco\_Reagente}, \textit{Emprestimo\_Reagente} e eventos de domínio). \textbf{Não é fonte primária de verdade.} Não se admite correção manual incremental de totais como autoridade: divergências são resolvidas por reprocessamento absoluto a partir das fontes.
 
 \textbf{Unicidade e ID determinístico.} A chave lógica diária é \textit{UNIQUE(data, id\_almoxarifado, id\_resumo\_reagente)}. No Firestore o ID do documento é determinístico no formato \texttt{YYYY-MM-DD\_\_ALMOXARIFADO\_ID\_\_RESUMO\_REAGENTE\_ID}. Reprocessar a mesma chave deve \textbf{substituir} (sobrescrever) a projeção existente, jamais criar um novo documento por reprocessamento.
 
 \textbf{Metadados de cálculo.} \textit{data} identifica o dia civil agregado; \textit{calculado\_em} é o \texttt{serverTimestamp} da execução que produziu a projeção atual; \textit{versao\_calculo} identifica a versão da regra/algoritmo de materialização. \textit{calculado\_em} \textbf{não é a data do fato}.
 
-\textbf{Snapshot temporal.} \textit{DATA\_ALVO} = \texttt{YYYY-MM-DD} no fuso \texttt{America/Sao\_Paulo}; a janela considerada é \texttt{00:00:00.000}–\texttt{23:59:59.999}. O snapshot é o \textbf{estado efetivo no corte 23:59:59.999}; eventos após a virada da meia-noite \textbf{não} contaminam o fechamento anterior. É \textbf{proibido} reconstruir o histórico consultando o estado atual de \textit{Frasco\_Reagente} após a virada.
+\textbf{Janela FLOW.} O dia civil D em America/Sao\_Paulo usa o intervalo semiaberto do início de D até o início de D+1. Somente fatos efetivos pertencentes a D são agregados. Não há snapshot diário de estoque, leitura de estado corrente para fabricar passado, dependência de D-1 ou replay até hoje. Correções fechadas reprocessam somente as datas diretamente afetadas (origem e destino, se houver mudança de atribuição).
 
 \textbf{Correção de fato histórico.} Uma correção administrativa que altera um fato histórico agregado deve identificar a \textit{DATA\_ALVO} do fato corrigido e reprocessar o resumo de \textbf{cada data histórica afetada}, sem reescrever o timestamp físico original.
 \end{explicacao}
@@ -166,9 +149,55 @@ Para garantir a exatidão das métricas agregadas e evitar divergências com a S
 
 \subsection{Catálogo de Métricas Disponíveis por Domínio}
 \begin{itemize}
-    \item \textbf{\textit{Historico\_Frasco\_Reagente}} (por \textit{tipo}): frascos cadastrados, saídas, entradas, esvaziados, quebrados, descartados, vencidos, ajustes de inventário e evaporação -- por dia $\rightarrow$ alimenta \textit{Resumo\_Almoxarifado\_Diario} e \textit{Resumo\_Reagente\_Diario}; por gestor/mês $\rightarrow$ alimenta \textit{Atividade\_Gestor\_Almoxarifado\_Mensal}; contagem "agora" $\rightarrow$ \texttt{count()} direto sobre \textit{Frasco\_Reagente} filtrado por \textit{vencido = true}.
-    \item \textbf{\textit{Emprestimo\_Reagente}}: empréstimos abertos/devolvidos/atrasados por dia, volume e massa total consumida por dia $\rightarrow$ alimenta os resumos diários de reagente.
+    \item \textbf{\textit{Historico\_Frasco\_Reagente}} (por \textit{tipo}): frascos cadastrados, saídas, entradas, esvaziados, quebrados, descartados, vencidos, ajustes de inventário e evaporação -- por dia $\rightarrow$ alimenta \textit{Resumo\_Almoxarifado\_Diario} e \textit{Resumo\_Reagente\_Diario}; por gestor/mês $\rightarrow$ alimenta \textit{Atividade\_Gestor\_Almoxarifado\_Mensal}; contagem "agora" $\rightarrow$ \texttt{count()} server-side via backend protegido sobre \textit{Frasco\_Reagente} filtrado por \textit{vencido = true}.
+    \item \textbf{\textit{Emprestimo\_Reagente}}: empréstimos abertos/devolvidos/atrasados por dia, volume e massa de consumo validado por dia $\rightarrow$ alimenta os resumos diários de reagente.
     \item \textbf{\textit{Historico\_Bem\_Patrimonial} / \textit{Alteracao\_Bem\_Patrimonial}}: bens cadastrados, editados e baixados por dia $\rightarrow$ alimenta \textit{Resumo\_Bem\_Patrimonial\_Diario}.
     \item \textbf{\textit{Requisicao\_Edicao\_Bem\_Patrimonial} / \textit{Requisicao\_Adicao\_Bem\_Patrimonial}}: requisições abertas/aprovadas/rejeitadas por dia $\rightarrow$ alimenta \textit{Resumo\_Bem\_Patrimonial\_Diario}.
     \item \textbf{\textit{Registro\_de\_Auditoria}}: log genérico entre todas as entidades.
 \end{itemize}
+
+\subsection{Estoque atual: autoridade canônica e agregação protegida}
+\label{sec:estoque-atual-cache}
+\textit{Frasco\_Reagente} é a autoridade do estado corrente. Não existe materialized view persistente de estoque atual. O backend executa \texttt{count()} e \texttt{sum()} sobre esse documento canônico; o navegador não executa agregações Firestore nem baixa frascos para contá-los. O contador de vínculos de lote tem finalidade cadastral distinta e não substitui estoque atual.
+
+Para permitir \texttt{sum()}, a projeção Firestore do próprio frasco possui \texttt{saldo\_aferido\_g} e \texttt{saldo\_aferido\_ml}, derivados server-owned. O backend calcula e atualiza esses campos na mesma transação das alterações de peso, tara ou conhecimento: saldo desconhecido ou metrologicamente inconsistente produz NULL; vazio explicitamente confirmado produz zero; caso consistente usa peso menos tara e, para líquidos, divisão pela densidade válida. A origem da tara permanece explícita. Sólidos têm campo mL NULL. As somas de estoque utilizável filtram aptidão operacional (estado FECHADO/ABERTO, disponível, sem quarentena e respeitando validade/autorização); contagens totais, emprestados e desconhecidos usam filtros próprios identificados. Nenhuma quantidade desconhecida é apresentada como zero conhecido.
+
+\paragraph{Contrato de consulta e cache.}
+A callable de dashboard exige App Check, Firebase Auth, RBAC e escopo antes de aplicar limite atômico de \textbf{5 solicitações/minuto por UID}, inclusive em cache hit. Usar janela deslizante de 60 segundos, relógio do servidor e registro interno por UID; IP não é identidade primária. Rejeição ocorre antes de executar agregações. O cache compartilhado nunca dispensa autorização individual.
+
+\texttt{Sistema\_Cache\_Dashboard} é coleção interna, efêmera, derivada e descartável. Chaves permitidas: \texttt{ESTOQUE\_\_ALMOX} e \texttt{ESTOQUE\_\_ALMOX\_\_RESUMO}, com IDs codificados deterministicamente sem colisão. O endpoint aceita somente esses escopos e filtros enumerados; qualquer filtro que altere resultado entra na chave normalizada, sem parâmetros livres que criem cardinalidade ilimitada. Campos: \texttt{escopo}, \texttt{resultado}, \texttt{calculado\_em}, \texttt{versao\_calculo}, \texttt{geracao} e \texttt{valido}. Resultado é nullable durante invalidação. A geração é token de invalidação, não métrica de estoque.
+
+Validade exige idade estritamente menor que 30 segundos, versão compatível e ausência de invalidação posterior. A marca temporal é capturada no início do cálculo (limite conservador da idade dos dados). Remoção física por TTL do Firestore é apenas limpeza, nunca mecanismo preciso de validade. Não existe scheduler de 30 segundos: cache miss recalcula sob demanda; oito horas sem acesso geram zero recálculos.
+
+\paragraph{Invalidação e concorrência.}
+Toda mutação que altere contribuição atual atualiza, atomicamente com o frasco, as gerações das chaves do almoxarifado e do par almoxarifado/resumo afetados, marca \texttt{valido=false} e limpa o resultado. Não calcula agregações nessa transação. A invalidação cria o registro de geração se necessário, evitando corrida com primeiro preenchimento. Transferência ou alteração de associação, somente quando existir contrato suportado, invalida origem e destino. A publicação do cache relê a geração e só publica se ela não mudou desde antes das consultas; descarta cálculo obsoleto e tenta novamente de forma limitada. Agregações concorrentes ocasionais são aceitáveis; não introduzir Redis, locks distribuídos ou infraestrutura dedicada. Se a geração mudar repetidamente, responder indisponibilidade temporária em vez de publicar dado invalidado. A remoção física de um registro faz a comparação falhar; nunca tratar ausência como geração válida capturada.
+
+Invalidam cadastro, abertura, retirada, devolução normal ou anômala, resolução de anomalia, esgotamento, pesagem que muda saldo, evaporação, ajuste metrológico, recalibração, quebra, descarte, extravio, reencontro, entrada/saída de quarentena e decisões de validade/descarte que alterem elegibilidade. Atualizações de validade pelo job também invalidam. Correção exclusivamente histórica de retirante, gestor, motivo ou auditoria e reprocessamento FLOW não invalidam estoque atual nem alteram pesos correntes. O menor escopo seguro é sempre o das chaves efetivamente afetadas.
+
+\begin{lstlisting}[language=TypeScript, title={Consulta lazy e publicação condicionada à geração (pseudocódigo)}]
+// App Check aplicado pela callable antes do handler.
+async function consultarEstoque(request) {
+  const escopo = await autenticarAutorizarENormalizarEscopo(request);
+  await consumirLimiteUID(request.auth.uid, 5, 60); // atomico; inclui cache hit
+  const ref = chaveCache(escopo);
+  for (let tentativa = 0; tentativa < 2; tentativa++) {
+    const base = await obterOuCriarGeracao(ref);
+    if (cacheValido(base, agoraServidor(), 30)) return base;
+    const inicio = agoraServidor();
+    const resultado = await agregarCountSumFrascos(escopo);
+    const publicado = await db.runTransaction(async tx => {
+      const atual = await tx.get(ref);
+      if (!atual.exists || atual.data().geracao !== base.geracao) return false;
+      if (agoraServidor() - inicio >= 30000) return false;
+      tx.set(ref, { escopo, resultado, calculado_em: inicio,
+        versao_calculo: "estoque-v1", geracao: base.geracao, valido: true });
+      return true;
+    });
+    if (publicado) return { resultado, calculado_em: inicio };
+  }
+  throw new HttpsError("unavailable", "Estoque mudou; tente novamente.");
+}
+\end{lstlisting}
+
+\paragraph{Interface e relatórios.}
+A UI mantém cache curto, nunca além da validade restante informada pelo servidor, cancela requisições antigas ao mudar escopo e invalida seu cache após mutação. Exibe instante de cálculo, atualização em andamento e ação Atualizar com tratamento de rate limit; não consulta automaticamente a cada 30 segundos. Dados já exibidos podem ficar desatualizados por mutação de outro usuário, portanto nunca autorizam retirada. Estado atual é fotografia corrente separada. Relatórios por período usam FLOW e fatos históricos; não prometem séries de saldo, fechados ou emprestados ao fim de cada dia. Patrimônio mantém seu contrato próprio de snapshots diários.
