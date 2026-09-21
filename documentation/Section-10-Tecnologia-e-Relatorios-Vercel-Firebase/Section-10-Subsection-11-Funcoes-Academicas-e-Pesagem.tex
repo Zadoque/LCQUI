@@ -67,7 +67,7 @@ export const compartilharRoteiro = onCall(async (request) => {
 
 \begin{lstlisting}[language=TypeScript, title={Pesagem de Rotina (UI-06)}]
 export const registrarPesagemRotina = onCall(async (request) => {
-  const { idFrasco, pesoAtual, motivo } = request.data as { idFrasco: string; pesoAtual: number; motivo: string };
+  const { idFrasco, pesoAtual, motivo } = request.data as { idFrasco: string; pesoAtual: number; motivo?: string };
   await validarPermissao(request, ["Gestor_Almoxarifado", "Chefe_Geral"]);
 
   const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(idFrasco);
@@ -75,7 +75,9 @@ export const registrarPesagemRotina = onCall(async (request) => {
     const snap = await tx.get(frascoRef);
     if (!snap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     
+    invalidarCacheEstoqueTx(tx, snap.data());
     tx.update(frascoRef, {
+      ...derivarSaldoCorrente({ ...snap.data(), peso_atual: pesoAtual }),
       peso_atual: pesoAtual,
       data_ultima_pesagem: admin.firestore.FieldValue.serverTimestamp()
     });
@@ -86,7 +88,8 @@ export const registrarPesagemRotina = onCall(async (request) => {
       tipo: "INVENTARIO_ROTINA",
       peso_anterior: snap.data()!.peso_atual,
       peso_novo: pesoAtual,
-      motivo: motivo,
+      motivo: motivo?.trim() || "Pesagem periódica de inventário de rotina",
+      motivo_automatico: !motivo?.trim(),
       id_gestor: request.auth!.uid,
       timestamp: admin.firestore.FieldValue.serverTimestamp()
     });
