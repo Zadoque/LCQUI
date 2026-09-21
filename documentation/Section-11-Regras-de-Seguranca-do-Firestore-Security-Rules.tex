@@ -94,3 +94,14 @@ Firestore Rules autorizam ou negam documentos completos; não fazem projeção n
 Coleções Controle\_Papeis, Operacoes e Chaves\_Unicas são exclusivas de Admin SDK; leitura e escrita diretas de clientes são negadas. O deny-all atual já as protege, sem allow concorrente; matches explícitos constituem hardening documental. Esta seção descreve o alvo; a implementação atual de moderação permanece pendente.
 \paragraph{Validação binária antes da vinculação (AUDITORIA-7, C011).}
 \texttt{registrarBaixaBemPatrimonial}, \texttt{criarPost} (ou \texttt{criarPostTurma}) e \texttt{cadastrarRoteiro} (ou \texttt{cadastrarRoteiroExperimento}) validam o objeto no bucket autorizado, dono, caminho, tamanho e assinatura binária antes de persistir qualquer URL. PDF exige bytes ASCII \texttt{\%PDF-}; JPEG exige hexadecimal \texttt{FF D8 FF}; PNG exige \texttt{89 50 4E 47 0D 0A 1A 0A}. Extensão e MIME declarados não substituem essa verificação. Formato incompatível rejeita toda a confirmação, sem vínculo documental parcial. A versão validada do objeto deve ser preservada contra substituição após a checagem; o backend fixa a geração validada e impede sobrescrita do objeto vinculado. Posts que referenciam roteiro existente verificam também ACL e versão validada do PDF.
+
+\paragraph{Cache e limite internos de dashboard.}
+As regras a seguir integram o mesmo match de documentos da base, sem grants sobrepostos que permitam acesso cliente. O SDK administrativo acessa pelo backend, cuja callable valida App Check, Auth, RBAC/escopo e 5 solicitações/minuto por UID antes de cache/agregações. Campos derivados de saldo, origem de tara e resolução quantitativa são escritos somente pelo backend; payload cliente não é autoridade para esses campos.
+\begin{lstlisting}[language=TypeScript, title={Coleções internas do dashboard (contrato documental)}]
+match /Sistema_Cache_Dashboard/{document=**} {
+  allow read, write: if false;
+}
+match /Sistema_Rate_Limit_Dashboard/{document=**} {
+  allow read, write: if false;
+}
+\end{lstlisting}
