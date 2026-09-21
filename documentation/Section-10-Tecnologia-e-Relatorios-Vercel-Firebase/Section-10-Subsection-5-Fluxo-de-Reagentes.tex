@@ -1265,7 +1265,7 @@ export const resolverQuarentenaFrasco = onCall(async (request) => {
       id_frasco_reagente: dados.idFrasco,
       id_almoxarifado: frasco.id_almoxarifado,
       id_gestor: request.auth!.uid,
-      tipo: "SAIU_DA_QUARENTENA",
+      tipo: "LIBERADO_QUARENTENA",
       decisao_quarentena: dados.decisao,
       motivo: dados.motivo,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),

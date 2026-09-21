@@ -124,10 +124,32 @@ Impacto: apenas documental/pseudocódigo. CUE (29 colunas), Alloy M2.2, IR,
 evidência formal M2.2 e M2.3 permanecem válidos; `docs-build` PASS. Não impede
 M2.4.
 
+## Errata de vocabulário — enum `Historico_Frasco_Reagente.tipo`
+
+Divergências de nome confirmadas nas fontes ativas e corrigidas:
+
+- `resolverQuarentenaFrasco` gravava `SAIU_DA_QUARENTENA`; o literal canônico é
+  `LIBERADO_QUARENTENA`. O produtor ativo foi corrigido (sem alias).
+- `corrigirOperacao` já emitia `CORRECAO_OPERACIONAL`, mas o valor faltava nas
+  listas canônicas; foi adicionado aos enums das Seções 4 e 5.
+
+Verificação programática: o conjunto dos enum das Seções 4 e 5 é idêntico (18
+valores) e todo literal de `tipo` emitido por pseudocódigo ativo para
+`Historico_Frasco_Reagente` pertence a esse enum. Outros literais encontrados
+(`ENTREGA_ATRASADA`, `FRASCOS_VENCIDOS`, `ESCASSEZ_ESTOQUE`) pertencem a
+`Notificacao`, não a `Historico_Frasco_Reagente`.
+
+CUE/Alloy/M2.3 NÃO foram afetados: `Historico_Frasco_Reagente.tipo` não pertence
+ao CUE do Frasco de 29 campos nem ao estado Alloy M2.2. `functions/` não possui
+os fluxos de quarentena/correção; permanece dívida de M5/M4.
+
 ## Backend real
 
 `functions/` NÃO foi reconciliado nesta etapa; continua dívida explícita de
-M4/M5/M6/M9/M10. Esta unidade é documental/formal.
+M4/M5/M6/M9/M10. Esta unidade é documental/formal. As buscas por
+`SAIU_DA_QUARENTENA`, `LIBERADO_QUARENTENA` e `CORRECAO_OPERACIONAL` em
+`functions/` não encontraram ocorrências ativas (o backend legado grava apenas
+`SAIU` e `ENTROU` em `Historico_Frasco_Reagente`).
 
 ## Gates
 
