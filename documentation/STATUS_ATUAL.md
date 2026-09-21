@@ -1,6 +1,6 @@
 # Status atual do LCQUI
 
-Atualizado em 21/09/2026 — consolidação documental HQ-M2-004..007 e realinhamento formal local M2.1d.
+Atualizado em 21/09/2026 — consolidação documental HQ-M2-004..007, realinhamento formal local M2.1d e relações globais Alloy M2.2.
 Branch: `feat/formal-spec-cue-alloy`.
 HEAD inicial da consolidação: `25e3825f5045a328e59f17115f2dbbda0710fb26`.
 HEAD de entrada do realinhamento M2.1d: `69726049708398eacb2018534e88c49633f53d06`.
@@ -115,7 +115,7 @@ Logs locais: /tmp/m2-docs-build.log, build/latex/main.log e /tmp/m2-baseline-bui
 
 ## Formal e pendências concretas
 
-**M2.2 NÃO foi iniciado.** O CUE M2.1d realinhou o recorte local a 29 colunas com `origem_tara` e as invariantes locais de proveniência de tara; M0/M1 permanecem intactos. O CUE não impõe FECHADO ⇒ saldo conhecido e permite nominal/tara NULL. Relações de conhecimento/tara, custódia com pendência, resolução e FLOW permanecem entradas futuras para M2.2; geração/proveniência M2 permanece M2.3. Os gates atestam somente o recorte local M2.1d (7/35/30 = 72 fixtures), não ciclo de vida, cache nem backend.
+**M2.2 foi VALIDATED; M2.3 NÃO foi iniciado.** O CUE M2.1d permanece o recorte local de 29 colunas com `origem_tara`. O Alloy M2.2 acrescenta `bottle_identity.als` (identidade química efetiva: XOR de rotas e resolução única) e `bottle_state.als` (saldo terminal, flag histórica e transições extravio/quebra/descarte/esgotamento), com 16 `check` UNSAT e 9 testemunhas SAT no gate; nenhuma HQ nova. `withdrawal.als` (M0) e `build/formal-validation.json` permanecem intactos; os resultados M2.2 ficam em `build/formal-validation-m2.json` (ainda não renderizados). Detalhes no [worklog M2.2](worklogs/formal-spec/M2_2_ALLOY_RELATIONS.md). Backend, cache, Q06, tara numérica, validade e FLOW continuam fora do escopo provado; geração/proveniência M2 permanece M2.3. Os gates CUE atestam o recorte M2.1d (7/35/30 = 72 fixtures).
 
 Backend atual ainda tem contratos legados (ex.: cadastro fechado exige volumeNominal e devolução rejeita ganho acima de 102%); cache/endpoint e resolução precisam de implementação futura. Esta rodada não altera nem homologa esse código. Não há novas perguntas humanas sobre decisões já resolvidas.
 

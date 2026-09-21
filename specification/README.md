@@ -36,4 +36,6 @@ com enums, nulabilidade explícita, limites de texto/escala, frequência condici
 e validação de um par resumo/especificação. As projeções Firestore estão descritas
 como notas de mapeamento; composição e schema completo dos documentos ficam para
 continuidade. `just spec-check` valida todos os grupos. IR v2 e gerador 0.2.0
-mantêm os fragmentos M0; Alloy ainda verifica apenas as propriedades M0.
+mantêm os fragmentos M0. O Alloy M0 continua preservado; M2.2 acrescenta
+`bottle_identity.als` e `bottle_state.als`, cujos resultados ficam em
+`build/formal-validation-m2.json` e ainda não entram no IR/gerador (M2.3).
