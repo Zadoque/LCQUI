@@ -1,5 +1,6 @@
 // Orquestração apenas: nenhuma geração LaTeX fora do Rust.
 import fs from 'node:fs';
+import {composedModel, composedExpected, origins, checkCompositionTrace} from './composition.mjs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -149,6 +150,9 @@ function alloyCheck() {
     return {model:file,model_sha256:hash(r.source),resultados:r.results};
   });
   write('build/formal-validation-m2.json',JSON.stringify({versao:1,alloy:version,solver:solverM2,spec_ir_sha256:hash(ir),modelos},null,2)+'\n');
+  checkCompositionTrace(file => fs.readFileSync(file));
+  const composed = execAlloy(composedModel, composedExpected);
+  write('build/formal-validation-m24.json',JSON.stringify({versao:1,alloy:version,solver:composed.solver,spec_ir_sha256:hash(ir),model:composedModel,model_sha256:hash(composed.source),origens:origins.map(model=>({model,model_sha256:hash(fs.readFileSync(model))})),resultados:composed.results},null,2)+'\n');
 }
 const cmd=process.argv[2];
 if(cmd==='spec-check') specCheck();

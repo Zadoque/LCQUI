@@ -1,6 +1,8 @@
 # LCQUI — Formal Specification State
 
 ## 1. Propósito desta fase
+M2.4 = IN_PROGRESS; M2 = IN_PROGRESS. Entrada `a0388182c406b0768eb8c31cb9307b66fad3dece`, gates de entrada PASS. Matriz e execução corrente em `documentation/worklogs/formal-spec/M2_4_COMPOSITION_INTEGRATION.md`. Os parágrafos pré-M2.4 abaixo registram o ponto de partida.
+
 Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. Rodada atual: reconciliação final pré-M2.4 (HQ-M2-008/B e HQ-M2-009/A). Escopo autorizado: documentação normativa `.tex`, pseudocódigos, Alloy M2.2, contrato M2.3 e arquivos de status. M0/M1 e CUE M2.1d (29 colunas) preservados. O Alloy M2.2 foi reconciliado para formalizar quarentena → pendência de descarte técnico → descarte; M2.3 foi revalidado. A composição M0 e M2.2 permanece para M2.4.
 
 ## 2. Baseline congelado da Fase 3B

@@ -1,0 +1,220 @@
+{
+  "versao": 1,
+  "alloy": "6.2.0",
+  "solver": "sat4j",
+  "spec_ir_sha256": "0934cc0aebd9f95a157f4762026a3e35f160f3ed3595c0fadd8c4a1ceefb513a",
+  "model": "specification/alloy/reagents/bottle_composition.als",
+  "model_sha256": "5b8c4a7fa8eea6d21c66c31a501565b5b13c9fe64dc7ced2c007b5b85c8c2276",
+  "origens": [
+    {
+      "model": "specification/alloy/reagents/withdrawal.als",
+      "model_sha256": "e3d6c269901a3d1fee3ba034ed0b5913bb1aa5e16f6cd17bf9e94677de3e6be5"
+    },
+    {
+      "model": "specification/alloy/reagents/bottle_identity.als",
+      "model_sha256": "3a43a05f6790ed48d3e176d5bb24c85ea7c1ef7703edd8cd400da8c3dcdc0338"
+    },
+    {
+      "model": "specification/alloy/reagents/bottle_state.als",
+      "model_sha256": "e43c72f0c9b8244681d5bde8b2f9c8e784f0462c2bc2173d9d99f302aa57f6c7"
+    }
+  ],
+  "resultados": [
+    {
+      "id": "COMP-M2-RETIRADA-COERENCIA-001",
+      "assertion": "RetiradaCoerente",
+      "tipo": "check",
+      "scope": "check RetiradaCoerente for 4 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-RETIRADA-QUARENTENA-001",
+      "assertion": "QuarentenaBloqueia",
+      "tipo": "check",
+      "scope": "check QuarentenaBloqueia for 4 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-RETIRADA-DESCARTE-001",
+      "assertion": "DescarteTecnicoBloqueia",
+      "tipo": "check",
+      "scope": "check DescarteTecnicoBloqueia for 4 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-RETIRADA-TERMINAL-001",
+      "assertion": "TerminaisBloqueiam",
+      "tipo": "check",
+      "scope": "check TerminaisBloqueiam for 4 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-QUEBRA-ATIVO-001",
+      "assertion": "QuebraSemAtivo",
+      "tipo": "check",
+      "scope": "check QuebraSemAtivo for 4 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-DESCARTE-ATIVO-001",
+      "assertion": "DescarteSemAtivo",
+      "tipo": "check",
+      "scope": "check DescarteSemAtivo for 4 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-QUARENTENA-ATIVO-001",
+      "assertion": "ResolucaoSemAtivo",
+      "tipo": "check",
+      "scope": "check ResolucaoSemAtivo for 4 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-EXTRAVIO-COERENCIA-001",
+      "assertion": "ExtravioCoerente",
+      "tipo": "check",
+      "scope": "check ExtravioCoerente for 4 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-ESGOTAMENTO-COERENCIA-001",
+      "assertion": "EsgotamentoCoerente",
+      "tipo": "check",
+      "scope": "check EsgotamentoCoerente for 4 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-TRANSICOES-COERENCIA-001",
+      "assertion": "TodasCoerentes",
+      "tipo": "check",
+      "scope": "check TodasCoerentes for 4 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-ENCERRAMENTO-ALVO-001",
+      "assertion": "EncerraSomenteAlvo",
+      "tipo": "check",
+      "scope": "check EncerraSomenteAlvo for 4 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-FRAME-OUTROS-001",
+      "assertion": "NaoInterfereOutros",
+      "tipo": "check",
+      "scope": "check NaoInterfereOutros for 4 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-COERENCIA-001",
+      "assertion": "EstadoHabitavel",
+      "tipo": "run",
+      "scope": "run EstadoHabitavel for 4 but exactly 2 EstadoIntegrado",
+      "status": "SAT"
+    },
+    {
+      "id": "COMP-M2-RETIRADA-001",
+      "assertion": "RetiradaHabitavel",
+      "tipo": "run",
+      "scope": "run RetiradaHabitavel for 4 but exactly 2 EstadoIntegrado",
+      "status": "SAT"
+    },
+    {
+      "id": "COMP-M2-IDENTIDADE-ESTADO-001",
+      "assertion": "IdentidadeEstado",
+      "tipo": "run",
+      "scope": "run IdentidadeEstado for 4 but exactly 2 EstadoIntegrado",
+      "status": "SAT"
+    },
+    {
+      "id": "COMP-M2-EXTRAVIO-COM-ATIVO-001",
+      "assertion": "ExtravioComAtivo",
+      "tipo": "run",
+      "scope": "run ExtravioComAtivo for 4 but exactly 2 EstadoIntegrado",
+      "status": "SAT"
+    },
+    {
+      "id": "COMP-M2-EXTRAVIO-SEM-ATIVO-001",
+      "assertion": "ExtravioSemAtivo",
+      "tipo": "run",
+      "scope": "run ExtravioSemAtivo for 4 but exactly 2 EstadoIntegrado",
+      "status": "SAT"
+    },
+    {
+      "id": "COMP-M2-ESGOTAMENTO-COM-ATIVO-001",
+      "assertion": "EsgotamentoComAtivo",
+      "tipo": "run",
+      "scope": "run EsgotamentoComAtivo for 4 but exactly 2 EstadoIntegrado",
+      "status": "SAT"
+    },
+    {
+      "id": "COMP-M2-ESGOTAMENTO-SEM-ATIVO-001",
+      "assertion": "EsgotamentoSemAtivo",
+      "tipo": "run",
+      "scope": "run EsgotamentoSemAtivo for 4 but exactly 2 EstadoIntegrado",
+      "status": "SAT"
+    },
+    {
+      "id": "COMP-M2-QUEBRA-001",
+      "assertion": "QuebraHabitavel",
+      "tipo": "run",
+      "scope": "run QuebraHabitavel for 4 but exactly 2 EstadoIntegrado",
+      "status": "SAT"
+    },
+    {
+      "id": "COMP-M2-DESCARTE-001",
+      "assertion": "DescarteHabitavel",
+      "tipo": "run",
+      "scope": "run DescarteHabitavel for 4 but exactly 2 EstadoIntegrado",
+      "status": "SAT"
+    },
+    {
+      "id": "COMP-M2-QUARENTENA-001",
+      "assertion": "ResolucaoHabitavel",
+      "tipo": "run",
+      "scope": "run ResolucaoHabitavel for 4 but exactly 2 EstadoIntegrado",
+      "status": "SAT"
+    },
+    {
+      "id": "COMP-M2-RETIRADA-COERENCIA-006",
+      "assertion": "RetiradaCoerenteAmpliado",
+      "tipo": "check",
+      "scope": "check RetiradaCoerenteAmpliado for 6 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-RETIRADA-QUARENTENA-006",
+      "assertion": "QuarentenaBloqueiaAmpliado",
+      "tipo": "check",
+      "scope": "check QuarentenaBloqueiaAmpliado for 6 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-EXTRAVIO-COERENCIA-006",
+      "assertion": "ExtravioCoerenteAmpliado",
+      "tipo": "check",
+      "scope": "check ExtravioCoerenteAmpliado for 6 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-ESGOTAMENTO-COERENCIA-006",
+      "assertion": "EsgotamentoCoerenteAmpliado",
+      "tipo": "check",
+      "scope": "check EsgotamentoCoerenteAmpliado for 6 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-FRAME-OUTROS-006",
+      "assertion": "NaoInterfereOutrosAmpliado",
+      "tipo": "check",
+      "scope": "check NaoInterfereOutrosAmpliado for 6 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-IDENTIDADE-ESTADO-006",
+      "assertion": "IdentidadeEstadoAmpliado",
+      "tipo": "run",
+      "scope": "run IdentidadeEstadoAmpliado for 6 but exactly 2 EstadoIntegrado",
+      "status": "SAT"
+    }
+  ]
+}
