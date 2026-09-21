@@ -1,6 +1,6 @@
 # Status atual do LCQUI
 
-Atualizado em 21/09/2026 — consolidação documental HQ-M2-004..007, realinhamento formal local M2.1d e relações globais Alloy M2.2.
+Atualizado em 21/09/2026 — consolidação documental HQ-M2-004..007, realinhamento formal local M2.1d e relações globais Alloy M2.2 (com erratum de cobertura de descarte).
 Branch: `feat/formal-spec-cue-alloy`.
 HEAD inicial da consolidação: `25e3825f5045a328e59f17115f2dbbda0710fb26`.
 HEAD de entrada do realinhamento M2.1d: `69726049708398eacb2018534e88c49633f53d06`.
@@ -12,11 +12,13 @@ Após esses commits, o usuário solicitou a atualização de `M2_HUMAN_QUESTIONS
 
 O realinhamento formal local **M2.1d** realinhou `specification/cue/` às 29 colunas documentais de `Frasco_Reagente`, introduziu `origem_tara` e suas invariantes locais de proveniência de tara. Detalhes, paridade e gates em `worklogs/formal-spec/M2_1D_CUE_REALIGNMENT.md`.
 
-As relações globais Alloy **M2.2** foram concluídas e VALIDATED: `bottle_identity.als` (identidade química efetiva) e `bottle_state.als` (coerência de estado e transições documentadas), com 16 `check` UNSAT e 9 testemunhas SAT. Detalhes em [worklog M2.2](worklogs/formal-spec/M2_2_ALLOY_RELATIONS.md). M2.3 continua `NOT_STARTED`.
+As relações globais Alloy **M2.2** foram concluídas e VALIDATED, após erratum de cobertura de descarte: `bottle_identity.als` (identidade química efetiva) e `bottle_state.als` (coerência de estado e transições documentadas), com 21 `check` UNSAT e 14 testemunhas SAT. O erratum corrigiu a elegibilidade de `descartarFrasco`, que estava restrita a `VAZIO`/`QUEBRADO`; a documentação também permite descarte de frasco vencido com `uso_vencido_autorizado=false`, inclusive `ABERTO`/`FECHADO`, nunca emprestado. Detalhes em [worklog M2.2](worklogs/formal-spec/M2_2_ALLOY_RELATIONS.md). M2.3 continua `NOT_STARTED`.
 
 Os três commits de M2.1d (`fd6d3bc1`, `c6bad174`, `f27a7972`) foram inicialmente apenas locais. Em verificação posterior, `origin/feat/formal-spec-cue-alloy` passou a apontar para `f27a797289dfa28ec4f3b445feb5599900cd4410`, publicando-os. O Git permite afirmar apenas que a remota mudou; o push ocorreu fora da execução M2.1d e não foi executado por ela.
 
 Nesta unidade, por solicitação explícita do usuário, foi executado push de `feat/formal-spec-cue-alloy`. Foram publicados os commits pendentes anteriores (`0f0505e0`, `dd46a446`), os commits M2.2 (`a3bf7303`, `aeeb712c`, `ae176154`, `7eb40930`) e o commit documental que registra este push. A SHA final da remota não é antecipada aqui porque o commit que contém este texto ainda não possui SHA no momento da redação.
+
+O erratum de cobertura de descarte partiu de `f5384abc48a63be79b72db2d7be1489d41e03f0e`. A correção em `bottle_state.als` aumentou as dimensões modeladas (`vencido`, `usoVencidoAutorizado`) e o gate para 21 `check` UNSAT e 14 testemunhas SAT. Nenhuma alteração de backend, CUE, `withdrawal.als`, IR, generated, Rules ou `.tex`.
 
 ## Escopo efetivamente executado
 

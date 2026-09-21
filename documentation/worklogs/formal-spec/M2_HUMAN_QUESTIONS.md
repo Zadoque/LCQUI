@@ -8,7 +8,9 @@ por solicitação explícita do usuário. Nenhuma resposta foi inferida.
 
 Fonte das respostas: [Consolidação das decisões humanas M2 e simplificação da arquitetura de estoque](<../../archive/formal-spec/Consolidação das decisões humanas M2 e simplificação da arquitetura de estoque.md>).
 RESOLVED indica decisão de domínio consolidada documentalmente; não atesta
-implementação no backend nem cobertura pelos modelos formais. M2.2 NÃO iniciado.
+implementação no backend nem cobertura pelos modelos formais. No momento da
+consolidação destas decisões, M2.2 ainda não havia sido iniciado; consultar
+`FORMAL_SPEC_STATE.md` para o estado formal corrente.
 
 Decisões já confirmadas, não reabrir: DEC-M2-HUMAN-001 permite lote NULL com
 especificação conhecida; DEC-M2-HUMAN-002 exige mínimo 20 após trim somente
@@ -194,7 +196,9 @@ Decisão humana:
 - Não estender esta decisão ao patrimônio: seus snapshots diários permanecem.
 
 Fontes reconciliadas: Seções 5, 6, 8, 11 e S10/S5, S10/S7, S10/S9 e S10/S11.
-Consequências relacionais são entradas futuras; M2.2 NÃO foi iniciado.
+Consequências relacionais são entradas futuras. No momento da consolidação
+destas decisões, M2.2 ainda não havia sido iniciado; consultar
+`FORMAL_SPEC_STATE.md` para o estado corrente.
 
 ## HQ-M2-007 — Pesagem de rotina
 

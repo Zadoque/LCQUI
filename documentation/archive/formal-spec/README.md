@@ -6,9 +6,12 @@ usados como autoridade corrente.
 
 ## Estado atual
 
-- Estado de retomada: `FORMAL_SPEC_STATE.md` (raiz do repositório).
+- Estado formal corrente (retomada): `FORMAL_SPEC_STATE.md` (raiz do repositório).
 - Decisões humanas M2 vigentes: [M2_HUMAN_QUESTIONS.md](../../worklogs/formal-spec/M2_HUMAN_QUESTIONS.md).
-- Baseline formal mais recente (M2.1d): [M2_1D_CUE_REALIGNMENT.md](../../worklogs/formal-spec/M2_1D_CUE_REALIGNMENT.md).
+- Worklog Alloy M2.2 corrente (identidade e estado, com erratum de descarte):
+  [M2_2_ALLOY_RELATIONS.md](../../worklogs/formal-spec/M2_2_ALLOY_RELATIONS.md).
+- Baseline CUE local anterior ao Alloy (M2.1d):
+  [M2_1D_CUE_REALIGNMENT.md](../../worklogs/formal-spec/M2_1D_CUE_REALIGNMENT.md).
 - Estado documental geral: [STATUS_ATUAL.md](../../STATUS_ATUAL.md).
 
 ## Conteúdo arquivado
