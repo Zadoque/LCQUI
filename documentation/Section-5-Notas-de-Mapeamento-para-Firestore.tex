@@ -377,8 +377,11 @@ Caminho: \texttt{Frasco\_Reagente/\{id\}}.
 \item[\texttt{data\_ultima\_pesagem}] Timestamp; N. Data/instante de data ultima pesagem, com ordem temporal validada e autoria do relógio do servidor para eventos.
 \item[\texttt{conteudo\_nominal}] number; N. Conteúdo \textbf{original} declarado pelo fabricante em ml ou g conforme especificação; não é o saldo atual. Se o rótulo for desconhecido ou ilegível, usar NULL --- \textbf{nunca} 0 para representar desconhecido.
 \item[\texttt{peso\_no\_cadastrado}] number; O. Peso bruto inicial em g; imutável.
-\item[\texttt{peso\_atual}] number; O. Último peso bruto confirmado em g.
-\item[\texttt{peso\_frasco\_vazio}] number; N. Tara em g. Para frasco \texttt{JA\_ABERTO}, inicia NULL (não é estimada no cadastro) e passa a ser o \texttt{peso\_retorno} quando o gestor confirma o esgotamento. Para frasco \texttt{FECHADO}, pode iniciar como referência \textbf{derivada} (peso total menos conteúdo nominal) enquanto o recipiente ainda contém produto; essa referência não é medição física definitiva do recipiente vazio e é substituída pela tara \textbf{real} --- peso do recipiente efetivamente vazio medido na balança --- quando o recipiente é esvaziado e pesado vazio. Não existe recalibração parcial por estimativa com produto restante.
+\item[\texttt{peso\_atual}] number; O. Última pesagem física observada em g, inclusive a medição preservada durante anomalia.
+\item[\texttt{peso\_frasco\_vazio}] number; N. Tara em g. Para frasco \texttt{JA\_ABERTO}, inicia NULL (não é estimada no cadastro) e passa a ser o \texttt{peso\_retorno} no primeiro esgotamento confirmado; tara real anterior divergente exige recalibração auditável. Para frasco \texttt{FECHADO}, pode iniciar como referência \textbf{derivada} (peso total menos conteúdo nominal) enquanto o recipiente ainda contém produto; essa referência não é medição física definitiva do recipiente vazio e é substituída pela tara \textbf{real} --- peso do recipiente efetivamente vazio medido na balança --- quando o recipiente é esvaziado e pesado vazio. Não existe recalibração parcial por estimativa com produto restante.
+\item[\texttt{origem\_tara}] enum nullable; REFERENCIA\_TEORICA ou MEDIDA\_REAL; NULL quando não há tara. Nunca inferir origem pela condição histórica do cadastro; dados legados exigem evidência auditável.
+\item[\texttt{saldo\_aferido\_g}] number nullable; derivado corrente server-owned no próprio frasco, atualizado atomicamente com peso/tara/conhecimento. Quantidade consistente não negativa; NULL se desconhecida ou inconsistente; zero em esgotamento confirmado.
+\item[\texttt{saldo\_aferido\_ml}] number nullable; derivado server-owned para líquidos com densidade válida. NULL para sólidos ou quantidade desconhecida; não somar unidades distintas.
 \item[\texttt{medida\_usada}] number; O. Acumulado gravimétrico em g; não misturar com volume.
 \item[\texttt{data\_abertura}] string YYYY-MM-DD; N. Data efetiva da abertura; não inventar data histórica desconhecida (Q05).
 \item[\texttt{validade\_fechado}] string YYYY-MM-DD; N. Validade declarada antes da abertura; pode ser sugerida pelo lote, com origem preservada.
@@ -395,8 +398,7 @@ Caminho: \texttt{Frasco\_Reagente/\{id\}}.
 \item[\texttt{cadastrado\_por}] string; O. Valor de cadastrado por, validado pelo formulário e pelo servidor conforme regras do domínio.
 \item[\texttt{eh\_higroscopico}] boolean; O. Snapshot físico denormalizado, imutável, preenchido pelo backend no cadastro a partir de Resumo\_Reagente.eh\_higroscopico (fonte canônica 3FN). Alterações posteriores do resumo não reescrevem frascos existentes. Não aceitar valor do cliente nem atualização direta. Permite aplicar Q06 na devolução sem leitura adicional do resumo. Frascos legados sem snapshot exigem reconciliação explícita antes da operação.
 \item[\texttt{abertura\_historica\_desconhecida}] boolean; O, padrão false. Flag \textbf{histórica}: true exige data\_abertura null e estado físico coerente com abertura anterior (não FECHADO), sem inventar data. Não é apagada apenas porque o estado atual passou a VAZIO/QUEBRADO/DESCARTADO/EXTRAVIADO; significa que já houve abertura e a data da primeira abertura é desconhecida. Quando impede determinar a validade efetiva exata, combina-se com \texttt{validade\_desconhecida=true} e \texttt{validade\_efetiva=null}.
-\item[\texttt{saldo\_desconhecido}] boolean; O, padrão false. Desconhecimento \textbf{atual} da quantidade remanescente; não é flag histórica. Frasco \texttt{JA\_ABERTO} inicia com true; frasco \texttt{FECHADO} e depois normalmente aberto passa a false; esvaziado com tara real medida passa a false. VAZIO, QUEBRADO e DESCARTADO não mantêm desconhecimento; EXTRAVIADO e quarentena preservam o valor anterior. True não soma em \texttt{volume\_total\_disponivel\_aferido\_ml} nem em \texttt{massa\_total\_disponivel\_aferida\_g}, contabilizando-se apenas em \texttt{qtd\_frascos\_saldo\_desconhecido}.
-\item[\texttt{condicao\_inicial\_cadastro}] string enum; O, imutável. Fato histórico do ingresso no controle do LCQUI: \texttt{FECHADO} (recipiente entrou fisicamente fechado) ou \texttt{JA\_ABERTO} (já estava aberto). Não muda depois e não se confunde com \texttt{saldo\_desconhecido} (propriedade metrológica atual). \texttt{JA\_ABERTO} implica estado ABERTO, tara NULL e saldo desconhecido; \texttt{FECHADO} implica saldo conhecido e tara apenas derivada enquanto há produto.
+\item[\texttt{condicao\_inicial\_cadastro}] string enum; O, imutável. Fato histórico do ingresso no controle do LCQUI: \texttt{FECHADO} (recipiente entrou fisicamente fechado) ou \texttt{JA\_ABERTO} (já estava aberto). Não muda depois e não se confunde com \texttt{saldo\_desconhecido} (propriedade metrológica atual). \texttt{JA\_ABERTO} implica estado ABERTO, tara NULL e saldo desconhecido; \texttt{FECHADO} admite conteúdo nominal NULL, tara NULL e saldo desconhecido; com dados suficientes a tara inicial é referência teórica.
 \end{description}
 
 \paragraph{Historico\_Frasco\_Reagente}\mbox{}\par
@@ -430,8 +432,8 @@ Caminho: \texttt{Emprestimo\_Reagente/\{id\}}.
 \item[\texttt{id\_usuario\_devolveu}] string; N. Identificador da entidade usuario devolveu, cuja existência e escopo são verificados no servidor.
 \item[\texttt{id\_gestor\_devolucao}] string; N. Identificador do gestor de almoxarifado operador que recebeu e registrou a devolução na balança, preenchido no retorno.
 \item[\texttt{peso\_saida}] number; O. Peso bruto em g medido na retirada; referência imutável para o consumo deste empréstimo.
-\item[\texttt{peso\_retorno}] number; N. Peso bruto em g medido na devolução; null antes do retorno e validado contra tara/saída.
-\item[\texttt{medida\_utilizada}] number; N. Consumo não negativo calculado na unidade do empréstimo; massa = max(0, saída menos retorno), conversão em mL só para líquido com densidade histórica positiva.
+\item[\texttt{peso\_retorno}] number; N. Peso bruto em g medido na devolução; null antes do retorno; preservado exatamente mesmo quando contradiz tara/saída, com anomalia explícita.
+\item[\texttt{medida\_utilizada}] number; N. Consumo validado não negativo na unidade do empréstimo, NULL antes da validação quantitativa; massa = max(0, saída menos retorno), conversão em mL só para líquido com densidade histórica positiva.
 \item[\texttt{unidade\_medida\_utilizada}] string enum; O. Valor de unidade medida utilizada, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: ml,g.
 \item[\texttt{densidade\_aplicada}] number; N. Snapshot histórico da densidade da especificação no instante da retirada; obrigatório e positivo para líquidos e NULL para sólidos. Usado para converter consumo e evaporação em volume sem depender da densidade corrente da especificação.
 \item[\texttt{peso\_perda\_evaporacao}] number; O. Perda em g registrada separadamente de consumo; não inferir arbitrariamente.
@@ -673,18 +675,11 @@ Caminho: \texttt{Resumo\_Almoxarifado\_Diario/\{id\}}.
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{data}] string YYYY-MM-DD; O. Data/instante de data, com ordem temporal validada e autoria do relógio do servidor para eventos.
 \item[\texttt{id\_almoxarifado}] string; O. Identificador da entidade almoxarifado, cuja existência e escopo são verificados no servidor.
-\item[\texttt{qtd\_frascos\_fechados\_no\_fim\_do\_dia}] number; O. Contagem de frascos fechados no fim do dia, inteira não negativa; não editável pelo cliente quando materializada.
-\item[\texttt{qtd\_frascos\_abertos\_no\_fim\_do\_dia}] number; O. Contagem de frascos abertos no fim do dia, inteira não negativa; não editável pelo cliente quando materializada.
-\item[\texttt{qtd\_frascos\_emprestados\_no\_fim\_do\_dia}] number; O. Contagem de frascos emprestados no fim do dia, inteira não negativa; não editável pelo cliente quando materializada.
-\item[\texttt{qtd\_frascos\_saldo\_desconhecido}] number; O. Contagem de frascos com saldo desconhecido, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_cadastrados\_fechados\_durante\_o\_dia}] number; O. Contagem de frascos cadastrados fechados durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_cadastrados\_abertos\_durante\_o\_dia}] number; O. Contagem de frascos cadastrados abertos durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_emprestados\_durante\_o\_dia}] number; O. Contagem de frascos emprestados durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_devolvidos\_durante\_o\_dia}] number; O. Contagem de frascos devolvidos durante o dia, inteira não negativa; não editável pelo cliente quando materializada.
-\item[\texttt{volume\_total\_usado\_nos\_frascos\_devolvidos\_durante\_o\_dia}] number; O. Métrica de volume total usado nos frascos devolvidos durante o dia, não negativa e calculada a partir dos eventos/saldos do domínio.
-\item[\texttt{volume\_total\_disponivel\_aferido\_ml}] number; O. Métrica de volume total disponivel aferido ml, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{volume\_utilizado\_no\_dia\_ml}] number; O. Métrica de volume utilizado no dia ml, não negativa e calculada a partir dos eventos/saldos do domínio.
-\item[\texttt{massa\_total\_disponivel\_aferida\_g}] number; O. Métrica de massa total disponivel aferida g, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{massa\_utilizada\_no\_dia\_g}] number; O. Métrica de massa utilizada no dia g, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{volume\_evaporado\_no\_dia\_ml}] number; O. Perda total por evaporação de líquidos no dia em mL, acumulada como \texttt{peso\_perda\_evaporacao / densidade\_aplicada} das devoluções com \texttt{unidade\_medida\_utilizada = ml}; não negativa e sem fator de conversão arbitrário.
 \item[\texttt{massa\_evaporada\_no\_dia\_g}] number; O. Perda total por evaporação de sólidos/pós no dia em g, acumulada a partir dos campos \texttt{peso\_perda\_evaporacao} das devoluções com \texttt{unidade\_medida\_utilizada = g}; não negativa.
@@ -699,17 +694,10 @@ Caminho: \texttt{Resumo\_Reagente\_Diario/\{id\}}.
 \item[\texttt{data}] string YYYY-MM-DD; O. Data/instante de data, com ordem temporal validada e autoria do relógio do servidor para eventos.
 \item[\texttt{id\_resumo\_reagente}] string; O. Identificador da entidade resumo reagente, cuja existência e escopo são verificados no servidor.
 \item[\texttt{id\_almoxarifado}] string; O. Identificador da entidade almoxarifado, cuja existência e escopo são verificados no servidor.
-\item[\texttt{qtd\_frascos\_fechados\_disponiveis}] number; O. Contagem de frascos fechados disponiveis, inteira não negativa; não editável pelo cliente quando materializada.
-\item[\texttt{qtd\_frascos\_abertos\_disponiveis}] number; O. Contagem de frascos abertos disponiveis, inteira não negativa; não editável pelo cliente quando materializada.
-\item[\texttt{qtd\_frascos\_em\_uso}] number; O. Contagem de frascos em uso, inteira não negativa; não editável pelo cliente quando materializada.
-\item[\texttt{qtd\_frascos\_saldo\_desconhecido}] number; O. Contagem de frascos com saldo desconhecido, inteira não negativa; não editável pelo cliente quando materializada.
-\item[\texttt{qtd\_frascos\_vazios}] number; O. Contagem de frascos vazios, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_descartados\_dia}] number; O. Contagem de frascos descartados dia, inteira não negativa; não editável pelo cliente quando materializada.
 \item[\texttt{qtd\_frascos\_extraviados\_dia}] number; O. Contagem de frascos extraviados no dia, inteira não negativa; não editável pelo cliente quando materializada.
-\item[\texttt{volume\_total\_disponivel\_aferido\_ml}] number; O. Métrica de volume total disponivel aferido ml, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{volume\_utilizado\_no\_dia\_ml}] number; O. Métrica de volume utilizado no dia ml, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{volume\_evaporado\_no\_dia\_ml}] number; O. Métrica de volume evaporado no dia ml, não negativa; para líquidos, acumulada como \texttt{peso\_perda\_evaporacao / densidade\_aplicada}, sem fator de conversão arbitrário.
-\item[\texttt{massa\_total\_disponivel\_aferida\_g}] number; O. Métrica de massa total disponivel aferida g, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{massa\_utilizada\_no\_dia\_g}] number; O. Métrica de massa utilizada no dia g, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{massa\_evaporada\_no\_dia\_g}] number; O. Métrica de massa evaporada no dia g, não negativa e calculada a partir dos eventos/saldos do domínio.
 \item[\texttt{created\_at}] Timestamp; O. Instante servidor da primeira criação da materialização.
@@ -825,3 +813,12 @@ Aplicar UI-13: listeners limitados às telas visíveis, histórico paginado, mem
     \end{enumerate}
     \item \textbf{Consistência Transacional:} A criação e a remoção desse espelho são executadas de forma estritamente atômica pelo backend nas Cloud Functions. Na matrícula (\texttt{ingressarEmTurmaPorCodigo}), o espelho é criado. Na remoção (\texttt{removerAlunoTurma}), a transação deve abranger: exclusão de \nolinkurl{Turma/\{id\}/Alunos/\{uid\}}, exclusão de \nolinkurl{Usuarios/\{uid\}/Turmas/\{turmaId\}}, gravação no histórico da turma, decremento do contador de vagas e gravação da auditoria.
 \end{itemize}
+
+\paragraph{Extensões metrológicas e cache interno -- decisões M2 consolidadas.}
+Em \textit{Emprestimo\_Reagente}, \texttt{consumo\_validado} é boolean obrigatório, falso na retirada e durante anomalia quantitativa; \texttt{medida\_utilizada} é nullable até validação. \texttt{anomalia\_metrologica} é string nullable de classificação, \texttt{peso\_retorno\_efetivo} é number nullable em g e \texttt{id\_resolucao\_metrologica} é referência nullable ao evento AJUSTE efetivo. Todos são server-owned. O status DEVOLVIDO\_COM\_ANOMALIA já existente encerra custódia, e a resolução não apaga esse fato histórico.
+
+As fontes FLOW preservam \texttt{id\_resumo\_reagente}, \texttt{id\_almoxarifado}, instante do fato, pesos brutos, unidade, densidade aplicada quando necessária, perda por evaporação e vínculo da operação. Eventos metrológicos incluem medição observada, origem/tara aplicada, classificação, vínculo da resolução e data FLOW afetada. São os dados históricos mínimos de agrupamento/cálculo; não duplicar dimensões atuais apenas para reconstruir posição diária. Dados legados sem evidência necessária exigem reconciliação explícita, nunca consulta ao cadastro atual para inventar passado.
+
+\textit{Resumo\_Almoxarifado\_Diario} e \textit{Resumo\_Reagente\_Diario} contêm somente FLOW; chaves determinísticas e campos \texttt{calculado\_em} (Timestamp) e \texttt{versao\_calculo} (string) seguem a Seção 6. Estado atual usa exclusivamente Frasco\_Reagente e campos derivados correntes de saldo; não existe coleção canônica separada de estoque atual.
+
+\texttt{Sistema\_Cache\_Dashboard/\{chave\}} contém escopo, resultado nullable, calculado\_em nullable, versao\_calculo, geracao e valido, conforme a Seção~\ref{sec:estoque-atual-cache}. Na criação de registro apenas para invalidação, calculado\_em e resultado são NULL e valido=false. \texttt{Sistema\_Rate\_Limit\_Dashboard/\{uid\}} contém até cinco timestamps aceitos da janela deslizante de 60 segundos, mantidos transacionalmente pelo backend. Ambas as coleções são internas, sem leitura/escrita cliente. Não fazem parte do modelo relacional 3FN nem constituem autoridade do domínio.
