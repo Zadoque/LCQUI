@@ -18,6 +18,9 @@ pub fn render(ir: &Ir, v: &Validation) -> BTreeMap<String, String> {
                 if c.obrigatorio { "sim" } else { "não" },
                 if c.nulo { "sim" } else { "não" }
             ));
+            if let Some(sql) = &c.sql {
+                entity.push_str(&format!("SQL: {}.\n", escape(sql)));
+            }
             if !c.valores.is_empty() {
                 entity.push_str(&format!(
                     "Valores: {}.\n",
@@ -34,11 +37,17 @@ pub fn render(ir: &Ir, v: &Validation) -> BTreeMap<String, String> {
             if let Some(min) = c.minimo {
                 entity.push_str(&format!("Mínimo: {min}.\n"));
             }
+            if let Some(min) = c.minimo_numero {
+                entity.push_str(&format!("Mínimo: {min}.\n"));
+            }
             if let Some(min) = c.minimo_exclusivo {
                 entity.push_str(&format!("Maior que {min}.\n"));
             }
             if let Some(max) = c.maximo_exclusivo {
                 entity.push_str(&format!("Menor que {max}.\n"));
+            }
+            if let Some(max) = c.maximo_numero {
+                entity.push_str(&format!("Máximo: {max}.\n"));
             }
             if let Some(step) = c.multiplo {
                 entity.push_str(&format!("Múltiplo de {step}.\n"));

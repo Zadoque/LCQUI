@@ -13,7 +13,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let ir = ir::parse(&raw)?;
     let v: validation::Validation = serde_json::from_slice(&results)?;
     if !ir.valid()
-        || ir.baseline != "db29ea2f17dc785fb0b44ffb3aec16db29c45e94"
+        || !ir.provenance_ok()
         || v.model != "specification/alloy/reagents/withdrawal.als"
         || !v.check(&raw, &fs::read(root.join(&v.model))?)
     {

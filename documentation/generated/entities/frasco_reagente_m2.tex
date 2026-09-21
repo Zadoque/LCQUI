@@ -1,0 +1,96 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{Frasco\_Reagente --- projeção M2 completa (29 colunas)}
+Registro relacional completo M2 (29 colunas, inclui origem\_tara). Não é payload de criação nem documento Firestore completo. Projeção distinta da fatia M0 histórica, que permanece inalterada.
+\begin{description}
+\item[id] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: SERIAL.
+PK; geração e unicidade globais fora do registro local.
+\item[id\_almoxarifado] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+\item[id\_lote] Tipo: int. Obrigatório: sim. Aceita nulo: sim.
+SQL: INTEGER.
+XOR com referência direta, conforme M2-IDENTIDADE-001; existência da FK não verificada.
+\item[id\_especificacao\_reagente] Tipo: int. Obrigatório: sim. Aceita nulo: sim.
+SQL: INTEGER.
+\item[detalhe\_local\_armazenamento] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TEXT.
+\item[codigo\_frasco] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Unicidade e geração do código fora do registro local.
+\item[data\_ultima\_pesagem] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TIMESTAMP.
+\item[conteudo\_nominal] Tipo: number. Obrigatório: sim. Aceita nulo: sim.
+SQL: NUMERIC(10,3).
+Mínimo: -9999999.999.
+Máximo: 9999999.999.
+Múltiplo de 0.001.
+null representa desconhecido; zero é um valor numérico distinto.
+\item[peso\_no\_cadastrado] Tipo: number. Obrigatório: sim. Aceita nulo: não.
+SQL: NUMERIC(10,3).
+Mínimo: -9999999.999.
+Máximo: 9999999.999.
+Múltiplo de 0.001.
+\item[peso\_atual] Tipo: number. Obrigatório: sim. Aceita nulo: não.
+SQL: NUMERIC(10,3).
+Mínimo: -9999999.999.
+Máximo: 9999999.999.
+Múltiplo de 0.001.
+\item[peso\_frasco\_vazio] Tipo: number. Obrigatório: sim. Aceita nulo: sim.
+SQL: NUMERIC(10,3).
+Mínimo: -9999999.999.
+Máximo: 9999999.999.
+Múltiplo de 0.001.
+\item[origem\_tara] Tipo: enum. Obrigatório: sim. Aceita nulo: sim.
+SQL: ENUM.
+Valores: REFERENCIA\_TEORICA, MEDIDA\_REAL.
+M2.1d: proveniência da tara. REFERENCIA\_TEORICA é derivada (peso\_total - conteudo\_nominal) enquanto há produto; MEDIDA\_REAL é pesagem física do recipiente vazio. null significa ausência de tara conhecida, não zero.
+\item[medida\_usada] Tipo: number. Obrigatório: sim. Aceita nulo: não.
+SQL: NUMERIC(10,3).
+Mínimo: -9999999.999.
+Máximo: 9999999.999.
+Múltiplo de 0.001.
+\item[data\_abertura] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: DATE.
+Padrão: \textasciicircum{}[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\$.
+\item[validade\_fechado] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: DATE.
+Padrão: \textasciicircum{}[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\$.
+\item[validade\_efetiva] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: DATE.
+Padrão: \textasciicircum{}[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\$.
+\item[validade\_desconhecida] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+\item[validade\_apos\_aberto\_dias] Tipo: int. Obrigatório: sim. Aceita nulo: sim.
+SQL: INTEGER.
+Maior que 0.
+Seção 5: prazo inteiro positivo quando declarado.
+\item[estado\_fisico\_frasco] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: FECHADO, ABERTO, VAZIO, QUEBRADO, DESCARTADO, EXTRAVIADO.
+\item[disponibilidade] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: DISPONIVEL, EMPRESTADO, INDISPONIVEL.
+\item[vencido] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+\item[em\_quarentena] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+\item[uso\_vencido\_autorizado] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+\item[detalhe\_status] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TEXT.
+M2.1a: não nulo em quarentena. Mínimo 20 após trim pertence à entrada humana obrigatória, não ao campo persistido sem autoria.
+\item[cadastrado\_em] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TIMESTAMP.
+\item[cadastrado\_por] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+\item[abertura\_historica\_desconhecida] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+Seção 5: flag histórica; true implica data\_abertura null e estado físico corrente != FECHADO; preservada em estados posteriores.
+\item[saldo\_desconhecido] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+M2.1b: desconhecimento atual, não flag histórica; ciclo de vida é operacional, não invariante de linha.
+\item[condicao\_inicial\_cadastro] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: FECHADO, JA\_ABERTO.
+M2.1b: dimensão histórica imutável, distinta de saldo\_desconhecido; enum da Seção 4.
+\end{description}

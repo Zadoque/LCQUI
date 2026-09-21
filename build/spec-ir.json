@@ -1,6 +1,9 @@
 {
-    "versao": 2,
-    "baseline": "db29ea2f17dc785fb0b44ffb3aec16db29c45e94",
+    "versao": 3,
+    "proveniencia": {
+        "baseline_historico_m0_m1": "db29ea2f17dc785fb0b44ffb3aec16db29c45e94",
+        "baseline_documental_m2": "9df335bc977bfcf16668bca4baf5f9ed50c2da1a"
+    },
     "entidades": [
         {
             "arquivo": "frasco_reagente",
@@ -288,6 +291,342 @@
                     "composicao é array de mapas embutido; sua migração formal ainda não está incluída no M1.",
                     "Precisão/escala e limites VARCHAR permanecem válidos; densidade é positiva e obrigatória para líquido."
                 ]
+            }
+        },
+        {
+            "arquivo": "frasco_reagente_m2",
+            "entidade": "Frasco_Reagente",
+            "etapa": "projeção M2 completa (29 colunas)",
+            "escopo": "Registro relacional completo M2 (29 colunas, inclui origem_tara). Não é payload de criação nem documento Firestore completo. Projeção distinta da fatia M0 histórica, que permanece inalterada.",
+            "campos": [
+                {
+                    "nome": "id",
+                    "tipo": "int",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "PK; geração e unicidade globais fora do registro local.",
+                    "sql": "SERIAL"
+                },
+                {
+                    "nome": "id_almoxarifado",
+                    "tipo": "int",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "INTEGER"
+                },
+                {
+                    "nome": "id_lote",
+                    "tipo": "int",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "XOR com referência direta, conforme M2-IDENTIDADE-001; existência da FK não verificada.",
+                    "sql": "INTEGER"
+                },
+                {
+                    "nome": "id_especificacao_reagente",
+                    "tipo": "int",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "INTEGER"
+                },
+                {
+                    "nome": "detalhe_local_armazenamento",
+                    "tipo": "string",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "TEXT"
+                },
+                {
+                    "nome": "codigo_frasco",
+                    "tipo": "string",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "Unicidade e geração do código fora do registro local.",
+                    "sql": "TEXT"
+                },
+                {
+                    "nome": "data_ultima_pesagem",
+                    "tipo": "string",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "TIMESTAMP"
+                },
+                {
+                    "nome": "conteudo_nominal",
+                    "tipo": "number",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "null representa desconhecido; zero é um valor numérico distinto.",
+                    "sql": "NUMERIC(10,3)",
+                    "minimo_numero": -9999999.999,
+                    "maximo_numero": 9999999.999,
+                    "multiplo": 0.001
+                },
+                {
+                    "nome": "peso_no_cadastrado",
+                    "tipo": "number",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "NUMERIC(10,3)",
+                    "minimo_numero": -9999999.999,
+                    "maximo_numero": 9999999.999,
+                    "multiplo": 0.001
+                },
+                {
+                    "nome": "peso_atual",
+                    "tipo": "number",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "NUMERIC(10,3)",
+                    "minimo_numero": -9999999.999,
+                    "maximo_numero": 9999999.999,
+                    "multiplo": 0.001
+                },
+                {
+                    "nome": "peso_frasco_vazio",
+                    "tipo": "number",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "NUMERIC(10,3)",
+                    "minimo_numero": -9999999.999,
+                    "maximo_numero": 9999999.999,
+                    "multiplo": 0.001
+                },
+                {
+                    "nome": "origem_tara",
+                    "tipo": "enum",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [
+                        "REFERENCIA_TEORICA",
+                        "MEDIDA_REAL"
+                    ],
+                    "observacao": "M2.1d: proveniência da tara. REFERENCIA_TEORICA é derivada (peso_total - conteudo_nominal) enquanto há produto; MEDIDA_REAL é pesagem física do recipiente vazio. null significa ausência de tara conhecida, não zero.",
+                    "sql": "ENUM"
+                },
+                {
+                    "nome": "medida_usada",
+                    "tipo": "number",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "NUMERIC(10,3)",
+                    "minimo_numero": -9999999.999,
+                    "maximo_numero": 9999999.999,
+                    "multiplo": 0.001
+                },
+                {
+                    "nome": "data_abertura",
+                    "tipo": "string",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "DATE",
+                    "padrao": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                },
+                {
+                    "nome": "validade_fechado",
+                    "tipo": "string",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "DATE",
+                    "padrao": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                },
+                {
+                    "nome": "validade_efetiva",
+                    "tipo": "string",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "DATE",
+                    "padrao": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                },
+                {
+                    "nome": "validade_desconhecida",
+                    "tipo": "bool",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "BOOLEAN"
+                },
+                {
+                    "nome": "validade_apos_aberto_dias",
+                    "tipo": "int",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "Seção 5: prazo inteiro positivo quando declarado.",
+                    "sql": "INTEGER",
+                    "minimo_exclusivo": 0
+                },
+                {
+                    "nome": "estado_fisico_frasco",
+                    "tipo": "enum",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [
+                        "FECHADO",
+                        "ABERTO",
+                        "VAZIO",
+                        "QUEBRADO",
+                        "DESCARTADO",
+                        "EXTRAVIADO"
+                    ],
+                    "observacao": "",
+                    "sql": "ENUM"
+                },
+                {
+                    "nome": "disponibilidade",
+                    "tipo": "enum",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [
+                        "DISPONIVEL",
+                        "EMPRESTADO",
+                        "INDISPONIVEL"
+                    ],
+                    "observacao": "",
+                    "sql": "ENUM"
+                },
+                {
+                    "nome": "vencido",
+                    "tipo": "bool",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "BOOLEAN"
+                },
+                {
+                    "nome": "em_quarentena",
+                    "tipo": "bool",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "BOOLEAN"
+                },
+                {
+                    "nome": "uso_vencido_autorizado",
+                    "tipo": "bool",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "BOOLEAN"
+                },
+                {
+                    "nome": "detalhe_status",
+                    "tipo": "string",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "M2.1a: não nulo em quarentena. Mínimo 20 após trim pertence à entrada humana obrigatória, não ao campo persistido sem autoria.",
+                    "sql": "TEXT"
+                },
+                {
+                    "nome": "cadastrado_em",
+                    "tipo": "string",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "TIMESTAMP"
+                },
+                {
+                    "nome": "cadastrado_por",
+                    "tipo": "int",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "INTEGER"
+                },
+                {
+                    "nome": "abertura_historica_desconhecida",
+                    "tipo": "bool",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "Seção 5: flag histórica; true implica data_abertura null e estado físico corrente != FECHADO; preservada em estados posteriores.",
+                    "sql": "BOOLEAN"
+                },
+                {
+                    "nome": "saldo_desconhecido",
+                    "tipo": "bool",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "M2.1b: desconhecimento atual, não flag histórica; ciclo de vida é operacional, não invariante de linha.",
+                    "sql": "BOOLEAN"
+                },
+                {
+                    "nome": "condicao_inicial_cadastro",
+                    "tipo": "enum",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [
+                        "FECHADO",
+                        "JA_ABERTO"
+                    ],
+                    "observacao": "M2.1b: dimensão histórica imutável, distinta de saldo_desconhecido; enum da Seção 4.",
+                    "sql": "ENUM"
+                }
+            ],
+            "exemplo": {
+                "id": 1,
+                "id_almoxarifado": 1,
+                "codigo_frasco": "LCQUI-1",
+                "conteudo_nominal": 1000,
+                "data_abertura": null,
+                "data_ultima_pesagem": null,
+                "detalhe_local_armazenamento": null,
+                "disponibilidade": "DISPONIVEL",
+                "em_quarentena": false,
+                "estado_fisico_frasco": "FECHADO",
+                "id_especificacao_reagente": null,
+                "id_lote": 1,
+                "medida_usada": 0,
+                "origem_tara": null,
+                "peso_atual": 500,
+                "peso_frasco_vazio": null,
+                "peso_no_cadastrado": 500,
+                "validade_apos_aberto_dias": 30,
+                "validade_desconhecida": true,
+                "validade_efetiva": null,
+                "validade_fechado": "2027-09-20",
+                "vencido": false,
+                "uso_vencido_autorizado": false,
+                "detalhe_status": null,
+                "cadastrado_em": "2026-09-20 10:00:00",
+                "cadastrado_por": 1,
+                "abertura_historica_desconhecida": false,
+                "saldo_desconhecido": false,
+                "condicao_inicial_cadastro": "FECHADO"
             }
         }
     ]

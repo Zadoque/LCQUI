@@ -1,12 +1,25 @@
 use serde::Deserialize;
 use std::collections::BTreeSet;
 
+// Proveniência esperada. M0/M1 foram validados historicamente contra o baseline
+// 3B; a documentação normativa de entrada de M2 é distinta. Não reduzir a um
+// único SHA.
+pub const BASELINE_HISTORICO_M0_M1: &str = "db29ea2f17dc785fb0b44ffb3aec16db29c45e94";
+pub const BASELINE_DOCUMENTAL_M2: &str = "9df335bc977bfcf16668bca4baf5f9ed50c2da1a";
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Ir {
     pub versao: u32,
-    pub baseline: String,
+    pub proveniencia: Proveniencia,
     pub entidades: Vec<Entidade>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Proveniencia {
+    pub baseline_historico_m0_m1: String,
+    #[serde(default)]
+    pub baseline_documental_m2: Option<String>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -41,6 +54,17 @@ pub struct Campo {
     pub minimo_exclusivo: Option<f64>,
     pub maximo_exclusivo: Option<f64>,
     pub multiplo: Option<f64>,
+    // M2.3: metadados do descritor CUE M2.1d.
+    pub sql: Option<String>,
+    pub minimo_numero: Option<f64>,
+    pub maximo_numero: Option<f64>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct V2Ir {
+    versao: u32,
+    baseline: String,
+    entidades: Vec<Entidade>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -56,13 +80,17 @@ struct LegacyIr {
 pub fn parse(raw: &[u8]) -> Result<Ir, Box<dyn std::error::Error>> {
     let value: serde_json::Value = serde_json::from_slice(raw)?;
     match value["versao"].as_u64() {
-        Some(2) => Ok(serde_json::from_value(value)?),
+        Some(3) => Ok(serde_json::from_value(value)?),
+        Some(2) => {
+            let old: V2Ir = serde_json::from_value(value)?;
+            Ok(old.into_ir())
+        }
         Some(1) => {
             let old: LegacyIr = serde_json::from_value(value)?;
             if old.versao != 1 || old.entidade != "Frasco_Reagente" {
                 return Err("IR v1 só suporta a fatia Frasco_Reagente".into());
             }
-            Ok(Ir {
+            Ok(V2Ir {
                 versao: 2,
                 baseline: old.baseline,
                 entidades: vec![Entidade {
@@ -74,15 +102,30 @@ pub fn parse(raw: &[u8]) -> Result<Ir, Box<dyn std::error::Error>> {
                     exemplo: old.exemplo,
                     mapeamento: None,
                 }],
-            })
+            }
+            .into_ir())
         }
         _ => Err("Versão IR não suportada".into()),
+    }
+}
+impl V2Ir {
+    fn into_ir(self) -> Ir {
+        let _ = self.versao; // v2 legado: normalizado para v3
+        Ir {
+            versao: 3,
+            proveniencia: Proveniencia {
+                baseline_historico_m0_m1: self.baseline,
+                baseline_documental_m2: None,
+            },
+            entidades: self.entidades,
+        }
     }
 }
 impl Ir {
     pub fn valid(&self) -> bool {
         let mut files = BTreeSet::new();
-        self.versao == 2
+        self.versao == 3
+            && !self.proveniencia.baseline_historico_m0_m1.is_empty()
             && !self.entidades.is_empty()
             && self.entidades.iter().all(|e| {
                 let mut fields = BTreeSet::new();
@@ -99,6 +142,11 @@ impl Ir {
                         .all(|c| !c.nome.is_empty() && fields.insert(&c.nome))
             })
     }
+    /// Confere a proveniência declarada contra os baselines versionados.
+    pub fn provenance_ok(&self) -> bool {
+        self.proveniencia.baseline_historico_m0_m1 == BASELINE_HISTORICO_M0_M1
+            && self.proveniencia.baseline_documental_m2.as_deref() == Some(BASELINE_DOCUMENTAL_M2)
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -108,9 +156,16 @@ mod tests {
         let old = parse(include_bytes!("../tests/fixtures/ir-v1.json")).unwrap();
         assert!(old.valid());
         assert_eq!(old.entidades[0].arquivo, "frasco_reagente");
+        assert_eq!(
+            old.proveniencia.baseline_historico_m0_m1,
+            BASELINE_HISTORICO_M0_M1
+        );
+        assert!(!old.provenance_ok());
         let root =
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/spec-ir.json");
-        assert!(parse(&std::fs::read(root).unwrap()).unwrap().valid());
+        let current = parse(&std::fs::read(root).unwrap()).unwrap();
+        assert!(current.valid());
+        assert!(current.provenance_ok());
         assert!(parse(br#"{"versao":99}"#).is_err());
     }
     #[test]
@@ -126,5 +181,18 @@ mod tests {
                 .remove(0),
         );
         assert!(!old.valid());
+    }
+    #[test]
+    fn rejects_wrong_provenance() {
+        let mut old = parse(include_bytes!("../tests/fixtures/ir-v1.json")).unwrap();
+        assert!(!old.provenance_ok());
+        old.proveniencia.baseline_historico_m0_m1 = "0".repeat(40);
+        old.proveniencia.baseline_documental_m2 = Some(BASELINE_DOCUMENTAL_M2.into());
+        assert!(!old.provenance_ok());
+        old.proveniencia.baseline_historico_m0_m1 = BASELINE_HISTORICO_M0_M1.into();
+        old.proveniencia.baseline_documental_m2 = Some("1".repeat(40));
+        assert!(!old.provenance_ok());
+        old.proveniencia.baseline_documental_m2 = Some(BASELINE_DOCUMENTAL_M2.into());
+        assert!(old.provenance_ok());
     }
 }
