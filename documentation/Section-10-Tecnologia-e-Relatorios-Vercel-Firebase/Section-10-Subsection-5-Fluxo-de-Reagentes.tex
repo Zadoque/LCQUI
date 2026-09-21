@@ -1426,14 +1426,17 @@ async function existePendenciaMetrologicaTx(tx, idFrasco) {
   return !pend.empty;
 }
 
-// Helper privado: houve intervencao fisica posterior a devolucao original?
-// Se nao houver evidencia suficiente, retorna true para preservar a pendencia;
-// nunca fabricar o peso historico.
-async function houveMovimentacaoFisicaPosteriorTx(tx, idFrasco) {
+// Helper privado: houve intervencao fisica POSTERIOR a devolucao original?
+// O filtro temporal e obrigatorio: a propria retirada/devolucao grava SAIU/ENTROU
+// anteriores; sem `timestamp > desde`, o helper retornaria true sempre e travaria
+// a finalizacao. Se nao houver evidencia suficiente, retorna true para preservar
+// a pendencia; nunca fabricar o peso historico.
+async function houveMovimentacaoFisicaPosteriorTx(tx, idFrasco, desde) {
   const eventos = await tx.get(
     admin.firestore().collection("Historico_Frasco_Reagente")
       .where("id_frasco_reagente", "==", idFrasco)
       .where("tipo", "in", ["SAIU", "ENTROU", "EVAPORACAO", "INVENTARIO_ROTINA", "RECALIBRACAO_TARA"])
+      .where("timestamp", ">", desde)
       .limit(1)
   );
   return !eventos.empty;
@@ -1491,7 +1494,7 @@ export const repetirPesagemDevolucaoAnomala = onCall(async (request) => {
     if (!Number.isFinite(dados.pesoNovaMedicao) || dados.pesoNovaMedicao <= 0)
       throw new HttpsError("invalid-argument", "Nova medicao invalida.");
     validarJustificativaHumana(dados.motivo);
-    if (await houveMovimentacaoFisicaPosteriorTx(tx, emprestimo.id_frasco_reagente)) {
+    if (await houveMovimentacaoFisicaPosteriorTx(tx, emprestimo.id_frasco_reagente, emprestimo.data_devolucao_efetuada)) {
       registrarObservacaoSemValidarTx(tx, emprestimoRef, dados);
       return { status: "PENDENTE_SEM_EVIDENCIA_SUFICIENTE" };
     }
@@ -1555,12 +1558,18 @@ export const confirmarEsgotamentoAposInspecao = onCall(async (request) => {
       tx.update(emprestimoRef, { anomalia_metrologica: "DISCREPANCIA_TARA_REAL" });
     }
     // Confirmar vazio so valida consumo com evidencia suficiente do retorno.
-    if (await houveMovimentacaoFisicaPosteriorTx(tx, emprestimo.id_frasco_reagente)) {
+    if (await houveMovimentacaoFisicaPosteriorTx(tx, emprestimo.id_frasco_reagente, emprestimo.data_devolucao_efetuada)) {
       return { status: "VAZIO_REGISTRADO_PENDENCIA_MANTIDA" };
     }
+    // Consumo efetivo: perda bruta pela tara medida menos evaporacao declarada.
+    // `emprestimo.medida_utilizada` estava NULL na anomalia; nao usar `?? 0`.
+    const consumoG = Math.max(0, emprestimo.peso_saida - dados.pesoVazioRealMedido
+      - (emprestimo.peso_perda_evaporacao || 0));
+    const medidaEfetiva = emprestimo.densidade_aplicada
+      ? consumoG / emprestimo.densidade_aplicada : consumoG;
     finalizarPendenciaMetrologicaTx(tx, emprestimoRef, emprestimo, {
-      pesoRetornoEfetivo: emprestimo.peso_retorno,
-      medidaUtilizada: emprestimo.medida_utilizada ?? 0, motivo: dados.motivo,
+      pesoRetornoEfetivo: dados.pesoVazioRealMedido,
+      medidaUtilizada: medidaEfetiva, motivo: dados.motivo,
     });
     // NAO limpar quarentena automaticamente: o gestor usa resolverQuarentenaFrasco.
     return { status: "OK" };

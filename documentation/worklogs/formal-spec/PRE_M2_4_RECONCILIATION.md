@@ -101,6 +101,29 @@ build/spec-ir.json byte a byte igual
   atualizados; fragmentos M0/M1 e entidade M2 idênticos; determinismo PASS;
   stale/tampering PASS. M2.3 = VALIDATED.
 
+## Correção pós-revisão (deadlock 1 — resolução metrológica)
+
+Revisão externa do PDF compilado apontou dois bugs de execução no pseudocódigo
+de resolução metrológica adicionado pela HQ-M2-009/A:
+
+- `houveMovimentacaoFisicaPosteriorTx` não filtrava por data. Como a retirada e
+  a devolução gravam eventos `SAIU`/`ENTROU` anteriores, o helper retornava
+  `true` sempre e os endpoints nunca chamavam
+  `finalizarPendenciaMetrologicaTx`, mantendo o deadlock.
+- O fechamento do esgotamento usava `emprestimo.medida_utilizada ?? 0`, que é
+  `NULL` na anomalia, gravando consumo validado `0`.
+
+Correção aplicada (somente `Section-10.5`, pseudocódigo):
+- o helper agora recebe `desde` e filtra `timestamp > desde`; as duas chamadas
+  passam `emprestimo.data_devolucao_efetuada`;
+- o consumo efetivo passa a ser
+  `max(0, peso_saida - pesoVazioRealMedido - peso_perda_evaporacao)`, convertido
+  por `densidade_aplicada`; `peso_retorno_efetivo` recebe `pesoVazioRealMedido`.
+
+Impacto: apenas documental/pseudocódigo. CUE (29 colunas), Alloy M2.2, IR,
+evidência formal M2.2 e M2.3 permanecem válidos; `docs-build` PASS. Não impede
+M2.4.
+
 ## Backend real
 
 `functions/` NÃO foi reconciliado nesta etapa; continua dívida explícita de
