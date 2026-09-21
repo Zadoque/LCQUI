@@ -90,6 +90,11 @@ Os frames de `vencido`/`usoVencidoAutorizado` foram auditados por transição (v
 | ID | Propriedade | Classificação | Fonte | Artefato | Resultado |
 |---|---|---|---|---|---|
 | INV-M2-COERENCIA-001 | toda transição documentada preserva a coerência | indutiva (transição) | composição | `check TransicoesPreservamCoerencia` | UNSAT |
+| INV-M2-DESCARTADO-TERMINAL-001 | `DESCARTADO` não inicia nenhuma transição M2.2 | terminality | Seção 4, 863; Seção 8, 232; Seção 9, 210 | `check DescartadoEhTerminal` | UNSAT |
+| INV-M2-DESCARTADO-EXTRAVIO-001 | `DESCARTADO` não extravia | terminality | idem | `check DescartadoNaoExtravia` | UNSAT |
+| INV-M2-DESCARTADO-QUEBRA-001 | `DESCARTADO` não quebra | terminality | idem | `check DescartadoNaoQuebra` | UNSAT |
+| INV-M2-DESCARTADO-REDESCARTE-001 | `DESCARTADO` não é descartado novamente | terminality | idem | `check DescartadoNaoDescartaNovamente` | UNSAT |
+| INV-M2-DESCARTADO-ESGOTAMENTO-001 | `DESCARTADO` não esgota | terminality | idem | `check DescartadoNaoEsgota` | UNSAT |
 | INV-M2-EXTRAVIO-001 | extravio bloqueia (`INDISPONIVEL`) | transition effect | M0; Seção 4 | `check ExtravioIndisponivel` | UNSAT |
 | FRAME-M2-EXTRAVIO-SALDO-001 | extravio preserva `saldo_desconhecido` | frame condition | Seção 4, 401; Seção 7, 200 | `check ExtravioPreservaSaldo` | UNSAT |
 | FRAME-M2-EXTRAVIO-FLAG-001 | extravio preserva a flag histórica | frame condition | Seção 4, 403 | `check ExtravioPreservaFlag` | UNSAT |
@@ -213,6 +218,50 @@ vencido`, `f in usoVencidoAutorizado`) — SAT, substitui a witness fraca
 Nenhuma HQ foi necessária: as preservações vêm do pseudocódigo; as ausências de
 frame são abstrações explícitas, não lacunas que bloqueiem a prova.
 
+## Terminal-state audit
+
+### Problema
+
+`DESCARTADO` era alcançável, mas nenhuma transição compartilhava uma
+precondition que bloqueasse operações posteriores. O modelo permitia
+`DESCARTADO → EXTRAVIADO/QUEBRADO/VAZIO/DESCARTADO`, contrariando a
+documentação.
+
+### Fonte
+
+- Seção 4, 863: `DESCARTADO & É terminal; não retorna a DISPONIVEL.`
+- Seção 8, 232: "Descartar ... é terminal, sem excluir documento."
+- Seção 9, 210: "Descarte é terminal; política de remoção lógica em Q07."
+
+### Correção
+
+- Helper `naoDescartado[s,f] = s.fisico[f] != DESCARTADO`, aplicado a
+  `extraviar`, `quebrar` e `confirmarEsgotamento`; em `descartar`, incorporado a
+  `aptoParaDescarte`, que passou a exigir `naoDescartado[s,f]` além de
+  `disponibilidade != EMPRESTADO` e da elegibilidade já auditada.
+- Efeitos e frames anteriores preservados.
+
+### Não implicações
+
+```text
+VAZIO não foi tornado terminal (VAZIO → DESCARTADO segue permitido).
+QUEBRADO não foi tornado terminal (QUEBRADO → DESCARTADO segue permitido).
+EXTRAVIADO não foi tornado terminal (o domínio prevê reencontro; a transição
+de reencontro permanece fora de bottle_state.als).
+```
+
+### Provas
+
+- `DescartadoEhTerminal` (agregada) → UNSAT no scope 4 e no scope 6.
+- `DescartadoNaoExtravia`, `DescartadoNaoQuebra`, `DescartadoNaoDescartaNovamente`,
+  `DescartadoNaoEsgota` → UNSAT.
+- Não-vacuidade: `TestemunhaDescarte`, `TestemunhaDescarteVazio`,
+  `TestemunhaDescarteQuebrado`, `TestemunhaDescarteVencidoAberto`,
+  `TestemunhaDescarteVencidoFechado` continuam SAT; portanto `DESCARTADO` é
+  alcançável e, uma vez alcançado, nenhuma transição M2.2 sai dele.
+
+Nenhuma outra terminalidade foi declarada; nenhuma HQ foi necessária.
+
 ## Perguntas humanas novas
 
 Nenhuma. Nenhuma das propriedades formalizadas exigiu escolha entre
@@ -258,11 +307,12 @@ reexecutadas sem contraexemplo:
 bottle_identity.als, scope 6:
   IdentidadeUnica, ViaLoteResolveLote, ViaDiretaResolveDireta -> UNSAT
 bottle_state.als, scope 6 com exatamente 2 Estado:
-  TransicoesPreservamCoerencia, ExtravioPreservaValidade,
-  DescartePreservaValidade, QuebraNaoInterfereValidade,
-  EsgotamentoNaoInterfereValidade, DescarteIndisponivel,
-  DescarteSaldoConhecido, DescarteFisicoDescartado, NaoDescarteEmprestado,
-  UsoVencidoNaoHabilitaDescarte
+  TransicoesPreservamCoerencia, DescartadoEhTerminal,
+  DescartadoNaoExtravia, DescartadoNaoQuebra, DescartadoNaoDescartaNovamente,
+  DescartadoNaoEsgota, ExtravioPreservaValidade, DescartePreservaValidade,
+  QuebraNaoInterfereValidade, EsgotamentoNaoInterfereValidade,
+  DescarteIndisponivel, DescarteSaldoConhecido, DescarteFisicoDescartado,
+  NaoDescarteEmprestado, UsoVencidoNaoHabilitaDescarte
     -> nenhum contraexemplo no scope declarado
 bottle_state.als, testemunhas, scope 6:
   TestemunhaDescarteVencidoAberto, TestemunhaDescarteVencidoFechado,
@@ -288,7 +338,7 @@ não prova para todos os tamanhos; o gate usa o scope fixado.
 |---|---|---|
 | `just spec-check` | PASS | 72 fixtures; CUE M2.1d inalterado |
 | `just spec-export` | PASS | IR inalterado |
-| `just alloy-check` | PASS | M0 + 39 comandos M2.2 (20 checks UNSAT, 9 runs SAT de estado; 5 checks UNSAT, 5 runs SAT de identidade) |
+| `just alloy-check` | PASS | M0 + 44 comandos M2.2 (25 checks UNSAT, 9 runs SAT de estado; 5 checks UNSAT, 5 runs SAT de identidade) |
 | `just rust-check` | PASS | gerador inalterado |
 | `just docs-check` | PASS | generated sem stale |
 | `git diff --check` | PASS | — |
@@ -340,7 +390,12 @@ Erratum de cobertura:
 Auditoria de frame conditions:
 - `cc8e1ad0` — `fix(alloy): constrain M2 bottle transition frames`
   (`bottle_state.als` + `tools/formal/check.mjs` + `build/formal-validation-m2.json`).
-- Commit documental da auditoria: `docs(spec): record M2.2 frame-condition audit`.
+- `5d70bede` — `docs(spec): record M2.2 frame-condition audit`.
+
+Auditoria de estado terminal:
+- `1b4adabb` — `fix(alloy): enforce discarded bottle terminality`
+  (`bottle_state.als` + `tools/formal/check.mjs` + `build/formal-validation-m2.json`).
+- Commit documental da auditoria: `docs(spec): record M2.2 terminal-state audit`.
 
 ## Próxima ação EXATA
 
