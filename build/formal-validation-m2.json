@@ -1,0 +1,194 @@
+{
+  "versao": 1,
+  "alloy": "6.2.0",
+  "spec_ir_sha256": "b9fe6a539c7ec30c3aad2a950b2ff213bf876c7a13dd9454a6132c32512123a6",
+  "modelos": [
+    {
+      "model": "specification/alloy/reagents/bottle_identity.als",
+      "model_sha256": "3a43a05f6790ed48d3e176d5bb24c85ea7c1ef7703edd8cd400da8c3dcdc0338",
+      "resultados": [
+        {
+          "id": "IDENTIDADE-001",
+          "assertion": "IdentidadeUnica",
+          "tipo": "check",
+          "scope": "check IdentidadeUnica for 4",
+          "status": "UNSAT"
+        },
+        {
+          "id": "IDENTIDADE-002",
+          "assertion": "ViaLoteResolveLote",
+          "tipo": "check",
+          "scope": "check ViaLoteResolveLote for 4",
+          "status": "UNSAT"
+        },
+        {
+          "id": "IDENTIDADE-003",
+          "assertion": "ViaDiretaResolveDireta",
+          "tipo": "check",
+          "scope": "check ViaDiretaResolveDireta for 4",
+          "status": "UNSAT"
+        },
+        {
+          "id": "IDENTIDADE-004",
+          "assertion": "RotasNaoCoexistem",
+          "tipo": "check",
+          "scope": "check RotasNaoCoexistem for 4",
+          "status": "UNSAT"
+        },
+        {
+          "id": "IDENTIDADE-005",
+          "assertion": "SemRotaSemEspecificacao",
+          "tipo": "check",
+          "scope": "check SemRotaSemEspecificacao for 4",
+          "status": "UNSAT"
+        },
+        {
+          "id": "WIT-IDENTIDADE-LOTE-001",
+          "assertion": "ViaLoteValido",
+          "tipo": "run",
+          "scope": "run ViaLoteValido for 4",
+          "status": "SAT"
+        },
+        {
+          "id": "WIT-IDENTIDADE-DIRETA-001",
+          "assertion": "ViaDiretaValida",
+          "tipo": "run",
+          "scope": "run ViaDiretaValida for 4",
+          "status": "SAT"
+        },
+        {
+          "id": "WIT-IDENTIDADE-ROTADUPLA-001",
+          "assertion": "RotaDuplaIncoerente",
+          "tipo": "run",
+          "scope": "run RotaDuplaIncoerente for 4",
+          "status": "SAT"
+        },
+        {
+          "id": "WIT-IDENTIDADE-SQL-001",
+          "assertion": "RotaDuplaSobSql",
+          "tipo": "run",
+          "scope": "run RotaDuplaSobSql for 4",
+          "status": "SAT"
+        },
+        {
+          "id": "WIT-IDENTIDADE-SEMROTA-001",
+          "assertion": "SemRotaIncoerente",
+          "tipo": "run",
+          "scope": "run SemRotaIncoerente for 4",
+          "status": "SAT"
+        }
+      ]
+    },
+    {
+      "model": "specification/alloy/reagents/bottle_state.als",
+      "model_sha256": "4109a1c5efcf68ec3b901828f32fe933f05e5d0ec995d242458a4db981e37985",
+      "resultados": [
+        {
+          "id": "INV-M2-COERENCIA-001",
+          "assertion": "TransicoesPreservamCoerencia",
+          "tipo": "check",
+          "scope": "check TransicoesPreservamCoerencia for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-EXTRAVIO-001",
+          "assertion": "ExtravioIndisponivel",
+          "tipo": "check",
+          "scope": "check ExtravioIndisponivel for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "FRAME-M2-EXTRAVIO-SALDO-001",
+          "assertion": "ExtravioPreservaSaldo",
+          "tipo": "check",
+          "scope": "check ExtravioPreservaSaldo for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "FRAME-M2-EXTRAVIO-FLAG-001",
+          "assertion": "ExtravioPreservaFlag",
+          "tipo": "check",
+          "scope": "check ExtravioPreservaFlag for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-TERMINAL-QUEBRA-IND-001",
+          "assertion": "QuebraIndisponivel",
+          "tipo": "check",
+          "scope": "check QuebraIndisponivel for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-TERMINAL-DESCARTE-IND-001",
+          "assertion": "DescarteIndisponivel",
+          "tipo": "check",
+          "scope": "check DescarteIndisponivel for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-TERMINAL-ESGOTAMENTO-IND-001",
+          "assertion": "EsgotamentoIndisponivel",
+          "tipo": "check",
+          "scope": "check EsgotamentoIndisponivel for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-TERMINAL-QUEBRA-001",
+          "assertion": "QuebraSaldoConhecido",
+          "tipo": "check",
+          "scope": "check QuebraSaldoConhecido for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-TERMINAL-DESCARTE-001",
+          "assertion": "DescarteSaldoConhecido",
+          "tipo": "check",
+          "scope": "check DescarteSaldoConhecido for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-TERMINAL-ESGOTAMENTO-001",
+          "assertion": "EsgotamentoSaldoConhecido",
+          "tipo": "check",
+          "scope": "check EsgotamentoSaldoConhecido for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-ABERTURA-001",
+          "assertion": "TransicoesPreservamFlag",
+          "tipo": "check",
+          "scope": "check TransicoesPreservamFlag for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "WIT-M2-EXTRAVIO-001",
+          "assertion": "TestemunhaExtravio",
+          "tipo": "run",
+          "scope": "run TestemunhaExtravio for 4 but exactly 2 Estado",
+          "status": "SAT"
+        },
+        {
+          "id": "WIT-M2-QUEBRA-001",
+          "assertion": "TestemunhaQuebra",
+          "tipo": "run",
+          "scope": "run TestemunhaQuebra for 4 but exactly 2 Estado",
+          "status": "SAT"
+        },
+        {
+          "id": "WIT-M2-DESCARTE-001",
+          "assertion": "TestemunhaDescarte",
+          "tipo": "run",
+          "scope": "run TestemunhaDescarte for 4 but exactly 2 Estado",
+          "status": "SAT"
+        },
+        {
+          "id": "WIT-M2-ESGOTAMENTO-001",
+          "assertion": "TestemunhaEsgotamento",
+          "tipo": "run",
+          "scope": "run TestemunhaEsgotamento for 4 but exactly 2 Estado",
+          "status": "SAT"
+        }
+      ]
+    }
+  ]
+}
