@@ -1,8 +1,14 @@
 # Perguntas humanas M2
 
 Decorrentes da reconciliação documental M2.1b (pós-decisões humanas tomadas
-após M2.1a). As decisões humanas foram incorporadas à documentação; perguntas
-abaixo foram respondidas ou reapresentadas. Nenhuma resposta foi inferida.
+após M2.1a). Todas as sete perguntas abaixo estão RESOLVED. HQ-M2-004..007 foram
+respondidas pela consolidação humana de 21/09/2026 e incorporadas às fontes
+LaTeX publicadas no commit b5d3f099. Este registro foi atualizado posteriormente
+por solicitação explícita do usuário. Nenhuma resposta foi inferida.
+
+Fonte das respostas: [Consolidação das decisões humanas M2 e simplificação da arquitetura de estoque](<Consolidação das decisões humanas M2 e simplificação da arquitetura de estoque.md>).
+RESOLVED indica decisão de domínio consolidada documentalmente; não atesta
+implementação no backend nem cobertura pelos modelos formais. M2.2 NÃO iniciado.
 
 Decisões já confirmadas, não reabrir: DEC-M2-HUMAN-001 permite lote NULL com
 especificação conhecida; DEC-M2-HUMAN-002 exige mínimo 20 após trim somente
@@ -44,7 +50,9 @@ Decisão humana:
 - `saldo_desconhecido` representa desconhecimento ATUAL da quantidade remanescente.
   Não é flag histórica.
 - Frasco cadastrado JA_ABERTO inicia com `saldo_desconhecido = true`.
-- Frasco originalmente FECHADO e depois normalmente aberto usa `false`.
+- Conforme HQ-M2-004, FECHADO inicia com saldo conhecido somente quando há
+  dados quantitativos suficientes. Com conteúdo nominal desconhecido e sem
+  tara, inicia com `true`; abertura ou pesagem bruta isolada não mudam isso.
 - Recipiente efetivamente esvaziado e com tara real medida passa a `false`.
 - Estados VAZIO, QUEBRADO e DESCARTADO não permanecem com desconhecido.
 - EXTRAVIADO preserva o valor anterior (extravio não cria conhecimento nem
@@ -80,70 +88,129 @@ global de 20 em `detalhe_status` persistido.
 
 ## HQ-M2-004 — Cadastro FECHADO com conteúdo nominal desconhecido
 
-Status: OPEN
+Status: RESOLVED (decisão humana consolidada em 21/09/2026)
 
-Origem: decisão D2 determina que `conteudo_nominal` pode ser NULL quando
-desconhecido/ilegível e nunca 0 para representar desconhecido. A Seção 8 afirma
-que a tara inicial de frasco FECHADO pode ser derivada do peso total e conteúdo
-nominal "quando os dados necessários estiverem disponíveis". Não está definido
-se um frasco FECHADO pode ser cadastrado com `conteudo_nominal = NULL` e, nesse
-caso, qual a semântica de `peso_frasco_vazio` e de acompanhamento de saldo (a
-decisão vigente mantém `saldo_desconhecido = false` para FECHADO).
+Origem: esclarecer cadastro FECHADO quando o conteúdo nominal é desconhecido
+ou ilegível. A antiga implicação universal FECHADO ⇒ saldo conhecido foi superada.
 
-Pergunta ao humano: frasco FECHADO pode ser cadastrado com conteúdo nominal
-desconhecido? Se sim, inicia com `peso_frasco_vazio = NULL`? Mantém
-`saldo_desconhecido = false` ou vira `true` até a primeira pesagem/abertura?
+Decisão humana:
 
-Decisão: PENDENTE — NÃO IMPLEMENTAR. Não bloqueia os pontos independentes da
-reconciliação M2.1b.
+- Permitir `condicao_inicial_cadastro = FECHADO` com `conteudo_nominal = NULL`;
+  nunca usar zero para representar desconhecido.
+- Nesse cadastro: estado físico FECHADO, `peso_frasco_vazio = NULL`,
+  `origem_tara = NULL` e `saldo_desconhecido = true`.
+- Abertura ou primeira pesagem bruta não resolvem automaticamente o saldo.
+- Ao esvaziar efetivamente e medir o recipiente vazio, aplicar o fluxo normal:
+  tara real medida, VAZIO/INDISPONIVEL e saldo conhecido zero.
+- Se nunca obtiver tara real, seguir exatamente o ciclo já definido para
+  JA_ABERTO em situação metrológica equivalente, sem fluxo especial por origem.
+  Quebra, descarte e extravio não exigem fabricar tara, saldo ou pesagem vazia.
+- EXTRAVIADO preserva a flag; reencontro mantém desconhecimento enquanto não
+  surgir informação suficiente. QUEBRADO/DESCARTADO seguem a semântica terminal
+  já estabelecida, sem inventar quantidade química ou tara.
+- Condição inicial é fato histórico imutável; saldo desconhecido é estado
+  metrológico atual. Saldo conhecido de FECHADO depende de dados suficientes.
 
-## HQ-M2-005 — Retenção do limiar de 5 g abaixo da tara
+Fontes reconciliadas: Seções 4, 5, 7, 8 e S10/S5 (cadastros e ciclo de vida).
 
-Status: OPEN
+## HQ-M2-005 — Eliminação do limiar fixo e devolução com anomalia
 
-Origem: D7 elimina o uso do limiar "diferença de até 5 g" como definição física
-de esgotamento, mas admite mantê-lo para identificar anomalia ou exigir
-justificativa, e manda registrar pergunta humana se a documentação não fornecer
-suporte suficiente para alguma função específica desse limiar.
+Status: RESOLVED (decisão humana consolidada em 21/09/2026)
 
-Pergunta ao humano: o limiar específico de 5 g abaixo da tara deve ser retido
-como parâmetro de anomalia (com consequência/justificativa definidas) ou
-eliminado por completo? As tolerâncias de Q06 já documentadas
-(`max(1 g, 0,5%)` e `max(2 g, 2%)`) permanecem como sinal de anomalia.
+Origem: decidir se o antigo limiar de 5 g teria alguma função residual.
 
-Decisão: PENDENTE — NÃO IMPLEMENTAR. Não bloqueia os pontos independentes.
+Decisão humana:
 
-## HQ-M2-006 — Suficiência de replay para os resumos diários
+- Eliminar completamente os 5 g: não são definição de vazio, tolerância
+  secundária, justificativa, exceção nem fallback.
+- Preservar Q06 dinâmica: normal `max(1 g, 0,005 × peso_saida)`;
+  higroscópico `max(2 g, 0,02 × peso_saida)`. Q06 compara retorno com saída;
+  não substitui uma tolerância de retorno versus tara.
+- Preservar exatamente o peso observado, inclusive abaixo da tara. Não rejeitar
+  a devolução por essa contradição nem exigir alteração fictícia da leitura.
+- Distinguir referência teórica de tara medida real por `origem_tara`.
+  A referência derivada não constitui limite físico absoluto.
+- Sem confirmação de vazio, retorno abaixo de tara real encerra custódia como
+  `DEVOLVIDO_COM_ANOMALIA`, registra `RETORNO_ABAIXO_TARA_REAL` e mantém o
+  frasco em quarentena/INDISPONIVEL até resolução. A medição permanece em
+  `peso_atual`; saldo desconhecido e saldos derivados NULL evitam saldo negativo.
+  O motivo automático não exige justificativa humana de 20 caracteres.
+- Com vazio explicitamente confirmado, aplicar VAZIO/INDISPONIVEL e saldo zero.
+  Sem tara real anterior, a medição vazia estabelece a tara real e pode substituir
+  a referência teórica. Se já existe tara real divergente, preservá-la, registrar
+  a discrepância e aceitar a devolução; sua substituição exige o contrato
+  `recalibrarTaraFrascoEsgotado`, recipiente vazio e justificativa auditável.
+- Enquanto quantitativamente inconsistente, consumo permanece não validado:
+  `consumo_validado=false`, `medida_utilizada=NULL` e
+  `peso_retorno_efetivo=NULL`. Não contabilizar consumo definitivo em FLOW.
+- Oferecer nova pesagem preservando a original, confirmação posterior de vazio,
+  recalibração auditável de recipiente vazio ou correção administrativa já
+  explicitamente suportada. Não criar undo universal nem recalibrar com produto.
+- Resolução preserva autoria, instante e vínculo da medição efetiva. Consumo
+  validado pertence à data da devolução física; reprocessar somente datas FLOW
+  diretamente afetadas. Nova retirada exige resolução e aptidão operacional.
 
-Status: OPEN
+Fontes reconciliadas: Seções 4, 5, 7, 8, 9 e S10/S5, S10/S7 e S10/S9.
 
-Origem: D17 proíbe reconstruir o snapshot de fim de dia a partir do estado atual
-e exige que eventos/histórico contenham informação suficiente para replay. A
-auditoria documental não comprova que `Historico_Frasco_Reagente`,
-`Emprestimo_Reagente`, eventos de domínio e `Registro_de_Auditoria` bastem para
-reconstruir o estado efetivo no corte 23:59:59.999 sem consultar o documento
-atual.
+## HQ-M2-006 — Resumos FLOW-only e estoque atual sob demanda
 
-Pergunta ao humano: quais mutações devem emitir evento histórico persistido
-(pesagem de rotina, correções compensatórias, ajustes administrativos) e se é
-necessário persistir um snapshot mínimo de fim de dia das dimensões
-`estado_fisico_frasco`, `disponibilidade`, `em_quarentena`, `vencido` e
-`saldo_desconhecido`. Caso contrário, deve-se documentar explicitamente a lacuna
-em vez de mascarar lendo o estado atual.
+Status: RESOLVED (decisão arquitetural humana consolidada em 21/09/2026)
 
-Decisão: PENDENTE — NÃO IMPLEMENTAR. Não bloqueia os pontos independentes.
+Origem: suficiência dos históricos para reconstruir posição no fim do dia.
+Essa necessidade foi superada: não persistir nem reconstruir STOCK diário
+para os dois resumos de reagentes.
+
+Decisão humana:
+
+- `Resumo_Almoxarifado_Diario` e `Resumo_Reagente_Diario` materializam somente
+  fatos FLOW do próprio dia civil. Campos de posição de estoque foram removidos;
+  o campo legado de consumo sem unidade foi removido por redundância/ambiguidade.
+- Usar intervalo semiaberto em America/Sao_Paulo. D-1 é apenas o alvo da execução
+  normal, nunca uma dependência para calcular D. Não há snapshot de fim de dia,
+  replay até hoje, cascata temporal ou critério de convergência entre dias.
+- Correções permanecem compensatórias, auditáveis e em conjunto fechado.
+  Reprocessar somente as datas diretamente afetadas, incluindo origem/destino
+  se um contrato suportado mudar a atribuição temporal de um fato.
+- Preservar snapshots históricos necessários aos fatos FLOW e à auditoria
+  (pesos, unidade, densidade aplicada, identidades e resolução metrológica),
+  sem duplicar dimensões somente para reconstruir posição diária.
+- `Frasco_Reagente` é a autoridade corrente. Não criar materialized view
+  persistente de estoque atual. Backend executa `count()/sum()` sobre frascos
+  e saldos derivados server-owned no próprio documento canônico.
+- Agregações atuais passam por App Check, Auth, RBAC/escopo e limite de
+  5 solicitações por minuto por UID, inclusive em cache hit; IP não é identidade
+  primária. Cliente não executa diretamente essas agregações.
+- `Sistema_Cache_Dashboard` é efêmero, compartilhado por escopo autorizado,
+  lazy e descartável. Validade máxima de 30 segundos ou invalidação anterior
+  por mutação relevante. Sem scheduler de renovação nem recálculo obrigatório
+  após invalidar; publicação verifica geração para não repor resultado obsoleto.
+- Invalidar o menor escopo seguro junto à mutação corrente, inclusive devolução
+  anômala e resolução com efeito atual. Correções exclusivamente históricas e
+  reprocessamento FLOW não invalidam estoque atual.
+- Rules documentais negam acesso cliente direto ao cache e limite internos.
+  Frontend mantém cache curto, instante do cálculo e UX de atualização.
+- Dashboard separa fotografia atual de movimentações/consumo históricos.
+  Relatórios não dependem de STOCK diário nem tratam consumo pendente como final.
+- Não estender esta decisão ao patrimônio: seus snapshots diários permanecem.
+
+Fontes reconciliadas: Seções 5, 6, 8, 11 e S10/S5, S10/S7, S10/S9 e S10/S11.
+Consequências relacionais são entradas futuras; M2.2 NÃO foi iniciado.
 
 ## HQ-M2-007 — Pesagem de rotina
 
-Status: OPEN
+Status: RESOLVED (decisão humana consolidada em 21/09/2026)
 
-Origem: D10 exclui `registrarPesagemRotina` da lista fechada de justificativas
-humanas obrigatórias e manda registrar pergunta humana se houver inconsistência
-clara na documentação atual (o contrato recebe `motivo` string sem declarar
-autoria humana obrigatória).
+Origem: esclarecer autoria e obrigatoriedade do motivo em registrarPesagemRotina.
 
-Pergunta ao humano: o `motivo` de `registrarPesagemRotina` é justificativa
-humana obrigatória (sujeita a `trim >= 20`), observação humana opcional ou
-mensagem automática suficiente?
+Decisão humana:
 
-Decisão: PENDENTE — NÃO IMPLEMENTAR.
+- `registrarPesagemRotina` não pertence à lista fechada de justificativas humanas
+  obrigatórias; não exigir `trim >= 20` para uma pesagem ordinária.
+- Observação humana é opcional. O nome `motivo` pode permanecer por compatibilidade,
+  desde que não seja interpretado como justificativa humana obrigatória.
+- Sem observação, backend pode registrar descrição canônica automática,
+  identificada como produzida pelo sistema, nunca atribuída ao gestor.
+- Quarentena manual, recalibração e outras ações especiais que surjam durante a
+  pesagem são operações distintas e conservam seus contratos de justificativa.
+
+Fontes reconciliadas: Seções 7, 8, S10/S5 e S10/S11.

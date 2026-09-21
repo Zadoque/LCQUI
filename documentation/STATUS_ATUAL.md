@@ -2,11 +2,16 @@
 
 Atualizado em 21/09/2026 — consolidação documental HQ-M2-004..007.
 Branch: `feat/formal-spec-cue-alloy`.
-HEAD inicial e final: `25e3825f5045a328e59f17115f2dbbda0710fb26`. Sem commit, deploy ou alteração de aplicação.
+HEAD inicial da consolidação: `25e3825f5045a328e59f17115f2dbbda0710fb26`.
+HEAD verificada nesta atualização: `b5d3f0997c7e09674fb79afdbed9e446d14fba01`.
+
+A consolidação foi registrada em **15 commits, um por arquivo**, de `5c625870` a `b5d3f099`. O PDF compilado foi commitado por último, em `b5d3f099` (`docs(pdf): publish compiled M2 reconciliation`). Não houve push, deploy ou alteração da aplicação nesta sequência.
+
+Após esses commits, o usuário solicitou a atualização de `M2_HUMAN_QUESTIONS.md` e deste status. Essas duas revisões Markdown estão na árvore de trabalho, ainda sem commit; não alteram as fontes LaTeX nem o PDF publicado.
 
 ## Escopo efetivamente executado
 
-Por orientação posterior do usuário, alterações limitadas aos arquivos .tex, PDF compilado e arquivos de status. Código de frontend/backend, firestore.rules, CUE/Alloy, fixtures, generated e registros históricos não foram modificados. Os pseudocódigos e Rules no PDF são especificação, não implementação implantada.
+A reconciliação inicial foi limitada aos arquivos .tex, PDF compilado e arquivos de status. A sequência de commits também versionou o documento de decisões fornecido pelo usuário, sem modificar seu conteúdo. Posteriormente, o usuário autorizou explicitamente atualizar M2_HUMAN_QUESTIONS.md. Código de frontend/backend, firestore.rules, CUE/Alloy, fixtures, generated e demais worklogs históricos permaneceram intactos. Os pseudocódigos e Rules no PDF são especificação, não implementação implantada.
 
 ## Decisões consolidadas
 
@@ -15,7 +20,7 @@ Por orientação posterior do usuário, alterações limitadas aos arquivos .tex
 - **HQ-M2-006 — RESOLVED:** resumos de reagentes/almoxarifado exclusivamente FLOW, sem posição diária, dependência D-1 ou replay até hoje. Correções fechadas reprocessam somente datas diretamente afetadas. Patrimônio preservado.
 - **HQ-M2-007 — RESOLVED:** pesagem ordinária aceita observação opcional; descrição automática identificada como sistema não exige justificativa humana de 20 caracteres. Operações especiais mantêm seus contratos.
 
-As marcações OPEN de HQ004..007 em M2_HUMAN_QUESTIONS.md e worklogs anteriores são registros superados por esta consolidação. Esses arquivos não foram editados, respeitando o escopo restrito a .tex/PDF/status. Não há decisão humana pendente nessas quatro HQs.
+M2_HUMAN_QUESTIONS.md foi atualizado por solicitação explícita do usuário: HQ-M2-004..007 estão RESOLVED, com respostas completas; HQ-M2-002 foi reconciliada com a possibilidade de FECHADO com saldo desconhecido. Todas as sete perguntas do arquivo estão resolvidas. Referências OPEN nos demais registros anteriores são históricas e estão superadas; não representam decisões humanas pendentes.
 
 ## Arquitetura documental resultante
 
@@ -75,11 +80,13 @@ A resolução quantitativa fica vinculada por id_resolucao_metrologica; data FLO
 | Section-11-Regras-de-Seguranca-do-Firestore-Security-Rules.tex | Rules documentais deny-all para cache/limite internos. |
 | main.pdf | PDF recompilado e inspecionado. |
 | ../FORMAL_SPEC_STATE.md | Estado formal, decisões resolvidas e próximos passos sem iniciar M2.2. |
-| STATUS_ATUAL.md | Este relatório e evidências reais de validação. |
+| STATUS_ATUAL.md | Este relatório, HEAD verificada, sequência de commits e revisões posteriores. |
+| worklogs/formal-spec/M2_HUMAN_QUESTIONS.md | Revisão posterior aos 15 commits: HQ004..007 resolvidas e HQ002 reconciliada; ainda sem commit. |
+| worklogs/formal-spec/Consolidação das decisões humanas M2 e simplificação da arquitetura de estoque.md | Documento de entrada versionado em commit próprio, sem alteração de conteúdo. |
 
 Os arquivos Section-10-Subsection-* ficam em documentation/Section-10-Tecnologia-e-Relatorios-Vercel-Firebase/; os demais .tex e main.pdf ficam em documentation/.
 
-## Validações reais desta rodada
+## Validações da consolidação publicada
 
 | Comando/verificação | Resultado |
 |---|---|
@@ -96,6 +103,8 @@ Os arquivos Section-10-Subsection-* ficam em documentation/Section-10-Tecnologia
 | Testes de aplicação | Não aplicáveis: nenhuma alteração de código executável. |
 
 A primeira tentativa de build falhou por linguagem JavaScript não definida em Listings; corrigida para TypeScript já suportada. Primeira execução de spec-check foi bloqueada pelo sandbox (spawnSync cue EPERM); reexecução escalonada autorizada passou, assim como export/Alloy. Não são falhas remanescentes.
+
+As revisões Markdown posteriores não exigem recompilação do PDF nem nova execução dos gates formais. Nesta atualização foi executado git diff --check; os resultados de build e gates acima permanecem evidências da consolidação publicada, não novas execuções.
 
 Logs locais: /tmp/m2-docs-build.log, build/latex/main.log e /tmp/m2-baseline-build.log. O PDF publicado foi copiado de build/latex/main.pdf somente após aprovação do log final e inspeção visual, conforme o guia.
 
