@@ -107,4 +107,29 @@ mod tests {
         v.resultados.clear();
         assert!(!v.check(&raw, &model));
     }
+    #[test]
+    fn manifest_links_ir_both_validations_and_outputs_deterministically() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let files = generated(&root).unwrap();
+        let again = generated(&root).unwrap();
+        assert_eq!(files, again);
+        let manifest: serde_json::Value =
+            serde_json::from_str(files.get("MANIFEST.json").unwrap()).unwrap();
+        for key in [
+            "spec_ir_sha256",
+            "formal_validation_sha256",
+            "formal_validation_m2_sha256",
+        ] {
+            assert!(manifest[key].is_string(), "chave ausente: {key}");
+        }
+        let outputs = manifest["files"].as_object().unwrap();
+        for name in [
+            "entities/frasco_reagente.tex",
+            "entities/frasco_reagente_m2.tex",
+            "invariants/retirar_frasco.tex",
+            "invariants/frasco_reagente_m2.tex",
+        ] {
+            assert!(outputs.contains_key(name), "saída ausente: {name}");
+        }
+    }
 }
