@@ -206,6 +206,24 @@ pergunta humana foi criada.
 HEAD remota observada antes da unidade: `origin/feat/formal-spec-cue-alloy` em
 `69726049708398eacb2018534e88c49633f53d06`.
 
+## Verificação posterior de publicação
+
+No encerramento da execução registrada acima, os três commits estavam apenas
+locais: a branch estava três commits à frente da remota e nenhum push foi feito
+pelo agente. Esse permanece sendo o fato histórico desta execução.
+
+Em verificação posterior, a branch remota `origin/feat/formal-spec-cue-alloy`
+passou a apontar para:
+
+```text
+f27a797289dfa28ec4f3b445feb5599900cd4410
+```
+
+Portanto os três commits M2.1d (`fd6d3bc1`, `c6bad174`, `f27a7972`) encontram-se
+atualmente publicados. O Git permite afirmar apenas que a remota mudou; o push
+ocorreu fora da execução M2.1d e não foi executado pela unidade registrada neste
+worklog. Isso não altera nenhuma conclusão técnica de M2.1d.
+
 ## Próxima ação EXATA
 
 Planejar/iniciar M2.2 em tarefa separada, usando o schema local M2.1d como

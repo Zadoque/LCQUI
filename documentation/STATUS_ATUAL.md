@@ -4,12 +4,15 @@ Atualizado em 21/09/2026 — consolidação documental HQ-M2-004..007 e realinha
 Branch: `feat/formal-spec-cue-alloy`.
 HEAD inicial da consolidação: `25e3825f5045a328e59f17115f2dbbda0710fb26`.
 HEAD de entrada do realinhamento M2.1d: `69726049708398eacb2018534e88c49633f53d06`.
+HEAD do fechamento M2.1d (local e remoto): `f27a797289dfa28ec4f3b445feb5599900cd4410`.
 
 A consolidação foi registrada em **15 commits, um por arquivo**, de `5c625870` a `b5d3f099`. O PDF compilado foi commitado por último, em `b5d3f099` (`docs(pdf): publish compiled M2 reconciliation`). Não houve push, deploy ou alteração da aplicação nesta sequência.
 
 Após esses commits, o usuário solicitou a atualização de `M2_HUMAN_QUESTIONS.md` e deste status. Essas duas revisões Markdown ficaram na árvore de trabalho sem commit até serem versionadas em `69726049708398eacb2018534e88c49633f53d06` (`docs(status): update STATUS_ATUAL and M2_HUMAN_QUESTIONS with consolidated decisions and revisions`), que é a HEAD de entrada do realinhamento M2.1d.
 
 O realinhamento formal local **M2.1d** realinhou `specification/cue/` às 29 colunas documentais de `Frasco_Reagente`, introduziu `origem_tara` e suas invariantes locais de proveniência de tara. Detalhes, paridade e gates em `worklogs/formal-spec/M2_1D_CUE_REALIGNMENT.md`. M2.2 continua `NOT_STARTED`.
+
+Os três commits de M2.1d (`fd6d3bc1`, `c6bad174`, `f27a7972`) foram inicialmente apenas locais. Em verificação posterior, `origin/feat/formal-spec-cue-alloy` passou a apontar para `f27a797289dfa28ec4f3b445feb5599900cd4410`, publicando-os. O Git permite afirmar apenas que a remota mudou; o push ocorreu fora da execução M2.1d e não foi executado por ela.
 
 ## Escopo efetivamente executado
 

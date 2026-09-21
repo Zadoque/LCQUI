@@ -96,15 +96,21 @@ M0/M1 VALIDATED historicamente nos respectivos worklogs. A Auditoria 8 alterou M
 - LaTeX aditivo e main.pdf de 216 páginas revisado.
 - Worklogs duráveis: M0_VALIDATION.md, M0_BASELINE_DIAGNOSIS.md e M1_VALIDATION.md em documentation/worklogs/formal-spec/.
 
-## 11. Consolidação documental HQ-M2-004..007
-HEAD de entrada: `25e3825f5045a328e59f17115f2dbbda0710fb26`, branch `feat/formal-spec-cue-alloy`. Nenhum commit criado. Fonte de decisões: documento de consolidação fornecido pelo usuário; restrição posterior limita alterações a .tex, PDF e status.
+## 11. Registro histórico — consolidação documental HQ-M2-004..007
+
+ATENÇÃO: esta seção preserva o estado observado naquele checkpoint. Foi
+posteriormente superada pelas decisões RESOLVED em `M2_HUMAN_QUESTIONS.md` e
+pelo fechamento M2.1d. Não utilizar os estados OPEN nem a situação Git desta
+seção como estado corrente.
+
+HEAD de entrada: `25e3825f5045a328e59f17115f2dbbda0710fb26`, branch `feat/formal-spec-cue-alloy`. No checkpoint desta seção, nenhum commit havia sido criado. Fonte de decisões: documento de consolidação fornecido pelo usuário; restrição posterior limita alterações a .tex, PDF e status.
 
 - HQ-M2-004 RESOLVED: FECHADO + nominal NULL inicia sem tara e com saldo desconhecido; abertura/pesagem bruta não resolvem; ciclo sem tara equivalente ao JA_ABERTO, inclusive transições terminais/extravio.
 - HQ-M2-005 RESOLVED: eliminado limiar fixo; Q06 dinâmica preservada; peso observado aceito, custódia encerrada com DEVOLVIDO_COM_ANOMALIA, bloqueio operacional e consumo pendente. Origem teórica/real explícita, nova pesagem e confirmação de vazio auditadas; tara real anterior somente substituída por recalibração de vazio com justificativa.
 - HQ-M2-006 RESOLVED: resumos de reagentes/almoxarifado FLOW-only, sem STOCK diário, cascata D→hoje ou view persistente de estoque atual. Frasco_Reagente + count()/sum() server-side; Auth/App Check/RBAC, 5/min/UID, cache lazy de 30 s com invalidação transacional por mutação e proteção contra publicação obsoleta. Patrimônio preservado.
 - HQ-M2-007 RESOLVED: pesagem ordinária tem observação opcional e descrição automática identificada; operações especiais conservam suas justificativas.
 
-Validação atual: just docs-build PASS (275 páginas, zero erros/referências indefinidas; 28 Overfull herdados, comparação com baseline compilado de 267 páginas); spec-check/spec-export/alloy-check PASS no recorte existente; git diff --check PASS. PDF inspecionado antes da publicação. Inventário de arquivos, campos removidos, auditoria e resultados de validação desta rodada: [STATUS_ATUAL.md](documentation/STATUS_ATUAL.md). Os registros M2.1b/M2.1c e M2_HUMAN_QUESTIONS.md não foram reescritos fora do escopo autorizado; seus estados OPEN para HQ004..007 estão superados pelas decisões acima e pelas fontes .tex atuais.
+Validação naquele checkpoint: just docs-build PASS (275 páginas, zero erros/referências indefinidas; 28 Overfull herdados, comparação com baseline compilado de 267 páginas); spec-check/spec-export/alloy-check PASS no recorte existente; git diff --check PASS. PDF inspecionado antes da publicação. Inventário de arquivos, campos removidos, auditoria e resultados de validação desta rodada: [STATUS_ATUAL.md](documentation/STATUS_ATUAL.md). Os registros M2.1b/M2.1c e M2_HUMAN_QUESTIONS.md não foram reescritos fora do escopo autorizado; seus estados OPEN para HQ004..007 estão superados pelas decisões acima e pelas fontes .tex atuais.
 
 ## 12. Próxima ação EXATA
 Planejar/iniciar M2.2 em tarefa separada, usando o schema local M2.1d como baseline congelado. Não solicitar novamente decisões HQ-M2-004..007. Não iniciar M2.2 automaticamente.
@@ -213,7 +219,9 @@ Relações/IR/documentação do Frasco completo e demais domínios M3–M12; com
 - Checkpoint final M1: assunto `docs(spec): integrate validated M1 catalog documentation`; resolver SHA com `git log -1 --format=%H --grep="validated M1 catalog"` (um commit não contém seu próprio SHA).
 
 ## 20. Estado do Git
-M2.1d entrada `69726049708398eacb2018534e88c49633f53d06`, árvore limpa. Commits da unidade: `fd6d3bc1` (`feat(cue): realign M2 bottle schema with M2.1d origem_tara`; CUE + 22 fixtures existentes) e `c6bad174` (`test(cue): add M2.1d tara-origin fixtures`; 8 fixtures novas). Commit documental desta unidade: `docs(spec): record M2.1d CUE realignment`. Sem push nesta unidade; HEAD remota observada em `origin/feat/formal-spec-cue-alloy` = `69726049`. `git diff --check` PASS; `build/spec-ir.json` e `build/formal-validation.json` inalterados.
+M2.1d entrada `69726049708398eacb2018534e88c49633f53d06`, árvore limpa. Commits da unidade: `fd6d3bc1` (`feat(cue): realign M2 bottle schema with M2.1d origem_tara`; CUE + 22 fixtures existentes), `c6bad174` (`test(cue): add M2.1d tara-origin fixtures`; 8 fixtures novas) e `f27a7972` (`docs(spec): record M2.1d CUE realignment`; este worklog e os arquivos de status). Ao encerrar a unidade, os três commits eram apenas locais e `origin/feat/formal-spec-cue-alloy` ainda apontava para `69726049`; nenhum push foi executado pela unidade. `git diff --check` PASS; `build/spec-ir.json` e `build/formal-validation.json` inalterados.
+
+Estado remoto atualmente verificado: `origin/feat/formal-spec-cue-alloy` = `f27a797289dfa28ec4f3b445feb5599900cd4410`, portanto os três commits M2.1d estão publicados. O Git permite afirmar apenas que a remota mudou; o push ocorreu após o encerramento da unidade, fora da execução M2.1d.
 M2.1c entrada fc94fa87, sem alterações preexistentes. Commit desta unidade: `1655a5bb` (`feat(cue): realign M2 bottle schema with M2.1b documentation`), com push confirmado. Alterados: `specification/cue/domain/frasco_completo.cue` e 22 fixtures do grupo `frasco-completo` (21 alteradas + 1 nova). `git diff --check` PASS; árvore sincronizada após o envio.
 Registro histórico M2.1b: entrada de874a4b; checkpoint 1 `33c462fc` (docs(frasco): reconcile registration, balance and quarantine semantics); checkpoint 2 `252e4e50` (docs(materialization): define rebuildable daily summaries); checkpoint final `facd2882` (docs(spec): record reconciled M2 documentation state); complemento de gates docs(spec): finalize M2.1b gate record. Compilação LaTeX exit 0, 267 páginas, zero erros/refs indefinidas; `documentation/main.pdf` atualizado nessa unidade.
 Registro histórico: M2.1a entrada ce299d42; checkpoints documentais 4e0e60e5/88f913fe; CUE f340500f (fix(cue): align bottle schema with audited local constraints).
