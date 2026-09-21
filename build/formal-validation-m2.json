@@ -81,7 +81,7 @@
     },
     {
       "model": "specification/alloy/reagents/bottle_state.als",
-      "model_sha256": "4109a1c5efcf68ec3b901828f32fe933f05e5d0ec995d242458a4db981e37985",
+      "model_sha256": "0ae47a6cf34a2e2d6b6aa41fef3da68d0e7dde377b78cc22de3721140fb41099",
       "resultados": [
         {
           "id": "INV-M2-COERENCIA-001",
@@ -112,6 +112,13 @@
           "status": "UNSAT"
         },
         {
+          "id": "INV-M2-EXTRAVIO-REP-001",
+          "assertion": "ExtravioNaoRepetido",
+          "tipo": "check",
+          "scope": "check ExtravioNaoRepetido for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
           "id": "INV-M2-TERMINAL-QUEBRA-IND-001",
           "assertion": "QuebraIndisponivel",
           "tipo": "check",
@@ -119,10 +126,45 @@
           "status": "UNSAT"
         },
         {
+          "id": "INV-M2-QUEBRA-EMPRESTIMO-001",
+          "assertion": "QuebraNaoEmprestado",
+          "tipo": "check",
+          "scope": "check QuebraNaoEmprestado for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
           "id": "INV-M2-TERMINAL-DESCARTE-IND-001",
           "assertion": "DescarteIndisponivel",
           "tipo": "check",
           "scope": "check DescarteIndisponivel for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-TERMINAL-DESCARTE-001",
+          "assertion": "DescarteSaldoConhecido",
+          "tipo": "check",
+          "scope": "check DescarteSaldoConhecido for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-DESCARTE-FISICO-001",
+          "assertion": "DescarteFisicoDescartado",
+          "tipo": "check",
+          "scope": "check DescarteFisicoDescartado for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-DESCARTE-EMPRESTIMO-001",
+          "assertion": "NaoDescarteEmprestado",
+          "tipo": "check",
+          "scope": "check NaoDescarteEmprestado for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-DESCARTE-USOVENCIDO-001",
+          "assertion": "UsoVencidoNaoHabilitaDescarte",
+          "tipo": "check",
+          "scope": "check UsoVencidoNaoHabilitaDescarte for 4 but exactly 2 Estado",
           "status": "UNSAT"
         },
         {
@@ -137,13 +179,6 @@
           "assertion": "QuebraSaldoConhecido",
           "tipo": "check",
           "scope": "check QuebraSaldoConhecido for 4 but exactly 2 Estado",
-          "status": "UNSAT"
-        },
-        {
-          "id": "INV-M2-TERMINAL-DESCARTE-001",
-          "assertion": "DescarteSaldoConhecido",
-          "tipo": "check",
-          "scope": "check DescarteSaldoConhecido for 4 but exactly 2 Estado",
           "status": "UNSAT"
         },
         {
@@ -182,10 +217,45 @@
           "status": "SAT"
         },
         {
+          "id": "WIT-M2-DESCARTE-VAZIO-001",
+          "assertion": "TestemunhaDescarteVazio",
+          "tipo": "run",
+          "scope": "run TestemunhaDescarteVazio for 4 but exactly 2 Estado",
+          "status": "SAT"
+        },
+        {
+          "id": "WIT-M2-DESCARTE-QUEBRADO-001",
+          "assertion": "TestemunhaDescarteQuebrado",
+          "tipo": "run",
+          "scope": "run TestemunhaDescarteQuebrado for 4 but exactly 2 Estado",
+          "status": "SAT"
+        },
+        {
+          "id": "WIT-M2-DESCARTE-VENCIDO-ABERTO-001",
+          "assertion": "TestemunhaDescarteVencidoAberto",
+          "tipo": "run",
+          "scope": "run TestemunhaDescarteVencidoAberto for 4 but exactly 2 Estado",
+          "status": "SAT"
+        },
+        {
+          "id": "WIT-M2-DESCARTE-VENCIDO-FECHADO-001",
+          "assertion": "TestemunhaDescarteVencidoFechado",
+          "tipo": "run",
+          "scope": "run TestemunhaDescarteVencidoFechado for 4 but exactly 2 Estado",
+          "status": "SAT"
+        },
+        {
           "id": "WIT-M2-ESGOTAMENTO-001",
           "assertion": "TestemunhaEsgotamento",
           "tipo": "run",
           "scope": "run TestemunhaEsgotamento for 4 but exactly 2 Estado",
+          "status": "SAT"
+        },
+        {
+          "id": "WIT-M2-USOVENCIDO-001",
+          "assertion": "UsoVencidoAutorizadoConfig",
+          "tipo": "run",
+          "scope": "run UsoVencidoAutorizadoConfig for 4 but exactly 2 Estado",
           "status": "SAT"
         }
       ]
