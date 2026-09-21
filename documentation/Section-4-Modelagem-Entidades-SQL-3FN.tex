@@ -413,6 +413,10 @@ Quando \textit{em\_quarentena = TRUE}, deve existir justificativa associada à e
 Um cadastro FECHADO admite conteúdo nominal NULL quando desconhecido ou ilegível, nunca zero. Nesse caso, peso\_frasco\_vazio e origem\_tara são NULL e saldo\_desconhecido é true. Abertura ou pesagem bruta isolada não resolvem esse desconhecimento. Sem tara real, segue o mesmo ciclo de vida de JA\_ABERTO em situação metrológica equivalente: não exigir tara fabricada para quebra, descarte, extravio ou reencontro. EXTRAVIADO preserva a flag; VAZIO confirmado, QUEBRADO e DESCARTADO seguem a semântica terminal já estabelecida, sem inventar peso ou quantidade química.
 \end{regra}
 
+\begin{regra}[Pendência de descarte técnico e terminalidade -- HQ-M2-008/B]
+Um frasco em quarentena não vai diretamente a \texttt{DESCARTADO}. A quarentena é encerrada por decisão humana explícita em \texttt{resolverQuarentenaFrasco}: \texttt{VOLTAR\_A\_DISPONIVEL} ou \texttt{PENDENTE\_DE\_DESCARTE}. A decisão \texttt{PENDENTE\_DE\_DESCARTE} mantém \texttt{disponibilidade = INDISPONIVEL}, define \texttt{em\_quarentena = FALSE}, cria uma autorização operacional estruturada server-owned (projeção \texttt{Pendencias\_Descarte\_Frasco/\{idFrasco\}}) e um evento imutável \texttt{PENDENTE\_DE\_DESCARTE} no histórico. Somente com essa autorização ativa \texttt{descartarFrasco} aceita a rota técnica, consumindo a projeção na mesma transação. \texttt{PENDENTE\_DE\_DESCARTE} não é coluna de \texttt{Frasco\_Reagente} (o frasco permanece com 29 campos) nem entidade 3FN; é projeção operacional derivada de decisão humana. \texttt{DESCARTADO} é terminal.
+\end{regra}
+
 \subsection{Histórico do Frasco de Reagente / Solvente}
 \begin{entidade}{Historico\_Frasco\_Reagente}
 \campo{id}{SERIAL}{PK}
@@ -490,6 +494,8 @@ O histórico registra as transições que sustentam a reconstrução auditável 
 \textit{peso\_saida} e \textit{peso\_retorno} são sempre leituras de balança em gramas. \textit{unidade\_medida\_utilizada} qualifica exclusivamente \textit{medida\_utilizada} -- o consumo validado (NULL enquanto pendente), reportado em massa (g) para sólidos ou em volume (ml) para líquidos, via $V = \Delta m / \rho$. \textit{densidade\_aplicada} é o snapshot histórico da densidade da especificação no instante da retirada, imutável, obrigatório para líquidos e NULL para sólidos; participa da conversão de consumo e de evaporação sem depender da densidade corrente da especificação.
 
 O campo \textit{data\_devolucao\_prevista} em nível NoSQL físico armazena uma string civil no padrão YYYY-MM-DD (fuso America/Sao\_Paulo), e o vencimento legal encerra-se estritamente às 23:59:59.999 do referido dia civil.
+
+A devolução com anomalia encerra a custódia como \texttt{DEVOLVIDO\_COM\_ANOMALIA} e deixa a pendência quantitativa aberta (\texttt{consumo\_validado = FALSE}, \texttt{peso\_retorno\_efetivo = NULL}, \texttt{id\_resolucao\_metrologica = NULL}). A pendência é encerrada apenas por contratos tipados da Seção~10.5 (repetir pesagem; confirmar esgotamento após inspeção; recalibrar tara real quando aplicável; correção administrativa já suportada); não existe resolvedor público genérico. Resolver a pendência não libera automaticamente a quarentena, e \texttt{peso\_retorno} original nunca é apagado. A condição de pendência é \texttt{status = DEVOLVIDO\_COM\_ANOMALIA} e \texttt{consumo\_validado = FALSE}.
 \end{explicacao}
 
 
@@ -857,7 +863,8 @@ FECHADO + DISPONIVEL & Pode ser retirado ou aberto.\\
 ABERTO + DISPONIVEL & Pode ser retirado ou ajustado por pesagem.\\
 EMPRESTADO & Deve possuir exatamente um empréstimo ativo EM\_USO ou ATRASADO.\\
 VAZIO/QUEBRADO & Não pode estar EMPRESTADO e deve aparecer como pendente de descarte.\\
-QUARENTENA & Exige detalhe de motivo e bloqueia nova retirada.\\
+QUARENTENA & Exige detalhe de motivo e bloqueia nova retirada; não pode ser descartada diretamente.\\
+QUARENTENA + decisão PENDENTE\_DE\_DESCARTE & Estado operacional derivado (não é coluna): \texttt{em\_quarentena = FALSE}, \texttt{INDISPONIVEL} e autorização técnica ativa; habilita \texttt{descartarFrasco}.\\
 VENCIDO + uso\_vencido\_autorizado = false & Exibe PENDENTE DE DESCARTE quando não estiver em quarentena; bloqueia nova retirada.\\
 VENCIDO + uso\_vencido\_autorizado = true & Pode permanecer DISPONIVEL para uso excepcional após confirmação explícita no empréstimo.\\
 DESCARTADO & É terminal; não retorna a DISPONIVEL.\\

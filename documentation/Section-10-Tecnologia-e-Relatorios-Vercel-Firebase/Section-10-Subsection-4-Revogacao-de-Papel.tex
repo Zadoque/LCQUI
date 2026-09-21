@@ -204,5 +204,61 @@ export const alterarStatusTurma = onCall(async (request) => {
     }));
     await commitEmChunks(ops, 400);
     return { status: "OK", totalAlunosSincronizados: matriculados.length };
+  });
+});
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, title={Desvincular um único gestor de almoxarifado (operação individual)}]
+// A revogação global de Gestor_Almoxarifado remove o papel e todos os vínculos.
+// Para trocar responsáveis sem remover o papel (e sem deixar almoxarifado ativo
+// órfão), esta operação remove apenas UMA relação N:N. É válido um
+// Gestor_Almoxarifado com zero vínculos; o Almoxarifado ativo continua exigindo
+// ao menos um gestor (RN-ROLE-05).
+interface DesvincularGestorAlmoxarifado {
+  uidGestor: string; idAlmoxarifado: string; idOperacao: string;
+}
+export const desvincularGestorAlmoxarifado = onCall(async (request) => {
+  const dados = request.data as DesvincularGestorAlmoxarifado;
+  await validarPermissao(request, ["Chefe_Geral"], true);
+  if (!dados.idOperacao) throw new HttpsError("invalid-argument", "idOperacao é obrigatório.");
+  const db = admin.firestore();
+  const vínculoId = createHash("sha256")
+    .update(JSON.stringify([dados.uidGestor, dados.idAlmoxarifado])).digest("hex");
+  const vinculoRef = db.collection("Gestor_Almoxarifado_x_Almoxarifado").doc(vínculoId);
+  const almoxRef = db.collection("Almoxarifado").doc(dados.idAlmoxarifado);
+  const operacaoRef = db.collection("Operacoes").doc(dados.idOperacao);
+
+  return db.runTransaction(async (tx) => {
+    const operacao = await tx.get(operacaoRef);
+    if (operacao.exists) {
+      const op = operacao.data()!;
+      if (op.uid === request.auth!.uid) return op.resultado; // idempotente
+      throw new HttpsError("already-exists", "idOperacao duplicada ou ator divergente.");
+    }
+    // Leitura transacional do Almoxarifado serializa remoções concorrentes.
+    const [almoxSnap, vinculoSnap] = await tx.getAll(almoxRef, vinculoRef);
+    if (!vinculoSnap.exists) return { semAlteracao: true };
+    const almox = almoxSnap.data();
+    if (almox?.ativo === true && (almox.qtd_gestores_ativos || 0) <= 1) {
+      throw new HttpsError("failed-precondition", "Almoxarifado deve conservar gestor ativo (RN-ROLE-05).");
+    }
+    // Remove somente este vínculo; NÃO remove o papel global nem outros vínculos.
+    tx.delete(vinculoRef);
+    tx.update(almoxRef, { qtd_gestores_ativos: admin.firestore.FieldValue.increment(-1) });
+    tx.set(db.collection("Registro_de_Auditoria").doc(), {
+      id_usuario: request.auth!.uid, acao: "DESVINCULAR_GESTOR_ALMOXARIFADO",
+      tipo_entidade_sofre_acao: "ALMOXARIFADO", id_do_objeto_da_entidade: dados.idAlmoxarifado,
+      acao_feita_em: admin.firestore.FieldValue.serverTimestamp(),
+      metadata: { uid_gestor: dados.uidGestor },
+    });
+    const resultado = { status: "OK", uidGestor: dados.uidGestor };
+    tx.set(operacaoRef, {
+      tipo_operacao: "DESVINCULAR_GESTOR_ALMOXARIFADO", uid: request.auth!.uid,
+      resultado, status: "CONCLUIDA",
+      criado_em: admin.firestore.FieldValue.serverTimestamp(),
+      atualizado_em: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return resultado;
+  });
 });
 \end{lstlisting}

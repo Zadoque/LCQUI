@@ -49,7 +49,7 @@ RF25 & O sistema deve manter dados históricos e de auditoria sem apagar fatos r
 \subsubsection{Status de um frasco de reagente}
 \begin{regra}
 Quando um frasco de reagente é cadastrado como em quarentena, deve ser obrigatório escrever o detalhe do status explicando o motivo dele estar em quarentena. Essa justificativa humana obrigatória deve possuir no mínimo 20 caracteres após trim; mensagens automáticas do servidor não são entradas humanas.
-Um frasco no estado de quarentena pode ser descartado ou voltar ao estado disponível (\texttt{FECHADO + DISPONIVEL} ou \texttt{ABERTO + DISPONIVEL}), conforme a máquina de estados da Seção~4.
+Um frasco em quarentena não pode ser descartado diretamente. A quarentena deve ser encerrada por decisão humana explícita: \texttt{VOLTAR\_A\_DISPONIVEL} ou \texttt{PENDENTE\_DE\_DESCARTE}. No segundo caso, a decisão gera autorização operacional estruturada, mantém o frasco \texttt{INDISPONIVEL} e somente então permite \texttt{descartarFrasco}, conforme a máquina de estados da Seção~4.
 \end{regra}
 \subsubsection{Seleção do tipo em Resumo de Reagente}
 \begin{regra}
@@ -189,7 +189,7 @@ Apenas o chefe geral consegue colocar um aluno como bolsista.
     \item Em cadastro, quando a validade efetiva já tiver expirado no instante da operação, o gestor é obrigado a escolher um desses três destinos: \texttt{QUARENTENA}, \texttt{PENDENTE\_DE\_DESCARTE} ou \texttt{DISPONIVEL} com uso vencido explicitamente autorizado conforme Q04.
     \item O frasco em quarentena não pode ser retirado; o frasco pendente de descarte não pode ser retirado; o frasco vencido com uso explicitamente autorizado pode ser retirado, mas a interface deve alertar transparentemente antes da confirmação do empréstimo.
     \item Se um frasco vencer enquanto estiver emprestado, o empréstimo continua válido. Na devolução, o servidor deve recalcular o vencimento com a hora atual e permitir ao gestor registrar o destino pós-validade.
-    \item A ação de descarte institucional (\texttt{descartarFrasco}) é permitida para: (1) frascos com estado físico \texttt{VAZIO}, (2) frascos \texttt{QUEBRADO}, e (3) frascos com \texttt{vencido = true} e \texttt{uso\_vencido\_autorizado = false} (situação de \textit{PENDENTE\_DE\_DESCARTE}), mesmo que ainda possuam conteúdo químico remanescente nos estados \texttt{ABERTO} ou \texttt{FECHADO}, formalizando a baixa do passivo químico perigoso. O sistema impõe que o frasco não esteja \texttt{disponibilidade = EMPRESTADO} no momento do descarte.
+    \item A ação de descarte institucional (\texttt{descartarFrasco}) exige \texttt{em\_quarentena = false} e \texttt{disponibilidade != EMPRESTADO}, e é permitida para: (1) frascos com estado físico \texttt{VAZIO}, (2) frascos \texttt{QUEBRADO}, (3) frascos com \texttt{vencido = true} e \texttt{uso\_vencido\_autorizado = false}, e (4) frascos com autorização técnica de descarte ativa. A autorização técnica da rota (4) é produzida exclusivamente pela decisão humana \texttt{PENDENTE\_DE\_DESCARTE} de saída de quarentena e nunca por texto livre em \texttt{detalhe\_status}. \texttt{INDISPONIVEL} isolado não habilita descarte. As rotas (1)--(3) admitem conteúdo químico remanescente nos estados \texttt{ABERTO} ou \texttt{FECHADO}, formalizando a baixa do passivo químico perigoso. A quarentena deve ser resolvida antes; se \texttt{em\_quarentena = true}, nenhuma rota se aplica diretamente.
 \end{itemize}
 \end{regra}
 

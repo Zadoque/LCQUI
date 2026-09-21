@@ -128,7 +128,19 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
       const ref = admin.firestore().collection("Resumo_Bem_Patrimonial")
         .doc(req.novo\_id\_resumo\_bem\_patrimonial);
       const snap = await tx.get(ref);
-      if (!snap.exists) throw new HttpsError("failed-precondition", "Resumo alvo inexistente.");
+      if (!snap.exists) {
+        // Rejeição sistêmica: o resumo alvo não existe. Finaliza a requisição
+        // como rejeitada e libera o lock na mesma transação (INVARIANTE DE LOCK),
+        // em vez de abortar por throw e deixar lock permanente irrecuperável.
+        tx.update(reqRef, {
+          status: "rejeitada",
+          respondida_em: admin.firestore.FieldValue.serverTimestamp(),
+          id_usuario_respondente: request.auth!.uid,
+          justificativa_resposta: "Resumo alvo inexistente ou excluído.",
+        });
+        tx.delete(lockRef);
+        return { status: "rejeitada", motivo: "RESUMO_ALVO_NAO_ENCONTRADO" };
+      }
       alvo = { ref, dados: snap.data()!, novo: false };
     } else if (req.novo\_nome) {
       alvo = await prepararResumoAlvoTx(tx, idResumoAlvo, req.novo\_nome);

@@ -1067,25 +1067,41 @@ export const descartarFrasco = onCall(async (request) => {
     const frasco = frascoSnap.data()!;
     await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, frasco.id_almoxarifado);
 
+    // HQ-M2-008/B: leitura da autorização técnica (projeção server-owned) antes
+    // das escritas. A quarentena exige decisão humana prévia de saída.
+    const authRef = admin.firestore().collection("Pendencias_Descarte_Frasco").doc(dados.idFrasco);
+    const authSnap = await tx.get(authRef);
+
+    if (frasco.em_quarentena === true) {
+      throw new HttpsError("failed-precondition", "Resolva a quarentena antes do descarte.");
+    }
     if (frasco.disponibilidade === "EMPRESTADO") {
       throw new HttpsError("failed-precondition", "Frasco com empr\'estimo ativo n\~ao pode ser descartado. Registre a devolu\c{c}\~ao ou encerramento extraordin\'ario primeiro.");
     }
 
-    // MET-05: Ampliar elegibilidade para vencidos com uso n\~ao autorizado
+    // MET-05 + HQ-M2-008/B: VAZIO, QUEBRADO, vencido sem uso autorizado, ou
+    // autorização técnica ativa. INDISPONIVEL isolado ou texto em detalhe_status
+    // nunca habilitam descarte.
+    const autorizadoPorLaudo = authSnap.exists && authSnap.data()?.origem === "QUARENTENA";
     const aptoParaDescarte = frasco.estado_fisico_frasco === "VAZIO" ||
       frasco.estado_fisico_frasco === "QUEBRADO" ||
-      (frasco.vencido === true && frasco.uso_vencido_autorizado === false);
+      (frasco.vencido === true && frasco.uso_vencido_autorizado === false) ||
+      autorizadoPorLaudo;
 
     if (!aptoParaDescarte) {
-      throw new HttpsError("failed-precondition", "Apenas frascos vazios, quebrados ou vencidos aguardando descarte podem ser descartados institucionalmente.");
+      throw new HttpsError("failed-precondition", "Apenas frascos vazios, quebrados ou vencidos aguardando descarte, ou com autorização técnica de descarte, podem ser descartados institucionalmente.");
     }
 
     tx.update(frascoRef, {
       estado_fisico_frasco: "DESCARTADO",
       disponibilidade: "INDISPONIVEL",
-      em_quarentena: false, // MET-05: descarte conclui e extingue a quarentena
+      em_quarentena: false, // a quarentena já foi resolvida; descarte não a ignora
       detalhe_status: "Frasco descartado institucionalmente: " + dados.motivo,
     });
+
+    // Consome a autorização técnica, se houver. O evento histórico
+    // PENDENTE_DE_DESCARTE permanece.
+    if (autorizadoPorLaudo) tx.delete(authRef);
 
     tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
       id_frasco_reagente: dados.idFrasco,
@@ -1093,6 +1109,7 @@ export const descartarFrasco = onCall(async (request) => {
       id_gestor: request.auth!.uid,
       tipo: "FOI_DESCARTADO",
       motivo: dados.motivo,
+      origem_autorizacao: autorizadoPorLaudo ? "QUARENTENA" : null,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -1254,6 +1271,30 @@ export const resolverQuarentenaFrasco = onCall(async (request) => {
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 
+    // HQ-M2-008/B: PENDENTE_DE_DESCARTE encerra a quarentena e cria uma
+    // autorização operacional estruturada de descarte técnico, com ID
+    // determinístico pelo frasco. NÃO descarta o frasco nesta função. A
+    // autorização é consumida por descartarFrasco.
+    if (!voltarDisponivel) {
+      tx.set(admin.firestore().collection("Pendencias_Descarte_Frasco").doc(dados.idFrasco), {
+        id_frasco: dados.idFrasco,
+        origem: "QUARENTENA",
+        id_operacao_decisao: dados.idOperacao,
+        id_gestor_decisao: request.auth!.uid,
+        motivo: dados.motivo,
+        criada_em: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+        id_frasco_reagente: dados.idFrasco,
+        id_almoxarifado: frasco.id_almoxarifado,
+        id_gestor: request.auth!.uid,
+        tipo: "PENDENTE_DE_DESCARTE",
+        origem: "QUARENTENA",
+        motivo: dados.motivo,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
     const resultado = { status: "OK", decisao: dados.decisao };
     tx.set(operacaoRef, {
       tipo_operacao: "RESOLVER_QUARENTENA",
@@ -1364,13 +1405,168 @@ Com esgotamento explicitamente confirmado, o frasco fica VAZIO/INDISPONIVEL, com
 A resolução grava evento AJUSTE vinculado ao empréstimo e à medição original, com nova medição ou decisão, autoria, instante, origem/tara aplicada e referência da resolução efetiva. O timestamp da resolução é próprio; a data FLOW de consumo permanece a da devolução física. O campo \texttt{peso\_retorno\_efetivo} aponta quantitativamente para a medição validada sem apagar \texttt{peso\_retorno}; \texttt{id\_resolucao\_metrologica} referencia o evento auditável. Nenhum relatório toma NULL como consumo confirmado zero.
 
 \begin{enumerate}
-\item \textbf{Repetir pesagem:} somente gestor do escopo, com operação idempotente, relê frasco e empréstimo; registra a nova leitura mesmo se ainda inconsistente. Quando válida, finaliza consumo com peso efetivo, unidade e densidade históricas. Não sobrescreve a leitura original. Se houver movimentação física posterior, a pesagem atual não prova o peso histórico: manter a pendência e usar somente contrato fechado que disponha de evidência suficiente; nunca replay.
-\item \textbf{Confirmar esgotamento após inspeção:} confirmação humana explícita e pesagem real do recipiente vazio aplicam o contrato de esgotamento. Não inferir vazio automaticamente da anomalia. Havendo tara real divergente, preservar a anterior até recalibração; disponibilidade continua INDISPONIVEL.
+\item \textbf{Repetir pesagem} (\nolinkurl{repetirPesagemDevolucaoAnomala}): somente gestor do escopo, com operação idempotente, relê frasco e empréstimo; registra a nova leitura mesmo se ainda inconsistente. Quando válida, finaliza consumo com peso efetivo, unidade e densidade históricas. Não sobrescreve a leitura original. Se houver movimentação física posterior, a pesagem atual não prova o peso histórico: manter a pendência e usar somente contrato fechado que disponha de evidência suficiente; nunca replay.
+\item \textbf{Confirmar esgotamento após inspeção} (\nolinkurl{confirmarEsgotamentoAposInspecao}): confirmação humana explícita e pesagem real do recipiente vazio aplicam o contrato de esgotamento. Não inferir vazio automaticamente da anomalia. Havendo tara real divergente, preservar a anterior até recalibração; disponibilidade continua INDISPONIVEL. Confirmar o vazio atualiza o estado corrente do recipiente, mas só valida o consumo histórico quando houver evidência suficiente do retorno efetivo.
 \item \textbf{Recalibrar tara real:} reutilizar o contrato existente, somente para recipiente vazio, com motivo humano de pelo menos 20 caracteres após trim. Registrar tara anterior/nova e vínculo com a pendência; não recalibrar com reagente dentro, nem fabricar evidência histórica a partir de tara nova.
 \item \textbf{Erro administrativo suportado:} usar a correção compensatória específica e preservar o fato original. Não existe API campo/valor, undo universal ou reconstrução de cadeia até o presente.
 \end{enumerate}
 
 Ao finalizar, a transação evita dupla contabilização, aplica somente a diferença entre consumo anteriormente validado e novo consumo validado (em g no acumulado), mantém o status histórico de devolução com anomalia e registra sua resolução. A liberação operacional segue \nolinkurl{resolverQuarentenaFrasco}, com justificativa humana própria e revalidação da aptidão; resolver consumo não libera automaticamente frasco vazio ou vencido. Reprocessar somente a data FLOW da devolução e outras datas diretamente alteradas por correção suportada. Invalidar cache somente se a resolução também modifica contribuição corrente do frasco.
+
+\begin{lstlisting}[language=TypeScript, title={Resolução metrológica tipada e helpers privados (HQ-M2-009/A)}]
+// Helper privado (NAO e callable): deteccao da pendencia quantitativa aberta.
+async function existePendenciaMetrologicaTx(tx, idFrasco) {
+  const pend = await tx.get(
+    admin.firestore().collection("Emprestimo_Reagente")
+      .where("id_frasco_reagente", "==", idFrasco)
+      .where("status", "==", "DEVOLVIDO_COM_ANOMALIA")
+      .where("consumo_validado", "==", false)
+      .limit(1)
+  );
+  return !pend.empty;
+}
+
+// Helper privado: houve intervencao fisica posterior a devolucao original?
+// Se nao houver evidencia suficiente, retorna true para preservar a pendencia;
+// nunca fabricar o peso historico.
+async function houveMovimentacaoFisicaPosteriorTx(tx, idFrasco) {
+  const eventos = await tx.get(
+    admin.firestore().collection("Historico_Frasco_Reagente")
+      .where("id_frasco_reagente", "==", idFrasco)
+      .where("tipo", "in", ["SAIU", "ENTROU", "EVAPORACAO", "INVENTARIO_ROTINA", "RECALIBRACAO_TARA"])
+      .limit(1)
+  );
+  return !eventos.empty;
+}
+
+// Helper privado: registra a observacao sem validar consumo (pendencia mantida).
+function registrarObservacaoSemValidarTx(tx, emprestimoRef, dados) {
+  tx.update(emprestimoRef, { peso_retorno_efetivo: null, consumo_validado: false });
+  tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+    id_frasco_reagente: emprestimoRef.id, tipo: "AJUSTE",
+    campo_ajustado: "observacao_sem_evidencia", peso_novo: dados.pesoNovaMedicao,
+    motivo: dados.motivo, timestamp: admin.firestore.FieldValue.serverTimestamp(),
+  });
+}
+
+// Helper privado: aplica invariantes comuns de fechamento quantitativo. Nao e
+// callable, nao escolhe tipo dinamicamente e nao aceita campo/valor arbitrario;
+// so e chamado depois que um endpoint tipado validou seu proprio contrato.
+function finalizarPendenciaMetrologicaTx(tx, emprestimoRef, emprestimo, dados) {
+  const historicoRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
+  tx.set(historicoRef, {
+    id_frasco_reagente: emprestimo.id_frasco_reagente,
+    id_almoxarifado: emprestimo.id_almoxarifado,
+    id_gestor: request.auth!.uid, id_emprestimo_reagente: emprestimoRef.id,
+    tipo: "AJUSTE", campo_ajustado: "medicao_devolucao_efetiva",
+    peso_anterior: emprestimo.peso_retorno, peso_novo: dados.pesoRetornoEfetivo,
+    motivo: dados.motivo, timestamp: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  tx.update(emprestimoRef, {
+    consumo_validado: true,
+    peso_retorno_efetivo: dados.pesoRetornoEfetivo,
+    medida_utilizada: dados.medidaUtilizada,
+    id_resolucao_metrologica: historicoRef.id,
+    // peso_retorno, anomalia_metrologica e status historico permanecem.
+  });
+  // Reprocessar somente a data FLOW da devolucao fisica; invalidar cache apenas
+  // se a resolucao alterar contribuicao corrente do frasco.
+}
+
+interface RepetirPesagemAnomala {
+  idEmprestimo: string; pesoNovaMedicao: number; motivo: string; idOperacao: string;
+}
+export const repetirPesagemDevolucaoAnomala = onCall(async (request) => {
+  const dados = request.data as RepetirPesagemAnomala;
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
+  if (!dados.idOperacao) throw new HttpsError("invalid-argument", "idOperacao e obrigatorio.");
+  return admin.firestore().runTransaction(async (tx) => {
+    // Idempotencia por Operacoes + payload_hash (padrao da secao).
+    const emprestimoRef = admin.firestore().collection("Emprestimo_Reagente").doc(dados.idEmprestimo);
+    const emprestimo = (await tx.get(emprestimoRef)).data();
+    if (!emprestimo) throw new HttpsError("not-found", "Emprestimo nao encontrado.");
+    await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, emprestimo.id_almoxarifado);
+    if (emprestimo.status !== "DEVOLVIDO_COM_ANOMALIA" || emprestimo.consumo_validado !== false)
+      throw new HttpsError("failed-precondition", "Emprestimo sem pendencia metrologica aberta.");
+    if (!Number.isFinite(dados.pesoNovaMedicao) || dados.pesoNovaMedicao <= 0)
+      throw new HttpsError("invalid-argument", "Nova medicao invalida.");
+    validarJustificativaHumana(dados.motivo);
+    if (await houveMovimentacaoFisicaPosteriorTx(tx, emprestimo.id_frasco_reagente)) {
+      registrarObservacaoSemValidarTx(tx, emprestimoRef, dados);
+      return { status: "PENDENTE_SEM_EVIDENCIA_SUFICIENTE" };
+    }
+    const efetiva = dados.pesoNovaMedicao;
+    const densidade = emprestimo.densidade_aplicada; // snapshot historico
+    const medidaUtilizada = densidade
+      ? Math.max(0, emprestimo.peso_saida - efetiva) / densidade
+      : Math.max(0, emprestimo.peso_saida - efetiva);
+    finalizarPendenciaMetrologicaTx(tx, emprestimoRef, emprestimo, {
+      pesoRetornoEfetivo: efetiva, medidaUtilizada, motivo: dados.motivo,
+    });
+    return { status: "OK" };
+  });
+});
+
+interface ConfirmarEsgotamentoInspecao {
+  idEmprestimo: string; pesoVazioRealMedido: number; motivo: string; idOperacao: string;
+}
+export const confirmarEsgotamentoAposInspecao = onCall(async (request) => {
+  const dados = request.data as ConfirmarEsgotamentoInspecao;
+  await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
+  if (!dados.idOperacao) throw new HttpsError("invalid-argument", "idOperacao e obrigatorio.");
+  return admin.firestore().runTransaction(async (tx) => {
+    const emprestimoRef = admin.firestore().collection("Emprestimo_Reagente").doc(dados.idEmprestimo);
+    const emprestimo = (await tx.get(emprestimoRef)).data();
+    if (!emprestimo) throw new HttpsError("not-found", "Emprestimo nao encontrado.");
+    await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, emprestimo.id_almoxarifado);
+    if (emprestimo.status !== "DEVOLVIDO_COM_ANOMALIA" || emprestimo.consumo_validado !== false)
+      throw new HttpsError("failed-precondition", "Emprestimo sem pendencia metrologica aberta.");
+    if (!Number.isFinite(dados.pesoVazioRealMedido) || dados.pesoVazioRealMedido <= 0)
+      throw new HttpsError("invalid-argument", "Peso vazio medido invalido.");
+    validarJustificativaHumana(dados.motivo);
+
+    const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(emprestimo.id_frasco_reagente);
+    const frasco = (await tx.get(frascoRef)).data()!;
+    const taraRealAnterior = frasco.origem_tara === "MEDIDA_REAL";
+    const divergente = taraRealAnterior && frasco.peso_frasco_vazio !== dados.pesoVazioRealMedido;
+
+    tx.update(frascoRef, {
+      estado_fisico_frasco: "VAZIO",
+      disponibilidade: "INDISPONIVEL",
+      saldo_desconhecido: false,
+      peso_atual: dados.pesoVazioRealMedido,
+      saldo_aferido_g: 0,
+      saldo_aferido_ml: frasco.saldo_aferido_ml === null ? null : 0,
+      ...(!taraRealAnterior
+        ? { peso_frasco_vazio: dados.pesoVazioRealMedido, origem_tara: "MEDIDA_REAL" }
+        : {}),
+    });
+    if (divergente) {
+      // Tara real anterior divergente NAO e sobrescrita; substituicao exige
+      // recalibrarTaraFrascoEsgotado.
+      tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+        id_frasco_reagente: emprestimo.id_frasco_reagente,
+        id_almoxarifado: emprestimo.id_almoxarifado, id_gestor: request.auth!.uid,
+        id_emprestimo_reagente: emprestimoRef.id, tipo: "AJUSTE",
+        campo_ajustado: "DISCREPANCIA_TARA_REAL",
+        peso_anterior: frasco.peso_frasco_vazio, peso_novo: dados.pesoVazioRealMedido,
+        motivo: dados.motivo, timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      tx.update(emprestimoRef, { anomalia_metrologica: "DISCREPANCIA_TARA_REAL" });
+    }
+    // Confirmar vazio so valida consumo com evidencia suficiente do retorno.
+    if (await houveMovimentacaoFisicaPosteriorTx(tx, emprestimo.id_frasco_reagente)) {
+      return { status: "VAZIO_REGISTRADO_PENDENCIA_MANTIDA" };
+    }
+    finalizarPendenciaMetrologicaTx(tx, emprestimoRef, emprestimo, {
+      pesoRetornoEfetivo: emprestimo.peso_retorno,
+      medidaUtilizada: emprestimo.medida_utilizada ?? 0, motivo: dados.motivo,
+    });
+    // NAO limpar quarentena automaticamente: o gestor usa resolverQuarentenaFrasco.
+    return { status: "OK" };
+  });
+});
+\end{lstlisting}
 
 \paragraph{Obrigações transversais dos pseudocódigos.}
 Os auxiliares de saldo e cache são contratos documentais, não implementação atestada. Toda operação desta seção que altera estado corrente deve derivar saldos no próprio frasco e invalidar as chaves afetadas conforme a Seção~\ref{sec:estoque-atual-cache}, na mesma transação; preparar todas as leituras de frasco, empréstimo, autorização e gerações antes das escritas. Isso inclui cadastro, abertura, retirada, devolução, esgotamento, extravio/reencontro, recalibração, descarte e quarentena. Não disparar recálculo no commit. Pesagem ordinária não resolve automaticamente pendência; usar os contratos explícitos acima. Correção histórica de retirante não altera peso/saldo/disponibilidade correntes nem invalida cache.
