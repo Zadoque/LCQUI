@@ -1,7 +1,7 @@
 package domain
 
 // Baseline M2: 9df335bc, Seção 4 (Frasco_Reagente) e Seção 5 (dicionário).
-// M2.1c: realinhado à documentação reconciliada M2.1b; 28 colunas.
+// M2.1d: realinhado à documentação pós-HQ-M2-004..007; 29 colunas.
 // DATE/TIMESTAMP são strings de intercâmbio/teste, não novos tipos SQL.
 // DATE: apenas formato YYYY-MM-DD; sem validação de calendário neste recorte.
 // TIMESTAMP: transporte textual sem impor formato/timezone não normatizado.
@@ -17,6 +17,7 @@ frascoCompletoCampos: [
 	#CampoFrasco & {nome: "peso_no_cadastrado", sql: "NUMERIC(10,3)"},
 	#CampoFrasco & {nome: "peso_atual", sql: "NUMERIC(10,3)"},
 	#CampoFrasco & {nome: "peso_frasco_vazio", sql: "NUMERIC(10,3)", nulo: true},
+	#CampoFrasco & {nome: "origem_tara", sql: "ENUM", nulo: true, valores: ["REFERENCIA_TEORICA", "MEDIDA_REAL"], observacao: "M2.1d: proveniência da tara. REFERENCIA_TEORICA é derivada (peso_total - conteudo_nominal) enquanto há produto; MEDIDA_REAL é pesagem física do recipiente vazio. null significa ausência de tara conhecida, não zero."},
 	#CampoFrasco & {nome: "medida_usada", sql: "NUMERIC(10,3)"},
 	#CampoFrasco & {nome: "data_abertura", sql: "DATE", nulo: true},
 	#CampoFrasco & {nome: "validade_fechado", sql: "DATE", nulo: true},
@@ -40,6 +41,8 @@ frascoCompletoCampos: [
 #FrascoCompleto: {
 	em_quarentena!:                   _
 	id_lote!:                         _
+	peso_frasco_vazio!:               _
+	origem_tara!:                     _
 	abertura_historica_desconhecida!: _
 	for c in frascoCompletoCampos {"\(c.nome)"!: c.#Valor}
 
@@ -53,4 +56,11 @@ frascoCompletoCampos: [
 
 	// Seções 4/5, auditoria M2.1a: motivo associado à quarentena.
 	if em_quarentena {detalhe_status!: !=null}
+
+	// M2.1d, Seção 4: tara e origem ausentes em conjunto (INV-M2.1d-TARA-001/002).
+	if peso_frasco_vazio == null {origem_tara!: null}
+	if origem_tara == null {peso_frasco_vazio!: null}
+
+	// M2.1d, HQ-M2-005: referência teórica só surge no fluxo de cadastro originalmente FECHADO (INV-M2.1d-TARA-003).
+	if origem_tara == "REFERENCIA_TEORICA" {condicao_inicial_cadastro!: "FECHADO"}
 }

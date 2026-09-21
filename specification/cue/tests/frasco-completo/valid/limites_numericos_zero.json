@@ -10,6 +10,7 @@
   "peso_no_cadastrado": -9999999.999,
   "peso_atual": 9999999.999,
   "peso_frasco_vazio": 0,
+  "origem_tara": "REFERENCIA_TEORICA",
   "medida_usada": 0.001,
   "data_abertura": null,
   "validade_fechado": null,

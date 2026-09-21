@@ -10,6 +10,7 @@
   "peso_no_cadastrado": 500,
   "peso_atual": null,
   "peso_frasco_vazio": null,
+  "origem_tara": null,
   "medida_usada": 0,
   "data_abertura": null,
   "validade_fechado": null,
