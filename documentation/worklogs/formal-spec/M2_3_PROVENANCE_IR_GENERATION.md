@@ -142,6 +142,22 @@ compilação não é prova de M2.3 e não se alega integração ao PDF.
 - `7b8a78e9` — `test(spec-doc): assert manifest provenance links and determinism`.
 - Commit documental desta unidade: `docs(spec): record M2.3 validation`.
 
+## Revalidação pós-reconciliação HQ-M2-008
+
+- CUE/IR: inalterados. `frascoCompletoCampos` = 29 colunas; `build/spec-ir.json`
+  byte a byte igual; `origem_tara` presente.
+- Alloy M2.2: alterado (`emQuarentena`, `descarteTecnicoAutorizado`,
+  `resolverQuarentenaParaDescarte`, novas assertions/witnesses).
+- `build/formal-validation-m2.json`: regenerado pelo gate (30 checks + 11 runs
+  de estado). `build/formal-validation.json` (M0): inalterado.
+- Validador Rust (`validation_m2.rs`): contrato atualizado para os novos IDs e
+  escopos exatos; testes de adulteração continuam passando.
+- `generated/invariants/frasco_reagente_m2.tex` e `MANIFEST.json` atualizados;
+  `generated/entities/frasco_reagente_m2.tex` e todos os fragmentos M0/M1
+  permanecem byte a byte idênticos.
+- Determinismo: duas gerações idênticas. Stale/tampering revalidados.
+- Estado final: M2.3 = VALIDATED.
+
 ## Próxima ação EXATA
 
 Planejar M2.4 (composição M0 e M2.2 e/ou integração LaTeX/PDF, conforme o

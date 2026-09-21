@@ -397,6 +397,40 @@ Auditoria de estado terminal:
   (`bottle_state.als` + `tools/formal/check.mjs` + `build/formal-validation-m2.json`).
 - Commit documental da auditoria: `docs(spec): record M2.2 terminal-state audit`.
 
+## Reconciliação pré-M2.4 — HQ-M2-008/B
+
+Estado: M2.2 reaberto e novamente VALIDATED.
+
+- Contradição: a Seção 7 dizia que quarentena podia ser descartada, mas a
+  elegibilidade de `descartarFrasco` não incluía quarentena; a decisão
+  `PENDENTE_DE_DESCARTE` não produzia estado reconhecível pelo descarte.
+- Decisão humana B: quarentena NÃO vai direto a descarte; exige decisão humana
+  `PENDENTE_DE_DESCARTE`, que gera autorização operacional estruturada
+  (projeção `Pendencias_Descarte_Frasco`), mantém o frasco INDISPONIVEL e só
+  então permite `descartarFrasco`. Nenhuma coluna nova: `Frasco_Reagente`
+  permanece com 29 colunas.
+- Modelo Alloy: adicionadas `emQuarentena` e `descarteTecnicoAutorizado` (esta
+  abstrai a projeção operacional, não é coluna), a transição
+  `resolverQuarentenaParaDescarte`, a elegibilidade reconciliada
+  (`aptoParaDescarte` exige `not emQuarentena` e inclui a autorização técnica),
+  o consumo da autorização em `descartar` e os frames/não-interferência.
+- Assertions novas: `QuarentenaNaoDescartaDireto`
+  (INV-M2-QUARENTENA-DESCARTE-001), `DescartadoNaoResolveQuarentena`
+  (INV-M2-DESCARTADO-QUARENTENA-001), `DescarteConsomeAutorizacao`
+  (FRAME-M2-DESCARTE-AUTORIZACAO-001), `PreservacaoQuarentenaOrtogonais`
+  (FRAME-M2-QUARENTENA-ORTOGONAL-001), `ResolucaoQuarentenaNaoInterfereOutros`
+  (FRAME-M2-RESOLUCAO-QUARENTENA-001).
+- Witnesses novas: `TestemunhaResolverQuarentena`
+  (WIT-M2-RESOLVER-QUARENTENA-001) e `TestemunhaQuarentenaAteDescarte`
+  (WIT-M2-QUARENTENA-DESCARTE-001, escopo `for 5 but exactly 3 Estado`), que
+  prova o caminho QUARENTENA -> PENDENTE -> DESCARTADO para ABERTO não vencido
+  (o cenário antes em deadlock).
+- `UsoVencidoNaoHabilitaDescarte` refinada para não bloquear a rota técnica.
+- Estado: 30 checks + 11 runs de estado (41 comandos); reexecução em scope 6 sem
+  contraexemplo. M0 (`withdrawal.als`) inalterado; a projeção mínima de
+  quarentena passou a residir em M2.2, sem declarar M0 ∧ M2.2 provados (dívida
+  de M2.4).
+
 ## Próxima ação EXATA
 
 Planejar M2.3 (proveniência/IR/geração) em tarefa separada, sem iniciá-lo

@@ -455,6 +455,14 @@ Nenhum `.tex`, backend, frontend, CUE, Alloy, Rust, IR, validation, generated ou
 PDF foi editado; nenhum milestone alterado; nenhuma HQ respondida. A auditoria
 não aplicou diffs nem corrigiu código.
 
+## Nota de reconciliação posterior
+
+As pendências desta auditoria foram posteriormente reconciliadas conforme
+[`PRE_M2_4_RECONCILIATION.md`](PRE_M2_4_RECONCILIATION.md): HQ-M2-008/B,
+HQ-M2-009/A e correções dos findings 4 e 5. Este relatório permanece como
+registro histórico do estado observado na auditoria; os findings não foram
+reescritos como se já estivessem corrigidos.
+
 ## HQs criadas
 - [HQ-M2-008](M2_HUMAN_QUESTIONS.md#hq-m2-008--descarte-de-frasco-em-quarentena)
   — descarte de frasco em quarentena.
