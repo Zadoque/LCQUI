@@ -50,7 +50,8 @@ function execAlloy(model, expected) {
     throw new Error(`Comandos Alloy divergentes em ${model}; evidência ${temp}`);
   const results=expected.map(e=>{
     const c=receipt.commands[e.name];
-    if(c.type!==e.type || c.overall!==4 || c.source!==e.scope)
+    // `overall` codifica o escopo `exactly N` (N+2), não o sucesso do comando.
+    if(c.type!==e.type || c.overall!==(e.overall??4) || c.source!==e.scope)
       throw new Error(`Tipo/scope inesperado em ${model}: ${e.name} (${c.source}); evidência ${temp}`);
     const sat=Array.isArray(c.solution)&&c.solution.length>0;
     if(sat!==(e.type==='run'))
@@ -103,6 +104,8 @@ function alloyCheck() {
       {id:'INV-M2-DESCARTADO-QUEBRA-001',name:'DescartadoNaoQuebra',type:'check',scope:`check DescartadoNaoQuebra ${estado}`},
       {id:'INV-M2-DESCARTADO-REDESCARTE-001',name:'DescartadoNaoDescartaNovamente',type:'check',scope:`check DescartadoNaoDescartaNovamente ${estado}`},
       {id:'INV-M2-DESCARTADO-ESGOTAMENTO-001',name:'DescartadoNaoEsgota',type:'check',scope:`check DescartadoNaoEsgota ${estado}`},
+      {id:'INV-M2-DESCARTADO-QUARENTENA-001',name:'DescartadoNaoResolveQuarentena',type:'check',scope:`check DescartadoNaoResolveQuarentena ${estado}`},
+      {id:'INV-M2-QUARENTENA-DESCARTE-001',name:'QuarentenaNaoDescartaDireto',type:'check',scope:`check QuarentenaNaoDescartaDireto ${estado}`},
       {id:'INV-M2-EXTRAVIO-001',name:'ExtravioIndisponivel',type:'check',scope:`check ExtravioIndisponivel ${estado}`},
       {id:'FRAME-M2-EXTRAVIO-SALDO-001',name:'ExtravioPreservaSaldo',type:'check',scope:`check ExtravioPreservaSaldo ${estado}`},
       {id:'FRAME-M2-EXTRAVIO-FLAG-001',name:'ExtravioPreservaFlag',type:'check',scope:`check ExtravioPreservaFlag ${estado}`},
@@ -115,12 +118,15 @@ function alloyCheck() {
       {id:'INV-M2-TERMINAL-DESCARTE-001',name:'DescarteSaldoConhecido',type:'check',scope:`check DescarteSaldoConhecido ${estado}`},
       {id:'INV-M2-DESCARTE-FISICO-001',name:'DescarteFisicoDescartado',type:'check',scope:`check DescarteFisicoDescartado ${estado}`},
       {id:'FRAME-M2-DESCARTE-VALIDADE-001',name:'DescartePreservaValidade',type:'check',scope:`check DescartePreservaValidade ${estado}`},
+      {id:'FRAME-M2-DESCARTE-AUTORIZACAO-001',name:'DescarteConsomeAutorizacao',type:'check',scope:`check DescarteConsomeAutorizacao ${estado}`},
       {id:'INV-M2-DESCARTE-EMPRESTIMO-001',name:'NaoDescarteEmprestado',type:'check',scope:`check NaoDescarteEmprestado ${estado}`},
       {id:'INV-M2-DESCARTE-USOVENCIDO-001',name:'UsoVencidoNaoHabilitaDescarte',type:'check',scope:`check UsoVencidoNaoHabilitaDescarte ${estado}`},
       {id:'INV-M2-TERMINAL-ESGOTAMENTO-IND-001',name:'EsgotamentoIndisponivel',type:'check',scope:`check EsgotamentoIndisponivel ${estado}`},
       {id:'INV-M2-TERMINAL-QUEBRA-001',name:'QuebraSaldoConhecido',type:'check',scope:`check QuebraSaldoConhecido ${estado}`},
       {id:'INV-M2-TERMINAL-ESGOTAMENTO-001',name:'EsgotamentoSaldoConhecido',type:'check',scope:`check EsgotamentoSaldoConhecido ${estado}`},
       {id:'FRAME-M2-ESGOTAMENTO-INTERF-001',name:'EsgotamentoNaoInterfereValidade',type:'check',scope:`check EsgotamentoNaoInterfereValidade ${estado}`},
+      {id:'FRAME-M2-QUARENTENA-ORTOGONAL-001',name:'PreservacaoQuarentenaOrtogonais',type:'check',scope:`check PreservacaoQuarentenaOrtogonais ${estado}`},
+      {id:'FRAME-M2-RESOLUCAO-QUARENTENA-001',name:'ResolucaoQuarentenaNaoInterfereOutros',type:'check',scope:`check ResolucaoQuarentenaNaoInterfereOutros ${estado}`},
       {id:'INV-M2-ABERTURA-001',name:'TransicoesPreservamFlag',type:'check',scope:`check TransicoesPreservamFlag ${estado}`},
       {id:'WIT-M2-EXTRAVIO-001',name:'TestemunhaExtravio',type:'run',scope:`run TestemunhaExtravio ${estado}`},
       {id:'WIT-M2-QUEBRA-001',name:'TestemunhaQuebra',type:'run',scope:`run TestemunhaQuebra ${estado}`},
@@ -131,6 +137,8 @@ function alloyCheck() {
       {id:'WIT-M2-DESCARTE-VENCIDO-FECHADO-001',name:'TestemunhaDescarteVencidoFechado',type:'run',scope:`run TestemunhaDescarteVencidoFechado ${estado}`},
       {id:'WIT-M2-ESGOTAMENTO-001',name:'TestemunhaEsgotamento',type:'run',scope:`run TestemunhaEsgotamento ${estado}`},
       {id:'WIT-M2-USOVENCIDO-001',name:'TestemunhaVencidoComUsoAutorizado',type:'run',scope:`run TestemunhaVencidoComUsoAutorizado ${estado}`},
+      {id:'WIT-M2-RESOLVER-QUARENTENA-001',name:'TestemunhaResolverQuarentena',type:'run',scope:`run TestemunhaResolverQuarentena ${estado}`},
+      {id:'WIT-M2-QUARENTENA-DESCARTE-001',name:'TestemunhaQuarentenaAteDescarte',type:'run',overall:5,scope:'run TestemunhaQuarentenaAteDescarte for 5 but exactly 3 Estado'},
     ]],
   ];
   let solverM2=null;

@@ -82,7 +82,7 @@
     },
     {
       "model": "specification/alloy/reagents/bottle_state.als",
-      "model_sha256": "0863ea5138a6f98173130df63ae3d86a1e1526f71b78acf7e3b2ed76b7b1b909",
+      "model_sha256": "e43c72f0c9b8244681d5bde8b2f9c8e784f0462c2bc2173d9d99f302aa57f6c7",
       "resultados": [
         {
           "id": "INV-M2-COERENCIA-001",
@@ -124,6 +124,20 @@
           "assertion": "DescartadoNaoEsgota",
           "tipo": "check",
           "scope": "check DescartadoNaoEsgota for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-DESCARTADO-QUARENTENA-001",
+          "assertion": "DescartadoNaoResolveQuarentena",
+          "tipo": "check",
+          "scope": "check DescartadoNaoResolveQuarentena for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-QUARENTENA-DESCARTE-001",
+          "assertion": "QuarentenaNaoDescartaDireto",
+          "tipo": "check",
+          "scope": "check QuarentenaNaoDescartaDireto for 4 but exactly 2 Estado",
           "status": "UNSAT"
         },
         {
@@ -211,6 +225,13 @@
           "status": "UNSAT"
         },
         {
+          "id": "FRAME-M2-DESCARTE-AUTORIZACAO-001",
+          "assertion": "DescarteConsomeAutorizacao",
+          "tipo": "check",
+          "scope": "check DescarteConsomeAutorizacao for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
           "id": "INV-M2-DESCARTE-EMPRESTIMO-001",
           "assertion": "NaoDescarteEmprestado",
           "tipo": "check",
@@ -250,6 +271,20 @@
           "assertion": "EsgotamentoNaoInterfereValidade",
           "tipo": "check",
           "scope": "check EsgotamentoNaoInterfereValidade for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "FRAME-M2-QUARENTENA-ORTOGONAL-001",
+          "assertion": "PreservacaoQuarentenaOrtogonais",
+          "tipo": "check",
+          "scope": "check PreservacaoQuarentenaOrtogonais for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "FRAME-M2-RESOLUCAO-QUARENTENA-001",
+          "assertion": "ResolucaoQuarentenaNaoInterfereOutros",
+          "tipo": "check",
+          "scope": "check ResolucaoQuarentenaNaoInterfereOutros for 4 but exactly 2 Estado",
           "status": "UNSAT"
         },
         {
@@ -320,6 +355,20 @@
           "assertion": "TestemunhaVencidoComUsoAutorizado",
           "tipo": "run",
           "scope": "run TestemunhaVencidoComUsoAutorizado for 4 but exactly 2 Estado",
+          "status": "SAT"
+        },
+        {
+          "id": "WIT-M2-RESOLVER-QUARENTENA-001",
+          "assertion": "TestemunhaResolverQuarentena",
+          "tipo": "run",
+          "scope": "run TestemunhaResolverQuarentena for 4 but exactly 2 Estado",
+          "status": "SAT"
+        },
+        {
+          "id": "WIT-M2-QUARENTENA-DESCARTE-001",
+          "assertion": "TestemunhaQuarentenaAteDescarte",
+          "tipo": "run",
+          "scope": "run TestemunhaQuarentenaAteDescarte for 5 but exactly 3 Estado",
           "status": "SAT"
         }
       ]

@@ -21,6 +21,8 @@
 \item[INV-M2-DESCARTADO-QUEBRA-001] DescartadoNaoQuebra: UNSAT.\newline Escopo: \texttt{check DescartadoNaoQuebra for 4 but exactly 2 Estado}.
 \item[INV-M2-DESCARTADO-REDESCARTE-001] DescartadoNaoDescartaNovamente: UNSAT.\newline Escopo: \texttt{check DescartadoNaoDescartaNovamente for 4 but exactly 2 Estado}.
 \item[INV-M2-DESCARTADO-ESGOTAMENTO-001] DescartadoNaoEsgota: UNSAT.\newline Escopo: \texttt{check DescartadoNaoEsgota for 4 but exactly 2 Estado}.
+\item[INV-M2-DESCARTADO-QUARENTENA-001] DescartadoNaoResolveQuarentena: UNSAT.\newline Escopo: \texttt{check DescartadoNaoResolveQuarentena for 4 but exactly 2 Estado}.
+\item[INV-M2-QUARENTENA-DESCARTE-001] QuarentenaNaoDescartaDireto: UNSAT.\newline Escopo: \texttt{check QuarentenaNaoDescartaDireto for 4 but exactly 2 Estado}.
 \item[INV-M2-EXTRAVIO-001] ExtravioIndisponivel: UNSAT.\newline Escopo: \texttt{check ExtravioIndisponivel for 4 but exactly 2 Estado}.
 \item[FRAME-M2-EXTRAVIO-SALDO-001] ExtravioPreservaSaldo: UNSAT.\newline Escopo: \texttt{check ExtravioPreservaSaldo for 4 but exactly 2 Estado}.
 \item[FRAME-M2-EXTRAVIO-FLAG-001] ExtravioPreservaFlag: UNSAT.\newline Escopo: \texttt{check ExtravioPreservaFlag for 4 but exactly 2 Estado}.
@@ -33,12 +35,15 @@
 \item[INV-M2-TERMINAL-DESCARTE-001] DescarteSaldoConhecido: UNSAT.\newline Escopo: \texttt{check DescarteSaldoConhecido for 4 but exactly 2 Estado}.
 \item[INV-M2-DESCARTE-FISICO-001] DescarteFisicoDescartado: UNSAT.\newline Escopo: \texttt{check DescarteFisicoDescartado for 4 but exactly 2 Estado}.
 \item[FRAME-M2-DESCARTE-VALIDADE-001] DescartePreservaValidade: UNSAT.\newline Escopo: \texttt{check DescartePreservaValidade for 4 but exactly 2 Estado}.
+\item[FRAME-M2-DESCARTE-AUTORIZACAO-001] DescarteConsomeAutorizacao: UNSAT.\newline Escopo: \texttt{check DescarteConsomeAutorizacao for 4 but exactly 2 Estado}.
 \item[INV-M2-DESCARTE-EMPRESTIMO-001] NaoDescarteEmprestado: UNSAT.\newline Escopo: \texttt{check NaoDescarteEmprestado for 4 but exactly 2 Estado}.
 \item[INV-M2-DESCARTE-USOVENCIDO-001] UsoVencidoNaoHabilitaDescarte: UNSAT.\newline Escopo: \texttt{check UsoVencidoNaoHabilitaDescarte for 4 but exactly 2 Estado}.
 \item[INV-M2-TERMINAL-ESGOTAMENTO-IND-001] EsgotamentoIndisponivel: UNSAT.\newline Escopo: \texttt{check EsgotamentoIndisponivel for 4 but exactly 2 Estado}.
 \item[INV-M2-TERMINAL-QUEBRA-001] QuebraSaldoConhecido: UNSAT.\newline Escopo: \texttt{check QuebraSaldoConhecido for 4 but exactly 2 Estado}.
 \item[INV-M2-TERMINAL-ESGOTAMENTO-001] EsgotamentoSaldoConhecido: UNSAT.\newline Escopo: \texttt{check EsgotamentoSaldoConhecido for 4 but exactly 2 Estado}.
 \item[FRAME-M2-ESGOTAMENTO-INTERF-001] EsgotamentoNaoInterfereValidade: UNSAT.\newline Escopo: \texttt{check EsgotamentoNaoInterfereValidade for 4 but exactly 2 Estado}.
+\item[FRAME-M2-QUARENTENA-ORTOGONAL-001] PreservacaoQuarentenaOrtogonais: UNSAT.\newline Escopo: \texttt{check PreservacaoQuarentenaOrtogonais for 4 but exactly 2 Estado}.
+\item[FRAME-M2-RESOLUCAO-QUARENTENA-001] ResolucaoQuarentenaNaoInterfereOutros: UNSAT.\newline Escopo: \texttt{check ResolucaoQuarentenaNaoInterfereOutros for 4 but exactly 2 Estado}.
 \item[INV-M2-ABERTURA-001] TransicoesPreservamFlag: UNSAT.\newline Escopo: \texttt{check TransicoesPreservamFlag for 4 but exactly 2 Estado}.
 \item[WIT-M2-EXTRAVIO-001] TestemunhaExtravio: SAT.\newline Escopo: \texttt{run TestemunhaExtravio for 4 but exactly 2 Estado}.
 \item[WIT-M2-QUEBRA-001] TestemunhaQuebra: SAT.\newline Escopo: \texttt{run TestemunhaQuebra for 4 but exactly 2 Estado}.
@@ -49,5 +54,7 @@
 \item[WIT-M2-DESCARTE-VENCIDO-FECHADO-001] TestemunhaDescarteVencidoFechado: SAT.\newline Escopo: \texttt{run TestemunhaDescarteVencidoFechado for 4 but exactly 2 Estado}.
 \item[WIT-M2-ESGOTAMENTO-001] TestemunhaEsgotamento: SAT.\newline Escopo: \texttt{run TestemunhaEsgotamento for 4 but exactly 2 Estado}.
 \item[WIT-M2-USOVENCIDO-001] TestemunhaVencidoComUsoAutorizado: SAT.\newline Escopo: \texttt{run TestemunhaVencidoComUsoAutorizado for 4 but exactly 2 Estado}.
+\item[WIT-M2-RESOLVER-QUARENTENA-001] TestemunhaResolverQuarentena: SAT.\newline Escopo: \texttt{run TestemunhaResolverQuarentena for 4 but exactly 2 Estado}.
+\item[WIT-M2-QUARENTENA-DESCARTE-001] TestemunhaQuarentenaAteDescarte: SAT.\newline Escopo: \texttt{run TestemunhaQuarentenaAteDescarte for 5 but exactly 3 Estado}.
 \end{description}
 UNSAT para check: nenhum contraexemplo no escopo declarado. SAT para run: testemunha encontrada no escopo declarado. Os módulos M0 e M2.2 foram verificados separadamente; esta geração não constitui prova da composição M0 e M2.2, que permanece para M2.4. Não certifica a implementação backend/Firebase.

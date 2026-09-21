@@ -1,21 +1,24 @@
 // M2.2b/M2.2c — coerência do estado corrente e transições documentadas.
 // Fontes normativas:
-// - Seção 4, Frasco_Reagente: explicações das linhas 399-414, em especial
-//   saldo_desconhecido (401) e abertura_historica_desconhecida (403).
+// - Seção 4, Frasco_Reagente: explicações das linhas 399-414 e máquina de estados.
 // - Seção 7, regras 184-205 (status/descarte) e 136-139 (esgotamento).
 // - Seção 8, 228/232 (retirada e marcação de vazio/quebrado).
-// - Seção 5, dicionário Frasco_Reagente (391-401).
-// - Seção 10.5: registrarExtravioOuReencontro (809-890), registrarDevolucao
-//   (610-681) e descartarFrasco/MET-05 (1043-1112).
-// - M0 (withdrawal.als): estados não utilizáveis e quarentena => INDISPONIVEL;
-//   essa dimensão não é duplicada aqui para não inventar frame de em_quarentena.
+// - Seção 5, dicionário Frasco_Reagente (391-401) e projeção operacional de
+//   pendência de descarte.
+// - Seção 10.5: extravio, devolução, descarte MET-05, resolução de quarentena.
+// - M0 (withdrawal.als): estados não utilizáveis e quarentena => INDISPONIVEL.
+//
+// HQ-M2-008/B: quarentena não vai direto a descarte. É preciso resolver
+// a quarentena com a decisão humana PENDENTE_DE_DESCARTE, que gera uma
+// autorização operacional estruturada (projeção Pendencias_Descarte_Frasco),
+// e só então descartar. `descarteTecnicoAutorizado` é a abstração dessa
+// projeção; NÃO é coluna de Frasco_Reagente (o CUE permanece com 29 colunas).
+// M2.1d não é reaberto; a projeção operacional não é entidade SQL/3FN.
+//
 // Escopo: fisico, disponibilidade, saldoDesconhecido, aberturaHistorica,
-// vencido e usoVencidoAutorizado. Frames auditados: extraviar/descartar
-// preservam vencido/usoVencido (pseudocódigo); quebrar os deixa não
-// especificados no frasco-alvo; confirmarEsgotamento delega vencido/usoVencido
-// à devolução, fora desta abstração. Em todos os casos, frascos não-alvo são
-// preservados (não-interferência). Não modela pesos, tara, validade calculada,
-// empréstimo, cache nem fluxo diário.
+// vencido, usoVencidoAutorizado, emQuarentena e descarteTecnicoAutorizado.
+// Não modela pesos, tara numérica, validade calculada, empréstimo, cache nem
+// fluxo diário. Não declara M0 e M2.2 compostos (dívida de M2.4).
 
 module reagents/bottle_state
 
@@ -32,41 +35,47 @@ sig Estado {
   saldoDesconhecido: set Frasco,
   aberturaHistorica: set Frasco,
   vencido: set Frasco,
-  usoVencidoAutorizado: set Frasco
+  usoVencidoAutorizado: set Frasco,
+  emQuarentena: set Frasco,
+  // Abstrai a projeção operacional server-owned Pendencias_Descarte_Frasco/{id}.
+  descarteTecnicoAutorizado: set Frasco
 }
 
-// Invariantes de estado documentadas (Seção 4, 401/403).
+// Invariantes de estado documentadas (Seção 4, 401/403; HQ-M2-008/B).
 pred coerente[s: Estado] {
   // VAZIO/QUEBRADO/DESCARTADO não mantêm desconhecimento.
   all f: Frasco |
     s.fisico[f] in VAZIO + QUEBRADO + DESCARTADO implies f not in s.saldoDesconhecido
   // Flag histórica nunca coexiste com FECHADO.
   all f: Frasco | f in s.aberturaHistorica implies s.fisico[f] != FECHADO
+  // Quarentena bloqueia operação (projeção mínima; M0 mantém sua própria).
+  all f: Frasco |
+    f in s.emQuarentena implies s.disponibilidade[f] = INDISPONIVEL
+  // Autorização técnica só existe após encerrar a quarentena para descarte.
+  all f: Frasco |
+    f in s.descarteTecnicoAutorizado implies
+      (f not in s.emQuarentena and s.disponibilidade[f] = INDISPONIVEL)
 }
 
-// Bloqueio terminal: DESCARTADO não inicia nenhuma transição M2.2
-// (Seção 4, 863; Seção 8, 232; Seção 9, 210). Não é regra geral de aptidão:
-// apenas a terminalidade de DESCARTADO. VAZIO, QUEBRADO e EXTRAVIADO não são
-// terminais.
+// Bloqueio terminal: DESCARTADO não inicia nenhuma transição M2.2.
 pred naoDescartado[s: Estado, f: Frasco] {
   s.fisico[f] != DESCARTADO
 }
 
-// Seção 7, 192 / Seção 10.5, 1075-1081 (MET-05): elegibilidade de descarte.
-// VAZIO ou QUEBRADO ou (vencido e sem uso vencido autorizado); nunca emprestado
-// e nunca já DESCARTADO.
+// Elegibilidade de descarte (Seção 7, 192; HQ-M2-008/B). A quarentena deve
+// ser resolvida antes; a quarta rota é a autorização técnica de descarte.
 pred aptoParaDescarte[s: Estado, f: Frasco] {
   naoDescartado[s, f]
+  f not in s.emQuarentena
   s.disponibilidade[f] != EMPRESTADO
   (
     s.fisico[f] in VAZIO + QUEBRADO
     or (f in s.vencido and f not in s.usoVencidoAutorizado)
+    or f in s.descarteTecnicoAutorizado
   )
 }
 
-// Frames de validade operacional persistida. PRESERVED: relação completa
-// inalterada. preservaValidadeExceto: relação dos frascos != f inalterada; o
-// pós-valor de f é deliberadamente não especificado pelo predicado isolado.
+// Frames de validade operacional persistida.
 pred preservaValidade[a, b: Estado] {
   b.vencido = a.vencido
   b.usoVencidoAutorizado = a.usoVencidoAutorizado
@@ -77,9 +86,14 @@ pred preservaValidadeExceto[a, b: Estado, f: Frasco] {
     (g in b.usoVencidoAutorizado iff g in a.usoVencidoAutorizado)
 }
 
-// Extravio: bloqueia (M0), preserva saldo e flag (Seção 4, 401/403), rejeita
-// extravio repetido (Seção 10.5, 846-847) e preserva vencido/usoVencido
-// (pseudocódigo 855-859 não os modifica; dimensões independentes).
+// Frames de quarentena e autorização técnica para operações ortogonais.
+pred preservaQuarentenaEAutorizacao[a, b: Estado] {
+  b.emQuarentena = a.emQuarentena
+  b.descarteTecnicoAutorizado = a.descarteTecnicoAutorizado
+}
+
+// Extravio: bloqueia (M0), preserva saldo/flag (Seção 4, 401/403), rejeita
+// extravio repetido (Seção 10.5, 846-847) e preserva quarentena/autorização.
 pred extraviar[a, b: Estado, f: Frasco] {
   coerente[a]
   naoDescartado[a, f]
@@ -89,12 +103,13 @@ pred extraviar[a, b: Estado, f: Frasco] {
   b.saldoDesconhecido = a.saldoDesconhecido
   b.aberturaHistorica = a.aberturaHistorica
   preservaValidade[a, b]
+  preservaQuarentenaEAutorizacao[a, b]
 }
 
 // Quebra: terminal, não mantém desconhecimento; flag preservada (Seção 4, 403).
 // Empréstimo ativo deve ser encerrado antes da transição incompatível (Seção 8,
-// 232). Não há operação documentada que fixe vencido/usoVencido no alvo; fica
-// não especificado, preservando os demais frascos.
+// 232). vencido/usoVencido não especificados no alvo; quarentena/autorização
+// preservadas.
 pred quebrar[a, b: Estado, f: Frasco] {
   coerente[a]
   naoDescartado[a, f]
@@ -104,11 +119,10 @@ pred quebrar[a, b: Estado, f: Frasco] {
   b.saldoDesconhecido = a.saldoDesconhecido - f
   b.aberturaHistorica = a.aberturaHistorica
   preservaValidadeExceto[a, b, f]
+  preservaQuarentenaEAutorizacao[a, b]
 }
 
-// Descarte institucional: VAZIO, QUEBRADO ou vencido sem uso autorizado;
-// nunca emprestado (Seção 7, 192; Seção 10.5, 1070-1081). Preserva
-// vencido/usoVencido como fatos persistidos (pseudocódigo 1083-1088).
+// Descarte institucional. Consome a autorização técnica do alvo, se houver.
 pred descartar[a, b: Estado, f: Frasco] {
   coerente[a]
   aptoParaDescarte[a, f]
@@ -117,13 +131,13 @@ pred descartar[a, b: Estado, f: Frasco] {
   b.saldoDesconhecido = a.saldoDesconhecido - f
   b.aberturaHistorica = a.aberturaHistorica
   preservaValidade[a, b]
+  b.emQuarentena = a.emQuarentena
+  b.descarteTecnicoAutorizado = a.descarteTecnicoAutorizado - f
 }
 
-// Esgotamento confirmado pelo gestor (Seção 7, 139; 4, 403 para a flag).
-// Modela apenas a projeção física/metrológica do efeito. vencido e
-// usoVencidoAutorizado do frasco-alvo são determinados pela devolução
-// (Seção 10.5, 660/668-679), fora desta abstração; frascos não-alvo são
-// preservados.
+// Esgotamento confirmado pelo gestor. vencido/usoVencido do alvo pertencem à
+// devolução (fora desta abstração); quarentena/autorização preservadas porque
+// resolver consumo NÃO libera quarentena (Seção 10.5).
 pred confirmarEsgotamento[a, b: Estado, f: Frasco] {
   coerente[a]
   naoDescartado[a, f]
@@ -132,11 +146,29 @@ pred confirmarEsgotamento[a, b: Estado, f: Frasco] {
   b.saldoDesconhecido = a.saldoDesconhecido - f
   b.aberturaHistorica = a.aberturaHistorica
   preservaValidadeExceto[a, b, f]
+  preservaQuarentenaEAutorizacao[a, b]
+}
+
+// HQ-M2-008/B: resolverQuarentenaFrasco(PENDENTE_DE_DESCARTE). Encerra a
+// quarentena do alvo, cria autorização técnica estruturada e mantém o frasco
+// INDISPONIVEL. Não descarta o frasco.
+pred resolverQuarentenaParaDescarte[a, b: Estado, f: Frasco] {
+  coerente[a]
+  f in a.emQuarentena
+  naoDescartado[a, f]
+  a.disponibilidade[f] != EMPRESTADO
+  b.emQuarentena = a.emQuarentena - f
+  b.descarteTecnicoAutorizado = a.descarteTecnicoAutorizado + f
+  b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
+  b.fisico = a.fisico
+  b.saldoDesconhecido = a.saldoDesconhecido
+  b.aberturaHistorica = a.aberturaHistorica
+  preservaValidade[a, b]
 }
 
 pred algumaTransicao[a, b: Estado, f: Frasco] {
   extraviar[a, b, f] or quebrar[a, b, f] or descartar[a, b, f] or
-  confirmarEsgotamento[a, b, f]
+  confirmarEsgotamento[a, b, f] or resolverQuarentenaParaDescarte[a, b, f]
 }
 
 // INV-M2-COERENCIA-001: toda transição documentada preserva a coerência.
@@ -144,9 +176,7 @@ assert TransicoesPreservamCoerencia {
   all a, b: Estado, f: Frasco | algumaTransicao[a, b, f] implies coerente[b]
 }
 
-// INV-M2-DESCARTADO-TERMINAL-001: DESCARTADO não inicia nenhuma transição M2.2
-// (Seção 4, 863; Seção 8, 232; Seção 9, 210). Cobre os quatro casos:
-// DESCARTADO -> EXTRAVIADO/QUEBRADO/VAZIO/DESCARTADO.
+// INV-M2-DESCARTADO-TERMINAL-001 e casos específicos.
 assert DescartadoEhTerminal {
   all a, b: Estado, f: Frasco |
     a.fisico[f] = DESCARTADO implies not algumaTransicao[a, b, f]
@@ -167,8 +197,18 @@ assert DescartadoNaoEsgota {
   all a, b: Estado, f: Frasco |
     a.fisico[f] = DESCARTADO implies not confirmarEsgotamento[a, b, f]
 }
+assert DescartadoNaoResolveQuarentena {
+  all a, b: Estado, f: Frasco |
+    a.fisico[f] = DESCARTADO implies not resolverQuarentenaParaDescarte[a, b, f]
+}
 
-// INV-M2-EXTRAVIO-001 e frames (saldo e flag histórica preservados).
+// INV-M2-QUARENTENA-001 (HQ-M2-008/B): quarentena não descarta direto.
+assert QuarentenaNaoDescartaDireto {
+  all a, b: Estado, f: Frasco |
+    f in a.emQuarentena implies not descartar[a, b, f]
+}
+
+// INV-M2-EXTRAVIO-001 e frames.
 assert ExtravioIndisponivel {
   all a, b: Estado, f: Frasco |
     extraviar[a, b, f] implies b.disponibilidade[f] = INDISPONIVEL
@@ -183,19 +223,17 @@ assert ExtravioPreservaFlag {
     extraviar[a, b, f] implies
       (f in b.aberturaHistorica iff f in a.aberturaHistorica)
 }
-// Invariante documentada: extravio repetido não é permitido (Seção 10.5, 846).
 assert ExtravioNaoRepetido {
   all a, b: Estado, f: Frasco |
     a.fisico[f] = EXTRAVIADO implies not extraviar[a, b, f]
 }
-// FRAME-M2-EXTRAVIO-VALIDADE-001: extravio preserva vencido/usoVencido.
 assert ExtravioPreservaValidade {
   all a, b: Estado, f: Frasco |
     extraviar[a, b, f] implies
       (b.vencido = a.vencido and b.usoVencidoAutorizado = a.usoVencidoAutorizado)
 }
 
-// INV-M2-TERMINAL-IND-001: terminais bloqueiam o frasco.
+// INV-M2-TERMINAL-IND-001.
 assert QuebraIndisponivel {
   all a, b: Estado, f: Frasco |
     quebrar[a, b, f] implies b.disponibilidade[f] = INDISPONIVEL
@@ -208,13 +246,12 @@ assert EsgotamentoIndisponivel {
   all a, b: Estado, f: Frasco |
     confirmarEsgotamento[a, b, f] implies b.disponibilidade[f] = INDISPONIVEL
 }
-// INV-M2-QUEBRA-EMPRESTIMO-001 (Seção 8, 232).
 assert QuebraNaoEmprestado {
   all a, b: Estado, f: Frasco |
     quebrar[a, b, f] implies a.disponibilidade[f] != EMPRESTADO
 }
 
-// INV-M2-TERMINAL-001: terminais não mantêm desconhecimento (Seção 4, 401).
+// INV-M2-TERMINAL-001.
 assert QuebraSaldoConhecido {
   all a, b: Estado, f: Frasco |
     quebrar[a, b, f] implies f not in b.saldoDesconhecido
@@ -231,17 +268,30 @@ assert DescarteFisicoDescartado {
   all a, b: Estado, f: Frasco |
     descartar[a, b, f] implies b.fisico[f] = DESCARTADO
 }
-
-// FRAME-M2-DESCARTE-VALIDADE-001: descarte preserva vencido/usoVencido.
 assert DescartePreservaValidade {
   all a, b: Estado, f: Frasco |
     descartar[a, b, f] implies
       (b.vencido = a.vencido and b.usoVencidoAutorizado = a.usoVencidoAutorizado)
 }
 
+// FRAME-M2-DESCARTE-AUTORIZACAO-001: descarte consome a autorização do alvo.
+assert DescarteConsomeAutorizacao {
+  all a, b: Estado, f: Frasco |
+    descartar[a, b, f] implies f not in b.descarteTecnicoAutorizado
+}
+
+// FRAME-M2-QUARENTENA-ORTOGONAL-001: operações ortogonais preservam quarentena
+// e autorização técnica.
+assert PreservacaoQuarentenaOrtogonais {
+  all a, b: Estado, f: Frasco |
+    (extraviar[a, b, f] or quebrar[a, b, f] or confirmarEsgotamento[a, b, f])
+    implies
+      (b.emQuarentena = a.emQuarentena and
+       b.descarteTecnicoAutorizado = a.descarteTecnicoAutorizado)
+}
+
 // FRAME-M2-QUEBRA-INTERF-001 / FRAME-M2-ESGOTAMENTO-INTERF-001: operações
-// locais não interferem em frascos != f, mesmo quando o pós-valor de f é
-// não especificado (quebra) ou pertence à devolução (esgotamento).
+// locais não interferem em frascos != f.
 assert QuebraNaoInterfereValidade {
   all a, b: Estado, disj f, g: Frasco |
     quebrar[a, b, f] implies
@@ -255,22 +305,30 @@ assert EsgotamentoNaoInterfereValidade {
        (g in b.usoVencidoAutorizado iff g in a.usoVencidoAutorizado))
 }
 
-// INV-M2-DESCARTE-EMPRESTIMO-001: frasco emprestado não é descartável
-// (Seção 7, 192; Seção 10.5, 1070).
+// FRAME-M2-RESOLUCAO-QUARENTENA-001: resolução altera quarentena/autorização
+// somente do alvo.
+assert ResolucaoQuarentenaNaoInterfereOutros {
+  all a, b: Estado, disj f, g: Frasco |
+    resolverQuarentenaParaDescarte[a, b, f] implies
+      ((g in b.emQuarentena iff g in a.emQuarentena) and
+       (g in b.descarteTecnicoAutorizado iff g in a.descarteTecnicoAutorizado))
+}
+
+// INV-M2-DESCARTE-EMPRESTIMO-001 e USOVENCIDO.
 assert NaoDescarteEmprestado {
   all a, b: Estado, f: Frasco |
     a.disponibilidade[f] = EMPRESTADO implies not descartar[a, b, f]
 }
-// INV-M2-DESCARTE-USOVENCIDO-001: uso vencido autorizado não habilita descarte
-// pela rota de vencimento; em ABERTO/FECHADO só a terceira rota existiria e ela
-// exige uso_vencido_autorizado = false (Seção 7, 192).
+// O uso vencido autorizado não cria elegibilidade pela rota de vencimento;
+// a rota técnica permanece independente e legítima (HQ-M2-008/B).
 assert UsoVencidoNaoHabilitaDescarte {
   all a, b: Estado, f: Frasco |
-    (a.fisico[f] in ABERTO + FECHADO and f in a.usoVencidoAutorizado)
+    (a.fisico[f] in ABERTO + FECHADO and f in a.usoVencidoAutorizado and
+     f not in a.descarteTecnicoAutorizado)
     implies not descartar[a, b, f]
 }
 
-// INV-M2-ABERTURA-001: as transições modeladas preservam a flag histórica.
+// INV-M2-ABERTURA-001.
 assert TransicoesPreservamFlag {
   all a, b: Estado, f: Frasco |
     algumaTransicao[a, b, f] implies
@@ -296,7 +354,6 @@ pred posDescarte[b: Estado, f: Frasco] {
   b.disponibilidade[f] = INDISPONIVEL
   f not in b.saldoDesconhecido
 }
-// Caminhos obrigatórios de descarte (Seção 7, 192; Seção 10.5, 1075-1081).
 pred TestemunhaDescarteVazio {
   some disj a, b: Estado, f: Frasco |
     descartar[a, b, f] and a.fisico[f] = VAZIO and posDescarte[b, f]
@@ -315,10 +372,21 @@ pred TestemunhaDescarteVencidoFechado {
     descartar[a, b, f] and a.fisico[f] = FECHADO and
     f in a.vencido and f not in a.usoVencidoAutorizado and posDescarte[b, f]
 }
-// Configuração operacional relevante: vencido com uso autorizado é habitável.
 pred TestemunhaVencidoComUsoAutorizado {
   some s: Estado, f: Frasco |
     coerente[s] and f in s.vencido and f in s.usoVencidoAutorizado
+}
+// HQ-M2-008/B: resolução de quarentena para pendente de descarte.
+pred TestemunhaResolverQuarentena {
+  some disj a, b: Estado, f: Frasco |
+    resolverQuarentenaParaDescarte[a, b, f] and f in b.descarteTecnicoAutorizado
+}
+// Caminho completo QUARENTENA -> PENDENTE -> DESCARTADO (ABERTO, não vencido).
+pred TestemunhaQuarentenaAteDescarte {
+  some disj a, b, c: Estado, f: Frasco |
+    resolverQuarentenaParaDescarte[a, b, f] and descartar[b, c, f] and
+    a.fisico[f] = ABERTO and f not in a.vencido and
+    f in a.emQuarentena and c.fisico[f] = DESCARTADO
 }
 
 check TransicoesPreservamCoerencia for 4 but exactly 2 Estado
@@ -327,6 +395,8 @@ check DescartadoNaoExtravia for 4 but exactly 2 Estado
 check DescartadoNaoQuebra for 4 but exactly 2 Estado
 check DescartadoNaoDescartaNovamente for 4 but exactly 2 Estado
 check DescartadoNaoEsgota for 4 but exactly 2 Estado
+check DescartadoNaoResolveQuarentena for 4 but exactly 2 Estado
+check QuarentenaNaoDescartaDireto for 4 but exactly 2 Estado
 check ExtravioIndisponivel for 4 but exactly 2 Estado
 check ExtravioPreservaSaldo for 4 but exactly 2 Estado
 check ExtravioPreservaFlag for 4 but exactly 2 Estado
@@ -339,12 +409,15 @@ check DescarteIndisponivel for 4 but exactly 2 Estado
 check DescarteSaldoConhecido for 4 but exactly 2 Estado
 check DescarteFisicoDescartado for 4 but exactly 2 Estado
 check DescartePreservaValidade for 4 but exactly 2 Estado
+check DescarteConsomeAutorizacao for 4 but exactly 2 Estado
 check NaoDescarteEmprestado for 4 but exactly 2 Estado
 check UsoVencidoNaoHabilitaDescarte for 4 but exactly 2 Estado
 check EsgotamentoIndisponivel for 4 but exactly 2 Estado
 check QuebraSaldoConhecido for 4 but exactly 2 Estado
 check EsgotamentoSaldoConhecido for 4 but exactly 2 Estado
 check EsgotamentoNaoInterfereValidade for 4 but exactly 2 Estado
+check PreservacaoQuarentenaOrtogonais for 4 but exactly 2 Estado
+check ResolucaoQuarentenaNaoInterfereOutros for 4 but exactly 2 Estado
 check TransicoesPreservamFlag for 4 but exactly 2 Estado
 run TestemunhaExtravio for 4 but exactly 2 Estado
 run TestemunhaQuebra for 4 but exactly 2 Estado
@@ -355,3 +428,5 @@ run TestemunhaDescarteVencidoAberto for 4 but exactly 2 Estado
 run TestemunhaDescarteVencidoFechado for 4 but exactly 2 Estado
 run TestemunhaEsgotamento for 4 but exactly 2 Estado
 run TestemunhaVencidoComUsoAutorizado for 4 but exactly 2 Estado
+run TestemunhaResolverQuarentena for 4 but exactly 2 Estado
+run TestemunhaQuarentenaAteDescarte for 5 but exactly 3 Estado
