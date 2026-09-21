@@ -2,6 +2,7 @@ mod ir;
 mod latex;
 mod render;
 mod validation;
+mod validation_m2;
 
 use std::{collections::BTreeMap, error::Error, fs, path::Path};
 use validation::hash;
@@ -10,12 +11,17 @@ type Fallible<T> = Result<T, Box<dyn Error>>;
 fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let raw = fs::read(root.join("build/spec-ir.json"))?;
     let results = fs::read(root.join("build/formal-validation.json"))?;
+    let results_m2 = fs::read(root.join("build/formal-validation-m2.json"))?;
     let ir = ir::parse(&raw)?;
     let v: validation::Validation = serde_json::from_slice(&results)?;
+    let v2: validation_m2::ValidationM2 = serde_json::from_slice(&results_m2)?;
+    let identity = fs::read(root.join("specification/alloy/reagents/bottle_identity.als"))?;
+    let state = fs::read(root.join("specification/alloy/reagents/bottle_state.als"))?;
     if !ir.valid()
         || !ir.provenance_ok()
         || v.model != "specification/alloy/reagents/withdrawal.als"
         || !v.check(&raw, &fs::read(root.join(&v.model))?)
+        || !v2.check(&raw, &identity, &state)
     {
         return Err("IR ou validação inválida/stale; execute alloy-check".into());
     }
@@ -28,6 +34,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
         "generator_version": env!("CARGO_PKG_VERSION"),
         "spec_ir_sha256": hash(&raw),
         "formal_validation_sha256": hash(&results),
+        "formal_validation_m2_sha256": hash(&results_m2),
         "files": entries,
     });
     files.insert(

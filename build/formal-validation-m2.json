@@ -1,7 +1,8 @@
 {
   "versao": 1,
   "alloy": "6.2.0",
-  "spec_ir_sha256": "b9fe6a539c7ec30c3aad2a950b2ff213bf876c7a13dd9454a6132c32512123a6",
+  "solver": "sat4j",
+  "spec_ir_sha256": "0934cc0aebd9f95a157f4762026a3e35f160f3ed3595c0fadd8c4a1ceefb513a",
   "modelos": [
     {
       "model": "specification/alloy/reagents/bottle_identity.als",

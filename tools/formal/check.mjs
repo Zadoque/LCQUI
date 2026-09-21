@@ -133,11 +133,14 @@ function alloyCheck() {
       {id:'WIT-M2-USOVENCIDO-001',name:'TestemunhaVencidoComUsoAutorizado',type:'run',scope:`run TestemunhaVencidoComUsoAutorizado ${estado}`},
     ]],
   ];
+  let solverM2=null;
   const modelos=m2.map(([file,expected])=>{
     const r=execAlloy(file,expected);
+    if(solverM2!==null && solverM2!==r.solver) throw new Error(`Solvers M2 divergentes: ${solverM2} vs ${r.solver}`);
+    solverM2=r.solver;
     return {model:file,model_sha256:hash(r.source),resultados:r.results};
   });
-  write('build/formal-validation-m2.json',JSON.stringify({versao:1,alloy:version,spec_ir_sha256:hash(ir),modelos},null,2)+'\n');
+  write('build/formal-validation-m2.json',JSON.stringify({versao:1,alloy:version,solver:solverM2,spec_ir_sha256:hash(ir),modelos},null,2)+'\n');
 }
 const cmd=process.argv[2];
 if(cmd==='spec-check') specCheck();
