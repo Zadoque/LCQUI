@@ -144,3 +144,16 @@ incluído em `alloy-check` (logo também `formal-check`).
 Stale demonstrado ANTES da primeira geração: `just docs-check` exit 1,
 `Generated stale: MANIFEST.json; execute docs-generate`. Alloy PASS nessa
 execução; a rejeição veio do gerador pela nova proveniência M2.4.
+
+Geração: docs-generate/docs-check PASS; comparação recursiva de duas gerações
+sem diferenças. Comparação com a HEAD de entrada: oito fragmentos antigos,
+IR v3, modelos e receipts standalone idênticos. Rust fmt/test (8)/clippy PASS.
+
+## Integração LaTeX/PDF em validação
+
+Formal-Spec-M2.tex criado; main.tex inclui M2 após M1. M0/M1 humanos intactos.
+Os fragmentos standalone preservam sua ressalva histórica; o texto humano
+explica que essa evidência não é composta e apresenta a nova composição depois.
+Primeiro build: exit 0, 295 páginas; um Overfull novo no caminho do manifest,
+corrigido na seção humana com quebra permitida, sem editar generated.
+28 Overfulls preexistentes permanecem fora de M2. Build/inspeção final pendentes.

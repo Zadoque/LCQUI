@@ -25,3 +25,13 @@ A proveniência é estruturada (`baseline_historico_m0_m1` e
 evidência M0, evidência M2.2 e saídas, sem timestamps. O wrapper Alloy seleciona
 somente a entidade frasco_reagente (M0) para verificar vocabulário; o modelo M2.2
 é validado em `validation_m2` a partir de `build/formal-validation-m2.json`.
+
+## M2.4
+
+`validation_m24` valida `build/formal-validation-m24.json`: versão, solver,
+IR, modelo composto, três origens e conjunto exato de resultados em scopes 4/6.
+`render_composed` gera `invariants/frasco_reagente_m2_composed.tex`; o manifest
+ganha `formal_validation_m24_sha256`. Fragmentos antigos não são reescritos.
+A ressalva histórica no fragmento M2.2 é contextualizada pela seção humana M2,
+seguida da nova evidência composta. O teste do manifest confere hashes reais
+das quatro entradas, todas as saídas e determinismo.

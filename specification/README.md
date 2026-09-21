@@ -16,8 +16,9 @@ M0 cobre somente três dimensões de Frasco_Reagente, filtro físico de retirada
 unicidade em uma transição atômica abstrata. Não certifica autorização completa,
 validade, Firestore ou concorrência real. M2.1d modela o Frasco completo no CUE;
 M2.2 modela identidade e coerência de estado em Alloy; M2.3 migra o Frasco
-completo e a evidência M2.2 para o IR/gerador. M2 não está integrado ao
-`main.tex`; a composição M0 e M2.2 permanece para M2.4. M3–M12 não migrados;
+completo e a evidência M2.2 para o IR/gerador. M2.4 acrescenta composição
+aditiva em um único universo e integração dos fragmentos ao `main.tex`.
+O estado dos gates de fechamento está no arquivo de continuidade. M3–M12 não migrados;
 ampliação M1 descrita abaixo.
 
 Na raiz, com CUE 0.17.1, Alloy 6.2.0, Node, Rust, just e TeX Live no PATH:
@@ -53,6 +54,23 @@ o schema. O gerador 0.2.0 mantém byte a byte os fragmentos M0/M1 e acrescenta:
 - `generated/entities/frasco_reagente_m2.tex` (registro relacional completo);
 - `generated/invariants/frasco_reagente_m2.tex` (evidência Alloy M2.2).
 
-Os fragmentos M2 ainda não são incluídos em `main.tex`. O `MANIFEST.json` vincula
-IR, evidência M0 e evidência M2.2. Os módulos M0 e M2.2 são verificados
-separadamente; a composição M0 e M2.2 permanece para M2.4.
+Os fragmentos M2 são incluídos em `Formal-Spec-M2.tex`, após M1 no `main.tex`.
+O `MANIFEST.json` vincula IR, evidência M0, M2.2 e M2.4. Os receipts standalone
+continuam separados e preservados.
+
+## Composição M2.4
+
+`bottle_composition.als` reúne identidade, estado M2 e empréstimos ativos M0
+no mesmo Frasco/EstadoIntegrado. `tools/formal/composition.mjs` confere os
+predicados de origem após renomes explícitos e fixa os comandos/scopes esperados.
+`alloy-check` executa scopes 4 e 6 e grava `build/formal-validation-m24.json`,
+incluindo hashes do modelo composto e das três origens. Rust `validation_m24`
+valida o contrato exato antes de gerar
+`generated/invariants/frasco_reagente_m2_composed.tex`. A nova chave do manifest
+é `formal_validation_m24_sha256`. IR v3/CUE de 29 campos permanecem inalterados.
+
+Retirada é o recorte M0 sem abertura; esgotamento é efeito abstrato, não toda a
+devolução. Extravio/esgotamento encerram apenas a custódia do alvo. Checks
+UNSAT não são provas universais nem certificam Firebase, RBAC, Q06, concorrência
+ou idempotência. M3 permanece separado. Ver o
+[worklog M2.4](../documentation/worklogs/formal-spec/M2_4_COMPOSITION_INTEGRATION.md).

@@ -9,11 +9,11 @@ relações e transições abstratas; IR/resultados transportam dados; Rust rende
 LaTeX mantém texto humano. M0 cobre três dimensões, não o contrato completo.
 O baseline 3B registra a validação histórica de M0/M1. Para M2, as fontes de
 entrada são as do commit `9df335bc977bfcf16668bca4baf5f9ed50c2da1a`, conforme
-reconciliação M2.0 no estado. O hash global IR/Rust ainda é histórico; sua
-migração deve ocorrer em checkpoint separado antes de exportar M2.
+reconciliação M2.0 no estado. O IR v3 distingue proveniência histórica M0/M1 e documental M2, migrada em M2.3.
 
 CUE → spec-ir.json (v3) e Alloy → formal-validation.json (M0) e
-formal-validation-m2.json (M2.2) → Rust → generated → main.tex.
+formal-validation-m2.json (M2.2) e formal-validation-m24.json (composição)
+→ Rust → generated → main.tex.
 O validador exporta CUE antes de Alloy e vincula hashes; não há geração de Alloy
 pelo Rust. Não presumir equivalência semântica automática entre linguagens.
 `just formal-check` é o gate local utilizável por CI em ambiente provisionado.
@@ -26,4 +26,10 @@ IDs string/docId e denormalizações; não são um segundo schema do catálogo n
 validação completa de Firestore. CUE valida o par local; Alloy permanece M0.
 IR v3 contém entidades[] (projeção M2 completa ao lado da fatia M0) com
 proveniência estruturada; Rust 0.2.0 mantém compatibilidade de leitura v1/v2.
-Fragmentos M2 são gerados, mas não integrados ao main.tex.
+Fragmentos M2 são integrados por Formal-Spec-M2.tex após M1.
+
+M2.4 usa estratégia B: bottle_composition.als é aditivo, com um único Frasco
+e EstadoIntegrado. O guard lexical compara vocabulário/predicados com as três
+origens, admitindo somente renomes explícitos. A evidência vincula seus hashes;
+validation_m24 exige resultados/scopes exatos. Coerência final é assertion,
+não fact. Modelos standalone e IR permanecem independentes e preservados.

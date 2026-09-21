@@ -1,0 +1,51 @@
+\clearpage
+\section{Camada formal M2: Frasco de Reagente e composição}
+\label{sec:formal-m2}
+M2 integra a projeção relacional completa de 29 colunas, a evidência
+standalone de identidade e estado de M2.2 e a composição M0 com M2.2.
+O CUE valida registros locais; o Alloy verifica relações e transições no
+escopo declarado; o Rust valida a proveniência antes de gerar os fragmentos.
+
+\input{generated/entities/frasco_reagente_m2.tex}
+
+\clearpage
+\subsection*{Evidência standalone preservada}
+O fragmento seguinte preserva os resultados e a ressalva histórica de M2.3:
+as verificações standalone, isoladamente, não demonstram composição.
+A dívida ali mencionada é tratada pela evidência M2.4 apresentada depois.
+\begingroup
+\small
+\raggedright
+\input{generated/invariants/frasco_reagente_m2.tex}
+\par
+\endgroup
+
+\clearpage
+\subsection*{Composição em um único universo}
+O modelo aditivo utiliza um único Frasco e relações compartilhadas de estado
+físico, disponibilidade e quarentena. A coerência integrada reúne os contratos
+M0 e M2.2 e a identidade química estrutural. Os predicados reproduzidos são
+comparados mecanicamente com suas origens, admitindo apenas renomes explícitos.
+
+A retirada abstrata conserva o físico e as dimensões M2: corresponde ao
+recorte sem primeira abertura, mantendo o filtro necessário do M0.
+Extravio e esgotamento encerram a relação ativa somente do frasco-alvo;
+quebra, descarte e decisão de quarentena não encerram empréstimos automaticamente.
+A identidade permanece estática. A coerência final é verificada, não assumida.
+
+\begingroup
+\small
+\raggedright
+\input{generated/invariants/frasco_reagente_m2_composed.tex}
+\par
+\endgroup
+
+\subsection*{Limites e proveniência}
+As evidências M0, M2.2 e M2.4 continuam separadas e vinculadas ao IR.
+Os vínculos constam de \texttt{generated/}\allowbreak\texttt{MANIFEST.json}.
+M2.4 inclui os hashes dos modelos de origem.
+A coexistência e as transições verificadas não certificam implementação
+de backend, ciclo completo de empréstimo, metrologia, autorização,
+idempotência ou concorrência operacional. Esses contratos seguem nos
+milestones futuros; M3 não é iniciado por esta integração documental.
+\par
