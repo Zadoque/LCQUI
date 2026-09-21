@@ -48,7 +48,6 @@ export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
   let totalMassaUsada = 0;
   let totalVolumeEvaporado = 0;
   let totalMassaEvaporada = 0;
-  let maxFrascosSaldoDesconhecido = 0;
 
   resumosDiariosSnap.docs.forEach(doc => {
     const d = doc.data();
@@ -56,22 +55,22 @@ export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
     totalMassaUsada += d.massa_utilizada_no_dia_g || 0;
     totalVolumeEvaporado += d.volume_evaporado_no_dia_ml || 0;
     totalMassaEvaporada += d.massa_evaporada_no_dia_g || 0;
-    maxFrascosSaldoDesconhecido = Math.max(maxFrascosSaldoDesconhecido, d.qtd_frascos_saldo_desconhecido || 0);
   });
 
   // Se o período filtrado abrange o dia corrente (D-0), soma em tempo real (sem risco de duplicar)
   if (dataFimISO >= hojeISO) {
     const inicioHoje = DateTime.now().setZone("America/Sao_Paulo").startOf("day").toJSDate();
-    const fimHoje = DateTime.now().setZone("America/Sao_Paulo").endOf("day").toJSDate();
+    const fimHoje = DateTime.now().setZone("America/Sao_Paulo").startOf("day").plus({ days: 1 }).toJSDate();
 
     const devolucoesHojeSnap = await admin.firestore().collection("Emprestimo_Reagente")
       .where("id_almoxarifado", "==", idAlmoxarifado)
       .where("data_devolucao_efetuada", ">=", inicioHoje)
-      .where("data_devolucao_efetuada", "<=", fimHoje)
+      .where("data_devolucao_efetuada", "<", fimHoje)
       .get();
 
     devolucoesHojeSnap.docs.forEach(doc => {
       const d = doc.data();
+      if (d.consumo_validado !== true) return; // pendencia nao e consumo zero
       if (d.unidade_medida_utilizada === "ml") {
         totalVolumeUsado += d.medida_utilizada || 0;
         const dens = d.densidade_aplicada;
