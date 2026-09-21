@@ -218,3 +218,169 @@ Decisão humana:
   pesagem são operações distintas e conservam seus contratos de justificativa.
 
 Fontes reconciliadas: Seções 7, 8, S10/S5 e S10/S11.
+
+## HQ-M2-008 — Descarte de frasco em quarentena
+
+Status: OPEN
+
+Descoberta durante:
+Auditoria independente pré-M2.4
+
+Impacto primário: M2 (Alloy `aptoParaDescarte`) / M5 (quarentena/descarte).
+
+Contexto:
+A Seção 7 afirma que um frasco em quarentena pode ser descartado ou voltar ao
+disponível (Seção 7, ~linha 52), mas a regra fechada de `descartarFrasco` aceita
+apenas VAZIO, QUEBRADO ou (vencido e sem uso autorizado), sempre com
+`disponibilidade != EMPRESTADO` (Seção 7, ~linha 192). A decisão de quarentena
+`PENDENTE_DE_DESCARTE` em `resolverQuarentenaFrasco` apenas grava
+`em_quarentena = false`, `disponibilidade = INDISPONIVEL` e `detalhe_status`
+textual; não produz estado que `descartarFrasco` reconheça. Além disso,
+`PENDENTE_DE_DESCARTE` também é derivado de `VENCIDO + uso_vencido_autorizado =
+false` (Seção 4, tabela da máquina de estados) e existe como tipo de evento
+(`Historico_Frasco_Reagente.tipo`), não como campo persistido.
+
+Fontes:
+- Section-7-Requisitos-e-Regras-de-Negocio.tex (linha ~52; linha ~192).
+- Section-4-Modelagem-Entidades-SQL-3FN.tex (máquina de estados ~855-863;
+  enum de histórico ~423-430).
+- Section-8-Descricao-das-telas-Dashboards.tex (UI-07, ~232/285).
+- Section-9-Exemplos-de-fluxos.tex (ALM-06, ~210).
+- Section-10-.../Section-10-Subsection-5-Fluxo-de-Reagentes.tex
+  (`resolverQuarentenaFrasco` ~1196-1269; `descartarFrasco` ~1043-1112).
+- specification/alloy/reagents/bottle_state.als (`aptoParaDescarte`, M2.2).
+
+Estado/cenário:
+```text
+estado_fisico_frasco = ABERTO
+vencido = false
+em_quarentena = true
+disponibilidade = INDISPONIVEL
+motivo = contaminação confirmada
+gestor decide DESCARTAR
+```
+Não existe caminho documental que chegue a `DESCARTADO` nesse cenário, embora a
+Seção 7 diga que quarentena pode ser descartada.
+
+Alternativa A:
+`em_quarentena = true` passa a habilitar descarte diretamente.
+
+Alternativa B:
+Quarentena exige a decisão humana `PENDENTE_DE_DESCARTE`, e só então o descarte
+é permitido (a decisão precisa ser um estado persistido que `descartar` aceite).
+
+Alternativa C:
+Introduzir um estado/campo estruturado explícito `PENDENTE_DE_DESCARTE`,
+independente de `vencido`, `em_quarentena` e `detalhe_status` textual.
+
+Consequências:
+- A e B poderiam ser modeladas com `em_quarentena` (já presente nas 29 colunas),
+  mas exigem alterar `aptoParaDescarte` e a assinatura de estado do Alloy M2.2,
+  reabrindo M2.2 e revalidando M2.3.
+- C exige nova coluna persistida em `Frasco_Reagente` (29 → 30), reabrindo
+  M2.1d, depois M2.2 e M2.3.
+- Qualquer alternativa altera a semântica de descarte já validada em M2.2.
+
+Impacto formal:
+- CUE: SIM em C (nova coluna); NÃO em A/B (`em_quarentena` já existe).
+- Alloy: SIM em A/B/C (`aptoParaDescarte` e/ou assinatura de `Estado`).
+- IR/M2.3: SIM (ficaria stale após a correção).
+- milestone futuro: M5; e M2.1d/M2.2/M2.3 se a opção formal mudar.
+
+Parte bloqueada:
+Modelagem formal de descarte em quarentena (M5) e a reconciliação de M2.
+
+Nenhuma alternativa foi adotada.
+
+## HQ-M2-009 — Encerramento da pendência metrológica e resolução pós-devolução anômala
+
+Status: OPEN
+
+Descoberta durante:
+Auditoria independente pré-M2.4
+
+Impacto primário: M6 (Q06/tara) / M4 (retirada/devolução).
+
+Contexto:
+`registrarDevolucao` cria pendência em anomalia: `status =
+DEVOLVIDO_COM_ANOMALIA`, `consumo_validado = false`, `anomalia_metrologica`,
+`peso_retorno_efetivo = null`, `id_resolucao_metrologica = null`, frasco em
+quarentena/INDISPONIVEL. `resolverQuarentenaFrasco` bloqueia
+`VOLTAR_A_DISPONIVEL` enquanto `existePendenciaMetrologicaTx` for verdadeiro.
+A narrativa da Seção 10 descreve quatro caminhos de resolução (repetir pesagem;
+confirmar esgotamento após inspeção; recalibrar tara real; erro administrativo
+suportado) e afirma que a resolução grava evento AJUSTE e referencia
+`id_resolucao_metrologica`, sem apagar `peso_retorno`. Porém:
+- nenhum pseudocódigo define `existePendenciaMetrologicaTx` nem sua condição;
+- nenhuma operação define `consumo_validado = true` ou
+  `id_resolucao_metrologica` não nulo;
+- `recalibrarTaraFrascoEsgotado` exige `estado_fisico_frasco = VAZIO` e não
+  encerra `consumo_validado`;
+- `registrarPesagemRotina` declara explicitamente que não resolve pendência
+  automaticamente;
+- `corrigirOperacao` cobre apenas retirante.
+
+Consequência: a pendência pode nunca ser encerrada por contrato executável, e a
+resolução de quarentena por `VOLTAR_A_DISPONIVEL` permanece permanentemente
+bloqueada; a rota `PENDENTE_DE_DESCARTE` recai em HQ-M2-008.
+
+Fontes:
+- Section-10-.../Section-10-Subsection-5-Fluxo-de-Reagentes.tex
+  (`registrarDevolucao` ~557-770; `recalibrarTaraFrascoEsgotado` ~966-1035;
+  `resolverQuarentenaFrasco` ~1196-1269; `corrigirOperacao` ~1281-1352;
+  contrato de resolução ~1354-1373).
+- Section-10-.../Section-10-Subsection-11-Funcoes-Academicas-e-Pesagem.tex
+  (`registrarPesagemRotina` ~68-97).
+- Section-4-Modelagem-Entidades-SQL-3FN.tex (Emprestimo_Reagente,
+  `consumo_validado`/`id_resolucao_metrologica`, ~455-470).
+- Section-5-Notas-de-Mapeamento-para-Firestore.tex (parágrafo "Extensões ...
+  decisões M2 consolidadas").
+- Section-7-Requisitos-e-Regras-de-Negocio.tex (~150).
+- functions/src/reagentes.ts (implementação legada; sem os campos).
+
+Estado/cenário:
+```text
+E0: empréstimo EM_USO
+E1: devolução com anomalia -> DEVOLVIDO_COM_ANOMALIA, consumo_validado=false,
+    id_resolucao_metrologica=null, frasco em quarentena/INDISPONIVEL
+E2: inspeção posterior constata recipiente vazio
+E3: tentativa de resolver quarentena -> bloqueada por pendência metrológica
+```
+Não existe contrato de pseudocódigo que leve de E2 a "pendência encerrada".
+
+Alternativa A:
+Endpoints tipados separados para cada caminho fechado (repetir pesagem;
+confirmar esgotamento após inspeção; recalibrar tara; corrigir operação), cada um
+encerrando a pendência conforme seu contrato.
+
+Alternativa B:
+Um único resolvedor metrológico fechado (dispatcher tipado) que despacha para os
+caminhos enumerados, sem aceitar campo/valor arbitrário nem undo universal.
+
+Alternativa C:
+Ampliar uma operação existente (p.ex. `registrarPesagemRotina` ou
+`recalibrarTaraFrascoEsgotado`) para também encerrar a pendência.
+
+Consequências:
+- A é mais explícita e preserva a lista fechada; cria mais endpoints e caminhos
+  de idempotência.
+- B concentra a lógica, mas exige cuidado para não virar "correção genérica"
+  proibida (nada de campo+valor ou ação arbitrária).
+- C contraria a decisão atual de que pesagem de rotina não resolve pendência e
+  que a recalibração exige recipiente VAZIO; pode misturar contratos distintos.
+- Todas exigem definir idempotência, TOCTOU, autoria, evento histórico, FLOW
+  (reprocessar somente a data da devolução) e invalidação de cache apenas se
+  houver efeito corrente.
+
+Impacto formal:
+- CUE: NÃO (não é campo de Frasco_Reagente; campos de metrologia pertencem a
+  Emprestimo_Reagente).
+- Alloy M2.2: NÃO (fora do recorte de Frasco_Reagente).
+- IR/M2.3: NÃO diretamente.
+- milestone futuro: M4/M6 (e dependência com M5 para saída de quarentena).
+
+Parte bloqueada:
+Fluxo de resolução de devolução anômala e encerramento da pendência
+metrológica; saída de quarentena por `VOLTAR_A_DISPONIVEL`.
+
+Nenhuma alternativa foi adotada.
