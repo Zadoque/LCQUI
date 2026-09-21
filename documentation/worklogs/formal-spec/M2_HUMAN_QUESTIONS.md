@@ -221,7 +221,7 @@ Fontes reconciliadas: Seções 7, 8, S10/S5 e S10/S11.
 
 ## HQ-M2-008 — Descarte de frasco em quarentena
 
-Status: OPEN
+Status: RESOLVED (Alternativa B homologada)
 
 Descoberta durante:
 Auditoria independente pré-M2.4
@@ -290,11 +290,33 @@ Impacto formal:
 Parte bloqueada:
 Modelagem formal de descarte em quarentena (M5) e a reconciliação de M2.
 
-Nenhuma alternativa foi adotada.
+Decisão humana (homologada): Alternativa B.
+
+Semântica normativa:
+Um frasco em quarentena NÃO pode ser descartado diretamente. O gestor deve
+primeiro encerrar formalmente a quarentena com a decisão humana
+`PENDENTE_DE_DESCARTE`, com laudo/justificativa humana obrigatória. Somente após
+essa decisão estruturada o descarte institucional pode ocorrer.
+
+```text
+QUARENTENA --decisão humana PENDENTE_DE_DESCARTE--> autorização operacional
+           --descartarFrasco--> DESCARTADO
+```
+
+Não existe `QUARENTENA --> DESCARTADO` direto.
+
+Consequências:
+- nenhuma nova coluna em `Frasco_Reagente`; M2.1d permanece com 29 colunas;
+- a decisão `PENDENTE_DE_DESCARTE` ganha representação operacional estruturada
+  server-owned (projeção auxiliar, não coluna SQL/3FN nem histórico);
+- Alloy M2.2 precisa ser reconciliado (`emQuarentena` + autorização técnica);
+- M2.3 precisará ser revalidado.
+
+As alternativas A e C permanecem registradas acima como histórico.
 
 ## HQ-M2-009 — Encerramento da pendência metrológica e resolução pós-devolução anômala
 
-Status: OPEN
+Status: RESOLVED (Alternativa A homologada)
 
 Descoberta durante:
 Auditoria independente pré-M2.4
@@ -383,4 +405,24 @@ Parte bloqueada:
 Fluxo de resolução de devolução anômala e encerramento da pendência
 metrológica; saída de quarentena por `VOLTAR_A_DISPONIVEL`.
 
-Nenhuma alternativa foi adotada.
+Decisão humana (homologada): Alternativa A.
+
+Semântica normativa:
+As formas de resolução da devolução anômala permanecem um conjunto FECHADO de
+contratos tipados. Não existe `resolverPendenciaMetrologica` público nem
+dispatcher genérico; cada resolução possui contrato próprio.
+
+Caminhos preservados:
+1. repetir pesagem;
+2. confirmar esgotamento após inspeção;
+3. recalibrar tara real, quando aplicável;
+4. correção administrativa já explicitamente suportada.
+
+Regras preservadas:
+- não existe resolvedor público genérico;
+- resoluções permanecem tipadas;
+- pesagem ordinária não resolve pendência automaticamente;
+- recalibração não fabrica evidência histórica;
+- correção administrativa permanece conjunto fechado.
+
+As alternativas B e C permanecem registradas acima como histórico.
