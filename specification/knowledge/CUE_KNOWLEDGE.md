@@ -24,5 +24,5 @@ conta codepoints Unicode. #DensidadeCatalogo usa escala 0.0001 via
 [math.MultipleOf](https://pkg.go.dev/cuelang.org/go/pkg/math#MultipleOf), com
 limites NUMERIC(8,4). null continua distinto de zero.
 
-IR v2 usa entidades[]; exemplos são unificados aos schemas normativos. O par
+IR v3 usa entidades[]; exemplos são unificados aos schemas normativos. O par
 exemplo também valida FK e densidade condicional. Não duplicar schemas em docs/.
