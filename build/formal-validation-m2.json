@@ -81,7 +81,7 @@
     },
     {
       "model": "specification/alloy/reagents/bottle_state.als",
-      "model_sha256": "0ae47a6cf34a2e2d6b6aa41fef3da68d0e7dde377b78cc22de3721140fb41099",
+      "model_sha256": "4cc26e044a00c714901579b772d3a15a8909c9d6b37f8cc76a59cee3bdd1a90d",
       "resultados": [
         {
           "id": "INV-M2-COERENCIA-001",
@@ -119,6 +119,13 @@
           "status": "UNSAT"
         },
         {
+          "id": "FRAME-M2-EXTRAVIO-VALIDADE-001",
+          "assertion": "ExtravioPreservaValidade",
+          "tipo": "check",
+          "scope": "check ExtravioPreservaValidade for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
           "id": "INV-M2-TERMINAL-QUEBRA-IND-001",
           "assertion": "QuebraIndisponivel",
           "tipo": "check",
@@ -130,6 +137,13 @@
           "assertion": "QuebraNaoEmprestado",
           "tipo": "check",
           "scope": "check QuebraNaoEmprestado for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "FRAME-M2-QUEBRA-INTERF-001",
+          "assertion": "QuebraNaoInterfereValidade",
+          "tipo": "check",
+          "scope": "check QuebraNaoInterfereValidade for 4 but exactly 2 Estado",
           "status": "UNSAT"
         },
         {
@@ -151,6 +165,13 @@
           "assertion": "DescarteFisicoDescartado",
           "tipo": "check",
           "scope": "check DescarteFisicoDescartado for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "FRAME-M2-DESCARTE-VALIDADE-001",
+          "assertion": "DescartePreservaValidade",
+          "tipo": "check",
+          "scope": "check DescartePreservaValidade for 4 but exactly 2 Estado",
           "status": "UNSAT"
         },
         {
@@ -186,6 +207,13 @@
           "assertion": "EsgotamentoSaldoConhecido",
           "tipo": "check",
           "scope": "check EsgotamentoSaldoConhecido for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "FRAME-M2-ESGOTAMENTO-INTERF-001",
+          "assertion": "EsgotamentoNaoInterfereValidade",
+          "tipo": "check",
+          "scope": "check EsgotamentoNaoInterfereValidade for 4 but exactly 2 Estado",
           "status": "UNSAT"
         },
         {
@@ -253,9 +281,9 @@
         },
         {
           "id": "WIT-M2-USOVENCIDO-001",
-          "assertion": "UsoVencidoAutorizadoConfig",
+          "assertion": "TestemunhaVencidoComUsoAutorizado",
           "tipo": "run",
-          "scope": "run UsoVencidoAutorizadoConfig for 4 but exactly 2 Estado",
+          "scope": "run TestemunhaVencidoComUsoAutorizado for 4 but exactly 2 Estado",
           "status": "SAT"
         }
       ]

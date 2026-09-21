@@ -5,15 +5,17 @@
 // - Seção 7, regras 184-205 (status/descarte) e 136-139 (esgotamento).
 // - Seção 8, 228/232 (retirada e marcação de vazio/quebrado).
 // - Seção 5, dicionário Frasco_Reagente (391-401).
-// - Seção 10.5: pseudocódigo de registrarExtravioOuReencontro (rejeita
-//   extravio repetido) e descartarFrasco/MET-05 (elegibilidade de descarte).
+// - Seção 10.5: registrarExtravioOuReencontro (809-890), registrarDevolucao
+//   (610-681) e descartarFrasco/MET-05 (1043-1112).
 // - M0 (withdrawal.als): estados não utilizáveis e quarentena => INDISPONIVEL;
 //   essa dimensão não é duplicada aqui para não inventar frame de em_quarentena.
-// Escopo: saldo_desconhecido, abertura_historica_desconhecida, vencido e
-// uso_vencido_autorizado nas transições documentadas. vencido/usoVencido só
-// existem para a precondition de descarte; seus frames pós-transição não são
-// impostos quando a documentação não os fixa. Não modela pesos, tara, validade
-// calculada, empréstimo, cache nem fluxo diário.
+// Escopo: fisico, disponibilidade, saldoDesconhecido, aberturaHistorica,
+// vencido e usoVencidoAutorizado. Frames auditados: extraviar/descartar
+// preservam vencido/usoVencido (pseudocódigo); quebrar os deixa não
+// especificados no frasco-alvo; confirmarEsgotamento delega vencido/usoVencido
+// à devolução, fora desta abstração. Em todos os casos, frascos não-alvo são
+// preservados (não-interferência). Não modela pesos, tara, validade calculada,
+// empréstimo, cache nem fluxo diário.
 
 module reagents/bottle_state
 
@@ -52,8 +54,22 @@ pred aptoParaDescarte[s: Estado, f: Frasco] {
   )
 }
 
-// Extravio: bloqueia (M0), preserva saldo e flag (Seção 4, 401/403) e rejeita
-// extravio repetido (Seção 10.5, 846-847).
+// Frames de validade operacional persistida. PRESERVED: relação completa
+// inalterada. preservaValidadeExceto: relação dos frascos != f inalterada; o
+// pós-valor de f é deliberadamente não especificado pelo predicado isolado.
+pred preservaValidade[a, b: Estado] {
+  b.vencido = a.vencido
+  b.usoVencidoAutorizado = a.usoVencidoAutorizado
+}
+pred preservaValidadeExceto[a, b: Estado, f: Frasco] {
+  all g: Frasco - f |
+    (g in b.vencido iff g in a.vencido) and
+    (g in b.usoVencidoAutorizado iff g in a.usoVencidoAutorizado)
+}
+
+// Extravio: bloqueia (M0), preserva saldo e flag (Seção 4, 401/403), rejeita
+// extravio repetido (Seção 10.5, 846-847) e preserva vencido/usoVencido
+// (pseudocódigo 855-859 não os modifica; dimensões independentes).
 pred extraviar[a, b: Estado, f: Frasco] {
   coerente[a]
   a.fisico[f] != EXTRAVIADO
@@ -61,11 +77,13 @@ pred extraviar[a, b: Estado, f: Frasco] {
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
   b.saldoDesconhecido = a.saldoDesconhecido
   b.aberturaHistorica = a.aberturaHistorica
+  preservaValidade[a, b]
 }
 
 // Quebra: terminal, não mantém desconhecimento; flag preservada (Seção 4, 403).
-// Empréstimo ativo deve ser encerrado antes da transição incompatível
-// (Seção 8, 232).
+// Empréstimo ativo deve ser encerrado antes da transição incompatível (Seção 8,
+// 232). Não há operação documentada que fixe vencido/usoVencido no alvo; fica
+// não especificado, preservando os demais frascos.
 pred quebrar[a, b: Estado, f: Frasco] {
   coerente[a]
   a.disponibilidade[f] != EMPRESTADO
@@ -73,10 +91,12 @@ pred quebrar[a, b: Estado, f: Frasco] {
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
   b.saldoDesconhecido = a.saldoDesconhecido - f
   b.aberturaHistorica = a.aberturaHistorica
+  preservaValidadeExceto[a, b, f]
 }
 
 // Descarte institucional: VAZIO, QUEBRADO ou vencido sem uso autorizado;
-// nunca emprestado (Seção 7, 192; Seção 10.5, 1070-1081).
+// nunca emprestado (Seção 7, 192; Seção 10.5, 1070-1081). Preserva
+// vencido/usoVencido como fatos persistidos (pseudocódigo 1083-1088).
 pred descartar[a, b: Estado, f: Frasco] {
   coerente[a]
   aptoParaDescarte[a, f]
@@ -84,17 +104,21 @@ pred descartar[a, b: Estado, f: Frasco] {
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
   b.saldoDesconhecido = a.saldoDesconhecido - f
   b.aberturaHistorica = a.aberturaHistorica
+  preservaValidade[a, b]
 }
 
 // Esgotamento confirmado pelo gestor (Seção 7, 139; 4, 403 para a flag).
-// A precondition operacional (devolução de empréstimo) está fora da abstração
-// M2.2; este predicado modela somente o efeito pós-confirmação.
+// Modela apenas a projeção física/metrológica do efeito. vencido e
+// usoVencidoAutorizado do frasco-alvo são determinados pela devolução
+// (Seção 10.5, 660/668-679), fora desta abstração; frascos não-alvo são
+// preservados.
 pred confirmarEsgotamento[a, b: Estado, f: Frasco] {
   coerente[a]
   b.fisico = a.fisico ++ f->VAZIO
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
   b.saldoDesconhecido = a.saldoDesconhecido - f
   b.aberturaHistorica = a.aberturaHistorica
+  preservaValidadeExceto[a, b, f]
 }
 
 pred algumaTransicao[a, b: Estado, f: Frasco] {
@@ -126,6 +150,12 @@ assert ExtravioPreservaFlag {
 assert ExtravioNaoRepetido {
   all a, b: Estado, f: Frasco |
     a.fisico[f] = EXTRAVIADO implies not extraviar[a, b, f]
+}
+// FRAME-M2-EXTRAVIO-VALIDADE-001: extravio preserva vencido/usoVencido.
+assert ExtravioPreservaValidade {
+  all a, b: Estado, f: Frasco |
+    extraviar[a, b, f] implies
+      (b.vencido = a.vencido and b.usoVencidoAutorizado = a.usoVencidoAutorizado)
 }
 
 // INV-M2-TERMINAL-IND-001: terminais bloqueiam o frasco.
@@ -165,6 +195,29 @@ assert DescarteFisicoDescartado {
     descartar[a, b, f] implies b.fisico[f] = DESCARTADO
 }
 
+// FRAME-M2-DESCARTE-VALIDADE-001: descarte preserva vencido/usoVencido.
+assert DescartePreservaValidade {
+  all a, b: Estado, f: Frasco |
+    descartar[a, b, f] implies
+      (b.vencido = a.vencido and b.usoVencidoAutorizado = a.usoVencidoAutorizado)
+}
+
+// FRAME-M2-QUEBRA-INTERF-001 / FRAME-M2-ESGOTAMENTO-INTERF-001: operações
+// locais não interferem em frascos != f, mesmo quando o pós-valor de f é
+// não especificado (quebra) ou pertence à devolução (esgotamento).
+assert QuebraNaoInterfereValidade {
+  all a, b: Estado, disj f, g: Frasco |
+    quebrar[a, b, f] implies
+      ((g in b.vencido iff g in a.vencido) and
+       (g in b.usoVencidoAutorizado iff g in a.usoVencidoAutorizado))
+}
+assert EsgotamentoNaoInterfereValidade {
+  all a, b: Estado, disj f, g: Frasco |
+    confirmarEsgotamento[a, b, f] implies
+      ((g in b.vencido iff g in a.vencido) and
+       (g in b.usoVencidoAutorizado iff g in a.usoVencidoAutorizado))
+}
+
 // INV-M2-DESCARTE-EMPRESTIMO-001: frasco emprestado não é descartável
 // (Seção 7, 192; Seção 10.5, 1070).
 assert NaoDescarteEmprestado {
@@ -194,11 +247,6 @@ pred TestemunhaExtravio {
 pred TestemunhaQuebra {
   some disj a, b: Estado, f: Frasco | quebrar[a, b, f]
 }
-pred posDescarte[b: Estado, f: Frasco] {
-  b.fisico[f] = DESCARTADO
-  b.disponibilidade[f] = INDISPONIVEL
-  f not in b.saldoDesconhecido
-}
 pred TestemunhaDescarte {
   some disj a, b: Estado, f: Frasco | descartar[a, b, f] and posDescarte[b, f]
 }
@@ -206,6 +254,11 @@ pred TestemunhaEsgotamento {
   some disj a, b: Estado, f: Frasco | confirmarEsgotamento[a, b, f]
 }
 
+pred posDescarte[b: Estado, f: Frasco] {
+  b.fisico[f] = DESCARTADO
+  b.disponibilidade[f] = INDISPONIVEL
+  f not in b.saldoDesconhecido
+}
 // Caminhos obrigatórios de descarte (Seção 7, 192; Seção 10.5, 1075-1081).
 pred TestemunhaDescarteVazio {
   some disj a, b: Estado, f: Frasco |
@@ -225,9 +278,10 @@ pred TestemunhaDescarteVencidoFechado {
     descartar[a, b, f] and a.fisico[f] = FECHADO and
     f in a.vencido and f not in a.usoVencidoAutorizado and posDescarte[b, f]
 }
-// Uso vencido autorizado é uma configuração realizável do domínio.
-pred UsoVencidoAutorizadoConfig {
-  some s: Estado, f: Frasco | f in s.usoVencidoAutorizado
+// Configuração operacional relevante: vencido com uso autorizado é habitável.
+pred TestemunhaVencidoComUsoAutorizado {
+  some s: Estado, f: Frasco |
+    coerente[s] and f in s.vencido and f in s.usoVencidoAutorizado
 }
 
 check TransicoesPreservamCoerencia for 4 but exactly 2 Estado
@@ -235,16 +289,20 @@ check ExtravioIndisponivel for 4 but exactly 2 Estado
 check ExtravioPreservaSaldo for 4 but exactly 2 Estado
 check ExtravioPreservaFlag for 4 but exactly 2 Estado
 check ExtravioNaoRepetido for 4 but exactly 2 Estado
+check ExtravioPreservaValidade for 4 but exactly 2 Estado
 check QuebraIndisponivel for 4 but exactly 2 Estado
 check QuebraNaoEmprestado for 4 but exactly 2 Estado
+check QuebraNaoInterfereValidade for 4 but exactly 2 Estado
 check DescarteIndisponivel for 4 but exactly 2 Estado
 check DescarteSaldoConhecido for 4 but exactly 2 Estado
 check DescarteFisicoDescartado for 4 but exactly 2 Estado
+check DescartePreservaValidade for 4 but exactly 2 Estado
 check NaoDescarteEmprestado for 4 but exactly 2 Estado
 check UsoVencidoNaoHabilitaDescarte for 4 but exactly 2 Estado
 check EsgotamentoIndisponivel for 4 but exactly 2 Estado
 check QuebraSaldoConhecido for 4 but exactly 2 Estado
 check EsgotamentoSaldoConhecido for 4 but exactly 2 Estado
+check EsgotamentoNaoInterfereValidade for 4 but exactly 2 Estado
 check TransicoesPreservamFlag for 4 but exactly 2 Estado
 run TestemunhaExtravio for 4 but exactly 2 Estado
 run TestemunhaQuebra for 4 but exactly 2 Estado
@@ -254,4 +312,4 @@ run TestemunhaDescarteQuebrado for 4 but exactly 2 Estado
 run TestemunhaDescarteVencidoAberto for 4 but exactly 2 Estado
 run TestemunhaDescarteVencidoFechado for 4 but exactly 2 Estado
 run TestemunhaEsgotamento for 4 but exactly 2 Estado
-run UsoVencidoAutorizadoConfig for 4 but exactly 2 Estado
+run TestemunhaVencidoComUsoAutorizado for 4 but exactly 2 Estado
