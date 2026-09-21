@@ -98,6 +98,11 @@ function alloyCheck() {
     ]],
     ['specification/alloy/reagents/bottle_state.als',[
       {id:'INV-M2-COERENCIA-001',name:'TransicoesPreservamCoerencia',type:'check',scope:`check TransicoesPreservamCoerencia ${estado}`},
+      {id:'INV-M2-DESCARTADO-TERMINAL-001',name:'DescartadoEhTerminal',type:'check',scope:`check DescartadoEhTerminal ${estado}`},
+      {id:'INV-M2-DESCARTADO-EXTRAVIO-001',name:'DescartadoNaoExtravia',type:'check',scope:`check DescartadoNaoExtravia ${estado}`},
+      {id:'INV-M2-DESCARTADO-QUEBRA-001',name:'DescartadoNaoQuebra',type:'check',scope:`check DescartadoNaoQuebra ${estado}`},
+      {id:'INV-M2-DESCARTADO-REDESCARTE-001',name:'DescartadoNaoDescartaNovamente',type:'check',scope:`check DescartadoNaoDescartaNovamente ${estado}`},
+      {id:'INV-M2-DESCARTADO-ESGOTAMENTO-001',name:'DescartadoNaoEsgota',type:'check',scope:`check DescartadoNaoEsgota ${estado}`},
       {id:'INV-M2-EXTRAVIO-001',name:'ExtravioIndisponivel',type:'check',scope:`check ExtravioIndisponivel ${estado}`},
       {id:'FRAME-M2-EXTRAVIO-SALDO-001',name:'ExtravioPreservaSaldo',type:'check',scope:`check ExtravioPreservaSaldo ${estado}`},
       {id:'FRAME-M2-EXTRAVIO-FLAG-001',name:'ExtravioPreservaFlag',type:'check',scope:`check ExtravioPreservaFlag ${estado}`},

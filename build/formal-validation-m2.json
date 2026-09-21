@@ -81,13 +81,48 @@
     },
     {
       "model": "specification/alloy/reagents/bottle_state.als",
-      "model_sha256": "4cc26e044a00c714901579b772d3a15a8909c9d6b37f8cc76a59cee3bdd1a90d",
+      "model_sha256": "0863ea5138a6f98173130df63ae3d86a1e1526f71b78acf7e3b2ed76b7b1b909",
       "resultados": [
         {
           "id": "INV-M2-COERENCIA-001",
           "assertion": "TransicoesPreservamCoerencia",
           "tipo": "check",
           "scope": "check TransicoesPreservamCoerencia for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-DESCARTADO-TERMINAL-001",
+          "assertion": "DescartadoEhTerminal",
+          "tipo": "check",
+          "scope": "check DescartadoEhTerminal for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-DESCARTADO-EXTRAVIO-001",
+          "assertion": "DescartadoNaoExtravia",
+          "tipo": "check",
+          "scope": "check DescartadoNaoExtravia for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-DESCARTADO-QUEBRA-001",
+          "assertion": "DescartadoNaoQuebra",
+          "tipo": "check",
+          "scope": "check DescartadoNaoQuebra for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-DESCARTADO-REDESCARTE-001",
+          "assertion": "DescartadoNaoDescartaNovamente",
+          "tipo": "check",
+          "scope": "check DescartadoNaoDescartaNovamente for 4 but exactly 2 Estado",
+          "status": "UNSAT"
+        },
+        {
+          "id": "INV-M2-DESCARTADO-ESGOTAMENTO-001",
+          "assertion": "DescartadoNaoEsgota",
+          "tipo": "check",
+          "scope": "check DescartadoNaoEsgota for 4 but exactly 2 Estado",
           "status": "UNSAT"
         },
         {

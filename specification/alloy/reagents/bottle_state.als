@@ -44,9 +44,19 @@ pred coerente[s: Estado] {
   all f: Frasco | f in s.aberturaHistorica implies s.fisico[f] != FECHADO
 }
 
+// Bloqueio terminal: DESCARTADO não inicia nenhuma transição M2.2
+// (Seção 4, 863; Seção 8, 232; Seção 9, 210). Não é regra geral de aptidão:
+// apenas a terminalidade de DESCARTADO. VAZIO, QUEBRADO e EXTRAVIADO não são
+// terminais.
+pred naoDescartado[s: Estado, f: Frasco] {
+  s.fisico[f] != DESCARTADO
+}
+
 // Seção 7, 192 / Seção 10.5, 1075-1081 (MET-05): elegibilidade de descarte.
-// VAZIO ou QUEBRADO ou (vencido e sem uso vencido autorizado); nunca emprestado.
+// VAZIO ou QUEBRADO ou (vencido e sem uso vencido autorizado); nunca emprestado
+// e nunca já DESCARTADO.
 pred aptoParaDescarte[s: Estado, f: Frasco] {
+  naoDescartado[s, f]
   s.disponibilidade[f] != EMPRESTADO
   (
     s.fisico[f] in VAZIO + QUEBRADO
@@ -72,6 +82,7 @@ pred preservaValidadeExceto[a, b: Estado, f: Frasco] {
 // (pseudocódigo 855-859 não os modifica; dimensões independentes).
 pred extraviar[a, b: Estado, f: Frasco] {
   coerente[a]
+  naoDescartado[a, f]
   a.fisico[f] != EXTRAVIADO
   b.fisico = a.fisico ++ f->EXTRAVIADO
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
@@ -86,6 +97,7 @@ pred extraviar[a, b: Estado, f: Frasco] {
 // não especificado, preservando os demais frascos.
 pred quebrar[a, b: Estado, f: Frasco] {
   coerente[a]
+  naoDescartado[a, f]
   a.disponibilidade[f] != EMPRESTADO
   b.fisico = a.fisico ++ f->QUEBRADO
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
@@ -114,6 +126,7 @@ pred descartar[a, b: Estado, f: Frasco] {
 // preservados.
 pred confirmarEsgotamento[a, b: Estado, f: Frasco] {
   coerente[a]
+  naoDescartado[a, f]
   b.fisico = a.fisico ++ f->VAZIO
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
   b.saldoDesconhecido = a.saldoDesconhecido - f
@@ -129,6 +142,30 @@ pred algumaTransicao[a, b: Estado, f: Frasco] {
 // INV-M2-COERENCIA-001: toda transição documentada preserva a coerência.
 assert TransicoesPreservamCoerencia {
   all a, b: Estado, f: Frasco | algumaTransicao[a, b, f] implies coerente[b]
+}
+
+// INV-M2-DESCARTADO-TERMINAL-001: DESCARTADO não inicia nenhuma transição M2.2
+// (Seção 4, 863; Seção 8, 232; Seção 9, 210). Cobre os quatro casos:
+// DESCARTADO -> EXTRAVIADO/QUEBRADO/VAZIO/DESCARTADO.
+assert DescartadoEhTerminal {
+  all a, b: Estado, f: Frasco |
+    a.fisico[f] = DESCARTADO implies not algumaTransicao[a, b, f]
+}
+assert DescartadoNaoExtravia {
+  all a, b: Estado, f: Frasco |
+    a.fisico[f] = DESCARTADO implies not extraviar[a, b, f]
+}
+assert DescartadoNaoQuebra {
+  all a, b: Estado, f: Frasco |
+    a.fisico[f] = DESCARTADO implies not quebrar[a, b, f]
+}
+assert DescartadoNaoDescartaNovamente {
+  all a, b: Estado, f: Frasco |
+    a.fisico[f] = DESCARTADO implies not descartar[a, b, f]
+}
+assert DescartadoNaoEsgota {
+  all a, b: Estado, f: Frasco |
+    a.fisico[f] = DESCARTADO implies not confirmarEsgotamento[a, b, f]
 }
 
 // INV-M2-EXTRAVIO-001 e frames (saldo e flag histórica preservados).
@@ -285,6 +322,11 @@ pred TestemunhaVencidoComUsoAutorizado {
 }
 
 check TransicoesPreservamCoerencia for 4 but exactly 2 Estado
+check DescartadoEhTerminal for 4 but exactly 2 Estado
+check DescartadoNaoExtravia for 4 but exactly 2 Estado
+check DescartadoNaoQuebra for 4 but exactly 2 Estado
+check DescartadoNaoDescartaNovamente for 4 but exactly 2 Estado
+check DescartadoNaoEsgota for 4 but exactly 2 Estado
 check ExtravioIndisponivel for 4 but exactly 2 Estado
 check ExtravioPreservaSaldo for 4 but exactly 2 Estado
 check ExtravioPreservaFlag for 4 but exactly 2 Estado
