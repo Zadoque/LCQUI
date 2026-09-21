@@ -82,8 +82,10 @@ estado que o texto rejeita, sem alterar a fonte documental.
 Estado modelado: `fisico`, `disponibilidade`, `saldoDesconhecido`,
 `aberturaHistorica`, `vencido`, `usoVencidoAutorizado`. `em_quarentena`, pesos,
 tara, validade calculada e empréstimo NÃO entram aqui (ver fora de escopo).
-`vencido`/`usoVencidoAutorizado` existem apenas para a precondition de descarte;
-seus frames pós-transição não são impostos (a documentação não os fixa).
+Os frames de `vencido`/`usoVencidoAutorizado` foram auditados por transição (ver
+"Frame-condition audit pós-erratum"): preservação completa em
+`extraviar`/`descartar`; não-interferência (frascos ≠ f) em
+`quebrar`/`confirmarEsgotamento`.
 
 | ID | Propriedade | Classificação | Fonte | Artefato | Resultado |
 |---|---|---|---|---|---|
@@ -92,16 +94,20 @@ seus frames pós-transição não são impostos (a documentação não os fixa).
 | FRAME-M2-EXTRAVIO-SALDO-001 | extravio preserva `saldo_desconhecido` | frame condition | Seção 4, 401; Seção 7, 200 | `check ExtravioPreservaSaldo` | UNSAT |
 | FRAME-M2-EXTRAVIO-FLAG-001 | extravio preserva a flag histórica | frame condition | Seção 4, 403 | `check ExtravioPreservaFlag` | UNSAT |
 | INV-M2-EXTRAVIO-REP-001 | extravio repetido não é permitido | transition precondition | Seção 10.5, 846-847 | `check ExtravioNaoRepetido` | UNSAT |
+| FRAME-M2-EXTRAVIO-VALIDADE-001 | extravio preserva `vencido`/`usoVencidoAutorizado` | frame condition | Seção 10.5, 855-859 | `check ExtravioPreservaValidade` | UNSAT |
 | INV-M2-TERMINAL-QUEBRA-IND-001 | quebra bloqueia | transition effect | M0; Seção 7, 187 | `check QuebraIndisponivel` | UNSAT |
 | INV-M2-QUEBRA-EMPRESTIMO-001 | quebra não se aplica a frasco emprestado | transition precondition | Seção 8, 232 | `check QuebraNaoEmprestado` | UNSAT |
+| FRAME-M2-QUEBRA-INTERF-001 | quebra não interfere em `vencido`/`usoVencidoAutorizado` de frascos ≠ f | non-interference | operação local; sem contrato no alvo | `check QuebraNaoInterfereValidade` | UNSAT |
 | INV-M2-TERMINAL-DESCARTE-IND-001 | descarte bloqueia | transition effect | Seção 7, 192; Seção 10.5, 1085 | `check DescarteIndisponivel` | UNSAT |
 | INV-M2-TERMINAL-DESCARTE-001 | descarte não mantém desconhecimento | state invariant via transição | Seção 4, 401; Seção 7, 200 | `check DescarteSaldoConhecido` | UNSAT |
 | INV-M2-DESCARTE-FISICO-001 | descarte leva a `DESCARTADO` | transition effect | Seção 10.5, 1084 | `check DescarteFisicoDescartado` | UNSAT |
+| FRAME-M2-DESCARTE-VALIDADE-001 | descarte preserva `vencido`/`usoVencidoAutorizado` | frame condition | Seção 10.5, 1083-1088 | `check DescartePreservaValidade` | UNSAT |
 | INV-M2-DESCARTE-EMPRESTIMO-001 | frasco emprestado não é descartável | transition precondition | Seção 7, 192; Seção 10.5, 1070 | `check NaoDescarteEmprestado` | UNSAT |
 | INV-M2-DESCARTE-USOVENCIDO-001 | uso vencido autorizado não habilita descarte pela via de vencimento | transition precondition | Seção 7, 192; Seção 10.5, 1077 | `check UsoVencidoNaoHabilitaDescarte` | UNSAT |
 | INV-M2-TERMINAL-ESGOTAMENTO-IND-001 | esgotamento bloqueia | transition effect | Seção 7, 139 | `check EsgotamentoIndisponivel` | UNSAT |
 | INV-M2-TERMINAL-QUEBRA-001 | quebra não mantém desconhecimento | state invariant via transição | Seção 4, 401; Seção 7, 200 | `check QuebraSaldoConhecido` | UNSAT |
 | INV-M2-TERMINAL-ESGOTAMENTO-001 | esgotamento confirmado torna o saldo conhecido | transition effect | Seção 7, 139 | `check EsgotamentoSaldoConhecido` | UNSAT |
+| FRAME-M2-ESGOTAMENTO-INTERF-001 | esgotamento não interfere em `vencido`/`usoVencidoAutorizado` de frascos ≠ f | non-interference | devolução fora da abstração | `check EsgotamentoNaoInterfereValidade` | UNSAT |
 | INV-M2-ABERTURA-001 | transições preservam a flag histórica | frame condition | Seção 4, 403 | `check TransicoesPreservamFlag` | UNSAT |
 | WIT-M2-EXTRAVIO-001 | extravio realizável | witness | — | `run TestemunhaExtravio` | SAT |
 | WIT-M2-QUEBRA-001 | quebra realizável | witness | — | `run TestemunhaQuebra` | SAT |
@@ -110,7 +116,7 @@ seus frames pós-transição não são impostos (a documentação não os fixa).
 | WIT-M2-DESCARTE-QUEBRADO-001 | descarte de `QUEBRADO` realizável | witness | Seção 7, 192 | `run TestemunhaDescarteQuebrado` | SAT |
 | WIT-M2-DESCARTE-VENCIDO-ABERTO-001 | descarte de `ABERTO` vencido sem uso autorizado realizável | witness | Seção 7, 192; Seção 10.5, 1075-1081 | `run TestemunhaDescarteVencidoAberto` | SAT |
 | WIT-M2-DESCARTE-VENCIDO-FECHADO-001 | descarte de `FECHADO` vencido sem uso autorizado realizável | witness | idem | `run TestemunhaDescarteVencidoFechado` | SAT |
-| WIT-M2-USOVENCIDO-001 | configuração `uso_vencido_autorizado` é realizável | witness | Seção 7, 188 | `run UsoVencidoAutorizadoConfig` | SAT |
+| WIT-M2-USOVENCIDO-001 | configuração `vencido` + `usoVencidoAutorizado` é realizável (`coerente`) | witness | Seção 7, 188 | `run TestemunhaVencidoComUsoAutorizado` | SAT |
 | WIT-M2-ESGOTAMENTO-001 | esgotamento realizável | witness | — | `run TestemunhaEsgotamento` | SAT |
 
 O invariante de estado `coerente[s]` (terminais sem desconhecimento; flag => físico
@@ -137,12 +143,12 @@ transição é dada por testemunha SAT. A elegibilidade de descarte está isolad
   `quebrar` passou a exigir `disponibilidade != EMPRESTADO`; `confirmarEsgotamento`
   mantém-se sem precondition modelada (o contrato de devolução está fora da
   abstração).
-- **Frames:** nenhum frame novo imposto para `vencido`/`usoVencidoAutorizado` no
-  pós-estado, porque a documentação não os fixa e eles não são necessários à
-  consistência de `coerente[b]`.
+- **Frames:** na primeira passagem, `vencido`/`usoVencidoAutorizado` ficaram sem
+  frame pós-transição (não eram necessários à consistência de `coerente[b]`).
+  Isso foi corrigido na auditoria de frames subsequente (abaixo).
 - **Testemunhas novas:** `TestemunhaDescarteVazio`, `TestemunhaDescarteQuebrado`,
   `TestemunhaDescarteVencidoAberto`, `TestemunhaDescarteVencidoFechado`,
-  `UsoVencidoAutorizadoConfig` (todas SAT, com pós-estado explícito para os
+  `TestemunhaVencidoComUsoAutorizado` (todas SAT, com pós-estado explícito para os
   descartes).
 - **Assertions novas:** `ExtravioNaoRepetido`, `QuebraNaoEmprestado`,
   `DescarteFisicoDescartado`, `NaoDescarteEmprestado`,
@@ -152,6 +158,60 @@ transição é dada por testemunha SAT. A elegibilidade de descarte está isolad
   retornam SAT; as assertions retornam UNSAT no scope declarado (4) e em scope 6.
   Nenhuma HQ foi necessária: a elegibilidade de descarte está decidida
   documentalmente.
+
+## Frame-condition audit pós-erratum
+
+Problema auditado: após o erratum, `vencido` e `usoVencidoAutorizado` entraram
+em `Estado`, mas as quatro transições não mencionavam esses campos no
+pós-estado. Em Alloy, campo não mencionado não é preservado: o solver pode
+escolher livremente seu valor — inclusive para frascos ≠ f. Os checks anteriores
+verificavam corretamente as propriedades declaradas, mas o modelo deixava livres
+relações recém-introduzidas.
+
+Classificação por transição e campo (auditada nas fontes, não por senso comum):
+
+| Transição | Campo | Classificação | Fonte | Resultado |
+|---|---|---|---|---|
+| extraviar | vencido | PRESERVED | Seção 10.5, 855-859 (tx.update só altera físico/disponibilidade/detalhe) + independência das dimensões | UNSAT |
+| extraviar | usoVencidoAutorizado | PRESERVED | idem | UNSAT |
+| quebrar | vencido | UNSPECIFIED (no alvo) | não há operação documentada que fixe o pós-valor | não-interferência UNSAT |
+| quebrar | usoVencidoAutorizado | UNSPECIFIED (no alvo) | idem | não-interferência UNSAT |
+| descartar | vencido | PRESERVED | Seção 10.5, 1083-1088 (tx.update só altera físico/disponibilidade/quarentena/detalhe) | UNSAT |
+| descartar | usoVencidoAutorizado | PRESERVED | idem | UNSAT |
+| confirmarEsgotamento | vencido | OUT_OF_ABSTRACTION | Seção 10.5, 660 (`vencido: frascoVencido` na devolução) | não-interferência UNSAT |
+| confirmarEsgotamento | usoVencidoAutorizado | OUT_OF_ABSTRACTION | Seção 10.5, 668-679 (destino pós-devolução) | não-interferência UNSAT |
+
+Distinção explícita:
+- **PRESERVED**: a operação documental não toca o campo e a relação completa é
+  fixada (`b.vencido = a.vencido`), o que também garante não-interferência em
+  frascos ≠ f.
+- **UNSPECIFIED**: não há contrato documental que determine o pós-valor no
+  frasco-alvo. Não se inventa preservação; fixa-se apenas a não-interferência nos
+  demais frascos.
+- **OUT_OF_ABSTRACTION**: o pós-valor pertence à operação maior de devolução
+  (recálculo de vencimento e decisão pós-validade), não ao efeito isolado de
+  `confirmarEsgotamento`. A ausência de frame no alvo é deliberada; frascos ≠ f
+  são preservados.
+
+Frames adicionados (`specification/alloy/reagents/bottle_state.als`):
+- `extraviar`: `preservaValidade[a,b]` (`b.vencido = a.vencido` e
+  `b.usoVencidoAutorizado = a.usoVencidoAutorizado`).
+- `descartar`: `preservaValidade[a,b]`.
+- `quebrar`: `preservaValidadeExceto[a,b,f]` (todo `g: Frasco - f` preservado).
+- `confirmarEsgotamento`: `preservaValidadeExceto[a,b,f]`.
+
+Assertions adicionadas:
+- `FRAME-M2-EXTRAVIO-VALIDADE-001` / `ExtravioPreservaValidade` — UNSAT.
+- `FRAME-M2-DESCARTE-VALIDADE-001` / `DescartePreservaValidade` — UNSAT.
+- `FRAME-M2-QUEBRA-INTERF-001` / `QuebraNaoInterfereValidade` — UNSAT.
+- `FRAME-M2-ESGOTAMENTO-INTERF-001` / `EsgotamentoNaoInterfereValidade` — UNSAT.
+
+Witness fortalecida: `TestemunhaVencidoComUsoAutorizado` (`coerente`, `f in
+vencido`, `f in usoVencidoAutorizado`) — SAT, substitui a witness fraca
+`UsoVencidoAutorizadoConfig`.
+
+Nenhuma HQ foi necessária: as preservações vêm do pseudocódigo; as ausências de
+frame são abstrações explícitas, não lacunas que bloqueiem a prova.
 
 ## Perguntas humanas novas
 
@@ -165,6 +225,10 @@ interpretações plausíveis; todas têm fonte direta. Em particular:
   `quarentena => INDISPONIVEL` continua no M0, sem frame adicional inventado.
 - Não se formalizou `MEDIDA_REAL ⇒ VAZIO`, `FECHADO ⇒ saldo conhecido`,
   `tara null ⇒ saldo_desconhecido`, nem refill/reutilização de frasco vazio.
+- A auditoria de frames de `vencido`/`usoVencidoAutorizado` também não exigiu HQ:
+  extraviar/descartar preservam (pseudocódigo); quebrar fica UNSPECIFIED no alvo
+  (sem contrato); confirmarEsgotamento é OUT_OF_ABSTRACTION. Em todos, frascos ≠ f
+  são preservados.
 
 ## Propriedades deliberadamente fora de escopo
 
@@ -179,8 +243,8 @@ interpretações plausíveis; todas têm fonte direta. Em particular:
   não modelados (M3+/M2.3). A tara não é abstraída aqui.
 - **`validade_*` calculada, empréstimo ativo, unicidade de empréstimo**: cobertos
   pelo M0 ou por milestones posteriores; não duplicados. `vencido` e
-  `usoVencidoAutorizado` são modelados apenas como fatos atuais de entrada da
-  precondition de descarte, sem cálculo de validade nem frame pós-transição.
+  `usoVencidoAutorizado` são modelados apenas como fatos atuais (entrada da
+  precondition de descarte e frames auditados), sem cálculo de validade.
 - **Cache 30 s, rate limit 5/min, App Check, Auth/RBAC, TTL, geração,
   Firestore transactions, FLOW diário, correção genérica**: contratos
   arquiteturais, fora do M2.2.
@@ -194,14 +258,16 @@ reexecutadas sem contraexemplo:
 bottle_identity.als, scope 6:
   IdentidadeUnica, ViaLoteResolveLote, ViaDiretaResolveDireta -> UNSAT
 bottle_state.als, scope 6 com exatamente 2 Estado:
-  TransicoesPreservamCoerencia, DescarteIndisponivel, DescarteSaldoConhecido,
-  DescarteFisicoDescartado, NaoDescarteEmprestado,
-  UsoVencidoNaoHabilitaDescarte, ExtravioNaoRepetido, QuebraNaoEmprestado
+  TransicoesPreservamCoerencia, ExtravioPreservaValidade,
+  DescartePreservaValidade, QuebraNaoInterfereValidade,
+  EsgotamentoNaoInterfereValidade, DescarteIndisponivel,
+  DescarteSaldoConhecido, DescarteFisicoDescartado, NaoDescarteEmprestado,
+  UsoVencidoNaoHabilitaDescarte
     -> nenhum contraexemplo no scope declarado
-bottle_state.als, testemunhas de descarte, scope 6:
+bottle_state.als, testemunhas, scope 6:
   TestemunhaDescarteVencidoAberto, TestemunhaDescarteVencidoFechado,
   TestemunhaDescarteVazio, TestemunhaDescarteQuebrado,
-  UsoVencidoAutorizadoConfig -> SAT
+  TestemunhaVencidoComUsoAutorizado -> SAT
 ```
 
 Linguagem precisa: "nenhum contraexemplo encontrado no scope declarado". Alloy
@@ -222,7 +288,7 @@ não prova para todos os tamanhos; o gate usa o scope fixado.
 |---|---|---|
 | `just spec-check` | PASS | 72 fixtures; CUE M2.1d inalterado |
 | `just spec-export` | PASS | IR inalterado |
-| `just alloy-check` | PASS | M0 + 35 comandos M2.2 (16 checks UNSAT, 9 runs SAT de estado; 5 checks UNSAT, 5 runs SAT de identidade) |
+| `just alloy-check` | PASS | M0 + 39 comandos M2.2 (20 checks UNSAT, 9 runs SAT de estado; 5 checks UNSAT, 5 runs SAT de identidade) |
 | `just rust-check` | PASS | gerador inalterado |
 | `just docs-check` | PASS | generated sem stale |
 | `git diff --check` | PASS | — |
@@ -244,8 +310,10 @@ foi alterada e não se alega recompilação de PDF.
 
 M2.2 certifica somente as relações e transições listadas, no scope declarado.
 Não certifica implementação Firebase/backend, concorrência, autorização, cache,
-rate limit, Q06, tara numérica, refill, validade/vencimento, empréstimo completo
-nem integração LaTeX. Não substitui M2.3.
+rate limit, Q06, tara numérica, refill, cálculo de validade/vencimento (somente
+os fatos atuais `vencido`/`usoVencidoAutorizado`), empréstimo completo nem
+integração LaTeX. Não substitui M2.3. A composição de um modelo único M0 ∧ M2.2
+não é feita aqui (dívida para M2.4, se reservada).
 
 ## Estado final
 
@@ -267,7 +335,12 @@ Unidade original (já publicada):
 Erratum de cobertura:
 - `10366096` — `fix(alloy): restore full bottle discard eligibility`
   (`bottle_state.als` + `tools/formal/check.mjs` + `build/formal-validation-m2.json`).
-- Commit documental do erratum: `docs(spec): record M2.2 coverage erratum`.
+- `dcee5ff4` — `docs(spec): record M2.2 coverage erratum`.
+
+Auditoria de frame conditions:
+- `cc8e1ad0` — `fix(alloy): constrain M2 bottle transition frames`
+  (`bottle_state.als` + `tools/formal/check.mjs` + `build/formal-validation-m2.json`).
+- Commit documental da auditoria: `docs(spec): record M2.2 frame-condition audit`.
 
 ## Próxima ação EXATA
 
