@@ -1,6 +1,7 @@
 // Orquestração apenas: nenhuma geração LaTeX fora do Rust.
 import fs from 'node:fs';
 import {composedModel, composedExpected, origins, checkCompositionTrace} from './composition.mjs';
+import {withdrawalReturnModel, withdrawalReturnOrigins, withdrawalReturnExpected, checkWithdrawalReturnTrace} from './withdrawal_return.mjs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -195,6 +196,10 @@ function alloyCheck() {
   ];
   const m3run=execAlloy(loan,m3);
   write('build/formal-validation-m3.json',JSON.stringify({versao:1,alloy:version,solver:m3run.solver,spec_ir_sha256:hash(ir),model:loan,model_sha256:hash(m3run.source),resultados:m3run.results},null,2)+'\n');
+  // M4: retirada/devolução compostas. Guard de drift das origens M2.4/M3.
+  checkWithdrawalReturnTrace(file => fs.readFileSync(file));
+  const m4run=execAlloy(withdrawalReturnModel, withdrawalReturnExpected);
+  write('build/formal-validation-m4.json',JSON.stringify({versao:1,alloy:version,solver:m4run.solver,spec_ir_sha256:hash(ir),model:withdrawalReturnModel,model_sha256:hash(m4run.source),origens:withdrawalReturnOrigins.map(model=>({model,model_sha256:hash(fs.readFileSync(model))})),resultados:m4run.results},null,2)+'\n');
 }
 const cmd=process.argv[2];
 if(cmd==='spec-check') specCheck();
