@@ -11,12 +11,14 @@ import "math"
 	nulo:        *false | bool
 	sql:         "SERIAL" | "INTEGER" | "TEXT" | "DATE" | "TIMESTAMP" | "NUMERIC(10,3)" | "BOOLEAN" | "ENUM"
 	valores: *[] | [...string]
-	observacao: *"" | string
-	positivo:   *false | bool
+	observacao:   *"" | string
+	positivo:     *false | bool
+	nao_negativo: *false | bool
 	if sql == "SERIAL" || sql == "INTEGER" {
 		tipo:  "int"
 		#Base: int
 		if positivo {#Base: >0}
+		if nao_negativo {#Base: >=0}
 	}
 	if sql == "TEXT" || sql == "TIMESTAMP" {
 		tipo:  "string"
@@ -33,6 +35,7 @@ import "math"
 		maximo:   9999999.999
 		multiplo: 0.001
 		#Base:    number & >=minimo & <=maximo & math.MultipleOf(multiplo)
+		if nao_negativo {#Base: >=0}
 	}
 	if sql == "BOOLEAN" {
 		tipo:  "bool"

@@ -46,7 +46,8 @@ import (
 			sql:         c.sql
 			if c.positivo {minimo_exclusivo: 0}
 			if c.sql == "NUMERIC(10,3)" {
-				minimo_numero: c.minimo
+				if c.nao_negativo {minimo_numero: 0}
+				if !c.positivo && !c.nao_negativo {minimo_numero: c.minimo}
 				maximo_numero: c.maximo
 				multiplo:      c.multiplo
 			}
