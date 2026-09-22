@@ -21,23 +21,23 @@ Unicidade e geração do código fora do registro local.
 SQL: TIMESTAMP.
 \item[conteudo\_nominal] Tipo: number. Obrigatório: sim. Aceita nulo: sim.
 SQL: NUMERIC(10,3).
-Mínimo: -9999999.999.
+Mínimo: 0.
 Máximo: 9999999.999.
 Múltiplo de 0.001.
-null representa desconhecido; zero é um valor numérico distinto.
+null representa desconhecido; zero é um valor numérico distinto e não negativo.
 \item[peso\_no\_cadastrado] Tipo: number. Obrigatório: sim. Aceita nulo: não.
 SQL: NUMERIC(10,3).
-Mínimo: -9999999.999.
+Mínimo: 0.
 Máximo: 9999999.999.
 Múltiplo de 0.001.
 \item[peso\_atual] Tipo: number. Obrigatório: sim. Aceita nulo: não.
 SQL: NUMERIC(10,3).
-Mínimo: -9999999.999.
+Mínimo: 0.
 Máximo: 9999999.999.
 Múltiplo de 0.001.
 \item[peso\_frasco\_vazio] Tipo: number. Obrigatório: sim. Aceita nulo: sim.
 SQL: NUMERIC(10,3).
-Mínimo: -9999999.999.
+Mínimo: 0.
 Máximo: 9999999.999.
 Múltiplo de 0.001.
 \item[origem\_tara] Tipo: enum. Obrigatório: sim. Aceita nulo: sim.
@@ -46,7 +46,7 @@ Valores: REFERENCIA\_TEORICA, MEDIDA\_REAL.
 M2.1d: proveniência da tara. REFERENCIA\_TEORICA é derivada (peso\_total - conteudo\_nominal) enquanto há produto; MEDIDA\_REAL é pesagem física do recipiente vazio. null significa ausência de tara conhecida, não zero.
 \item[medida\_usada] Tipo: number. Obrigatório: sim. Aceita nulo: não.
 SQL: NUMERIC(10,3).
-Mínimo: -9999999.999.
+Mínimo: 0.
 Máximo: 9999999.999.
 Múltiplo de 0.001.
 \item[data\_abertura] Tipo: string. Obrigatório: sim. Aceita nulo: sim.

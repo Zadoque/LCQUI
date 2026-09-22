@@ -369,9 +369,9 @@
                     "obrigatorio": true,
                     "nulo": true,
                     "valores": [],
-                    "observacao": "null representa desconhecido; zero é um valor numérico distinto.",
+                    "observacao": "null representa desconhecido; zero é um valor numérico distinto e não negativo.",
                     "sql": "NUMERIC(10,3)",
-                    "minimo_numero": -9999999.999,
+                    "minimo_numero": 0,
                     "maximo_numero": 9999999.999,
                     "multiplo": 0.001
                 },
@@ -383,7 +383,7 @@
                     "valores": [],
                     "observacao": "",
                     "sql": "NUMERIC(10,3)",
-                    "minimo_numero": -9999999.999,
+                    "minimo_numero": 0,
                     "maximo_numero": 9999999.999,
                     "multiplo": 0.001
                 },
@@ -395,7 +395,7 @@
                     "valores": [],
                     "observacao": "",
                     "sql": "NUMERIC(10,3)",
-                    "minimo_numero": -9999999.999,
+                    "minimo_numero": 0,
                     "maximo_numero": 9999999.999,
                     "multiplo": 0.001
                 },
@@ -407,7 +407,7 @@
                     "valores": [],
                     "observacao": "",
                     "sql": "NUMERIC(10,3)",
-                    "minimo_numero": -9999999.999,
+                    "minimo_numero": 0,
                     "maximo_numero": 9999999.999,
                     "multiplo": 0.001
                 },
@@ -431,7 +431,7 @@
                     "valores": [],
                     "observacao": "",
                     "sql": "NUMERIC(10,3)",
-                    "minimo_numero": -9999999.999,
+                    "minimo_numero": 0,
                     "maximo_numero": 9999999.999,
                     "multiplo": 0.001
                 },
@@ -751,7 +751,7 @@
                     "valores": [],
                     "observacao": "Peso bruto em g medido na retirada; referência imutável do consumo.",
                     "sql": "NUMERIC(10,3)",
-                    "minimo_numero": -9999999.999,
+                    "minimo_numero": 0,
                     "maximo_numero": 9999999.999,
                     "multiplo": 0.001
                 },
@@ -763,7 +763,7 @@
                     "valores": [],
                     "observacao": "Peso bruto em g medido na devolução; preservado mesmo quando contradiz tara/saída.",
                     "sql": "NUMERIC(10,3)",
-                    "minimo_numero": -9999999.999,
+                    "minimo_numero": 0,
                     "maximo_numero": 9999999.999,
                     "multiplo": 0.001
                 },
@@ -773,9 +773,9 @@
                     "obrigatorio": true,
                     "nulo": true,
                     "valores": [],
-                    "observacao": "Consumo validado não negativo na unidade do empréstimo; null até a validação quantitativa.",
+                    "observacao": "Consumo validado não negativo na unidade do empréstimo; null até a validação quantitativa. Zero é consumo válido.",
                     "sql": "NUMERIC(10,3)",
-                    "minimo_numero": -9999999.999,
+                    "minimo_numero": 0,
                     "maximo_numero": 9999999.999,
                     "multiplo": 0.001
                 },
@@ -805,7 +805,7 @@
                     "valores": [],
                     "observacao": "Peso de retorno efetivo em g; null enquanto o consumo não for validado.",
                     "sql": "NUMERIC(10,3)",
-                    "minimo_numero": -9999999.999,
+                    "minimo_numero": 0,
                     "maximo_numero": 9999999.999,
                     "multiplo": 0.001
                 },
@@ -850,7 +850,7 @@
                     "valores": [],
                     "observacao": "Perda em g registrada separadamente do consumo; não inferir arbitrariamente.",
                     "sql": "NUMERIC(10,3)",
-                    "minimo_numero": -9999999.999,
+                    "minimo_numero": 0,
                     "maximo_numero": 9999999.999,
                     "multiplo": 0.001
                 },
@@ -970,7 +970,7 @@
                     "valores": [],
                     "observacao": "",
                     "sql": "NUMERIC(10,3)",
-                    "minimo_numero": -9999999.999,
+                    "minimo_numero": 0,
                     "maximo_numero": 9999999.999,
                     "multiplo": 0.001
                 }

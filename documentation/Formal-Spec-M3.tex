@@ -20,6 +20,11 @@ encerrado retorna a ativo; a anomalia metrológica encerra a custódia e permane
 como fato histórico, sem reabertura. A relação empréstimo--frasco é estática e
 não há estado de reserva.
 
+O status \texttt{DEVOLVIDO\_COM\_ANOMALIA} é histórico e não se confunde com a
+pendência quantitativa. A pendência é o estado \texttt{consumo\_validado = false},
+com valores quantitativos nulos; um contrato tipado de resolução pode preenchê-los
+mantendo o mesmo status e preservando \texttt{peso\_retorno} e a anomalia original.
+
 A escolha entre devolução comum e com atraso a partir da data pertence à
 devolução completa; M3 verifica apenas que qualquer ativo pode encerrar por
 qualquer um dos caminhos documentados. O detalhamento do encerramento
