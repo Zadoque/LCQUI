@@ -5,6 +5,7 @@ mod validation;
 mod validation_m2;
 mod validation_m24;
 mod validation_m3;
+mod validation_m4;
 
 use std::{collections::BTreeMap, error::Error, fs, path::Path};
 use validation::hash;
@@ -16,16 +17,20 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let results_m2 = fs::read(root.join("build/formal-validation-m2.json"))?;
     let results_m24 = fs::read(root.join("build/formal-validation-m24.json"))?;
     let results_m3 = fs::read(root.join("build/formal-validation-m3.json"))?;
+    let results_m4 = fs::read(root.join("build/formal-validation-m4.json"))?;
     let ir = ir::parse(&raw)?;
     let v: validation::Validation = serde_json::from_slice(&results)?;
     let v2: validation_m2::ValidationM2 = serde_json::from_slice(&results_m2)?;
     let v24: validation_m24::ValidationM24 = serde_json::from_slice(&results_m24)?;
     let v3: validation_m3::ValidationM3 = serde_json::from_slice(&results_m3)?;
+    let v4: validation_m4::ValidationM4 = serde_json::from_slice(&results_m4)?;
     let identity = fs::read(root.join("specification/alloy/reagents/bottle_identity.als"))?;
     let state = fs::read(root.join("specification/alloy/reagents/bottle_state.als"))?;
     let withdrawal = fs::read(root.join(validation_m24::ORIGINS[0]))?;
     let composed = fs::read(root.join(validation_m24::MODEL))?;
     let loan = fs::read(root.join(validation_m3::MODEL))?;
+    let m4_model = fs::read(root.join(validation_m4::MODEL))?;
+    let m4_origins = validation_m4::ORIGINS.map(|p| fs::read(root.join(p)).unwrap());
     if !ir.valid()
         || !ir.provenance_ok()
         || v.model != "specification/alloy/reagents/withdrawal.als"
@@ -33,6 +38,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
         || !v2.check(&raw, &identity, &state)
         || !v24.check(&raw, &composed, [&withdrawal, &identity, &state])
         || !v3.check(&raw, &loan)
+        || !v4.check(&raw, &m4_model, [&m4_origins[0], &m4_origins[1]])
     {
         return Err("IR ou validação inválida/stale; execute alloy-check".into());
     }
@@ -45,6 +51,10 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
         "invariants/emprestimo_reagente.tex".into(),
         render::render_loan(&v3),
     );
+    files.insert(
+        "invariants/retirada_devolucao_m4.tex".into(),
+        render::render_withdrawal_return(&v4),
+    );
     let entries: BTreeMap<_, _> = files
         .iter()
         .map(|(name, text)| (name.clone(), hash(text.as_bytes())))
@@ -56,6 +66,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
         "formal_validation_m2_sha256": hash(&results_m2),
         "formal_validation_m24_sha256": hash(&results_m24),
         "formal_validation_m3_sha256": hash(&results_m3),
+        "formal_validation_m4_sha256": hash(&results_m4),
         "files": entries,
     });
     files.insert(
@@ -151,6 +162,10 @@ mod tests {
                 "formal_validation_m3_sha256",
                 "build/formal-validation-m3.json",
             ),
+            (
+                "formal_validation_m4_sha256",
+                "build/formal-validation-m4.json",
+            ),
         ] {
             assert_eq!(manifest[key], hash(&fs::read(root.join(path)).unwrap()));
         }
@@ -166,6 +181,7 @@ mod tests {
             "invariants/frasco_reagente_m2_composed.tex",
             "entities/emprestimo_reagente.tex",
             "invariants/emprestimo_reagente.tex",
+            "invariants/retirada_devolucao_m4.tex",
         ] {
             assert!(outputs.contains_key(name), "saída ausente: {name}");
         }

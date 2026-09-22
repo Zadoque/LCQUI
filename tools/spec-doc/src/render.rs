@@ -152,3 +152,21 @@ pub fn render_loan(v: &crate::validation_m3::ValidationM3) -> String {
     text.push_str("\\end{description}\nUNSAT para check: nenhum contraexemplo encontrado no escopo declarado. SAT para run: testemunha encontrada. As buscas limitadas não são prova universal.\n\nNão certifica implementação Firebase/backend, concorrência, Q06, tara numérica, validade calculada, TCR completo, autorização/RBAC, idempotência nem a operação completa de retirada/devolução (M4). Não compõe Emprestimo com Frasco.\n");
     text
 }
+
+// Evidência M4 da retirada e devolução compostas.
+pub fn render_withdrawal_return(v: &crate::validation_m4::ValidationM4) -> String {
+    let mut text = String::from(
+        "% Gerado por lcqui-spec-doc; não editar.\n\\subsection*{Evidência M4 --- retirada e devolução compostas}\nM4 reúne o estado do Frasco (M2.4) e o ciclo de vida do Emprestimo (M3) no mesmo universo. A disponibilidade \\texttt{EMPRESTADO} equivale a exatamente um empréstimo ativo (\\texttt{EM\\_USO} ou \\texttt{ATRASADO}) por frasco. Retirada e devolução preservam a coerência integrada.\n\\begin{description}\n",
+    );
+    for r in &v.resultados {
+        text.push_str(&format!(
+            "\\item[{}] {}: {}.\\newline Escopo: \\texttt{{{}}}.\n",
+            escape(&r.id),
+            escape(&r.assertion),
+            escape(&r.status),
+            escape(&r.scope)
+        ));
+    }
+    text.push_str("\\end{description}\nUNSAT para check: nenhum contraexemplo encontrado no escopo declarado. SAT para run: testemunha encontrada. As buscas limitadas não são prova universal.\n\nNão certifica Q06 ou tara (M6), extravio/reencontro/quarentena completos (M5), idempotência transacional (M7), RBAC (M9), Firestore/backend nem concorrência real. A validade calculada, a primeira abertura que vence e os destinos de vencido são representados por fatos abstratos.\n");
+    text
+}

@@ -1,0 +1,48 @@
+\clearpage
+\section{Camada formal M4: retirada e devolução compostas}
+\label{sec:formal-m4}
+M4 liga o estado do frasco (M2.4) ao ciclo de vida do empréstimo (M3) no mesmo
+universo formal. A retirada parte de um frasco disponível, sem empréstimo ativo,
+e produz um empréstimo \texttt{EM\_USO} com o frasco \texttt{EMPRESTADO}; a
+devolução parte de um empréstimo ativo, sempre encerra a custódia e deixa o
+frasco em um destino operacionalmente coerente. O status do empréstimo é a
+autoridade de custódia e a disponibilidade \texttt{EMPRESTADO} equivale a
+exatamente um empréstimo ativo por frasco.
+
+Os predicados de coerência de M2 e a unicidade ativa de M3 são reproduzidos no
+modelo integrado e comparados mecanicamente com as origens por
+\texttt{tools/formal/withdrawal\_return.mjs}; qualquer drift falha \texttt{alloy-check}.
+As guardas de autorização (RBAC, tomador, ciência, TCR), o atraso, o vencimento e
+os resultados metrológicos são fatos abstratos das operações.
+
+\begingroup
+\small
+\raggedright
+\input{generated/invariants/retirada_devolucao_m4.tex}
+\par
+\endgroup
+
+\subsection*{Regras compostas verificadas}
+A retirada exige disponibilidade, estado físico utilizável, ausência de
+quarentena, ausência de pendência/autorização de descarte e ausência de
+empréstimo ativo; frasco vencido só é retirado com uso vencido autorizado, o que
+mantém \emph{pendente de descarte} bloqueado mesmo com disponibilidade
+\texttt{DISPONIVEL}. A primeira abertura durante a retirada leva \texttt{FECHADO}
+a \texttt{ABERTO}. A devolução sempre encerra a custódia: sem anomalia e sem
+atraso resulta \texttt{DEVOLVIDO}, com atraso \texttt{DEVOLVIDO\_COM\_ATRASO} e
+com anomalia \texttt{DEVOLVIDO\_COM\_ANOMALIA}; a anomalia tem precedência sobre
+o atraso e retém o frasco em quarentena indisponível com consumo pendente. O
+esgotamento confirmado leva a \texttt{VAZIO} indisponível, com precedência sobre
+a disponibilidade autorizada; os destinos de vencido (\texttt{QUARENTENA},
+\texttt{DISPONIVEL\_AUTORIZADO}, \texttt{PENDENTE\_DE\_DESCARTE}) são coerentes e
+o pendente de descarte não pode ser retirado.
+
+\subsection*{Limites e proveniência}
+Os fragmentos são vinculados ao IR e às evidências M0--M3 pelo
+\texttt{generated/MANIFEST.json}. M4 NÃO calcula Q06, tara, densidade ou
+validade (M6); NÃO modela extravio/reencontro nem quarentena manual completos
+(M5); NÃO formaliza idempotência transacional (M7), RBAC (M9), Firestore nem
+concorrência real. A primeira abertura que vence é tratada como abstração de
+validade: o caminho documental exige uso vencido autorizado prévio ou abertura
+prévia com destino, não havendo deadlock. Não antecipa M5.
+\par

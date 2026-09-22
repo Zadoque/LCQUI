@@ -10,11 +10,13 @@
     "invariants/emprestimo_reagente.tex": "a095e698e3119b07b7bbcc0e094a84dd82d0740f3096fd697a29ec0fd69c49d1",
     "invariants/frasco_reagente_m2.tex": "c2cae9be7954cf1185cac7aa4a314636be1febf1b5960f6cd1e745c83a88d588",
     "invariants/frasco_reagente_m2_composed.tex": "291e9b16016be59d3504d65db243e09631e11efab171eae8cf45114aa156253e",
+    "invariants/retirada_devolucao_m4.tex": "0acfd150e0038013f646790d707c3f3b15123cd758b5edf7a255021e83f128bb",
     "invariants/retirar_frasco.tex": "6b795685d7a60790868d8ac43c70fefc65ddaaf739e600fd6fb83c92b2cf9311"
   },
   "formal_validation_m24_sha256": "575427c7921d6358fe5f2265656d9ced38b4e3704c411844b9726f878dd0efb2",
   "formal_validation_m2_sha256": "49a865ae03a4de6bd8514714a7a6a0ae883c37b1b410361d34986c7cdf60e975",
   "formal_validation_m3_sha256": "3d3cb387e590717414e35fb59865531ec064429a09c2883d412f12028a71767c",
+  "formal_validation_m4_sha256": "a6d68a99c4f9dc545218b3b498b95d2548d183498ec55d54dc602783ecdedf3c",
   "formal_validation_sha256": "0555b8cb7d8959a4ff54367346f723c7b87927b0ba868230dcc200c520a237d8",
   "generator_version": "0.2.0",
   "spec_ir_sha256": "592884b85c7ab50d29465028b7485dcf21889445cc62b4277f62114986cdb026"

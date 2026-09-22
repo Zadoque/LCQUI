@@ -1,0 +1,51 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{Evidência M4 --- retirada e devolução compostas}
+M4 reúne o estado do Frasco (M2.4) e o ciclo de vida do Emprestimo (M3) no mesmo universo. A disponibilidade \texttt{EMPRESTADO} equivale a exatamente um empréstimo ativo (\texttt{EM\_USO} ou \texttt{ATRASADO}) por frasco. Retirada e devolução preservam a coerência integrada.
+\begin{description}
+\item[INV-M4-RETIRADA-APTA-001] RetiradaApta: UNSAT.\newline Escopo: \texttt{check RetiradaApta for 4 but exactly 2 Estado}.
+\item[INV-M4-RETIRADA-ATIVO-001] RetiradaCriaAtivo: UNSAT.\newline Escopo: \texttt{check RetiradaCriaAtivo for 4 but exactly 2 Estado}.
+\item[INV-M4-RETIRADA-DISPONIBILIDADE-001] RetiradaEmprestado: UNSAT.\newline Escopo: \texttt{check RetiradaEmprestado for 4 but exactly 2 Estado}.
+\item[INV-M4-RETIRADA-QUARENTENA-001] QuarentenaBloqueiaRetirada: UNSAT.\newline Escopo: \texttt{check QuarentenaBloqueiaRetirada for 4 but exactly 2 Estado}.
+\item[INV-M4-RETIRADA-DESCARTE-001] DescarteBloqueiaRetirada: UNSAT.\newline Escopo: \texttt{check DescarteBloqueiaRetirada for 4 but exactly 2 Estado}.
+\item[INV-M4-RETIRADA-VENCIDO-001] VencidoSemAutorizacaoBloqueia: UNSAT.\newline Escopo: \texttt{check VencidoSemAutorizacaoBloqueia for 4 but exactly 2 Estado}.
+\item[INV-M4-RETIRADA-ABERTURA-001] AberturaNaRetirada: UNSAT.\newline Escopo: \texttt{check AberturaNaRetirada for 4 but exactly 2 Estado}.
+\item[INV-M4-RETIRADA-FRAME-001] RetiradaNaoInterfere: UNSAT.\newline Escopo: \texttt{check RetiradaNaoInterfere for 4 but exactly 2 Estado}.
+\item[FRAME-M4-RETIRADA-STATUS-001] RetiradaNaoInterfereStatus: UNSAT.\newline Escopo: \texttt{check RetiradaNaoInterfereStatus for 4 but exactly 2 Estado}.
+\item[INV-M4-DEVOLUCAO-ATIVO-001] DevolucaoExigeAtivo: UNSAT.\newline Escopo: \texttt{check DevolucaoExigeAtivo for 4 but exactly 2 Estado}.
+\item[INV-M4-DEVOLUCAO-CUSTODIA-001] DevolucaoEncerraCustodia: UNSAT.\newline Escopo: \texttt{check DevolucaoEncerraCustodia for 4 but exactly 2 Estado}.
+\item[INV-M4-DEVOLUCAO-NORMAL-001] DevolucaoNormal: UNSAT.\newline Escopo: \texttt{check DevolucaoNormal for 4 but exactly 2 Estado}.
+\item[INV-M4-DEVOLUCAO-ATRASO-001] DevolucaoAtraso: UNSAT.\newline Escopo: \texttt{check DevolucaoAtraso for 4 but exactly 2 Estado}.
+\item[INV-M4-DEVOLUCAO-ANOMALIA-001] DevolucaoAnomalia: UNSAT.\newline Escopo: \texttt{check DevolucaoAnomalia for 4 but exactly 2 Estado}.
+\item[INV-M4-ANOMALIA-PRECEDENCIA-001] AnomaliaPrecedeAtraso: UNSAT.\newline Escopo: \texttt{check AnomaliaPrecedeAtraso for 4 but exactly 2 Estado}.
+\item[INV-M4-ANOMALIA-RETENCAO-001] AnomaliaRetem: UNSAT.\newline Escopo: \texttt{check AnomaliaRetem for 4 but exactly 2 Estado}.
+\item[INV-M4-ESGOTAMENTO-001] EsgotamentoVazio: UNSAT.\newline Escopo: \texttt{check EsgotamentoVazio for 4 but exactly 2 Estado}.
+\item[INV-M4-DESTINO-QUARENTENA-001] DestinoQuarentena: UNSAT.\newline Escopo: \texttt{check DestinoQuarentena for 4 but exactly 2 Estado}.
+\item[INV-M4-DESTINO-DISPONIVEL-001] DestinoDisponivel: UNSAT.\newline Escopo: \texttt{check DestinoDisponivel for 4 but exactly 2 Estado}.
+\item[INV-M4-DESTINO-DESCARTE-001] DestinoDescarte: UNSAT.\newline Escopo: \texttt{check DestinoDescarte for 4 but exactly 2 Estado}.
+\item[INV-M4-DEVOLUCAO-FRAME-001] DevolucaoNaoInterfere: UNSAT.\newline Escopo: \texttt{check DevolucaoNaoInterfere for 4 but exactly 2 Estado}.
+\item[FRAME-M4-DEVOLUCAO-STATUS-001] DevolucaoNaoInterfereStatus: UNSAT.\newline Escopo: \texttt{check DevolucaoNaoInterfereStatus for 4 but exactly 2 Estado}.
+\item[INV-M4-COERENCIA-001] OperacoesPreservamCoerencia: UNSAT.\newline Escopo: \texttt{check OperacoesPreservamCoerencia for 4 but exactly 2 Estado}.
+\item[WIT-M4-RETIRADA-ABERTO-001] RetiradaAberto: SAT.\newline Escopo: \texttt{run RetiradaAberto for 4 but exactly 2 Estado}.
+\item[WIT-M4-RETIRADA-FECHADO-001] RetiradaFechado: SAT.\newline Escopo: \texttt{run RetiradaFechado for 4 but exactly 2 Estado}.
+\item[WIT-M4-RETIRADA-ABERTURA-001] RetiradaAbertura: SAT.\newline Escopo: \texttt{run RetiradaAbertura for 4 but exactly 2 Estado}.
+\item[WIT-M4-RETIRADA-EXCEPCIONAL-001] RetiradaExcepcional: SAT.\newline Escopo: \texttt{run RetiradaExcepcional for 4 but exactly 2 Estado}.
+\item[WIT-M4-DEVOLUCAO-NORMAL-001] DevolucaoNormalHabitavel: SAT.\newline Escopo: \texttt{run DevolucaoNormalHabitavel for 4 but exactly 2 Estado}.
+\item[WIT-M4-DEVOLUCAO-ATRASADA-001] DevolucaoAtrasadaHabitavel: SAT.\newline Escopo: \texttt{run DevolucaoAtrasadaHabitavel for 4 but exactly 2 Estado}.
+\item[WIT-M4-DEVOLUCAO-ANOMALA-001] DevolucaoAnomalaHabitavel: SAT.\newline Escopo: \texttt{run DevolucaoAnomalaHabitavel for 4 but exactly 2 Estado}.
+\item[WIT-M4-DEVOLUCAO-VAZIO-001] DevolucaoVazioHabitavel: SAT.\newline Escopo: \texttt{run DevolucaoVazioHabitavel for 4 but exactly 2 Estado}.
+\item[WIT-M4-DEVOLUCAO-ANOMALIA-ATRASO-001] DevolucaoAnomaliaAtraso: SAT.\newline Escopo: \texttt{run DevolucaoAnomaliaAtraso for 4 but exactly 2 Estado}.
+\item[WIT-M4-DEVOLUCAO-ANOMALIA-VAZIO-001] DevolucaoAnomaliaVazio: SAT.\newline Escopo: \texttt{run DevolucaoAnomaliaVazio for 4 but exactly 2 Estado}.
+\item[WIT-M4-DEVOLUCAO-VENCIDO-QUARENTENA-001] DevolucaoVencidoQuarentena: SAT.\newline Escopo: \texttt{run DevolucaoVencidoQuarentena for 4 but exactly 2 Estado}.
+\item[WIT-M4-DEVOLUCAO-VENCIDO-DISPONIVEL-001] DevolucaoVencidoDisponivel: SAT.\newline Escopo: \texttt{run DevolucaoVencidoDisponivel for 4 but exactly 2 Estado}.
+\item[WIT-M4-DEVOLUCAO-VENCIDO-DESCARTE-001] DevolucaoVencidoDescarte: SAT.\newline Escopo: \texttt{run DevolucaoVencidoDescarte for 4 but exactly 2 Estado}.
+\item[WIT-M4-DOIS-FRASCOS-001] DoisFrascosAtivos: SAT.\newline Escopo: \texttt{run DoisFrascosAtivos for 4 but exactly 2 Estado}.
+\item[WIT-M4-CICLO-001] CicloCompleto: SAT.\newline Escopo: \texttt{run CicloCompleto for 5 but exactly 3 Estado}.
+\item[INV-M4-RETIRADA-ATIVO-006] RetiradaCriaAtivoAmpliado: UNSAT.\newline Escopo: \texttt{check RetiradaCriaAtivoAmpliado for 6 but exactly 2 Estado}.
+\item[INV-M4-RETIRADA-QUARENTENA-006] QuarentenaBloqueiaRetiradaAmpliado: UNSAT.\newline Escopo: \texttt{check QuarentenaBloqueiaRetiradaAmpliado for 6 but exactly 2 Estado}.
+\item[INV-M4-DEVOLUCAO-FRAME-006] DevolucaoNaoInterfereAmpliado: UNSAT.\newline Escopo: \texttt{check DevolucaoNaoInterfereAmpliado for 6 but exactly 2 Estado}.
+\item[INV-M4-COERENCIA-006] OperacoesPreservamCoerenciaAmpliado: UNSAT.\newline Escopo: \texttt{check OperacoesPreservamCoerenciaAmpliado for 6 but exactly 2 Estado}.
+\item[WIT-M4-CICLO-006] CicloCompletoAmpliado: SAT.\newline Escopo: \texttt{run CicloCompletoAmpliado for 6 but exactly 3 Estado}.
+\end{description}
+UNSAT para check: nenhum contraexemplo encontrado no escopo declarado. SAT para run: testemunha encontrada. As buscas limitadas não são prova universal.
+
+Não certifica Q06 ou tara (M6), extravio/reencontro/quarentena completos (M5), idempotência transacional (M7), RBAC (M9), Firestore/backend nem concorrência real. A validade calculada, a primeira abertura que vence e os destinos de vencido são representados por fatos abstratos.
