@@ -17,7 +17,7 @@ const hash = data => crypto.createHash('sha256').update(data).digest('hex');
 function write(file, data) { fs.mkdirSync(path.dirname(file), {recursive:true}); fs.writeFileSync(file,data); }
 function specCheck() {
   run('cue',['vet','./...'],cueDir);
-  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/frasco-completo', '#FrascoCompleto']];
+  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/frasco-completo', '#FrascoCompleto'], ['tests/emprestimo', '#EmprestimoReagente']];
   for (const [directory, definition] of groups) for (const kind of ['valid','invalid']) {
     const files = fs.readdirSync(`${cueDir}/${directory}/${kind}`).sort();
     if (!files.length) throw new Error(`Sem fixtures ${kind}`);
@@ -37,6 +37,20 @@ function specCheck() {
     if(fs.readFileSync(copy,'utf8')!==original) throw new Error(`Execute cue fmt: ${file}`);
     fs.rmSync(temp,{recursive:true});
   }
+  loanContractParity();
+}
+// Guard de drift M3: nomes/ordem/quantidade da entidade documental devem coincidir
+// com emprestimoReagenteCampos, sem lista manual duplicada.
+function loanContractParity() {
+  const tex=fs.readFileSync('documentation/Section-4-Modelagem-Entidades-SQL-3FN.tex','utf8');
+  const start=tex.indexOf('\\begin{entidade}{Emprestimo\\_Reagente}');
+  const end=tex.indexOf('\\end{entidade}',start);
+  if(start<0||end<0) throw new Error('Entidade Emprestimo_Reagente ausente da Seção 4');
+  const block=tex.slice(start,end);
+  const documented=[...block.matchAll(/\\campo\{([^}]+)\}/g)].map(m=>m[1].replace(/\\_/g,'_'));
+  const cueNames=JSON.parse(run('cue',['export','./domain','-e','emprestimoReagenteCampos'],cueDir)).map(c=>c.nome);
+  const mismatch=documented.length!==cueNames.length||documented.some((n,i)=>n!==cueNames[i]);
+  if(mismatch) throw new Error(`Paridade Seção 4 x CUE divergente: ${documented.length} documentais, ${cueNames.length} CUE`);
 }
 function specExport() {
   specCheck();
