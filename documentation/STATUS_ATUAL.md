@@ -125,21 +125,31 @@ Logs locais: /tmp/m2-docs-build.log, build/latex/main.log e /tmp/m2-baseline-bui
 
 ## Formal e pendências concretas
 
-**M3 foi VALIDATED.** A Seção 5 foi reconciliada (5 campos canônicos que o
-próprio dicionário descrevia estavam ausentes e foram inseridos; 33 nomes iguais
-aos da Seção 4). O CUE ganhou `emprestimoReagenteCampos`/`#EmprestimoReagente`
-(33 colunas) e 21 fixtures; a paridade Seção 4 × CUE é automatizada em
-`check.mjs`. O Alloy `loan_state.als` formaliza o ciclo de vida do empréstimo
-(11 checks UNSAT + 11 witnesses SAT em scopes 4/6). O IR v3 acrescenta a
-projeção `emprestimo_reagente` e `baseline_documental_m3`; `validation_m3.rs`
-valida a evidência; os fragmentos M3 e `Formal-Spec-M3.tex` foram integrados ao
-PDF (302 páginas). Receipts M0/M2/M2.4 mudaram apenas em `spec_ir_sha256`.
-HQs M3 OPEN = 0. M4 (Retirada/devolução completas) = NOT_STARTED. Detalhes em
+**M3 foi VALIDATED**, com erratum pós-validação. A Seção 5 foi reconciliada (5
+campos canônicos que o próprio dicionário descrevia estavam ausentes e foram
+inseridos; 33 nomes iguais aos da Seção 4). O CUE ganhou
+`emprestimoReagenteCampos`/`#EmprestimoReagente` (33 colunas); a paridade
+Seção 4 × CUE é automatizada em `check.mjs`. O Alloy `loan_state.als` formaliza
+o ciclo de vida do empréstimo (11 checks UNSAT + 11 witnesses SAT em scopes
+4/6). O IR v3 acrescenta a projeção `emprestimo_reagente` e
+`baseline_documental_m3`; `validation_m3.rs` valida a evidência; os fragmentos
+M3 e `Formal-Spec-M3.tex` foram integrados ao PDF (302 páginas). O erratum
+corrigiu a anomalia: `DEVOLVIDO_COM_ANOMALIA` é fato histórico e a pendência
+quantitativa é `consumo_validado = false`; a resolução pode gravar os valores
+mantendo o status. As grandezas de massa/volume passaram a exigir `>= 0` (zero
+válido), tanto em M3 (`medida_utilizada`, `peso_saida`, `peso_retorno`,
+`peso_retorno_efetivo`, `peso_perda_evaporacao`, `massa_perda_estimada_g`) quanto
+em M2 (`conteudo_nominal`, `peso_no_cadastrado`, `peso_atual`,
+`peso_frasco_vazio`, `medida_usada`), sem reabrir o milestone M2. M3
+ficou com 25 fixtures (10 válidas, 15 inválidas) e M2 ganhou a negativa
+`invalid/peso_negativo`. Receipts M0/M2/M2.4 mudaram
+apenas em `spec_ir_sha256`; o modelo Alloy M3 não mudou. HQs M3 OPEN = 0. M4
+(Retirada/devolução completas) = NOT_STARTED. Detalhes em
 [worklog M3](worklogs/formal-spec/M3_VALIDATION.md). O backend real
 (`functions/src/reagentes.ts`) diverge da especificação vigente e é dívida de
 M4/M5/M6/M9/M10.
 
-**M2.2 e M2.3 foram VALIDATED; M2.4 foi VALIDATED.** O CUE M2.1d permanece o recorte local de 29 colunas com `origem_tara`. O Alloy M2.2 acrescenta `bottle_identity.als` (identidade química efetiva: XOR de rotas e resolução única) e `bottle_state.als` (saldo terminal, flag histórica, transições extravio/quebra/descarte/esgotamento, frames auditados de vencido/usoVencido, `emQuarentena`, autorização técnica de descarte e terminalidade de `DESCARTADO`), reconciliados por HQ-M2-008/B, totalizando 35 `check` UNSAT e 16 testemunhas SAT somando identidade e estado; HQs M2 OPEN = 0. `withdrawal.als` (M0) permanece intacto. M2.3 migrou a cadeia: IR v3 transporta a projeção `frasco_reagente_m2` (29 colunas) ao lado da fatia M0; o Rust valida a evidência M2.2 (`build/formal-validation-m2.json`) e os hashes dos modelos; o gerador emite `entities/frasco_reagente_m2.tex` e `invariants/frasco_reagente_m2.tex`, com `formal_validation_m2_sha256` no `MANIFEST.json`. Fragmentos M0/M1 byte a byte idênticos; geração determinística. Os fragmentos M2 ainda NÃO são integrados ao `main.tex`. Detalhes nos [worklogs M2.2](worklogs/formal-spec/M2_2_ALLOY_RELATIONS.md) e [M2.3](worklogs/formal-spec/M2_3_PROVENANCE_IR_GENERATION.md). Backend, cache, Q06, tara numérica, validade e FLOW continuam fora do escopo provado; composição M0 e M2.2 permanece para M2.4. Os gates CUE atestam o recorte M2.1d (7/35/30 = 72 fixtures).
+**M2.2, M2.3 e M2.4 foram VALIDATED.** O CUE M2.1d permanece o recorte local de 29 colunas com `origem_tara`. O Alloy M2.2 acrescenta `bottle_identity.als` (identidade química efetiva: XOR de rotas e resolução única) e `bottle_state.als` (saldo terminal, flag histórica, transições extravio/quebra/descarte/esgotamento, frames auditados de vencido/usoVencido, `emQuarentena`, autorização técnica de descarte e terminalidade de `DESCARTADO`), reconciliados por HQ-M2-008/B, totalizando 35 `check` UNSAT e 16 testemunhas SAT somando identidade e estado; HQs M2 OPEN = 0. `withdrawal.als` (M0) permanece intacto. M2.3 migrou a cadeia: IR v3 transporta a projeção `frasco_reagente_m2` (29 colunas) ao lado da fatia M0; o Rust valida a evidência M2.2 (`build/formal-validation-m2.json`) e os hashes dos modelos; o gerador emite `entities/frasco_reagente_m2.tex` e `invariants/frasco_reagente_m2.tex`, com `formal_validation_m2_sha256` no `MANIFEST.json`. M2.4 criou `Formal-Spec-M2.tex`, integrou a seção M2 ao `main.tex`, concluiu a composição M0 × M2.2 em `bottle_composition.als` e gerou a evidência `build/formal-validation-m24.json` (12+5 checks UNSAT, 10+1 witnesses SAT). Fragmentos M0/M1 byte a byte idênticos; geração determinística. Detalhes nos [worklogs M2.2](worklogs/formal-spec/M2_2_ALLOY_RELATIONS.md), [M2.3](worklogs/formal-spec/M2_3_PROVENANCE_IR_GENERATION.md) e [M2.4](worklogs/formal-spec/M2_4_COMPOSITION_INTEGRATION.md). Backend, cache, Q06, tara numérica, validade e FLOW continuam fora do escopo provado. Contagem corrente de fixtures (M0/M1/M2/M3): 7/35/31/25 = 98.
 
 Backend atual ainda tem contratos legados (ex.: cadastro fechado exige volumeNominal e devolução rejeita ganho acima de 102%); cache/endpoint e resolução precisam de implementação futura. Esta rodada não altera nem homologa esse código. Não há novas perguntas humanas sobre decisões já resolvidas.
 

@@ -268,3 +268,126 @@ permanece dívida de M4/M5/M6/M9/M10. `functions/` não foi modificado.
 
 PRÓXIMA AÇÃO EXATA: `INICIAR M4 — Retirada/devolução completas`.
 Não iniciar M4 nesta execução.
+
+## Erratum pós-validação M3
+
+Estado: M3 reaberto como IN_PROGRESS e novamente VALIDATED. Branch
+`feat/formal-spec-cue-alloy`; HEAD de entrada do erratum:
+`f62a4f9918bf30190c02c296ab8f206cca753cdc`, árvore limpa. O primeiro fechamento
+de M3 permanece registrado acima e não foi reescrito.
+
+Os gates anteriores estavam verdes, mas **não cobriam o estado
+`DEVOLVIDO_COM_ANOMALIA` já resolvido**: as fixtures só representavam a anomalia
+recém-produzida (pendência aberta) e a constraint do CUE tratava o status como
+pendência permanente. Essa é a lacuna de cobertura que este erratum fecha.
+
+### Problema 1 — `DEVOLVIDO_COM_ANOMALIA` como pendência eterna
+
+- Constraint anterior (incorreta):
+  ```cue
+  if status == "DEVOLVIDO_COM_ANOMALIA" {
+      consumo_validado!:         false
+      peso_retorno_efetivo!:     null
+      id_resolucao_metrologica!: null
+  }
+  ```
+- Por que estava errada: confundia o status histórico da devolução com o estado
+  quantitativo. A documentação (Seção 10.5, `finalizarPendenciaMetrologicaTx`,
+  linhas 1458-1474) permite que um contrato tipado resolva a pendência gravando
+  `consumo_validado: true`, `peso_retorno_efetivo`, `medida_utilizada` e
+  `id_resolucao_metrologica`, mantendo o status e preservando `peso_retorno` e
+  `anomalia_metrologica`. A pendência é `<status = DEVOLVIDO_COM_ANOMALIA AND
+  consumo_validado = false>` (helper `existePendenciaMetrologicaTx`, Seção 10.5,
+  linhas 1418-1427), não o status isolado.
+- Constraint nova:
+  ```cue
+  if status == "DEVOLVIDO_COM_ANOMALIA" && consumo_validado == false {
+      medida_utilizada!:         null
+      peso_retorno_efetivo!:     null
+      id_resolucao_metrologica!: null
+  }
+  if status == "DEVOLVIDO_COM_ANOMALIA" && consumo_validado == true {
+      medida_utilizada!:         !=null
+      peso_retorno_efetivo!:     !=null
+      id_resolucao_metrologica!: !=null
+  }
+  ```
+  A recíproca do bundle resolvido tem fonte direta: o único escritor de
+  `consumo_validado = true` em status anômalo é `finalizarPendenciaMetrologicaTx`,
+  que grava os três valores na mesma transação. `peso_retorno` e
+  `anomalia_metrologica` não são tocados por nenhuma constraint (Seção 36).
+- Fixture pendente: `valid/devolvido_com_anomalia.json` (status anômalo,
+  `consumo_validado = false`, três campos nulos) — VALID.
+- Fixture resolvida: `valid/devolvido_com_anomalia_resolvida.json` (status
+  anômalo, `consumo_validado = true`, `medida_utilizada = 0`,
+  `peso_retorno = 520` preservado, `peso_retorno_efetivo = 520`,
+  `id_resolucao_metrologica = 7`, `anomalia_metrologica = GANHO_ACIMA_Q06`) —
+  VALID. A fixture negativa antiga `invalid/anomalia_consumo_validado.json`
+  passou a representar exatamente esse estado válido e foi movida para
+  `valid/devolvido_com_anomalia_resolvida.json`.
+- Fixtures negativas do bundle resolvido:
+  `invalid/anomalia_resolvida_sem_resolucao.json` (resolvida sem
+  `id_resolucao_metrologica`) e `invalid/anomalia_resolvida_sem_peso_efetivo.json`
+  (resolvida sem `peso_retorno_efetivo`) — INVALID.
+
+### Problema 2 — campos quantitativos de massa/volume aceitavam negativos
+
+- Antes: `medida_utilizada` (e demais grandezas de massa/volume) eram apenas
+  NUMERIC(10,3) nullable, com mínimo -9999999.999; aceitavam `-0.001`. O texto
+  gerado dizia "não negativo" mas exibia "Mínimo: -9999999.999".
+- Depois: os descritores ganharam `nao_negativo: *false | bool` (distinto de
+  `positivo`, que significa `> 0`), impondo `>= 0` sem alterar
+  `densidade_aplicada` (`positivo: true`, `> 0`). A projeção passa
+  `minimo_numero: 0` para o IR, e os fragmentos gerados mostram `Mínimo: 0.`.
+- Campos marcados em M3 (`emprestimo_reagente.cue`): `medida_utilizada`,
+  `peso_saida`, `peso_retorno`, `peso_retorno_efetivo`, `peso_perda_evaporacao`,
+  `massa_perda_estimada_g`.
+- Campos marcados em M2 (`frasco_completo.cue`, sem reabrir o milestone M2):
+  `conteudo_nominal`, `peso_no_cadastrado`, `peso_atual`, `peso_frasco_vazio`,
+  `medida_usada`. A fixture de limites `valid/limites_numericos_zero.json` foi
+  ajustada de `peso_no_cadastrado = -9999999.999` para `0` (novo limite inferior)
+  e foi adicionada a negativa `invalid/peso_negativo.json`
+  (`peso_atual = -0.001`). Fundamento: Seção 4, checklist, "todos os valores
+  quantitativos de massa, volume, capacidade, contagens ... devem obedecer aos
+  limites não negativos ou positivos".
+- Fixture zero M3: `valid/medida_utilizada_zero.json` (consumo validado 0) —
+  VALID, provando `>= 0` e não `> 0`.
+- Fixture negativa M3: `invalid/medida_utilizada_negativa.json` (`-0.001`) —
+  INVALID.
+
+### Problema 3 — `STATUS_ATUAL.md` stale
+
+O bloco de status corrente ainda dizia que "os fragmentos M2 ainda NÃO são
+integrados ao `main.tex`" e que "a composição M0 e M2.2 permanece para M2.4",
+além de citar a contagem `7/35/30 = 72`. Corrigido para reconhecer M2.4 =
+VALIDATED, `Formal-Spec-M2.tex` integrado, composição M0 × M2.2 concluída, M3 =
+VALIDATED, e contagem corrente 7/35/31/25 = 98.
+
+### Regressões e contagens após o erratum
+
+- CUE `Emprestimo_Reagente`: 33 colunas, nenhum enum novo, nenhum status novo.
+  Constraints alteradas: pendência de anomalia (agora por `consumo_validado`) +
+  `medida_utilizada >= 0`.
+- Fixtures: M3 passou de 21 (8 válidas, 13 inválidas) para **25 (10 válidas,
+  15 inválidas)**. Total: M0 7, M1 35, M2 31 (M2 ganhou `invalid/peso_negativo`),
+  M3 25 = **98**.
+- Paridade Seção 4 × CUE: 33 = 33, nomes/ordem iguais.
+- Alloy: `loan_state.als` **não mudou**; `model_sha256` = `1b7d7e6f8009...`;
+  22 resultados idênticos. `withdrawal.als`, `bottle_identity.als`,
+  `bottle_state.als`, `bottle_composition.als` byte a byte idênticos.
+- IR mudou (metadata de `medida_utilizada`: `minimo_numero: 0`), então os quatro
+  receipts mudaram **apenas** em `spec_ir_sha256`; `model_sha256`, resultados e
+  scopes idênticos (verificado programaticamente).
+- Generated: apenas `entities/emprestimo_reagente.tex` e `MANIFEST.json`
+  mudaram; `invariants/emprestimo_reagente.tex` e os fragmentos M0/M1/M2
+  permanecem. Determinismo confirmado; stale detectado antes de regenerar.
+- PDF: exit 0, 302 páginas, zero erros/referências indefinidas, 28 Overfull
+  únicos (nenhum novo). Página 298 mostra `Mínimo: 0.` em `medida_utilizada`;
+  página 300 mostra o esclarecimento sobre status histórico × pendência.
+
+### Estado final do erratum
+
+- M0 = VALIDATED; M1 = VALIDATED; M2 = VALIDATED; **M3 = VALIDATED**.
+- M4 = NOT_STARTED. HQs M3 abertas = 0.
+
+PRÓXIMA AÇÃO EXATA: `INICIAR M4 — Retirada/devolução completas`.

@@ -34,6 +34,16 @@ exemplo também valida FK e densidade condicional. Não duplicar schemas em docs
 `#Base: _` no topo para que `#Valor` resolva. `emprestimoReagenteCampos` é a
 fonte estrutural única; `#EmprestimoReagente` impõe presença (`!`) e constraints
 locais: densidade condicional por `unidade_medida_utilizada` (ml exige densidade
-positiva, g exige null), bundle de `DEVOLVIDO_COM_ANOMALIA` e bundle de
-`ENCERRADO_EXTRAORDINARIO`. A paridade nomes/ordem/quantidade com a Seção 4 é
-verificada em `tools/formal/check.mjs`, não em lista paralela.
+positiva, g exige null), pendência de anomalia (`DEVOLVIDO_COM_ANOMALIA` com
+`consumo_validado = false` exige valores quantitativos nulos) e sua resolução
+(com `consumo_validado = true` exige os três valores), bundle de
+`ENCERRADO_EXTRAORDINARIO` e `nao_negativo` para grandezas de massa/volume
+(`medida_utilizada`, pesos e perda estimada) com `>= 0` (zero válido; distinto de
+`positivo`, que é `> 0`; `densidade_aplicada` permanece `positivo`). A paridade
+nomes/ordem/quantidade com a Seção 4 é verificada em `tools/formal/check.mjs`,
+não em lista paralela.
+
+`#CampoFrasco` recebeu o mesmo metadado `nao_negativo`; em `frasco_completo.cue`
+os campos `conteudo_nominal`, `peso_no_cadastrado`, `peso_atual`,
+`peso_frasco_vazio` e `medida_usada` passaram a exigir `>= 0`. O milestone M2 não
+foi reaberto; a correção é registrada no erratum de M3.
