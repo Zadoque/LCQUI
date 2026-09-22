@@ -1,0 +1,164 @@
+{
+  "versao": 1,
+  "alloy": "6.2.0",
+  "solver": "sat4j",
+  "spec_ir_sha256": "0934cc0aebd9f95a157f4762026a3e35f160f3ed3595c0fadd8c4a1ceefb513a",
+  "model": "specification/alloy/reagents/loan_state.als",
+  "model_sha256": "1b7d7e6f8009408a7da19666fe286c8feb578b915318bd5eda9e0eb4dffbc060",
+  "resultados": [
+    {
+      "id": "INV-M3-ATIVO-UNICIDADE-001",
+      "assertion": "UnicidadeAtivaPreservada",
+      "tipo": "check",
+      "scope": "check UnicidadeAtivaPreservada for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M3-ATRASO-ORIGEM-001",
+      "assertion": "AtrasoSoDeEmUso",
+      "tipo": "check",
+      "scope": "check AtrasoSoDeEmUso for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M3-ENCERRADO-TERMINAL-001",
+      "assertion": "EncerradoNaoReabre",
+      "tipo": "check",
+      "scope": "check EncerradoNaoReabre for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M3-DEVOLUCAO-ENCERRA-001",
+      "assertion": "DevolucaoEncerra",
+      "tipo": "check",
+      "scope": "check DevolucaoEncerra for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M3-ANOMALIA-ENCERRA-001",
+      "assertion": "AnomaliaNaoAtiva",
+      "tipo": "check",
+      "scope": "check AnomaliaNaoAtiva for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M3-EXTRAORDINARIO-ENCERRA-001",
+      "assertion": "ExtraordinarioNaoAtivo",
+      "tipo": "check",
+      "scope": "check ExtraordinarioNaoAtivo for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "FRAME-M3-STATUS-001",
+      "assertion": "TransicaoNaoInterfereOutros",
+      "tipo": "check",
+      "scope": "check TransicaoNaoInterfereOutros for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "WIT-M3-EM-USO-001",
+      "assertion": "TestemunhaEmUso",
+      "tipo": "run",
+      "scope": "run TestemunhaEmUso for 4 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "WIT-M3-ATRASADO-001",
+      "assertion": "TestemunhaAtrasado",
+      "tipo": "run",
+      "scope": "run TestemunhaAtrasado for 4 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "WIT-M3-ATRASO-001",
+      "assertion": "TestemunhaAtraso",
+      "tipo": "run",
+      "scope": "run TestemunhaAtraso for 4 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "WIT-M3-DEVOLUCAO-001",
+      "assertion": "TestemunhaDevolucaoNormal",
+      "tipo": "run",
+      "scope": "run TestemunhaDevolucaoNormal for 4 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "WIT-M3-DEVOLUCAO-ATRASO-001",
+      "assertion": "TestemunhaDevolucaoComAtraso",
+      "tipo": "run",
+      "scope": "run TestemunhaDevolucaoComAtraso for 4 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "WIT-M3-DEVOLUCAO-ANOMALIA-001",
+      "assertion": "TestemunhaDevolucaoComAnomalia",
+      "tipo": "run",
+      "scope": "run TestemunhaDevolucaoComAnomalia for 4 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "WIT-M3-ENCERRAMENTO-001",
+      "assertion": "TestemunhaEncerramentoExtraordinario",
+      "tipo": "run",
+      "scope": "run TestemunhaEncerramentoExtraordinario for 4 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "WIT-M3-DOIS-FRASCOS-001",
+      "assertion": "TestemunhaDoisFrascosAtivos",
+      "tipo": "run",
+      "scope": "run TestemunhaDoisFrascosAtivos for 4 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "WIT-M3-TRANSICAO-COERENTE-001",
+      "assertion": "TestemunhaTransicaoCoerente",
+      "tipo": "run",
+      "scope": "run TestemunhaTransicaoCoerente for 4 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "WIT-M3-ESTADO-ENCERRADO-001",
+      "assertion": "TestemunhaEstadoEncerrado",
+      "tipo": "run",
+      "scope": "run TestemunhaEstadoEncerrado for 4 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "INV-M3-ATIVO-UNICIDADE-006",
+      "assertion": "UnicidadeAtivaPreservadaAmpliado",
+      "tipo": "check",
+      "scope": "check UnicidadeAtivaPreservadaAmpliado for 6 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M3-ATRASO-ORIGEM-006",
+      "assertion": "AtrasoSoDeEmUsoAmpliado",
+      "tipo": "check",
+      "scope": "check AtrasoSoDeEmUsoAmpliado for 6 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M3-ENCERRADO-TERMINAL-006",
+      "assertion": "EncerradoNaoReabreAmpliado",
+      "tipo": "check",
+      "scope": "check EncerradoNaoReabreAmpliado for 6 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "FRAME-M3-STATUS-006",
+      "assertion": "TransicaoNaoInterfereOutrosAmpliado",
+      "tipo": "check",
+      "scope": "check TransicaoNaoInterfereOutrosAmpliado for 6 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "WIT-M3-DOIS-FRASCOS-006",
+      "assertion": "TestemunhaDoisFrascosAtivosAmpliado",
+      "tipo": "run",
+      "scope": "run TestemunhaDoisFrascosAtivosAmpliado for 6 but exactly 2 Estado",
+      "status": "SAT"
+    }
+  ]
+}

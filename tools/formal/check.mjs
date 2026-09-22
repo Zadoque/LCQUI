@@ -167,6 +167,34 @@ function alloyCheck() {
   checkCompositionTrace(file => fs.readFileSync(file));
   const composed = execAlloy(composedModel, composedExpected);
   write('build/formal-validation-m24.json',JSON.stringify({versao:1,alloy:version,solver:composed.solver,spec_ir_sha256:hash(ir),model:composedModel,model_sha256:hash(composed.source),origens:origins.map(model=>({model,model_sha256:hash(fs.readFileSync(model))})),resultados:composed.results},null,2)+'\n');
+  // M3: ciclo de vida do Emprestimo_Reagente. Evidência própria.
+  const loan='specification/alloy/reagents/loan_state.als';
+  const m3=[
+    {id:'INV-M3-ATIVO-UNICIDADE-001',name:'UnicidadeAtivaPreservada',type:'check',scope:'check UnicidadeAtivaPreservada for 4 but exactly 2 Estado'},
+    {id:'INV-M3-ATRASO-ORIGEM-001',name:'AtrasoSoDeEmUso',type:'check',scope:'check AtrasoSoDeEmUso for 4 but exactly 2 Estado'},
+    {id:'INV-M3-ENCERRADO-TERMINAL-001',name:'EncerradoNaoReabre',type:'check',scope:'check EncerradoNaoReabre for 4 but exactly 2 Estado'},
+    {id:'INV-M3-DEVOLUCAO-ENCERRA-001',name:'DevolucaoEncerra',type:'check',scope:'check DevolucaoEncerra for 4 but exactly 2 Estado'},
+    {id:'INV-M3-ANOMALIA-ENCERRA-001',name:'AnomaliaNaoAtiva',type:'check',scope:'check AnomaliaNaoAtiva for 4 but exactly 2 Estado'},
+    {id:'INV-M3-EXTRAORDINARIO-ENCERRA-001',name:'ExtraordinarioNaoAtivo',type:'check',scope:'check ExtraordinarioNaoAtivo for 4 but exactly 2 Estado'},
+    {id:'FRAME-M3-STATUS-001',name:'TransicaoNaoInterfereOutros',type:'check',scope:'check TransicaoNaoInterfereOutros for 4 but exactly 2 Estado'},
+    {id:'WIT-M3-EM-USO-001',name:'TestemunhaEmUso',type:'run',scope:'run TestemunhaEmUso for 4 but exactly 2 Estado'},
+    {id:'WIT-M3-ATRASADO-001',name:'TestemunhaAtrasado',type:'run',scope:'run TestemunhaAtrasado for 4 but exactly 2 Estado'},
+    {id:'WIT-M3-ATRASO-001',name:'TestemunhaAtraso',type:'run',scope:'run TestemunhaAtraso for 4 but exactly 2 Estado'},
+    {id:'WIT-M3-DEVOLUCAO-001',name:'TestemunhaDevolucaoNormal',type:'run',scope:'run TestemunhaDevolucaoNormal for 4 but exactly 2 Estado'},
+    {id:'WIT-M3-DEVOLUCAO-ATRASO-001',name:'TestemunhaDevolucaoComAtraso',type:'run',scope:'run TestemunhaDevolucaoComAtraso for 4 but exactly 2 Estado'},
+    {id:'WIT-M3-DEVOLUCAO-ANOMALIA-001',name:'TestemunhaDevolucaoComAnomalia',type:'run',scope:'run TestemunhaDevolucaoComAnomalia for 4 but exactly 2 Estado'},
+    {id:'WIT-M3-ENCERRAMENTO-001',name:'TestemunhaEncerramentoExtraordinario',type:'run',scope:'run TestemunhaEncerramentoExtraordinario for 4 but exactly 2 Estado'},
+    {id:'WIT-M3-DOIS-FRASCOS-001',name:'TestemunhaDoisFrascosAtivos',type:'run',scope:'run TestemunhaDoisFrascosAtivos for 4 but exactly 2 Estado'},
+    {id:'WIT-M3-TRANSICAO-COERENTE-001',name:'TestemunhaTransicaoCoerente',type:'run',scope:'run TestemunhaTransicaoCoerente for 4 but exactly 2 Estado'},
+    {id:'WIT-M3-ESTADO-ENCERRADO-001',name:'TestemunhaEstadoEncerrado',type:'run',scope:'run TestemunhaEstadoEncerrado for 4 but exactly 2 Estado'},
+    {id:'INV-M3-ATIVO-UNICIDADE-006',name:'UnicidadeAtivaPreservadaAmpliado',type:'check',overall:6,scope:'check UnicidadeAtivaPreservadaAmpliado for 6 but exactly 2 Estado'},
+    {id:'INV-M3-ATRASO-ORIGEM-006',name:'AtrasoSoDeEmUsoAmpliado',type:'check',overall:6,scope:'check AtrasoSoDeEmUsoAmpliado for 6 but exactly 2 Estado'},
+    {id:'INV-M3-ENCERRADO-TERMINAL-006',name:'EncerradoNaoReabreAmpliado',type:'check',overall:6,scope:'check EncerradoNaoReabreAmpliado for 6 but exactly 2 Estado'},
+    {id:'FRAME-M3-STATUS-006',name:'TransicaoNaoInterfereOutrosAmpliado',type:'check',overall:6,scope:'check TransicaoNaoInterfereOutrosAmpliado for 6 but exactly 2 Estado'},
+    {id:'WIT-M3-DOIS-FRASCOS-006',name:'TestemunhaDoisFrascosAtivosAmpliado',type:'run',overall:6,scope:'run TestemunhaDoisFrascosAtivosAmpliado for 6 but exactly 2 Estado'},
+  ];
+  const m3run=execAlloy(loan,m3);
+  write('build/formal-validation-m3.json',JSON.stringify({versao:1,alloy:version,solver:m3run.solver,spec_ir_sha256:hash(ir),model:loan,model_sha256:hash(m3run.source),resultados:m3run.results},null,2)+'\n');
 }
 const cmd=process.argv[2];
 if(cmd==='spec-check') specCheck();
