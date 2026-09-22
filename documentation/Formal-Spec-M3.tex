@@ -1,0 +1,44 @@
+\clearpage
+\section{Camada formal M3: Empréstimo de Reagente}
+\label{sec:formal-m3}
+M3 migra o registro relacional de \textit{Emprestimo\_Reagente} (33 colunas) e
+sua máquina abstrata de status. O CUE cobre estrutura, enums, nulabilidade,
+escala numérica e constraints locais intrínsecas ao registro. O Alloy formaliza
+o ciclo de vida do empréstimo: estados ativos, promoção de atraso, encerramentos
+e unicidade de empréstimo ativo por frasco. O Rust valida a evidência contra o
+IR antes de gerar os fragmentos.
+
+\input{generated/entities/emprestimo_reagente.tex}
+
+\clearpage
+\subsection*{Ciclo de vida abstrato}
+O status é a autoridade de custódia: \texttt{EM\_USO} e \texttt{ATRASADO} são
+ativos; \texttt{DEVOLVIDO}, \texttt{DEVOLVIDO\_COM\_ATRASO},
+\texttt{DEVOLVIDO\_COM\_ANOMALIA} e \texttt{ENCERRADO\_EXTRAORDINARIO} encerram
+a custódia. No máximo um empréstimo ativo existe por frasco. Nenhum estado
+encerrado retorna a ativo; a anomalia metrológica encerra a custódia e permanece
+como fato histórico, sem reabertura. A relação empréstimo--frasco é estática e
+não há estado de reserva.
+
+A escolha entre devolução comum e com atraso a partir da data pertence à
+devolução completa; M3 verifica apenas que qualquer ativo pode encerrar por
+qualquer um dos caminhos documentados. O detalhamento do encerramento
+extraordinário e os efeitos metrológicos completos não são decididos no Alloy
+M3: os campos quantitativos existem no registro, mas Q06, tara, validade e
+resolução metrológica pertencem a M4/M6.
+
+\begingroup
+\small
+\raggedright
+\input{generated/invariants/emprestimo_reagente.tex}
+\par
+\endgroup
+
+\subsection*{Limites e proveniência}
+Os fragmentos são vinculados ao IR e às evidências M0, M2.2 e M2.4 existentes
+pelo \texttt{generated/MANIFEST.json}. M3 NÃO certifica semântica de transação
+Firestore, RBAC, App Check, idempotência completa, validade operacional de
+retirada, TCR completo, Q06, tara, FLOW, cache nem as operações completas de
+retirada e devolução, que pertencem a M4/M6. Não compõe Empréstimo com Frasco e
+não antecipa M4.
+\par
