@@ -18,12 +18,14 @@ import (
 	valores: *[] | [...string]
 	observacao:     *"" | string
 	positivo:       *false | bool
+	nao_negativo:   *false | bool
 	max_caracteres: *0 | int
 
 	if sql == "SERIAL" || sql == "INTEGER" {
 		tipo:  "int"
 		#Base: int
 		if positivo {#Base: >0}
+		if nao_negativo {#Base: >=0}
 	}
 	if sql == "TEXT" || sql == "TIMESTAMP" {
 		tipo:  "string"
@@ -41,6 +43,7 @@ import (
 		multiplo: 0.001
 		#Base:    number & >=minimo & <=maximo & math.MultipleOf(multiplo)
 		if positivo {#Base: >0}
+		if nao_negativo {#Base: >=0}
 	}
 	if sql == "NUMERIC(10,5)" {
 		tipo:     "number"
@@ -49,6 +52,7 @@ import (
 		multiplo: 0.00001
 		#Base:    number & >=minimo & <=maximo & math.MultipleOf(multiplo)
 		if positivo {#Base: >0}
+		if nao_negativo {#Base: >=0}
 	}
 	if sql == "BOOLEAN" {
 		tipo:  "bool"

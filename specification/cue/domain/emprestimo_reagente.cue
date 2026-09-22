@@ -20,7 +20,7 @@ emprestimoReagenteCampos: [
 	#CampoEmprestimo & {nome: "id_gestor_devolucao", sql: "INTEGER", nulo: true},
 	#CampoEmprestimo & {nome: "peso_saida", sql: "NUMERIC(10,3)", observacao: "Peso bruto em g medido na retirada; referência imutável do consumo."},
 	#CampoEmprestimo & {nome: "peso_retorno", sql: "NUMERIC(10,3)", nulo: true, observacao: "Peso bruto em g medido na devolução; preservado mesmo quando contradiz tara/saída."},
-	#CampoEmprestimo & {nome: "medida_utilizada", sql: "NUMERIC(10,3)", nulo: true, observacao: "Consumo validado não negativo na unidade do empréstimo; null até a validação quantitativa."},
+	#CampoEmprestimo & {nome: "medida_utilizada", sql: "NUMERIC(10,3)", nulo: true, nao_negativo: true, observacao: "Consumo validado não negativo na unidade do empréstimo; null até a validação quantitativa. Zero é consumo válido."},
 	#CampoEmprestimo & {nome: "consumo_validado", sql: "BOOLEAN", observacao: "Falso na retirada e enquanto a pendência quantitativa permanece aberta; server-owned."},
 	#CampoEmprestimo & {nome: "anomalia_metrologica", sql: "TEXT", nulo: true, observacao: "Classificação server-owned da anomalia quantitativa; null quando não há anomalia."},
 	#CampoEmprestimo & {nome: "peso_retorno_efetivo", sql: "NUMERIC(10,3)", nulo: true, observacao: "Peso de retorno efetivo em g; null enquanto o consumo não for validado."},
@@ -60,12 +60,21 @@ emprestimoReagenteCampos: [
 	if unidade_medida_utilizada == "ml" {densidade_aplicada!: !=null}
 	if unidade_medida_utilizada == "g" {densidade_aplicada!: null}
 
-	// INV-M3-ANOMALIA-001 (Seção 4, 498): a devolução anômala encerra a custódia
-	// deixando a pendência quantitativa aberta, sem apagar peso_retorno.
-	if status == "DEVOLVIDO_COM_ANOMALIA" {
-		consumo_validado!:         false
+	// INV-M3-ANOMALIA-001 (Seção 4, 498; Seção 10.5, 1402-1414): a pendência
+	// quantitativa é um estado próprio (consumo_validado == false), não o status.
+	// Com pendência aberta, os valores quantitativos permanecem null.
+	if status == "DEVOLVIDO_COM_ANOMALIA" && consumo_validado == false {
+		medida_utilizada!:         null
 		peso_retorno_efetivo!:     null
 		id_resolucao_metrologica!: null
+	}
+
+	// INV-M3-ANOMALIA-RESOLVIDA-001 (Seção 10.5, 1458-1474): o contrato tipado de
+	// resolução mantém o status histórico e grava os três valores quantitativos.
+	if status == "DEVOLVIDO_COM_ANOMALIA" && consumo_validado == true {
+		medida_utilizada!:         !=null
+		peso_retorno_efetivo!:     !=null
+		id_resolucao_metrologica!: !=null
 	}
 
 	// INV-M3-EXTRAORDINARIO-001 (Seção 5, 449; Seção 10.5, 871-875): o
