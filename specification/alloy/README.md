@@ -41,3 +41,13 @@ pelo gerador Rust, formato preservado) e os resultados M2.2 em
 Com IR v2, o wrapper seleciona somente a entidade `frasco_reagente` para conferir
 vocabulário no M0. Os hashes vinculam o IR completo aos resultados M0; o IR não
 inclui M2.2, cujos resultados ainda não são renderizados (M2.3).
+
+## M2.4 e M3
+
+`reagents/bottle_composition.als` (M2.4) compõe M0 × M2.2 em um único universo,
+com guard lexical contra drift das origens. `reagents/loan_state.als` (M3)
+formaliza o ciclo de vida do Emprestimo_Reagente: ATIVOS = EM_USO + ATRASADO,
+encerrados não reabrem, unicidade ativa por frasco, atraso só a partir de EM_USO
+e frame de status. `just alloy-check` grava também
+`build/formal-validation-m24.json` e `build/formal-validation-m3.json` (scopes
+4 e 6).

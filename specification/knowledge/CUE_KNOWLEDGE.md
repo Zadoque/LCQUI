@@ -26,3 +26,14 @@ limites NUMERIC(8,4). null continua distinto de zero.
 
 IR v3 usa entidades[]; exemplos são unificados aos schemas normativos. O par
 exemplo também valida FK e densidade condicional. Não duplicar schemas em docs/.
+
+## M3: Emprestimo_Reagente
+
+`#CampoEmprestimo` espelha `#CampoFrasco`, acrescentando NUMERIC(10,5)
+(escala 0.00001) e VARCHAR(100) via `strings.MaxRunes`. O descritor exige
+`#Base: _` no topo para que `#Valor` resolva. `emprestimoReagenteCampos` é a
+fonte estrutural única; `#EmprestimoReagente` impõe presença (`!`) e constraints
+locais: densidade condicional por `unidade_medida_utilizada` (ml exige densidade
+positiva, g exige null), bundle de `DEVOLVIDO_COM_ANOMALIA` e bundle de
+`ENCERRADO_EXTRAORDINARIO`. A paridade nomes/ordem/quantidade com a Seção 4 é
+verificada em `tools/formal/check.mjs`, não em lista paralela.

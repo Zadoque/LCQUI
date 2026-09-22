@@ -6,7 +6,8 @@ evidência 3B `9d97ed30`. O baseline documental de entrada M2 é
 `9df335bc977bfcf16668bca4baf5f9ed50c2da1a`, após as auditorias documentais.
 A proveniência executável foi migrada em M2.3: o IR passou a declarar
 proveniência estruturada (`baseline_historico_m0_m1` = `db29ea2f` e
-`baseline_documental_m2` = `9df335bc`), validada por `main.rs`. A distinção
+`baseline_documental_m2` = `9df335bc`), validada por `main.rs`. M3 acrescenta
+`baseline_documental_m3` = `158cb91f`. A distinção
 evita reduzir histórias documentais distintas a um único SHA. Detalhes e
 contraexemplo de identidade no
 [worklog M2.0](../documentation/archive/formal-spec/M2_0_BASELINE_RECONCILIATION.md).
@@ -18,8 +19,8 @@ validade, Firestore ou concorrência real. M2.1d modela o Frasco completo no CUE
 M2.2 modela identidade e coerência de estado em Alloy; M2.3 migra o Frasco
 completo e a evidência M2.2 para o IR/gerador. M2.4 acrescenta composição
 aditiva em um único universo e integração dos fragmentos ao `main.tex`.
-O estado dos gates de fechamento está no arquivo de continuidade. M3–M12 não migrados;
-ampliação M1 descrita abaixo.
+M3 modela o registro completo de Emprestimo_Reagente (33 colunas) e o ciclo de
+vida abstrato do status; M4–M12 não migrados.
 
 Na raiz, com CUE 0.17.1, Alloy 6.2.0, Node, Rust, just e TeX Live no PATH:
 
@@ -74,3 +75,19 @@ devolução. Extravio/esgotamento encerram apenas a custódia do alvo. Checks
 UNSAT não são provas universais nem certificam Firebase, RBAC, Q06, concorrência
 ou idempotência. M3 permanece separado. Ver o
 [worklog M2.4](../documentation/worklogs/formal-spec/M2_4_COMPOSITION_INTEGRATION.md).
+
+## M3
+
+M3 formaliza `Emprestimo_Reagente`: `domain/emprestimo_reagente.cue` traz
+`emprestimoReagenteCampos` (33 colunas) e `#EmprestimoReagente`, com enums,
+nulabilidade, NUMERIC(10,3)/(10,5), VARCHAR(100) e constraints locais
+intrínsecas (densidade condicional, bundle de anomalia e de encerramento
+extraordinário). A paridade Seção 4 × CUE é verificada por
+`tools/formal/check.mjs`. `alloy/reagents/loan_state.als` formaliza o ciclo de
+vida (ativos = `EM_USO`/`ATRASADO`, encerrados não reabrem, unicidade ativa por
+frasco); a evidência fica em `build/formal-validation-m3.json`, validada por
+`validation_m3.rs`. O IR v3 acrescenta a projeção `emprestimo_reagente` e o
+gerador emite `entities/emprestimo_reagente.tex` e
+`invariants/emprestimo_reagente.tex`, integrados em `Formal-Spec-M3.tex`.
+M3 NÃO cobre retirada/devolução completas (M4), extravio/reencontro (M5) nem
+Q06/tara (M6).

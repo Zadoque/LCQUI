@@ -35,3 +35,12 @@ ganha `formal_validation_m24_sha256`. Fragmentos antigos não são reescritos.
 A ressalva histórica no fragmento M2.2 é contextualizada pela seção humana M2,
 seguida da nova evidência composta. O teste do manifest confere hashes reais
 das quatro entradas, todas as saídas e determinismo.
+
+## M3
+
+`validation_m3` valida `build/formal-validation-m3.json`: versão, solver, IR,
+`loan_state.als` e conjunto exato ordenado de 22 resultados (scopes 4/6).
+`render_loan` gera `invariants/emprestimo_reagente.tex`; o manifest ganha
+`formal_validation_m3_sha256`. A projeção `emprestimo_reagente` entra em
+`entities/`. O teste do manifest passa a conferir as cinco entradas. IR/evidência
+M3 alterados tornam `generated/` stale; `docs-check` rejeita antes de regenerar.

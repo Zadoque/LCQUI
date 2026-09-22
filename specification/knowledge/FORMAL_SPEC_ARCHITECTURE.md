@@ -13,7 +13,7 @@ reconciliação M2.0 no estado. O IR v3 distingue proveniência histórica M0/M1
 
 CUE → spec-ir.json (v3) e Alloy → formal-validation.json (M0) e
 formal-validation-m2.json (M2.2) e formal-validation-m24.json (composição)
-→ Rust → generated → main.tex.
+e formal-validation-m3.json (M3) → Rust → generated → main.tex.
 O validador exporta CUE antes de Alloy e vincula hashes; não há geração de Alloy
 pelo Rust. Não presumir equivalência semântica automática entre linguagens.
 `just formal-check` é o gate local utilizável por CI em ambiente provisionado.
@@ -33,3 +33,14 @@ e EstadoIntegrado. O guard lexical compara vocabulário/predicados com as três
 origens, admitindo somente renomes explícitos. A evidência vincula seus hashes;
 validation_m24 exige resultados/scopes exatos. Coerência final é assertion,
 não fact. Modelos standalone e IR permanecem independentes e preservados.
+
+## M3
+
+M3 cobre o ciclo de vida do Emprestimo_Reagente sem compor Frasco: um único
+universo com relação estática empréstimo->frasco e `status` por estado. A
+abstração `ativos` (EM_USO + ATRASADO) equivale conceitualmente às dimensões
+`disponibilidade`/`ativos` de M0/M2.4, mas `bottle_composition.als` não é
+alterado. O IR v3 ganha a projeção `emprestimo_reagente` e
+`baseline_documental_m3`; a evidência standalone fica em
+formal-validation-m3.json, validada por validation_m3. Retirada e devolução
+completas continuam fora da composição.

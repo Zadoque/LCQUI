@@ -1,10 +1,12 @@
-# CUE estrutural — M0 e M1
+# CUE estrutural — M0, M1 e M3
 
 - `domain/frasco.cue`: fatia M0 fechada de três dimensões do frasco.
 - `domain/resumo_reagente.cue`: registro normalizado de Resumo_Reagente.
 - `domain/especificacao_reagente.cue`: registro normalizado e par com resumo.
 - `domain/campos_catalogo.cue`: descritores que geram constraints e documentação.
-- `docs/projection.cue`: IR v2 concreto de três entidades, com exemplos validados.
+- `domain/emprestimo_reagente.cue`: registro normalizado M3 de Emprestimo_Reagente (33 colunas).
+- `domain/campos_emprestimo.cue`: descritor M3 (NUMERIC(10,5), VARCHAR(100)).
+- `docs/projection.cue`: IR v3 concreto das entidades, com exemplos validados.
 - `firestore/mapeamentos.cue`: notas documentais de mapeamento, não schemas de
   documentos completos. Composição ainda não migrada.
 
