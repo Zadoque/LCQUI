@@ -2,7 +2,8 @@
     "versao": 3,
     "proveniencia": {
         "baseline_historico_m0_m1": "db29ea2f17dc785fb0b44ffb3aec16db29c45e94",
-        "baseline_documental_m2": "9df335bc977bfcf16668bca4baf5f9ed50c2da1a"
+        "baseline_documental_m2": "9df335bc977bfcf16668bca4baf5f9ed50c2da1a",
+        "baseline_documental_m3": "158cb91f77b8301274c63e4ee8e384249721a5ba"
     },
     "entidades": [
         {
@@ -627,6 +628,387 @@
                 "abertura_historica_desconhecida": false,
                 "saldo_desconhecido": false,
                 "condicao_inicial_cadastro": "FECHADO"
+            }
+        },
+        {
+            "arquivo": "emprestimo_reagente",
+            "entidade": "Emprestimo_Reagente",
+            "etapa": "projeção M3 completa (33 colunas)",
+            "escopo": "Registro relacional completo do empréstimo (33 colunas). Não é payload de criação nem documento Firestore completo. A existência global das FKs, a unicidade de empréstimo ativo por frasco e as transições de status são verificadas fora do registro (loan_state.als).",
+            "campos": [
+                {
+                    "nome": "id",
+                    "tipo": "int",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "PK; geração e unicidade globais fora do registro local.",
+                    "sql": "SERIAL"
+                },
+                {
+                    "nome": "id_frasco_reagente",
+                    "tipo": "int",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "FK para Frasco_Reagente; existência e unicidade ativa validadas fora do registro.",
+                    "sql": "INTEGER"
+                },
+                {
+                    "nome": "id_usuario_retirou",
+                    "tipo": "int",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "Portador físico (Professor/Bolsista) que recebe e usa o reagente; FK verificada pelo servidor.",
+                    "sql": "INTEGER"
+                },
+                {
+                    "nome": "id_gestor_retirada",
+                    "tipo": "int",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "Operador do almoxarifado que registrou a retirada; no autoatendimento coincide com o retirante.",
+                    "sql": "INTEGER"
+                },
+                {
+                    "nome": "status",
+                    "tipo": "enum",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [
+                        "EM_USO",
+                        "ATRASADO",
+                        "DEVOLVIDO",
+                        "DEVOLVIDO_COM_ATRASO",
+                        "DEVOLVIDO_COM_ANOMALIA",
+                        "ENCERRADO_EXTRAORDINARIO"
+                    ],
+                    "observacao": "Estado controlado pelo servidor; EM_USO/ATRASADO são custódia ativa.",
+                    "sql": "ENUM"
+                },
+                {
+                    "nome": "data_retirada",
+                    "tipo": "string",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "TIMESTAMP"
+                },
+                {
+                    "nome": "data_devolucao_prevista",
+                    "tipo": "string",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "Data civil YYYY-MM-DD; vencimento legal às 23:59:59.999 em America/Sao_Paulo.",
+                    "sql": "DATE",
+                    "padrao": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                },
+                {
+                    "nome": "data_devolucao_efetuada",
+                    "tipo": "string",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "TIMESTAMP"
+                },
+                {
+                    "nome": "id_local_usado",
+                    "tipo": "int",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "INTEGER"
+                },
+                {
+                    "nome": "id_usuario_devolveu",
+                    "tipo": "int",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "INTEGER"
+                },
+                {
+                    "nome": "id_gestor_devolucao",
+                    "tipo": "int",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "INTEGER"
+                },
+                {
+                    "nome": "peso_saida",
+                    "tipo": "number",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "Peso bruto em g medido na retirada; referência imutável do consumo.",
+                    "sql": "NUMERIC(10,3)",
+                    "minimo_numero": -9999999.999,
+                    "maximo_numero": 9999999.999,
+                    "multiplo": 0.001
+                },
+                {
+                    "nome": "peso_retorno",
+                    "tipo": "number",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "Peso bruto em g medido na devolução; preservado mesmo quando contradiz tara/saída.",
+                    "sql": "NUMERIC(10,3)",
+                    "minimo_numero": -9999999.999,
+                    "maximo_numero": 9999999.999,
+                    "multiplo": 0.001
+                },
+                {
+                    "nome": "medida_utilizada",
+                    "tipo": "number",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "Consumo validado não negativo na unidade do empréstimo; null até a validação quantitativa.",
+                    "sql": "NUMERIC(10,3)",
+                    "minimo_numero": -9999999.999,
+                    "maximo_numero": 9999999.999,
+                    "multiplo": 0.001
+                },
+                {
+                    "nome": "consumo_validado",
+                    "tipo": "bool",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "Falso na retirada e enquanto a pendência quantitativa permanece aberta; server-owned.",
+                    "sql": "BOOLEAN"
+                },
+                {
+                    "nome": "anomalia_metrologica",
+                    "tipo": "string",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "Classificação server-owned da anomalia quantitativa; null quando não há anomalia.",
+                    "sql": "TEXT"
+                },
+                {
+                    "nome": "peso_retorno_efetivo",
+                    "tipo": "number",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "Peso de retorno efetivo em g; null enquanto o consumo não for validado.",
+                    "sql": "NUMERIC(10,3)",
+                    "minimo_numero": -9999999.999,
+                    "maximo_numero": 9999999.999,
+                    "multiplo": 0.001
+                },
+                {
+                    "nome": "id_resolucao_metrologica",
+                    "tipo": "int",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "Referência ao evento AJUSTE que encerrou a pendência; resolver não apaga o status anômalo.",
+                    "sql": "INTEGER"
+                },
+                {
+                    "nome": "unidade_medida_utilizada",
+                    "tipo": "enum",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [
+                        "ml",
+                        "g"
+                    ],
+                    "observacao": "Qualifica exclusivamente medida_utilizada: ml para líquido, g para sólido.",
+                    "sql": "ENUM"
+                },
+                {
+                    "nome": "densidade_aplicada",
+                    "tipo": "number",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "Snapshot histórico da densidade na retirada; obrigatório e positivo para líquido, null para sólido.",
+                    "sql": "NUMERIC(10,5)",
+                    "maximo_numero": 99999.99999,
+                    "multiplo": 0.00001,
+                    "minimo_exclusivo": 0
+                },
+                {
+                    "nome": "peso_perda_evaporacao",
+                    "tipo": "number",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "Perda em g registrada separadamente do consumo; não inferir arbitrariamente.",
+                    "sql": "NUMERIC(10,3)",
+                    "minimo_numero": -9999999.999,
+                    "maximo_numero": 9999999.999,
+                    "multiplo": 0.001
+                },
+                {
+                    "nome": "uso_vencido_aceito",
+                    "tipo": "bool",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "Ciência explícita do empréstimo específico; não substitui autorização do gestor.",
+                    "sql": "BOOLEAN"
+                },
+                {
+                    "nome": "finalidade_uso",
+                    "tipo": "enum",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [
+                        "AULA_PRATICA",
+                        "DEMONSTRACAO",
+                        "PESQUISA_TCC_POS",
+                        "ESTUDO_DEGRADACAO_RESIDUOS"
+                    ],
+                    "observacao": "Finalidade declarada na retirada; pesquisa excepcional exige TCR de Q04.",
+                    "sql": "ENUM"
+                },
+                {
+                    "nome": "auto_atendimento",
+                    "tipo": "bool",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "Calculado pelo backend conforme Q14; justificativa e notificação à chefia quando true.",
+                    "sql": "BOOLEAN"
+                },
+                {
+                    "nome": "justificativa_metodologica",
+                    "tipo": "string",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "Condicional ao uso excepcional de pesquisa Q04 (mínimo verificado após trim).",
+                    "sql": "TEXT"
+                },
+                {
+                    "nome": "tcr_versao",
+                    "tipo": "string",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "VARCHAR(100)",
+                    "max_caracteres": 100
+                },
+                {
+                    "nome": "tcr_aceito_em",
+                    "tipo": "string",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "TIMESTAMP"
+                },
+                {
+                    "nome": "tcr_aceito_por",
+                    "tipo": "int",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "INTEGER"
+                },
+                {
+                    "nome": "tcr_auditoria_id",
+                    "tipo": "int",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "INTEGER"
+                },
+                {
+                    "nome": "tipo_encerramento_excepcional",
+                    "tipo": "enum",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [
+                        "QUEBRA_ACIDENTAL",
+                        "EXTRAVIO_SINISTRO"
+                    ],
+                    "observacao": "Tipo do sinistro; null fora do encerramento extraordinário.",
+                    "sql": "ENUM"
+                },
+                {
+                    "nome": "motivo_encerramento_excepcional",
+                    "tipo": "string",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "TEXT"
+                },
+                {
+                    "nome": "id_gestor_encerramento",
+                    "tipo": "int",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "INTEGER"
+                },
+                {
+                    "nome": "massa_perda_estimada_g",
+                    "tipo": "number",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "NUMERIC(10,3)",
+                    "minimo_numero": -9999999.999,
+                    "maximo_numero": 9999999.999,
+                    "multiplo": 0.001
+                }
+            ],
+            "exemplo": {
+                "id": 1,
+                "id_frasco_reagente": 1,
+                "id_usuario_retirou": 2,
+                "id_gestor_retirada": 3,
+                "status": "EM_USO",
+                "data_retirada": "2026-09-20 10:00:00",
+                "data_devolucao_prevista": "2026-09-27",
+                "data_devolucao_efetuada": null,
+                "id_local_usado": 1,
+                "id_usuario_devolveu": null,
+                "id_gestor_devolucao": null,
+                "peso_saida": 500,
+                "peso_retorno": null,
+                "medida_utilizada": null,
+                "anomalia_metrologica": null,
+                "consumo_validado": false,
+                "densidade_aplicada": null,
+                "id_resolucao_metrologica": null,
+                "peso_retorno_efetivo": null,
+                "unidade_medida_utilizada": "g",
+                "peso_perda_evaporacao": 0,
+                "uso_vencido_aceito": false,
+                "finalidade_uso": "AULA_PRATICA",
+                "auto_atendimento": false,
+                "justificativa_metodologica": null,
+                "tcr_versao": null,
+                "tcr_aceito_em": null,
+                "tcr_aceito_por": null,
+                "tcr_auditoria_id": null,
+                "tipo_encerramento_excepcional": null,
+                "motivo_encerramento_excepcional": null,
+                "id_gestor_encerramento": null,
+                "massa_perda_estimada_g": null
             }
         }
     ]

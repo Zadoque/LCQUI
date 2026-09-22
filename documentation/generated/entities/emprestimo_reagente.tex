@@ -1,0 +1,119 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{Emprestimo\_Reagente --- projeção M3 completa (33 colunas)}
+Registro relacional completo do empréstimo (33 colunas). Não é payload de criação nem documento Firestore completo. A existência global das FKs, a unicidade de empréstimo ativo por frasco e as transições de status são verificadas fora do registro (loan\_state.als).
+\begin{description}
+\item[id] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: SERIAL.
+PK; geração e unicidade globais fora do registro local.
+\item[id\_frasco\_reagente] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+FK para Frasco\_Reagente; existência e unicidade ativa validadas fora do registro.
+\item[id\_usuario\_retirou] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+Portador físico (Professor/Bolsista) que recebe e usa o reagente; FK verificada pelo servidor.
+\item[id\_gestor\_retirada] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+Operador do almoxarifado que registrou a retirada; no autoatendimento coincide com o retirante.
+\item[status] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: EM\_USO, ATRASADO, DEVOLVIDO, DEVOLVIDO\_COM\_ATRASO, DEVOLVIDO\_COM\_ANOMALIA, ENCERRADO\_EXTRAORDINARIO.
+Estado controlado pelo servidor; EM\_USO/ATRASADO são custódia ativa.
+\item[data\_retirada] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TIMESTAMP.
+\item[data\_devolucao\_prevista] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: DATE.
+Padrão: \textasciicircum{}[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\$.
+Data civil YYYY-MM-DD; vencimento legal às 23:59:59.999 em America/Sao\_Paulo.
+\item[data\_devolucao\_efetuada] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TIMESTAMP.
+\item[id\_local\_usado] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+\item[id\_usuario\_devolveu] Tipo: int. Obrigatório: sim. Aceita nulo: sim.
+SQL: INTEGER.
+\item[id\_gestor\_devolucao] Tipo: int. Obrigatório: sim. Aceita nulo: sim.
+SQL: INTEGER.
+\item[peso\_saida] Tipo: number. Obrigatório: sim. Aceita nulo: não.
+SQL: NUMERIC(10,3).
+Mínimo: -9999999.999.
+Máximo: 9999999.999.
+Múltiplo de 0.001.
+Peso bruto em g medido na retirada; referência imutável do consumo.
+\item[peso\_retorno] Tipo: number. Obrigatório: sim. Aceita nulo: sim.
+SQL: NUMERIC(10,3).
+Mínimo: -9999999.999.
+Máximo: 9999999.999.
+Múltiplo de 0.001.
+Peso bruto em g medido na devolução; preservado mesmo quando contradiz tara/saída.
+\item[medida\_utilizada] Tipo: number. Obrigatório: sim. Aceita nulo: sim.
+SQL: NUMERIC(10,3).
+Mínimo: -9999999.999.
+Máximo: 9999999.999.
+Múltiplo de 0.001.
+Consumo validado não negativo na unidade do empréstimo; null até a validação quantitativa.
+\item[consumo\_validado] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+Falso na retirada e enquanto a pendência quantitativa permanece aberta; server-owned.
+\item[anomalia\_metrologica] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TEXT.
+Classificação server-owned da anomalia quantitativa; null quando não há anomalia.
+\item[peso\_retorno\_efetivo] Tipo: number. Obrigatório: sim. Aceita nulo: sim.
+SQL: NUMERIC(10,3).
+Mínimo: -9999999.999.
+Máximo: 9999999.999.
+Múltiplo de 0.001.
+Peso de retorno efetivo em g; null enquanto o consumo não for validado.
+\item[id\_resolucao\_metrologica] Tipo: int. Obrigatório: sim. Aceita nulo: sim.
+SQL: INTEGER.
+Referência ao evento AJUSTE que encerrou a pendência; resolver não apaga o status anômalo.
+\item[unidade\_medida\_utilizada] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: ml, g.
+Qualifica exclusivamente medida\_utilizada: ml para líquido, g para sólido.
+\item[densidade\_aplicada] Tipo: number. Obrigatório: sim. Aceita nulo: sim.
+SQL: NUMERIC(10,5).
+Maior que 0.
+Máximo: 99999.99999.
+Múltiplo de 0.00001.
+Snapshot histórico da densidade na retirada; obrigatório e positivo para líquido, null para sólido.
+\item[peso\_perda\_evaporacao] Tipo: number. Obrigatório: sim. Aceita nulo: não.
+SQL: NUMERIC(10,3).
+Mínimo: -9999999.999.
+Máximo: 9999999.999.
+Múltiplo de 0.001.
+Perda em g registrada separadamente do consumo; não inferir arbitrariamente.
+\item[uso\_vencido\_aceito] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+Ciência explícita do empréstimo específico; não substitui autorização do gestor.
+\item[finalidade\_uso] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: AULA\_PRATICA, DEMONSTRACAO, PESQUISA\_TCC\_POS, ESTUDO\_DEGRADACAO\_RESIDUOS.
+Finalidade declarada na retirada; pesquisa excepcional exige TCR de Q04.
+\item[auto\_atendimento] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+Calculado pelo backend conforme Q14; justificativa e notificação à chefia quando true.
+\item[justificativa\_metodologica] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TEXT.
+Condicional ao uso excepcional de pesquisa Q04 (mínimo verificado após trim).
+\item[tcr\_versao] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: VARCHAR(100).
+Máximo: 100 caracteres.
+\item[tcr\_aceito\_em] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TIMESTAMP.
+\item[tcr\_aceito\_por] Tipo: int. Obrigatório: sim. Aceita nulo: sim.
+SQL: INTEGER.
+\item[tcr\_auditoria\_id] Tipo: int. Obrigatório: sim. Aceita nulo: sim.
+SQL: INTEGER.
+\item[tipo\_encerramento\_excepcional] Tipo: enum. Obrigatório: sim. Aceita nulo: sim.
+SQL: ENUM.
+Valores: QUEBRA\_ACIDENTAL, EXTRAVIO\_SINISTRO.
+Tipo do sinistro; null fora do encerramento extraordinário.
+\item[motivo\_encerramento\_excepcional] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TEXT.
+\item[id\_gestor\_encerramento] Tipo: int. Obrigatório: sim. Aceita nulo: sim.
+SQL: INTEGER.
+\item[massa\_perda\_estimada\_g] Tipo: number. Obrigatório: sim. Aceita nulo: sim.
+SQL: NUMERIC(10,3).
+Mínimo: -9999999.999.
+Máximo: 9999999.999.
+Múltiplo de 0.001.
+\end{description}

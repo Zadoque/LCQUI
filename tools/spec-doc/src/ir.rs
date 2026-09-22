@@ -6,6 +6,7 @@ use std::collections::BTreeSet;
 // único SHA.
 pub const BASELINE_HISTORICO_M0_M1: &str = "db29ea2f17dc785fb0b44ffb3aec16db29c45e94";
 pub const BASELINE_DOCUMENTAL_M2: &str = "9df335bc977bfcf16668bca4baf5f9ed50c2da1a";
+pub const BASELINE_DOCUMENTAL_M3: &str = "158cb91f77b8301274c63e4ee8e384249721a5ba";
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -20,6 +21,8 @@ pub struct Proveniencia {
     pub baseline_historico_m0_m1: String,
     #[serde(default)]
     pub baseline_documental_m2: Option<String>,
+    #[serde(default)]
+    pub baseline_documental_m3: Option<String>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -116,6 +119,7 @@ impl V2Ir {
             proveniencia: Proveniencia {
                 baseline_historico_m0_m1: self.baseline,
                 baseline_documental_m2: None,
+                baseline_documental_m3: None,
             },
             entidades: self.entidades,
         }
@@ -146,6 +150,7 @@ impl Ir {
     pub fn provenance_ok(&self) -> bool {
         self.proveniencia.baseline_historico_m0_m1 == BASELINE_HISTORICO_M0_M1
             && self.proveniencia.baseline_documental_m2.as_deref() == Some(BASELINE_DOCUMENTAL_M2)
+            && self.proveniencia.baseline_documental_m3.as_deref() == Some(BASELINE_DOCUMENTAL_M3)
     }
 }
 #[cfg(test)]
@@ -188,11 +193,15 @@ mod tests {
         assert!(!old.provenance_ok());
         old.proveniencia.baseline_historico_m0_m1 = "0".repeat(40);
         old.proveniencia.baseline_documental_m2 = Some(BASELINE_DOCUMENTAL_M2.into());
+        old.proveniencia.baseline_documental_m3 = Some(BASELINE_DOCUMENTAL_M3.into());
         assert!(!old.provenance_ok());
         old.proveniencia.baseline_historico_m0_m1 = BASELINE_HISTORICO_M0_M1.into();
         old.proveniencia.baseline_documental_m2 = Some("1".repeat(40));
         assert!(!old.provenance_ok());
         old.proveniencia.baseline_documental_m2 = Some(BASELINE_DOCUMENTAL_M2.into());
+        old.proveniencia.baseline_documental_m3 = Some("2".repeat(40));
+        assert!(!old.provenance_ok());
+        old.proveniencia.baseline_documental_m3 = Some(BASELINE_DOCUMENTAL_M3.into());
         assert!(old.provenance_ok());
     }
 }

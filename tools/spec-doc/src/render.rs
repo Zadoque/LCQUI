@@ -134,3 +134,21 @@ pub fn render_composed(v: &crate::validation_m24::ValidationM24) -> String {
     text.push_str("\\end{description}\nUNSAT para check: nenhum contraexemplo encontrado no escopo declarado. SAT para run: testemunha encontrada. As buscas limitadas não são prova universal.\n\nNão certifica implementação Firebase, concorrência Firestore completa, estados completos de Emprestimo\\_Reagente, metrologia Q06, autorização/RBAC nem idempotência operacional. Esses temas permanecem para milestones futuros.\n");
     text
 }
+
+// Evidência M3 do ciclo de vida do Emprestimo_Reagente.
+pub fn render_loan(v: &crate::validation_m3::ValidationM3) -> String {
+    let mut text = String::from(
+        "% Gerado por lcqui-spec-doc; não editar.\n\\subsection*{Evidência formal M3 --- Emprestimo\\_Reagente}\nM3 formaliza o registro do empréstimo (33 colunas) e sua máquina abstrata de status: ativos EM\\_USO/ATRASADO, encerramentos e unicidade de empréstimo ativo por frasco.\n\\begin{description}\n",
+    );
+    for r in &v.resultados {
+        text.push_str(&format!(
+            "\\item[{}] {}: {}.\\newline Escopo: \\texttt{{{}}}.\n",
+            escape(&r.id),
+            escape(&r.assertion),
+            escape(&r.status),
+            escape(&r.scope)
+        ));
+    }
+    text.push_str("\\end{description}\nUNSAT para check: nenhum contraexemplo encontrado no escopo declarado. SAT para run: testemunha encontrada. As buscas limitadas não são prova universal.\n\nNão certifica implementação Firebase/backend, concorrência, Q06, tara numérica, validade calculada, TCR completo, autorização/RBAC, idempotência nem a operação completa de retirada/devolução (M4). Não compõe Emprestimo com Frasco.\n");
+    text
+}

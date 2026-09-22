@@ -88,6 +88,68 @@ import (
 	condicao_inicial_cadastro:       "FECHADO"
 }
 
+// Projeção M3: metadados derivados de emprestimoReagenteCampos, sem segunda
+// lista humana. NUMERIC(10,3)/NUMERIC(10,5) expõem limites; VARCHAR(100) expõe
+// o máximo; `positivo` vira `minimo_exclusivo: 0` e omite o mínimo negativo.
+#CamposEmprestimoM3: [
+	for c in domain.emprestimoReagenteCampos {
+		{
+			nome:        c.nome
+			tipo:        c.tipo
+			obrigatorio: c.obrigatorio
+			nulo:        c.nulo
+			valores:     c.valores
+			observacao:  c.observacao
+			sql:         c.sql
+			if c.sql == "NUMERIC(10,3)" || c.sql == "NUMERIC(10,5)" {
+				if !c.positivo {minimo_numero: c.minimo}
+				maximo_numero: c.maximo
+				multiplo:      c.multiplo
+			}
+			if c.positivo {minimo_exclusivo: 0}
+			if c.max_caracteres > 0 {max_caracteres: c.max_caracteres}
+			if c.sql == "DATE" {padrao: c.padrao}
+		}
+	}
+]
+
+// Exemplo M3 unificado ao próprio #EmprestimoReagente.
+#EmprestimoM3Exemplo: domain.#EmprestimoReagente & {
+	id:                              1
+	id_frasco_reagente:              1
+	id_usuario_retirou:              2
+	id_gestor_retirada:              3
+	status:                          "EM_USO"
+	data_retirada:                   "2026-09-20 10:00:00"
+	data_devolucao_prevista:         "2026-09-27"
+	data_devolucao_efetuada:         null
+	id_local_usado:                  1
+	id_usuario_devolveu:             null
+	id_gestor_devolucao:             null
+	peso_saida:                      500
+	peso_retorno:                    null
+	medida_utilizada:                null
+	consumo_validado:                false
+	anomalia_metrologica:            null
+	peso_retorno_efetivo:            null
+	id_resolucao_metrologica:        null
+	unidade_medida_utilizada:        "g"
+	densidade_aplicada:              null
+	peso_perda_evaporacao:           0
+	uso_vencido_aceito:              false
+	finalidade_uso:                  "AULA_PRATICA"
+	auto_atendimento:                false
+	justificativa_metodologica:      null
+	tcr_versao:                      null
+	tcr_aceito_em:                   null
+	tcr_aceito_por:                  null
+	tcr_auditoria_id:                null
+	tipo_encerramento_excepcional:   null
+	motivo_encerramento_excepcional: null
+	id_gestor_encerramento:          null
+	massa_perda_estimada_g:          null
+}
+
 ir: {
 	versao: 3
 	// Proveniência explícita: M0/M1 foram validados historicamente contra o
@@ -96,6 +158,8 @@ ir: {
 	proveniencia: {
 		baseline_historico_m0_m1: "db29ea2f17dc785fb0b44ffb3aec16db29c45e94"
 		baseline_documental_m2:   "9df335bc977bfcf16668bca4baf5f9ed50c2da1a"
+		// M3: checkpoint versionado de entrada com M2 fechado (HEAD de M3).
+		baseline_documental_m3: "158cb91f77b8301274c63e4ee8e384249721a5ba"
 	}
 	entidades: [
 		{
@@ -131,6 +195,14 @@ ir: {
 			escopo:   "Registro relacional completo M2 (29 colunas, inclui origem_tara). Não é payload de criação nem documento Firestore completo. Projeção distinta da fatia M0 histórica, que permanece inalterada."
 			campos:   #CamposFrascoM2
 			exemplo:  #FrascoM2Exemplo
+		},
+		{
+			arquivo:  "emprestimo_reagente"
+			entidade: "Emprestimo_Reagente"
+			etapa:    "projeção M3 completa (33 colunas)"
+			escopo:   "Registro relacional completo do empréstimo (33 colunas). Não é payload de criação nem documento Firestore completo. A existência global das FKs, a unicidade de empréstimo ativo por frasco e as transições de status são verificadas fora do registro (loan_state.als)."
+			campos:   #CamposEmprestimoM3
+			exemplo:  #EmprestimoM3Exemplo
 		},
 	]
 }

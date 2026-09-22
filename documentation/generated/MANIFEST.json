@@ -1,18 +1,21 @@
 {
   "files": {
+    "entities/emprestimo_reagente.tex": "5dbc8ee7e460d83b7cfe9c8a6982b7d09c3313f41fbc510dc1aaa8aae611cb24",
     "entities/especificacao_reagente.tex": "3e0e20034ee6be5a0886983bb90511fdc35a7f6f30bab12a54a136bb96284e35",
     "entities/frasco_reagente.tex": "794e8ff135f6a602361138a57fc6eae6225b39bd418f02fa6b093b905abe0830",
     "entities/frasco_reagente_m2.tex": "4702455be1368180807d0ccaf561ca0aa21d69122102f44ff06fcb6573bffc2b",
     "entities/resumo_reagente.tex": "212f4af5e48a5f0913668ce4fc5e8c46d62e3741d95f743a0839c173b3f2ab95",
     "firestore/especificacao_reagente.tex": "7adffa8e41d645dc0cba1ea456ab2274200120dca09e048bac1d9ac7b302f65d",
     "firestore/resumo_reagente.tex": "f1ce6ab343400b84f4abbb5aa37829bf7718221e54cfae325ac4d0f3fcc98030",
+    "invariants/emprestimo_reagente.tex": "a095e698e3119b07b7bbcc0e094a84dd82d0740f3096fd697a29ec0fd69c49d1",
     "invariants/frasco_reagente_m2.tex": "c2cae9be7954cf1185cac7aa4a314636be1febf1b5960f6cd1e745c83a88d588",
     "invariants/frasco_reagente_m2_composed.tex": "291e9b16016be59d3504d65db243e09631e11efab171eae8cf45114aa156253e",
     "invariants/retirar_frasco.tex": "6b795685d7a60790868d8ac43c70fefc65ddaaf739e600fd6fb83c92b2cf9311"
   },
-  "formal_validation_m24_sha256": "fd89ca62fd5e321e0ccbe404f61724014b22918d46f7da899f9cf193aa8e83ce",
-  "formal_validation_m2_sha256": "0c63e92503be155d7f4eaf1da70f8496615e97a345fff5736b048bbed6237cbc",
-  "formal_validation_sha256": "f9d5e28d1d118a73ae29a81195d50ca566cb33975c8777bb622f0b0288742345",
+  "formal_validation_m24_sha256": "b1b1d58b202bf3bffafc811470f23506e932198488c13980b1f9f52422c498c8",
+  "formal_validation_m2_sha256": "934b2c9b22020d5c2ec33ac7626d215c5001e90f1f1d3b5a0fd2c251cf69c813",
+  "formal_validation_m3_sha256": "435e91eddd3c5a10de271e60fa501fefe877d75440de7f5c93270b3160b46792",
+  "formal_validation_sha256": "433cf284562dafed8734f7accbca308710c3a4bae0bc2d04cfc78b91c4409726",
   "generator_version": "0.2.0",
-  "spec_ir_sha256": "0934cc0aebd9f95a157f4762026a3e35f160f3ed3595c0fadd8c4a1ceefb513a"
+  "spec_ir_sha256": "1398cac06138712e869e5467b7bab18eb7e0034a973d2ed2f30e150233381f5c"
 }

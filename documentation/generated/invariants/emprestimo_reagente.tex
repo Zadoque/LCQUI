@@ -1,0 +1,30 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{Evidência formal M3 --- Emprestimo\_Reagente}
+M3 formaliza o registro do empréstimo (33 colunas) e sua máquina abstrata de status: ativos EM\_USO/ATRASADO, encerramentos e unicidade de empréstimo ativo por frasco.
+\begin{description}
+\item[INV-M3-ATIVO-UNICIDADE-001] UnicidadeAtivaPreservada: UNSAT.\newline Escopo: \texttt{check UnicidadeAtivaPreservada for 4 but exactly 2 Estado}.
+\item[INV-M3-ATRASO-ORIGEM-001] AtrasoSoDeEmUso: UNSAT.\newline Escopo: \texttt{check AtrasoSoDeEmUso for 4 but exactly 2 Estado}.
+\item[INV-M3-ENCERRADO-TERMINAL-001] EncerradoNaoReabre: UNSAT.\newline Escopo: \texttt{check EncerradoNaoReabre for 4 but exactly 2 Estado}.
+\item[INV-M3-DEVOLUCAO-ENCERRA-001] DevolucaoEncerra: UNSAT.\newline Escopo: \texttt{check DevolucaoEncerra for 4 but exactly 2 Estado}.
+\item[INV-M3-ANOMALIA-ENCERRA-001] AnomaliaNaoAtiva: UNSAT.\newline Escopo: \texttt{check AnomaliaNaoAtiva for 4 but exactly 2 Estado}.
+\item[INV-M3-EXTRAORDINARIO-ENCERRA-001] ExtraordinarioNaoAtivo: UNSAT.\newline Escopo: \texttt{check ExtraordinarioNaoAtivo for 4 but exactly 2 Estado}.
+\item[FRAME-M3-STATUS-001] TransicaoNaoInterfereOutros: UNSAT.\newline Escopo: \texttt{check TransicaoNaoInterfereOutros for 4 but exactly 2 Estado}.
+\item[WIT-M3-EM-USO-001] TestemunhaEmUso: SAT.\newline Escopo: \texttt{run TestemunhaEmUso for 4 but exactly 2 Estado}.
+\item[WIT-M3-ATRASADO-001] TestemunhaAtrasado: SAT.\newline Escopo: \texttt{run TestemunhaAtrasado for 4 but exactly 2 Estado}.
+\item[WIT-M3-ATRASO-001] TestemunhaAtraso: SAT.\newline Escopo: \texttt{run TestemunhaAtraso for 4 but exactly 2 Estado}.
+\item[WIT-M3-DEVOLUCAO-001] TestemunhaDevolucaoNormal: SAT.\newline Escopo: \texttt{run TestemunhaDevolucaoNormal for 4 but exactly 2 Estado}.
+\item[WIT-M3-DEVOLUCAO-ATRASO-001] TestemunhaDevolucaoComAtraso: SAT.\newline Escopo: \texttt{run TestemunhaDevolucaoComAtraso for 4 but exactly 2 Estado}.
+\item[WIT-M3-DEVOLUCAO-ANOMALIA-001] TestemunhaDevolucaoComAnomalia: SAT.\newline Escopo: \texttt{run TestemunhaDevolucaoComAnomalia for 4 but exactly 2 Estado}.
+\item[WIT-M3-ENCERRAMENTO-001] TestemunhaEncerramentoExtraordinario: SAT.\newline Escopo: \texttt{run TestemunhaEncerramentoExtraordinario for 4 but exactly 2 Estado}.
+\item[WIT-M3-DOIS-FRASCOS-001] TestemunhaDoisFrascosAtivos: SAT.\newline Escopo: \texttt{run TestemunhaDoisFrascosAtivos for 4 but exactly 2 Estado}.
+\item[WIT-M3-TRANSICAO-COERENTE-001] TestemunhaTransicaoCoerente: SAT.\newline Escopo: \texttt{run TestemunhaTransicaoCoerente for 4 but exactly 2 Estado}.
+\item[WIT-M3-ESTADO-ENCERRADO-001] TestemunhaEstadoEncerrado: SAT.\newline Escopo: \texttt{run TestemunhaEstadoEncerrado for 4 but exactly 2 Estado}.
+\item[INV-M3-ATIVO-UNICIDADE-006] UnicidadeAtivaPreservadaAmpliado: UNSAT.\newline Escopo: \texttt{check UnicidadeAtivaPreservadaAmpliado for 6 but exactly 2 Estado}.
+\item[INV-M3-ATRASO-ORIGEM-006] AtrasoSoDeEmUsoAmpliado: UNSAT.\newline Escopo: \texttt{check AtrasoSoDeEmUsoAmpliado for 6 but exactly 2 Estado}.
+\item[INV-M3-ENCERRADO-TERMINAL-006] EncerradoNaoReabreAmpliado: UNSAT.\newline Escopo: \texttt{check EncerradoNaoReabreAmpliado for 6 but exactly 2 Estado}.
+\item[FRAME-M3-STATUS-006] TransicaoNaoInterfereOutrosAmpliado: UNSAT.\newline Escopo: \texttt{check TransicaoNaoInterfereOutrosAmpliado for 6 but exactly 2 Estado}.
+\item[WIT-M3-DOIS-FRASCOS-006] TestemunhaDoisFrascosAtivosAmpliado: SAT.\newline Escopo: \texttt{run TestemunhaDoisFrascosAtivosAmpliado for 6 but exactly 2 Estado}.
+\end{description}
+UNSAT para check: nenhum contraexemplo encontrado no escopo declarado. SAT para run: testemunha encontrada. As buscas limitadas não são prova universal.
+
+Não certifica implementação Firebase/backend, concorrência, Q06, tara numérica, validade calculada, TCR completo, autorização/RBAC, idempotência nem a operação completa de retirada/devolução (M4). Não compõe Emprestimo com Frasco.
