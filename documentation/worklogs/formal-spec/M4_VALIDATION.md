@@ -173,7 +173,7 @@ em `alloy-check` via `node --test tools/formal/*.test.mjs`.
 - Receipt `build/formal-validation-m4.json` (versão 1, Alloy 6.2.0, sat4j), com
   hashes do modelo e das origens (`bottle_composition.als`, `loan_state.als`).
 - Rust `validation_m4.rs`: valida versão/solver/IR/modelo/origens e a lista exata
-  ordenada de 42 resultados; testes de adulteração rejeitam hash IR/modelo/origem
+  ordenada de 43 resultados; testes de adulteração rejeitam hash IR/modelo/origem
   errado, SAT↔UNSAT, scope, ID/nome/tipo, remoção/extra/lista vazia.
 - `render.rs`/`main.rs`: fragmento `invariants/retirada_devolucao_m4.tex` e chave
   `formal_validation_m4_sha256` no manifest. 10 testes Rust PASS; clippy `-D warnings`.
