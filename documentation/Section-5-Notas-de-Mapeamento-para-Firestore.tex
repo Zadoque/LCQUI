@@ -424,6 +424,7 @@ Caminho: \texttt{Emprestimo\_Reagente/\{id\}}.
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{id\_frasco\_reagente}] string; O. Identificador da entidade frasco reagente, cuja existência e escopo são verificados no servidor.
 \item[\texttt{id\_usuario\_retirou}] string; O. Identificador da entidade usuario retirou, cuja existência e escopo são verificados no servidor.
+\item[\texttt{id\_gestor\_retirada}] string; O. Identificador do gestor de almoxarifado operador que registrou a retirada; no autoatendimento coincide com o retirante.
 \item[\texttt{status}] string enum; O. Estado controlado pelo domínio; transições são validadas no servidor. Valores: EM\_USO,ATRASADO,DEVOLVIDO,DEVOLVIDO\_COM\_ATRASO,DEVOLVIDO\_COM\_ANOMALIA,ENCERRADO\_EXTRAORDINARIO.
 \item[\texttt{data\_retirada}] Timestamp; O. Data/instante de data retirada, com ordem temporal validada e autoria do relógio do servidor para eventos.
 \item[\texttt{data\_devolucao\_prevista}] string civil YYYY-MM-DD (America/Sao\_Paulo); O. O vencimento legal encerra-se às 23:59:59.999 do referido dia civil.
@@ -434,6 +435,10 @@ Caminho: \texttt{Emprestimo\_Reagente/\{id\}}.
 \item[\texttt{peso\_saida}] number; O. Peso bruto em g medido na retirada; referência imutável para o consumo deste empréstimo.
 \item[\texttt{peso\_retorno}] number; N. Peso bruto em g medido na devolução; null antes do retorno; preservado exatamente mesmo quando contradiz tara/saída, com anomalia explícita.
 \item[\texttt{medida\_utilizada}] number; N. Consumo validado não negativo na unidade do empréstimo, NULL antes da validação quantitativa; massa = max(0, saída menos retorno), conversão em mL só para líquido com densidade histórica positiva.
+\item[\texttt{consumo\_validado}] boolean; O, padrão false. Falso na retirada e enquanto a pendência quantitativa da anomalia permanecer aberta; server-owned.
+\item[\texttt{anomalia\_metrologica}] string; N. Classificação server-owned da anomalia quantitativa registrada na devolução; null quando não há anomalia.
+\item[\texttt{peso\_retorno\_efetivo}] number; N. Peso de retorno efetivo em g, server-owned; null enquanto o consumo não for validado.
+\item[\texttt{id\_resolucao\_metrologica}] string; N. Referência server-owned ao evento AJUSTE que encerrou a pendência quantitativa; null enquanto pendente. Resolver a pendência não apaga o fato histórico do status anômalo.
 \item[\texttt{unidade\_medida\_utilizada}] string enum; O. Valor de unidade medida utilizada, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: ml,g.
 \item[\texttt{densidade\_aplicada}] number; N. Snapshot histórico da densidade da especificação no instante da retirada; obrigatório e positivo para líquidos e NULL para sólidos. Usado para converter consumo e evaporação em volume sem depender da densidade corrente da especificação.
 \item[\texttt{peso\_perda\_evaporacao}] number; O. Perda em g registrada separadamente de consumo; não inferir arbitrariamente.

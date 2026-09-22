@@ -63,7 +63,7 @@ Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spaw
 | M0 | Infraestrutura e fatia vertical | VALIDATED |
 | M1 | Resumo_Reagente + Especificacao_Reagente | VALIDATED |
 | M2 | Frasco completo (M2.0–M2.4 validados) | VALIDATED |
-| M3 | Empréstimo | NOT_STARTED |
+| M3 | Empréstimo | IN_PROGRESS |
 | M4 | Retirada/devolução completas | NOT_STARTED |
 | M5 | Extravio/reencontro/quarentena | NOT_STARTED |
 | M6 | Q06/tara | NOT_STARTED |
@@ -75,6 +75,8 @@ Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spaw
 | M12 | Integração/redução de duplicação normativa | NOT_STARTED |
 
 ## 9. Milestone atual
+M3 IN_PROGRESS (Emprestimo_Reagente): auditoria normativa, CUE, Alloy de ciclo de vida, IR/proveniência, Rust, geração e integração documental. M2 VALIDATED; M4 NOT_STARTED.
+
 M2 VALIDATED: M2.0 VALIDATED; M2.1 VALIDATED; M2.1a VALIDATED; M2.1b DOCUMENTATION_VALIDATED; M2.1c VALIDATED; M2.1d VALIDATED; M2.2 VALIDATED; M2.3 VALIDATED; M2.4 VALIDATED.
 
 Estado formal explícito após M2.4:
