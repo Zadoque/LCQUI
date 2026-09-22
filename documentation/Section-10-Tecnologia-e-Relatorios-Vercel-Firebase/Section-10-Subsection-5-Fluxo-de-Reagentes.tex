@@ -670,6 +670,7 @@ export const registrarDevolucao = onCall(async (request) => {
     } else if (frascoVencido && dados.destinoPosDevolucao === "QUARENTENA") {
       atualizacaoFrasco.em_quarentena = true;
       atualizacaoFrasco.uso_vencido_autorizado = false;
+      atualizacaoFrasco.disponibilidade = "INDISPONIVEL"; // quarentena bloqueia nova retirada
       atualizacaoFrasco.detalhe_status = "Frasco vencido retido em quarentena após devolução.";
     } else if (frascoVencido && dados.destinoPosDevolucao === "DISPONIVEL") {
       atualizacaoFrasco.em_quarentena = false;
@@ -677,6 +678,7 @@ export const registrarDevolucao = onCall(async (request) => {
     } else if (frascoVencido && dados.destinoPosDevolucao === "PENDENTE_DE_DESCARTE") {
       atualizacaoFrasco.em_quarentena = false;
       atualizacaoFrasco.uso_vencido_autorizado = false;
+      atualizacaoFrasco.disponibilidade = "INDISPONIVEL"; // pendente de descarte bloqueia nova retirada
       atualizacaoFrasco.detalhe_status = "Frasco vencido aguardando processo institucional de descarte.";
     }
 
