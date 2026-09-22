@@ -44,3 +44,12 @@ das quatro entradas, todas as saídas e determinismo.
 `formal_validation_m3_sha256`. A projeção `emprestimo_reagente` entra em
 `entities/`. O teste do manifest passa a conferir as cinco entradas. IR/evidência
 M3 alterados tornam `generated/` stale; `docs-check` rejeita antes de regenerar.
+
+## M4
+
+`validation_m4` valida `build/formal-validation-m4.json`: versão, solver, IR,
+`withdrawal_return.als`, as duas origens (`bottle_composition.als` e
+`loan_state.als`) e o conjunto exato de 42 resultados (scopes 4/5/6).
+`render_withdrawal_return` gera `invariants/retirada_devolucao_m4.tex`; o manifest
+ganha `formal_validation_m4_sha256` e o teste confere seis entradas. O CUE/IR não
+mudam, então os receipts antigos permanecem idênticos.

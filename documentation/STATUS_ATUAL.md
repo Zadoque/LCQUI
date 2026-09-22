@@ -125,6 +125,20 @@ Logs locais: /tmp/m2-docs-build.log, build/latex/main.log e /tmp/m2-baseline-bui
 
 ## Formal e pendências concretas
 
+**M4 foi VALIDATED.** `specification/alloy/reagents/withdrawal_return.als`
+compõe Frasco (M2.4) e Emprestimo (M3) no mesmo universo: a retirada cria
+exatamente um empréstimo ativo (`EM_USO`) com o frasco `EMPRESTADO`, e a
+devolução sempre encerra a custódia (normal/atraso/anomalia), com vazio, destinos
+de vencido e anomalia tratados por precedência. São 27 checks UNSAT e 16
+witnesses SAT (scopes 4/6), com guard de drift das origens em
+`tools/formal/withdrawal_return.mjs`. A evidência está em
+`build/formal-validation-m4.json`, validada por `validation_m4.rs`; o fragmento
+`invariants/retirada_devolucao_m4.tex` e `Formal-Spec-M4.tex` foram integrados ao
+PDF (306 páginas). O CUE/IR não mudaram. A Seção 10.5 foi corrigida
+mecanicamente: os destinos QUARENTENA e PENDENTE_DE_DESCARTE gravam
+`disponibilidade = INDISPONIVEL`. HQs M4 abertas = 0. M5 = NOT_STARTED. Detalhes
+em [worklog M4](worklogs/formal-spec/M4_VALIDATION.md).
+
 **M3 foi VALIDATED**, com erratum pós-validação. A Seção 5 foi reconciliada (5
 campos canônicos que o próprio dicionário descrevia estavam ausentes e foram
 inseridos; 33 nomes iguais aos da Seção 4). O CUE ganhou

@@ -1,9 +1,9 @@
 # LCQUI — Formal Specification State
 
 ## 1. Propósito desta fase
-M3 = VALIDATED; M2.4 = VALIDATED; M2 = VALIDATED. Entrada M3: `158cb91f77b8301274c63e4ee8e384249721a5ba`. Registro completo em `documentation/worklogs/formal-spec/M3_VALIDATION.md`. Os parágrafos abaixo preservam o contexto histórico da fase.
+M4 = VALIDATED (Retirada/devolução completas); M3 = VALIDATED; M2 = VALIDATED. Entrada M3: `158cb91f77b8301274c63e4ee8e384249721a5ba`. Entrada M4: `0bf3c68fc6a0470c69faca3ed857d14079a8a533`. Registros completos em `documentation/worklogs/formal-spec/M3_VALIDATION.md` e `M4_VALIDATION.md`. Os parágrafos abaixo preservam o contexto histórico da fase.
 
-Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. M2 encerrado com composição M0 × M2.2 em `bottle_composition.als`; evidência M2.4 validada pelo Rust. M3 migrou `Emprestimo_Reagente` (33 colunas), sua máquina de status (`loan_state.als`) e a evidência M3. M4 (Retirada/devolução completas) é o próximo milestone.
+Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. M2 encerrado com composição M0 × M2.2 em `bottle_composition.als`; evidência M2.4 validada pelo Rust. M3 migrou `Emprestimo_Reagente` (33 colunas), sua máquina de status (`loan_state.als`) e a evidência M3. M4 compôs Frasco e Emprestimo nas operações de retirada e devolução (`withdrawal_return.als`). M5 (Extravio/reencontro/quarentena) é o próximo milestone.
 
 ## 2. Baseline congelado da Fase 3B
 - FUNCTIONAL_SHA = db29ea2f17dc785fb0b44ffb3aec16db29c45e94
@@ -64,7 +64,7 @@ Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spaw
 | M1 | Resumo_Reagente + Especificacao_Reagente | VALIDATED |
 | M2 | Frasco completo (M2.0–M2.4 validados) | VALIDATED |
 | M3 | Empréstimo | VALIDATED |
-| M4 | Retirada/devolução completas | NOT_STARTED |
+| M4 | Retirada/devolução completas | VALIDATED |
 | M5 | Extravio/reencontro/quarentena | NOT_STARTED |
 | M6 | Q06/tara | NOT_STARTED |
 | M7 | Idempotência | NOT_STARTED |
@@ -75,7 +75,11 @@ Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spaw
 | M12 | Integração/redução de duplicação normativa | NOT_STARTED |
 
 ## 9. Milestone atual
-M3 VALIDATED (Emprestimo_Reagente), após erratum pós-validação. M2 VALIDATED; M4 NOT_STARTED. Registro completo em `documentation/worklogs/formal-spec/M3_VALIDATION.md`, incluindo a seção "Erratum pós-validação M3".
+M4 VALIDATED (Retirada/devolução completas). M3 VALIDATED (com erratum); M5 NOT_STARTED. Registro completo em `documentation/worklogs/formal-spec/M4_VALIDATION.md`.
+
+- M4 = VALIDATED: `specification/alloy/reagents/withdrawal_return.als` compõe Frasco (M2.4) e Emprestimo (M3) no mesmo universo. `coerenteM4 = coerenteM2 + coerenteM3 + disponibilidade EMPRESTADO <=> ativo + cláusula física de M0`; `ATIVOS = EM_USO + ATRASADO` derivado do status (sem flag). Retirada exige aptidão (disponibilidade, físico utilizável, sem quarentena/descarte/ativo, vencido exige autorização) e cria exatamente um ativo `EM_USO` com frasco `EMPRESTADO`; primeira abertura FECHADO→ABERTO. Devolução só de ativo, sempre encerra custódia: normal → `DEVOLVIDO`, atraso → `DEVOLVIDO_COM_ATRASO`, anomalia → `DEVOLVIDO_COM_ANOMALIA` (precedência sobre atraso, retenção em quarentena/INDISPONIVEL/consumo pendente); vazio → `VAZIO`/INDISPONIVEL com precedência; destinos de vencido (QUARENTENA/DISPONIVEL_AUTORIZADO/PENDENTE_DE_DESCARTE) coerentes. 27 checks UNSAT + 16 witnesses SAT (scope 4 e 6). CUE/IR inalterados; `build/formal-validation-m4.json` com hashes do modelo e das origens; Rust `validation_m4` valida 42 resultados e rejeita adulteração; guard de drift `withdrawal_return.mjs` (em `alloy-check`); fragmento `invariants/retirada_devolucao_m4.tex` e `Formal-Spec-M4.tex` integrados; PDF 306 páginas, zero erros. Correção documental mecânica na Seção 10.5 (QUARENTENA/PENDENTE_DE_DESCARTE gravam INDISPONIVEL). HQs M4 abertas = 0. Modelos M0–M3 e receipts antigos inalterados.
+
+M3 VALIDATED (Emprestimo_Reagente), após erratum pós-validação. M2 VALIDATED. Registro em `documentation/worklogs/formal-spec/M3_VALIDATION.md`, incluindo a seção "Erratum pós-validação M3".
 
 - M3 erratum concluído:
   - removida a implicação incorreta de pendência eterna para `DEVOLVIDO_COM_ANOMALIA`; a pendência passou a ser `status = DEVOLVIDO_COM_ANOMALIA AND consumo_validado = false`;
@@ -135,9 +139,9 @@ HEAD de entrada: `25e3825f5045a328e59f17115f2dbbda0710fb26`, branch `feat/formal
 Validação naquele checkpoint: just docs-build PASS (275 páginas, zero erros/referências indefinidas; 28 Overfull herdados, comparação com baseline compilado de 267 páginas); spec-check/spec-export/alloy-check PASS no recorte existente; git diff --check PASS. PDF inspecionado antes da publicação. Inventário de arquivos, campos removidos, auditoria e resultados de validação desta rodada: [STATUS_ATUAL.md](documentation/STATUS_ATUAL.md). Os registros M2.1b/M2.1c e M2_HUMAN_QUESTIONS.md não foram reescritos fora do escopo autorizado; seus estados OPEN para HQ004..007 estão superados pelas decisões acima e pelas fontes .tex atuais.
 
 ## 12. Próxima ação EXATA
-INICIAR M4 — Retirada/devolução completas. M3 = VALIDATED (inclui o erratum pós-validação: anomalia resolvida representável, `medida_utilizada >= 0`); não reabrir M2 nem M3.
+INICIAR M5 — Extravio/reencontro/quarentena. M4 = VALIDATED (composição operacional de retirada/devolução); não reabrir M2, M3 nem M4.
 
-HQs M2 OPEN = 0; HQs M3 OPEN = 0. `loan_state.als`, `build/formal-validation-m3.json`, `validation_m3.rs`, `Formal-Spec-M3.tex` e o PDF de 302 páginas estão commitados. Os receipts M0/M2/M2.4 mudaram apenas em `spec_ir_sha256`, como esperado com a nova projeção M3. O backend real (`functions/src/reagentes.ts`) diverge da especificação vigente e continua dívida de M4/M5/M6/M9/M10; as divergências estão registradas em M3_VALIDATION.md. Não inferir prova de retirada/devolução completas, metrologia, autorização, idempotência ou concorrência a partir dos gates M3.
+HQs M2/M3/M4 OPEN = 0. `withdrawal_return.als`, `build/formal-validation-m4.json`, `validation_m4.rs`, `withdrawal_return.mjs`, `Formal-Spec-M4.tex` e o PDF de 306 páginas estão commitados. CUE/IR não mudaram em M4; os receipts antigos permanecem idênticos. O backend real (`functions/src/reagentes.ts`) diverge do contrato M4 (finalidade, anomalia de devolução, snapshots/TCR, destinos) e continua dívida de M4/M5/M6/M7/M9; as divergências estão registradas em M4_VALIDATION.md. Não inferir prova de Q06/tara, extravio/quarentena completos, idempotência ou autorização a partir dos gates M4.
 
 ## 13. Arquivos que devem ser lidos para continuar
 1. Este arquivo, ponto único de retomada.
@@ -228,7 +232,7 @@ Problemas instrumentais resolvidos: usar alloy6 help exec (não --help); CUE emb
 - Escopo Alloy não aumenta por o IR incluir mais entidades. Não gerar UX/rationale; texto humano continua no LaTeX.
 
 ## 18. Itens ainda não migrados
-Relações/IR/documentação do Frasco completo e demais domínios M4–M12; composição, integridade global/imutabilidade do catálogo, contratos completos de retirada, schemas Firestore completos, testes specification→Firebase Emulator e CI hospedada. M1 já contém os dois registros normalizados e notas de mapeamento. M3 já contém o registro completo de Emprestimo_Reagente, sua máquina de status e evidência Alloy. Nenhuma aplicação TypeScript gerada/substituída. Documentação humana original preservada.
+Relações/IR/documentação do Frasco completo e demais domínios M5–M12; composição, integridade global/imutabilidade do catálogo, schemas Firestore completos, testes specification→Firebase Emulator e CI hospedada. M1 já contém os dois registros normalizados e notas de mapeamento. M3 já contém o registro completo de Emprestimo_Reagente, sua máquina de status e evidência Alloy. M4 já contém a composição operacional de retirada/devolução. Nenhuma aplicação TypeScript gerada/substituída. Documentação humana original preservada.
 
 ## 19. Commits desta fase
 - 672fc65a — chore(spec): add formal specification state.
@@ -265,4 +269,4 @@ Registro histórico: M2.1a entrada ce299d42; checkpoints documentais 4e0e60e5/88
 Ler este arquivo; confirmar status/log/branch; ler fontes indicadas; repetir gates mínimos e seguir seção 12. Não replanejar do zero nem reabrir 3B. Atualizar estado após unidades pequenas/validações/descobertas, antes de tarefas longas e antes/depois de commits. Manter tudo salvo para retomada em outra máquina. Usar NOT_STARTED/IN_PROGRESS/BLOCKED/IMPLEMENTED/VALIDATED; só VALIDATED conclui um escopo. Não alegar homologação integral a partir de checks limitados.
 
 ## 22. Definition of Done restante
-M0 = VALIDATED (erratum textual corrigido); M1 = VALIDATED (não afetado); M2.0/M2.1/M2.1a = validações históricas; M2.1b = DOCUMENTATION_VALIDATED; M2.1c = VALIDATED; M2.1d = VALIDATED (CUE local de 29 colunas, `origem_tara`); M2.2 = VALIDATED (Alloy: identidade química efetiva e coerência de estado); M2.3 = VALIDATED (IR v3, proveniência estruturada, validação da evidência M2.2 e geração determinística dos fragmentos M2 integrados em M2.4); M2.4 = VALIDATED (composição aditiva M0 × M2.2: 12+5 checks UNSAT, 10+1 witnesses SAT, guard de drift, evidência versionada, fragmento composto, LaTeX/PDF integrado); M2 = VALIDATED; M3 = VALIDATED (Seção 5 reconciliada; CUE de 33 colunas; `loan_state.als` com 11 checks UNSAT + 11 witnesses SAT; projeção `emprestimo_reagente` e `baseline_documental_m3` no IR v3; `validation_m3` Rust; fragmentos M3 e `Formal-Spec-M3.tex` integrados; PDF 302 páginas; erratum pós-validação: anomalia resolvida representável e `medida_utilizada >= 0`, 25 fixtures M3). HQs M2 OPEN = 0; HQs M3 OPEN = 0. Finding 4 (lock patrimonial) e Finding 5 (desvínculo individual) reconciliados documentalmente; implementação real permanece dívida de M9/M10. M4 (Retirada/devolução completas) = NOT_STARTED. Esta rodada não certifica operações completas de retirada/devolução, tara numérica, validade calculada, Q06 completo, execução de backend, idempotência nem concorrência.
+M0 = VALIDATED (erratum textual corrigido); M1 = VALIDATED (não afetado); M2.0/M2.1/M2.1a = validações históricas; M2.1b = DOCUMENTATION_VALIDATED; M2.1c = VALIDATED; M2.1d = VALIDATED (CUE local de 29 colunas, `origem_tara`); M2.2 = VALIDATED (Alloy: identidade química efetiva e coerência de estado); M2.3 = VALIDATED (IR v3, proveniência estruturada, validação da evidência M2.2 e geração determinística dos fragmentos M2 integrados em M2.4); M2.4 = VALIDATED (composição aditiva M0 × M2.2: 12+5 checks UNSAT, 10+1 witnesses SAT, guard de drift, evidência versionada, fragmento composto, LaTeX/PDF integrado); M2 = VALIDATED; M3 = VALIDATED (Seção 5 reconciliada; CUE de 33 colunas; `loan_state.als` com 11 checks UNSAT + 11 witnesses SAT; projeção `emprestimo_reagente` e `baseline_documental_m3` no IR v3; `validation_m3` Rust; fragmentos M3 e `Formal-Spec-M3.tex` integrados; PDF 302 páginas; erratum pós-validação: anomalia resolvida representável e `medida_utilizada >= 0`, 25 fixtures M3). HQs M2 OPEN = 0; HQs M3 OPEN = 0. Finding 4 (lock patrimonial) e Finding 5 (desvínculo individual) reconciliados documentalmente; implementação real permanece dívida de M9/M10. M4 = VALIDATED (composição operacional de retirada/devolução em `withdrawal_return.als`: 27 checks UNSAT + 16 witnesses SAT, guard de drift das origens M2.4/M3, `validation_m4` Rust, `Formal-Spec-M4.tex` e PDF de 306 páginas; CUE/IR inalterados; correção mecânica da Seção 10.5). HQs M2/M3/M4 OPEN = 0. Finding 4 (lock patrimonial) e Finding 5 (desvínculo individual) reconciliados documentalmente; implementação real permanece dívida de M9/M10. M5 (Extravio/reencontro/quarentena) = NOT_STARTED. Esta rodada não certifica Q06/tara, validade calculada, extravio/quarentena completos, execução de backend, idempotência nem concorrência.

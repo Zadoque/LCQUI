@@ -51,3 +51,11 @@ encerrados não reabrem, unicidade ativa por frasco, atraso só a partir de EM_U
 e frame de status. `just alloy-check` grava também
 `build/formal-validation-m24.json` e `build/formal-validation-m3.json` (scopes
 4 e 6).
+
+`reagents/withdrawal_return.als` (M4) compõe Frasco e Emprestimo no mesmo
+universo e formaliza retirada e devolução: `coerenteM4` reúne `coerenteM2`, a
+unicidade ativa e a equivalência disponibilidade EMPRESTADO <=> um ativo; a
+retirada cria um ativo `EM_USO` e a devolução sempre encerra a custódia
+(normal/atraso/anomalia), com vazio e destinos de vencido. O guard
+`tools/formal/withdrawal_return.mjs` compara as regras reproduzidas com as
+origens. `just alloy-check` grava `build/formal-validation-m4.json`.

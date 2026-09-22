@@ -13,7 +13,8 @@ reconciliação M2.0 no estado. O IR v3 distingue proveniência histórica M0/M1
 
 CUE → spec-ir.json (v3) e Alloy → formal-validation.json (M0) e
 formal-validation-m2.json (M2.2) e formal-validation-m24.json (composição)
-e formal-validation-m3.json (M3) → Rust → generated → main.tex.
+e formal-validation-m3.json (M3) e formal-validation-m4.json (retirada/devolução)
+→ Rust → generated → main.tex.
 O validador exporta CUE antes de Alloy e vincula hashes; não há geração de Alloy
 pelo Rust. Não presumir equivalência semântica automática entre linguagens.
 `just formal-check` é o gate local utilizável por CI em ambiente provisionado.
@@ -44,3 +45,16 @@ alterado. O IR v3 ganha a projeção `emprestimo_reagente` e
 `baseline_documental_m3`; a evidência standalone fica em
 formal-validation-m3.json, validada por validation_m3. Retirada e devolução
 completas continuam fora da composição.
+
+## M4
+
+M4 compõe o Frasco e o Emprestimo no mesmo universo (`withdrawal_return.als`) e
+substitui a relação `ativos` por um `status` parcial (`Emprestimo -> lone
+Status`), em que ausência de status representa empréstimo ainda não criado.
+`coerenteM4` reúne `coerenteM2`, a unicidade de M3 e a equivalência
+disponibilidade EMPRESTADO <=> exatamente um ativo. O CUE/IR não mudam; a
+evidência fica em formal-validation-m4.json, validada por validation_m4, com
+guard de drift das origens (`withdrawal_return.mjs`). As guardas externas
+(RBAC/tomador/TCR), o atraso, o vencimento e os resultados metrológicos são fatos
+abstratos; Q06/tara (M6), extravio/quarentena completos (M5), idempotência (M7) e
+autorização (M9) permanecem fora.

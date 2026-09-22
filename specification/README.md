@@ -91,3 +91,16 @@ gerador emite `entities/emprestimo_reagente.tex` e
 `invariants/emprestimo_reagente.tex`, integrados em `Formal-Spec-M3.tex`.
 M3 NÃO cobre retirada/devolução completas (M4), extravio/reencontro (M5) nem
 Q06/tara (M6).
+
+## M4
+
+`alloy/reagents/withdrawal_return.als` compõe Frasco (M2.4) e Emprestimo (M3) no
+mesmo universo. `coerenteM4` reúne a coerência do frasco, a unicidade ativa e a
+equivalência `disponibilidade = EMPRESTADO <=> exatamente um empréstimo ativo`.
+A retirada cria um empréstimo `EM_USO` com o frasco `EMPRESTADO` e a devolução
+sempre encerra a custódia (normal, atraso, anomalia), com vazio e destinos de
+vencido coerentes. A evidência fica em `build/formal-validation-m4.json`,
+validada por `validation_m4.rs`; o guard de drift em
+`tools/formal/withdrawal_return.mjs` compara as regras reproduzidas com as
+origens. O CUE/IR não mudam. M4 NÃO cobre Q06/tara (M6),
+extravio/reencontro/quarentena completos (M5), idempotência (M7) nem RBAC (M9).
