@@ -835,8 +835,17 @@ interface StatusExtraordinario {
   idFrasco: string;
   acao: "EXTRAVIAR" | "REENCONTRAR";
   motivo: string;
-  estadoConstatadoAoReencontrar?: "ABERTO" | "FECHADO"; // obrigatório se REENCONTRAR
+  estadoConstatadoAoReencontrar?: "ABERTO" | "FECHADO" | "VAZIO" | "QUEBRADO"; // obrigatório se REENCONTRAR
   id_operacao: string;
+}
+
+// Reconstrói, a partir da trilha histórica ORDENADA, o último estado físico do
+// frasco imediatamente ANTES do evento EXTRAVIO. Não cria coluna nova e não
+// reescreve o evento. Se a trilha for insuficiente para determinar o estado,
+// exige reconciliação manual em vez de adivinhar.
+async function reconstruirEstadoFisicoAntesDoExtravioTx(tx, idFrasco) {
+  // replay dos eventos FLOW do Historico_Frasco_Reagente (CADASTRO, SAIU,
+  // ENTROU, FICOU_VAZIO, QUEBROU, ENTROU_EM_QUARENTENA, ...) até o EXTRAVIO.
 }
 
 export const registrarExtravioOuReencontro = onCall(async (request) => {
@@ -949,21 +958,35 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
       // Reencontro é um NOVO fato físico: não desfaz o extravio e não reabre
       // empréstimo encerrado. O frasco passa compulsoriamente à quarentena.
       //
+      // O estado constatado é validado contra o último estado físico conhecido
+      // ANTES do extravio, obtido da trilha histórica ordenada (sem nova coluna).
+      // Isso rejeita transições fisicamente impossíveis.
+      const estadoAntesDoExtravio = await reconstruirEstadoFisicoAntesDoExtravioTx(tx, dados.idFrasco);
+      const constatado = dados.estadoConstatadoAoReencontrar;
+      const houveAberturaConhecida = frasco.data_abertura != null || frasco.abertura_historica_desconhecida === true;
+
+      const permitido =
+        (constatado === "FECHADO" && estadoAntesDoExtravio === "FECHADO" && !houveAberturaConhecida) ||
+        (constatado === "ABERTO" && (estadoAntesDoExtravio === "ABERTO" || estadoAntesDoExtravio === "FECHADO")) ||
+        (constatado === "VAZIO" && estadoAntesDoExtravio === "VAZIO") ||
+        (constatado === "QUEBRADO"); // quebra física constatada é um novo fato
+      if (!permitido)
+        throw new HttpsError("failed-precondition",
+          "Estado constatado incompatível com o último estado conhecido antes do extravio.");
+
+      // ABERTO vindo de FECHADO implica abertura em período sem rastreabilidade
+      // temporal precisa; não se inventa a data de abertura.
+      const aberturaSemData = constatado === "ABERTO" && estadoAntesDoExtravio === "FECHADO";
+
       // VALIDADE: o reencontro NÃO recalcula vencimento pelo relógio. A passagem
       // do tempo pertence ao job de vencimento e o estado persistido frasco.vencido
       // é a autoridade. O reencontro apenas pode marcar desconhecimento quando a
       // data exata de validade é indeterminável; nunca agenda nem revalida.
-      const eraFechadoAntes = frasco.data_abertura == null && frasco.abertura_historica_desconhecida !== true;
-      if (dados.estadoConstatadoAoReencontrar === "FECHADO" && !eraFechadoAntes) {
-        throw new HttpsError("failed-precondition", "Frasco já teve abertura conhecida; não pode ser reencontrado FECHADO.");
-      }
-      const encontradoAbertoSemData = dados.estadoConstatadoAoReencontrar === "ABERTO" && eraFechadoAntes;
-
       tx.update(frascoRef, {
-        estado_fisico_frasco: dados.estadoConstatadoAoReencontrar,
+        estado_fisico_frasco: constatado,
         disponibilidade: "INDISPONIVEL", // reencontro impõe quarentena e bloqueia nova retirada
         em_quarentena: true,
-        ...(encontradoAbertoSemData && {
+        ...(aberturaSemData && {
           abertura_historica_desconhecida: true,
           data_abertura: null,
           validade_desconhecida: true,
@@ -972,7 +995,9 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
         // vencido é PRESERVADO: não é recalculado nem marcado pelo reencontro.
         detalhe_status: `Reencontrado em quarentena: ${dados.motivo}`,
         // saldo_desconhecido, peso_atual, tara e localização permanecem como estavam,
-        // salvo medição/evento válido posterior.
+        // salvo medição/evento válido posterior. Frasco não previamente VAZIO que
+        // pareça vazio NÃO é marcado VAZIO: registra-se a observação e a confirmação
+        // quantitativa/metrológica pertence a M6.
       });
 
       tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
