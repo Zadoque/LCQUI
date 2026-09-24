@@ -823,6 +823,13 @@ export const registrarDevolucao = onCall(async (request) => {
            avisoHigroscopico: avisoHigroscopico || false };
   });
 });
+\end{lstlisting}
+
+% =========================================================
+% M5 — Extravio / Reencontro / Quarentena / Descarte
+% Contrato normativo consolidado na Seção 7 (subseção M5).
+% =========================================================
+\begin{lstlisting}[language=TypeScript, title={Extravio, reencontro e descarte com quarentena (M5)}]
 
 interface StatusExtraordinario {
   idFrasco: string;
@@ -871,6 +878,9 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
     if (dados.acao === "EXTRAVIAR") {
       if (frasco.estado_fisico_frasco === "EXTRAVIADO")
         throw new HttpsError("failed-precondition", "O frasco já consta como extraviado.");
+      // DESCARTADO é terminal: nenhuma transição parte dele (Seção 4).
+      if (frasco.estado_fisico_frasco === "DESCARTADO")
+        throw new HttpsError("failed-precondition", "Frasco descartado é terminal e não pode ser extraviado.");
 
       const queryEmprestimo = admin.firestore().collection("Emprestimo_Reagente")
         .where("id_frasco_reagente", "==", dados.idFrasco)
@@ -878,30 +888,43 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
         .limit(1);
       const emprestimoAberto = await tx.get(queryEmprestimo);
 
+      // Fato observado: o estado físico passa a EXTRAVIADO e a disponibilidade a
+      // INDISPONIVEL. Extravio NÃO é consumo, esgotamento nem peso zero.
+      // Preserva saldo, saldo_desconhecido, peso_atual, tara, validade, vencido,
+      // abertura_historica_desconhecida e localização. O estado físico e a
+      // disponibilidade anteriores são o fato registrado no histórico.
       tx.update(frascoRef, {
-        estado\_fisico\_frasco: "EXTRAVIADO",
+        estado_fisico_frasco: "EXTRAVIADO",
         disponibilidade: "INDISPONIVEL",
-        detalhe\_status: dados.motivo,
+        detalhe_status: dados.motivo,
       });
 
       if (!emprestimoAberto.empty) {
         const docEmprestimo = emprestimoAberto.docs[0];
         if (docEmprestimo.data().peso_retorno != null) {
-          throw new HttpsError("failed-precondition", "Empréstimo já possui medição de peso_retorno. Reconciliação manual necessária.");
+          throw new HttpsError("failed-precondition", "Empréstimo ativo já possui peso_retorno; reconciliação manual necessária.");
         }
-        const pesoSaida = docEmprestimo.data().peso_saida || 0;
-        const pesoVazio = frasco.peso_frasco_vazio != null ? frasco.peso_frasco_vazio : null;
-        const perdaEstimada = pesoVazio != null ? Math.max(0, pesoSaida - pesoVazio) : pesoSaida;
+        // Encerramento extraordinário: NÃO houve retorno físico nem pesagem de
+        // retorno. Não fabricar consumo, peso de retorno nem tara.
+        const taraConhecida = frasco.peso_frasco_vazio != null;
+        const perdaEstimada = taraConhecida
+          ? Math.max(0, docEmprestimo.data().peso_saida - frasco.peso_frasco_vazio)
+          : null; // sem tara conhecida a estimativa é indeterminável; não inventar
 
         tx.update(docEmprestimo.ref, {
           status: "ENCERRADO_EXTRAORDINARIO",
           tipo_encerramento_excepcional: "EXTRAVIO_SINISTRO",
           motivo_encerramento_excepcional: dados.motivo,
           id_gestor_encerramento: request.auth!.uid,
+          // Estimativa rotulada como tal; não é medição nem consumo validado (fronteira M6).
           massa_perda_estimada_g: perdaEstimada,
           peso_retorno: null,
-          medida_utilizada: 0,
-          data_devolucao_efetuada: admin.firestore.FieldValue.serverTimestamp(),
+          peso_retorno_efetivo: null,
+          medida_utilizada: null,
+          consumo_validado: false,
+          id_resolucao_metrologica: null,
+          // NÃO é devolução física: data_devolucao_efetuada permanece NULL. O
+          // instante do encerramento fica no histórico/operação.
         });
       }
 
@@ -910,50 +933,46 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
         id_almoxarifado: frasco.id_almoxarifado,
         id_gestor: request.auth!.uid,
         tipo: "EXTRAVIO",
+        id_emprestimo_reagente: emprestimoAberto.empty ? null : emprestimoAberto.docs[0].id,
+        // O estado anterior é o último estado estabelecido na trilha FLOW; não se
+        // cria coluna nova. O evento preserva motivo e instante e nunca é apagado.
         motivo: dados.motivo,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
+
     } else { // REENCONTRAR
       if (frasco.estado_fisico_frasco !== "EXTRAVIADO")
         throw new HttpsError("failed-precondition", "Frasco não está extraviado.");
       if (!dados.estadoConstatadoAoReencontrar)
         throw new HttpsError("invalid-argument", "Estado constatado é obrigatório.");
 
-      // M2.1b: reencontro impõe quarentena e INDISPONIVEL e não fabrica data de abertura.
-      const agora = new Date();
-      const { DateTime } = require("luxon");
-
-      let validadeCalculada = frasco.validade_efetiva
-        ? (typeof frasco.validade_efetiva.toDate === "function"
-          ? frasco.validade_efetiva.toDate()
-          : DateTime.fromISO(frasco.validade_efetiva, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate())
-        : null;
-
-      // Só era FECHADO se nunca houve abertura conhecida. Se for encontrado ABERTO
-      // e a data da primeira abertura for indeterminável, a flag histórica é marcada
-      // e a validade efetiva exata passa a ser desconhecida (D9/D9b). Não inventar data.
+      // Reencontro é um NOVO fato físico: não desfaz o extravio e não reabre
+      // empréstimo encerrado. O frasco passa compulsoriamente à quarentena.
+      //
+      // VALIDADE: o reencontro NÃO recalcula vencimento pelo relógio. A passagem
+      // do tempo pertence ao job de vencimento e o estado persistido frasco.vencido
+      // é a autoridade. O reencontro apenas pode marcar desconhecimento quando a
+      // data exata de validade é indeterminável; nunca agenda nem revalida.
       const eraFechadoAntes = frasco.data_abertura == null && frasco.abertura_historica_desconhecida !== true;
-      const encontradoAbertoSemData = dados.estadoConstatadoAoReencontrar === "ABERTO" && eraFechadoAntes;
-      if (encontradoAbertoSemData) {
-        validadeCalculada = null; // validade efetiva indeterminável sem a data de abertura
+      if (dados.estadoConstatadoAoReencontrar === "FECHADO" && !eraFechadoAntes) {
+        throw new HttpsError("failed-precondition", "Frasco já teve abertura conhecida; não pode ser reencontrado FECHADO.");
       }
-
-      const venceuAgora = Boolean(validadeCalculada && validadeCalculada <= agora);
-      const frascoVencido = Boolean(frasco.vencido || venceuAgora);
+      const encontradoAbertoSemData = dados.estadoConstatadoAoReencontrar === "ABERTO" && eraFechadoAntes;
 
       tx.update(frascoRef, {
         estado_fisico_frasco: dados.estadoConstatadoAoReencontrar,
-        disponibilidade: "INDISPONIVEL", // quarentena impõe compulsoriamente INDISPONIVEL
+        disponibilidade: "INDISPONIVEL", // reencontro impõe quarentena e bloqueia nova retirada
         em_quarentena: true,
         ...(encontradoAbertoSemData && {
           abertura_historica_desconhecida: true,
           data_abertura: null,
           validade_desconhecida: true,
+          validade_efetiva: null, // validade exata indeterminável sem a data de abertura
         }),
-        validade_efetiva: validadeCalculada ? DateTime.fromJSDate(validadeCalculada, { zone: "America/Sao_Paulo" }).toISODate() : null,
-        vencido: frascoVencido, // derivado das regras reais de validade; nunca forçado pelo reencontro
+        // vencido é PRESERVADO: não é recalculado nem marcado pelo reencontro.
         detalhe_status: `Reencontrado em quarentena: ${dados.motivo}`,
-        // saldo_desconhecido permanece como estava, salvo medição/evento válido posterior
+        // saldo_desconhecido, peso_atual, tara e localização permanecem como estavam,
+        // salvo medição/evento válido posterior.
       });
 
       tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
