@@ -130,8 +130,7 @@ O frasco inicia com \texttt{condicao\_inicial\_cadastro = FECHADO}, \texttt{esta
 O frasco inicia com \texttt{condicao\_inicial\_cadastro = JA\_ABERTO}, \texttt{estado\_fisico\_frasco = ABERTO}, \texttt{peso\_frasco\_vazio = NULL} e \texttt{saldo\_desconhecido = true}. Não existem as modalidades de tara conhecida, estimativa de volume ou estimativa de massa, nem campos de peso do frasco vazio informado, volume atual estimado ou massa atual estimada. O usuário informa apenas dados reais disponíveis: o peso total atual medido na balança e, quando conhecido ou legível, o conteúdo nominal do rótulo. O conteúdo nominal é declaração original do fabricante e não representa o saldo atual; quando desconhecido ou ilegível, permanece \texttt{NULL}, nunca zero. Enquanto o recipiente não for esvaziado e pesado vazio, o saldo atual permanece desconhecido e a tara do recipiente ainda não é conhecida; não se estima saldo inicial.
 
 \textbf{3. Empréstimo e Devolução:}\\
-No empréstimo, registra-se o \textit{peso\_saida}. Na devolução, registra-se o \textit{peso\_retorno}. Quando quantitativamente validado, o consumo é documentado na tabela \textit{Emprestimo\_Reagente} como:\\
-$Volume_{utilizado} = \frac{\max(0, Peso_{saida} - Peso_{retorno})}{Densidade}$ (líquidos); sólidos usam a diferença não negativa em g. Ganho tolerado segue Q06, com consumo zero e ajuste separado.
+No empréstimo, registra-se o \textit{peso\_saida}. Na devolução, registra-se o \textit{peso\_retorno}. Quando quantitativamente validado, o consumo é documentado na tabela \textit{Emprestimo\_Reagente} como: $Volume_{utilizado} = \frac{\max(0,\ (Peso_{saida} - Peso_{retorno}^{efetivo}) - Perda_{evaporacao})}{Densidade}$ (líquidos); sólidos usam a diferença não negativa em g. A perda por evaporação é contabilizada separadamente do consumo (campo e evento \texttt{EVAPORACAO}); ganho tolerado segue Q06, com consumo zero e ajuste separado.
 
 \textbf{4. Esgotamento e Tara Real:}\\
 A determinação de que o recipiente ficou vazio é confirmada explicitamente pelo gestor na devolução, tanto para frascos originalmente \texttt{FECHADO} quanto para frascos \texttt{JA\_ABERTO}, por meio da decisão ``O frasco ficou vazio nesta devolução? [ ] Sim''. A comparação com a tara anterior não é autoridade exclusiva para declarar esgotamento.
@@ -207,6 +206,120 @@ Consolidação normativa do ciclo de extravio, reencontro e quarentena. As opera
 \end{itemize}
 As operações críticas de M5 devem ser idempotentes por identificador operacional (fronteira M7); o mecanismo não é redesenhado aqui.
 \end{regra}
+
+\subsubsection{Q06, tara, medição e resolução metrológica (M6)}
+\begin{regra}[Vocabulário metrológico e autoridades]
+Cada campo quantitativo possui uma única autoridade. Não usar dois campos como autoridade do mesmo fato sem explicitar a diferença.
+\begin{itemize}
+    \item \texttt{peso\_saida}: leitura bruta da balança na retirada; imutável; base da tolerância Q06.
+    \item \texttt{peso\_retorno}: observação física original da devolução; persistida e nunca reescrita por resolução posterior.
+    \item \texttt{peso\_retorno\_efetivo}: valor quantitativo validado que a resolução autoriza usar no cálculo definitivo; \texttt{NULL} enquanto a pendência estiver aberta; não apaga nem substitui \texttt{peso\_retorno}.
+    \item \texttt{peso\_atual}: observação corrente do frasco; não prova o peso no instante histórico da devolução.
+    \item \texttt{peso\_frasco\_vazio} + \texttt{origem\_tara}: tara (\texttt{NULL}, \texttt{REFERENCIA\_TEORICA} ou \texttt{MEDIDA\_REAL}).
+    \item \texttt{peso\_no\_cadastrado}: peso total inicial; imutável.
+    \item \texttt{medida\_utilizada}: consumo quantitativamente validado; \texttt{NULL} \textbf{não} é zero.
+    \item \texttt{peso\_perda\_evaporacao}: perda em g registrada separadamente do consumo.
+    \item \texttt{massa\_perda\_estimada\_g}: estimativa de sinistro/extravio (fronteira M5); não é medição nem consumo.
+    \item \texttt{saldo} (\texttt{saldo\_aferido\_g}/\texttt{saldo\_aferido\_ml}) e \texttt{saldo\_desconhecido}: saldo corrente server-owned; desconhecido \textbf{não} é zero.
+    \item \texttt{consumo\_validado}: autoridade que separa resultado quantitativo encerrado de pendência aberta.
+    \item \texttt{anomalia\_metrologica}: classificação textual server-owned da inconsistência.
+    \item \texttt{id\_resolucao\_metrologica}: vínculo ao evento auditável que encerrou a pendência.
+    \item \texttt{densidade\_aplicada}: snapshot histórico da densidade no empréstimo.
+\end{itemize}
+Regra geral: desconhecido $\neq$ zero, ausente $\neq$ zero, não mensurável $\neq$ zero, estimado $\neq$ medido, atual $\neq$ histórico, referência teórica $\neq$ tara real. Nunca preencher um valor apenas para completar o modelo.
+\end{regra}
+
+\begin{regra}[Q06 --- tolerância de ganho de massa]
+Q06 compara \textbf{retorno com saída}, sobre o peso bruto \texttt{peso\_saida}: reagente normal $tolerancia = \max(1\,g,\ 0{,}005 \times peso_{saida})$; higroscópico $tolerancia = \max(2\,g,\ 0{,}02 \times peso_{saida})$. A condição de ganho anômalo é $peso_{retorno} > peso_{saida} + tolerancia$. O antigo limiar fixo de 5\,g está definitivamente eliminado e não pode ser recriado como definição de vazio, segunda tolerância, fallback, exceção ou justificativa. Q06 \textbf{não} é regra de tara: nunca comparar \texttt{peso\_retorno} com \texttt{peso\_frasco\_vazio}; não existe ``tolerância de tara Q06'', margem percentual para retorno abaixo da tara nem limiar fixo de vazio.
+\end{regra}
+
+\begin{regra}[Consumo, evaporação e densidade]
+A perda de massa é decomposta explicitamente: $\Delta_{bruto} = peso_{saida} - peso_{retorno}^{efetivo}$ e $massa_{consumida} = \max(0,\ \Delta_{bruto} - \text{Evap})$. O consumo nunca é negativo. Para sólidos, a medida validada é a massa em g; para líquidos, o volume é $massa_{consumida} / densidade_{aplicada}$, com \texttt{densidade\_aplicada} positiva e histórica do empréstimo (nunca uma densidade corrente arbitrária). Não misturar g e mL. \texttt{peso\_perda\_evaporacao} é sempre em g, registrada separadamente do consumo (campo e evento \texttt{EVAPORACAO}), e não é autoridade de vazio nem de Q06. Enquanto a pendência estiver aberta, \texttt{medida\_utilizada}, \texttt{peso\_retorno\_efetivo} permanecem \texttt{NULL} e \texttt{consumo\_validado = FALSE}; \texttt{NULL} nunca é interpretado como consumo zero.
+\end{regra}
+
+\begin{regra}[Tara --- três situações]
+\begin{itemize}
+    \item \textbf{Desconhecida} (\texttt{peso\_frasco\_vazio = NULL}, \texttt{origem\_tara = NULL}): não é zero; não estimar saldo atual apenas porque existe peso bruto.
+    \item \textbf{Referência teórica} (\texttt{origem\_tara = REFERENCIA\_TEORICA}): valor derivado do nominal; não é medição física definitiva do recipiente vazio nem limite físico absoluto. Retorno inferior à referência teórica não é impossibilidade física e não deve ser ``corrigido'' artificialmente.
+    \item \textbf{Real} (\texttt{origem\_tara = MEDIDA\_REAL}): só existe quando o recipiente foi efetivamente constatado vazio e pesado nessa condição. Nunca derivar de estimativa, massa nominal, densidade, produto ainda presente, cálculo reverso ou pesagem de recipiente não vazio.
+\end{itemize}
+\end{regra}
+
+\begin{regra}[Esgotamento e tara real]
+O esgotamento não é inferido automaticamente pela comparação com a tara; a autoridade é a confirmação explícita da condição física (\texttt{confirmarEsgotamento}), tanto para \texttt{FECHADO} quanto para \texttt{JA\_ABERTO}. Recipiente efetivamente vazio confirmado e pesado: \texttt{estado\_fisico\_frasco = VAZIO}, \texttt{disponibilidade = INDISPONIVEL}, \texttt{saldo\_desconhecido = false}, saldo corrente zero; se não havia tara real, \texttt{peso\_frasco\_vazio = peso vazio medido} e \texttt{origem\_tara = MEDIDA\_REAL}; \texttt{conteudo\_nominal} não é alterado; registra-se \texttt{FICOU\_VAZIO}. Tara real anterior divergente \textbf{não} é sobrescrita: registra-se \texttt{DISCREPANCIA\_TARA\_REAL} e a substituição exige \texttt{recalibrarTaraFrascoEsgotado} (recipiente vazio, justificativa humana, auditoria antes/depois, histórico da tara anterior preservado).
+\end{regra}
+
+\begin{regra}[Retorno abaixo da tara]
+\begin{itemize}
+    \item \textbf{Abaixo de tara real} (\texttt{origem\_tara = MEDIDA\_REAL}, \texttt{peso\_retorno < peso\_frasco\_vazio}, \texttt{confirmarEsgotamento = false}): preservar a leitura original; encerrar a custódia; empréstimo \texttt{DEVOLVIDO\_COM\_ANOMALIA}; pendência quantitativa aberta; frasco \texttt{INDISPONIVEL} e \texttt{em\_quarentena = true}; nunca criar saldo negativo nem tratar o retorno como zero.
+    \item \textbf{Abaixo de referência teórica}: preservar a leitura; classificar \texttt{REFERENCIA\_TEORICA\_INCONSISTENTE}; não declarar impossibilidade física; seguir o contrato de inconsistência sem promover a referência a tara real.
+\end{itemize}
+\end{regra}
+
+\begin{regra}[Ganho de massa --- três faixas]
+A avaliação usa \texttt{peso\_retorno} contra \texttt{peso\_saida} e a tolerância Q06 determinada por \texttt{eh\_higroscopico} (snapshot imutável do frasco, preenchido no cadastro a partir de \textit{Resumo\_Reagente.eh\_higroscopico}; alterações posteriores do resumo não o reescrevem):
+\begin{center}
+\begin{tabular}{p{0.30\textwidth}p{0.28\textwidth}p{0.34\textwidth}}
+\toprule
+\textbf{Faixa} & \textbf{Sem higroscopia} & \textbf{Higroscópico} \\
+\midrule
+$peso_{retorno} \le peso_{saida}$ & consumo normal & consumo normal \\
+$peso_{saida} < peso_{retorno} \le peso_{saida}+tol$ & consumo 0; ajuste/observação; \textbf{sem} evento de higroscopia & consumo 0; evento \texttt{ganho\_massa\_higroscopia} permitido \\
+$peso_{retorno} > peso_{saida}+tol$ & \texttt{GANHO\_ACIMA\_Q06}: anomalia & \texttt{GANHO\_ACIMA\_Q06}: anomalia \\
+\bottomrule
+\end{tabular}
+\end{center}
+Ganho dentro da tolerância não produz consumo negativo e mantém o peso físico real; ganho acima de Q06 \textbf{não} provoca rollback da devolução física, encerra a custódia, gera \texttt{DEVOLVIDO\_COM\_ANOMALIA} e bloqueia o frasco (INDISPONIVEL/quarentena) para investigação. É proibido registrar evento de higroscopia para reagente não higroscópico ou com ganho fora da tolerância.
+\end{regra}
+
+\begin{regra}[Pendência metrológica --- \texttt{existePendenciaMetrologicaTx}]
+O predicado é derivado de estado canônico, nunca de texto livre. Autoridade: \textit{Emprestimo\_Reagente}. Entrada: \texttt{idFrasco}. Retorna \texttt{true} se e somente se existe empréstimo daquele frasco com \texttt{status = DEVOLVIDO\_COM\_ANOMALIA} \textbf{e} \texttt{consumo\_validado = false}; caso contrário \texttt{false}. A pendência é um estado próprio do par canônico, não o status isolado. Dados fora do par (\texttt{consumo\_validado}=false com status que não seja \texttt{DEVOLVIDO\_COM\_ANOMALIA}) são \textbf{inconsistência de integridade}, não pendência metrológica: registram-se para correção e bloqueiam a liberação automática de quarentena até reconciliação.
+\end{regra}
+
+\begin{regra}[Resolução metrológica --- quatro contratos tipados]
+Não existe \texttt{resolverPendenciaMetrologica(campo, valor)}, dispatcher genérico público nem undo universal. São quatro caminhos tipados (HQ-M2-009/A), cada um com contrato próprio; todos preservam \texttt{peso\_retorno}, o status histórico e o vínculo \texttt{id\_resolucao\_metrologica}:
+\begin{enumerate}
+    \item \texttt{repetirPesagemDevolucaoAnomala}: relê frasco e empréstimo; registra a nova leitura; só valida o consumo histórico quando não houve movimentação física posterior que impeça provar o instante original (\texttt{houveMovimentacaoFisicaPosteriorTx}). Nesse caso, calcula $massa_{consumida}=\max(0,(peso_{saida}-peso_{retorno}^{efetivo})-\text{Evap})$ com a densidade histórica. Se houver movimentação física posterior, registra a observação e \textbf{mantém} a pendência.
+    \item \texttt{confirmarEsgotamentoAposInspecao}: confirmação humana explícita e pesagem real do recipiente vazio; aplica o contrato de esgotamento; não infere vazio da anomalia; tara real divergente é preservada; o estado corrente vira \texttt{VAZIO}/INDISPONIVEL e o consumo histórico só é validado com evidência suficiente do retorno.
+    \item \texttt{recalibrarTaraFrascoEsgotado}: somente com recipiente efetivamente vazio; justificativa humana; registra tara anterior e nova; não reprocessa automaticamente empréstimos históricos; não transforma a tara nova em evidência pretérita.
+    \item \textbf{Correção administrativa já suportada}: usar a correção compensatória específica existente (\texttt{corrigirOperacao}) e preservar o fato original. Não existe API campo/valor, undo universal nem reconstrução de cadeia até o presente. Ver finding de M6 sobre o conjunto concreto desta rota.
+\end{enumerate}
+A resolução grava evento \texttt{AJUSTE} vinculado ao empréstimo e à medição original, com autoria, instante, tara/densidade aplicadas e \texttt{id\_resolucao\_metrologica}. A data FLOW do consumo permanece a da devolução física; reprocessar somente as datas diretamente afetadas, sem replay nem snapshot de estoque. A resolução \textbf{não} libera a quarentena: a saída continua dependendo do contrato M5 (\texttt{resolverQuarentenaFrasco}).
+\end{regra}
+
+\paragraph{Matriz de casos quantitativos.}
+\begin{longtable}{p{0.28\textwidth}p{0.18\textwidth}p{0.16\textwidth}p{0.30\textwidth}}
+\toprule
+\textbf{Caso} & \textbf{Consumo} & \textbf{Pendência} & \textbf{Estado/quarentena} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Caso} & \textbf{Consumo} & \textbf{Pendência} & \textbf{Estado/quarentena} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+1. retorno $<$ saída (normal) & validado, $>0$ & não & normal \\
+2. retorno $=$ saída & 0 & não & normal \\
+3. ganho $\le$ Q06, não higroscópico & 0 (ajuste) & não & normal \\
+4. ganho $\le$ Q06, higroscópico & 0 (ajuste higroscópico) & não & normal \\
+5. ganho $>$ Q06 & pendente & sim & INDISPONIVEL + quarentena \\
+6. retorno $<$ referência teórica & pendente & sim & INDISPONIVEL + quarentena \\
+7. retorno $<$ tara real s/ vazio & pendente & sim & INDISPONIVEL + quarentena \\
+8. vazio confirmado sem tara real & validado & não & VAZIO/INDISP.; tara real nova \\
+9. vazio confirmado c/ referência teórica & validado & não & VAZIO; tara real substitui teórica \\
+10. vazio c/ tara real igual & validado & não & VAZIO; tara preservada \\
+11. vazio c/ tara real divergente & validado & não & VAZIO; discrepância; recalibração \\
+12. anomalia resolvida por pesagem válida & validado & não & status anômalo; quarentena mantida \\
+13. pesagem não prova o instante histórico & pendente & sim & observação; quarentena \\
+14. confirmação posterior de esgotamento & validado (se sem mov.) & não/sim & VAZIO; quarentena mantida \\
+15. recalibração de tara real & não altera & conforme & antes/depois; sem replay \\
+16. saldo desconhecido sem tara & pendente & conforme & saldo \texttt{NULL}; nunca zero \\
+17. líquido c/ densidade histórica válida & validado em mL & não & normal \\
+18. líquido sem densidade histórica válida & rejeitado & --- & operação recusada \\
+19. resolução + permanência em quarentena & validado & não & INDISPONIVEL; M5 decide saída \\
+20. extravio c/ \texttt{massa\_perda\_estimada\_g} & não & não & ENCERRADO\_EXTRAORD.; estimativa \\
+\end{longtable}
 
 \subsubsection{Condição inicial, saldo desconhecido e validade desconhecida}
 \begin{regra}
