@@ -166,7 +166,9 @@ witnesses SAT (scopes 4/6), com guard de drift das origens em
 `invariants/retirada_devolucao_m4.tex` e `Formal-Spec-M4.tex` foram integrados ao
 PDF (306 páginas). O CUE/IR não mudaram. A Seção 10.5 foi corrigida
 mecanicamente: os destinos QUARENTENA e PENDENTE_DE_DESCARTE gravam
-`disponibilidade = INDISPONIVEL`. HQs M4 abertas = 0. M5 = NOT_STARTED. Detalhes
+`disponibilidade = INDISPONIVEL`. HQs M4 abertas = 0. No checkpoint histórico
+descrito neste parágrafo, M5 ainda estava NOT_STARTED; estado corrente:
+M5 = DOCUMENTATION_VALIDATED, M6 = NOT_STARTED. Detalhes
 em [worklog M4](worklogs/formal-spec/M4_VALIDATION.md).
 
 **M3 foi VALIDATED**, com erratum pós-validação. A Seção 5 foi reconciliada (5

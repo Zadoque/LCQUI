@@ -191,6 +191,8 @@ código não foi alterado.
 
 ## Validações executadas
 
+Primeira validação (M5-F01..F04):
+
 - `git status` / diff restrito a arquivos documentais.
 - `git diff --check`: PASS.
 - Compilação LaTeX (procedimento do projeto, TeX Live/Nix): exit 0,
@@ -199,18 +201,37 @@ código não foi alterado.
 - Inspeção com Poppler das páginas alteradas: 116 (regras M5), 144 (UI-16),
   152 (Fluxos A/B), 198 (rótulo do novo `lstlisting` M5); pseudocódigo
   de extravio/reencontro e tabela da Seção 4 conferidos.
+
+Validação final pós-F05..F08 (commit `1d88970f`):
+
+- `git status` / diff restrito a arquivos documentais.
+- `git diff --check`: PASS.
+- Compilação LaTeX (procedimento do projeto, TeX Live/Nix): exit 0,
+  **321 páginas**, zero erros e zero referências indefinidas; 25 \textit{Overfull}
+  únicos (nenhum bloqueante).
+- Inspeção com Poppler das páginas/trechos alterados: 120 (regras M5 — reencontro
+  e saídas), 147 (UI-16), 156 (casos de regressão), 203 e 207 (pseudocódigo de
+  reencontro e helper da trilha histórica); máquina de estados da Seção 4
+  conferida.
 - Diff zero nas árvores de código executável e artefatos formais:
   `frontend/`, `functions/`, `specification/`, `tools/`, `firestore.rules`,
   `storage.rules`, `firebase.json`, `.firebaserc`, `documentation/generated/`,
   `build/formal-validation*.json`.
 
+Nota: a reconciliação final de handoff pré-M6 (ver `9dacc178`..HEAD) apenas
+corrige status Markdown; não altera `.tex` normativo nem o `main.pdf`.
+
 ## Estado final
 
 - M0–M4 = VALIDATED (M3/M4 com erratum pré-M5).
 - **M5 = DOCUMENTATION_VALIDATED** — documentação normativa consolidada,
-  compilação e inspeção aprovadas; formalização executável (CUE/Alloy/Rust)
-  ainda **não** realizada.
-- M6 = NOT_STARTED. Nenhuma HQ aberta.
+  compilação e inspeção aprovadas (321 páginas); formalização executável
+  (CUE/Alloy/Rust/IR/receipt) registrada como **dívida futura**, ainda **não**
+  realizada e não é a próxima ação imediata.
+- M6 = NOT_STARTED. Nenhuma HQ M5 aberta; findings M5-F01..F08 encerrados.
 
-PRÓXIMA AÇÃO EXATA: formalização executável de M5 (CUE/Alloy/Rust/IR/receipt),
-em rodada própria. Não iniciar M6.
+PRÓXIMA AÇÃO EXATA:
+INICIAR M6 DOCUMENTAL — Q06 / tara / metrologia quantitativa.
+
+A formalização executável de M5 (CUE/Alloy/Rust/IR/receipt) permanece
+registrada como dívida futura e não é a próxima ação imediata.
