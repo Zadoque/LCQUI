@@ -21,6 +21,7 @@
   "densidade_aplicada": 0.7893,
   "peso_perda_evaporacao": 0,
   "uso_vencido_aceito": false,
+  "vencido_na_retirada": false,
   "finalidade_uso": "PESQUISA_TCC_POS",
   "auto_atendimento": false,
   "justificativa_metodologica": "Pesquisa de TCC sobre degradacao termica do solvente em condicoes controladas.",

@@ -472,6 +472,7 @@ O histórico registra as transições que sustentam a reconstrução auditável 
 \campo{densidade\_aplicada}{NUMERIC(10,5)}{NULL}
 \campo{peso\_perda\_evaporacao}{NUMERIC(10,3)}{DEFAULT 0, NOT NULL}
 \campo{uso\_vencido\_aceito}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+\campo{vencido\_na\_retirada}{BOOLEAN}{NOT NULL}
 \campo{finalidade\_uso}{ENUM}{NOT NULL}
 \subcampo{AULA\_PRATICA, DEMONSTRACAO, PESQUISA\_TCC\_POS, ESTUDO\_DEGRADACAO\_RESIDUOS}
 \campo{auto\_atendimento}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
@@ -496,6 +497,8 @@ O histórico registra as transições que sustentam a reconstrução auditável 
 O campo \textit{data\_devolucao\_prevista} em nível NoSQL físico armazena uma string civil no padrão YYYY-MM-DD (fuso America/Sao\_Paulo), e o vencimento legal encerra-se estritamente às 23:59:59.999 do referido dia civil.
 
 A devolução com anomalia encerra a custódia como \texttt{DEVOLVIDO\_COM\_ANOMALIA} e deixa a pendência quantitativa aberta (\texttt{consumo\_validado = FALSE}, \texttt{peso\_retorno\_efetivo = NULL}, \texttt{id\_resolucao\_metrologica = NULL}). A pendência é encerrada apenas por contratos tipados da Seção~10.5 (repetir pesagem; confirmar esgotamento após inspeção; recalibrar tara real quando aplicável; correção administrativa já suportada); não existe resolvedor público genérico. Resolver a pendência não libera automaticamente a quarentena, e \texttt{peso\_retorno} original nunca é apagado. A condição de pendência é \texttt{status = DEVOLVIDO\_COM\_ANOMALIA} e \texttt{consumo\_validado = FALSE}.
+
+O campo \textit{vencido\_na\_retirada} é um \textbf{snapshot factual server-owned e imutável}: registra se o frasco estava vencido no instante em que a retirada efetivamente criou o empréstimo, considerando o estado resultante de eventual primeira abertura executada na mesma operação. Ele \textbf{não} é sinônimo de \textit{uso\_vencido\_aceito}, não é autorização e não é recalculado na devolução. A devolução classifica o retorno pelo estado canônico persistido \textit{Frasco\_Reagente.vencido} (mantido pelo job de vencimento): se o frasco está vencido agora e não estava na retirada, o retorno ``venceu durante o empréstimo''; se já estava vencido na retirada, ``devolução de frasco vencido''; se a validade é desconhecida e não há vencimento afirmativo, ``validade desconhecida''; caso contrário, devolução normal. Quando \textit{vencido = TRUE} e \textit{validade\_desconhecida = TRUE} coexistem, a classificação de vencimento tem precedência e usa \textit{vencido\_na\_retirada}, sem mensagens contraditórias simultâneas.
 \end{explicacao}
 
 

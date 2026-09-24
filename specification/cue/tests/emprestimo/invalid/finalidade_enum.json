@@ -21,6 +21,7 @@
   "densidade_aplicada": null,
   "peso_perda_evaporacao": 0,
   "uso_vencido_aceito": false,
+  "vencido_na_retirada": false,
   "finalidade_uso": "DIDATICO_DEMONSTRACAO",
   "auto_atendimento": false,
   "justificativa_metodologica": null,

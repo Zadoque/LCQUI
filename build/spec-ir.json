@@ -633,8 +633,8 @@
         {
             "arquivo": "emprestimo_reagente",
             "entidade": "Emprestimo_Reagente",
-            "etapa": "projeção M3 completa (33 colunas)",
-            "escopo": "Registro relacional completo do empréstimo (33 colunas). Não é payload de criação nem documento Firestore completo. A existência global das FKs, a unicidade de empréstimo ativo por frasco e as transições de status são verificadas fora do registro (loan_state.als).",
+            "etapa": "projeção M3 completa (34 colunas)",
+            "escopo": "Registro relacional completo do empréstimo (34 colunas), incluindo o snapshot imutável vencido_na_retirada. Não é payload de criação nem documento Firestore completo. A existência global das FKs, a unicidade de empréstimo ativo por frasco e as transições de status são verificadas fora do registro (loan_state.als).",
             "campos": [
                 {
                     "nome": "id",
@@ -864,6 +864,15 @@
                     "sql": "BOOLEAN"
                 },
                 {
+                    "nome": "vencido_na_retirada",
+                    "tipo": "bool",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [],
+                    "observacao": "Snapshot server-owned e imutável do vencimento conhecido no instante em que a retirada cria o empréstimo, após eventual primeira abertura. Não é autorização nem é recalculado na devolução.",
+                    "sql": "BOOLEAN"
+                },
+                {
                     "nome": "finalidade_uso",
                     "tipo": "enum",
                     "obrigatorio": true,
@@ -998,6 +1007,7 @@
                 "unidade_medida_utilizada": "g",
                 "peso_perda_evaporacao": 0,
                 "uso_vencido_aceito": false,
+                "vencido_na_retirada": false,
                 "finalidade_uso": "AULA_PRATICA",
                 "auto_atendimento": false,
                 "justificativa_metodologica": null,

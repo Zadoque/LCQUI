@@ -139,6 +139,7 @@ import (
 	densidade_aplicada:              null
 	peso_perda_evaporacao:           0
 	uso_vencido_aceito:              false
+	vencido_na_retirada:             false
 	finalidade_uso:                  "AULA_PRATICA"
 	auto_atendimento:                false
 	justificativa_metodologica:      null
@@ -201,8 +202,8 @@ ir: {
 		{
 			arquivo:  "emprestimo_reagente"
 			entidade: "Emprestimo_Reagente"
-			etapa:    "projeção M3 completa (33 colunas)"
-			escopo:   "Registro relacional completo do empréstimo (33 colunas). Não é payload de criação nem documento Firestore completo. A existência global das FKs, a unicidade de empréstimo ativo por frasco e as transições de status são verificadas fora do registro (loan_state.als)."
+			etapa:    "projeção M3 completa (34 colunas)"
+			escopo:   "Registro relacional completo do empréstimo (34 colunas), incluindo o snapshot imutável vencido_na_retirada. Não é payload de criação nem documento Firestore completo. A existência global das FKs, a unicidade de empréstimo ativo por frasco e as transições de status são verificadas fora do registro (loan_state.als)."
 			campos:   #CamposEmprestimoM3
 			exemplo:  #EmprestimoM3Exemplo
 		},

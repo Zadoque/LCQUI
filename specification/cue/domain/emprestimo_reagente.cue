@@ -1,6 +1,7 @@
 package domain
 
-// Baseline M3: Seção 4 (Emprestimo_Reagente, 33 colunas) e Seção 5 reconciliada.
+// Baseline M3: Seção 4 (Emprestimo_Reagente, 34 colunas após o erratum pré-M5) e
+// Seção 5 reconciliada.
 // DATE/TIMESTAMP são strings de intercâmbio/teste; não há calendário nem fuso
 // nesta fatia. `data_devolucao_prevista` é a data civil YYYY-MM-DD cuja
 // autoridade operacional é America/Sao_Paulo, tratada fora do registro local.
@@ -29,6 +30,7 @@ emprestimoReagenteCampos: [
 	#CampoEmprestimo & {nome: "densidade_aplicada", sql: "NUMERIC(10,5)", nulo: true, positivo: true, observacao: "Snapshot histórico da densidade na retirada; obrigatório e positivo para líquido, null para sólido."},
 	#CampoEmprestimo & {nome: "peso_perda_evaporacao", sql: "NUMERIC(10,3)", nao_negativo: true, observacao: "Perda em g registrada separadamente do consumo; não inferir arbitrariamente."},
 	#CampoEmprestimo & {nome: "uso_vencido_aceito", sql: "BOOLEAN", observacao: "Ciência explícita do empréstimo específico; não substitui autorização do gestor."},
+	#CampoEmprestimo & {nome: "vencido_na_retirada", sql: "BOOLEAN", observacao: "Snapshot server-owned e imutável do vencimento conhecido no instante em que a retirada cria o empréstimo, após eventual primeira abertura. Não é autorização nem é recalculado na devolução."},
 	#CampoEmprestimo & {nome: "finalidade_uso", sql: "ENUM", valores: ["AULA_PRATICA", "DEMONSTRACAO", "PESQUISA_TCC_POS", "ESTUDO_DEGRADACAO_RESIDUOS"], observacao: "Finalidade declarada na retirada; pesquisa excepcional exige TCR de Q04."},
 	#CampoEmprestimo & {nome: "auto_atendimento", sql: "BOOLEAN", observacao: "Calculado pelo backend conforme Q14; justificativa e notificação à chefia quando true."},
 	#CampoEmprestimo & {nome: "justificativa_metodologica", sql: "TEXT", nulo: true, observacao: "Condicional ao uso excepcional de pesquisa Q04 (mínimo verificado após trim)."},
