@@ -18,3 +18,16 @@ test('M4 trace accepts originals and rejects drift of reproduced semantics', () 
     assert.throws(() => checkWithdrawalReturnTrace(p => p === file ? modified : read(p)), /Drift/);
   }
 });
+test('M4 contract rejects a second expiry authority or snapshot tampering', () => {
+  const original = read(withdrawalReturnModel);
+  for (const [before, after] of [
+    ['  atrasadoNoRetorno: one Bit,\n  destino: one DestinoVencido', '  atrasadoNoRetorno: one Bit,\n  vencidoNoRetorno: one Bit,\n  destino: one DestinoVencido'],
+    ['  vencidoNaRetirada: set Emprestimo', '  vencidoNaRetirada2: set Emprestimo'],
+    ['fun classificacao[s: Estado, e: Emprestimo]: one ClasseDevolucao {', 'fun outraClassificacao[s: Estado, e: Emprestimo]: one ClasseDevolucao {'],
+    ['pred precisaDestino[s: Estado, f: Frasco] {', 'pred outroDestino[s: Estado, f: Frasco] {'],
+  ]) {
+    const modified = original.replace(before, after);
+    assert.notEqual(modified, original, `mutação não aplicada: ${before}`);
+    assert.throws(() => checkWithdrawalReturnTrace(p => p === withdrawalReturnModel ? modified : read(p)), /Drift/);
+  }
+});

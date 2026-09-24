@@ -138,7 +138,7 @@ pub fn render_composed(v: &crate::validation_m24::ValidationM24) -> String {
 // Evidência M3 do ciclo de vida do Emprestimo_Reagente.
 pub fn render_loan(v: &crate::validation_m3::ValidationM3) -> String {
     let mut text = String::from(
-        "% Gerado por lcqui-spec-doc; não editar.\n\\subsection*{Evidência formal M3 --- Emprestimo\\_Reagente}\nM3 formaliza o registro do empréstimo (33 colunas) e sua máquina abstrata de status: ativos EM\\_USO/ATRASADO, encerramentos e unicidade de empréstimo ativo por frasco.\n\\begin{description}\n",
+        "% Gerado por lcqui-spec-doc; não editar.\n\\subsection*{Evidência formal M3 --- Emprestimo\\_Reagente}\nM3 formaliza o registro do empréstimo (34 colunas, incluindo o snapshot imutável \\texttt{vencido\\_na\\_retirada}) e sua máquina abstrata de status: ativos EM\\_USO/ATRASADO, encerramentos e unicidade de empréstimo ativo por frasco.\n\\begin{description}\n",
     );
     for r in &v.resultados {
         text.push_str(&format!(
@@ -156,7 +156,7 @@ pub fn render_loan(v: &crate::validation_m3::ValidationM3) -> String {
 // Evidência M4 da retirada e devolução compostas.
 pub fn render_withdrawal_return(v: &crate::validation_m4::ValidationM4) -> String {
     let mut text = String::from(
-        "% Gerado por lcqui-spec-doc; não editar.\n\\subsection*{Evidência M4 --- retirada e devolução compostas}\nM4 reúne o estado do Frasco (M2.4) e o ciclo de vida do Emprestimo (M3) no mesmo universo. A disponibilidade \\texttt{EMPRESTADO} equivale a exatamente um empréstimo ativo (\\texttt{EM\\_USO} ou \\texttt{ATRASADO}) por frasco. Retirada e devolução preservam a coerência integrada.\n\\begin{description}\n",
+        "% Gerado por lcqui-spec-doc; não editar.\n\\subsection*{Evidência M4 --- retirada e devolução compostas}\nM4 reúne o estado do Frasco (M2.4) e o ciclo de vida do Emprestimo (M3) no mesmo universo. A disponibilidade \\texttt{EMPRESTADO} equivale a exatamente um empréstimo ativo (\\texttt{EM\\_USO} ou \\texttt{ATRASADO}) por frasco. A retirada grava o snapshot imutável \\texttt{vencido\\_na\\_retirada} a partir do vencimento resultante de eventual primeira abertura; a devolução lê o vencimento persistido do frasco (autoridade atual, sem recálculo pelo relógio), preserva \\texttt{vencido} e o snapshot, e classifica o retorno em venceu-durante, já-vencido, validade-desconhecida ou normal. Anomalia e vazio têm precedência sobre o destino de validade.\n\\begin{description}\n",
     );
     for r in &v.resultados {
         text.push_str(&format!(
@@ -167,6 +167,6 @@ pub fn render_withdrawal_return(v: &crate::validation_m4::ValidationM4) -> Strin
             escape(&r.scope)
         ));
     }
-    text.push_str("\\end{description}\nUNSAT para check: nenhum contraexemplo encontrado no escopo declarado. SAT para run: testemunha encontrada. As buscas limitadas não são prova universal.\n\nNão certifica Q06 ou tara (M6), extravio/reencontro/quarentena completos (M5), idempotência transacional (M7), RBAC (M9), Firestore/backend nem concorrência real. A validade calculada, a primeira abertura que vence e os destinos de vencido são representados por fatos abstratos.\n");
+    text.push_str("\\end{description}\nUNSAT para check: nenhum contraexemplo encontrado no escopo declarado. SAT para run: testemunha encontrada. As buscas limitadas não são prova universal.\n\nNão certifica Q06 ou tara (M6), extravio/reencontro/quarentena completos (M5), idempotência transacional (M7), RBAC (M9), Firestore/backend nem concorrência real. A validade calculada, a primeira abertura que vence, o vencimento persistido e a validade desconhecida são representados por fatos abstratos; o snapshot vencido\\_na\\_retirada é formalizado, mas o cálculo efetivo de validade pertence a M6.\n");
     text
 }
