@@ -2,8 +2,8 @@
 
 > Registro **histórico** desta rodada pré-M5. As menções a `M5 = NOT_STARTED`
 > abaixo descrevem apenas o estado daquele checkpoint. O estado corrente é
-> `M5 = DOCUMENTATION_VALIDATED` e `M6 = NOT_STARTED` (ver
-> `FORMAL_SPEC_STATE.md` e `STATUS_ATUAL.md`).
+> `M5 = DOCUMENTATION_VALIDATED`, `M6 = DOCUMENTATION_VALIDATED` e
+> `M7 = NOT_STARTED` (ver `FORMAL_SPEC_STATE.md` e `STATUS_ATUAL.md`).
 
 Branch: `feat/formal-spec-cue-alloy`.
 HEAD de entrada: `e8c36660b4b5eddb76b15797d058898657f8dfd3`

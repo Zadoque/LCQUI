@@ -27,14 +27,21 @@ com o extravio de M5.
 devolução), 8 (telas), 9 (exemplos), 10.5 (fluxo e resolução) e 10.11 (pesagem).
 `functions/src/reagentes.ts` apenas como evidência de divergência.
 
-## Decisões anteriores preservadas
+## Decisões anteriores preservadas e decisões posteriormente revisadas
 
+Decisões preservadas:
 - Q06 dinâmica sobre o peso bruto de saída; limiar fixo de 5\,g eliminado.
 - Esgotamento por confirmação humana explícita, não por comparação com a tara.
 - Tara: desconhecida (`NULL`), referência teórica derivada e tara real medida.
-- Quatro caminhos tipados de resolução (HQ-M2-009/A), sem dispatcher genérico.
 - Status histórico `DEVOLVIDO_COM_ANOMALIA` não é reescrito pela resolução.
 - Resolver pendência não libera quarentena (M5).
+
+Decisão posteriormente revisada:
+- A HQ-M2-009/A descrevia **quatro caminhos tipados** de resolução, com um
+  dispatcher ausente porém sem correção metrológica administrativa. Essa parte
+  foi **supersedida por HQ-M6-001**: o contrato normativo corrente possui
+  exatamente **três rotas metrológicas** e a inexistência da quarta rota
+  (correção administrativa metrológica) é deliberada.
 
 ## Semântica consolidada (Seção 7, subseção M6)
 
@@ -176,8 +183,8 @@ Nenhuma coluna nova, enum novo ou entidade nova.
 - Compilação LaTeX (TeX Live/Nix; `just` indisponível por GC do Nix, comando
   `latexmk` da receita `docs-build`): exit 0, **330 páginas**, zero erros e zero
   referências indefinidas; 26 \textit{Overfull} únicos.
-- Inspeção com Poppler das páginas alteradas: subseção M6/Q06, tabela de 20
-  casos, matriz de ganho, UI-17 e pseudocódigo de `repetirPesagem`.
+- Inspeção com Poppler das páginas alteradas: subseção M6/Q06, tabela de 26
+  casos, matriz de ganho, UI-17, UI-18 e pseudocódigo de `repetirPesagem`.
 
 ## Estado final
 

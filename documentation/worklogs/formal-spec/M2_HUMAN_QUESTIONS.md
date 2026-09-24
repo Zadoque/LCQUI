@@ -332,7 +332,10 @@ quarentena/INDISPONIVEL. `resolverQuarentenaFrasco` bloqueia
 A narrativa da Seção 10 descreve quatro caminhos de resolução (repetir pesagem;
 confirmar esgotamento após inspeção; recalibrar tara real; erro administrativo
 suportado) e afirma que a resolução grava evento AJUSTE e referencia
-`id_resolucao_metrologica`, sem apagar `peso_retorno`. Porém:
+`id_resolucao_metrologica`, sem apagar `peso_retorno`. (Nota posterior: a quarta
+rota — erro administrativo como resolução metrológica — foi **supersedida por
+HQ-M6-001**; o contrato normativo corrente possui três rotas metrológicas e a V1
+não possui correção administrativa metrológica.) Porém:
 - nenhum pseudocódigo define `existePendenciaMetrologicaTx` nem sua condição;
 - nenhuma operação define `consumo_validado = true` ou
   `id_resolucao_metrologica` não nulo;

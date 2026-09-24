@@ -8,7 +8,8 @@ Commits desta rodada: `4647a084` (regras M5, Seções 4/7), `8c9ae939`
 `eb7ad016` (`main.pdf`). HEAD de saída: commit documental imediatamente
 posterior ao do PDF (`eb7ad016` + 1), resolvido com
 `git log -1 --format=%H --grep="record M5 documentation validation"`.
-M5 = DOCUMENTATION_VALIDATED; M6 = NOT_STARTED.
+M5 = DOCUMENTATION_VALIDATED; M6 = NOT_STARTED (naquele checkpoint de fechamento de M5).
+Nota de estado corrente (pós-M6): `M6 = DOCUMENTATION_VALIDATED`, `M7 = NOT_STARTED`. Este arquivo é registro histórico do fechamento de M5.
 
 Correção pós-auditoria independente (M5-F05..M5-F08): HEAD de entrada
 `83157c663f74d1ef3919cc8ab0b41fc3d60f07d6`; commits `6ce31a36` (domínio de
@@ -228,10 +229,11 @@ corrige status Markdown; não altera `.tex` normativo nem o `main.pdf`.
   compilação e inspeção aprovadas (321 páginas); formalização executável
   (CUE/Alloy/Rust/IR/receipt) registrada como **dívida futura**, ainda **não**
   realizada e não é a próxima ação imediata.
-- M6 = NOT_STARTED. Nenhuma HQ M5 aberta; findings M5-F01..F08 encerrados.
+- M6 = NOT_STARTED (naquele checkpoint; hoje M6 = DOCUMENTATION_VALIDATED e M7 = NOT_STARTED). Nenhuma HQ M5 aberta; findings M5-F01..F08 encerrados.
 
-PRÓXIMA AÇÃO EXATA:
+PRÓXIMA AÇÃO EXATA (no checkpoint de fechamento de M5):
 INICIAR M6 DOCUMENTAL — Q06 / tara / metrologia quantitativa.
+(Concluída posteriormente: M6 = DOCUMENTATION_VALIDATED; a próxima ação corrente é `INICIAR M7 DOCUMENTAL — Idempotência`.)
 
 A formalização executável de M5 (CUE/Alloy/Rust/IR/receipt) permanece
 registrada como dívida futura e não é a próxima ação imediata.
