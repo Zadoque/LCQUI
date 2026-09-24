@@ -1,6 +1,17 @@
 # Status atual do LCQUI
 
-Atualizado em 24/09/2026 — documentação de M5 (extravio/reencontro/quarentena), após a reconciliação pré-M5 (erratum de M3/M4) e a especificação V1 do catálogo JSON.
+Atualizado em 24/09/2026 — documentação de M6 (Q06 / tara / metrologia), após M5 documental, a reconciliação pré-M5 (erratum de M3/M4) e a especificação V1 do catálogo JSON.
+
+## M6 documental (Q06 / tara / metrologia quantitativa)
+
+Branch: `feat/formal-spec-cue-alloy`. HEAD de entrada: `3d6ecc60d4c830b4793311c77a8349f3d2b23a80`. Commits: `bbe256a8` (Q06/tara), `ad2f10df` (resolução/UI-17) e `58446729` (`main.pdf`); HEAD final = commit documental seguinte (`58446729` + 1). Rodada **exclusivamente documental**: nenhum arquivo executável ou formal alterado (`frontend/`, `functions/`, `specification/`, `tools/`, Rules, IR, receipts e `documentation/generated/` intactos). Registro durável em [worklog M6_DOCUMENTATION](worklogs/formal-spec/M6_DOCUMENTATION.md).
+
+- **Q06:** tolerância sobre o peso bruto de saída (`peso_saida`); normal $\max(1g,0{,}005\times peso\_saida)$, higroscópico $\max(2g,0{,}02\times peso\_saida)$; anomalia se $peso\_retorno > peso\_saida + tolerância$. Q06 compara retorno com saída, **nunca com a tara**; limiar fixo de 5\,g eliminado.
+- **Consumo/evaporação/densidade:** $\Delta_{bruto}=peso\_saida-peso\_retorno^{efetivo}$; $massa\_consumida=\max(0,\Delta_{bruto}-\text{evaporação})$; volume por `densidade_aplicada` histórica e positiva.
+- **Tara:** três situações fechadas (`NULL`, `REFERENCIA_TEORICA`, `MEDIDA_REAL`); tara real só com recipiente vazio pesado. **Esgotamento** por confirmação explícita; tara real divergente preservada + `DISCREPANCIA_TARA_REAL` + recalibração auditável.
+- **Retorno abaixo da tara:** tara real → `DEVOLVIDO_COM_ANOMALIA` com pendência, INDISPONIVEL e quarentena; referência teórica → `REFERENCIA_TEORICA_INCONSISTENTE`, sem impossibilidade física.
+- **Pendência:** `existePendenciaMetrologicaTx(idFrasco)` = `status = DEVOLVIDO_COM_ANOMALIA` E `consumo_validado = false`; fora desse par, inconsistência de integridade. **Quatro rotas tipadas** de resolução; resolver não libera quarentena (M5). `massa_perda_estimada_g` permanece estimativa de sinistro.
+- **Findings:** M6-F03/F04/F05 corrigidos; **M6-F01** (conjunto concreto da 4ª rota administrativa metrológica) e **M6-F02** (validação de `peso_perda_evaporacao` acima da perda bruta) são lacunas de domínio → propostas HQ-M6-001/HQ-M6-002. PDF **327 páginas**, zero erros. **M6 = DOCUMENTATION_IN_PROGRESS**; a próxima ação é auditar os findings de M6 antes de M7.
 
 ## M5 documental (extravio / reencontro / quarentena)
 
