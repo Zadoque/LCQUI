@@ -597,8 +597,14 @@ export const registrarDevolucao = onCall(async (request) => {
     const densidade = liquido ? emprestimo.densidade_aplicada : null;
     if (liquido && (!Number.isFinite(densidade) || densidade <= 0))
       throw new HttpsError("failed-precondition", "Densidade histórica inválida.");
-    const perdaEvaporacao = Number.isFinite(dados.pesoPerdaEvaporacao) ? Math.max(0, dados.pesoPerdaEvaporacao!) : 0;
-    let pesoConsumido = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno - perdaEvaporacao);
+    const perdaEvaporacao = Number.isFinite(dados.pesoPerdaEvaporacao) ? dados.pesoPerdaEvaporacao! : 0;
+    const perdaBrutaObservada = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno);
+    // Constraint M6: 0 <= evaporacao <= perda bruta observada. Rejeitar, sem clamp.
+    // Se peso_retorno >= peso_saida, a perda bruta e zero e a evaporacao deve ser zero.
+    if (perdaEvaporacao < 0 || perdaEvaporacao > perdaBrutaObservada) {
+      throw new HttpsError("invalid-argument", "Perda por evaporação excede a perda bruta observada.");
+    }
+    let pesoConsumido = perdaBrutaObservada - perdaEvaporacao;
 
     if (typeof frasco.eh_higroscopico !== "boolean")
       throw new HttpsError("failed-precondition", "Snapshot histórico ausente: reconciliar frasco.");
@@ -1475,11 +1481,11 @@ Com esgotamento explicitamente confirmado, o frasco fica VAZIO/INDISPONIVEL, com
 A resolução grava evento AJUSTE vinculado ao empréstimo e à medição original, com nova medição ou decisão, autoria, instante, origem/tara aplicada e referência da resolução efetiva. O timestamp da resolução é próprio; a data FLOW de consumo permanece a da devolução física. O campo \texttt{peso\_retorno\_efetivo} aponta quantitativamente para a medição validada sem apagar \texttt{peso\_retorno}; \texttt{id\_resolucao\_metrologica} referencia o evento auditável. Nenhum relatório toma NULL como consumo confirmado zero.
 
 \begin{enumerate}
-\item \textbf{Repetir pesagem} (\nolinkurl{repetirPesagemDevolucaoAnomala}): somente gestor do escopo, com operação idempotente, relê frasco e empréstimo; registra a nova leitura mesmo se ainda inconsistente. Quando válida, finaliza consumo com peso efetivo, unidade e densidade históricas. Não sobrescreve a leitura original. Se houver movimentação física posterior, a pesagem atual não prova o peso histórico: manter a pendência e usar somente contrato fechado que disponha de evidência suficiente; nunca replay.
+\item \textbf{Repetir pesagem} (\nolinkurl{repetirPesagemDevolucaoAnomala}): somente gestor do escopo, com operação idempotente, relê frasco e empréstimo; registra a nova leitura mesmo se ainda inconsistente. Quando válida, finaliza consumo com peso efetivo, unidade e densidade históricas, revalidando a constraint de evaporação contra a nova perda bruta. Não sobrescreve a leitura original. Se houver movimentação física posterior, a pesagem atual não prova o peso histórico: manter a pendência e usar somente contrato fechado que disponha de evidência suficiente; nunca replay.
 \item \textbf{Confirmar esgotamento após inspeção} (\nolinkurl{confirmarEsgotamentoAposInspecao}): confirmação humana explícita e pesagem real do recipiente vazio aplicam o contrato de esgotamento. Não inferir vazio automaticamente da anomalia. Havendo tara real divergente, preservar a anterior até recalibração; disponibilidade continua INDISPONIVEL. Confirmar o vazio atualiza o estado corrente do recipiente, mas só valida o consumo histórico quando houver evidência suficiente do retorno efetivo.
 \item \textbf{Recalibrar tara real:} reutilizar o contrato existente, somente para recipiente vazio, com motivo humano de pelo menos 20 caracteres após trim. Registrar tara anterior/nova e vínculo com a pendência; não recalibrar com reagente dentro, nem fabricar evidência histórica a partir de tara nova.
-\item \textbf{Erro administrativo suportado:} usar a correção compensatória específica e preservar o fato original. Não existe API campo/valor, undo universal ou reconstrução de cadeia até o presente.
 \end{enumerate}
+\textbf{Não existe quarta rota metrológica.} A V1 não possui correção administrativa metrológica após persistência nem editor \texttt{campo/valor}. A operação \nolinkurl{corrigirOperacao} continua existindo apenas para tipos administrativos não metrológicos (hoje \texttt{RETIRADA\_RETIRANTE\_INCORRETO}) e não encerra pendência metrológica. Se uma leitura errada for persistida e nenhuma das três rotas físicas tipadas puder legitimamente resolver a situação, a V1 não fabrica evidência: a pendência permanece. A evaporação declarada deve satisfazer $0 \le \text{Evap} \le \max(0, peso_{saida} - peso_{retorno}^{efetivo})$; violação é rejeitada, não convertida em anomalia nem corrigida automaticamente.
 
 Ao finalizar, a transação evita dupla contabilização, aplica somente a diferença entre consumo anteriormente validado e novo consumo validado (em g no acumulado), mantém o status histórico de devolução com anomalia e registra sua resolução. A liberação operacional segue \nolinkurl{resolverQuarentenaFrasco}, com justificativa humana própria e revalidação da aptidão; resolver consumo não libera automaticamente frasco vazio ou vencido. Reprocessar somente a data FLOW da devolução e outras datas diretamente alteradas por correção suportada. Invalidar cache somente se a resolução também modifica contribuição corrente do frasco.
 
@@ -1570,8 +1576,12 @@ export const repetirPesagemDevolucaoAnomala = onCall(async (request) => {
     }
     const efetiva = dados.pesoNovaMedicao;
     const densidade = emprestimo.densidade_aplicada; // snapshot historico
-    // Consumo = perda bruta menos evaporacao (registrada separadamente); nunca negativo.
-    const consumoG = Math.max(0, emprestimo.peso_saida - efetiva - (emprestimo.peso_perda_evaporacao || 0));
+    const perdaBruta = Math.max(0, emprestimo.peso_saida - efetiva);
+    const evaporacao = emprestimo.peso_perda_evaporacao || 0;
+    // Constraint M6 revalidada contra o peso efetivo; sem clamp silencioso.
+    if (evaporacao > perdaBruta)
+      throw new HttpsError("failed-precondition", "Evaporação declarada excede a nova perda bruta; pendência mantida.");
+    const consumoG = perdaBruta - evaporacao;
     const medidaUtilizada = densidade ? consumoG / densidade : consumoG;
     finalizarPendenciaMetrologicaTx(tx, emprestimoRef, emprestimo, {
       pesoRetornoEfetivo: efetiva, medidaUtilizada, motivo: dados.motivo,
@@ -1631,10 +1641,13 @@ export const confirmarEsgotamentoAposInspecao = onCall(async (request) => {
     if (await houveMovimentacaoFisicaPosteriorTx(tx, emprestimo.id_frasco_reagente, emprestimo.data_devolucao_efetuada)) {
       return { status: "VAZIO_REGISTRADO_PENDENCIA_MANTIDA" };
     }
-    // Consumo efetivo: perda bruta pela tara medida menos evaporacao declarada.
-    // `emprestimo.medida_utilizada` estava NULL na anomalia; nao usar `?? 0`.
-    const consumoG = Math.max(0, emprestimo.peso_saida - dados.pesoVazioRealMedido
-      - (emprestimo.peso_perda_evaporacao || 0));
+    // Consumo efetivo: perda bruta pela tara medida menos evaporacao declarada,
+    // revalidando a constraint M6 (evaporacao <= perda bruta) sem clamp.
+    const perdaBruta = Math.max(0, emprestimo.peso_saida - dados.pesoVazioRealMedido);
+    const evaporacao = emprestimo.peso_perda_evaporacao || 0;
+    if (evaporacao > perdaBruta)
+      throw new HttpsError("failed-precondition", "Evaporação declarada excede a perda bruta; pendência não pode ser validada.");
+    const consumoG = perdaBruta - evaporacao;
     const medidaEfetiva = emprestimo.densidade_aplicada
       ? consumoG / emprestimo.densidade_aplicada : consumoG;
     finalizarPendenciaMetrologicaTx(tx, emprestimoRef, emprestimo, {
