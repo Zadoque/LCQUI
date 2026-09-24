@@ -1,6 +1,16 @@
 # Status atual do LCQUI
 
-Atualizado em 24/09/2026 — reconciliação formal/documental pré-M5 (erratum de M3/M4) e especificação V1 do catálogo JSON.
+Atualizado em 24/09/2026 — documentação de M5 (extravio/reencontro/quarentena), após a reconciliação pré-M5 (erratum de M3/M4) e a especificação V1 do catálogo JSON.
+
+## M5 documental (extravio / reencontro / quarentena)
+
+Branch: `feat/formal-spec-cue-alloy`. HEAD de entrada: `e560416623f55d4f730c2dc238978e7186d69923`. Esta rodada é **exclusivamente documental**: nenhum arquivo executável ou formal foi alterado (`frontend/`, `functions/`, `specification/`, `tools/`, Rules, IR, receipts e `documentation/generated/` intactos). Commits: `4647a084` (regras), `8c9ae939` (pseudocódigo/UI), `5011ce18` (exemplos) e `eb7ad016` (`main.pdf`); HEAD final = commit documental seguinte (`eb7ad016` + 1). Registro durável em [worklog M5_DOCUMENTATION](worklogs/formal-spec/M5_DOCUMENTATION.md).
+
+- **Extravio:** permitido de qualquer estado físico exceto `DESCARTADO` (terminal) e `EXTRAVIADO`; efeito `EXTRAVIADO` + `INDISPONIVEL`, preservando saldo, `saldo_desconhecido`, peso, tara, validade, `vencido`, `abertura_historica_desconhecida` e localização. Não é consumo, esgotamento nem peso zero.
+- **Extravio durante empréstimo:** encerra `ENCERRADO_EXTRAORDINARIO`/`EXTRAVIO_SINISTRO` sem `peso_retorno`, `peso_retorno_efetivo`, consumo validado nem `data_devolucao_efetuada`; `peso_saida` preservado; `massa_perda_estimada_g` só como estimativa com tara conhecida (fronteira M6).
+- **Reencontro:** novo fato físico, só de `EXTRAVIADO`; impõe quarentena compulsória (`em_quarentena = TRUE`, `INDISPONIVEL`), não reabre empréstimo e não recalcula validade (lê `Frasco_Reagente.vencido`). `REENCONTRADO ≠ DISPONIVEL`.
+- **Quarentena:** dimensão operacional própria, distinta de `INDISPONIVEL`; bloqueia retirada e descarte direto. Saídas: `VOLTAR_A_DISPONIVEL` e `PENDENTE_DE_DESCARTE` (mais permanência); nenhuma revalida validade; sem `QUARENTENA → DESCARTADO` direto.
+- Documentação atualizada nas Seções 4, 7, 8 (UI-16), 9 (Fluxos A–D) e 10.5 (pseudocódigo de extravio/reencontro corrigido); PDF **316 páginas**, zero erros. Findings M5-F01..F04 corrigidos; HQs M5 abertas = 0. **M5 = DOCUMENTATION_VALIDATED**; a formalização executável (CUE/Alloy/Rust) permanece pendente.
 
 ## Reconciliação pré-M5 (erratum de M3/M4)
 
@@ -13,7 +23,7 @@ O que foi **especificado/validado**:
 - Seção 12: V2 registra a edição de Resumo/Especificação e as três modalidades de correção de validade (`DESCONHECIDA_PARA_CONHECIDA`, `DATA_INCORRETA_PARA_DATA_CORRETA`, `CONHECIDA_PARA_DESCONHECIDA`), sem implementar.
 - Seções 10.5/11: catálogo JSON de Resumo/Especificação para pesquisa client-side; estado server-owned `Sistema_Catalogo_Reagentes/estado` separando `versao_fonte`/`versao_publicada`; geração/publicação por Cloud Function; `obterCatalogoReagentes()`; sincronização client-side; fallback canônico `resolverCatalogoPorIds`; erro de integridade referencial; JSON nunca é autoridade operacional; sem `catalogo_version` em `Usuario`; formato canônico por objetos indexados por ID.
 
-O que continua **pendente de implementação real**: catálogo JSON e suas Cloud Functions; edição V2 e correções de validade; e a lógica legada de devolução/reencontro em `functions/src/reagentes.ts`, que ainda recalcula vencimento pelo relógio e não é homologada. Nenhuma alteração em `frontend/`, `functions/`, `firestore.rules` ou `storage.rules`. M5 = NOT_STARTED.
+O que continua **pendente de implementação real**: catálogo JSON e suas Cloud Functions; edição V2 e correções de validade; e a lógica legada de devolução/reencontro em `functions/src/reagentes.ts`, que ainda recalcula vencimento pelo relógio e não é homologada. Nenhuma alteração em `frontend/`, `functions/`, `firestore.rules` ou `storage.rules`. M5 = DOCUMENTATION_VALIDATED (ver a seção M5 acima); M6 = NOT_STARTED.
 
 ---
 
