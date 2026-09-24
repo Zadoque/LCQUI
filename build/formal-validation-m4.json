@@ -2,9 +2,9 @@
   "versao": 1,
   "alloy": "6.2.0",
   "solver": "sat4j",
-  "spec_ir_sha256": "592884b85c7ab50d29465028b7485dcf21889445cc62b4277f62114986cdb026",
+  "spec_ir_sha256": "0558049777b3f504eb15afaf1490aed335e4b2d9bfe7b9f13e3d41beb847a127",
   "model": "specification/alloy/reagents/withdrawal_return.als",
-  "model_sha256": "93eab1182a9056470cc47d79dcf80822a9094b8fb8dc759d83d12fb0247dd3f4",
+  "model_sha256": "c8adc6eb5ea9529f45187d3ec8c2b482be8283c1fc2595d758cc2e23035bbdbe",
   "origens": [
     {
       "model": "specification/alloy/reagents/bottle_composition.als",
@@ -56,6 +56,20 @@
       "assertion": "VencidoSemAutorizacaoBloqueia",
       "tipo": "check",
       "scope": "check VencidoSemAutorizacaoBloqueia for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M4-RETIRADA-VENCIMENTO-001",
+      "assertion": "RetiradaVencimentoApto",
+      "tipo": "check",
+      "scope": "check RetiradaVencimentoApto for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M4-RETIRADA-SNAPSHOT-001",
+      "assertion": "RetiradaSnapshotVencido",
+      "tipo": "check",
+      "scope": "check RetiradaSnapshotVencido for 4 but exactly 2 Estado",
       "status": "UNSAT"
     },
     {
@@ -129,10 +143,24 @@
       "status": "UNSAT"
     },
     {
+      "id": "INV-M4-ANOMALIA-DESTINO-001",
+      "assertion": "AnomaliaPrecedeDestino",
+      "tipo": "check",
+      "scope": "check AnomaliaPrecedeDestino for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
       "id": "INV-M4-ESGOTAMENTO-001",
       "assertion": "EsgotamentoVazio",
       "tipo": "check",
       "scope": "check EsgotamentoVazio for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M4-VAZIO-DESTINO-001",
+      "assertion": "VazioPrecedeDestino",
+      "tipo": "check",
+      "scope": "check VazioPrecedeDestino for 4 but exactly 2 Estado",
       "status": "UNSAT"
     },
     {
@@ -171,6 +199,62 @@
       "status": "UNSAT"
     },
     {
+      "id": "INV-M4-DEVOLUCAO-NAO-RECALCULA-001",
+      "assertion": "DevolucaoNaoRecalculaVencimento",
+      "tipo": "check",
+      "scope": "check DevolucaoNaoRecalculaVencimento for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M4-DEVOLUCAO-SNAPSHOT-001",
+      "assertion": "DevolucaoSnapshotImutavel",
+      "tipo": "check",
+      "scope": "check DevolucaoSnapshotImutavel for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M4-CLASSIFICACAO-VENCEU-001",
+      "assertion": "ClassificacaoVenceuDurante",
+      "tipo": "check",
+      "scope": "check ClassificacaoVenceuDurante for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M4-CLASSIFICACAO-JA-VENCIDO-001",
+      "assertion": "ClassificacaoJaVencido",
+      "tipo": "check",
+      "scope": "check ClassificacaoJaVencido for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M4-CLASSIFICACAO-DESCONHECIDA-001",
+      "assertion": "ClassificacaoValidadeDesconhecida",
+      "tipo": "check",
+      "scope": "check ClassificacaoValidadeDesconhecida for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M4-CLASSIFICACAO-NORMAL-001",
+      "assertion": "ClassificacaoNormal",
+      "tipo": "check",
+      "scope": "check ClassificacaoNormal for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M4-CLASSIFICACAO-PRECEDENCIA-VENCIDO-001",
+      "assertion": "ClassificacaoVencidoPrecedeDesconhecida",
+      "tipo": "check",
+      "scope": "check ClassificacaoVencidoPrecedeDesconhecida for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M4-CLASSIFICACAO-PRECEDENCIA-JAVENCIDO-001",
+      "assertion": "ClassificacaoJaVencidoPrecedeDesconhecida",
+      "tipo": "check",
+      "scope": "check ClassificacaoJaVencidoPrecedeDesconhecida for 4 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
       "id": "INV-M4-COERENCIA-001",
       "assertion": "OperacoesPreservamCoerencia",
       "tipo": "check",
@@ -203,6 +287,13 @@
       "assertion": "RetiradaExcepcional",
       "tipo": "run",
       "scope": "run RetiradaExcepcional for 4 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "WIT-M4-RETIRADA-VENCIDA-ABERTURA-001",
+      "assertion": "RetiradaVencidaNaAbertura",
+      "tipo": "run",
+      "scope": "run RetiradaVencidaNaAbertura for 4 but exactly 2 Estado",
       "status": "SAT"
     },
     {
@@ -269,6 +360,27 @@
       "status": "SAT"
     },
     {
+      "id": "WIT-M4-VENCEU-DURANTE-001",
+      "assertion": "VenceuDuranteEmprestimo",
+      "tipo": "run",
+      "scope": "run VenceuDuranteEmprestimo for 4 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "WIT-M4-JA-VENCIDO-001",
+      "assertion": "JaEstavaVencidoNoRetorno",
+      "tipo": "run",
+      "scope": "run JaEstavaVencidoNoRetorno for 4 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "WIT-M4-VALIDADE-DESCONHECIDA-001",
+      "assertion": "ValidadeDesconhecidaNoRetorno",
+      "tipo": "run",
+      "scope": "run ValidadeDesconhecidaNoRetorno for 4 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
       "id": "WIT-M4-DOIS-FRASCOS-001",
       "assertion": "DoisFrascosAtivos",
       "tipo": "run",
@@ -301,6 +413,13 @@
       "assertion": "DevolucaoNaoInterfereAmpliado",
       "tipo": "check",
       "scope": "check DevolucaoNaoInterfereAmpliado for 6 but exactly 2 Estado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "INV-M4-DEVOLUCAO-SNAPSHOT-006",
+      "assertion": "DevolucaoSnapshotImutavelAmpliado",
+      "tipo": "check",
+      "scope": "check DevolucaoSnapshotImutavelAmpliado for 6 but exactly 2 Estado",
       "status": "UNSAT"
     },
     {

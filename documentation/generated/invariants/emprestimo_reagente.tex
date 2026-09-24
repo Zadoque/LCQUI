@@ -1,6 +1,6 @@
 % Gerado por lcqui-spec-doc; não editar.
 \subsection*{Evidência formal M3 --- Emprestimo\_Reagente}
-M3 formaliza o registro do empréstimo (33 colunas) e sua máquina abstrata de status: ativos EM\_USO/ATRASADO, encerramentos e unicidade de empréstimo ativo por frasco.
+M3 formaliza o registro do empréstimo (34 colunas, incluindo o snapshot imutável \texttt{vencido\_na\_retirada}) e sua máquina abstrata de status: ativos EM\_USO/ATRASADO, encerramentos e unicidade de empréstimo ativo por frasco.
 \begin{description}
 \item[INV-M3-ATIVO-UNICIDADE-001] UnicidadeAtivaPreservada: UNSAT.\newline Escopo: \texttt{check UnicidadeAtivaPreservada for 4 but exactly 2 Estado}.
 \item[INV-M3-ATRASO-ORIGEM-001] AtrasoSoDeEmUso: UNSAT.\newline Escopo: \texttt{check AtrasoSoDeEmUso for 4 but exactly 2 Estado}.

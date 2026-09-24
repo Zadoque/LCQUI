@@ -1,6 +1,6 @@
 % Gerado por lcqui-spec-doc; não editar.
-\subsection*{Emprestimo\_Reagente --- projeção M3 completa (33 colunas)}
-Registro relacional completo do empréstimo (33 colunas). Não é payload de criação nem documento Firestore completo. A existência global das FKs, a unicidade de empréstimo ativo por frasco e as transições de status são verificadas fora do registro (loan\_state.als).
+\subsection*{Emprestimo\_Reagente --- projeção M3 completa (34 colunas)}
+Registro relacional completo do empréstimo (34 colunas), incluindo o snapshot imutável vencido\_na\_retirada. Não é payload de criação nem documento Firestore completo. A existência global das FKs, a unicidade de empréstimo ativo por frasco e as transições de status são verificadas fora do registro (loan\_state.als).
 \begin{description}
 \item[id] Tipo: int. Obrigatório: sim. Aceita nulo: não.
 SQL: SERIAL.
@@ -84,6 +84,9 @@ Perda em g registrada separadamente do consumo; não inferir arbitrariamente.
 \item[uso\_vencido\_aceito] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
 SQL: BOOLEAN.
 Ciência explícita do empréstimo específico; não substitui autorização do gestor.
+\item[vencido\_na\_retirada] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+Snapshot server-owned e imutável do vencimento conhecido no instante em que a retirada cria o empréstimo, após eventual primeira abertura. Não é autorização nem é recalculado na devolução.
 \item[finalidade\_uso] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
 SQL: ENUM.
 Valores: AULA\_PRATICA, DEMONSTRACAO, PESQUISA\_TCC\_POS, ESTUDO\_DEGRADACAO\_RESIDUOS.
