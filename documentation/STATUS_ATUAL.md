@@ -1,5 +1,24 @@
 # Status atual do LCQUI
 
+Atualizado em 24/09/2026 — reconciliação formal/documental pré-M5 (erratum de M3/M4) e especificação V1 do catálogo JSON.
+
+## Reconciliação pré-M5 (erratum de M3/M4)
+
+Branch: `feat/formal-spec-cue-alloy`. HEAD de entrada: `e8c36660b4b5eddb76b15797d058898657f8dfd3`. Commits desta rodada: `3213c48a` (CUE), `21355c9f` (Alloy), `86ebe7c1` (documentação normativa), `3a5dcc79` (evidência/geração) e `f23adc81` (`main.pdf`). O HEAD final é o commit documental **imediatamente posterior ao do PDF** (`f23adc81` + 1), registrado por este arquivo e resolvido com `git log -1 --format=%H --grep="record pre-M5 reconciliation"` (um commit não contém o próprio SHA). Registro durável em [worklog PRE_M5_RECONCILIATION](worklogs/formal-spec/PRE_M5_RECONCILIATION.md); errata anexados a [M3_VALIDATION](worklogs/formal-spec/M3_VALIDATION.md) e [M4_VALIDATION](worklogs/formal-spec/M4_VALIDATION.md) sem reescrever o histórico.
+
+O que foi **especificado/validado**:
+
+- `Emprestimo_Reagente` ganhou o snapshot imutável `vencido_na_retirada` (Seção 4/5; CUE com **34 colunas**; IR v3; fixtures M3 = 28; total 101). Todos os gates CUE/Alloy/Rust/geração/LaTeX reexecutados; PDF 313 páginas, zero erros.
+- A devolução usa o vencimento persistido `Frasco_Reagente.vencido` (autoridade do job da Seção 10.7) e **não** recalcula pelo relógio; classifica o retorno em venceu-durante / já-vencido / validade-desconhecida / normal. `Devolucao.vencidoNoRetorno` foi removido do Alloy; M4 = **40 checks UNSAT + 20 witnesses SAT**. Guard `doc_contract.test.mjs` protege os contratos documentais.
+- Seção 12: V2 registra a edição de Resumo/Especificação e as três modalidades de correção de validade (`DESCONHECIDA_PARA_CONHECIDA`, `DATA_INCORRETA_PARA_DATA_CORRETA`, `CONHECIDA_PARA_DESCONHECIDA`), sem implementar.
+- Seções 10.5/11: catálogo JSON de Resumo/Especificação para pesquisa client-side; estado server-owned `Sistema_Catalogo_Reagentes/estado` separando `versao_fonte`/`versao_publicada`; geração/publicação por Cloud Function; `obterCatalogoReagentes()`; sincronização client-side; fallback canônico `resolverCatalogoPorIds`; erro de integridade referencial; JSON nunca é autoridade operacional; sem `catalogo_version` em `Usuario`; formato canônico por objetos indexados por ID.
+
+O que continua **pendente de implementação real**: catálogo JSON e suas Cloud Functions; edição V2 e correções de validade; e a lógica legada de devolução/reencontro em `functions/src/reagentes.ts`, que ainda recalcula vencimento pelo relógio e não é homologada. Nenhuma alteração em `frontend/`, `functions/`, `firestore.rules` ou `storage.rules`. M5 = NOT_STARTED.
+
+---
+
+# Histórico anterior
+
 Atualizado em 21/09/2026 — consolidação documental HQ-M2-004..007, realinhamento formal local M2.1d e relações globais Alloy M2.2 (com erratum de cobertura de descarte).
 Branch: `feat/formal-spec-cue-alloy`.
 HEAD inicial da consolidação: `25e3825f5045a328e59f17115f2dbbda0710fb26`.
@@ -158,12 +177,13 @@ em M2 (`conteudo_nominal`, `peso_no_cadastrado`, `peso_atual`,
 ficou com 25 fixtures (10 válidas, 15 inválidas) e M2 ganhou a negativa
 `invalid/peso_negativo`. Receipts M0/M2/M2.4 mudaram
 apenas em `spec_ir_sha256`; o modelo Alloy M3 não mudou. HQs M3 OPEN = 0. M4
-(Retirada/devolução completas) = NOT_STARTED. Detalhes em
+(Retirada/devolução completas) = VALIDATED (ver a seção de reconciliação pré-M5
+acima; o texto abaixo é histórico). Detalhes em
 [worklog M3](worklogs/formal-spec/M3_VALIDATION.md). O backend real
 (`functions/src/reagentes.ts`) diverge da especificação vigente e é dívida de
 M4/M5/M6/M9/M10.
 
-**M2.2, M2.3 e M2.4 foram VALIDATED.** O CUE M2.1d permanece o recorte local de 29 colunas com `origem_tara`. O Alloy M2.2 acrescenta `bottle_identity.als` (identidade química efetiva: XOR de rotas e resolução única) e `bottle_state.als` (saldo terminal, flag histórica, transições extravio/quebra/descarte/esgotamento, frames auditados de vencido/usoVencido, `emQuarentena`, autorização técnica de descarte e terminalidade de `DESCARTADO`), reconciliados por HQ-M2-008/B, totalizando 35 `check` UNSAT e 16 testemunhas SAT somando identidade e estado; HQs M2 OPEN = 0. `withdrawal.als` (M0) permanece intacto. M2.3 migrou a cadeia: IR v3 transporta a projeção `frasco_reagente_m2` (29 colunas) ao lado da fatia M0; o Rust valida a evidência M2.2 (`build/formal-validation-m2.json`) e os hashes dos modelos; o gerador emite `entities/frasco_reagente_m2.tex` e `invariants/frasco_reagente_m2.tex`, com `formal_validation_m2_sha256` no `MANIFEST.json`. M2.4 criou `Formal-Spec-M2.tex`, integrou a seção M2 ao `main.tex`, concluiu a composição M0 × M2.2 em `bottle_composition.als` e gerou a evidência `build/formal-validation-m24.json` (12+5 checks UNSAT, 10+1 witnesses SAT). Fragmentos M0/M1 byte a byte idênticos; geração determinística. Detalhes nos [worklogs M2.2](worklogs/formal-spec/M2_2_ALLOY_RELATIONS.md), [M2.3](worklogs/formal-spec/M2_3_PROVENANCE_IR_GENERATION.md) e [M2.4](worklogs/formal-spec/M2_4_COMPOSITION_INTEGRATION.md). Backend, cache, Q06, tara numérica, validade e FLOW continuam fora do escopo provado. Contagem corrente de fixtures (M0/M1/M2/M3): 7/35/31/25 = 98.
+**M2.2, M2.3 e M2.4 foram VALIDATED.** O CUE M2.1d permanece o recorte local de 29 colunas com `origem_tara`. O Alloy M2.2 acrescenta `bottle_identity.als` (identidade química efetiva: XOR de rotas e resolução única) e `bottle_state.als` (saldo terminal, flag histórica, transições extravio/quebra/descarte/esgotamento, frames auditados de vencido/usoVencido, `emQuarentena`, autorização técnica de descarte e terminalidade de `DESCARTADO`), reconciliados por HQ-M2-008/B, totalizando 35 `check` UNSAT e 16 testemunhas SAT somando identidade e estado; HQs M2 OPEN = 0. `withdrawal.als` (M0) permanece intacto. M2.3 migrou a cadeia: IR v3 transporta a projeção `frasco_reagente_m2` (29 colunas) ao lado da fatia M0; o Rust valida a evidência M2.2 (`build/formal-validation-m2.json`) e os hashes dos modelos; o gerador emite `entities/frasco_reagente_m2.tex` e `invariants/frasco_reagente_m2.tex`, com `formal_validation_m2_sha256` no `MANIFEST.json`. M2.4 criou `Formal-Spec-M2.tex`, integrou a seção M2 ao `main.tex`, concluiu a composição M0 × M2.2 em `bottle_composition.als` e gerou a evidência `build/formal-validation-m24.json` (12+5 checks UNSAT, 10+1 witnesses SAT). Fragmentos M0/M1 byte a byte idênticos; geração determinística. Detalhes nos [worklogs M2.2](worklogs/formal-spec/M2_2_ALLOY_RELATIONS.md), [M2.3](worklogs/formal-spec/M2_3_PROVENANCE_IR_GENERATION.md) e [M2.4](worklogs/formal-spec/M2_4_COMPOSITION_INTEGRATION.md). Backend, cache, Q06, tara numérica, validade e FLOW continuam fora do escopo provado. Contagem de fixtures naquele checkpoint (M0/M1/M2/M3): 7/35/31/25 = 98; após o erratum pré-M5, 7/35/31/28 = 101.
 
 Backend atual ainda tem contratos legados (ex.: cadastro fechado exige volumeNominal e devolução rejeita ganho acima de 102%); cache/endpoint e resolução precisam de implementação futura. Esta rodada não altera nem homologa esse código. Não há novas perguntas humanas sobre decisões já resolvidas.
 

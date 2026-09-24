@@ -391,3 +391,40 @@ VALIDATED, e contagem corrente 7/35/31/25 = 98.
 - M4 = NOT_STARTED. HQs M3 abertas = 0.
 
 PRÓXIMA AÇÃO EXATA: `INICIAR M4 — Retirada/devolução completas`.
+
+## Erratum pré-M5 — novo snapshot `vencido_na_retirada`
+
+Estado: M3 reaberto como IN_PROGRESS e novamente VALIDATED. A validação
+histórica acima **não foi reescrita**. Registro completo da rodada em
+`PRE_M5_RECONCILIATION.md`.
+
+Motivo: a `Emprestimo_Reagente` não possuía o snapshot factual do vencimento no
+instante da retirada, necessário para distinguir, na devolução, ``venceu durante
+o empréstimo'' de ``já estava vencido na retirada''.
+
+Alterações efetivas:
+
+- Seção 4: novo campo `vencido_na_retirada BOOLEAN NOT NULL`, inserido após
+  `uso_vencido_aceito`, com explicação normativa; a entidade passou de 33 para
+  **34 colunas**.
+- Seção 5: nova entrada de dicionário para `vencido_na_retirada` (server-owned,
+  imutável, não recalculado na devolução), na mesma ordem da Seção 4.
+- CUE `specification/cue/domain/emprestimo_reagente.cue`: descritor
+  `vencido_na_retirada` (BOOLEAN, `nulo: false`) somando **34** descritores.
+  Paridade Seção 4 × CUE verificada em `loanContractParity()` (34 = 34).
+- Fixtures: `valid/vencido_na_retirada.json` (true) e
+  `invalid/vencido_na_retirada_ausente.json` / `invalid/vencido_na_retirada_tipo.json`.
+  Todas as fixtures M3 anteriores receberam o campo. M3 passou de 25 para
+  **28 fixtures (11 válidas, 17 inválidas)**. Total: M0 7, M1 35, M2 31, M3 28 =
+  **101**.
+- IR: `#EmprestimoM3Exemplo` e o rótulo da entidade passaram a 34 colunas. O IR
+  permaneceu **versão 3** (nenhuma mudança estrutural do formato);
+  `spec_ir_sha256` = `0558049777b3f504eb15afaf1490aed335e4b2d9bfe7b9f13e3d41beb847a127`.
+- Rust: `validation_m3` permanece com os 22 resultados do modelo Alloy M3 (o
+  `loan_state.als` não mudou); o gerador passou a rotular a entidade como 34
+  colunas.
+- Modelo Alloy M3 `loan_state.als`: inalterado.
+
+Regressões: `withdrawal.als`, `bottle_identity.als`, `bottle_state.als`,
+`bottle_composition.als` e `loan_state.als` byte a byte idênticos. Receipts
+M0/M2/M2.4 mudaram **apenas** em `spec_ir_sha256`.

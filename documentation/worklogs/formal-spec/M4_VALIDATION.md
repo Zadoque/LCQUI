@@ -237,3 +237,52 @@ M0/M2/M2.4/M3 inalterados (IR não mudou). CUE inalterado.
 - M5 = NOT_STARTED. HQs M4 abertas = 0.
 
 PRÓXIMA AÇÃO EXATA: `INICIAR M5 — Extravio/reencontro/quarentena`.
+
+## Erratum pré-M5 — snapshot, autoridade de vencimento e classificação
+
+Estado: M4 reaberto como IN_PROGRESS e novamente VALIDATED. A validação
+histórica acima **não foi reescrita**. Registro completo da rodada em
+`PRE_M5_RECONCILIATION.md`.
+
+Motivos:
+
+1. `Devolucao.vencidoNoRetorno` era uma **segunda autoridade** de vencimento,
+   duplicando `Estado.vencido`. Removido.
+2. A devolução precisava de snapshot imutável (`vencido_na_retirada`) para
+   distinguir ``venceu durante o empréstimo'' de ``já estava vencido na
+   retirada''.
+3. Era necessário formalizar a projeção mínima de `validade_desconhecida` para o
+   terceiro caso.
+
+Alterações no modelo `specification/alloy/reagents/withdrawal_return.als`:
+
+- removido `Devolucao.vencidoNoRetorno`;
+- `Estado` ganhou `validadeDesconhecida: set Frasco` e
+  `vencidoNaRetirada: set Emprestimo`;
+- `fun classificacao[s,e]` devolve `NORMAL`, `VENCEU_DURANTE`, `JA_VENCIDO` ou
+  `VALIDADE_DESCONHECIDA` com precedência do vencimento sobre a validade
+  desconhecida;
+- `precisaDestino[s,f] = f in s.vencido or f in s.validadeDesconhecida`;
+- `retirar` aplica a abertura, determina o vencido resultante e grava o snapshot
+  `vencidoNaRetirada` a partir desse estado; a guarda
+  `vencimentoAutorizado[b,f]` é avaliada sobre o resultado;
+- `devolver` usa a autoridade persistida (`precisaDestino`), preserva
+  `b.vencido = a.vencido` e `b.vencidoNaRetirada = a.vencidoNaRetirada`, e não
+  recalcula pelo relógio;
+- frames de retirada/devolução passaram a preservar `validadeDesconhecida` e o
+  snapshot em frascos/empréstimos alheios.
+
+Evidência: **40 checks UNSAT + 20 runs SAT = 60 resultados** (scope 4: 35 checks
++ 19 runs; scope 6: 5 checks + 1 run). Receipt `build/formal-validation-m4.json`
+validado por `validation_m4.rs` (60 entradas) com testes de adulteração
+atualizados.
+
+Testes/gates novos: `checkWithdrawalReturnContract` em
+`tools/formal/withdrawal_return.mjs` rejeita `vencidoNoRetorno` e a remoção do
+snapshot/classificação; `withdrawal_return.test.mjs` exercita as mutações.
+`tools/formal/doc_contract.test.mjs` (novo, incluído em `alloy-check`) guarda os
+contratos documentais da devolução e do catálogo JSON. Nenhuma HQ M4 nova.
+
+Regressões: `withdrawal.als`, `bottle_identity.als`, `bottle_state.als`,
+`bottle_composition.als`, `loan_state.als` byte a byte idênticos. Receipts
+M0/M2/M2.4/M3 mudaram apenas em `spec_ir_sha256`.
