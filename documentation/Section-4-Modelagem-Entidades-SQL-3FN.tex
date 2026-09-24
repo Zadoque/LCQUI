@@ -868,6 +868,9 @@ EMPRESTADO & Deve possuir exatamente um empréstimo ativo EM\_USO ou ATRASADO.\\
 VAZIO/QUEBRADO & Não pode estar EMPRESTADO e deve aparecer como pendente de descarte.\\
 QUARENTENA & Exige detalhe de motivo e bloqueia nova retirada; não pode ser descartada diretamente.\\
 QUARENTENA + decisão PENDENTE\_DE\_DESCARTE & Estado operacional derivado (não é coluna): \texttt{em\_quarentena = FALSE}, \texttt{INDISPONIVEL} e autorização técnica ativa; habilita \texttt{descartarFrasco}.\\
+EXTRAVIADO & Não pode estar EMPRESTADO: empréstimo ativo é encerrado extraordinariamente; \texttt{disponibilidade = INDISPONIVEL}. Preserva saldo, \texttt{saldo\_desconhecido}, \texttt{peso\_atual}, tara, \texttt{vencido}, \texttt{abertura\_historica\_desconhecida} e localização. Extravio não é consumo, esgotamento nem peso zero. Estado físico anterior recuperável pela trilha histórica.\\
+REENCONTRO & Novo fato físico, não desfaz o extravio: de \texttt{EXTRAVIADO} para o estado constatado \texttt{ABERTO}/\texttt{FECHADO}, com \texttt{em\_quarentena = TRUE} e \texttt{disponibilidade = INDISPONIVEL}. Não reabre empréstimo encerrado e não recalcula validade. \texttt{REENCONTRADO} $\neq$ \texttt{DISPONIVEL}.\\
+QUARENTENA + \texttt{VOLTAR\_A\_DISPONIVEL} & Encerra a quarentena (\texttt{em\_quarentena = FALSE}, \texttt{disponibilidade = DISPONIVEL}) somente se o estado físico for \texttt{ABERTO}/\texttt{FECHADO}, sem pendência metrológica e sem \texttt{vencido} sem uso autorizado; não revalida validade.\\
 VENCIDO + uso\_vencido\_autorizado = false & Exibe PENDENTE DE DESCARTE quando não estiver em quarentena; bloqueia nova retirada.\\
 VENCIDO + uso\_vencido\_autorizado = true & Pode permanecer DISPONIVEL para uso excepcional após confirmação explícita no empréstimo.\\
 DESCARTADO & É terminal; não retorna a DISPONIVEL.\\
@@ -876,7 +879,7 @@ Devolução & Só pode ocorrer para empréstimo EM\_USO ou ATRASADO e aplica tol
 \end{longtable}
 
 \subsubsection{Fechamento dos estados automáticos}
-\textit{vencido} é definido pelo servidor a partir da validade efetiva. Na abertura do frasco, \textit{validade\_efetiva} é recalculada conforme a regra de validade pós-abertura. \textit{ATRASADO} é promovido pelo job servidor quando a data de devolução prevista é ultrapassada. Nenhum desses estados pode ser inventado pelo frontend. O vencimento também é recalculado sincronicamente em operações críticas de cadastro e devolução, para que o resultado não dependa de o job diário já ter executado.
+\textit{vencido} é definido pelo servidor a partir da validade efetiva. Na abertura do frasco, \textit{validade\_efetiva} é recalculada conforme a regra de validade pós-abertura. \textit{ATRASADO} é promovido pelo job servidor quando a data de devolução prevista é ultrapassada. Nenhum desses estados pode ser inventado pelo frontend. O vencimento é recalculado sincronicamente no cadastro e na primeira abertura, conforme seus contratos próprios, para que o resultado não dependa de o job diário já ter executado. A \textbf{devolução} e o \textbf{reencontro}, ao contrário, apenas leem o estado persistido \textit{Frasco\_Reagente.vencido}: não recalculam vencimento pelo relógio, pois a passagem do tempo pertence ao job de vencimento (Seção~10.7).
 
 \subsection{Checklist de Fechamento do Domínio e do Modelo}
 Os onze pontos que precisavam ser resolvidos antes da modelagem física foram consolidados da seguinte forma:
