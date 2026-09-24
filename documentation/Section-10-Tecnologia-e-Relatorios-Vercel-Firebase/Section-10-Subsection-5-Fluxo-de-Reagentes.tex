@@ -468,15 +468,15 @@ export const registrarRetirada = onCall(async (request) => {
 
     const agora = new Date();
     const { DateTime } = require("luxon");
-    let validadeEfetiva = frasco.validade_efetiva
-      ? (typeof frasco.validade_efetiva.toDate === "function"
-        ? frasco.validade_efetiva.toDate()
-        : DateTime.fromISO(frasco.validade_efetiva, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate())
-      : null;
-    let frascoVencido = Boolean(validadeEfetiva && validadeEfetiva <= agora);
+    // A passagem do tempo é responsabilidade do job de vencimento: a retirada lê o
+    // estado canônico persistido em frasco.vencido e NÃO recalcula pelo relógio.
+    // Somente a primeira abertura recalcula a validade, conforme seu contrato.
+    let validadeEfetiva = null;
+    let frascoVencido = frasco.vencido === true;
 
     if (dados.abrirNoEmprestimo && frasco.estado_fisico_frasco === "FECHADO") {
       validadeEfetiva = calcularValidadeEfetivaNaAbertura(frasco, agora);
+      // A primeira abertura pode tornar o frasco vencido antes da criação do empréstimo.
       frascoVencido = Boolean(validadeEfetiva && validadeEfetiva <= agora);
     }
 
@@ -516,6 +516,9 @@ export const registrarRetirada = onCall(async (request) => {
       id\_local\_usado: dados.idLocalUsado,
       peso_saida: dados.pesoSaida,
       uso_vencido_aceito: Boolean(frascoVencido),
+      // Snapshot factual imutável do vencimento no instante da criação do empréstimo,
+      // já considerando eventual primeira abertura. Não é autorização nem ciência.
+      vencido_na_retirada: frascoVencido,
       finalidade_uso: finalidade,
       auto_atendimento: autoAtendimento,
       justificativa_metodologica: dados.justificativaMetodologica ?? null,
@@ -553,6 +556,10 @@ export const registrarRetirada = onCall(async (request) => {
   });
 });
 \end{lstlisting}
+
+\begin{regra}[Autoridade de vencimento e destino na devolução]
+A devolução \textbf{não} recalcula o vencimento a partir de \texttt{validade\_efetiva <= agora}. A passagem do tempo pertence ao job de vencimento da Seção~10.7, que mantém o estado canônico \textit{Frasco\_Reagente.vencido}; a devolução apenas o lê. O snapshot \texttt{vencido\_na\_retirada} é imutável e não é reescrito. A classificação do retorno é determinística: \texttt{frasco.vencido = true} e \texttt{vencido\_na\_retirada = false} mostram ``Frasco venceu durante o empréstimo, selecione um destino para ele.''; \texttt{frasco.vencido = true} e \texttt{vencido\_na\_retirada = true} mostram ``Devolução de frasco vencido, selecione um destino para ele.''; \texttt{vencido = false} com \texttt{validade\_desconhecida = true} mostram ``Devolução de frasco de validade desconhecida, selecione um destino para ele.''; validade conhecida e não vencida não exige destino. Quando \texttt{vencido} e \texttt{validade\_desconhecida} coexistem, a classificação de vencimento tem precedência e usa \texttt{vencido\_na\_retirada}, sem mensagens contraditórias. A precedência operacional é \textbf{anomalia metrológica > frasco confirmado vazio > decisão de destino por validade > devolução normal}: a anomalia retém em quarentena/INDISPONIVEL com consumo pendente e nenhum destino de validade a sobrescreve; o vazio confirmado permanece \texttt{VAZIO}/INDISPONIVEL. Os destinos normativos permanecem \texttt{QUARENTENA}, \texttt{DISPONIVEL\_AUTORIZADO} e \texttt{PENDENTE\_DE\_DESCARTE}, com suas guardas já documentadas.
+\end{regra}
 
 \begin{lstlisting}[language=TypeScript, title={Registrar Devolução com atualização física e histórico completo}]
 interface DevolucaoFrasco {
@@ -637,13 +644,29 @@ export const registrarDevolucao = onCall(async (request) => {
       .endOf("day").toJSDate();
     const atrasado = agora > prazoLimite;
 
-    const validadeEfetiva = frasco.validade_efetiva
-      ? (typeof frasco.validade_efetiva.toDate === "function"
-        ? frasco.validade_efetiva.toDate()
-        : DateTime.fromISO(frasco.validade_efetiva, { zone: "America/Sao_Paulo" }).endOf("day").toJSDate())
-      : null;
-    const venceuAgora = Boolean(validadeEfetiva && validadeEfetiva <= agora);
-    const frascoVencido = Boolean(frasco.vencido || venceuAgora);
+    // AUTORIDADE DE VENCIMENTO: a devolução NÃO recalcula pelo relógio. A passagem
+    // do tempo é responsabilidade do job de vencimento, que mantém o estado canônico
+    // persistido em frasco.vencido. `emprestimo.vencido_na_retirada` é o snapshot
+    // histórico gravado na retirada.
+    const frascoVencido = frasco.vencido === true;
+    const validadeDesconhecida = frasco.validade_desconhecida === true;
+    // Classificação determinística: vencido tem precedência sobre validade
+    // desconhecida; o snapshot separa "venceu durante" de "já estava vencido".
+    const classificacao = frascoVencido
+      ? (emprestimo.vencido_na_retirada === true
+        ? "JA_ESTAVA_VENCIDO"
+        : "VENCEU_DURANTE_EMPRESTIMO")
+      : (validadeDesconhecida ? "VALIDADE_DESCONHECIDA" : "NORMAL");
+    const mensagemRetorno = classificacao === "VENCEU_DURANTE_EMPRESTIMO"
+      ? "Frasco venceu durante o empréstimo, selecione um destino para ele."
+      : classificacao === "JA_ESTAVA_VENCIDO"
+        ? "Devolução de frasco vencido, selecione um destino para ele."
+        : classificacao === "VALIDADE_DESCONHECIDA"
+          ? "Devolução de frasco de validade desconhecida, selecione um destino para ele."
+          : null;
+    // Vencido ou validade desconhecida exigem destino. A decisão de validade só
+    // produz efeito quando não foi superada por anomalia ou vazio (precedência).
+    const precisaDestino = frascoVencido || validadeDesconhecida;
 
     const atualizacaoFrasco: Record<string, unknown> = {
       disponibilidade: ficouVazio || reterPorAnomalia ? "INDISPONIVEL" : "DISPONIVEL",
@@ -667,15 +690,15 @@ export const registrarDevolucao = onCall(async (request) => {
       atualizacaoFrasco.em_quarentena = true;
       atualizacaoFrasco.uso_vencido_autorizado = false;
       atualizacaoFrasco.detalhe_status = "Frasco retido por anomalia de pesagem na devolução.";
-    } else if (frascoVencido && dados.destinoPosDevolucao === "QUARENTENA") {
+    } else if (precisaDestino && dados.destinoPosDevolucao === "QUARENTENA") {
       atualizacaoFrasco.em_quarentena = true;
       atualizacaoFrasco.uso_vencido_autorizado = false;
       atualizacaoFrasco.disponibilidade = "INDISPONIVEL"; // quarentena bloqueia nova retirada
       atualizacaoFrasco.detalhe_status = "Frasco vencido retido em quarentena após devolução.";
-    } else if (frascoVencido && dados.destinoPosDevolucao === "DISPONIVEL") {
+    } else if (precisaDestino && dados.destinoPosDevolucao === "DISPONIVEL") {
       atualizacaoFrasco.em_quarentena = false;
       atualizacaoFrasco.uso_vencido_autorizado = true;
-    } else if (frascoVencido && dados.destinoPosDevolucao === "PENDENTE_DE_DESCARTE") {
+    } else if (precisaDestino && dados.destinoPosDevolucao === "PENDENTE_DE_DESCARTE") {
       atualizacaoFrasco.em_quarentena = false;
       atualizacaoFrasco.uso_vencido_autorizado = false;
       atualizacaoFrasco.disponibilidade = "INDISPONIVEL"; // pendente de descarte bloqueia nova retirada
@@ -683,7 +706,7 @@ export const registrarDevolucao = onCall(async (request) => {
     }
 
     // MET-07: Emissão obrigatória do evento de domínio correspondente ao destino do frasco vencido
-    if (!reterPorAnomalia && frascoVencido) {
+    if (!reterPorAnomalia && precisaDestino) {
       const tipoDestino = dados.destinoPosDevolucao === "QUARENTENA"
         ? "ENTROU_EM_QUARENTENA"
         : dados.destinoPosDevolucao === "DISPONIVEL"
@@ -796,6 +819,7 @@ export const registrarDevolucao = onCall(async (request) => {
     return { pesoConsumido: reterPorAnomalia ? null : pesoConsumido,
       volumeUtilizado: reterPorAnomalia ? null : volumeUtilizado,
       consumoPendente: reterPorAnomalia, atrasado, frascoVencido,
+      classificacao, mensagemRetorno, precisaDestino,
            avisoHigroscopico: avisoHigroscopico || false };
   });
 });
@@ -1581,3 +1605,67 @@ export const confirmarEsgotamentoAposInspecao = onCall(async (request) => {
 
 \paragraph{Obrigações transversais dos pseudocódigos.}
 Os auxiliares de saldo e cache são contratos documentais, não implementação atestada. Toda operação desta seção que altera estado corrente deve derivar saldos no próprio frasco e invalidar as chaves afetadas conforme a Seção~\ref{sec:estoque-atual-cache}, na mesma transação; preparar todas as leituras de frasco, empréstimo, autorização e gerações antes das escritas. Isso inclui cadastro, abertura, retirada, devolução, esgotamento, extravio/reencontro, recalibração, descarte e quarentena. Não disparar recálculo no commit. Pesagem ordinária não resolve automaticamente pendência; usar os contratos explícitos acima. Correção histórica de retirante não altera peso/saldo/disponibilidade correntes nem invalida cache.
+
+\subsubsection{Catálogo JSON de Resumos e Especificações para pesquisa client-side}
+
+\begin{regra}[Papel do catálogo JSON]
+A V1 possui uma projeção materializada em JSON com o objetivo exclusivo de \textbf{buscar, filtrar, listar e apresentar} \textit{Resumo\_Reagente} e \textit{Especificacao\_Reagente} no cliente. A autoridade é explícita: \textbf{Firestore é a fonte canônica}; o \textbf{catálogo JSON é uma projeção materializada de busca/apresentação}; o \textbf{cache local é uma cópia descartável} dessa projeção. O JSON \textbf{não} é fonte canônica e não transporta como autoridade operacional \textit{Frasco\_Reagente}, empréstimos, saldo, disponibilidade de frascos, quarentena, peso corrente nem qualquer estado operacional de estoque. Operações físicas de cadastro, retirada e devolução continuam consultando o estado canônico. Se o cliente enviar \texttt{idResumo}, \texttt{idEspecificacao}, \texttt{nome}, \texttt{densidade} ou semelhantes, o backend não confia em campos derivados do JSON para executar operação crítica: IDs podem identificar a entidade, mas dados críticos são revalidados na fonte canônica quando necessário.
+\end{regra}
+
+\begin{regra}[Pesquisa client-side]
+Depois que o JSON está carregado, a busca textual ocorre localmente e nenhuma consulta Firestore é disparada por tecla digitada; a pesquisa pode começar a partir do primeiro caractere, normalizando caixa e acentos. Filtros de estado físico, tipo, natureza e similares tornam-se filtros client-side opcionais, não pré-condições obrigatórias de consulta. A denormalização \texttt{letra\_inicial} não deve ser mantida apenas para viabilizar a antiga estratégia de consulta; antes de remover qualquer campo, auditar todas as referências e provar que ele não serve a outro contrato.
+\end{regra}
+
+\begin{regra}[Estado e versionamento do catálogo]
+Não existe \texttt{Usuarios/\{uid\}.catalogo\_version}: a versão armazenada no usuário não representa múltiplos navegadores/dispositivos. A versão efetivamente armazenada pelo cliente pertence ao cache local daquele dispositivo. Existe uma única autoridade server-owned, \texttt{Sistema\_Catalogo\_Reagentes/estado} (nome ajustável à nomenclatura existente, mantendo a unicidade), que separa obrigatoriamente \texttt{versao\_fonte} de \texttt{versao\_publicada}. \texttt{versao\_fonte} aumenta quando uma mutação canônica que afeta o catálogo é commitada; \texttt{versao\_publicada} aumenta somente depois que o JSON correspondente foi gerado, gravado e considerado publicável. Nunca fazer o cliente observar \texttt{versao = 8} com o caminho de um arquivo que ainda não existe. O documento contém, no mínimo, \texttt{versao\_fonte}, \texttt{versao\_publicada}, \texttt{storage\_path}, \texttt{sha256}, \texttt{gerado\_em} e \texttt{schema\_version}. Não é exposta URL pública permanente que contorne a autorização da Cloud Function: o conceito de URL é substituído por um \textbf{locator seguro} (\texttt{storage\_path}, resolvido por acesso temporário autorizado), decidido para que o cliente não receba um \texttt{downloadURL} permanente que torne a validação irrelevante.
+\end{regra}
+
+\begin{regra}[Quando a versão da fonte aumenta]
+Na V1 não há edição de Resumo/Especificação; as operações suportadas que alteram o catálogo são principalmente a criação de \textit{Resumo\_Reagente} e de \textit{Especificacao\_Reagente}. A criação e o incremento de \texttt{versao\_fonte} ocorrem atomicamente na mesma transação Firestore da mutação canônica, quando isso for técnicamente compatível com o fluxo documentado. O frontend nunca incrementa a versão, e a escrita do cliente em \texttt{Sistema\_Catalogo\_Reagentes} é negada.
+\end{regra}
+
+\begin{regra}[Geração do JSON]
+Uma Cloud Function/worker server-side gera a projeção. Para a escala prevista da V1, preferir a reconstrução integral da projeção a patch manual: a criação de Resumo/Especificação commitada na transação incrementa \texttt{versao\_fonte}; o gerador observa \texttt{versao\_fonte > versao\_publicada}, lê Resumos e Especificações canônicas, gera JSON determinístico, calcula SHA-256, publica um objeto imutável no Storage (conceitualmente \texttt{catalogo-reagentes/v8-<hash>.json}) e só então avança \texttt{versao\_publicada}, \texttt{storage\_path}, \texttt{sha256} e \texttt{gerado\_em}. Não sobrescrever silenciosamente um arquivo que representa outra versão.
+
+\textbf{Concorrência.} Múltiplos cadastros próximos são tratados sem fila adicional. Uma execução antiga jamais pode regredir \texttt{versao\_publicada} (por exemplo, 9 para 8); antes de publicar, verificar a monotonicidade. Se a fonte mudar durante a construção (\texttt{vStart != vEnd}), a execução não afirma que aquele resultado é um snapshot exato da versão inicialmente lida: reconcilia/reconstrói contra a versão corrente. É permitido coalescer mudanças e saltar versões publicadas intermediárias (4 para 7), desde que o JSON publicado represente corretamente o estado canônico correspondente e o estado publicado permaneça monotônico.
+\end{regra}
+
+\begin{regra}[Formato canônico do JSON]
+Para permitir lookup direto por \texttt{id\_resumo\_reagente} e \texttt{id\_especificacao\_reagente}, o formato canônico do JSON usa \textbf{objetos indexados por ID}, e não arrays. Cada resumo carrega suas especificações também indexadas por ID:
+\begin{lstlisting}[language=TypeScript, title={Formato canônico do catálogo JSON}]
+{
+  "schema_version": 1,
+  "catalog_version": 8,
+  "resumos": {
+    "123": {
+      "id": "123",
+      "nome": "Acido Cloridrico",
+      "tipo_substancia": "PURA",
+      "estado_fisico": "LIQUIDO",
+      "especificacoes": {
+        "456": { "id": "456", "descricao": "37% P.A.", "fabricante": "Merck" }
+      }
+    }
+  }
+}
+\end{lstlisting}
+Com isso, dado um frasco com \texttt{id\_resumo\_reagente = 123} e \texttt{id\_especificacao\_reagente = 456}, o frontend resolve diretamente \texttt{catalogo.resumos[frasco.id\_resumo\_reagente]} e \texttt{resumo.especificacoes[frasco.id\_especificacao\_reagente]}, sem \texttt{array.find(...)} e com lookup conceitualmente $O(1)$. Para pesquisa textual, filtros e ordenação, o cliente deriva arrays em memória (\texttt{Object.values(catalogo.resumos)} e, quando necessário, \texttt{Object.values(resumo.especificacoes)}). O JSON possui uma única representação canônica: não duplicar a mesma informação simultaneamente em array e mapa (por exemplo, \texttt{resumos} e \texttt{resumosPorId}); arrays para pesquisa são derivados em memória pelo cliente.
+\end{regra}
+
+\begin{regra}[Cloud Function de download do catálogo]
+O cliente não recebe acesso irrestrito ao objeto apenas por conhecer o caminho. A operação server-side \texttt{obterCatalogoReagentes()} exige autenticação; verifica permissão de busca de reagentes no servidor; obtém a versão publicada atual; fornece acesso ao objeto publicado; e nunca permite acesso a uma versão ainda não publicada. Os papéis canônicos da tela de reagentes são preservados: \textit{Chefe\_Geral}, \textit{Gestor\_Almoxarifado}, \textit{Professor} e \textit{Bolsista} (o qual representa o caso institucional aluno + bolsista). Aluno puro não ganha acesso apenas por estar autenticado. A função devolve acesso temporário/seguro ao objeto do Storage; não é criada URL pública permanente que torne essa validação irrelevante. O \textit{TTL} da URL temporária permanece parâmetro técnico configurável, sem valor normativo arbitrário.
+\end{regra}
+
+\begin{regra}[Sincronização do catálogo no front]
+Ao entrar na tela/módulo de reagentes, o cliente faz \texttt{subscribe} em \texttt{Sistema\_Catalogo\_Reagentes/estado}. O snapshot inicial fornece a versão publicada atual; o cliente compara \texttt{versao\_publicada\_servidor} com \texttt{versao\_catalogo\_local}. Se forem iguais, usa o cache local. Se diferirem, chama o fluxo autorizado de download, baixa o catálogo novo, valida a integridade, substitui o cache local e refaz a busca/filtros atuais. Ao sair da tela, faz \texttt{unsubscribe}; não mantém listener global sem necessidade. A versão local pertence ao dispositivo/browser, não ao documento \texttt{Usuario}. A persistência local usa a camada de cache apropriada do frontend, preferencialmente IndexedDB se não existir abstração equivalente.
+\end{regra}
+
+\begin{regra}[Falha ao baixar o JSON]
+Se existir catálogo local anterior e o download de uma versão nova falhar, o sistema não apaga o catálogo antigo e não finge que ele está atualizado: permite a pesquisa com o catálogo antigo e informa que resultados recém-cadastrados podem não aparecer, tentando novamente quando apropriado. Falha específica de Storage não inutiliza automaticamente operações cujo backend/Firestore ainda esteja disponível; falha total de conectividade é tratada de forma distinta. Operações físicas de retirada/devolução não podem ser consideradas concluídas offline, e não existe semântica de ``sucesso local pendente de sincronização'' para custódia física.
+\end{regra}
+
+\begin{regra}[Fallback canônico ao resolver frasco por código]
+A única operação que depende do JSON é descoberta/pesquisa de Resumo e Especificação; retirada e devolução são orientadas por \textit{Frasco\_Reagente} e backend canônico. Ao digitar um código (por exemplo, \texttt{LCQUI-349}), o backend resolve o frasco, que referencia \texttt{id\_resumo\_reagente} e \texttt{id\_especificacao\_reagente}; o frontend tenta apenas resolver nomes/detalhes de apresentação. \textbf{Caminho normal:} se Resumo e Especificação existirem no catálogo local, usam-se os dados locais, sem leitura adicional. \textbf{Catálogo local atrás:} se os IDs não existirem localmente e \texttt{versao\_local < versao\_publicada}, tenta atualizar e, se o download funcionar, resolve pelos dados da versão nova. \textbf{Download falhou:} executa o fallback canônico server-side por ID, \texttt{resolverCatalogoPorIds(idResumo, idEspecificacao)}, que verifica autenticação/autorização e lê diretamente a fonte canônica Firestore, retornando apenas os dados necessários à apresentação. O fallback não modifica o JSON antigo para fingir uma versão nova; o dado excepcional permanece separado da fotografia versionada local.
+
+\textbf{Mesma versão publicada, ID ausente:} executa consulta canônica. Se o objeto existe no Firestore, o catálogo publicado está divergente: registra erro técnico, aciona automaticamente reconciliação/rebuild do catálogo e permite que a operação continue com os dados canônicos retornados, se todas as demais pré-condições forem válidas. Se o objeto também não existe no Firestore apesar de \textit{Frasco\_Reagente} referenciá-lo, é \textbf{ERRO DE INTEGRIDADE REFERENCIAL}: não inventar nome, não prosseguir silenciosamente, bloquear a operação dependente dessa referência, registrar erro técnico rastreável e orientar contato com o responsável técnico. Isso não é tratado como simples cache desatualizado.
+\end{regra}

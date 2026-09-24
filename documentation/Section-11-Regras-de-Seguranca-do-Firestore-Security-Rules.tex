@@ -97,7 +97,7 @@ Coleções Controle\_Papeis, Operacoes e Chaves\_Unicas são exclusivas de Admin
 
 \paragraph{Cache, limite e projeções internas.}
 As regras a seguir integram o mesmo match de documentos da base, sem grants sobrepostos que permitam acesso cliente. O SDK administrativo acessa pelo backend, cuja callable valida App Check, Auth, RBAC/escopo e 5 solicitações/minuto por UID antes de cache/agregações. Campos derivados de saldo, origem de tara e resolução quantitativa são escritos somente pelo backend; payload cliente não é autoridade para esses campos. A projeção operacional \texttt{Pendencias\_Descarte\_Frasco/\{idFrasco\}} é criada por \texttt{resolverQuarentenaFrasco(PENDENTE\_DE\_DESCARTE)} e consumida por \texttt{descartarFrasco}, sempre via backend; clientes não a leem nem a escrevem.
-\begin{lstlisting}[language=TypeScript, title={Coleções internas do dashboard e projeção de descarte (contrato documental)}]
+\begin{lstlisting}[language=TypeScript, title={Coleções internas do dashboard, projeção de descarte e estado do catálogo (contrato documental)}]
 match /Sistema_Cache_Dashboard/{document=**} {
   allow read, write: if false;
 }
@@ -107,4 +107,17 @@ match /Sistema_Rate_Limit_Dashboard/{document=**} {
 match /Pendencias_Descarte_Frasco/{idFrasco} {
   allow read, write: if false;
 }
+match /Sistema_Catalogo_Reagentes/{document=**} {
+  // Estado server-owned do catálogo JSON: leitura apenas pelos papéis que
+  // consultam reagentes na matriz canônica da Seção 3 (Aluno incluído por
+  // "Consultar estoque de reagentes"); escrita sempre negada ao cliente.
+  allow read: if request.auth != null &&
+    (hasRole("Chefe_Geral") || hasRole("Gestor_Almoxarifado") ||
+     hasRole("Professor") || hasRole("Bolsista") || hasRole("Aluno"));
+  allow write: if false;
+}
 \end{lstlisting}
+
+\begin{regra}[Catálogo JSON e Storage]
+O estado \texttt{Sistema\_Catalogo\_Reagentes} é server-owned: o cliente não o escreve. A leitura direta do estado (necessária ao \texttt{subscribe} da tela de reagentes) segue a matriz canônica de busca de reagentes (Chefe\_Geral, Gestor\_Almoxarifado, Professor, Bolsista e Aluno, conforme ``Consultar estoque de reagentes'' da Seção~3); alternativamente, o acesso pode ser mediado por função protegida. O objeto JSON no Storage \textbf{não} fica publicamente acessível de forma que ignore esses papéis. Como o download é mediado por Cloud Function, o documento de estado não armazena um \texttt{downloadURL} permanente público: guarda um \texttt{storage\_path} resolvido por acesso temporário autorizado. Aluno não ganha acesso apenas por estar autenticado, mas pela matriz normativa vigente.
+\end{regra}

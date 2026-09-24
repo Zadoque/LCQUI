@@ -1,5 +1,9 @@
 \subsubsection{Jobs Agendados: Vencimento, Atraso e Materialização}
 
+\begin{regra}[Autoridade do vencimento]
+A passagem do tempo é responsabilidade deste job: \texttt{verificarVencimentosEAtrasos} mantém o estado canônico persistido \textit{Frasco\_Reagente.vencido}. Nenhuma outra operação é autoridade de vencimento ``agora'': em particular, a devolução da Seção~10.5 lê \texttt{frasco.vencido} e \textbf{não} recalcula \texttt{validade\_efetiva <= agora}. A primeira abertura, por seu contrato próprio, pode recalcular a validade efetiva uma vez; a frequência deste job não é alterada por esta reconciliação.
+\end{regra}
+
 \begin{lstlisting}[language=TypeScript, title={Vencimento e Atraso com busca preventiva de devoluções}]
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated } from "firebase-functions/v2/firestore";

@@ -55,3 +55,19 @@ A entidade \textit{Horario\_Turma} (dia da semana, hora de início/fim e local p
 
 \subsection{Lotação física de professores (V2)}
 Q01: vinculação a prédio, gabinete e sala não integra a V1 por insuficiência de dados estruturados. Integração futura de dados institucionais de lotação e alocação de salas permitirá filtragem espacial; depende de disponibilização e validação dos dados pela UENF. Na V1, busca de professor limita-se a Nome, Matéria, Centro e Laboratório.
+
+\subsection{Edição de Resumo e Especificação de Reagente (V2)}
+Na V1, \textit{Resumo\_Reagente} e \textit{Especificacao\_Reagente} podem ser cadastrados, mas \textbf{não existe edição posterior} de Resumo ou Especificação pela interface, e não há endpoint genérico de edição desses objetos. Não pertencem à V1 \textit{Resumo.version}, \textit{EditSession} nem arquitetura equivalente de travamento otimista; a concorrência de edição desses objetos fica deliberadamente para a V2.
+
+A V2 deverá estudar edição auditável de \textit{Resumo\_Reagente} e \textit{Especificacao\_Reagente}, incluindo, quando a implementação futura for projetada: autorização; concorrência entre gestores; versionamento; preservação de histórico; auditoria; e efeitos sobre projeções/cache. Nada disso deve ser implementado agora.
+
+\subsection{Correção auditável da validade de Frasco\_Reagente (V2)}
+Na V1 não existe operação de edição ou correção posterior da validade cadastrada de um frasco. Erro excepcional desse tipo não possui correção autônoma pela interface, e não há API genérica de correção. A V2 deverá estudar três modalidades futuras:
+
+\begin{enumerate}
+    \item \texttt{DESCONHECIDA\_PARA\_CONHECIDA} -- passar a conhecer uma validade antes desconhecida;
+    \item \texttt{DATA\_INCORRETA\_PARA\_DATA\_CORRETA} -- corrigir uma data cadastrada incorretamente;
+    \item \texttt{CONHECIDA\_PARA\_DESCONHECIDA} -- registrar que a validade antes considerada conhecida é, na verdade, desconhecida.
+\end{enumerate}
+
+A implementação futura deverá preservar o valor anterior no histórico; preservar autoria, instante, motivo e evidência; não oferecer edição genérica \texttt{campo/valor}; recalcular campos derivados no servidor; não confundir correção documental com ``revalidar validade''; e não reescrever fatos históricos de empréstimos anteriores. Essas três modalidades não são implementadas nesta rodada.
