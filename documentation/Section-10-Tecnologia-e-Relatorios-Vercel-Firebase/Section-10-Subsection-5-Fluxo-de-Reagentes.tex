@@ -1570,9 +1570,9 @@ export const repetirPesagemDevolucaoAnomala = onCall(async (request) => {
     }
     const efetiva = dados.pesoNovaMedicao;
     const densidade = emprestimo.densidade_aplicada; // snapshot historico
-    const medidaUtilizada = densidade
-      ? Math.max(0, emprestimo.peso_saida - efetiva) / densidade
-      : Math.max(0, emprestimo.peso_saida - efetiva);
+    // Consumo = perda bruta menos evaporacao (registrada separadamente); nunca negativo.
+    const consumoG = Math.max(0, emprestimo.peso_saida - efetiva - (emprestimo.peso_perda_evaporacao || 0));
+    const medidaUtilizada = densidade ? consumoG / densidade : consumoG;
     finalizarPendenciaMetrologicaTx(tx, emprestimoRef, emprestimo, {
       pesoRetornoEfetivo: efetiva, medidaUtilizada, motivo: dados.motivo,
     });
