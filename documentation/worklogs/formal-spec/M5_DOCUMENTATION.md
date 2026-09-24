@@ -10,6 +10,13 @@ posterior ao do PDF (`eb7ad016` + 1), resolvido com
 `git log -1 --format=%H --grep="record M5 documentation validation"`.
 M5 = DOCUMENTATION_VALIDATED; M6 = NOT_STARTED.
 
+Correção pós-auditoria independente (M5-F05..M5-F08): HEAD de entrada
+`83157c663f74d1ef3919cc8ab0b41fc3d60f07d6`; commits `6ce31a36` (domínio de
+reencontro + terminalidade, Seções 4/7), `224d2872` (pseudocódigo + UI-16,
+Seções 10.5/8), `7bdefac4` (casos de regressão, Seção 9) e `1d88970f`
+(`main.pdf`); HEAD de saída = commit documental seguinte (`1d88970f` + 1),
+resolvido com `git log -1 --format=%H --grep="M5 findings M5-F05"`.
+
 Esta rodada é **exclusivamente documental**. NÃO formaliza M5 em CUE/Alloy/Rust
 e NÃO altera `frontend/`, `functions/`, `firestore.rules`, `storage.rules`,
 `firebase.json`, `.firebaserc`, `specification/`, `tools/`, código Rust, scripts
@@ -51,10 +58,12 @@ descarte e justificativas); `Section-8` (UI-07/UI-14); `Section-9` (exemplos);
   `peso_saida` preservado; `massa_perda_estimada_g` só com tara conhecida e como
   estimativa (fronteira M6).
 - **Reencontro.** Só de `EXTRAVIADO`; novo fato físico; estado constatado
-  `ABERTO`/`FECHADO` (`FECHADO` só se nunca houve abertura); entra
-  compulsoriamente em `em_quarentena = TRUE` + `INDISPONIVEL`; não reabre
-  empréstimo; preserva saldo e `vencido`; encontrado aberto sem data marca
-  `abertura_historica_desconhecida`/`validade_desconhecida` sem inventar data.
+  `ABERTO`/`FECHADO`/`VAZIO`/`QUEBRADO`, validado contra o último estado antes do
+  extravio (`FECHADO` só se antes `FECHADO` e sem abertura; `ABERTO` se antes
+  `ABERTO`/`FECHADO`, marcando abertura desconhecida no segundo caso; `VAZIO` só
+  se antes `VAZIO`; `QUEBRADO` é quebra constatada); entra compulsoriamente em
+  `em_quarentena = TRUE` + `INDISPONIVEL`; não reabre empréstimo; preserva saldo e
+  `vencido`; não inventa `VAZIO`/saldo/tara quando apenas parece vazio.
 - **Validade no reencontro.** Lê o estado persistido `Frasco_Reagente.vencido`;
   não recalcula pelo relógio, não introduz segunda autoridade temporal e não
   antecipa as correções da V2.
@@ -136,11 +145,42 @@ temporal foi introduzida.
 | M5-F02 | `TRADUCAO_DOCUMENTAL_INCORRETA` | Pseudocódigo de extravio gravava `medida_utilizada: 0` e `data_devolucao_efetuada` (retorno físico) e calculava `massa_perda_estimada_g` mesmo sem tara, contradizendo "extravio não é consumo nem devolução física". | Corrigido: `medida_utilizada: null`, `data_devolucao_efetuada` nulo, estimativa só com tara conhecida. |
 | M5-F03 | `TRADUCAO_DOCUMENTAL_INCORRETA` + `DIVERGENCIA_IMPLEMENTACAO_FUTURA` | Pseudocódigo de reencontro recalculava vencimento por `validadeCalculada <= agora` e gravava `vencido`, criando segunda autoridade temporal. O mesmo padrão existe em `functions/src/reagentes.ts` (não alterado). | Documentação corrigida para ler o persistido; a implementação permanece dívida futura. |
 | M5-F04 | `ERRO_MECANICO` | `registrarExtravio` não bloqueava `DESCARTADO`, apesar da terminalidade consolidada; `FECHADO` no reencontro não era validado contra abertura conhecida. | Guards adicionados ao pseudocódigo. |
+| M5-F05 | `CONTRADICAO_NORMATIVA` | O reencontro só aceitava estado constatado `ABERTO`/`FECHADO`, embora `VAZIO` e `QUEBRADO` possam ser extraviados; isso forçava transições físicas inexistentes (`VAZIO`/`QUEBRADO` → `ABERTO`/`FECHADO`). | Reencontro passou a validar o estado constatado (`ABERTO`/`FECHADO`/`VAZIO`/`QUEBRADO`) contra o último estado antes do extravio, obtido da trilha histórica; transições impossíveis são rejeitadas. |
+| M5-F06 | `TRADUCAO_DOCUMENTAL_INCORRETA` | Texto dizia que "VAZIO confirmado, QUEBRADO e DESCARTADO seguem a semântica terminal", contradizendo a formalização M2.2, na qual só `DESCARTADO` é terminal. | Reformulado em Seções 4 e 7: `VAZIO` e `QUEBRADO` são fisicamente não utilizáveis/indisponíveis, mas não terminais; só `DESCARTADO` é terminal. Nenhuma formalização M2 alterada. |
+| M5-F07 | `ERRO_MECANICO` | `FORMAL_SPEC_STATE.md` ainda afirmava, como estado corrente, que M5 "permanece NOT_STARTED". | Substituído pelo estado corrente `DOCUMENTATION_VALIDATED`, com a formalização executável registrada como dívida futura. |
+| M5-F08 | `TRADUCAO_DOCUMENTAL_INCORRETA` | A "Próxima ação EXATA" mandava formalizar M5 (CUE/Alloy/Rust), incompatível com a estratégia de fechar documentalmente até M12. | Próxima ação alterada para `INICIAR M6 DOCUMENTAL — Q06 / tara / metrologia quantitativa`; a formalização de M5 permanece como dívida futura. |
 
-Nenhum finding foi classificado como `CONTRADICAO_NORMATIVA` ou
-`LACUNA_DE_DOMINIO`; portanto nenhuma HQ foi aberta. Observação residual: se
-relatórios futuros precisarem de um instante de encerramento no próprio
-empréstimo, o evento histórico/operação é a fonte; não bloqueia M5.
+Nenhum finding foi classificado como `LACUNA_DE_DOMINIO`; portanto nenhuma HQ foi
+aberta. Observação residual: se relatórios futuros precisarem de um instante de
+encerramento no próprio empréstimo, o evento histórico/operação é a fonte; não
+bloqueia M5.
+
+## Correção pós-auditoria independente (M5-F05..M5-F08)
+
+Após a primeira validação, uma auditoria independente apontou que o domínio de
+reencontro era incompleto para `VAZIO`/`QUEBRADO`, que a terminologia de
+terminalidade estava incorreta e que o estado/estratégia no
+`FORMAL_SPEC_STATE.md` estavam obsoletos. Correções aplicadas, exclusivamente
+documentais:
+
+- Reencontro valida `estadoConstatadoAoReencontrar` contra
+  `estadoAntesDoExtravio`, reconstruído da trilha histórica ordenada (sem nova
+  coluna, sem reescrever o evento anterior):
+  - `FECHADO` só se antes era `FECHADO` e sem abertura conhecida;
+  - `ABERTO` se antes era `ABERTO` ou `FECHADO` (neste caso marca
+    `abertura_historica_desconhecida`, `validade_desconhecida`,
+    `validade_efetiva = null` e `data_abertura = null`);
+  - `VAZIO` só se antes era `VAZIO`;
+  - `QUEBRADO` representa quebra física constatada;
+  - transições impossíveis (`ABERTO`/`VAZIO`/`QUEBRADO` → `FECHADO`;
+    `VAZIO`/`QUEBRADO` → `ABERTO`) são rejeitadas.
+- Frasco não previamente `VAZIO` que pareça vazio: M5 não inventa `VAZIO`,
+  `saldo = 0` nem tara nova; mantém quarentena e remete a confirmação a M6.
+- `VOLTAR_A_DISPONIVEL` nunca libera `VAZIO`, `QUEBRADO` ou `DESCARTADO`;
+  `VAZIO`/`QUEBRADO` só podem manter quarentena ou seguir para
+  `PENDENTE_DE_DESCARTE`.
+- Terminalidade: apenas `DESCARTADO` é terminal.
+- `FORMAL_SPEC_STATE.md`: estado corrente de M5 e próxima ação corrigidos.
 
 ## Divergências de implementação observadas (não corrigidas)
 
