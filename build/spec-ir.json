@@ -1901,6 +1901,228 @@
                 "claim_versao": 4,
                 "claims_pendentes": false
             }
+        },
+        {
+            "arquivo": "formal_m10_patrimonio",
+            "entidade": "M10_Patrimonio",
+            "etapa": "formalização executável M10",
+            "escopo": "Shapes estruturais de bem, resumo catalográfico, requisições de adição/edição, lock, baixa, evento histórico e alteração. CUE verifica campos, enums, nulabilidade e limites locais; identidade Resumo x Bem, máquina de estados, locks, unicidade permanente, versionamento, terminalidade e composição M7/M9 são verificados em Alloy; canonicalização de plaqueta e proveniência por Rust. CUE não prova concorrência temporal.",
+            "campos": [
+                {
+                    "tipo": "string",
+                    "nome": "id_resumo_bem_patrimonial",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "FK do modelo catalográfico compartilhado.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "numero_patrimonio",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Plaqueta canônica trim().toUpperCase(), não vazia, no máximo 30 caracteres.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "estado_conservacao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "BOM",
+                        "REGULAR",
+                        "RUIM"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_local",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Autoridade de localização; predio/andar/sala são projeções derivadas.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "photo_url",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Foto obrigatória da unidade física; validação binária pertence ao backend.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "documento_dado_baixa_pdf_url",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Nulo antes da baixa; vinculado e imutável no estado terminal.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "nome_responsavel_sei",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Responsável institucional; no máximo 150 caracteres.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "status",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "Ativo",
+                        "Inservivel",
+                        "Ja_dado_baixa"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "descricao_complementar",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Observação da unidade física; no máximo 200 caracteres.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "int",
+                    "nome": "versao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "Inicia em 1; incrementa somente em fato canônico, nunca em fan-out derivado.",
+                    "positivo": true,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "numero_patrimonio_proposto",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Plaqueta bruta informada na requisição de adição.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "numero_patrimonio_normalizado",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "N(proposto) = trim().toUpperCase(); única chave de lock e Chaves_Unicas.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "int",
+                    "nome": "versao_bem_origem",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "Versão observada para controle otimista de edição.",
+                    "positivo": true,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_requisicao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Requisição proprietária do lock; precisa coincidir antes da liberação.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "tipo_lock",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "EDICAO",
+                        "ADICAO"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "chave_recurso",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "ID do bem (edição) ou plaqueta normalizada (adição).",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "tipo_historico",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "cadastro",
+                        "edicao",
+                        "baixa"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                }
+            ],
+            "exemplo": {
+                "id_resumo_bem_patrimonial": "resumo-1",
+                "numero_patrimonio": "ABC-123",
+                "estado_conservacao": "BOM",
+                "id_local": "local-1",
+                "photo_url": "gs://lcqui/fotos/bem-1.jpg",
+                "documento_dado_baixa_pdf_url": null,
+                "nome_responsavel_sei": "Maria Silva",
+                "status": "Ativo",
+                "descricao_complementar": null,
+                "versao": 1
+            }
         }
     ]
 }
