@@ -9,6 +9,7 @@ mod latex;
 mod render;
 mod validation;
 mod validation_m10;
+mod validation_m11;
 mod validation_m2;
 mod validation_m24;
 mod validation_m3;
@@ -46,6 +47,39 @@ fn m10_plaqueta_canonica(ir: &ir::Ir) -> bool {
     }
 }
 
+/// Invariante concreto de M11: o exemplo do IR deve satisfazer as regras
+/// estruturais da turma — `capacidade >= 1`, `semestre` em {1, 2},
+/// `qtd_alunos >= 0`, `versao >= 1` e `status` em {Ativo, Arquivada}. Liga os
+/// campos do shape CUE à proveniência gerada sem depender do backend.
+fn m11_exemplo_valido(ir: &ir::Ir) -> bool {
+    match ir
+        .entidades
+        .iter()
+        .find(|e| e.arquivo == "formal_m11_turmas")
+    {
+        Some(entity) => {
+            let inteiro = |k: &str| entity.exemplo.get(k).and_then(|v| v.as_i64());
+            match (
+                inteiro("capacidade"),
+                inteiro("semestre"),
+                inteiro("qtd_alunos"),
+                inteiro("versao"),
+            ) {
+                (Some(cap), Some(sem), Some(qtd), Some(vers)) => {
+                    let status = entity.exemplo.get("status").and_then(|v| v.as_str());
+                    cap >= 1
+                        && matches!(sem, 1 | 2)
+                        && qtd >= 0
+                        && vers >= 1
+                        && matches!(status, Some("Ativo" | "Arquivada"))
+                }
+                _ => false,
+            }
+        }
+        None => false,
+    }
+}
+
 fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let raw = fs::read(root.join("build/spec-ir.json"))?;
     let results = fs::read(root.join("build/formal-validation.json"))?;
@@ -59,6 +93,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let results_m8 = fs::read(root.join("build/formal-validation-m8.json"))?;
     let results_m9 = fs::read(root.join("build/formal-validation-m9.json"))?;
     let results_m10 = fs::read(root.join("build/formal-validation-m10.json"))?;
+    let results_m11 = fs::read(root.join("build/formal-validation-m11.json"))?;
     let ir = ir::parse(&raw)?;
     let v: validation::Validation = serde_json::from_slice(&results)?;
     let v2: validation_m2::ValidationM2 = serde_json::from_slice(&results_m2)?;
@@ -71,6 +106,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let v8: validation_m8::ValidationM8 = serde_json::from_slice(&results_m8)?;
     let v9: validation_m9::ValidationM9 = serde_json::from_slice(&results_m9)?;
     let v10: validation_m10::ValidationM10 = serde_json::from_slice(&results_m10)?;
+    let v11: validation_m11::ValidationM11 = serde_json::from_slice(&results_m11)?;
     let identity = fs::read(root.join("specification/alloy/reagents/bottle_identity.als"))?;
     let state = fs::read(root.join("specification/alloy/reagents/bottle_state.als"))?;
     let withdrawal = fs::read(root.join(validation_m24::ORIGINS[0]))?;
@@ -83,6 +119,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let m8_model = fs::read(root.join(validation_m8::MODEL))?;
     let m9_model = fs::read(root.join(validation_m9::MODEL))?;
     let m10_model = fs::read(root.join(validation_m10::MODEL))?;
+    let m11_model = fs::read(root.join(validation_m11::MODEL))?;
     let m4_origins = validation_m4::ORIGINS.map(|p| fs::read(root.join(p)).unwrap());
     if !ir.valid()
         || !ir.provenance_ok()
@@ -98,7 +135,9 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
         || !v8.check(&raw, &m8_model)
         || !v9.check(&raw, &m9_model)
         || !v10.check(&raw, &m10_model)
+        || !v11.check(&raw, &m11_model)
         || !m10_plaqueta_canonica(&ir)
+        || !m11_exemplo_valido(&ir)
     {
         return Err("IR ou validação inválida/stale; execute alloy-check".into());
     }
@@ -121,6 +160,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     files.insert("invariants/formal_m8.tex".into(), render::render_m8(&v8));
     files.insert("invariants/formal_m9.tex".into(), render::render_m9(&v9));
     files.insert("invariants/formal_m10.tex".into(), render::render_m10(&v10));
+    files.insert("invariants/formal_m11.tex".into(), render::render_m11(&v11));
     let entries: BTreeMap<_, _> = files
         .iter()
         .map(|(name, text)| (name.clone(), hash(text.as_bytes())))
@@ -139,6 +179,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
         "formal_validation_m8_sha256": hash(&results_m8),
         "formal_validation_m9_sha256": hash(&results_m9),
         "formal_validation_m10_sha256": hash(&results_m10),
+        "formal_validation_m11_sha256": hash(&results_m11),
         "files": entries,
     });
     files.insert(
@@ -264,6 +305,10 @@ mod tests {
                 "formal_validation_m10_sha256",
                 "build/formal-validation-m10.json",
             ),
+            (
+                "formal_validation_m11_sha256",
+                "build/formal-validation-m11.json",
+            ),
         ] {
             assert_eq!(manifest[key], hash(&fs::read(root.join(path)).unwrap()));
         }
@@ -286,6 +331,7 @@ mod tests {
             "invariants/formal_m8.tex",
             "invariants/formal_m9.tex",
             "invariants/formal_m10.tex",
+            "invariants/formal_m11.tex",
         ] {
             assert!(outputs.contains_key(name), "saída ausente: {name}");
         }

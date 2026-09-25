@@ -232,3 +232,11 @@ pub fn render_m10(v: &crate::validation_m10::ValidationM10) -> String {
         &v.resultados,
     )
 }
+
+pub fn render_m11(v: &crate::validation_m11::ValidationM11) -> String {
+    render_milestone(
+        "M11 --- turma, matrícula e convite",
+        "CUE verifica shapes de turma, vínculo canônico Aluno--Turma, espelho mínimo de consulta, evento de inclusão/exclusão, convite e chave de pendência, com enums fechados, nulabilidade, condicionais (justificativa de exceção, autoria do aceite, modo de ingresso, contexto global) e limites locais. Alloy verifica a unicidade e a reserva permanente de codigo_turma, o arquivamento e desarquivamento preservando ID/membros/código/histórico e bloqueando escrita acadêmica enquanto arquivada, o ingresso ordinário apenas com vaga estrita em turma Ativa, a exceção nominal válida que pode exceder a capacidade, a proibição de editar capacidade abaixo da ocupação (HQ-M11-001 = A), a coerência vínculo canônico--contador--espelho, a remoção e o reingresso por convite, a unicidade de pendência por (e-mail, contexto) com distinção GLOBAL/turma, expiração, reenvio, terminalidade e preservação de histórico, a idempotência M7 (retry não duplica; reuso incompatível não herda) e a composição M9 (revogação/ownership impedem commit tardio; espelho não autoriza). Rust valida proveniência, ordem exata do receipt e as regras determinísticas de capacidade/exceção e canonicalização de e-mail. A evidência não certifica Firebase, Auth, envio de e-mail, HMAC concreto, Firestore/Storage Rules, backend, índices nem concorrência sob carga.",
+        &v.resultados,
+    )
+}
