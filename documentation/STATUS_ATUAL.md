@@ -8,11 +8,11 @@ M6 e M7 foi integrada ao IR, receipts, validadores Rust, fragmentos gerados,
 **INICIAR M8 DOCUMENTAL**. Os registros abaixo são históricos quando descrevem
 M5–M7 como dívida documental.
 
-Atualizado em 24/09/2026 — documentação de M7 (Idempotência), após M6 (Q06/tara/metrologia). Estado corrente: M0–M4 = VALIDATED, M5 = DOCUMENTATION_VALIDATED, M6 = DOCUMENTATION_VALIDATED, M7 = DOCUMENTATION_VALIDATED, M8 = NOT_STARTED; próxima ação = concluir a formalização executável pré-M8; `INICIAR M8 DOCUMENTAL` somente após todos os gates. A formalização executável CUE/Alloy/Rust de M5–M7 ainda está pendente, sendo quitada nesta etapa pré-M8.
+Atualizado em 25/09/2026 — backfill executável pré-M8 concluído. Estado corrente: M0–M7 = VALIDATED, M8 = NOT_STARTED; próxima ação exata = **INICIAR M8 DOCUMENTAL**. A cadeia CUE/Alloy/Rust/LaTeX/PDF de M5–M7 passou todos os gates.
 
 ## Backfill pré-M8 — bloqueio identificado
 
-**M8 NÃO PODE INICIAR.** HQ-PRE-M8-001 e HQ-PRE-M8-002 RESOLVED: a decisão humana separou estado físico, localização e autorização operacional. EXTRAVIO preserva o estado físico, muda `situacao_localizacao` e revoga a autorização corrente; REENCONTRO localiza, impõe quarentena e exige nova autorização. Alloy corrigido: checks de coerência UNSAT e witnesses legítimos SAT nos scopes declarados, com regressão M0–M4 PASS. M5–M7 permanecem DOCUMENTATION_VALIDATED porque o backfill executável ainda não foi concluído; M8 NOT_STARTED. Evidência em `documentation/worklogs/formal-spec/PRE_M8_FORMALIZATION_BACKFILL.md`. Próxima ação imediata: concluir o backfill executável M5.
+**M8 NÃO FOI INICIADO.** HQ-PRE-M8-001 e HQ-PRE-M8-002 estão RESOLVED. A decisão humana separou estado físico, localização e autorização operacional. EXTRAVIO preserva o estado físico, muda `situacao_localizacao` e revoga a autorização corrente; REENCONTRO localiza, impõe quarentena e exige nova autorização. O backfill executável M5–M7 está concluído e M0–M7 = VALIDATED. Evidência em `documentation/worklogs/formal-spec/PRE_M8_FORMALIZATION_BACKFILL.md`. Próxima ação exata: **INICIAR M8 DOCUMENTAL**.
 
 ## M7 documental (Idempotência)
 

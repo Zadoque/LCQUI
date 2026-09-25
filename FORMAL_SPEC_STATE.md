@@ -1,9 +1,9 @@
 # LCQUI — Formal Specification State
 
 ## 1. Propósito desta fase
-M4 = VALIDATED (Retirada/devolução completas, com erratum pré-M5); M3 = VALIDATED (com erratum pré-M5); M2 = VALIDATED. M5 = DOCUMENTATION_VALIDATED (extravio/reencontro/quarentena). M6 = DOCUMENTATION_VALIDATED (Q06/tara/metrologia; três rotas; sem correção administrativa metrológica na V1). M7 = DOCUMENTATION_VALIDATED (idempotência: contrato global de comandos/eventos/jobs/materializações; M8 = NOT_STARTED). A reconciliação pré-M7 foi concluída (`documentation/worklogs/formal-spec/PRE_M7_RECONCILIATION.md`, PASS). A reconciliação pré-M5 (entrada `e8c36660`; commits `3213c48a`..`f23adc81` + registro documental) adicionou o snapshot `vencido_na_retirada`, tornou o vencimento persistido a autoridade da devolução, removeu `Devolucao.vencidoNoRetorno`, formalizou a classificação do retorno e especificou o catálogo JSON (V1) e as features V2. Registro em `documentation/worklogs/formal-spec/PRE_M5_RECONCILIATION.md`; errata em `M3_VALIDATION.md` e `M4_VALIDATION.md`. Entrada M3: `158cb91f77b8301274c63e4ee8e384249721a5ba`. Entrada M4: `0bf3c68fc6a0470c69faca3ed857d14079a8a533`. Os parágrafos abaixo preservam o contexto histórico da fase.
+M0 = VALIDATED; M1 = VALIDATED; M2 = VALIDATED; M3 = VALIDATED; M4 = VALIDATED; M5 = VALIDATED; M6 = VALIDATED; M7 = VALIDATED; M8 = NOT_STARTED. A cadeia executável CUE → IR → Alloy → receipts → Rust → LaTeX → PDF de M5–M7 foi concluída com todos os gates PASS. Próxima ação exata: **INICIAR M8 DOCUMENTAL**. Os parágrafos abaixo preservam o contexto histórico da fase.
 
-Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. M2 encerrado com composição M0 × M2.2 em `bottle_composition.als`; evidência M2.4 validada pelo Rust. M3 migrou `Emprestimo_Reagente` (**34 colunas** após o erratum pré-M5), sua máquina de status (`loan_state.als`) e a evidência M3. M4 compôs Frasco e Emprestimo nas operações de retirada e devolução (`withdrawal_return.als`, erratum pré-M5). M5, M6 e M7 documentais foram consolidados (`DOCUMENTATION_VALIDATED`). A formalização executável CUE/Alloy/Rust de M5–M7 ainda está pendente, sendo quitada nesta etapa pré-M8. M8 = NOT_STARTED; sua entrada depende dos gates completos desta etapa.
+Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. M5, M6 e M7 agora possuem contratos CUE, IR v3, modelos Alloy, receipts verificáveis, validators Rust, fragmentos gerados e capítulos integrados ao PDF. M8 = NOT_STARTED e não foi iniciado.
 
 ## 2. Baseline congelado da Fase 3B
 - FUNCTIONAL_SHA = db29ea2f17dc785fb0b44ffb3aec16db29c45e94
@@ -65,9 +65,9 @@ Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spaw
 | M2 | Frasco completo (M2.0–M2.4 validados) | VALIDATED |
 | M3 | Empréstimo | VALIDATED |
 | M4 | Retirada/devolução completas | VALIDATED |
-| M5 | Extravio/reencontro/quarentena | DOCUMENTATION_VALIDATED |
-| M6 | Q06/tara | DOCUMENTATION_VALIDATED |
-| M7 | Idempotência | DOCUMENTATION_VALIDATED |
+| M5 | Extravio/reencontro/quarentena | VALIDATED |
+| M6 | Q06/tara | VALIDATED |
+| M7 | Idempotência | VALIDATED |
 | M8 | Estoque/escassez/notificações | NOT_STARTED |
 | M9 | Autorização/usuários | NOT_STARTED |
 | M10 | Patrimônio | NOT_STARTED |
@@ -75,7 +75,7 @@ Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spaw
 | M12 | Integração/redução de duplicação normativa | NOT_STARTED |
 
 ## 9. Milestone atual
-M4 VALIDATED (Retirada/devolução completas, com erratum pré-M5). M3 VALIDATED (com erratum pré-M5); M5 = DOCUMENTATION_VALIDATED; M6 = DOCUMENTATION_VALIDATED; M7 = DOCUMENTATION_VALIDATED. Registro completo em `M4_VALIDATION.md`, `PRE_M5_RECONCILIATION.md`, `M5_DOCUMENTATION.md`, `M6_DOCUMENTATION.md` e `M7_DOCUMENTATION.md`.
+M4 VALIDATED (Retirada/devolução completas, com erratum pré-M5). M3 VALIDATED (com erratum pré-M5); M5 = VALIDATED; M6 = VALIDATED; M7 = VALIDATED. Registro completo em `M4_VALIDATION.md`, `PRE_M5_RECONCILIATION.md`, `M5_DOCUMENTATION.md`, `M6_DOCUMENTATION.md`, `M7_DOCUMENTATION.md` e nos worklogs executáveis M5–M7.
 
 - M7 = DOCUMENTATION_VALIDATED (entrada `f6032a60`): contrato global de idempotência. Identidade de comando `(uid, tipo_operacao, payload_hash)`; `idOperacao` opaco obrigatório, criado antes da primeira tentativa e reutilizado em retry; canonicalização determinística `canonicalize` (objetos ordenados recursivamente, arrays preservados, null ≠ ausente, undefined ≡ ausente, sem normalização de domínio) e `hashPayload = SHA-256(tipo_operacao + "\n" + canonicalize(payload))`; estados `PENDENTE/CONCLUIDA/FALHOU` (comando atômico grava direto `CONCLUIDA`); efeitos externos pós-commit/outbox; triggers deduplicados por `eventId` (``efeito observado único'', não exactly-once); jobs por chave determinística (`create`) ou recomputação absoluta; materializações substituem sem dupla soma; etiquetas/PDF com `idOperacao` obrigatório e caminho determinístico; retirada/devolução/abertura, M5 e as três rotas M6 passaram a seguir o contrato. Matriz de 24 casos; 3 auditorias integrais consecutivas limpas. Findings M7-F01..F10 resolvidos (F10 = divergência de implementação registrada); nenhuma HQ; PDF 341 páginas. Formalização executável pendente (dívida futura).
 
