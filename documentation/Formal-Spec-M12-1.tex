@@ -1,0 +1,70 @@
+\clearpage
+\section{Especificação formal M12.1: posts, comentários e moderação}
+\label{sec:formal-m12-1}
+\sloppy
+
+M12.1 formaliza o alvo normativo de Post, Comentário, edição, moderação/remoção
+lógica, históricos e leitura com máscara (RF19, RF20, UI-11, Q08/Q10/Q11/Q13),
+na composição com M7 (idempotência), M9 (autorização no commit) e M11 (vínculo
+canônico/status da Turma). A evidência cobre somente o modelo formal declarado.
+
+\subsection*{CUE}
+O contrato CUE (\texttt{\#M12\_1Contrato}) verifica shapes de Post, Comentário,
+históricos de edição/moderação, projeção de leitura, efeito mínimo de
+notificação e identidade de comando, com enums fechados, nulabilidade,
+condicionais (remoção lógica, edição, moderação, tipo de histórico, visão de
+leitura) e limites: título 1--150, descrição 1--10\,000, texto 1--2\,000. CUE
+não prova concorrência nem ACL de Roteiros (M12.2).
+
+\subsection*{Autoria, participação e turma arquivada}
+Post pertence à Turma e ao professor dono; Comentário pertence ao Post e ao
+autor. A participação acadêmica é o vínculo canônico atual (M11), nunca o
+espelho. Somente o professor dono cria/edita Post; o autor edita o próprio
+Comentário; o Chefe intervém apenas por Q13 (moderação/remoção com motivo e
+auditoria), sem assumir autoria nem criar Post. Turma \texttt{Arquivada} nega
+toda escrita acadêmica, inclusive moderação e para o Chefe (Q08).
+
+\subsection*{Edição, remoção lógica e históricos}
+Editar preserva a autoria e grava evento imutável em
+\texttt{Historico\_Posts\_Turma}/\texttt{Historico\_Comentario}
+(\texttt{edicao}/\texttt{moderacao}) com operador e timestamp. Remover Post é
+lógico: preserva documento e histórico (RF25) e o oculta dos colegas, mantendo-o
+acessível ao professor dono e à chefia. Nenhuma transição remove histórico
+anterior; não há exclusão física nem estado de restauração.
+
+\subsection*{Moderação e máscara de leitura}
+Moderar Comentário grava \texttt{moderado}, motivo, moderador e instante sem
+apagar o original. A lista autorizada revalida vínculo/estado: o autor vê o
+original marcado, colegas veem aviso institucional e professor dono/Chefe veem
+original e histórico. A edição posterior pelo autor não desfaz a moderação.
+\texttt{ColegaNaoVeOriginalModerado}, \texttt{AutorVeOriginalMarcado} e
+\texttt{AuditorVeOriginal} fixam a máscara; leitura exige vínculo, autoria,
+ownership ou chefia.
+
+\subsection*{Fronteira M12.2, notificação e composição}
+O snapshot \texttt{roteiro\_anexo} é fronteira: publicar com roteiro exige o
+predicado abstrato \texttt{acessoRoteiroValidado}; a ACL/Storage/URL de Roteiros
+não são provadas aqui. A \texttt{POST}/\texttt{COMENTARIO} entra apenas como
+efeito mínimo de notificação, sem conteúdo protegido e sem autorizar leitura; a
+caixa, fan-out, expiração e marcação de lida são M13. A composição M7 impede
+retry de duplicar histórico/notificação e reuso incompatível de herdar receipt;
+M9 faz a revogação de vínculo impedir o commit posterior.
+
+\subsection*{Responsabilidade das camadas e limites}
+CUE valida shapes e limites. Alloy valida autoria, participação canônica,
+turma arquivada somente leitura, edição/remoção/histórico, moderação e máscara,
+fronteira abstrata de roteiro e composição M7/M9. Rust valida proveniência,
+ordem exata do receipt e as regras determinísticas de limite, exclusividade de
+edição e máscara. A evidência \textbf{não} certifica \texttt{functions/},
+frontend, Firestore/Storage Rules, Auth, Storage, a ACL completa de Roteiros
+(M12.2), a caixa de notificações (M13) nem concorrência real.
+
+\begingroup\small\raggedright
+\input{generated/entities/formal_m12_1_posts.tex}
+\input{generated/invariants/formal_m12_1.tex}
+\par\endgroup
+
+\subsection*{Limites}
+Esta evidência prova somente o modelo formal no escopo declarado e não é
+homologação da implementação real.
+\fussy

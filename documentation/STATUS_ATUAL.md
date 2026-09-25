@@ -1,13 +1,54 @@
 # Status atual do LCQUI
 
-## Estado corrente — M12.1 documental validado (Posts, comentários, edição/moderação)
+## Estado corrente — M12.1 executável validado (Posts, comentários e moderação)
+
+Cadeia executável aditiva concluída na branch `feat/formal-spec-cue-alloy`.
+HEAD de entrada: `5810dba119adbe973e54e9f5beb1c72b1159dc16`. **M12.1 =
+VALIDATED** (documental e executável); M0–M11 = VALIDATED; M12.2 = NOT_STARTED;
+M12 = NOT_STARTED (fechamento de composição/regressão M0–M11); M13 =
+NOT_STARTED (Notificação unificada). Registro em
+[worklog M12.1 executável](worklogs/formal-spec/M12_1_EXECUTABLE_VALIDATION.md).
+
+- **CUE:** `#M12_1Contrato` (Post, Comentário, históricos de edição/moderação,
+  projeção de leitura, efeito mínimo de notificação, operação); 20 fixtures
+  válidas + 15 inválidas em `specification/cue/tests/m12_1/`.
+- **IR v3 aditivo:** `formal_m12_1_posts`; hash global `b3a134a1…cb95`.
+  Receipts M0–M11 mudaram somente em `spec_ir_sha256`; só o MANIFEST e os dois
+  fragmentos M12.1 são novos.
+- **Alloy:** `specification/alloy/operations/posts_m12_1.als` — **34 checks
+  UNSAT + 13 witnesses SAT** (escopos 4/6): autoria imutável, participação por
+  vínculo canônico (M11), turma arquivada somente leitura (Q08) inclusive
+  Chefe, edição/remoção lógica com histórico imutável, moderação com máscara,
+  fronteira abstrata de roteiro (M12.2), notificação sem conteúdo, composição
+  M7/M9.
+- **Receipt:** `build/formal-validation-m12-1.json`
+  (`4c353ef3…3b88`), validado por `validation_m12_1.rs` com rejeição de
+  adulteração; testes Rust = 31.
+- **Determinismo:** duas gerações consecutivas com diff zero; `docs-check`
+  PASS.
+- **PDF:** `main.pdf` **418 páginas** (baseline 411), exit 0, zero
+  erros/referências indefinidas, 31 Overfull herdados; páginas 412–418
+  inspecionadas.
+- **Limites:** não certifica `functions/src/posts.ts`, frontend, Rules, Auth,
+  Storage, a ACL de Roteiros (M12.2) nem a caixa de notificações (M13).
+  Fronteira D-M12.1-01 (ACL de Roteiros) permanece não bloqueante.
+
+Próxima ação exata: executar M12.2 (Roteiros, compartilhamento, Storage/download
+e associação a Post) em rodada própria; depois o fechamento de M12 e, por
+último, M13. O fechamento global após M13 é um gate, sem M14 automático.
+
+## Histórico — M12.1 documental validado (Posts, comentários, edição/moderação)
 
 Rodada **exclusivamente documental**, recorte estreito de M12.1. HEAD de
 entrada: `9f5c6713114ee9ef2d77eb98f31e0788053caa7b`. Contrato normativo na
 **Seção 7.6** (`\label{sec:regras-posts-comentarios-m12-1}`), reconciliado com
 Seções 3/4/5/8/9/11, Q08/Q10/Q11/Q13, RF25 e M7/M9/M11. **M12.1 =
 DOCUMENTATION_VALIDATED**; M0–M11 = VALIDATED; M12.2 = NOT_STARTED; M12 =
-NOT_STARTED; HQs M12.1 = 0. Registro em
+NOT_STARTED; M13 = NOT_STARTED (entidade unificada `Notificacao`: leitura
+multi-role, lida/Limpar tudo, expiração, alvo/deep link com revalidação,
+privacidade e dedup V1; compõe M7/M8/M9/M12 e reutiliza a prova M8 de
+`ESCASSEZ_ESTOQUE`; fechamento global após M13 é gate, sem M14 automático);
+HQs M12.1 = 0. Registro em
 [worklog M12.1](worklogs/formal-spec/M12_1_DOCUMENTATION.md).
 
 - **Post/Comentário:** autoria imutável; professor dono cria/edita Post; autor
@@ -36,8 +77,8 @@ NOT_STARTED; HQs M12.1 = 0. Registro em
 - Dívida de implementação: `posts.ts`/Rules reais divergem do alvo (M12.1-F10).
 
 Próxima ação exata: formalização executável **M12.1** (CUE → IR → Alloy →
-receipt → Rust → LaTeX → PDF) em rodada separada; depois M12.2 e o fechamento
-M12.
+receipt → Rust → LaTeX → PDF) em rodada separada; depois M12.2, o fechamento
+M12 e M13; o fechamento global após M13 é um gate, sem M14 automático.
 
 ## Histórico — M11 executável validado (Turma, matrícula e convite)
 
