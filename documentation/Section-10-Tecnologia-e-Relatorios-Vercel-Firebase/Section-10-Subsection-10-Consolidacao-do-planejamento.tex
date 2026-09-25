@@ -113,7 +113,7 @@ export const aceitarConviteAluno = onCall(async (request) => {
     const convite = conviteDoc.data();
 
     if (convite.status !== "pendente")
-      throw new HttpsError("failed-precondition", "Convite ja aceito ou cancelado.");
+      throw new HttpsError("failed-precondition", "Convite ja aceito ou expirado.");
     if (new Date() > convite.expira_em.toDate())
       throw new HttpsError("failed-precondition", "Convite expirado.");
     if (emailNorm !== convite.email)
@@ -238,6 +238,21 @@ export const aceitarConviteAluno = onCall(async (request) => {
   // Apos commit: atualizarCustomClaims(request.auth!.uid) -- recuperavel e idempotente
 });
 \end{lstlisting}
+
+\paragraph{Contrato M11 (turmas, matrícula e convites).}
+O pseudocódigo N-12 é ilustrativo. O contrato normativo é a
+Seção~\ref{sec:regras-turmas-m11}: o vínculo canônico é
+\texttt{Turma/\{id\}/Alunos/\{uid\}} e o espelho
+\texttt{Usuarios/\{uid\}/Turmas/\{id\}} é projeção; \texttt{qtd\_alunos} é lido
+e escrito na transação, nunca recontado fora dela; o docId do convite é
+determinístico por HMAC do contexto e do e-mail normalizado, com unicidade em
+\texttt{Chaves\_Unicas}; a aceitação é única e idempotente (M7) e exige e-mail
+verificado correspondente; convite global não cria matrícula; a criação
+condicional de conta Auth e o envio de e-mail são etapas externas, pós-commit,
+recuperáveis e idempotentes; criar o registro não é enviar o e-mail. M-11
+reserva \texttt{codigo\_turma} em \texttt{Chaves\_Unicas} e arquivar não libera
+o código. O fan-out de \texttt{alterarStatusTurma} para os espelhos é
+idempotente e não é autoridade de escrita (Q08).
 
 \begin{lstlisting}[language=TypeScript, title={M-01: registrarBaixaBemPatrimonial (RF12)}]
 // M-01: Regra RF12 -- registro de baixa patrimonial após processo institucional.

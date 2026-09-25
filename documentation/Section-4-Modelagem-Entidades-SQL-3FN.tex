@@ -575,9 +575,11 @@ As seguintes informações devem ser tratadas preferencialmente como \textbf{vie
 \campo{nome\_turma}{VARCHAR(100)}{NOT NULL}
 \campo{ano}{INTEGER}{NOT NULL}
 \campo{semestre}{SMALLINT}{CHECK (semestre IN (1,2)), NOT NULL}
-\campo{capacidade}{INTEGER}{NOT NULL}
+\campo{capacidade}{INTEGER}{CHECK (capacidade > 0), NOT NULL}
 \campo{codigo\_turma}{VARCHAR(20)}{UNIQUE, NOT NULL}
 \campo{data\_criacao}{TIMESTAMP}{NOT NULL}
+\campo{qtd\_alunos}{INTEGER}{CHECK (qtd\_alunos >= 0), NOT NULL}
+\campo{versao}{INTEGER}{NOT NULL}
 \end{entidade}
 
 \begin{explicacao}
@@ -585,11 +587,27 @@ Os campos \textit{ano} e \textit{semestre} representam o per\'{i}odo letivo da t
 \end{explicacao}
 
 \begin{regra}[RN-TUR-01: Controle de Capacidade da Turma]
-O ingresso de aluno por código de turma exige obrigatoriamente que a quantidade de alunos matriculados ativos seja estritamente menor que a capacidade da turma:
+O ingresso ordinário de aluno (por código ou por convite nominal sem exceção)
+exige que a quantidade de alunos matriculados ativos seja estritamente menor
+que a capacidade da turma:
 \[
 \text{COUNT}(\text{Aluno\_x\_Turma WHERE id\_turma} = X) < \text{Turma.capacidade}
 \]
-Caso a capacidade seja atingida, o sistema rejeita o ingresso por código. Apenas o professor responsável pode ultrapassar a capacidade mediante envio de convite nominal por e-mail, registrando justificativa em auditoria.
+No modelo 3FN a grandeza é o \texttt{COUNT}; no Firestore a autoridade
+transacional é \texttt{Turma.qtd\_alunos}, lida e escrita na mesma transação que
+cria ou remove o vínculo canônico
+\texttt{Turma/\{id\}/Alunos/\{uid\}}, e não uma recontagem fora da transação.
+As duas leituras representam a mesma grandeza; divergência entre elas é
+inconsistência a reconciliar, nunca vaga adicional.
+
+Caso a capacidade seja atingida, o sistema rejeita o ingresso ordinário. Apenas
+o professor responsável pela turma pode ultrapassar a capacidade por convite
+nominal de exceção, registrando \texttt{exceder\_capacidade} e
+\texttt{justificativa\_excecao} e revalidando a exceção na aceitação; o código
+de turma não autoriza exceção. Removido anteriormente não reingressa por
+código, apenas por convite explícito, e a remoção decrementa o contador uma
+única vez, nunca abaixo de zero. O contrato completo de ingresso, remoção,
+reingresso e arquivamento está na Seção~\ref{sec:regras-turmas-m11}.
 \end{regra}
 
 \subsection{Historico de Alunos na Turma}

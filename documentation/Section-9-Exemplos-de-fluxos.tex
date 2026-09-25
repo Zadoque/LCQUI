@@ -54,7 +54,7 @@ Partindo da tela de login, o Gestor usa a busca exata pela plaqueta canônica de
 Após fazer login, o Professor está na sua dashboard. Ele clica no painel lateral esquerdo em "Turmas" e depois no botão flutuante "+ Nova Turma". Um modal simples é exibido solicitando Nome da Turma, Matéria, Ano, Semestre e Capacidade. Ele preenche "Química Orgânica I", seleciona a matéria correspondente, informa ano 2026, semestre 2 e capacidade 30, e clica em "Salvar". Um \textit{toast} de sucesso é disparado, um novo card desliza aparecendo no painel lateral, e o \textit{codigo\_turma} recém-criado pisca rapidamente na tela com um botão de "Copiar para a área de transferência".
 
 \subsubsection{Adicionando Alunos em uma turma}
-Com login feito, o Professor clica no card da turma recém-criada no painel lateral. A área central atualiza para a visão da disciplina. No header, ele clica no botão "Novo Aluno". No modal que surge, ele copia e cola os e-mails dos alunos separados por vírgula e clica em "Enviar Convites". Uma barra de carregamento é mostrada, seguida de um \textit{toast} verde informando que os acessos foram disparados por e-mail.
+Com login feito, o Professor clica no card da turma recém-criada no painel lateral. A área central atualiza para a visão da disciplina. No header, ele clica no botão "Novo Aluno". No modal que surge, ele copia e cola os e-mails dos alunos separados por vírgula e clica em "Enviar Convites". Uma barra de carregamento é mostrada e o sistema apresenta o resultado por destinatário. O \textit{toast} só afirma envio de e-mail quando o envio externo foi acionado; a criação do registro de convite, por si só, é reportada como convite registrado, sem anunciar e-mail enviado. Falhas parciais permitem repetir somente os destinatários que faltaram.
 
 \subsubsection{Criando um Post em uma turma}
 Após login, o Professor acessa a disciplina clicando nela. No topo do Feed de publicações (área central), ele clica na caixa de texto "Comece um novo post...". O componente se expande. Ele preenche título e orientações da aula, clica no ícone de "Clipe de Papel" (anexo), o que abre o modal da sua biblioteca de roteiros em PDF. Ele seleciona o "Roteiro\_Prática\_3.pdf" e clica em "Publicar". A tela rola suavemente para baixo e o novo card da publicação surge com um efeito de \textit{fade-in}, exibindo o texto e a prévia do PDF anexado.
@@ -200,6 +200,62 @@ O extravio e o reencontro são fatos distintos de liberação. Os quatro fluxos 
 
 O sistema renderiza na tela em negrito e com fundo destacado: \textbf{``Volume utilizado neste empréstimo: 4.5 mL''} ou \textbf{``Peso utilizado nesse empréstimo: 22 g''}. Ao clicar em ``Finalizar'', um sinal sonoro/visual confirma que a transação de estoque, consumo, histórico e auditoria foram concluídas.
 
+
+\subsection{Fluxos M11 --- Turmas, matrícula e convites}
+Estes exemplos são o contrato normativo da Seção~\ref{sec:regras-turmas-m11}.
+Eles são ilustrativos e não atestam a implementação.
+
+\subsubsection{Corrida pela última vaga}
+Turma com \texttt{qtd\_alunos = capacidade - 1}. Dois alunos aceitam ingressar por
+código no mesmo instante. Cada transação lê \texttt{qtd\_alunos} e valida
+\texttt{qtd\_alunos < capacidade}; o Firestore reexecuta as transações em
+conflito. A primeira commita e grava vínculo, espelho, evento e
+\texttt{qtd\_alunos + 1}. A segunda, já com \texttt{qtd\_alunos = capacidade},
+recebe \texttt{failed-precondition} e não cria vínculo, espelho, evento nem
+contador parcial.
+
+\subsubsection{Dois convites simultâneos}
+Para o mesmo par (e-mail normalizado, turma), ou para o mesmo e-mail com
+\texttt{id\_turma} \texttt{NULL}, duas criações concorrentes disputam a chave
+determinística em \texttt{Chaves\_Unicas}. A primeira cria o convite
+\texttt{pendente}; a segunda, na reexecução, encontra a chave ocupada e é
+rejeitada sem criar convite duplicado. Turmas diferentes para o mesmo e-mail
+são permitidas. Reenviar para um convite pendente substitui hash e expiração no
+mesmo documento em vez de criar outro.
+
+\subsubsection{Replay de aceite}
+O aluno aceita um convite e o vínculo é criado. Ao repetir a mesma operação
+M7, o backend encontra o receipt e devolve o resultado persistido: o convite
+permanece aceito, o vínculo já existe, o espelho está coerente e
+\texttt{qtd\_alunos} não é incrementado de novo. Convite consumido por outro
+e-mail ou já expirado é negado com erro específico, sem efeito parcial.
+
+\subsubsection{Remoção concorrente}
+Professor dono e Chefe (Q13) removem o mesmo aluno simultaneamente. A primeira
+transação apaga o vínculo canônico, o espelho, grava \texttt{exclusao\_aluno}
+com \texttt{removido\_por} e decrementa \texttt{qtd\_alunos}. A segunda
+encontra o vínculo ausente, trata o caso como idempotente e não decrementa o
+contador de novo, jamais abaixo de zero. Dois retries de remoção pela mesma
+origem seguem a mesma regra. Posts e comentários anteriores permanecem e nova
+entrada por código é bloqueada, exigindo convite explícito.
+
+\subsubsection{Arquivamento e desarquivamento}
+O professor dono arquiva uma turma com alunos. A transação grava
+\texttt{status = Arquivada} e incrementa \texttt{versao}, sem apagar membros,
+posts, comentários, histórico nem alterar \texttt{codigo\_turma}. Enquanto
+arquivada, o backend e as Rules rejeitam novo ingresso, novo convite, novo post
+e novo comentário (Q08); os espelhos dos alunos recebem \texttt{status} por
+fan-out idempotente, e espelho atrasado nunca concede escrita. O
+desarquivamento restaura \texttt{Ativo} com o mesmo ID e os mesmos vínculos.
+
+\subsubsection{Convite global}
+O professor convida um e-mail sem turma, mediante confirmação explícita. O
+convite tem \texttt{id\_turma} \texttt{NULL} e chave global própria. Ao aceitar,
+o backend garante \texttt{Usuarios} e o papel Aluno e consome o convite, mas
+\textbf{não} cria matrícula nem incrementa \texttt{qtd\_alunos}; o aluno entra
+em alguma turma depois, por código ou por outro convite. Matrícula é
+obrigatória e única na identidade final \texttt{Aluno}, opcional e não única no
+convite.
 
 \subsection{Cobertura operacional por papel e ação}
 \label{sec:fluxos-completos}

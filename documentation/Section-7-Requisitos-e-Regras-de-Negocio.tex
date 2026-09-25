@@ -240,6 +240,170 @@ baixa sem PDF/PDF inválido/Professor/duplicada; histórico de cadastro, delta e
 baixa; retry M7, revogação M9 antes do commit, claim antiga e escrita direta de
 cliente. Esses casos são critérios normativos e não atestam a implementação.
 
+% M11 -- fonte normativa de Turmas, matrícula e convites
+\subsection{Turmas, matrícula e convites (M11)}
+\label{sec:regras-turmas-m11}
+
+Esta subseção é a fonte normativa de Turma, vínculo Aluno--Turma, matrícula e
+convite de ingresso (RF17, RF18, RN-TUR-01 e UI-10). Posts, comentários,
+roteiros e notificações acadêmicas entram apenas nas fronteiras afetadas por
+essas operações; a formalização completa desses domínios permanece fora de
+M11. A autorização continua regida por M9 (Seção~\ref{sec:m9-autorizacao}), a
+idempotência por M7 e a unicidade por \texttt{Chaves\_Unicas}; nada nesta
+subseção cria bypass desses contratos.
+
+\begin{regra}[Identidade e ciclo de vida da Turma]
+\textit{Turma} é a entidade raiz \texttt{Turma/\{id\}}, com \texttt{id} gerado
+pelo servidor. \texttt{id\_professor} é o professor dono e \texttt{id\_materia}
+refere uma matéria existente, verificada no servidor, que não é recriada.
+\texttt{nome\_turma} tem no máximo 100 caracteres; \texttt{ano} é inteiro;
+\texttt{semestre} é exclusivamente 1 ou 2; \texttt{capacidade} é inteiro
+positivo; \texttt{codigo\_turma} é único, com até 20 caracteres, gerado
+exclusivamente pelo servidor; \texttt{status} pertence a \{Ativo, Arquivada\};
+\texttt{data\_criacao}, \texttt{versao} (inteiro positivo) e \texttt{qtd\_alunos}
+(inteiro não negativo) completam o registro.
+
+A criação ordinária é feita pelo professor autenticado para si
+(\texttt{id\_professor} = UID). Criar turma em nome de outro professor é
+intervenção excepcional M9/Q13, auditada, com o dono registrado explicitamente;
+a autoria não é transferida a quem não é o professor dono. Só o professor dono,
+em regra, lê e altera a turma; o Chefe lê e intervém apenas nos limites de Q13.
+Aluno de turma alheia não lê a turma.
+
+Arquivar e desarquivar alteram \texttt{status} e incrementam \texttt{versao},
+preservando \texttt{id}, membros, posts, comentários, histórico,
+\texttt{qtd\_alunos} e \texttt{codigo\_turma}; arquivar não libera o código para
+reuso. Arquivar com alunos matriculados é permitido e não é desligamento:
+todos os vínculos canônicos permanecem. Turma arquivada é somente leitura
+(Q08): o backend e as Rules rejeitam novo ingresso, novo convite de turma, novo
+post e novo comentário, sem apagar dados. A inclusão ou remoção de membro
+altera \texttt{qtd\_alunos}, vínculo e histórico, mas não é edição dos metadados
+da turma e não incrementa \texttt{versao} por si; somente criação,
+arquivamento/desarquivamento e edição de metadados o fazem.
+\end{regra}
+
+\begin{regra}[Matrícula canônica, espelho e contador]
+\texttt{Turma/\{id\}/Alunos/\{uid\}} é o vínculo canônico e a única autoridade
+de matrícula, presença e acesso acadêmico. \texttt{Usuarios/\{uid\}/Turmas/\{id\}}
+é projeção de consulta que alimenta ``Minhas Turmas'' em tempo real; ela nunca
+autoriza e nunca substitui o vínculo canônico (M9).
+
+\texttt{qtd\_alunos} é o contador transacional do vínculo ativo. A leitura 3FN
+\texttt{COUNT(Aluno\_x\_Turma WHERE id\_turma = X)} e \texttt{qtd\_alunos}
+representam a mesma grandeza; na V1 a autoridade de vagas é
+\texttt{qtd\_alunos}, lido e escrito na mesma transação que cria ou remove o
+vínculo. Consultar a subcoleção \texttt{Alunos} ou recontar vínculos fora da
+transação não é autoridade de vaga, pelo custo O(N) e pela concorrência.
+Divergência entre \texttt{qtd\_alunos} e o número de vínculos canônicos é
+inconsistência a reconciliar, nunca vaga adicional.
+
+Ingresso, remoção e restauração de acesso atualizam, numa única transação, o
+vínculo canônico, o espelho, \texttt{qtd\_alunos}, o evento em
+\texttt{Historico\_Alunos\_Turma}, a auditoria e o receipt M7. Evento,
+notificação ou espelho não criam matrícula por si. Nome e foto vistos por
+colegas são projeções mínimas, sem matrícula nem e-mail.
+
+Remover aluno: o professor dono desvincula (Chefe apenas por Q13). A transação
+exclui o vínculo canônico e o espelho, grava \texttt{exclusao\_aluno} com
+\texttt{removido\_por} e decrementa \texttt{qtd\_alunos} somente se o vínculo
+existia, nunca abaixo de zero. Posts, comentários e autoria histórica são
+preservados. Após remoção, o ingresso por código é bloqueado; o reingresso
+exige convite explícito. Leitura de dado protegido após a remoção consulta o
+vínculo canônico atual; sessão, claim ou cache antigos não restauram acesso.
+
+Repetição (M7): reingressar quando já matriculado devolve o resultado
+persistido e o acesso à turma, sem duplicar vínculo nem contagem; remover duas
+vezes é idempotente e a segunda tentativa não gera decremento extra. O perdedor
+de uma corrida recebe erro recuperável, nunca matrícula parcial.
+\end{regra}
+
+\begin{regra}[Capacidade, concorrência e exceção nominal]
+O ingresso ordinário, por código ou por convite nominal sem exceção, exige no
+commit da transação \texttt{qtd\_alunos < capacidade}. Na corrida pela última
+vaga, o Firestore reexecuta a transação, um único commit cria o vínculo e o
+perdedor recebe \texttt{failed-precondition} sem matrícula parcial.
+
+Somente convite nominal válido, emitido pelo professor dono, com
+\texttt{exceder\_capacidade = true} e \texttt{justificativa\_excecao}
+persistida, pode ultrapassar a capacidade; a exceção é revalidada na aceitação.
+Ela é específica daquele convite e daquela identidade, não é estado global da
+turma nem passe livre por posse do código. Convite sem exceção continua sujeito
+a vaga, e o código de turma nunca autoriza exceção.
+
+Redução de capacidade: é proibido reduzir \texttt{capacidade} para valor menor
+que \texttt{qtd\_alunos}; o servidor rejeita, fail-closed, com erro recuperável
+e orienta remover membros antes ou manter a capacidade. Assim não há expulsão
+implícita de alunos nem vaga negativa, e a capacidade nunca fica abaixo da
+ocupação. \texttt{qtd\_alunos} nunca é negativo e pode ser reconciliado com os
+vínculos canônicos.
+\end{regra}
+
+\begin{regra}[Convites: token, unicidade e fronteira externa]
+\texttt{Convite\_Aluno/\{id\}} é coleção raiz; \texttt{id\_turma} \texttt{NULL}
+identifica convite global. O e-mail é armazenado normalizado; o token aleatório
+de 32 bytes (CSPRNG) é guardado apenas como hash SHA-256, comparado em tempo
+constante, com expiração de sete dias, status \texttt{pendente}, \texttt{aceitado}
+ou \texttt{expirado}, \texttt{convidado\_por}, \texttt{convidado\_em},
+\texttt{numero\_matricula} opcional, \texttt{exceder\_capacidade} e
+\texttt{justificativa\_excecao}, \texttt{aceitado\_por} e \texttt{aceitado\_em}.
+O docId é determinístico, derivado no servidor por HMAC-SHA-256 do contexto
+(turma ou global) e do e-mail normalizado com segredo do servidor; nunca se usa
+hash simples e previsível de e-mail como chave nem se expõe o e-mail em claro.
+
+Unicidade: no máximo um convite \texttt{pendente} por
+(\texttt{email} normalizado, \texttt{id\_turma}); para convite global, no
+máximo um pendente por e-mail normalizado com \texttt{id\_turma} \texttt{NULL}.
+A chave determinística em \texttt{Chaves\_Unicas} distingue as duas situações e
+é validada na transação. Convite aceito ou expirado não ocupa a pendência.
+Reenvio substitui hash e expiração no mesmo documento e invalida o link
+anterior. Convite de turma e convite global são distintos: aceitar convite de
+turma cria vínculo, espelho e contador; aceitar convite global não cria
+matrícula nem contador, apenas garante \texttt{Usuarios} e o papel Aluno, e o
+aluno ingressa depois por código ou por outro convite. Matrícula é obrigatória
+e única na identidade final \texttt{Aluno}, opcional e não única no convite.
+
+Expiração operacional: \texttt{expira\_em} vencido torna o convite inaceitável
+e ele deixa de contar como pendente para a unicidade; job ou reconciliação
+idempotente materializa \texttt{expirado}. Toda pendência termina por aceitação,
+expiração ou reenvio, nunca fica eterna.
+
+Fronteira Auth, Firestore e e-mail: a aceitação exige sessão com e-mail
+verificado correspondente. Criação condicional de \texttt{Usuario},
+\texttt{Aluno}, papel e vínculo e o consumo do convite ocorrem na mesma
+transação Firestore; a criação de conta Firebase Auth quando inexistente e o
+envio de e-mail são etapas externas, pós-commit, recuperáveis e idempotentes.
+Falha parcial não pode criar conta, papel, vínculo ou espelho divergente nem
+consumir o convite sem os efeitos correspondentes. Criar o registro do convite
+não é enviar o e-mail.
+\end{regra}
+
+\begin{regra}[Aceitação, reingresso e composição M7/M9]
+Aceitar convite valida, na mesma transação: convite pendente não expirado,
+e-mail verificado, identidade, status Ativo da turma, vaga ou exceção válida e
+ausência de vínculo ativo. A aceitação é única e idempotente (M7): repetir a
+aceitação devolve o resultado persistido, sem recriar vínculo nem incrementar
+\texttt{qtd\_alunos}. Convite consumido, expirado, de e-mail divergente ou de
+turma arquivada resulta em negação específica e recuperável. Aluno removido
+anteriormente só reingressa por convite explícito, nunca pelo código.
+
+Toda mutação M11 lê autorização e recurso na mesma transação (M9): professor
+dono, conta ativa e versão de permissões, com TOCTOU coberto pela reexecução da
+transação; operação iniciada antes de revogação não grava depois dela. UI-10 e
+a Seção~\ref{sec:fluxos-completos} são UX: botões, código e navegação não
+autorizam. O frontend não afirma envio de e-mail quando apenas o registro foi
+criado e distingue carregamento, sucesso, vazio, erro e negação.
+\end{regra}
+
+\paragraph{Casos de regressão M11.}
+Cobrir: corrida pela última vaga; dois convites simultâneos para o mesmo
+(e-mail, turma) e para o global; replay de aceite; remoção concorrente e dupla;
+arquivamento com ocupação, desarquivamento e escrita em turma arquivada; convite
+global sem matrícula; ingresso de removido por código (negado) e por convite
+(exceção válida); exceção de capacidade com e sem justificativa; redução de
+capacidade abaixo da ocupação; contador nunca negativo; espelho ou cache
+desatualizado não autoriza; retry M7 e revogação M9 antes do commit. Esses
+casos são critérios normativos e não atestam a implementação.
+
 \subsubsection{Seleção do tipo em Resumo de Reagente}
 \begin{regra}
 Ao cadastrar uma \textit{Especificacao\_Reagente}, o estado físico do resumo (\texttt{SOLIDO} ou \texttt{LIQUIDO}) determina quais campos operacionais de frasco serão apresentados. O tipo de substância (\texttt{PURA} ou \texttt{MISTURA}) determina as propriedades químicas obrigatórias, conforme a matriz de obrigatoriedade. DP-A01: estado físico e higroscopicidade pertencem ao resumo; unidade é derivada e densidade permanece na especificação. \\
