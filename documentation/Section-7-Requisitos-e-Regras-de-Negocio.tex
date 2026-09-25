@@ -204,7 +204,7 @@ Consolidação normativa do ciclo de extravio, reencontro e quarentena. As opera
     \item \textbf{Saídas da quarentena.} O conjunto é fechado: (i) \texttt{VOLTAR\_A\_DISPONIVEL}, que encerra a quarentena, devolve \texttt{DISPONIVEL} e exige estado físico \texttt{ABERTO}/\texttt{FECHADO}, ausência de pendência metrológica e que o frasco não esteja vencido sem uso autorizado; (ii) \texttt{PENDENTE\_DE\_DESCARTE}, que encerra a quarentena, mantém \texttt{INDISPONIVEL} e cria a autorização operacional estruturada consumida por \texttt{descartarFrasco} (HQ-M2-008/B); (iii) \textbf{permanência} em quarentena, que não é uma decisão de saída e mantém o bloqueio. \texttt{VOLTAR\_A\_DISPONIVEL} \textbf{nunca} pode liberar \texttt{VAZIO}, \texttt{QUEBRADO} ou \texttt{DESCARTADO}; para frasco reencontrado \texttt{VAZIO} ou \texttt{QUEBRADO}, a resolução só pode manter a quarentena ou produzir \texttt{PENDENTE\_DE\_DESCARTE}. Nenhuma saída revalida, renova, estende ou zera o vencimento, e nenhuma delas volta o frasco a \texttt{DISPONIVEL} por conveniência. Não existe \texttt{QUARENTENA} $\rightarrow$ \texttt{DESCARTADO} direto; o descarte técnico exige a etapa \texttt{PENDENTE\_DE\_DESCARTE}.
     \item \textbf{Rastreabilidade.} Extravio, reencontro, entrada e resolução de quarentena geram eventos imutáveis no \textit{Historico\_Frasco\_Reagente} (\texttt{EXTRAVIO}, \texttt{REENCONTRO}, \texttt{ENTROU\_EM\_QUARENTENA}, \texttt{LIBERADO\_QUARENTENA}, \texttt{PENDENTE\_DE\_DESCARTE}) com frasco, almoxarifado, ator, instante, motivo e vínculo ao empréstimo quando aplicável. O reencontro não apaga o extravio; a resolução não apaga o reencontro; nada é sobrescrito. O estado anterior é o último estabelecido na própria trilha ordenada.
 \end{itemize}
-As operações críticas de M5 devem ser idempotentes por identificador operacional (fronteira M7); o mecanismo não é redesenhado aqui.
+As operações críticas de M5 seguem o contrato global de idempotência (Seção~\ref{sec:idempotencia-m7}): \texttt{idOperacao} obrigatório com identidade \texttt{(uid, tipo\_operacao, payload\_hash)}; retry não reaplica extravio, reencontro nem resolução de quarentena.
 \end{regra}
 
 \subsubsection{Q06, tara, medição e resolução metrológica (M6)}
@@ -284,7 +284,7 @@ Não existe \texttt{resolverPendenciaMetrologica(campo, valor)}, dispatcher gen�
     \item \texttt{recalibrarTaraFrascoEsgotado}: somente com recipiente efetivamente vazio; justificativa humana; registra tara anterior e nova; não reprocessa automaticamente empréstimos históricos; não transforma a tara nova em evidência pretérita.
 \end{enumerate}
 \textbf{Não existe quarta rota metrológica.} A V1 \textbf{não} possui correção administrativa metrológica, nem genérica nem específica: após persistida, uma medição (\texttt{peso\_saida}, \texttt{peso\_retorno}, \texttt{peso\_retorno\_efetivo}, tara, evaporação ou consumo) não pode ser editada administrativamente, e não existem \texttt{CORRIGIR\_PESO\_RETORNO}, \texttt{ERRO\_TRANSCRICAO\_PESO}, \texttt{CORRIGIR\_EVAPORACAO}, \texttt{CORRIGIR\_TARA}, editor \texttt{campo+novoValor} ou \texttt{resolverPendenciaMetrologica} genérico. A operação \texttt{corrigirOperacao} permanece exclusivamente para tipos administrativos não metrológicos explicitamente suportados (hoje \texttt{RETIRADA\_RETIRANTE\_INCORRETO}) e \textbf{não} encerra pendência metrológica. Consequência: erros de transcrição de peso devem ser prevenidos \textbf{antes do commit} (UI-18); quando uma leitura errada é persistida e nenhuma das três rotas físicas tipadas puder legitimamente resolver a situação, a V1 \textbf{não} fabrica evidência para encerrar a pendência — a pendência permanece. Uma nova pesagem nunca é prova automática da medição histórica anterior.
-A resolução grava evento \texttt{AJUSTE} vinculado ao empréstimo e à medição original, com autoria, instante, tara/densidade aplicadas e \texttt{id\_resolucao\_metrologica}. A data FLOW do consumo permanece a da devolução física; reprocessar somente as datas diretamente afetadas, sem replay nem snapshot de estoque. A resolução \textbf{não} libera a quarentena: a saída continua dependendo do contrato M5 (\texttt{resolverQuarentenaFrasco}).
+A resolução grava evento \texttt{AJUSTE} vinculado ao empréstimo e à medição original, com autoria, instante, tara/densidade aplicadas e \texttt{id\_resolucao\_metrologica}. A data FLOW do consumo permanece a da devolução física; reprocessar somente as datas diretamente afetadas, sem replay nem snapshot de estoque. A resolução \textbf{não} libera a quarentena: a saída continua dependendo do contrato M5 (\texttt{resolverQuarentenaFrasco}). Cada rota é um comando idempotente no contrato global (Seção~\ref{sec:idempotencia-m7}): \texttt{idOperacao} obrigatório e identidade \texttt{(uid, tipo\_operacao, payload\_hash)}; retry devolve o resultado persistido sem reaplicar a resolução.
 \end{regra}
 
 \paragraph{Matriz de casos quantitativos.}
@@ -325,6 +325,141 @@ A resolução grava evento \texttt{AJUSTE} vinculado ao empréstimo e à mediç�
 24. ganho de massa ($peso_{retorno}\ge peso_{saida}$) c/ evaporação $>0$ & rejeitado & --- & \textbf{bloqueia antes do commit} \\
 25. dupla digitação igual & conforme & conforme & prossegue \\
 26. dupla digitação divergente & não persistido & --- & \textbf{bloqueia antes do commit} \\
+\end{longtable}
+
+\subsubsection{Idempotência (M7)}
+\label{sec:idempotencia-m7}
+\begin{regra}[Taxonomia: cinco conceitos distintos]
+Idempotência é a propriedade de repetir a \textbf{mesma intenção lógica} sem produzir um segundo efeito lógico. Não confundir cinco mecanismos:
+\begin{itemize}
+    \item \textbf{Idempotência de comando} (cliente/usuário): repetir o mesmo comando autenticado devolve o resultado já persistido e não repete efeitos de domínio — chave de operação em \textit{Operacoes}.
+    \item \textbf{Deduplicação de evento} (trigger/entrega at-least-once): o mesmo \texttt{eventId} não reaplica o efeito — \textit{Eventos\_Processados}.
+    \item \textbf{Chave de unicidade}: impede criar dois recursos com o mesmo valor normalizado (plaqueta, matrícula, CAS) — \textit{Chaves\_Unicas}; não é idempotência de comando.
+    \item \textbf{Lock concorrente}: serializa/limita operações concorrentes — \textit{Locks\_Requisicao\_Patrimonio}; não é idempotência.
+    \item \textbf{Materialização reconstruível}: recalcular a mesma janela substitui a projeção de forma absoluta, sem acumular.
+\end{itemize}
+Idempotência \textbf{não} substitui pré-condições, autorização, locking nem controle de concorrência de domínio (I14).
+\end{regra}
+
+\begin{regra}[Identidade de uma operação]
+A identidade semântica de um comando é o triplo:
+\begin{center}
+\texttt{(uid, tipo\_operacao, payload\_hash)}
+\end{center}
+onde \texttt{uid} é a identidade autenticada no servidor (nunca fornecida pelo payload), \texttt{tipo\_operacao} é a ação e \texttt{payload\_hash} é a impressão canônica do payload semanticamente relevante. Um \texttt{idOperacao} pertence a exatamente uma identidade. Todas as verificações de retry comparam os três campos: \textbf{repetir só é retry se uid, tipo\_operacao e payload\_hash coincidirem}. Verificar apenas \texttt{uid} ou apenas \texttt{uid+payload\_hash} é insuficiente e proibido (I4--I6). Um mesmo \texttt{idOperacao} com ator, ação ou payload diferente é rejeitado de forma fechada com \texttt{ALREADY\_EXISTS}/\texttt{already-exists} (I4--I6).
+\end{regra}
+
+\begin{regra}[\texttt{idOperacao}: formato, criação e reutilização]
+\begin{itemize}
+    \item \textbf{Formato}: string opaca gerada no cliente com CSPRNG (por exemplo UUID v4), 1 a 128 caracteres, conjunto seguro \texttt{[A-Za-z0-9\_-]}; não participa do próprio hash nem de nenhum payload.
+    \item \textbf{Origem}: criada pelo cliente \textbf{antes da primeira tentativa mutável}, persistida junto da intenção local (sessão/rascunho) e \textbf{reutilizada} durante todo retry (timeout, perda de conexão, resposta desconhecida).
+    \item \textbf{Novo id}: obrigatório apenas quando o usuário inicia deliberadamente uma \textbf{nova intenção}; o cliente nunca gera novo id apenas por ter perdido a resposta (isso derrotaria a idempotência).
+    \item \textbf{Vida útil}: do primeiro envio até a obtenção de um resultado conclusivo (ou descarte explícito da intenção). Não reutilizar o mesmo id para outra intenção.
+\end{itemize}
+\end{regra}
+
+\begin{regra}[Canonicalização determinística do payload]
+O hash é calculado por um único algoritmo global, \texttt{hashPayload(tipoOperacao, payload)} = \texttt{SHA-256(tipoOperacao + "\char`\\n" + canonicalize(payload))}. A canonicalização \texttt{canonicalize} é definida como:
+\begin{lstlisting}[language=TypeScript, title={Canonicalização canônica do payload (M7)}]
+function canonicalize(value: unknown): string {
+  if (value === null) return "null";
+  const t = typeof value;
+  if (t === "boolean" || t === "number" || t === "string")
+    return JSON.stringify(value);
+  if (Array.isArray(value))
+    return "[" + value.map(canonicalize).join(",") + "]"; // ordem preservada
+  if (t === "object") {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj)
+      .filter(k => obj[k] !== undefined) // undefined e chave ausente são equivalentes
+      .sort();                            // ordenação por code unit, recursiva
+    return "{" + keys.map(k => JSON.stringify(k) + ":" + canonicalize(obj[k])).join(",") + "}";
+  }
+  throw new Error("canonicalize: tipo não suportado");
+}
+function hashPayload(tipoOperacao: string, payload: Record<string, unknown>): string {
+  return sha256(tipoOperacao + "\n" + canonicalize(payload));
+}
+\end{lstlisting}
+Consequências normativas: propriedades em ordem diferente produzem o mesmo hash; objetos aninhados são ordenados recursivamente; arrays \textbf{preservam a ordem} (quando a ordem é semanticamente relevante, reordenar é payload diferente); \texttt{null} e chave ausente são \textbf{distintos}; \texttt{undefined} é equivalente à ausência e não entra no hash; números/strings/booleanos seguem \texttt{JSON.stringify} (sem arredondamento, sem trim, sem uppercase, sem conversão de unidade); \texttt{idOperacao} é excluído do payload; campos derivados somente no servidor não entram no payload. A validação de justificativa humana (mínimo após trim) \textbf{não} altera o payload original usado no hash. Não usar o \emph{replacer} em forma de array do \texttt{JSON.stringify}, pois ele descarta propriedades de objetos aninhadas.
+\end{regra}
+
+\begin{regra}[Estados e resultado de \textit{Operacoes}]
+\textit{Operacoes/\{idOperacao\}}: \texttt{uid}, \texttt{tipo\_operacao}, \texttt{payload\_hash}, \texttt{status}, \texttt{resultado} (resposta mínima), \texttt{criado\_em}, \texttt{atualizado\_em} — todos escritos pelo servidor.
+\begin{itemize}
+    \item \textbf{Comando Firestore atômico}: o documento é criado já como \texttt{CONCLUIDA}, na mesma transação do efeito de domínio; não há janela \texttt{PENDENTE}. É o caso da maioria das mutações.
+    \item \textbf{Fluxo com etapa externa pós-commit} (PDF, upload, Auth, e-mail): cria-se \texttt{PENDENTE} antes/na transação, o processador idempotente executa o efeito externo e só então grava \texttt{CONCLUIDA} com o resultado; \texttt{FALHOU} é terminal para aquela tentativa.
+    \item \textbf{Retry}: \texttt{CONCLUIDA} $\rightarrow$ devolve o \texttt{resultado} persistido sem reexecutar efeitos; \texttt{PENDENTE} $\rightarrow$ retoma/reconhece sem duplicar efeito; \texttt{FALHOU} $\rightarrow$ exige nova intenção ou retry explícito conforme a política da operação.
+    \item \textbf{Dados inválidos}: documento \textit{Operacoes} incompatível/corrompido (campos ausentes) é tratado fail-closed; nunca se assume sucesso.
+\end{itemize}
+Retry exato \textbf{não} cria novo histórico, novo contador, novo empréstimo, novo frasco, nova notificação, novo timestamp lógico nem novo efeito externo (I1--I3, I10). O \texttt{timestamp} da operação é o da criação; o retry não o atualiza.
+\end{regra}
+
+\begin{regra}[Concorrência]
+Duas requisições idênticas simultâneas são serializadas pela transação Firestore: a primeira confirma e cria \textit{Operacoes}; a segunda, relendo o documento confirmado, devolve o resultado sem segundo efeito (I9). Se a transação abortar antes do commit, nenhum efeito persiste. Se o callback transacional for repetido automaticamente pelo Firestore, nenhum efeito externo pode ocorrer dentro dele. Idempotência de comando não resolve concorrência entre \textbf{intenções diferentes} (dois gestores retirando o mesmo frasco, duas revogações removendo o último responsável, duas decisões de quarentena): isso continua exigindo pré-condições, leituras transacionais e locks.
+\end{regra}
+
+\begin{regra}[Efeitos externos]
+É \textbf{proibido} executar efeito irreversível (e-mail, PDF, upload, Auth, chamada de rede) diretamente no callback transacional, pois o callback pode repetir. A transação persiste o fato e um \textbf{evento/outbox/operação}; um processador idempotente realiza o efeito após o commit. Para uploads, use caminho/objeto determinístico derivado de \texttt{idOperacao} (sobrescrita idempotente) e registre o resultado em \textit{Operacoes}. Falhas são recuperadas por reconciliação; ``Firestore commitou mas o efeito externo falhou'' mantém a operação \texttt{PENDENTE} e não anuncia conclusão prematura (I11).
+\end{regra}
+
+\begin{regra}[Triggers e entrega at-least-once]
+\textit{Eventos\_Processados/\{eventId\}} deduplica eventos de trigger: a transação do trigger só aplica o efeito se ainda não processou aquele \texttt{eventId} e registra o processamento no mesmo commit. A linguagem correta é ``o \textbf{efeito observado} do mesmo \texttt{eventId} é transacionalmente único / deduplicado'', e \textbf{não} ``entrega exactly-once'': Cloud Functions/Eventarc pode reentregar o evento; o que o sistema garante é que a reentrega não reaplica o efeito (I12). Dois \texttt{eventId} distintos representam fatos distintos e não são deduplicados entre si.
+\end{regra}
+
+\begin{regra}[Jobs agendados]
+Dois comportamentos distintos, nunca confundidos:
+\begin{itemize}
+    \item \textbf{Chave determinística + \texttt{create()}}: reexecução é \textbf{no-op} se a chave já existe (ex.: notificação com docId \texttt{\{id\_emprestimo\}--\{janela\}}; \texttt{BulkWriter.create} tratando \texttt{ALREADY\_EXISTS}/\texttt{code 6}). Reexecutar não cria novo fato.
+    \item \textbf{Recomputação absoluta por \texttt{DATA\_ALVO}}: reexecução \textbf{recalcula e SUBSTITUI} a projeção da chave diária, \textbf{nunca incrementa} sobre o valor existente (I13). Dadas as mesmas fontes e \texttt{versao\_calculo}, o resultado é idêntico.
+\end{itemize}
+Jobs devem ser seguros para reexecução, execução parcial e \textit{backfill}; nenhum job acumula sobre materialização anterior.
+\end{regra}
+
+\begin{regra}[Notificações, etiquetas e materializações]
+Notificações determinísticas usam docId determinístico e \texttt{create} (ou consumo transacional de evento), sem duplicar (I3, I13). \textbf{Etiquetas/PDF}: \texttt{idOperacao} é \textbf{obrigatório} (sem fallback \texttt{Date.now()}); a geração é etapa externa pós-commit com objeto de caminho determinístico por \texttt{idOperacao}, registrando \texttt{status\_geracao} \texttt{PENDENTE}$\rightarrow$\texttt{CONCLUIDA} e o resultado na operação; retry devolve o resultado armazenado. \textbf{Materializações}: reprocessar a mesma janela substitui a projeção de forma absoluta, sem dupla soma; dados de consumo validados não são somados novamente (I13).
+\end{regra}
+
+\begin{regra}[Relação com M5 e M6 e segurança]
+O contrato global aplica-se às operações de M5 (extravio/reencontro/quarentena) e às três rotas metrológicas de M6 (\texttt{repetirPesagemDevolucaoAnomala}, \texttt{confirmarEsgotamentoAposInspecao}, \texttt{recalibrarTaraFrascoEsgotado}) \textbf{sem alterar a semântica de domínio} de M5/M6. \texttt{payload\_hash} é impressão de igualdade da operação, \textbf{não} é assinatura, MAC, prova de autoria, autorização nem controle de acesso; autoria é a identidade autenticada no servidor e autorização continua nas Rules/RBAC.
+\end{regra}
+
+\paragraph{Matriz de casos de idempotência (M7).}
+\begin{longtable}{p{0.36\textwidth}p{0.22\textwidth}p{0.34\textwidth}}
+\toprule
+\textbf{Caso} & \textbf{Resultado} & \textbf{Observação} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Caso} & \textbf{Resultado} & \textbf{Observação} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+1. mesma chave/ator/ação/payload após commit & resultado original & retry puro \\
+2. mesma chave/ator, payload diferente & REJEITAR & \texttt{ALREADY\_EXISTS} \\
+3. mesma chave, ator diferente & REJEITAR & \texttt{ALREADY\_EXISTS} \\
+4. mesma chave, ação diferente & REJEITAR & \texttt{ALREADY\_EXISTS} \\
+5. duas requisições idênticas simultâneas & um efeito & transação serializa \\
+6. resposta HTTP perdida após commit & resultado original & retry com mesmo id \\
+7. erro de validação antes da transação & nenhum efeito & nada persistido \\
+8. erro dentro da transação antes do commit & nenhum efeito & rollback \\
+9. retry automático do callback Firestore & nenhum efeito externo & outbox pós-commit \\
+10. propriedades JSON em ordem diferente & mesmo hash & canonicalização \\
+11. objeto aninhado em ordem diferente & mesmo hash & recursivo \\
+12. array em ordem diferente & payload diferente & ordem preservada \\
+13. \texttt{null} vs campo ausente & payload diferente & distintos \\
+14. campo derivado só no servidor & fora do hash & server-owned \\
+15. mesmo \texttt{eventId} duas vezes & efeito único & \textit{Eventos\_Processados} \\
+16. dois \texttt{eventId} distintos & dois fatos & não deduplicar \\
+17. job diário duas vezes & no-op/substituição & conforme tipo \\
+18. materialização mesma \texttt{DATA\_ALVO} & substitui & sem dupla soma \\
+19. notificação docId determinístico existente & no-op & \texttt{create}/\texttt{ALREADY\_EXISTS} \\
+20. processador externo executado novamente & não repete efeito & idempotência do processador \\
+21. \textit{Operacoes} incompatível/corrompido & fail-closed & nunca assumir sucesso \\
+22. rota M6 repetida após resolução & resultado original & contrato global \\
+23. etiquetas após resposta perdida & mesmo PDF/resultado & caminho determinístico por id \\
+24. retry de correção administrativa & resultado original & contrato global \\
 \end{longtable}
 
 \subsubsection{Condição inicial, saldo desconhecido e validade desconhecida}
