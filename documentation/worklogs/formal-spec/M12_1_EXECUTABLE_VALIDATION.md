@@ -1,172 +1,119 @@
 # M12.1 — Posts, comentários e moderação (formalização executável)
 
-Estado: **VALIDATED**. Cadeia aditiva concluída: CUE → IR v3 → Alloy → receipt
-verificável → validação Rust → geração determinística → LaTeX → PDF. Não altera
-`functions/`, `frontend/`, Firestore/Storage Rules, Auth, Storage, índices nem
-inicia M12.2/M13.
+Estado: **VALIDATED** (após rodada corretiva). Cadeia aditiva: CUE → IR v3 →
+Alloy → receipt verificável → validação Rust → geração determinística → LaTeX →
+PDF. Não altera `functions/`, `frontend/`, Firestore/Storage Rules, Auth,
+Storage, índices nem inicia M12.2/M13.
 
 ## 1. Entrada e fontes
 
 - Branch: `feat/formal-spec-cue-alloy` (única).
-- HEAD de entrada: `5810dba119adbe973e54e9f5beb1c72b1159dc16`, árvore limpa e
-  `origin` sincronizada. HEAD de saída = commit documental seguinte.
+- HEAD de entrada da rodada corretiva: `136c840a91b891afab585a84e15688fa852f4f28`,
+  árvore limpa e `origin` sincronizada. HEAD de saída = commit documental
+  seguinte.
 - Fonte normativa: Seção 7.6
   (`\label{sec:regras-posts-comentarios-m12-1}`), reconciliada com Seções 3–5 e
   8–11, RF19/RF20, UI-11, Q08/Q10/Q11/Q13/Q10, RF25 e M7/M9/M11.
-- Baseline: `just formal-check` exit `0` antes das alterações (29 testes Rust,
-  24 Node, Alloy, gerador e PDF de 411 páginas).
-- Planejamento: `M13 = NOT_STARTED` reservado na tabela e nos ponteiros
-  correntes (Notificação unificada; compõe M7/M8/M9/M12; reutiliza a prova M8 de
-  `ESCASSEZ_ESTOQUE`; fechamento global após M13 é gate, sem M14 automático).
+- Planejamento: `M13 = NOT_STARTED` (Notificação unificada) reservado na tabela
+  e nos ponteiros; M12.2/M12 permanecem NOT_STARTED.
 
-## 2. CUE
+## 2. Rodada corretiva — contraexemplos iniciais e correções
 
-`specification/cue/domain/formal_m12_1.cue` define `#M12_1Contrato` como união
-fechada de `#M12_1TurmaContexto`, `#M12_1Vinculo`, `#M12_1RoteiroAnexo`,
-`#M12_1Post`, `#M12_1Comentario`, `#M12_1HistoricoPost`,
-`#M12_1HistoricoComentario`, `#M12_1ComentarioLeitura`,
-`#M12_1NotificacaoEfeito` e `#M12_1Operacao`. Enums fechados de status de turma,
-tipo de histórico (`edicao`/`moderacao`), visão (`AUTOR`/`COLEGA`/`AUDITOR`),
-tipo de notificação e tipo/status de operação. Condicionais: `motivo_remocao`,
-`removido_por` e `removido_em` exigidos sse `removido_da_apresentacao`;
-`editado_em` exigido sse `editado`; `motivo_moderacao`/`moderado_por`/
-`moderado_em` sse `moderado`; histórico de edição exige texto antigo/novo e
-histórico de moderação exige motivo; projeção de leitura impede que `COLEGA`
-receba o original de comentário moderado; notificação nunca transporta conteúdo
-protegido. Limites: título 1--150, descrição 1--10\,000, texto 1--2\,000, nome
-de arquivo 1--150 e tamanho positivo.
+A primeira versão executável de M12.1 foi rejeitada na inspeção semântica. Os
+problemas e suas correções:
 
-Fixtures: **20 válidas** e **15 inválidas** em `specification/cue/tests/m12_1/`
-(`cue vet -c ./domain … -d '#M12_1Contrato'`), cobrindo limites, nulabilidade,
-campos condicionais, autoria, post removido, moderação sem motivo, histórico de
-edição versus moderação, anexo opcional e projeção pública sem original.
+| ID | Contraexemplo/defeito | Correção |
+|---|---|---|
+| M12.1-CORR-01 | `podeEditarComent` exigia autoria + Auth + turma ativa, mas **não** o vínculo canônico atual: um ex-aluno com claim atualizada podia editar o próprio comentário. `podeLerComent` abria exceção de autoria após a perda do vínculo. | Introduzido `participa[s,u,t] = temVinculo ∨ ehDono`. Edição e criação de Comentário e leitura exigem participação (ou chefia para leitura). `RemovidoNaoEditaComent`, `EditarComentExigeParticipacaoAtual` e `RemovidoNaoLe` fixam o fail-closed. |
+| M12.1-CORR-02 | Revogação só era distinguível pelo atraso da claim. | `WitnessClaimAtualSemVinculo` encadeia `revogarVinculo` + `atualizarClaim` (claim corrente) e prova que, sem vínculo/ownership, o ex-aluno **não** edita nem lê. A participação não é recriada por claim. |
+| M12.1-CORR-03 | `retryM7[a,b] ≡ b=a`, com transições congelando comandos/recibos via `frameM7`; nenhum comando era consumido nem receipt produzido. | Transições recebem `o: Comando`, exigem identidade nova e gravam `comandos`/`recibos` (`registraComando`). `retryM7[a,b,o]` exige `o ∈ comandos` e `recibos[o.cmdId]=o`. `PrimeiraExecucaoProduzReceipt`, `RetryNaoReexecuta` e `RetryNaoDuplicaFato` cobrem o ciclo; `WitnessRetryAposExecucao` encadeia execução + replay. |
+| M12.1-CORR-04 | `ReusoIncompativelNaoHerda` era só coerência estática. | `IdentidadeComandoUnica` (estática) mantida e `ReusoIncompativelRejeitado` modela a tentativa incompatível: um comando com `idOperacao` já consumido por outra identidade é recusado por todas as transições; `WitnessReusoIncompativel` mostra a tentativa. |
+| M12.1-CORR-05 | `TurmaArquivadaNegaEscrita` só quantificava `criarPost`. | Propriedade reescrita transversalmente: turma Arquivada não admite nenhuma transição de escrita (criar/editar/remover Post, criar/editar/moderar Comentário), inclusive Chefe. Testemunhas positivas por operação em turma Ativa foram adicionadas (`WitnessEditarComent` etc.). |
+| M12.1-CORR-06 | Regra antiga ``Histórico de Posts na Turma'' (Seção 7) dizia que o Chefe podia **editar** posts. | Reconciliada: o Chefe apenas **modera e remove da apresentação** (Q13), sem editar conteúdo em caráter de autoria. |
+| M12.1-CORR-07 | Notificação não estava vinculada ao comando. | `Notif.nOperacao` = `idOperacao`; `#M12_1NotificacaoEfeito` ganhou `id_operacao` (CUE/fixtures); `NotificacaoSoDoAlvo` exige o vínculo. |
 
-## 3. IR e versionamento
+## 3. Matriz regra normativa → predicado/transição → check negativo → witness positivo → teste
 
-IR permanece na versão **3**; a fatia aditiva `formal_m12_1_posts` foi
-acrescida em `specification/cue/docs/projection.cue` com `#CamposM12_1` e
-exemplo estrutural. O hash global do IR passou de
-`2443afeb…4c7d` para `b3a134a1e2f04cc9726c64a0e7a50310e8ee21c162fbbac0256dcabff846cb95`.
-Receipts M0–M11 foram regenerados e mudaram **somente** em `spec_ir_sha256`
-(0 divergências fora desse campo). Fragmentos M0–M11 permanecem byte a byte
-idênticos; só o MANIFEST e os dois fragmentos M12.1 são novos.
+| Regra (Seção 7.6) | Predicado/transição | Check (UNSAT) | Witness (SAT) | Fixture/teste |
+|---|---|---|---|---|
+| Só dono cria/edita Post | `podeCriarPost`/`criarPost`/`editarPost` | `CriarPostSoEmAtivo`, `TerceiroNaoEditaPost` | `WitnessCriarPost`, `WitnessEditarPost` | `post_simples`, `post_editado` |
+| Participação = vínculo ou dono | `participa` | `ComentarExigeParticipacaoAtual`, `EditarComentExigeParticipacaoAtual` | `WitnessCriarComent`, `WitnessEditarComent` | `vinculo_atual` |
+| Removido não edita/lê com claim corrente | `podeEditarComent`/`podeLerComent` | `RemovidoNaoEditaComent`, `RemovidoNaoLe` | `WitnessClaimAtualSemVinculo` | — |
+| Chefe só modera/remove (Q13) | `podeRemoverPost`, `podeModerarComent` | `ChefeNaoCriaPost`, `ChefeNaoEditaConteudo` | `WitnessChefeModera`, `WitnessRemoverPost` | `post_removido`, `historico_post_moderacao` |
+| Turma arquivada = somente leitura | todas as transições | `TurmaArquivadaNegaEscrita` (transversal) | witnesses por operação em Ativo | `turma_arquivada` |
+| Edição gera histórico imutável | `editarPost`/`editarComent` | `EdicaoPostCriaHistorico`, `HistoricoNuncaRemovido` | `WitnessEditarPost` | `historico_post_edicao` |
+| Remoção lógica preserva documento | `removerPost` | `RemocaoPreservaDocumento` | `WitnessRemoverPost` | `post_removido` |
+| Moderação não apaga original; edição não desfaz | `moderarComent`/`editarComent` | `EdicaoNaoDesfazModeracao`, `ComentModeradoPreservado` | `WitnessEdicaoNaoDesfazModeracao` | `comentario_moderado` |
+| Máscara de leitura | `listar`/`mostraOriginal` | `ColegaNaoVeOriginalModerado`, `AutorVeOriginalMarcado`, `AuditorVeOriginal` | `WitnessLeituraMascarada` | `leitura_colega_moderado`, `leitura_autor_moderado` |
+| M7 primeira execução/retry/reuso | `registraComando`/`retryM7` | `PrimeiraExecucaoProduzReceipt`, `RetryNaoReexecuta`, `RetryNaoDuplicaFato`, `ReusoIncompativelRejeitado` | `WitnessRetryAposExecucao`, `WitnessReusoIncompativel` | `operacao_editar_post` |
+| M9 revogação/participação no commit | `revogarVinculo`/`atualizarClaim` | `RevogacaoImpedeCommit`, `RemovidoNaoEditaComent` | `WitnessRemocaoAlunoBloqueia` | — |
+| Fronteira M12.2 (roteiro) | `acessoRoteiroValidado` | `SemAcessoNaoPublicaComRoteiro`, `PublicacaoComRoteiroExigeAcesso` | `WitnessPublicaComRoteiro`, `WitnessRoteiroAceito` | `roteiro_anexo`, `post_com_roteiro` |
+| Notificação delimitada | `criarPost`/`Notif` | `NotificacaoSoDoAlvo` | `WitnessCriarPost` | `notificacao_efeito` |
 
-## 4. Alloy
+**Demonstrado** (bounded model checking, escopos 4/6): as propriedades acima no
+modelo declarado. **Abstração explícita** (não provado): conteúdo textual,
+canonicalização/HMAC, handlers de Security Rules, transações Firestore sob
+carga, concorrência real, ACL/Storage/URL de Roteiros (M12.2) e caixa de
+notificações (M13).
 
-Modelo: `specification/alloy/operations/posts_m12_1.als`, com frames granulares
-e pré/pós. Universo: autores, Turma, Post, Comentário, históricos, leitura,
-notificação, roteiro, vínculo canônico, enums fechados e `Estado` temporal com
-autorização M9 e recibo M7 abstratos.
+## 4. CUE e IR
 
-- **Checks:** 34 UNSAT.
-- **Witnesses:** 13 SAT.
-- **Escopos:** `for 6` (transições) e `for 4` (cenários mínimos); bitwidth
-  inteiro padrão do Alloy 6.2.0.
-- **Cobertura:** criação/edição/remoção de Post apenas em turma Ativo e pelo
-  professor dono; criação/edição/moderação de Comentário em Ativo; turma
-  Arquivada nega toda escrita acadêmica (inclusive Chefe); Chefe não cria Post
-  nem edita conteúdo; autoria imutável; terceiro não edita; comentar exige
-  vínculo canônico atual; leitura exige vínculo/autoria/ownership/chefia e
-  inativo não lê; edição e moderação criam evento histórico imutável; remoção
-  lógica preserva documento e histórico e jamais remove histórico anterior;
-  edição posterior não desfaz moderação; máscara (colega não vê original, autor
-  e auditor veem); notificação só do alvo; publicação com roteiro exige
-  `acessoRoteiroValidado` e sem acesso não publica; reuso incompatível não herda
-  receipt M7; retry não duplica fato; revogação impede commit; transições
-  preservam coerência.
+`specification/cue/domain/formal_m12_1.cue` define `#M12_1Contrato` (10 shapes).
+Fixtures: **20 válidas** e **15 inválidas** em `specification/cue/tests/m12_1/`.
+A fronteira de notificação passou a exigir `id_operacao`. IR permanece v3; a
+fatia `formal_m12_1_posts` não mudou de forma, e o hash global permanece
+`b3a134a1e2f04cc9726c64a0e7a50310e8ee21c162fbbac0256dcabff846cb95`. Receipts
+M0–M11 inalterados (0 divergências fora de `spec_ir_sha256`); fragmentos M0–M11
+byte a byte idênticos.
 
-Premissas abstratas: o conteúdo textual é opaco (validado em CUE/Rust); a
-autorização M9 é a interface abstrata `authOk`; o acesso ao roteiro é o
-predicado `acessoRoteiroValidado`, sem ACL/Storage/URL reais. Não se prova
-handlers de Rules, transações Firestore sob carga, concorrência real, fan-out
-de notificação nem ACL de Roteiros (M12.2).
+## 5. Alloy
 
-## 5. Receipt
+`specification/alloy/operations/posts_m12_1.als`: **40 checks UNSAT + 17
+witnesses SAT = 57 resultados**, escopos `for 6` (transições) e `for 4`
+(mínimos). Frames granulares; composição M7 com recibo; `atualizarClaim` como
+refresh abstrato de token. Não se modela concorrência real nem exactly-once.
+
+## 6. Receipt e Rust
 
 `build/formal-validation-m12-1.json`: versão 1, Alloy 6.2.0, solver `sat4j`,
-modelo `specification/alloy/operations/posts_m12_1.als`, 47 resultados (34
-`check` UNSAT + 13 `run` SAT), IDs `M12_1-INV-001..034` e
-`M12_1-WIT-035..047`, scopes preservados. Hashes: receipt
-`4c353ef3e0522953365089c9f993faa69f5ad19ec439b145d89ee6d16d730b88`, modelo
-`948947395152179deb7530c52f98d0ceb799aac63853d329421f27291c243a98`, IR
+modelo `posts_m12_1.als`, 57 resultados, IDs `M12_1-INV-001..040` e
+`M12_1-WIT-041..057`. Hashes: receipt
+`6928d5e8a337a2f69016fda0e963ff6157aac25dbcbda6f4103a2ce437342ec1`, modelo
+`0bf637944ae109a2f076ba200dc120751bbdf62b017dcb17fbebfa370bd5c1e8`, IR
 `b3a134a1…cb95`.
 
-## 6. Rust
+`tools/spec-doc/src/validation_m12_1.rs` valida os 57 itens exatos (IDs, ordem,
+tipo, scope, status) e rejeita adulteração de hash/modelo/ID/status/scope e troca
+`check`↔`run`. Funções determinísticas (`#[cfg(test)]`): `titulo_valido`,
+`descricao_valida`, `texto_valido`, `edicao_permitida`, `deve_mascarar`. Testes
+Rust = **31**. `#![forbid(dead_code)]`, `#![forbid(unsafe_code)]`,
+`#![deny(warnings)]`; nenhum `#[allow(...)]`.
 
-`tools/spec-doc/src/validation_m12_1.rs` valida versão, Alloy, solver, caminho
-do modelo, `spec_ir_sha256`, `model_sha256`, quantidade exata (47), IDs exatos,
-ordem, tipo `check`/`run`, scopes e status. Adulterações rejeitadas nos testes:
-hash do IR, hash do modelo, caminho do modelo, resultado removido/adicionado,
-ID duplicado, status invertido, scope alterado e troca `check`↔`run` nas duas
-direções. Funções de referência determinística (mesmo contrato
-RUST-SAFETY-01, `#[cfg(test)]`): `titulo_valido`, `descricao_valida`,
-`texto_valido`, `edicao_permitida` e `deve_mascarar`. `main.rs` acrescenta
-`m12_1_exemplo_valido`, que exige do exemplo do IR os limites de Q10, visão
-fechada e ausência de conteúdo protegido. Testes Rust: **31** no total (29
-históricos + 2 M12.1). `#![forbid(dead_code)]`, `#![forbid(unsafe_code)]` e
-`#![deny(warnings)]` preservados; nenhum `#[allow(...)]`.
+## 7. Guard, gerador e determinismo
 
-## 7. Guard de drift
+`tools/formal/m12_1_contract.test.mjs` = 6 testes (30 Node no total), cobrindo
+enums, nomes, predicados/assertions centrais e regras determinísticas. `render_m12_1`
+emite `entities/formal_m12_1_posts.tex` e `invariants/formal_m12_1.tex`; MANIFEST
+vincula `formal_validation_m12_1_sha256`. Duas gerações consecutivas: **diff
+zero**. `docs-check` PASS.
 
-`tools/formal/m12_1_contract.test.mjs` (6 testes) compara enums de histórico e
-visão, nomes canônicos, predicados/assertions centrais e as regras
-determinísticas entre documentação, CUE, Alloy e Rust. Incluído automaticamente
-por `node --test tools/formal/*.test.mjs` (30 testes Node no total).
+## 8. Gates e PDF
 
-## 8. Gerador, MANIFEST e determinismo
+- `just formal-check` **exit 0** após a correção; `cargo fmt --check` = 0;
+  `cargo test --locked` = 31 PASS; `cargo clippy --all-targets -- -D warnings`
+  = 0; `git diff --check` = 0; determinismo = 0; M0–M11 sem regressão.
+- PDF `main.pdf`: **420 páginas** (baseline 418), exit 0, zero erros e zero
+  referências indefinidas, 31 Overfull herdados. Inspeção visual das páginas
+  413–419 sem corte ou sobreposição.
 
-`render.rs` (`render_m12_1`) emite `entities/formal_m12_1_posts.tex` e
-`invariants/formal_m12_1.tex`; `main.rs` vincula `formal_validation_m12_1_sha256`
-ao `MANIFEST.json`. Duas gerações consecutivas: **diff zero**. `docs-check`
-PASS.
+## 9. Limites, HQ e estado
 
-## 9. LaTeX, PDF e inspeção
-
-`documentation/Formal-Spec-M12-1.tex` é incluído em `main.tex` após M11. O
-capítulo cobre CUE, autoria/participação/turma arquivada, edição/remoção
-lógica/históricos, moderação/máscara, fronteira M12.2, notificação, composição
-M7/M9 e limites. `main.pdf` tem **418 páginas** (baseline 411), exit `0`, zero
-erros e zero referências indefinidas; Overfull **31** (perfil herdado).
-Inspeção visual das páginas novas 412–418 (título, seções, fragmento de entidade
-e lista de 47 resultados) sem corte ou sobreposição.
-
-## 10. Regressão M0–M11
-
-CUE antigo, Alloy antigo, validators, guards e fragmentos antigos PASS. Modelos
-e resultados históricos inalterados; receipts M0–M11 mudaram somente em
-`spec_ir_sha256`. 31 testes Rust, 30 Node e Alloy de todos os milestones PASS.
-
-## 11. Gates e auditorias
-
-Gates finais: `git diff --check` = 0; `cargo fmt --check` = 0;
-`cargo test --locked` = 0 (31 testes); `cargo clippy --all-targets -- -D
-warnings` = 0; `just formal-check` = 0. Determinismo de geração: diff zero.
-
-Três auditorias por conteúdo:
-
-1. **Auditoria A — CUE × Seção 7.6 × fixtures:** limites, condicionais e máscara
-   reconciliados; 20+15 fixtures com paridade. **Limpa**.
-2. **Auditoria B — Alloy × receipt × Rust × gerado × MANIFEST:** conjunto exato
-   de 47 resultados, IDs/escopos e adulteração; regressão M0–M11 restrita a
-   `spec_ir_sha256`. **Limpa**.
-3. **Auditoria C — fronteira e limites:** ACL de Roteiros e caixa de
-   notificações declaradas fora (M12.2/M13); inspeção visual das páginas
-   412–418; ausência de M12.2/M13. **Limpa**.
-
-HQs M12.1 abertas: **0**.
-
-## 12. Limites explícitos
-
-Esta evidência não certifica `functions/src/posts.ts`, o frontend,
-`firestore.rules`, `storage.rules`, Firebase, Auth, Storage, Admin SDK, App
-Check, transações reais, índices, a ACL de Roteiros (M12.2) nem a caixa de
-notificações (M13). A prova é do modelo formal declarado.
-
-## 13. Estado final e próxima ação
-
-M0–M11 = **VALIDATED**; **M12.1 = VALIDATED** (documental e executável);
-M12.2 = **NOT_STARTED**; M12 = **NOT_STARTED** (fechamento de composição e
-regressão M0–M11); M13 = **NOT_STARTED**.
+Não certifica `functions/src/posts.ts`, frontend, `firestore.rules`,
+`storage.rules`, Firebase, Auth, Storage, a ACL de Roteiros (M12.2) nem a caixa
+de notificações (M13). HQs M12.1 = 0 (a leitura de ex-aluno ficou fail-closed;
+nenhuma ambiguidade bloqueante). M0–M11 = **VALIDATED**; **M12.1 = VALIDATED**;
+M12.2 = **NOT_STARTED**; M12 = **NOT_STARTED** (fechamento/regressão); M13 =
+**NOT_STARTED** (Notificação unificada).
 
 Próxima ação permitida:
 

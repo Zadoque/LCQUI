@@ -18,11 +18,16 @@ não prova concorrência nem ACL de Roteiros (M12.2).
 
 \subsection*{Autoria, participação e turma arquivada}
 Post pertence à Turma e ao professor dono; Comentário pertence ao Post e ao
-autor. A participação acadêmica é o vínculo canônico atual (M11), nunca o
-espelho. Somente o professor dono cria/edita Post; o autor edita o próprio
-Comentário; o Chefe intervém apenas por Q13 (moderação/remoção com motivo e
-auditoria), sem assumir autoria nem criar Post. Turma \texttt{Arquivada} nega
-toda escrita acadêmica, inclusive moderação e para o Chefe (Q08).
+autor. A participação acadêmica é o vínculo canônico atual (M11) \textbf{ou} o
+professor dono da turma, nunca o espelho, cache ou claim. Claim atualizada
+\textbf{não} recria participação: um ex-aluno removido não edita nem lê o
+próprio Comentário, ainda que a claim esteja corrente (contraexemplo coberto por
+\texttt{WitnessClaimAtualSemVinculo}). Somente o professor dono cria/edita Post;
+o autor edita o próprio Comentário; o Chefe intervém apenas por Q13
+(moderação/remoção com motivo e auditoria), sem assumir autoria nem criar Post.
+Turma \texttt{Arquivada} nega toda escrita acadêmica, inclusive moderação e
+para o Chefe (Q08), por propriedade transversal
+(\texttt{TurmaArquivadaNegaEscrita}).
 
 \subsection*{Edição, remoção lógica e históricos}
 Editar preserva a autoria e grava evento imutável em
@@ -45,10 +50,13 @@ ownership ou chefia.
 O snapshot \texttt{roteiro\_anexo} é fronteira: publicar com roteiro exige o
 predicado abstrato \texttt{acessoRoteiroValidado}; a ACL/Storage/URL de Roteiros
 não são provadas aqui. A \texttt{POST}/\texttt{COMENTARIO} entra apenas como
-efeito mínimo de notificação, sem conteúdo protegido e sem autorizar leitura; a
-caixa, fan-out, expiração e marcação de lida são M13. A composição M7 impede
-retry de duplicar histórico/notificação e reuso incompatível de herdar receipt;
-M9 faz a revogação de vínculo impedir o commit posterior.
+efeito mínimo de notificação, vinculada ao \texttt{idOperacao}, sem conteúdo
+protegido e sem autorizar leitura; a caixa, fan-out, expiração e marcação de
+lida são M13. A composição M7 modela primeira execução (grava receipt sob o
+\texttt{idOperacao}), retry idêntico (devolve o resultado e não reaplica) e
+reuso incompatível (rejeitado, sem herdar receipt alheio); M9 faz a revogação
+de vínculo impedir o commit posterior e a identidade de participação é
+revalidada na transação.
 
 \subsection*{Responsabilidade das camadas e limites}
 CUE valida shapes e limites. Alloy valida autoria, participação canônica,

@@ -2,36 +2,47 @@
 
 ## Estado corrente — M12.1 executável validado (Posts, comentários e moderação)
 
-Cadeia executável aditiva concluída na branch `feat/formal-spec-cue-alloy`.
-HEAD de entrada: `5810dba119adbe973e54e9f5beb1c72b1159dc16`. **M12.1 =
-VALIDATED** (documental e executável); M0–M11 = VALIDATED; M12.2 = NOT_STARTED;
-M12 = NOT_STARTED (fechamento de composição/regressão M0–M11); M13 =
-NOT_STARTED (Notificação unificada). Registro em
+Cadeia executável aditiva concluída e corrigida na branch
+`feat/formal-spec-cue-alloy`. HEAD de entrada da rodada corretiva:
+`136c840a91b891afab585a84e15688fa852f4f28`. **M12.1 = VALIDATED** (documental e
+executável, após saneamento semântico); M0–M11 = VALIDATED; M12.2 =
+NOT_STARTED; M12 = NOT_STARTED (fechamento de composição/regressão M0–M11);
+M13 = NOT_STARTED (Notificação unificada). Registro em
 [worklog M12.1 executável](worklogs/formal-spec/M12_1_EXECUTABLE_VALIDATION.md).
 
+- **Rodada corretiva (saneamento):** `podeEditarComent`/`podeLerComent` passaram
+  a exigir `participa = vínculo canônico atual ∨ professor dono`; claim
+  atualizada não recria participação (`WitnessClaimAtualSemVinculo`). O M7
+  vacuoso (`retryM7 ≡ b=a`) foi substituído por composição com `idOperacao` e
+  receipt (primeira execução/retry idêntico/reuso incompatível).
+  `TurmaArquivadaNegaEscrita` tornou-se transversal a todas as escritas. A regra
+  antiga que permitia o Chefe **editar** posts foi reconciliada (só
+  modera/remove).
 - **CUE:** `#M12_1Contrato` (Post, Comentário, históricos de edição/moderação,
-  projeção de leitura, efeito mínimo de notificação, operação); 20 fixtures
-  válidas + 15 inválidas em `specification/cue/tests/m12_1/`.
+  projeção de leitura, efeito mínimo de notificação vinculado ao `idOperacao`,
+  operação); 20 fixtures válidas + 15 inválidas em
+  `specification/cue/tests/m12_1/`.
 - **IR v3 aditivo:** `formal_m12_1_posts`; hash global `b3a134a1…cb95`.
-  Receipts M0–M11 mudaram somente em `spec_ir_sha256`; só o MANIFEST e os dois
+  Receipts M0–M11 inalterados fora de `spec_ir_sha256`; só o MANIFEST e os dois
   fragmentos M12.1 são novos.
-- **Alloy:** `specification/alloy/operations/posts_m12_1.als` — **34 checks
-  UNSAT + 13 witnesses SAT** (escopos 4/6): autoria imutável, participação por
-  vínculo canônico (M11), turma arquivada somente leitura (Q08) inclusive
-  Chefe, edição/remoção lógica com histórico imutável, moderação com máscara,
-  fronteira abstrata de roteiro (M12.2), notificação sem conteúdo, composição
-  M7/M9.
+- **Alloy:** `specification/alloy/operations/posts_m12_1.als` — **40 checks
+  UNSAT + 17 witnesses SAT** (escopos 4/6 = 57 resultados): autoria imutável,
+  participação por vínculo canônico/ownership (M11; claim não recria), turma
+  arquivada somente leitura (Q08) inclusive Chefe, edição/remoção lógica com
+  histórico imutável, moderação com máscara, fronteira abstrata de roteiro
+  (M12.2), notificação sem conteúdo vinculada ao comando, composição M7 com
+  receipt e M9 (revogação impede commit).
 - **Receipt:** `build/formal-validation-m12-1.json`
-  (`4c353ef3…3b88`), validado por `validation_m12_1.rs` com rejeição de
+  (`6928d5e8…2ec1`), validado por `validation_m12_1.rs` com rejeição de
   adulteração; testes Rust = 31.
 - **Determinismo:** duas gerações consecutivas com diff zero; `docs-check`
   PASS.
-- **PDF:** `main.pdf` **418 páginas** (baseline 411), exit 0, zero
-  erros/referências indefinidas, 31 Overfull herdados; páginas 412–418
+- **PDF:** `main.pdf` **420 páginas** (baseline 418), exit 0, zero
+  erros/referências indefinidas, 31 Overfull herdados; páginas 413–419
   inspecionadas.
 - **Limites:** não certifica `functions/src/posts.ts`, frontend, Rules, Auth,
   Storage, a ACL de Roteiros (M12.2) nem a caixa de notificações (M13).
-  Fronteira D-M12.1-01 (ACL de Roteiros) permanece não bloqueante.
+  Fronteira D-M12.1-01 (ACL de Roteiros) permanece não bloqueante; HQs M12.1 = 0.
 
 Próxima ação exata: executar M12.2 (Roteiros, compartilhamento, Storage/download
 e associação a Post) em rodada própria; depois o fechamento de M12 e, por

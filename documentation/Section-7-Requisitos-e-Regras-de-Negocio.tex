@@ -454,13 +454,16 @@ O Post mora em \texttt{Turma/\{id\_turma\}/Posts/\{postId\}} e tem autor
 \texttt{id\_professor}; o Comentário mora em
 \texttt{.../Comentarios/\{id\}} e tem autor \texttt{id\_usuario}. A autoridade
 de participação acadêmica é o vínculo canônico atual
-\texttt{Turma/\{id\}/Alunos/\{uid\}} (M11); o espelho
-\texttt{Usuarios/\{uid\}/Turmas/\{id\}}, cache ou claim antigos nunca autorizam.
-Somente o professor dono cria e edita Post da turma. Aluno/Bolsista com vínculo
-canônico atual cria e edita o próprio Comentário e lê o feed. Ninguém edita
-conteúdo alheio; moderação não altera autoria. O Chefe intervém apenas por Q13:
-modera e retira da apresentação com motivo e auditoria, sem assumir autoria e
-sem criar Post; a intervenção é identificada institucionalmente na publicação.
+\texttt{Turma/\{id\}/Alunos/\{uid\}} (M11) \textbf{ou} o professor dono da turma;
+o espelho \texttt{Usuarios/\{uid\}/Turmas/\{id\}}, cache ou claim antigos nunca
+autorizam. Claim, token ou espelho atualizados \textbf{não recriam
+participação}: um ex-aluno removido não edita nem lê o próprio Comentário,
+ainda que a claim esteja corrente. Somente o professor dono cria e edita Post
+da turma. Aluno/Bolsista com vínculo canônico atual, ou o professor dono, cria
+e edita o próprio Comentário e lê o feed. Ninguém edita conteúdo alheio;
+moderação não altera autoria. O Chefe intervém apenas por Q13: modera e retira
+da apresentação com motivo e auditoria, sem assumir autoria e sem criar Post; a
+intervenção é identificada institucionalmente na publicação.
 \end{regra}
 
 \begin{regra}[Estado da turma (Q08)]
@@ -487,11 +490,14 @@ para simular moderação.
 \end{regra}
 
 \begin{regra}[Criação, edição e moderação de Comentário]
-Criar Comentário exige autor com vínculo canônico atual, Post existente na
-turma Ativo, \texttt{texto} de 1 a 2\,000 caracteres (Q10) escapado na
-renderização, sem HTML arbitrário, e \texttt{idOperacao} M7. Editar é exclusivo
-do autor: gera \texttt{Historico\_Comentario} (texto antigo/novo, operador,
-timestamp), marca \texttt{editado}/\texttt{editado\_em} e é idempotente por M7.
+Criar Comentário exige autor com vínculo canônico atual ou professor dono (M11),
+Post existente na turma Ativo, \texttt{texto} de 1 a 2\,000 caracteres (Q10)
+escapado na renderização, sem HTML arbitrário, e \texttt{idOperacao} M7. Editar
+é exclusivo do autor e exige o mesmo vínculo/ownership no commit: gera
+\texttt{Historico\_Comentario} (texto antigo/novo, operador, timestamp), marca
+\texttt{editado}/\texttt{editado\_em} e é idempotente por M7. Após a remoção do
+aluno, o autor não edita nem lê o próprio Comentário, ainda que a claim seja
+atualizada; somente vínculo canônico atual ou ownership recreiam participação.
 Moderar é do professor dono ou do Chefe por Q13: grava atomicamente
 \texttt{moderado = true}, \texttt{motivo\_moderacao} (1 a 2\,000 caracteres),
 \texttt{moderado\_por} e \texttt{moderado\_em}; \textbf{não} apaga o
@@ -517,13 +523,15 @@ para colegas, mas permanece no histórico do professor dono e da chefia.
 \begin{regra}[Histórico, auditoria e notificações]
 Edição e moderação geram evento histórico imutável com operador, motivo e
 timestamp; intervenção Q13 é registrada em \texttt{Registro\_de\_Auditoria}; o
-retry M7 não duplica evento nem histórico. As notificações
-\texttt{POST}/\texttt{COMENTARIO} são efeitos delimitados em
-\texttt{Usuarios/\{uid\}/Notificacoes}, com docId determinístico M7,
-\texttt{id\_turma}/\texttt{id\_alvo} mínimos e \textbf{sem} conteúdo protegido
-no payload; o clique revalida o acesso corrente e a notificação, por si só,
-nunca autoriza a leitura do conteúdo. ``Limpar tudo'' marca como lida e não
-apaga.
+retry M7 não duplica evento nem histórico. Cada mutação consome exatamente um
+\texttt{idOperacao} e grava o receipt na mesma transação; o retry idêntico
+(mesmo ator, tipo e payload canônico) devolve o resultado persistido e não
+reaplica efeito. As notificações \texttt{POST}/\texttt{COMENTARIO} são efeitos
+delimitados em \texttt{Usuarios/\{uid\}/Notificacoes}, com docId determinístico
+M7 vinculado ao \texttt{idOperacao}, \texttt{id\_turma}/\texttt{id\_alvo}
+mínimos e \textbf{sem} conteúdo protegido no payload; o clique revalida o
+acesso corrente e a notificação, por si só, nunca autoriza a leitura do
+conteúdo. ``Limpar tudo'' marca como lida e não apaga.
 \end{regra}
 
 \begin{regra}[Fronteira com M12.2 (roteiro anexo)]
@@ -540,17 +548,24 @@ M12.2; um Post cujo anexo não possa ser validado com segurança não é publica
 Toda mutação lê autorização, vínculo canônico atual e estado da turma na mesma
 transação (M9): professor dono para Post, autor para o próprio Comentário,
 professor dono ou Chefe Q13 para moderação. Revogação de vínculo, remoção de
-aluno ou arquivamento antes do commit nega o commit posterior; retry do mesmo
-comando devolve o receipt e não reaplica efeito, e reuso incompatível de
-identidade de comando é rejeitado (M7).
+aluno ou arquivamento antes do commit nega o commit posterior. Primeira
+execução grava o receipt sob o \texttt{idOperacao}; retry idêntico (mesmo ator,
+tipo e payload canônico) devolve o resultado persistido e não reaplica efeito;
+reuso do mesmo \texttt{idOperacao} com ator, tipo ou payload divergente é
+rejeitado e não herda receipt alheio (M7). A identidade de participação é
+revalidada na transação: claim atualizada sem vínculo/ownership não edita nem
+lê (M9/M11).
 \end{regra}
 
 \paragraph{Casos de regressão M12.1.}
-Cobrir: turma Ativo e Arquivada (escrita acadêmica negada); professor dono e
-professor terceiro; aluno/Bolsista matriculado atual e removido; Chefe Q13
-moderando e Chefe tentando escrever em turma arquivada; edição concorrente de
-Post/Comentário com histórico preservado; comentário moderado visto por autor
-(original marcado), colega (aviso), professor dono e Chefe (auditoria); replay
+Cobrir: turma Ativo e Arquivada (escrita acadêmica negada, incluindo edição e
+moderação e para o Chefe); professor dono e professor terceiro; aluno/Bolsista
+matriculado atual e removido (claim atualizada não recria edição nem leitura);
+Chefe Q13 moderando e Chefe tentando escrever em turma arquivada; edição
+concorrente de Post/Comentário com histórico preservado; primeira execução com
+receipt, retry idêntico sem reaplicar e reuso incompatível rejeitado; comentário
+moderado visto por autor (original marcado), colega (aviso), professor dono e
+Chefe (auditoria); replay
 de criação/edição/moderação; Post com e sem roteiro (fronteira M12.2);
 notificação apontando para conteúdo sem acesso; leitura direta negada e
 endpoint devolvendo máscara. Esses casos são critérios normativos e não atestam
@@ -574,7 +589,7 @@ Por iss que "\textit{nome\_responsavel\_sei}" é um simples texto.
 \end{regra}
 \subsubsection{Historico de Posts na Turma}
 \begin{regra}
-A entidade \textit{Historico\_Posts\_Turma} registra no campo \textit{editado\_por} o identificador do usuário que realizou a edição. Normalmente é o Professor dono da turma, mas o Chefe Geral também pode editar ou remover posts em caráter excepcional de moderação institucional (Q13); nesses casos o campo \textit{editado\_por} identifica a ação da chefia e o campo \textit{acao} em \textit{Registro\_de\_Auditoria} registra a motivação. O \textit{id\_turma} não é armazenado nesta entidade 3FN porque pode ser obtido por \textit{Historico\_Posts\_Turma.id\_post} $\rightarrow$ \textit{Post.id\_turma}; se a consulta direta por turma for necessária no Firestore, esse vínculo poderá ser denormalizado na coleção de histórico.
+A entidade \textit{Historico\_Posts\_Turma} registra no campo \textit{editado\_por} o identificador do usuário que realizou a edição. Normalmente é o Professor dono da turma; o Chefe Geral pode \textbf{moderar e remover} posts da apresentação em caráter excepcional de moderação institucional (Q13), \textbf{sem} editar o conteúdo em caráter de autoria. Nesses casos o campo \textit{editado\_por} identifica a ação da chefia e o campo \textit{acao} em \textit{Registro\_de\_Auditoria} registra a motivação. O \textit{id\_turma} não é armazenado nesta entidade 3FN porque pode ser obtido por \textit{Historico\_Posts\_Turma.id\_post} $\rightarrow$ \textit{Post.id\_turma}; se a consulta direta por turma for necessária no Firestore, esse vínculo poderá ser denormalizado na coleção de histórico.
 \end{regra}
 \subsubsection{Não compartilhar o mesmo roteiro 2 vezes com um professor}
 \begin{regra}
