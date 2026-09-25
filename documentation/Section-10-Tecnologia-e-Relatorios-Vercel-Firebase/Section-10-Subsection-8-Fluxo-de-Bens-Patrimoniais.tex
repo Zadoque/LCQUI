@@ -72,13 +72,13 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
 //   - conflito de versão na aprovação: a transação deve rejeitar a requisição E liberar o lock,
 //     não apenas abortar, para evitar lock permanente irrecuperável.
 // FLUXO NORMATIVO:
-//   1. Leitura: requisição -> lock (implícito) -> bem;
+//   1. Leitura: requisição -> lock (existente, proprietário, tipo e recurso) -> bem;
 //   2. Validação de estado da requisição (pendente?);
 //   3. SE REJEIÇÃO: não verificar versão; finalizar requisição como rejeitada; liberar lock;
 //   4. SE APROVAÇÃO: verificar versão;
 //      a. Conflito de versão -> rejeitar requisição como conflito; liberar lock (não abortar sem liberar);
 //      b. Sem conflito -> aplicar alterações; incrementar versão; histórico; liberar lock.
-// UNICIDADE DE PLAQUETA: criarRequisicaoAdicaoBem usa Lock C2 por numero\_patrimonio\_proposto;
+// UNICIDADE DE PLAQUETA: criarRequisicaoAdicaoBem usa Lock C2 por numero\_patrimonio\_normalizado;
 //   a aprovação cria o bem apenas depois de verificar Chaves\_Unicas/Bem\_Patrimonial\_\_{numero}
 //   dentro da mesma transação, garantindo que duas aprovações concorrentes não criem duplicatas.
 export const responderRequisicaoEdicaoBem = onCall(async (request) => {
@@ -97,6 +97,14 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
     if (!req || req.status !== "pendente") throw new HttpsError("failed-precondition", "Requisição indisponível.");
     const bemRef = admin.firestore().collection("Bem\_Patrimonial").doc(req.id\_bem\_patrimonial);
     const lockRef = lockColl.doc(`bem\_edicao\_${bemRef.id}`);
+    const lockSnap = await tx.get(lockRef);
+    if (!lockSnap.exists) {
+      throw new HttpsError("failed-precondition", "Falha de integridade: lock obrigatório da requisição não existe.");
+    }
+    const lock = lockSnap.data()!;
+    if (lock.id\_requisicao !== idRequisicao || lock.tipo !== "EDICAO" || lock.chave\_recurso !== bemRef.id) {
+      throw new HttpsError("failed-precondition", "Falha de integridade: lock não pertence a esta requisição de edição.");
+    }
     const bem = (await tx.get(bemRef)).data();
 
     // PASSO 2: Rejeição não depende de verificação de versão (PDF-001: lock liberado em todos os desfechos)
@@ -107,7 +115,7 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
         id\_usuario\_respondente: request.auth!.uid,
         justificativa\_resposta: justificativa,
       });
-      tx.delete(lockRef); // INVARIANTE: lock liberado mesmo na rejeição
+      tx.delete(lockRef); // lock já comprovadamente pertence à requisição corrente
       return { status: "rejeitada" };
     }
 
@@ -120,7 +128,7 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
         id\_usuario\_respondente: request.auth!.uid,
         justificativa\_resposta: "Conflito de versão: o bem foi alterado após a abertura desta requisição. Revise a proposta com os dados atuais e abra nova requisição.",
       });
-      tx.delete(lockRef); // INVARIANTE: lock liberado no conflito de versão
+      tx.delete(lockRef); // lock já comprovadamente pertence à requisição corrente
       return { status: "rejeitada", motivo: "CONFLITO\_VERSAO" };
     }
 
@@ -136,7 +144,7 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
           id\_usuario\_respondente: request.auth!.uid,
           justificativa\_resposta: "Local referenciado na requisição não encontrado ou excluído.",
         });
-        tx.delete(lockRef);
+        tx.delete(lockRef); // lock já comprovadamente pertence à requisição corrente
         return { status: "rejeitada", motivo: "LOCAL\_NAO\_ENCONTRADO" };
       }
     }
@@ -156,7 +164,7 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
           id_usuario_respondente: request.auth!.uid,
           justificativa_resposta: "Resumo alvo inexistente ou excluído.",
         });
-        tx.delete(lockRef);
+        tx.delete(lockRef); // lock já comprovadamente pertence à requisição corrente
         return { status: "rejeitada", motivo: "RESUMO_ALVO_NAO_ENCONTRADO" };
       }
       alvo = { ref, dados: snap.data()!, novo: false };
@@ -187,7 +195,7 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
       respondida\_em: admin.firestore.FieldValue.serverTimestamp(),
       id\_usuario\_respondente: request.auth!.uid, justificativa\_resposta: justificativa,
     });
-    tx.delete(lockRef); // INVARIANTE: lock liberado na aprovação
+    tx.delete(lockRef); // lock já comprovadamente pertence à requisição corrente
     return { status: "aprovada" };
   });
 });
@@ -212,11 +220,14 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
 
   await validarFotoProposta(dados.photoUrlProposta, request.auth!.uid);
 
-  // C2: Lock determinístico por número de patrimônio proposto (normalizado)
   const numeroNormalizado = dados.numeroPatrimonioProposto.trim().toUpperCase();
-  const lockId = `bem\_adicao\_${numeroNormalizado}`;
-  const lockRef = admin.firestore().collection("Locks\_Requisicao\_Patrimonio").doc(lockId);
-  const reqRef  = admin.firestore().collection("Requisicao\_Adicao\_Bem\_Patrimonial").doc();
+  if (!numeroNormalizado || numeroNormalizado.length > 30) {
+    throw new HttpsError("invalid-argument", "Número de patrimônio normalizado inválido.");
+  }
+  // C2: Lock determinístico por numero\_patrimonio\_normalizado.
+  const lockRef = admin.firestore().collection("Locks\_Requisicao\_Patrimonio")
+    .doc(`bem\_adicao\_${numeroNormalizado}`);
+  const reqRef = admin.firestore().collection("Requisicao\_Adicao\_Bem\_Patrimonial").doc();
 
   return admin.firestore().runTransaction(async (tx) => {
     const lockSnap = await tx.get(lockRef);
@@ -238,6 +249,7 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
     });
     tx.set(reqRef, {
       numero\_patrimonio\_proposto: dados.numeroPatrimonioProposto,
+      numero\_patrimonio\_normalizado: numeroNormalizado,
       estado\_conservacao\_proposto: dados.estadoConservacaoProposto,
       photo\_url\_proposta: dados.photoUrlProposta,
       nome\_responsavel\_proposto: dados.nomeResponsavelProposto,
@@ -248,9 +260,11 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
       motivo: dados.motivo,
       status: "pendente",
       feita\_em: admin.firestore.FieldValue.serverTimestamp(),
+      id\_bem\_patrimonial\_se\_aprovado: null,
       id\_usuario\_solicitante: request.auth!.uid,
       respondida\_em: null,
       id\_usuario\_respondente: null,
+      justificativa\_resposta: null,
     });
     return { idRequisicao: reqRef.id };
   });
@@ -273,9 +287,21 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
     const req = reqSnap.data()!;
     if (req.status !== "pendente") throw new HttpsError("failed-precondition", "Requisição já respondida.");
 
-    const numeroNormalizado = req.numero\_patrimonio\_proposto.trim().toUpperCase();
+    const numeroNormalizado = req.numero\_patrimonio\_normalizado;
+    if (typeof numeroNormalizado !== "string" || !numeroNormalizado ||
+        numeroNormalizado.length > 30 ||
+        numeroNormalizado !== req.numero\_patrimonio\_proposto.trim().toUpperCase()) {
+      throw new HttpsError("failed-precondition", "Falha de integridade: plaqueta normalizada ausente ou divergente.");
+    }
     const lockRef = admin.firestore().collection("Locks\_Requisicao\_Patrimonio").doc(`bem\_adicao\_${numeroNormalizado}`);
     const lockSnap = await tx.get(lockRef);
+    if (!lockSnap.exists) {
+      throw new HttpsError("failed-precondition", "Falha de integridade: lock obrigatório da requisição não existe.");
+    }
+    const lock = lockSnap.data()!;
+    if (lock.id\_requisicao !== idRequisicao || lock.tipo !== "ADICAO" || lock.chave\_recurso !== numeroNormalizado) {
+      throw new HttpsError("failed-precondition", "Falha de integridade: lock não pertence a esta requisição de adição.");
+    }
 
     let chaveUnicaRef: FirebaseFirestore.DocumentReference | null = null;
     let resumoNome = req.nome\_resumo\_proposto ?? "";
@@ -295,7 +321,8 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
       chaveUnicaRef = admin.firestore().collection("Chaves\_Unicas").doc(`Bem\_Patrimonial\_\_${numeroNormalizado}`);
       const chaveUnicaSnap = await tx.get(chaveUnicaRef);
       if (chaveUnicaSnap.exists) {
-        throw new HttpsError("already-exists", "O número de patrimônio aprovado já está em uso por outro bem.");
+        aprovarInterno = false;
+        justificativaFinal = "Conflito de unicidade: número de patrimônio já pertence a outro bem.";
       }
 
       if (req.id\_resumo\_bem\_patrimonial) {
@@ -330,16 +357,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
       }
     }
 
-    // PASSO C: Escritas (remoção do lock e resposta)
-    if (lockSnap.exists) {
-      const lockData = lockSnap.data()!;
-      if (lockData.id\_requisicao === idRequisicao) {
-        tx.delete(lockRef);
-      } else {
-        throw new HttpsError("failed-precondition", "Conflito de integridade: Lock pertence a outra requisição.");
-      }
-    }
-
+    // PASSO C: Escritas, após lock comprovadamente pertencente à requisição.
     let idBemCriado: string | null = null;
 
     if (aprovarInterno) {
@@ -365,7 +383,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
       tx.set(bemRef, {
         id\_resumo\_bem\_patrimonial: idResumo,
         nome\_equipamento: resumoNome,
-        numero\_patrimonio: req.numero\_patrimonio\_proposto,
+        numero\_patrimonio: numeroNormalizado,
         estado\_conservacao: req.estado\_conservacao\_proposto,
         id\_local: req.id\_local,
         photo\_url: req.photo\_url\_proposta, // ausência rejeitada antes das escritas
@@ -399,6 +417,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
         id\_bem\_patrimonial\_se\_aprovado: idBemCriado,
         justificativa\_resposta: justificativaFinal,
       });
+      tx.delete(lockRef); // lock já comprovadamente pertence à requisição corrente
     } else {
       tx.update(reqRef, {
         status: "rejeitada",
@@ -406,6 +425,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
         id\_usuario\_respondente: request.auth!.uid,
         justificativa\_resposta: justificativaFinal,
       });
+      tx.delete(lockRef); // lock já comprovadamente pertence à requisição corrente
     }
 
     return { status: aprovarInterno ? "aprovada" : "rejeitada", idBemCriado };
