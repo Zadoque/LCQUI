@@ -216,3 +216,11 @@ pub fn render_m8(v: &crate::validation_m8::ValidationM8) -> String {
         &v.resultados,
     )
 }
+
+pub fn render_m9(v: &crate::validation_m9::ValidationM9) -> String {
+    render_milestone(
+        "M9 --- autorização e usuários",
+        "CUE verifica shapes de usuário, papel fechado, versão de permissões, claim, vínculo, ownership e decisão. Alloy verifica a autoridade única podeExecutar: usuário autenticado/ativo, papel persistido permitido, versão corrente, vínculo ou ownership aplicável, recurso não server-owned; também verifica revogação, claim obsoleta, TOCTOU abstrato e que autorização não substitui precondição de domínio. Rust valida proveniência, ordem exata do receipt e a decisão determinística fail-closed. A evidência não certifica Firebase, Rules, Admin SDK, UI, token refresh ou concorrência real.",
+        &v.resultados,
+    )
+}
