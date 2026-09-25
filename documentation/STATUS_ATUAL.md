@@ -1,18 +1,57 @@
 # Status atual do LCQUI
 
-## Estado corrente pós-backfill pré-M8
+## Estado corrente pós-M8 documental
 
-M0–M7 = **VALIDATED**; M8 = **NOT_STARTED**. A formalização executável de M5,
-M6 e M7 foi integrada ao IR, receipts, validadores Rust, fragmentos gerados,
-`main.tex` e `main.pdf`, com todos os gates finais PASS. Próxima ação exata:
-**INICIAR M8 DOCUMENTAL**. Os registros abaixo são históricos quando descrevem
-M5–M7 como dívida documental.
+M0–M7 = **VALIDATED**; M8 = **DOCUMENTATION_VALIDATED**; M9+ = **NOT_STARTED**.
+A cadeia executável CUE → IR → Alloy → receipts → Rust → LaTeX → PDF de M5–M7
+foi concluída, e M8 documental consolidou estoque atual, escassez e notificações.
+Próxima ação exata: **FORMALIZAÇÃO EXECUTÁVEL DE M8** em rodada separada
+(CUE → IR → Alloy → receipt → Rust → LaTeX → PDF). Não iniciar M9.
 
-Atualizado em 25/09/2026 — backfill executável pré-M8 concluído. Estado corrente: M0–M7 = VALIDATED, M8 = NOT_STARTED; próxima ação exata = **INICIAR M8 DOCUMENTAL**. A cadeia CUE/Alloy/Rust/LaTeX/PDF de M5–M7 passou todos os gates.
+Atualizado em 25/09/2026 — M8 documental concluído. Estado corrente:
+M0–M7 = VALIDATED, M8 = DOCUMENTATION_VALIDATED; nenhuma HQ bloqueante.
 
-## Backfill pré-M8 — bloqueio identificado
+## M8 documental (Estoque / Escassez / Notificações)
 
-**M8 NÃO FOI INICIADO.** HQ-PRE-M8-001 e HQ-PRE-M8-002 estão RESOLVED. A decisão humana separou estado físico, localização e autorização operacional. EXTRAVIO preserva o estado físico, muda `situacao_localizacao` e revoga a autorização corrente; REENCONTRO localiza, impõe quarentena e exige nova autorização. O backfill executável M5–M7 está concluído e M0–M7 = VALIDATED. Evidência em `documentation/worklogs/formal-spec/PRE_M8_FORMALIZATION_BACKFILL.md`. Próxima ação exata: **INICIAR M8 DOCUMENTAL**.
+Branch: `feat/formal-spec-cue-alloy`. HEAD de entrada:
+`4e142287536e4cde3077c0b3b72c13185734faed`. Rodada **exclusivamente
+documental**: `frontend/`, `functions/`, `specification/`, `tools/`,
+`firestore.rules`, `storage.rules`, `build/*.json` e `documentation/generated/`
+intactos. Registro durável em
+[worklog M8_DOCUMENTATION](worklogs/formal-spec/M8_DOCUMENTATION.md).
+
+- **Estoque atual:** `Frasco_Reagente` é a autoridade; sem view persistente e sem
+  encadeamento D→D-1. `Resumo_*_Diario` são FLOW históricos. Agregação protegida
+  `navegador → backend → count()/sum() → Frasco_Reagente`. `saldo_aferido_g`/`ml`
+  server-owned; desconhecido/ausente/inconsistente é `NULL`, nunca zero; g e mL
+  não se somam.
+- **Aptidão única:** predicado `frascoAptoParaUso` (localizado, disponível,
+  `FECHADO`/`ABERTO`, sem quarentena, validade compatível, sem pendência M5/M6),
+  compartilhado por dashboard, retirada e escassez. `qtdAptos` é número de
+  frascos.
+- **Escassez:** configuração `Almoxarifado/{almox}/Estoques_Configurados/{idResumo_idEspec}`;
+  `qtd_limiar_escassez` inteiro não negativo em frascos; efeito
+  `qtdAptos < qtd_limiar` (estritamente menor). `ativo` e `notificacao_ativa`
+  distintos; `Almoxarifado.ativo=false` não avalia; backfill legado é
+  pré-condição operacional ("especificar o job ≠ ativar a cron").
+- **Cache:** `Sistema_Cache_Dashboard` lazy, TTL semântico `< 30 s`, escopos
+  `ESTOQUE__ALMOX`/`ESTOQUE__ALMOX__RESUMO`, geração/invalidação transacional,
+  publicação só se a geração não mudou. Ordem `App Check → Auth → RBAC/escopo →
+  rate limit (5/min/UID) → cache/agregação`, inclusive em cache hit. O job de
+  escassez **não** usa cache.
+- **Notificações:** `ESCASSEZ_ESTOQUE` em `Usuarios/{uid}/Notificacoes`, docId
+  determinístico `escassez_{almox}_{config}_{dataCivil}`, data civil
+  `America/Sao_Paulo`, destinatários vinculados ao almoxarifado; apenas
+  `ALREADY_EXISTS` é no-op e erros diversos propagam; ler/marcar lida é
+  server-owned; "Limpar tudo" não é `DELETE`.
+- **Findings:** M8-F01..F06 corrigidos documentalmente (query de escassez sem
+  `situacao_localizacao`, erro engolido, aptidão sem autoridade única, retirada
+  sem localização, ausência de "cache ≠ escassez", `Estoques_Configurados` fora
+  das Rules). M8-F07..F10 (`firestore.rules` notificações, backend sem
+  job/config/saldo/cache, rótulo "frascos ou ml/g", cache/`count()` não
+  implementados) registrados como dívida. Nenhuma HQ. PDF **361 páginas**, zero
+  erros.
+
 
 ## M7 documental (Idempotência)
 
