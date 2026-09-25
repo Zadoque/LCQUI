@@ -76,6 +76,11 @@ Modelo composto `stock_cache_scarcity_m8.als` (siglas: `Frasco`, `Config`,
 menor; `invalidaCache`/`publicaCache` com geração; `emitirEscassez`/
 `retryNotificacao` idempotentes. A transição `invalidaCache` usa
 `plus[geracao, 1]` (evita a união de conjuntos acidental do operador `+`).
+As dimensões `Fisico`/`Localizacao`/`Disp` são a interface copiada de M5
+(`loss_found_quarantine_m5.als`); a cópia é inevitável na arquitetura Alloy
+atual e é protegida pelo guard de drift `tools/formal/m8_origins.test.mjs`, que
+compara os conjuntos de valores mecanicamente e verifica a presença do
+predicado único e da fronteira estrita.
 
 ## 9. Checks M8 (25, todos UNSAT)
 
