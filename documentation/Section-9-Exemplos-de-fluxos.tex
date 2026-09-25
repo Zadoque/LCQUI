@@ -138,6 +138,66 @@ O extravio e o reencontro são fatos distintos de liberação. Os quatro fluxos 
     \item \textbf{Caso 8 (sem fabricação).} Frasco anteriormente \texttt{ABERTO} reencontrado aparentemente sem conteúdo: M5 \textbf{não} inventa \texttt{VAZIO}, \texttt{saldo = 0} nem nova tara; mantém a quarentena, registra a observação e remete a confirmação quantitativa a M6.
 \end{itemize}
 
+\textbf{Casos de regressão documental de M8 (estoque, escassez, cache e notificações).} A aptidão usa o predicado único \texttt{frascoAptoParaUso} da Seção~\ref{sec:m8-estoque-escassez-notificacoes}.
+
+\emph{Estoque atual.}
+\begin{itemize}
+    \item \texttt{FECHADO + LOCALIZADO + DISPONIVEL}: apto.
+    \item \texttt{ABERTO + LOCALIZADO + DISPONIVEL}: apto.
+    \item \texttt{ABERTO + EXTRAVIADO}: não apto, apesar do estado físico aberto.
+    \item \texttt{QUEBRADO}, \texttt{VAZIO}, \texttt{DESCARTADO}, \texttt{EMPRESTADO}: não aptos.
+    \item \texttt{em\_quarentena = true}: não apto, mesmo \texttt{ABERTO}/\texttt{FECHADO}.
+    \item Frasco vencido com \texttt{uso\_vencido\_autorizado = true}: apto (validade compatível); sem autorização: não apto.
+    \item Saldo desconhecido: a contagem de frascos é possível conforme a métrica, mas a soma quantitativa é segregada e \textbf{nunca} tratada como zero conhecido.
+    \item Massa (g) e volume (mL) nunca são somados no mesmo total.
+\end{itemize}
+
+\emph{Escassez.}
+\begin{itemize}
+    \item \texttt{qtdAptos < limiar}: escassez (emite alerta quando configurado).
+    \item \texttt{qtdAptos = limiar}: \textbf{não} há escassez.
+    \item \texttt{qtdAptos > limiar}: não há escassez.
+    \item \texttt{ativo = false}: não avaliar.
+    \item \texttt{notificacao\_ativa = false}: escassez pode existir conceitualmente, sem alerta automático.
+    \item \texttt{Almoxarifado.ativo = false}: não executar avaliação automática.
+    \item Frascos extraviados, quebrados, vazios, descartados, emprestados ou em quarentena não inflam \texttt{qtdAptos}.
+\end{itemize}
+
+\emph{Cache.}
+\begin{itemize}
+    \item \texttt{cache hit} válido e autorizado: responde dentro da validade restante.
+    \item \texttt{cache hit} sem autorização: rejeita.
+    \item \texttt{cache hit} acima do rate limit: rejeita ($5$/min/UID).
+    \item \texttt{cache miss} ou inválido: recalcula sob demanda.
+    \item Geração muda durante o cálculo: não publica resultado obsoleto.
+    \item Duas mudanças consecutivas: responde indisponibilidade temporária, não dado obsoleto.
+    \item TTL físico atrasado: não torna o cache semanticamente válido.
+    \item $30$ segundos sem acesso: nenhum recálculo automático (não há scheduler).
+    \item Mutação de domínio atualiza geração e marca \texttt{valido = false} na \textbf{mesma} transação, sem recalcular a agregação.
+    \item Correção exclusivamente histórica não invalida estoque atual.
+\end{itemize}
+
+\emph{Notificações.}
+\begin{itemize}
+    \item Primeira escassez do dia: cria \texttt{ESCASSEZ\_ESTOQUE} com docId determinístico.
+    \item \textit{Retry} do job no mesmo dia: não duplica (\texttt{create}/\texttt{ALREADY\_EXISTS}).
+    \item Mesma configuração no dia civil seguinte: nova notificação permitida.
+    \item Erro diferente de \texttt{ALREADY\_EXISTS}: \textbf{não} engolido, propaga.
+    \item Gestor sem vínculo ao almoxarifado: não recebe, mesmo com o papel global.
+    \item ``Limpar tudo'': marca como lida, preserva histórico, sem \texttt{DELETE}.
+\end{itemize}
+
+\emph{Interação M5/M6.}
+\begin{itemize}
+    \item Frasco extraviado: fora de \texttt{qtdAptos}.
+    \item Reencontrado em quarentena: fora de \texttt{qtdAptos}.
+    \item Quebrado: fora de \texttt{qtdAptos}.
+    \item Pendência metrológica bloqueante (\texttt{DEVOLVIDO\_COM\_ANOMALIA} com \texttt{consumo\_validado = false}): fora de \texttt{qtdAptos}.
+    \item Resolução metrológica que mantém quarentena: continua fora.
+    \item Liberação M5 válida (\texttt{VOLTAR\_A\_DISPONIVEL}): volta a depender das demais condições de aptidão.
+    \item Consumo pendente não é contado como consumo zero nem como frasco apto adicional.
+\end{itemize}
+
 O sistema renderiza na tela em negrito e com fundo destacado: \textbf{``Volume utilizado neste empréstimo: 4.5 mL''} ou \textbf{``Peso utilizado nesse empréstimo: 22 g''}. Ao clicar em ``Finalizar'', um sinal sonoro/visual confirma que a transação de estoque, consumo, histórico e auditoria foram concluídas.
 
 
