@@ -10,13 +10,26 @@ aditivo (`formal_m10_patrimonio`), `patrimony_m10.als` (29 checks UNSAT + 17
 witnesses SAT), receipt verificável, validator Rust, guard de drift,
 canonicalização `N(s)` e PDF de 389 páginas. Regressão M0–M9 PASS; receipts
 antigos mudaram somente em `spec_ir_sha256`. Findings independentes de segurança
-Rust (RUST-SAFETY-01..03) resolvidos. A consolidação executável está pronta e
-não commitada. Próxima ação exata: **AVALIAR A ENTRADA EM M11 — TURMAS / DEMAIS
-DOMÍNIOS — EM RODADA SEPARADA**. Não iniciar M11.
+Rust (RUST-SAFETY-01..03) resolvidos. A consolidação executável foi commitada em
+`03aa2771b7237afb59d22daae6e29198503f8034`. Próxima ação exata: **AVALIAR A
+ENTRADA EM M11 — TURMAS / DEMAIS DOMÍNIOS — EM RODADA SEPARADA**. Não iniciar
+M11.
 
 Atualizado em 25/09/2026 — M10 executável concluído. Estado corrente:
 M0–M10 = VALIDATED; M11+ = NOT_STARTED; nenhuma HQ bloqueante. Registro em
 [worklog M10 executável](worklogs/formal-spec/M10_EXECUTABLE_VALIDATION.md).
+
+Reconciliação documental pós-M10 (busca de reagentes): a Seção 5 passa a
+descrever a busca em memória sobre o catálogo JSON (Firestore canônico, JSON
+projeção autorizada, cache descartável), propõe a depreciação de
+`letra_inicial` de Reagentes mantendo o campo/mapping como legado, e define
+ordenação, navegação por inicial (A–Z/`#`) e janela de renderização; a Seção 8
+trata o seletor nome/CAS/fórmula como UX opcional; a Seção 10.5 alinha o acesso
+do Aluno à matriz da Seção 3/M9/Seção 11. M0–M10 permanecem VALIDATED; nenhum
+artefato formal (CUE/IR/Alloy/receipt/validator/generated) foi alterado; o
+frontend ainda usa a estratégia antiga (dívida de implementação). Registro em
+[worklog de reconciliação](worklogs/formal-spec/REAGENT_SEARCH_RECONCILIATION.md).
+PDF 390 páginas.
 
 - **M10 — Patrimônio:** `Bem_Patrimonial` é a unidade física e
   `Resumo_Bem_Patrimonial` é o catálogo; nome/local no bem são projeções. A
