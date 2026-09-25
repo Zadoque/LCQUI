@@ -1,5 +1,63 @@
 # Status atual do LCQUI
 
+## Estado corrente — M11 documental (Turma, matrícula e convite)
+
+Rodada **exclusivamente documental** na branch `feat/formal-spec-cue-alloy`.
+HEAD de entrada: `394b88e7c5f2abd5ca0467915bfcd35276bbc4a8` (árvore limpa,
+`origin` sincronizada). Baseline e gate final: `just formal-check` exit `0`
+(17 testes Node/guards, `alloy-check` PASS, `docs-check` do gerador, build LaTeX
+e stale gate); `documentation/generated/` sem diff. PDF publicado: **397
+páginas** (entrada 390), 0 erros, 0 referências indefinidas, 30 Overfull
+(herdados). Nenhum artefato `specification/cue/`, Alloy, IR, receipt, validador
+Rust, gerador, `frontend/`, `functions/`, `firestore.rules` ou `storage.rules`
+foi alterado. Registro durável em
+[worklog M11 documental](worklogs/formal-spec/M11_DOCUMENTATION.md).
+
+- **Contrato:** nova subseção normativa **7.5 Turmas, matrícula e convites
+  (M11)** (`\ref{sec:regras-turmas-m11}`), reconciliando RN-TUR-01 (Seção 4),
+  dicionários/espelhos (Seção 5), UI-10 (Seção 8), fluxos (Seção 9), contrato
+  M11 (Seção 10.10) e Rules (Seção 11); matriz e papel do Chefe ajustados na
+  Seção 3.
+- **Turma:** identidade `Turma/{id}`, dono `id_professor`, `capacidade` inteiro
+  positivo, `codigo_turma` único gerado no servidor (`Chaves_Unicas/Turma__…`,
+  não liberado ao arquivar), `status` Ativo/Arquivada, `qtd_alunos` e `versao`;
+  arquivar/desarquivar preserva ID, membros, posts, histórico e bloqueia
+  escritas (Q08). Inclusão/remoção de membro não incrementa `versao`.
+- **Matrícula:** `Turma/{id}/Alunos/{uid}` é o vínculo canônico e o espelho
+  `Usuarios/{uid}/Turmas/{id}` é só projeção; `qtd_alunos` é a autoridade
+  transacional de vaga (o `COUNT` 3FN é a mesma grandeza, não leitura fora da
+  transação); remoção decrementa uma vez, nunca abaixo de zero; removido só
+  reingressa por convite; retry M7 idempotente e matrícula já existente devolve
+  acesso sem duplicar contagem.
+- **Capacidade:** ingresso ordinário exige `qtd_alunos < capacidade` no commit;
+  só convite nominal do professor dono com `exceder_capacidade` +
+  `justificativa_excecao`, revalidado na aceitação, ultrapassa a capacidade;
+  código nunca é exceção. Redução abaixo da ocupação: fail-closed na V1 e
+  **HQ-M11-001** aberta.
+- **Convites:** e-mail normalizado, token CSPRNG guardado só como hash,
+  docId determinístico por HMAC, expiração de 7 dias, unicidade transacional de
+  pendente por (e-mail, `id_turma`) inclusive a chave global com `NULL`;
+  convite global não cria matrícula; aceitação única e idempotente; Auth e
+  envio de e-mail são etapas externas pós-commit; criar registro ≠ enviar
+  e-mail.
+- **HQ-M11-001 — RESOLVED (A):** redução de `capacidade` abaixo de
+  `qtd_alunos` é **proibida**; o servidor rejeita, fail-closed, e orienta
+  remover membros antes. Sem HQ bloqueante e com três auditorias de
+  consistência sem novas falhas, **M11 = DOCUMENTATION_VALIDATED** para a fatia
+  documental explicitamente definida; a formalização executável não foi
+  iniciada. Fora de M11: formalização completa de Posts/Comentários/Roteiros/
+  notificações; cancelamento explícito de convite pendente; formalização
+  executável (CUE → IR → Alloy → receipt → Rust → LaTeX → PDF).
+- **Dívida de implementação (não homologada):** `functions/src/turmas.ts`
+  decide por claims, não aplica receipt M7 nem `Chaves_Unicas` de turma,
+  recontagem/`qtd_alunos` divergente, `removido_por`/`modo_ingresso` ausentes,
+  espelho com PII, `versao` não incrementada em arquivar; `aceitarConviteAluno`
+  não está implementado no backend; Rules reais divergem do alvo (Seção 11).
+
+Próxima ação exata: executar a formalização executável M11 (CUE → IR → Alloy →
+receipt → Rust → LaTeX → PDF) em rodada separada, a partir deste contrato
+documental.
+
 ## Estado corrente pós-M10 executável
 
 M0–M10 = **VALIDATED**; M11+ = **NOT_STARTED**. HEAD de entrada da formalização
