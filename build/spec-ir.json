@@ -1684,6 +1684,223 @@
                 "ativo": true,
                 "notificacao_ativa": true
             }
+        },
+        {
+            "arquivo": "formal_m9_autorizacao",
+            "entidade": "M9_Autorizacao_Usuarios",
+            "etapa": "formalização executável M9",
+            "escopo": "Shapes estruturais de usuário, papel, versão de permissões, claim, vínculo, ownership e decisão. A autoridade é persistida; relações, revogação, fail closed, TOCTOU abstrato e separação de domínio são verificados em Alloy.",
+            "campos": [
+                {
+                    "tipo": "string",
+                    "nome": "uid",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "ativo",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "int",
+                    "nome": "versao_permissoes",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": true
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "papeis_persistidos",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "Chefe_Geral",
+                        "Gestor_Almoxarifado",
+                        "Gestor_Bens_Patrimoniais",
+                        "Professor",
+                        "Aluno",
+                        "Bolsista"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "claim_papeis",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "Chefe_Geral",
+                        "Gestor_Almoxarifado",
+                        "Gestor_Bens_Patrimoniais",
+                        "Professor",
+                        "Aluno",
+                        "Bolsista"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "int",
+                    "nome": "claim_versao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": true
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "claims_pendentes",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_almoxarifado",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_recurso",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "tipo_recurso",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "Turma",
+                        "Post",
+                        "Roteiro",
+                        "Requisicao"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "operacao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "GERIR_USUARIOS",
+                        "OPERAR_ALMOXARIFADO",
+                        "OPERAR_PATRIMONIO",
+                        "OPERAR_RECURSO_PROPRIO",
+                        "LER_RECURSO_ACADEMICO",
+                        "ESCREVER_SERVER_OWNED"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "recurso",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "Almoxarifado",
+                        "Patrimonio",
+                        "Academico",
+                        "Interno"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "exige_vinculo",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "exige_ownership",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "permitido",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                }
+            ],
+            "exemplo": {
+                "uid": "uid-gestor-a",
+                "ativo": true,
+                "versao_permissoes": 4,
+                "papeis_persistidos": [
+                    "Gestor_Almoxarifado"
+                ],
+                "claim_papeis": [
+                    "Gestor_Almoxarifado"
+                ],
+                "claim_versao": 4,
+                "claims_pendentes": false
+            }
         }
     ]
 }
