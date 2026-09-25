@@ -1,7 +1,7 @@
 # LCQUI — Formal Specification State
 
 ## 1. Propósito desta fase
-M0 = VALIDATED; M1 = VALIDATED; M2 = VALIDATED; M3 = VALIDATED; M4 = VALIDATED; M5 = VALIDATED; M6 = VALIDATED; M7 = VALIDATED; M8 = VALIDATED. A cadeia executável CUE → IR → Alloy → receipts → Rust → LaTeX → PDF de M5–M8 foi concluída com todos os gates PASS. M8 possui CUE, IR v3 (entidade aditiva), modelo Alloy composto, receipt verificável, validator Rust, fragmentos gerados e capítulo integrado ao PDF. Próxima ação exata: **AVALIAR A ENTRADA EM M9 — AUTORIZAÇÃO/USUÁRIOS** em rodada separada. Não iniciar M9. Os parágrafos abaixo preservam o contexto histórico da fase.
+M0 = VALIDATED; M1 = VALIDATED; M2 = VALIDATED; M3 = VALIDATED; M4 = VALIDATED; M5 = VALIDATED; M6 = VALIDATED; M7 = VALIDATED; M8 = VALIDATED; M9 = DOCUMENTATION_VALIDATED; M10+ = NOT_STARTED. HEAD da consolidação documental M9: `dd5024ebd8987a65e18888a6508a79ef54e16431`. A cadeia executável CUE → IR → Alloy → receipts → Rust → LaTeX → PDF de M5–M8 foi concluída com todos os gates PASS. M9 consolidou documentalmente autorização/usuários, mas ainda não possui formalização executável. Próxima ação exata: **FORMALIZAÇÃO EXECUTÁVEL DE M9 EM RODADA SEPARADA (CUE → IR → Alloy → receipt → Rust → LaTeX → PDF)**. Os parágrafos abaixo preservam o contexto histórico da fase.
 
 Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. M5, M6, M7 e M8 agora possuem contratos CUE, IR v3, modelos Alloy, receipts verificáveis, validators Rust, fragmentos gerados e capítulos integrados ao PDF. M8 = VALIDATED; próxima ação: avaliar a entrada em M9 (autorização/usuários).
 
@@ -69,7 +69,7 @@ Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spaw
 | M6 | Q06/tara | VALIDATED |
 | M7 | Idempotência | VALIDATED |
 | M8 | Estoque/escassez/notificações | VALIDATED |
-| M9 | Autorização/usuários | NOT_STARTED |
+| M9 | Autorização/usuários | DOCUMENTATION_VALIDATED |
 | M10 | Patrimônio | NOT_STARTED |
 | M11 | Turmas/demais domínios | NOT_STARTED |
 | M12 | Integração/redução de duplicação normativa | NOT_STARTED |
@@ -149,7 +149,7 @@ Validação naquele checkpoint: just docs-build PASS (275 páginas, zero erros/r
 ## 12. Próxima ação EXATA
 **M8 = VALIDATED.** M0–M7 = VALIDATED e o backfill executável M5–M7 foi concluído; a formalização executável de M8 fechou CUE → IR → Alloy → receipt → Rust → LaTeX → PDF, com todos os gates PASS. A modelagem pré-M8 separa `EstadoFisico`, `SituacaoLocalizacao` e autorização operacional: `EXTRAVIADO` preserva `fisico`, revoga a autorização corrente e o reencontro grava `LOCALIZADO` com quarentena. Checks Alloy de coerência são UNSAT e witnesses do ciclo físico/autorização são SAT nos scopes canônicos e ampliados. Regressão M0–M4 PASS.
 
-AVALIAR A ENTRADA EM M9 — AUTORIZAÇÃO/USUÁRIOS (rodada separada). M0–M8 = VALIDATED; M9+ = NOT_STARTED. Não iniciar M9 nesta linha. Registros em `documentation/worklogs/formal-spec/M8_DOCUMENTATION.md` e `M8_EXECUTABLE_VALIDATION.md`.
+FORMALIZAÇÃO EXECUTÁVEL DE M9 EM RODADA SEPARADA (CUE → IR → Alloy → receipt → Rust → LaTeX → PDF). M0–M8 = VALIDATED; M9 = DOCUMENTATION_VALIDATED; M10+ = NOT_STARTED. Não iniciar M10. Registros em `documentation/worklogs/formal-spec/M9_DOCUMENTATION.md` e nos worklogs M8.
 
 M7 documental: contrato global de idempotência em `documentation/worklogs/formal-spec/M7_DOCUMENTATION.md`; identidade `(uid, tipo_operacao, payload_hash)`, canonicalização única, `idOperacao` obrigatório, comandos atômicos vs workflows externos, dedup de eventos, jobs e materializações; findings M7-F01..F09 corrigidos e M7-F10 registrado como divergência de implementação. A formalização executável CUE/Alloy/Rust de M5–M7 foi concluída no backfill pré-M8. M8 = VALIDATED. Registro: `documentation/worklogs/formal-spec/PRE_M8_FORMALIZATION_BACKFILL.md`, `documentation/worklogs/formal-spec/M8_DOCUMENTATION.md` e `M8_EXECUTABLE_VALIDATION.md`. A implementação real (`functions/src/reagentes.ts`) segue divergente e não foi alterada.
 
