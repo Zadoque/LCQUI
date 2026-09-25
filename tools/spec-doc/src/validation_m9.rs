@@ -197,7 +197,7 @@ impl ValidationM9 {
 
 /// Decisão determinística auxiliar: uma claim/versionamento só participa como
 /// versão corrente; ela não substitui papel, escopo e ownership persistidos.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn pode_executar_atual(
     ativo: bool,
     claim_versao: i64,
@@ -217,7 +217,7 @@ pub fn pode_executar_atual(
         && !server_owned
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn pode_commit_atual(autorizado: bool, precondicao_dominio: bool) -> bool {
     autorizado && precondicao_dominio
 }
