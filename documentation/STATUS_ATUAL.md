@@ -3,12 +3,20 @@
 ## Estado corrente — M12.2 executável validado (Roteiros, compartilhamento e Storage)
 
 Cadeia aditiva **CUE → IR v3 → Alloy → receipt → Rust → LaTeX → PDF** para
-Roteiros, compartilhamento, Storage/download e anexo a Post. HEAD de entrada:
-`eb6d89e47fd14eb43ddf98d22f194e9236f3a7d1`; commit executável `a11c716b`.
-**M12.2 = VALIDATED**; M0–M11 e M12.1 = VALIDATED; M12 = NOT_STARTED
-(fechamento de composição/regressão); M13 = NOT_STARTED; **HQs M12.2 = 0**.
-Registro em
+Roteiros, compartilhamento, Storage/download e anexo a Post. HEAD de entrada da
+rodada corretiva: `1000513a0e54de0f2f69583ff50532a6096420fc`; commit executável
+`8fc21a61`. **M12.2 = VALIDATED** (após rodada corretiva); M0–M11 e M12.1 =
+VALIDATED; M12 = NOT_STARTED (fechamento de composição/regressão); M13 =
+NOT_STARTED; **HQs M12.2 = 0**. Registro em
 [worklog M12.2 executável](worklogs/formal-spec/M12_2_EXECUTABLE_VALIDATION.md).
+
+- **Rodada corretiva (dois achados fechados):** (1) `compartilhar` passou a
+  exigir `roteiroPublicavel` e `coerente` rejeita compartilhamento de roteiro
+  `Provisorio`/`Validado` (M12.2-CORR-01); (2) o Chefe só emite URL sob
+  **escopo Q13 registrado** (`AuditoriaQ13`: Chefe + roteiro + Post removido que
+  referencia o roteiro), com Chefe exclusivo sem vínculo de aluno
+  (RN-ROLE-01) e fim do escopo impedindo apenas novas emissões
+  (M12.2-CORR-02).
 
 - **Realinhamento normativo (Fase 1):** a Seção 7.7 passou a distinguir
   **novas emissões** de URL (bloqueadas por remoção/perda de vínculo/revogação,
@@ -22,25 +30,26 @@ Registro em
   `#M12_1RoteiroAnexo` (projeção oculta) e acrescenta `geracao`;
   `#M12_2AnexoVinculado` liga o anexo à referência canônica. M12.1 permanece
   byte a byte idêntico e não é tratado como prova da geração.
-- **CUE:** `#M12_2Contrato` (13 shapes; **17 fixtures válidas + 16 inválidas**),
-  limites (nome 1–150, geração 1–120, tamanho positivo e **PDF estritamente <
-  15 MiB** = 15 728 640 bytes), ACL de UID único, status fechado
-  `PROVISORIO|VALIDADO|PUBLICAVEL`.
-- **IR:** v3 aditivo (`formal_m12_2_roteiros`, 16 campos); `spec_ir_sha256` =
-  `b5671cb75609239db147d9fbe446aafa35d12f2d71ee91753f4d4cb630573fe1`; receipts
-  antigos mudaram apenas nesse campo.
-- **Alloy:** `roteiros_m12_2.als` com **41 checks UNSAT + 20 witnesses SAT = 61
+- **CUE:** `#M12_2Contrato` (14 shapes, inclui `#M12_2EscopoAuditoriaQ13`;
+  **18 fixtures válidas + 18 inválidas**), limites (nome 1–150, geração 1–120,
+  tamanho positivo e **PDF estritamente < 15 MiB** = 15 728 640 bytes), ACL de
+  UID único, status fechado `PROVISORIO|VALIDADO|PUBLICAVEL`.
+- **IR:** v3 aditivo (`formal_m12_2_roteiros`, 16 campos) **inalterado** nesta
+  rodada; `spec_ir_sha256` =
+  `b5671cb75609239db147d9fbe446aafa35d12f2d71ee91753f4d4cb630573fe1`. Nenhum
+  receipt M0–M12.1 mudou.
+- **Alloy:** `roteiros_m12_2.als` com **47 checks UNSAT + 25 witnesses SAT = 72
   resultados** (scope 6/4): dono imutável, provisório→validado→publicável,
-  objeto/geração fixos, compartilhamento único, revogação Q09, ACL
-  professor/aluno, Chefe Q13, turma arquivada, ex-aluno com claim, Post
-  removido, anexar/trocar/manter/desvincular, histórico imutável, URL já
-  emitida e composição M7/M9.
+  objeto/geração fixos, compartilhamento único **só de roteiro publicável**,
+  revogação Q09, ACL professor/aluno, **Chefe só sob escopo Q13**, turma
+  arquivada, ex-aluno com claim, Post removido, anexar/trocar/manter/desvincular,
+  histórico imutável, URL já emitida e composição M7/M9.
 - **Receipt/Rust:** `build/formal-validation-m12-2.json` (receipt
-  `ac0c7008…64da`, modelo `b86da4bc…7aaf`); `validation_m12_2.rs` valida 61
+  `ab924f4c…4f51`, modelo `51348d15…e417a`); `validation_m12_2.rs` valida 72
   itens e rejeita adulteração; 33 testes Rust; 36 Node; guard
   `m12_2_contract.test.mjs`.
-- **PDF:** **434 páginas**, exit 0, zero erros/refs indefinidas, 31 Overfull
-  únicos (iguais ao baseline); páginas 427–434 inspecionadas sem corte.
+- **PDF:** **435 páginas**, exit 0, zero erros/refs indefinidas, 31 Overfull
+  únicos (iguais ao baseline); páginas 427–435 inspecionadas sem corte.
 - **Limites:** não certifica `functions/src/roteiros.ts`/`posts.ts`, frontend,
   Rules, Storage real, bytes binários nem atomicidade Firestore/Storage.
 - **Dívida de implementação:** `roteiros.ts` usa array de e-mail em vez de UID,
