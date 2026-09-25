@@ -1,0 +1,8 @@
+{
+  "ativo": true,
+  "versao_permissoes": 0,
+  "papeis_persistidos": ["Aluno"],
+  "claim_papeis": ["Aluno"],
+  "claim_versao": 0,
+  "claims_pendentes": false
+}
