@@ -1,0 +1,52 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{Evidência formal M10 --- patrimônio}
+CUE verifica shapes de bem, resumo catalográfico, requisições de adição/edição, lock, baixa, evento histórico e alteração, com enums fechados, nulabilidade e limites de comprimento. Alloy verifica a identidade Resumo x Bem, a plaqueta canônica única e não reutilizável, Chaves\_Unicas como reserva permanente distinta de lock, a máquina V1 Ativo -> Inservivel -> Ja\_dado\_baixa, a terminalidade, a ortogonalidade da conservação, o versionamento canônico (fan-out derivado não incrementa), os conflitos de versão/unicidade com liberação do próprio lock, a presença/ownership do lock, o histórico cadastro/edição/baixa e a composição abstrata com M7 (retry não duplica) e M9 (autorização necessária, domínio não dispensado). Rust valida proveniência, ordem exata do receipt e a canonicalização determinística N(s)=trim().toUpperCase() preservando zeros iniciais. A evidência não certifica Firebase, backend, Rules, Storage, assinatura real de PDF, Chaves\_Unicas/backfill, índices, migração de histórico legado nem concorrência sob carga.
+\begin{description}
+\item[M10-INV-001] PlaquetaUnicaPorBem: UNSAT.\newline Escopo: \texttt{check PlaquetaUnicaPorBem for 6}.
+\item[M10-INV-002] ChaveUnicaImpedeNovoBem: UNSAT.\newline Escopo: \texttt{check ChaveUnicaImpedeNovoBem for 6}.
+\item[M10-INV-003] BaixaNaoLiberaChave: UNSAT.\newline Escopo: \texttt{check BaixaNaoLiberaChave for 6}.
+\item[M10-INV-004] PlaquetaNaoReutilizadaAposBaixa: UNSAT.\newline Escopo: \texttt{check PlaquetaNaoReutilizadaAposBaixa for 8}.
+\item[M10-INV-005] ReclassificacaoNaoRenomeiaResumoCompartilhado: UNSAT.\newline Escopo: \texttt{check ReclassificacaoNaoRenomeiaResumoCompartilhado for 8}.
+\item[M10-INV-006] CadastroComecaAtivoVersao1: UNSAT.\newline Escopo: \texttt{check CadastroComecaAtivoVersao1 for 8}.
+\item[M10-INV-007] SemSaltoAtivoParaBaixa: UNSAT.\newline Escopo: \texttt{check SemSaltoAtivoParaBaixa for 6}.
+\item[M10-INV-008] BaixaExigeComprovante: UNSAT.\newline Escopo: \texttt{check BaixaExigeComprovante for 6}.
+\item[M10-INV-009] BaixaTerminal: UNSAT.\newline Escopo: \texttt{check BaixaTerminal for 6}.
+\item[M10-INV-010] BaixaPreservaBem: UNSAT.\newline Escopo: \texttt{check BaixaPreservaBem for 6}.
+\item[M10-INV-011] MutacaoCanonicaIncrementaUmaVez: UNSAT.\newline Escopo: \texttt{check MutacaoCanonicaIncrementaUmaVez for 6}.
+\item[M10-INV-012] FanOutNaoIncrementaVersao: UNSAT.\newline Escopo: \texttt{check FanOutNaoIncrementaVersao for 6}.
+\item[M10-INV-013] FanOutLocalNaoIncrementaVersao: UNSAT.\newline Escopo: \texttt{check FanOutLocalNaoIncrementaVersao for 6}.
+\item[M10-INV-014] FanOutNaoCriaEvento: UNSAT.\newline Escopo: \texttt{check FanOutNaoCriaEvento for 6}.
+\item[M10-INV-015] ConflitoVersaoNaoAlteraBem: UNSAT.\newline Escopo: \texttt{check ConflitoVersaoNaoAlteraBem for 6}.
+\item[M10-INV-016] RetryNaoDuplicaFato: UNSAT.\newline Escopo: \texttt{check RetryNaoDuplicaFato for 6}.
+\item[M10-INV-017] UmaEdicaoPendentePorBem: UNSAT.\newline Escopo: \texttt{check UmaEdicaoPendentePorBem for 6}.
+\item[M10-INV-018] UmaAdicaoPendentePorPlaqueta: UNSAT.\newline Escopo: \texttt{check UmaAdicaoPendentePorPlaqueta for 6}.
+\item[M10-INV-019] LockTemRequerente: UNSAT.\newline Escopo: \texttt{check LockTemRequerente for 6}.
+\item[M10-INV-020] LockAlheioNaoRemovido: UNSAT.\newline Escopo: \texttt{check LockAlheioNaoRemovido for 6}.
+\item[M10-INV-021] LockAusenteImpedeResposta: UNSAT.\newline Escopo: \texttt{check LockAusenteImpedeResposta for 6}.
+\item[M10-INV-022] CadastroGeraUmEvento: UNSAT.\newline Escopo: \texttt{check CadastroGeraUmEvento for 8}.
+\item[M10-INV-023] EdicaoGeraUmEvento: UNSAT.\newline Escopo: \texttt{check EdicaoGeraUmEvento for 6}.
+\item[M10-INV-024] BaixaGeraUmEvento: UNSAT.\newline Escopo: \texttt{check BaixaGeraUmEvento for 6}.
+\item[M10-INV-025] M9InvalidoImpedeCommit: UNSAT.\newline Escopo: \texttt{check M9InvalidoImpedeCommit for 8}.
+\item[M10-INV-026] ProfessorNaoAprova: UNSAT.\newline Escopo: \texttt{check ProfessorNaoAprova for 8}.
+\item[M10-INV-027] ProfessorNaoBaixa: UNSAT.\newline Escopo: \texttt{check ProfessorNaoBaixa for 6}.
+\item[M10-INV-028] AutorizacaoNaoDispensaDominio: UNSAT.\newline Escopo: \texttt{check AutorizacaoNaoDispensaDominio for 6}.
+\item[M10-INV-029] TransicoesPreservamCoerencia: UNSAT.\newline Escopo: \texttt{check TransicoesPreservamCoerencia for 6}.
+\item[M10-WIT-030] WitnessDoisBensMesmoResumo: SAT.\newline Escopo: \texttt{run WitnessDoisBensMesmoResumo for 6}.
+\item[M10-WIT-031] WitnessReclassificacaoIndividual: SAT.\newline Escopo: \texttt{run WitnessReclassificacaoIndividual for 8}.
+\item[M10-WIT-032] WitnessBemAtivo: SAT.\newline Escopo: \texttt{run WitnessBemAtivo for 4}.
+\item[M10-WIT-033] WitnessTransicaoInservivel: SAT.\newline Escopo: \texttt{run WitnessTransicaoInservivel for 6}.
+\item[M10-WIT-034] WitnessTransicaoBaixa: SAT.\newline Escopo: \texttt{run WitnessTransicaoBaixa for 6}.
+\item[M10-WIT-035] WitnessCadastroAprovado: SAT.\newline Escopo: \texttt{run WitnessCadastroAprovado for 6}.
+\item[M10-WIT-036] WitnessEdicaoAprovada: SAT.\newline Escopo: \texttt{run WitnessEdicaoAprovada for 6}.
+\item[M10-WIT-037] WitnessEdicaoRejeitada: SAT.\newline Escopo: \texttt{run WitnessEdicaoRejeitada for 6}.
+\item[M10-WIT-038] WitnessConflitoVersao: SAT.\newline Escopo: \texttt{run WitnessConflitoVersao for 6}.
+\item[M10-WIT-039] WitnessConflitoUnicidade: SAT.\newline Escopo: \texttt{run WitnessConflitoUnicidade for 6}.
+\item[M10-WIT-040] WitnessDuasPlaquetasDistintas: SAT.\newline Escopo: \texttt{run WitnessDuasPlaquetasDistintas for 6}.
+\item[M10-WIT-041] WitnessLockIntegro: SAT.\newline Escopo: \texttt{run WitnessLockIntegro for 6}.
+\item[M10-WIT-042] WitnessFanOutSemVersao: SAT.\newline Escopo: \texttt{run WitnessFanOutSemVersao for 6}.
+\item[M10-WIT-043] WitnessRetrySemDuplicacao: SAT.\newline Escopo: \texttt{run WitnessRetrySemDuplicacao for 6}.
+\item[M10-WIT-044] WitnessBaixaComHistorico: SAT.\newline Escopo: \texttt{run WitnessBaixaComHistorico for 6}.
+\item[M10-WIT-045] WitnessBemBaixadoExiste: SAT.\newline Escopo: \texttt{run WitnessBemBaixadoExiste for 6}.
+\item[M10-WIT-046] WitnessConservacaoOrtogonal: SAT.\newline Escopo: \texttt{run WitnessConservacaoOrtogonal for 4}.
+\end{description}
+UNSAT para check indica ausência de contraexemplo no escopo declarado; SAT para run indica testemunha encontrada. A evidência não certifica a implementação Firebase/backend.
