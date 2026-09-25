@@ -1,0 +1,13 @@
+{
+  "id": "bem-1",
+  "id_resumo_bem_patrimonial": "resumo-1",
+  "numero_patrimonio": "ABC-123",
+  "estado_conservacao": "BOM",
+  "id_local": "local-1",
+  "photo_url": "gs://lcqui/fotos/bem-1.jpg",
+  "nome_responsavel_sei": "Maria Silva",
+  "status": "Ativo",
+  "descricao_complementar": null,
+  "versao": 1,
+  "documento_dado_baixa_pdf_url": null
+}
