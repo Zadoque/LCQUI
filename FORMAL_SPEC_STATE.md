@@ -1,9 +1,9 @@
 # LCQUI — Formal Specification State
 
 ## 1. Propósito desta fase
-M0 = VALIDATED; M1 = VALIDATED; M2 = VALIDATED; M3 = VALIDATED; M4 = VALIDATED; M5 = VALIDATED; M6 = VALIDATED; M7 = VALIDATED; M8 = VALIDATED; M9 = VALIDATED; M10 = DOCUMENTATION_VALIDATED; M11+ = NOT_STARTED. HEAD de entrada M10: `ca76f5f2319f75be6a93c8173ea147088727a589`; HEAD pré-registro de estado/PDF: `1701baf9c311ecbe7692d84f9d1b7d7f075594cc`. M10 fechou somente a auditoria e reconciliação normativa documental, com todos os gates PASS; a implementação real permanece fora da evidência. Próxima ação exata: **FORMALIZAÇÃO EXECUTÁVEL DE M10 — PATRIMÔNIO, EM RODADA SEPARADA (CUE → IR → Alloy → receipt → Rust → LaTeX → PDF)**. Não iniciar M11. Os parágrafos abaixo preservam o contexto histórico da fase.
+M0 = VALIDATED; M1 = VALIDATED; M2 = VALIDATED; M3 = VALIDATED; M4 = VALIDATED; M5 = VALIDATED; M6 = VALIDATED; M7 = VALIDATED; M8 = VALIDATED; M9 = VALIDATED; M10 = VALIDATED; M11+ = NOT_STARTED. HEAD de entrada da formalização executável M10: `1be21d82fb8fa6f9528425578ddec86565cdb797` (árvore limpa, `origin` sincronizada). A cadeia CUE → IR → Alloy → receipt → Rust → geração → LaTeX → PDF foi concluída: `#M10Contrato` com 11 fixtures válidas e 11 inválidas, IR v3 aditivo (`formal_m10_patrimonio`), `patrimony_m10.als` com 29 checks UNSAT e 17 witnesses SAT, receipt verificável, validator Rust, guard de drift, canonicalização `N(s)`, fragmentos determinísticos e PDF de 389 páginas. M0–M9 sem regressão (receipts antigos mudaram somente em `spec_ir_sha256`); a implementação real permanece fora da evidência. A consolidação executável está pronta e **não commitada** (HEAD inalterado). Próxima ação exata: **AVALIAR A ENTRADA EM M11 — TURMAS / DEMAIS DOMÍNIOS — EM RODADA SEPARADA**. Não iniciar M11. Os parágrafos abaixo preservam o contexto histórico da fase.
 
-Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. M5, M6, M7, M8 e M9 possuem contratos CUE, IR v3, modelos Alloy, receipts verificáveis, validators Rust, fragmentos gerados e capítulos integrados ao PDF. M10 = DOCUMENTATION_VALIDATED; próxima ação: formalização executável de M10 (patrimônio) em rodada separada.
+Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. M5, M6, M7, M8, M9 e M10 possuem contratos CUE, IR v3, modelos Alloy, receipts verificáveis, validators Rust, fragmentos gerados e capítulos integrados ao PDF. M0–M10 = VALIDATED; próxima ação: avaliar a entrada em M11 (turmas/demais domínios) em rodada separada.
 
 ## 2. Baseline congelado da Fase 3B
 - FUNCTIONAL_SHA = db29ea2f17dc785fb0b44ffb3aec16db29c45e94
@@ -47,6 +47,36 @@ just formal-check
 Alternativa: `nix shell nixpkgs#texliveFull nixpkgs#just -c just formal-check`, mantendo CUE/Alloy/Node/Rust disponíveis. Cargo.lock versionado; serde/serde_json/sha2 em /tmp/lcqui-cargo. Em máquina nova, cargo fetch --locked antes de --offline. Gerador 0.2.0; mesmas dependências do M0.
 Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spawnSync cue retorna EPERM no sandbox, wrapper executado escalonado. Cargo fetch inicialmente falhou por DNS e passou escalonado. Nenhuma rejeição automática pendente. Poppler via Nix usado para inspeção PDF.
 
+### 6.1 Política de segurança do crate Rust (obrigatória)
+
+`tools/spec-doc` é um crate de evidência formal e **não admite** diretivas que
+reduzam a segurança ou mascarem problemas. Decisão registrada na formalização de
+M10 e válida para todo o crate:
+
+- `main.rs` declara `#![forbid(dead_code)]`, `#![forbid(unsafe_code)]` e
+  `#![deny(warnings)]`.
+- Nenhum `#[allow(...)]` de lint é permitido em `tools/spec-doc/src`. Problemas
+  de código morto são resolvidos na causa, não suprimidos.
+- O ponto de entrada de produção (`fn main` e o helper `fn list`) é
+  `#[cfg(not(test))]`: sob `--test`, o harness do rustc injeta
+  `#[allow(dead_code)]` sobre o `main` do crate, o que conflita com
+  `#![forbid(dead_code)]` (E0453). Deixar o harness gerar o próprio entrypoint
+  de teste elimina o conflito sem permitir código morto.
+- Funções de referência determinística que só são exercidas pela suíte de testes
+  permanecem como `#[cfg(test)]` (uso real nos testes; ausentes do binário de
+  produção). Toda transformação exigida pelo pipeline de geração permanece em
+  produção.
+- Campos de schema mantidos por `serde(deny_unknown_fields)` devem ser
+  efetivamente lidos/validados; não se mantém campo morto.
+
+Findings independentes de M10: **RUST-SAFETY-01** (11 funções com
+`allow(dead_code)` passaram a `#[cfg(test)]`), **RUST-SAFETY-02** (`Campo`
+numérico `nao_negativo`/`positivo`/`maximo` passou a ser lido em
+`Campo::metadata_ok` chamado por `Ir::valid()`), **RUST-SAFETY-03** (proibição
+crate-wide de `unsafe_code` e de código morto via `forbid`, com `main`/`list`
+em `cfg(not(test))`). Detalhes em
+`documentation/worklogs/formal-spec/M10_EXECUTABLE_VALIDATION.md` (§7).
+
 ## 7. Arquitetura formal
 - CUE: domain/frasco.cue (três dimensões M0), campos_catalogo.cue, resumo_reagente.cue e especificacao_reagente.cue. Descritores geram constraints e metadados; não há segundo schema documental.
 - M1 representa registros normalizados com IDs inteiros e campos obrigatórios mesmo quando nullable (null explícito). Não são payloads de criação nem documentos Firestore.
@@ -70,14 +100,14 @@ Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spaw
 | M7 | Idempotência | VALIDATED |
 | M8 | Estoque/escassez/notificações | VALIDATED |
 | M9 | Autorização/usuários | VALIDATED |
-| M10 | Patrimônio | DOCUMENTATION_VALIDATED |
+| M10 | Patrimônio | VALIDATED |
 | M11 | Turmas/demais domínios | NOT_STARTED |
 | M12 | Integração/redução de duplicação normativa | NOT_STARTED |
 
 ## 9. Milestone atual
-M4 VALIDATED (Retirada/devolução completas, com erratum pré-M5). M3 VALIDATED (com erratum pré-M5); M5 = VALIDATED; M6 = VALIDATED; M7 = VALIDATED; M8 = VALIDATED; M9 = VALIDATED; M10 = DOCUMENTATION_VALIDATED. A implementação Firebase continua fora da evidência formal.
+M4 VALIDATED (Retirada/devolução completas, com erratum pré-M5). M3 VALIDATED (com erratum pré-M5); M5 = VALIDATED; M6 = VALIDATED; M7 = VALIDATED; M8 = VALIDATED; M9 = VALIDATED; M10 = VALIDATED. A implementação Firebase continua fora da evidência formal.
 
-- M10 = DOCUMENTATION_VALIDATED (entrada `ca76f5f2`; worklog `M10_DOCUMENTATION.md`): identidade de unidade física separada do resumo catalográfico; plaqueta permanente canônica `trim().toUpperCase()` em lock, requisição e `Chaves_Unicas`; máquina V1 `Ativo -> Inservivel -> Ja_dado_baixa`, sem reversão/salto e sem exclusão física; conservação independente. `versao` inicia em 1 e cobre fatos canônicos, não fan-out derivado. Locks carregam proprietário/tipo/chave e não expiram por idade; unicidade, lock, versão e M7 são mecanismos distintos. Baixa é rito próprio M9+M7 com SEI, PDF binariamente validado, histórico e terminalidade. Histórico normativo é a subcoleção `Historico_Patrimonio`; cadastro, edição e baixa são atômicos. Findings M10-F01..F05 e M10-F13..F17 foram resolvidos documentalmente; M10-F06..F12 registram divergências/dívida de implementação. Zero HQ e três auditorias limpas. PDF 382 páginas; gates PASS. Próxima ação: formalização executável de M10 em rodada separada; não iniciar M11.
+- M10 = VALIDATED (documental `ca76f5f2`; executável a partir de `1be21d82`; worklogs `M10_DOCUMENTATION.md` e `M10_EXECUTABLE_VALIDATION.md`): identidade de unidade física separada do resumo catalográfico; plaqueta permanente canônica `trim().toUpperCase()` em lock, requisição e `Chaves_Unicas`; máquina V1 `Ativo -> Inservivel -> Ja_dado_baixa`, sem reversão/salto e sem exclusão física; conservação independente. `versao` inicia em 1 e cobre fatos canônicos, não fan-out derivado. Locks carregam proprietário/tipo/chave e não expiram por idade; unicidade, lock, versão e M7 são mecanismos distintos. Baixa é rito próprio M9+M7 com SEI, PDF binariamente validado, histórico e terminalidade. Histórico normativo é a subcoleção `Historico_Patrimonio`; cadastro, edição e baixa são atômicos. Findings M10-F01..F05 e M10-F13..F17 foram resolvidos documentalmente; M10-F06..F12 registram divergências/dívida de implementação. A formalização executável acrescentou `#M10Contrato` (11 fixtures válidas + 11 inválidas), IR v3 aditivo (`formal_m10_patrimonio`), `patrimony_m10.als` (29 checks UNSAT + 17 witnesses SAT), receipt, validator Rust, guard de drift, canonicalização determinística e PDF de 389 páginas. Findings independentes de segurança Rust (RUST-SAFETY-01..03) resolvidos. Zero HQ e três auditorias limpas. Próxima ação: avaliar a entrada em M11; não iniciar M11.
 
 - M9 = VALIDATED (entrada executável `d105bf8e`): CUE (`#M9Contrato`, 4 fixtures válidas e 6 inválidas), IR v3 aditivo (`formal_m9_autorizacao`), Alloy `authorization_m9.als` (13 checks UNSAT + 9 witnesses SAT, scope 8 com 2 escopos), receipt verificável, validator Rust, guard de drift de papéis, fragmentos e `Formal-Spec-M9.tex` (PDF 375 páginas). `podeExecutar` exige autenticação, usuário ativo, papel persistido, versão corrente, vínculo/escopo ou ownership e recurso não server-owned; `podeCommitar` acrescenta domínio válido. Revogação incrementa versão; claim antiga não restaura autorização; TOCTOU revalida no commit. Nenhuma HQ. Não certifica Firebase, Rules, backend, UI ou infraestrutura. Próxima ação: avaliar M10 em rodada separada.
 
@@ -151,9 +181,9 @@ HEAD de entrada: `25e3825f5045a328e59f17115f2dbbda0710fb26`, branch `feat/formal
 Validação naquele checkpoint: just docs-build PASS (275 páginas, zero erros/referências indefinidas; 28 Overfull herdados, comparação com baseline compilado de 267 páginas); spec-check/spec-export/alloy-check PASS no recorte existente; git diff --check PASS. PDF inspecionado antes da publicação. Inventário de arquivos, campos removidos, auditoria e resultados de validação desta rodada: [STATUS_ATUAL.md](documentation/STATUS_ATUAL.md). Os registros M2.1b/M2.1c e M2_HUMAN_QUESTIONS.md não foram reescritos fora do escopo autorizado; seus estados OPEN para HQ004..007 estão superados pelas decisões acima e pelas fontes .tex atuais.
 
 ## 12. Próxima ação EXATA
-**M9 = VALIDATED.** M0–M8 = VALIDATED; M9 fechou CUE → IR → Alloy → receipt → Rust → LaTeX → PDF com 13 checks UNSAT e 9 witnesses SAT. Regressão M0–M8 PASS; a evidência continua restrita ao modelo formal e não certifica a implementação Firebase.
+**M10 = VALIDATED.** M0–M9 = VALIDATED; M10 fechou CUE → IR → Alloy → receipt → Rust → geração → LaTeX → PDF com 29 checks UNSAT, 17 witnesses SAT, IR v3 aditivo (`formal_m10_patrimonio`), receipt verificável, validator Rust, guard de drift, canonicalização `N(s)` e PDF de 389 páginas. Regressão M0–M9 PASS (receipts antigos mudaram somente em `spec_ir_sha256`); a evidência continua restrita ao modelo formal e não certifica a implementação Firebase. A consolidação executável está pronta e não commitada.
 
-AVALIAR A ENTRADA EM M10 — PATRIMÔNIO, EM RODADA SEPARADA. M0–M9 = VALIDATED; M10+ = NOT_STARTED. Não iniciar M10 nesta linha. Registros em `documentation/worklogs/formal-spec/M9_DOCUMENTATION.md` e `M9_EXECUTABLE_VALIDATION.md`.
+AVALIAR A ENTRADA EM M11 — TURMAS / DEMAIS DOMÍNIOS, EM RODADA SEPARADA. M0–M10 = VALIDATED; M11+ = NOT_STARTED. Não iniciar M11 nesta linha. Registro executável em `documentation/worklogs/formal-spec/M10_EXECUTABLE_VALIDATION.md`.
 
 M7 documental: contrato global de idempotência em `documentation/worklogs/formal-spec/M7_DOCUMENTATION.md`; identidade `(uid, tipo_operacao, payload_hash)`, canonicalização única, `idOperacao` obrigatório, comandos atômicos vs workflows externos, dedup de eventos, jobs e materializações; findings M7-F01..F09 corrigidos e M7-F10 registrado como divergência de implementação. A formalização executável CUE/Alloy/Rust de M5–M7 foi concluída no backfill pré-M8. M8 = VALIDATED. Registro: `documentation/worklogs/formal-spec/PRE_M8_FORMALIZATION_BACKFILL.md`, `documentation/worklogs/formal-spec/M8_DOCUMENTATION.md` e `M8_EXECUTABLE_VALIDATION.md`. A implementação real (`functions/src/reagentes.ts`) segue divergente e não foi alterada.
 
