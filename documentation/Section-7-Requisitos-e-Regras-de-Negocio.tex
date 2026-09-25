@@ -167,6 +167,79 @@ depois de revogação; retry M7 após mudança autorizativa; cache hit M8 sem
 autorização; notificação de terceiro e alteração cliente-side; e tentativas de
 contornar quarentena M5 ou pendência metrológica M6. Cada caso resulta em
 negação ou no efeito específico da matriz, sem autorização implícita.
+\subsection{Patrimônio (M10)}
+\label{sec:regras-patrimonio-m10}
+
+\begin{regra}[Autoridade, identidade e mutações patrimoniais]
+\textit{Bem\_Patrimonial} é a unidade física; \textit{Resumo\_Bem\_Patrimonial}
+é somente o modelo catalográfico compartilhado. O nome canônico pertence ao
+resumo. \textit{nome\_equipamento} no bem e \textit{predio}/\textit{andar}/
+\textit{sala} são projeções de consulta, jamais autoridades concorrentes. Uma
+alteração individual de nome é reclassificação para resumo existente ou criação
+de resumo novo; não renomeia o resumo de outros bens. Foto pertence apenas à
+unidade física.
+
+Toda mutação usa a ordem M9 (Auth, usuário ativo, papel/versão persistidos,
+escopo global patrimonial V1 e revalidação dentro da transação) e M7
+(\texttt{idOperacao}, \texttt{tipo\_operacao}, payload canônico e receipt). A
+autorização é necessária, mas não dispensa unicidade, lock, versão, estado,
+arquivo validado ou histórico. Gestor de Bens e Chefe podem atuar no domínio
+global; Professor cria apenas requisições permitidas, nunca aprova a própria
+requisição, não escreve Bem diretamente e não realiza baixa. UI e Rules são
+camadas de UX/leitura; a decisão e a escrita crítica são server-owned.
+\end{regra}
+
+\begin{regra}[Plaqueta, locks e requisições]
+Use \texttt{N(s)=s.trim().toUpperCase()} como única canonicalização de plaqueta.
+O valor vazio ou maior que 30 caracteres após N é inválido. Bem, requisição,
+lock \texttt{bem\_adicao\_\{N\}}, chave permanente
+\texttt{Chaves\_Unicas/Bem\_Patrimonial\_\_\{N\}} e busca exata usam N; a
+chave permanente é criada com a aprovação e jamais é liberada pela baixa.
+Lock de edição é \texttt{bem\_edicao\_\{idBem\}}. Ele é criado junto da
+requisição, não expira por idade e só é liberado pelo desfecho terminal que
+confirma seu proprietário. Lock limita pendência; chave única protege existência
+permanente; versão detecta edição concorrente; idempotência reapresenta o mesmo
+resultado ao mesmo comando. Não são substitutos entre si.
+
+Requisição de edição captura \texttt{versao\_bem\_origem}; aprovação relê o Bem
+na transação e divergência termina a requisição como rejeitada por conflito,
+liberando apenas seu lock. Referência de Local ou Resumo que deixou de existir é
+rejeição sistêmica terminal, também com liberação vinculada. Falha transitória de
+infraestrutura aborta sem transformar a requisição em rejeitada. Aprovação de
+adição relê requisição, lock, chave única, Local, Resumo e foto antes de gravar,
+no mesmo commit, Bem, chave, eventual resumo, resposta, histórico de cadastro e
+liberação do lock.
+\end{regra}
+
+\begin{regra}[Estado, baixa, arquivo e histórico]
+Conservação BOM/REGULAR/RUIM não deriva status. O ciclo V1 é
+\texttt{Ativo -> Inservivel -> Ja\_dado\_baixa}; não há reversão nem salto
+direto para baixa. Baixa é operação própria do Gestor/Chefe após rito SEI: exige
+Bem ainda Inservivel, justificativa, PDF existente no caminho autorizado,
+proprietário/origem, tamanho, assinatura \texttt{\%PDF-} e geração imutável
+verificados pelo backend antes da transação. A transação grava URL/geração do
+comprovante, status terminal, versão incrementada, evento \texttt{baixa} e
+receipt M7. Antes da baixa, a URL é nula; depois, não pode ser reutilizada,
+substituída ou apagada silenciosamente.
+
+\texttt{Bem\_Patrimonial/\{id\}/Historico\_Patrimonio/\{eventoId\}} é a única
+arquitetura normativa de histórico; coleção raiz histórica é legado divergente.
+Eventos são \texttt{cadastro}, \texttt{edicao} e \texttt{baixa}; edição usa
+deltas \texttt{campo, valor\_anterior, valor\_novo} do estado efetivamente
+substituído. Bem e evento são atômicos; eventos usam ID determinístico da
+operação/evento para retry não duplicar fatos. Snapshots de Local no evento são
+imutáveis e fan-out derivado não cria histórico de negócio nem incrementa versão.
+\end{regra}
+
+\paragraph{Casos de regressão M10.}
+Cobrir: criação válida, plaqueta existente e variantes de caixa/espaço, duas
+adições concorrentes, resumo/local/foto ausentes ou inválidos; edição, resposta
+repetida, conflito, reclassificação, local e foto; proprietário de lock errado,
+rejeição/conflito liberando lock e idade sem expiração; cada transição de status;
+baixa sem PDF/PDF inválido/Professor/duplicada; histórico de cadastro, delta e
+baixa; retry M7, revogação M9 antes do commit, claim antiga e escrita direta de
+cliente. Esses casos são critérios normativos e não atestam a implementação.
+
 \subsubsection{Seleção do tipo em Resumo de Reagente}
 \begin{regra}
 Ao cadastrar uma \textit{Especificacao\_Reagente}, o estado físico do resumo (\texttt{SOLIDO} ou \texttt{LIQUIDO}) determina quais campos operacionais de frasco serão apresentados. O tipo de substância (\texttt{PURA} ou \texttt{MISTURA}) determina as propriedades químicas obrigatórias, conforme a matriz de obrigatoriedade. DP-A01: estado físico e higroscopicidade pertencem ao resumo; unidade é derivada e densidade permanece na especificação. \\
