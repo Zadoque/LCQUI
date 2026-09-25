@@ -5,11 +5,35 @@
 A modelagem da seção anterior é deliberadamente relacional e normalizada (3FN), pensada para ser lida e avaliada como um modelo de dados independente de tecnologia. O banco real do LCQUI, porém, é o \textbf{Firestore} (Firebase), um banco de documentos sem \texttt{JOIN} e sem \texttt{LIKE}/busca por substring. Esta seção documenta as denormalizações propositais necessárias para a implementação -- nenhuma delas deve ser lida como parte do modelo 3FN, e nenhuma delas deve alterar a seção 4.
 \end{explicacao}
 
-\subsection{Reintrodução de \textit{letra\_inicial}}
-O campo \textit{letra\_inicial}, removido de \textit{Resumo\_Reagente} por ser derivável de \textit{nome} (violaria 3FN), volta a existir como campo próprio \textbf{apenas} no documento Firestore da coleção \textit{Resumo\_Reagente}. Motivo: o Firestore não tem \texttt{LIKE}/busca por substring, então a busca alfabética do catálogo precisa de um campo indexável para filtro de igualdade (ou de \textit{range query} por prefixo). Como esse filtro normalmente é combinado com outros filtros de igualdade na mesma consulta (estado físico, natureza química), um campo de igualdade simples é mais previsível dentro das limitações de índice composto do Firestore do que uma \textit{range query} de prefixo sobre \textit{nome} combinada com filtros adicionais.
+\subsection{Depreciação proposta de \textit{letra\_inicial} em Reagentes}
+\textit{letra\_inicial} de \textit{Resumo\_Reagente} foi reintroduzido como
+denormalização para viabilizar um filtro de igualdade na antiga estratégia de
+busca no Firestore. A estratégia vigente de reagentes é a busca em memória sobre
+o catálogo JSON materializado (Seção~10.5): o catálogo inteiro é carregado no
+cliente e filtrado localmente, sem consulta Firestore por tecla e sem filtro
+prévio obrigatório. Portanto \textit{letra\_inicial} \textbf{não é requisito da
+busca atual} e não deve ser mantido apenas para viabilizá-la.
 
-\begin{regra}[Consistência obrigatória]
-\textit{letra\_inicial} deve ser recalculado e reescrito pela mesma \textit{Cloud Function} que grava \textit{nome}, nunca aceito diretamente do cliente -- ver princípio ``nunca confiar no \textit{client-side}'' na seção \textit{Tecnologia e Relatórios}.
+\textbf{Auditoria de referências (prova).} Fora de Reagentes,
+\textit{letra\_inicial} aparece em \textit{Aluno} e \textit{letra\_inicial\_nome}
+em \textit{Bem\_Patrimonial}; ambos são estratégias próprias de busca e não são
+afetados. Em Reagentes, as referências remanescentes são esta subseção, o quadro
+de coleções, o complemento físico ``Reagentes'' e a nota gerada do mapeamento
+CUE de Firestore. Nenhuma obrigação de produto, autorização, integridade de
+referência ou índice composto depende do campo apenas para Reagentes.
+
+\textbf{Decisão desta rodada.} Registrar a depreciação proposta e manter o campo
+e o mapeamento existentes como \textbf{legado}, sem tratá-los como requisito da
+busca JSON e sem acrescentar índice para esse caso. A remoção da exigência de
+persistência e geração do campo da Seção~5 e do mapeamento CUE de Firestore só
+ocorre em rodada formal separada, porque altera o baseline (CUE/IR/hashes).
+Nenhum dado de produção é removido por esta rodada.
+
+\begin{regra}[Consistência enquanto o campo existir]
+Enquanto o campo permanecer como legado, \textit{letra\_inicial} continua
+recalculado e reescrito pela mesma \textit{Cloud Function} que grava
+\textit{nome}, nunca aceito diretamente do cliente -- ver princípio ``nunca
+confiar no \textit{client-side}'' na seção \textit{Tecnologia e Relatórios}.
 \end{regra}
 
 \subsection{Estado físico canônico do catálogo}
@@ -115,7 +139,7 @@ Requisicao\_Adicao\_Bem\_Patrimonial & Coleção raiz & Mesma lógica; query por
 Impressao\_Etiqueta\_Frasco & Coleção raiz & Refere-se a impressão em lote (virgens). Reimpressões avulsas de frascos já cadastrados usam o Registro de Auditoria.\\
 Contador\_Codigo\_Frasco & Documento singleton em \nolinkurl{Contador\_Codigo\_Frasco/singleton} & Sequenciador atômico operado via \texttt{runTransaction} para gerar o \texttt{LCQUI-X}.\\
 Substancia\_Quimica & Coleção raiz & Catálogo global; raramente alterado.\\
-Resumo\_Reagente & Coleção raiz. Denorm: \texttt{letra\_inicial} & Catálogo de reagentes; filtros de igualdade combinados exigem ambos os campos como propriedades do documento.\\
+Resumo\_Reagente & Coleção raiz. Denorm: \texttt{letra\_inicial} (legado) & Catálogo de reagentes; a busca vigente é em memória sobre o catálogo JSON (Seção~10.5) e não exige \texttt{letra\_inicial}. Campo mantido como legado; depreciação proposta em rodada formal própria.\\
 Especificacao\_Reagente & Sub-coleção \nolinkurl{Resumo\_Reagente/\{id\}/Especificacoes} & Sempre acessada a partir do resumo; nunca consultada globalmente.\\
 Composicao\_Reagente & Array de maps embutido no documento de \texttt{Especificacao\_Reagente} & N pequeno e fixo (poucas substâncias por especificação); não cresce sem limite.\\
 Lote & Coleção raiz. Denorm: \texttt{id\_especificacao\_reagente}, \texttt{nome\_reagente} & Relatórios consultam todos os lotes de um período sem partir de uma especificação conhecida.\\
@@ -789,7 +813,7 @@ Caminho: \texttt{Atividade\_Gestor\_Bens\_Patrimoniais\_Mensal/\{id\}}.
 \item[Almoxarifado] \texttt{ativo} (boolean, O) e \texttt{qtd\_gestores\_ativos} (inteiro não negativo, O) são necessários à ativação e revogação concorrente. O contador é derivado dos vínculos; ativo exige contador positivo.
 \item[Turma] \texttt{qtd\_alunos} (inteiro não negativo, O) é contador transacional do vínculo ativo, não count lido fora da transação. \texttt{versao} (inteiro positivo, O) permite detectar edições concorrentes.
 \item[Espelho Aluno--Turma] \texttt{Usuarios/uid/Turmas/turmaId}: \texttt{id\_turma}, \texttt{id\_professor}, \texttt{id\_materia}, \texttt{nome\_turma}, \texttt{nome\_materia} (strings O), \texttt{ano}, \texttt{semestre} (inteiros O), \texttt{status} (enum O), \texttt{ingressou\_em} (Timestamp O). Todos derivados de Turma/Matéria ou evento de ingresso; não usar espelho desatualizado como autorização. Vínculo canônico em Turma/id/Alunos/uid contém \texttt{id\_aluno} (string O), \texttt{ingressou\_em} (Timestamp O); nome/foto para colegas são projeções mínimas, sem matrícula/e-mail.
-\item[Reagentes] Resumo possui \texttt{letra\_inicial} (string O, derivada do nome). O estado físico escalar e a higroscopicidade são canônicos no resumo; filtro por igualdade. Especificação embute \texttt{composicao} (array de maps com os campos da composição; IDs de substâncias únicos). O resumo pai fornece seu ID; manter ID de resumo em Lote e Frasco para resolver o caminho completo da especificação.
+\item[Reagentes] O estado físico escalar e a higroscopicidade são canônicos no resumo. A descoberta e a listagem de Resumos e Especificações usam o catálogo JSON materializado (Seção~10.5): busca textual e filtros de catálogo ocorrem em memória sobre o catálogo inteiro, sem consulta Firestore por tecla e sem filtro prévio obrigatório. \texttt{letra\_inicial} é legado e não é requisito dessa busca. Especificação embute \texttt{composicao} (array de maps com os campos da composição; IDs de substâncias únicos). O resumo pai fornece seu ID; manter ID de resumo em Lote e Frasco para resolver o caminho completo da especificação.
 \item[Lote e Frasco] \texttt{id\_resumo\_reagente}, \texttt{id\_especificacao\_reagente}, \texttt{nome\_reagente} (strings O) são projeções servidor; em Frasco, especificação permanece resolvida mesmo com lote, como desnormalização deliberada. \texttt{unidade\_medida} (ml/g, O), \texttt{localizacao\_detalhada} (string até 500, N), \texttt{versao} (inteiro O), \texttt{ultima\_pesagem\_em} (Timestamp, N) e \texttt{condicao\_inicial\_cadastro} (FECHADO/JA\_ABERTO, O) sustentam UI-06. Não existem modalidades de cadastro de tara conhecida nem de estimativa de volume/massa: \texttt{condicao\_inicial\_cadastro} é fato \textbf{histórico imutável} que registra se o recipiente entrou fisicamente fechado (\texttt{FECHADO}) ou já aberto (\texttt{JA\_ABERTO}), sem definir saldo nem tara. Frasco \texttt{JA\_ABERTO} inicia sem tara e com saldo desconhecido; \texttt{FECHADO} inicia com saldo conhecido e eventual tara apenas derivada enquanto contém produto. \texttt{id\_emprestimo\_ativo} (string N) é ponteiro transacional, limpo no retorno. \texttt{id\_almoxarifado} é fonte da localização operacional, nunca aceito sem escopo.
 \item[Empréstimo] \texttt{id\_almoxarifado}, \texttt{id\_resumo\_reagente}, \texttt{id\_especificacao\_reagente} (strings O), \texttt{densidade\_aplicada} (number positiva C para líquido), \texttt{id\_gestor\_retirada} (string O), \texttt{id\_gestor\_devolucao} (string N até retorno). Snapshot químico da retirada preserva a memória de cálculo; não atualizar retroativamente. Retirante, devolvente e operador são papéis distintos.
 \item[Patrimônio] \texttt{nome\_equipamento}, \texttt{letra\_inicial\_nome}, \texttt{predio}, \texttt{andar}, \texttt{sala} (strings O) são projeções de Resumo/Local. \texttt{versao} (inteiro O) detecta conflitos. Histórico embute \texttt{alteracoes} (array de maps campo/valor anterior/novo, admitindo null para ausência) e snapshot do local quando necessário a relatório histórico; não propagar local atual sobre fatos passados.
@@ -815,12 +839,58 @@ As consultas UI exigem índices versionados em firestore.indexes.json: emprésti
 \subsection{Estratégia de Busca Textual no Firestore}
 \label{subsec:busca-textual}
 
-\begin{explicacao}[Por que não existe \texttt{LIKE} no Firestore]
-O Firestore não oferece busca por substring (sem \texttt{LIKE}, sem \texttt{icontains}). A estratégia adotada é: aplicar \textbf{filtros obrigatórios de igualdade} no Firestore para reduzir drasticamente o conjunto de documentos retornados, e então aplicar \textbf{substring no frontend} sobre os poucos resultados restantes.
+\begin{explicacao}[Busca de reagentes sobre a projeção JSON]
+O Firestore não oferece busca por substring (sem \texttt{LIKE}, sem
+\texttt{icontains}). Por isso, a descoberta e a listagem de
+\textit{Resumo\_Reagente} e \textit{Especificacao\_Reagente} usam o catálogo JSON
+materializado descrito na Seção~10.5: \textbf{Firestore permanece a fonte
+canônica}; o \textbf{catálogo JSON publicado é uma projeção autorizada} de
+busca/apresentação; o \textbf{cache local é descartável}. A busca textual e os
+filtros de catálogo ocorrem \textbf{em memória sobre o catálogo inteiro}, sem
+consulta Firestore por tecla e sem filtro prévio obrigatório. As estratégias de
+Bens Patrimoniais, Alunos, Professores e demais domínios são independentes e
+seguem as subseções seguintes; os modos exatos de busca por código (LCQUI-N, CAS,
+matrícula, plaqueta) e a política de fallback por ID permanecem os da Seção~10.5.
 \end{explicacao}
 
 \subsubsection{Reagentes}
-O usuário deve obrigatoriamente escolher ao menos um dos filtros: estado físico (\texttt{SOLIDO} ou \texttt{LIQUIDO}), natureza química (\texttt{ORGANICO}, \texttt{INORGANICO}, \texttt{ELEMENTO} ou \texttt{HIBRIDO}), tipo de substância (\texttt{PURA} ou \texttt{MISTURA}) e/ou letra inicial (campo \texttt{letra\_inicial} denormalizado). A query Firestore usa esses filtros de igualdade e retorna poucos documentos; o frontend aplica a busca por substring sobre o campo \texttt{nome}.
+A busca de reagentes é feita sobre o catálogo JSON materializado (Seção~10.5),
+carregado integralmente no cliente (ou servido do cache local quando a versão
+publicada não mudou). A pesquisa pode começar a partir do primeiro caractere,
+sem filtro prévio obrigatório e sem consulta Firestore por tecla; os filtros de
+estado físico, natureza química, tipo de substância e afins são \textbf{opções
+do cliente}, aplicadas em memória, jamais pré-condições de consulta. A busca é
+tolerante a caixa e acentos e preserva símbolos e dígitos: \texttt{dioxano} e
+\texttt{1,4} encontram \texttt{1,4-Dioxano}. Não se promete equivalência entre
+\texttt{$\alpha$} e \texttt{alpha} nem remoção geral de pontuação sem contrato e
+testes próprios; nenhuma normalização pode descartar prefixos químicos nem
+alterar a identidade do nome.
+
+\textbf{Ordenação e navegação por inicial.} A lista inicial é apresentada
+ordenada: os nomes são comparados com o collator
+\texttt{Intl.Collator('pt-BR',} \texttt{\{numeric:true,}
+\texttt{sensitivity:'base'\})} e o ID desempata. Não se afirma uma
+posição universal de símbolos ou dígitos pelo collator. A navegação por inicial
+é opcional e derivada do nome: \texttt{A--Z} quando a primeira unidade
+significativa normalizada (após \textit{trim}, caixa e dobra de acentos) for uma
+letra latina A--Z; caso contrário a categoria explícita \texttt{\#}. Exemplos:
+\texttt{1,4-Dioxano}, \texttt{2-Propanol}, \texttt{$\alpha$-D-Glicose},
+\texttt{$\beta$-Mercaptoetanol} e \texttt{(+)-Cânfora} pertencem a \texttt{\#};
+\texttt{o-Xileno} pertence a \texttt{O}. \texttt{A--Z} e \texttt{\#} são apenas
+navegação derivada do nome, nunca campo obrigatório de \textit{Resumo\_Reagente}
+no Firestore. Nomes vazios ou inválidos não entram na navegação, coerentes com a
+validação de cadastro que já os rejeita.
+
+\textbf{Janela de renderização.} A apresentação inicial renderiza até 50
+resultados, com expansão progressiva por rolagem (ou virtualização, como opção
+de implementação; para a escala da V1 uma lista progressiva simples basta). O
+limite de 50 é \textbf{janela de DOM}, nunca limite do catálogo: toda a pesquisa,
+ordenação e filtros consideram o catálogo inteiro em memória, e nunca se filtra
+apenas os primeiros 50 nem se confunde tamanho de DOM com custo Firestore. Ao
+mudar query, filtro ou versão publicada, a janela reinicia; os estados de
+carregamento, erro e versão antiga claramente identificada são preservados.
+Zero correspondências significa ausência no snapshot publicado ou no cache
+disponível, não prova de ausência na fonte canônica.
 
 \subsubsection{Bens Patrimoniais}
 Combinação obrigatória de pelo menos um: (Prédio) ou (letra inicial do nome do equipamento) ou (Status). O Firestore filtra com os campos denormalizados \texttt{predio}, \texttt{andar}, \texttt{sala}, \texttt{status} e \texttt{letra\_inicial\_nome}. O frontend aplica substring sobre \texttt{nome\_equipamento} e \texttt{numero\_patrimonio} nos resultados. Bigramas não serão implementados na V1: o filtro de (Prédio + Andar) já reduz os candidatos suficientemente.
