@@ -325,20 +325,20 @@ impl ValidationM8 {
 // ---- Semântica determinística (não expressável de forma útil em Alloy) -------
 
 /// Escassez é estritamente menor que o limiar. Nunca `<=`.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn escassez(qtd_aptos: i64, qtd_limiar: i64) -> bool {
     qtd_aptos < qtd_limiar
 }
 
 /// Validade semântica do cache: idade estritamente menor que 30 s.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn cache_fresco(idade_segundos: f64) -> bool {
     idade_segundos < 30.0
 }
 
 /// Rate limit por UID: a janela admite no máximo 5 requisições. Dado o número
 /// de requisições já consumidas na janela, a próxima é permitida se < 5.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn rate_limit_permitido(consumidas_na_janela: u32) -> bool {
     consumidas_na_janela < 5
 }
@@ -346,7 +346,7 @@ pub fn rate_limit_permitido(consumidas_na_janela: u32) -> bool {
 /// Chave determinística do cache: mesmos componentes produzem a mesma chave e
 /// componente diferente produz chave diferente. `id_resumo` é `None` no escopo
 /// de almoxarifado.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn chave_cache(escopo: &str, id_almox: u32, id_resumo: Option<u32>) -> String {
     match id_resumo {
         Some(id) => format!("{escopo}__{id_almox}__{id}"),
@@ -356,7 +356,7 @@ pub fn chave_cache(escopo: &str, id_almox: u32, id_resumo: Option<u32>) -> Strin
 
 /// Soma apenas saldos conhecidos; `None` nunca é contado como zero. Sem nenhum
 /// valor conhecido, o total é `None` (desconhecido), não zero.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn somar_conhecidos(valores: &[Option<f64>]) -> Option<f64> {
     let mut soma = 0.0;
     let mut algum = false;
@@ -368,7 +368,7 @@ pub fn somar_conhecidos(valores: &[Option<f64>]) -> Option<f64> {
 }
 
 /// Conta quantos saldos são desconhecidos (segregados, nunca somados).
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn contar_desconhecidos(valores: &[Option<f64>]) -> usize {
     valores.iter().filter(|v| v.is_none()).count()
 }
