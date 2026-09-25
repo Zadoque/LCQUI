@@ -1042,6 +1042,335 @@
                 "id_gestor_encerramento": null,
                 "massa_perda_estimada_g": null
             }
+        },
+        {
+            "arquivo": "formal_m5_operacao",
+            "entidade": "M5_Operacao",
+            "etapa": "formalização executável M5",
+            "escopo": "Contratos estruturais de extravio, reencontro e quarentena; relações e transições são verificadas em Alloy.",
+            "campos": [
+                {
+                    "tipo": "int",
+                    "nome": "id_frasco",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": true,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "tipo_operacao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "EXTRAVIO",
+                        "REENCONTRO",
+                        "ENTROU_EM_QUARENTENA",
+                        "LIBERADO_QUARENTENA",
+                        "PENDENTE_DE_DESCARTE"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "estado_fisico",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "FECHADO",
+                        "ABERTO",
+                        "VAZIO",
+                        "QUEBRADO",
+                        "DESCARTADO"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "situacao_localizacao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "LOCALIZADO",
+                        "EXTRAVIADO"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "disponibilidade",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "DISPONIVEL",
+                        "EMPRESTADO",
+                        "INDISPONIVEL"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "em_quarentena",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "descarte_autorizado",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                }
+            ],
+            "exemplo": {
+                "id_frasco": 1,
+                "tipo_operacao": "EXTRAVIO",
+                "estado_fisico": "QUEBRADO",
+                "situacao_localizacao": "EXTRAVIADO",
+                "disponibilidade": "INDISPONIVEL",
+                "em_quarentena": false,
+                "descarte_autorizado": false
+            }
+        },
+        {
+            "arquivo": "formal_m6_metrologia",
+            "entidade": "M6_Metrologia",
+            "etapa": "formalização executável M6",
+            "escopo": "Contratos quantitativos locais; rotas e preservação histórica são verificadas em Alloy.",
+            "campos": [
+                {
+                    "tipo": "number",
+                    "minimo": -9999999.999,
+                    "maximo": 9999999.999,
+                    "multiplo": 0.001,
+                    "nome": "peso_saida",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "NUMERIC(10,3)",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": true,
+                    "max_caracteres": 0
+                },
+                {
+                    "tipo": "number",
+                    "minimo": -9999999.999,
+                    "maximo": 9999999.999,
+                    "multiplo": 0.001,
+                    "nome": "peso_retorno",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "NUMERIC(10,3)",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": true,
+                    "max_caracteres": 0
+                },
+                {
+                    "tipo": "number",
+                    "minimo": -9999999.999,
+                    "maximo": 9999999.999,
+                    "multiplo": 0.001,
+                    "nome": "peso_retorno_efetivo",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "NUMERIC(10,3)",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": true,
+                    "max_caracteres": 0
+                },
+                {
+                    "tipo": "number",
+                    "minimo": -9999999.999,
+                    "maximo": 9999999.999,
+                    "multiplo": 0.001,
+                    "nome": "peso_perda_evaporacao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "NUMERIC(10,3)",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": true,
+                    "max_caracteres": 0
+                },
+                {
+                    "tipo": "number",
+                    "minimo": -99999.99999,
+                    "maximo": 99999.99999,
+                    "multiplo": 0.00001,
+                    "nome": "densidade_aplicada",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "NUMERIC(10,5)",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": true,
+                    "nao_negativo": false,
+                    "max_caracteres": 0
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "origem_tara",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "NULL",
+                        "REFERENCIA_TEORICA",
+                        "MEDIDA_REAL"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false,
+                    "max_caracteres": 0
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "rota",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "REPETIR_PESAGEM",
+                        "CONFIRMAR_ESGOTAMENTO",
+                        "RECALIBRAR_TARA"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false,
+                    "max_caracteres": 0
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "consumo_validado",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false,
+                    "max_caracteres": 0
+                }
+            ],
+            "exemplo": {
+                "peso_saida": 100,
+                "peso_retorno": 95,
+                "peso_retorno_efetivo": 95,
+                "peso_perda_evaporacao": 1,
+                "densidade_aplicada": 0.7893,
+                "origem_tara": "REFERENCIA_TEORICA",
+                "rota": "REPETIR_PESAGEM",
+                "consumo_validado": true
+            }
+        },
+        {
+            "arquivo": "formal_m7_operacao",
+            "entidade": "M7_Operacao_Idempotente",
+            "etapa": "formalização executável M7",
+            "escopo": "Identidade, estados e deduplicação estrutural; SHA-256/canonicalização são validados por Rust.",
+            "campos": [
+                {
+                    "tipo": "string",
+                    "max_caracteres": 100,
+                    "nao_negativo": false,
+                    "nome": "id_operacao",
+                    "nulo": false,
+                    "obrigatorio": true,
+                    "observacao": "",
+                    "positivo": false,
+                    "sql": "VARCHAR(100)",
+                    "valores": []
+                },
+                {
+                    "tipo": "string",
+                    "max_caracteres": 100,
+                    "nao_negativo": false,
+                    "nome": "uid",
+                    "nulo": false,
+                    "obrigatorio": true,
+                    "observacao": "",
+                    "positivo": false,
+                    "sql": "VARCHAR(100)",
+                    "valores": []
+                },
+                {
+                    "tipo": "string",
+                    "max_caracteres": 100,
+                    "nao_negativo": false,
+                    "nome": "tipo_operacao",
+                    "nulo": false,
+                    "obrigatorio": true,
+                    "observacao": "",
+                    "positivo": false,
+                    "sql": "VARCHAR(100)",
+                    "valores": []
+                },
+                {
+                    "tipo": "string",
+                    "nome": "payload_hash",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false,
+                    "max_caracteres": 0
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "status",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "PENDENTE",
+                        "CONCLUIDA",
+                        "FALHOU"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false,
+                    "max_caracteres": 0
+                }
+            ],
+            "exemplo": {
+                "id_operacao": "op-1",
+                "uid": "uid-1",
+                "tipo_operacao": "EXTRAVIO",
+                "payload_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                "status": "CONCLUIDA"
+            }
         }
     ]
 }

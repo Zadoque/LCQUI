@@ -18,7 +18,7 @@ const hash = data => crypto.createHash('sha256').update(data).digest('hex');
 function write(file, data) { fs.mkdirSync(path.dirname(file), {recursive:true}); fs.writeFileSync(file,data); }
 function specCheck() {
   run('cue',['vet','./...'],cueDir);
-  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/frasco-completo', '#FrascoCompleto'], ['tests/emprestimo', '#EmprestimoReagente']];
+  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/frasco-completo', '#FrascoCompleto'], ['tests/emprestimo', '#EmprestimoReagente'], ['tests/m5', '#M5Operacao'], ['tests/m6', '#M6Metrologia'], ['tests/m7', '#M7Operacao']];
   for (const [directory, definition] of groups) for (const kind of ['valid','invalid']) {
     const files = fs.readdirSync(`${cueDir}/${directory}/${kind}`).sort();
     if (!files.length) throw new Error(`Sem fixtures ${kind}`);
@@ -215,6 +215,58 @@ function alloyCheck() {
   checkWithdrawalReturnTrace(file => fs.readFileSync(file));
   const m4run=execAlloy(withdrawalReturnModel, withdrawalReturnExpected);
   write('build/formal-validation-m4.json',JSON.stringify({versao:1,alloy:version,solver:m4run.solver,spec_ir_sha256:hash(ir),model:withdrawalReturnModel,model_sha256:hash(m4run.source),origens:withdrawalReturnOrigins.map(model=>({model,model_sha256:hash(fs.readFileSync(model))})),resultados:m4run.results},null,2)+'\n');
+  const runMilestone = (model, entries, file, milestone) => {
+    const expected = entries.map(([name,type,scope], i) => ({
+      id: `${milestone}-${type === 'check' ? 'INV' : 'WIT'}-${String(i + 1).padStart(3, '0')}`,
+      name, type, scope,
+      overall: scope.includes('for 7') ? 7 : scope.includes('for 6') ? 6 : 4,
+    }));
+    const result = execAlloy(model, expected);
+    write(file, JSON.stringify({versao: 1, alloy: version, solver: result.solver,
+      spec_ir_sha256: hash(ir), model, model_sha256: hash(result.source),
+      resultados: result.results}, null, 2) + '\n');
+  };
+  runMilestone('specification/alloy/reagents/loss_found_quarantine_m5.als', [
+    ['ExtravioPreservaFisico','check','check ExtravioPreservaFisico for 4'],
+    ['ExtravioMarcaLocalizacao','check','check ExtravioMarcaLocalizacao for 4'],
+    ['ExtravioRevogaAutorizacao','check','check ExtravioRevogaAutorizacao for 4'],
+    ['ExtravioEncerraEmprestimo','check','check ExtravioEncerraEmprestimo for 4'],
+    ['ReencontroImponeQuarentena','check','check ReencontroImponeQuarentena for 6'],
+    ['ReencontroPreservaFisico','check','check ReencontroPreservaFisico for 6'],
+    ['ReencontroRevogaAutorizacao','check','check ReencontroRevogaAutorizacao for 6'],
+    ['QuebradoNaoDisponivel','check','check QuebradoNaoDisponivel for 6'],
+    ['FisicosImpedemLiberacao','check','check FisicosImpedemLiberacao for 6'],
+    ['DescartadoTerminal','check','check DescartadoTerminal for 6'],
+    ['QuarentenaNaoDescartaDireto','check','check QuarentenaNaoDescartaDireto for 6'],
+    ['SaldoNaoFabricado','check','check SaldoNaoFabricado for 6'],
+    ['WitnessAberto','run','run WitnessAberto for 4'],
+    ['WitnessFechado','run','run WitnessFechado for 4'],
+    ['WitnessQuebradoCiclo','run','run WitnessQuebradoCiclo for 7 but exactly 6 Estado'],
+    ['WitnessExtravioEmprestimo','run','run WitnessExtravioEmprestimo for 4'],
+  ], 'build/formal-validation-m5.json', 'M5');
+  runMilestone('specification/alloy/reagents/metrology_resolution_m6.als', [
+    ['PesoRetornoImutavel','check','check PesoRetornoImutavel for 4'],
+    ['ResolucaoEncerraPendencia','check','check ResolucaoEncerraPendencia for 4'],
+    ['ResolucaoNaoLiberaQuarentena','check','check ResolucaoNaoLiberaQuarentena for 6'],
+    ['RotaFechada','check','check RotaFechada for 6'],
+    ['SemCorrecaoAdministrativa','check','check SemCorrecaoAdministrativa for 6'],
+    ['RecalibracaoExigeQuarentena','check','check RecalibracaoExigeQuarentena for 6'],
+    ['WitnessRepetirPesagem','run','run WitnessRepetirPesagem for 4'],
+    ['WitnessEsgotamento','run','run WitnessEsgotamento for 4'],
+    ['WitnessRecalibracao','run','run WitnessRecalibracao for 6'],
+  ], 'build/formal-validation-m6.json', 'M6');
+  runMilestone('specification/alloy/operations/idempotency_m7.als', [
+    ['IdentidadeUnicaNaoDuplicaEfeito','check','check IdentidadeUnicaNaoDuplicaEfeito for 4'],
+    ['RetryNaoReexecuta','check','check RetryNaoReexecuta for 6'],
+    ['ReusoIncompativelRejeitado','check','check ReusoIncompativelRejeitado for 6'],
+    ['EventoDeduplicado','check','check EventoDeduplicado for 6'],
+    ['MaterializacaoSubstitutiva','check','check MaterializacaoSubstitutiva for 6'],
+    ['TransicoesPreservamCoerencia','check','check TransicoesPreservamCoerencia for 6'],
+    ['WitnessPrimeiraExecucao','run','run WitnessPrimeiraExecucao for 4'],
+    ['WitnessRetry','run','run WitnessRetry for 6 but exactly 3 Store'],
+    ['WitnessEventoDuplicado','run','run WitnessEventoDuplicado for 6'],
+    ['WitnessMaterializacao','run','run WitnessMaterializacao for 6'],
+  ], 'build/formal-validation-m7.json', 'M7');
 }
 const cmd=process.argv[2];
 if(cmd==='spec-check') specCheck();

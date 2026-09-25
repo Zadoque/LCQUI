@@ -1,0 +1,23 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{M5\_Operacao --- formalização executável M5}
+Contratos estruturais de extravio, reencontro e quarentena; relações e transições são verificadas em Alloy.
+\begin{description}
+\item[id\_frasco] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+\item[tipo\_operacao] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: EXTRAVIO, REENCONTRO, ENTROU\_EM\_QUARENTENA, LIBERADO\_QUARENTENA, PENDENTE\_DE\_DESCARTE.
+\item[estado\_fisico] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: FECHADO, ABERTO, VAZIO, QUEBRADO, DESCARTADO.
+\item[situacao\_localizacao] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: LOCALIZADO, EXTRAVIADO.
+\item[disponibilidade] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: DISPONIVEL, EMPRESTADO, INDISPONIVEL.
+\item[em\_quarentena] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+\item[descarte\_autorizado] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+\end{description}

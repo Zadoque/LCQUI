@@ -1,0 +1,26 @@
+\clearpage
+\section{Especificação formal M7: idempotência}
+\label{sec:formal-m7}
+
+M7 define a identidade lógica de uma operação por
+\texttt{(uid, tipo\_operacao, payload\_hash)}. O hash é SHA-256 de
+\texttt{tipo\_operacao + "\\n" + canonicalize(payload)}; objetos são ordenados
+recursivamente, arrays preservam ordem, e \texttt{null} permanece distinto de
+campo ausente. O \texttt{idOperacao} é reutilizado em retry da mesma intenção,
+mas não entra no hash.
+
+\subsection*{Responsabilidade das camadas}
+CUE verifica o contrato estrutural e os estados de processamento. Rust fornece
+a canonicalização executável, vetores de teste, hashes e validação do receipt.
+Alloy verifica deduplicação do efeito observado, retries, eventos,
+materializações substitutivas e transições coerentes.
+
+\begingroup\small\raggedright
+\input{generated/entities/formal_m7_operacao.tex}
+\input{generated/invariants/formal_m7.tex}
+\par\endgroup
+
+\subsection*{Limites}
+Idempotência e deduplicação do efeito observado não equivalem a exactly-once da
+infraestrutura. Este modelo não prova ausência de TOCTOU, deadlock, contenção ou
+loops de triggers; esses temas permanecem fora de M7.

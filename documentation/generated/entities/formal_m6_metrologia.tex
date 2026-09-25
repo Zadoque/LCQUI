@@ -1,0 +1,41 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{M6\_Metrologia --- formalização executável M6}
+Contratos quantitativos locais; rotas e preservação histórica são verificadas em Alloy.
+\begin{description}
+\item[peso\_saida] Tipo: number. Obrigatório: sim. Aceita nulo: não.
+SQL: NUMERIC(10,3).
+Máximo: 0 caracteres.
+Mínimo: -9999999.999.
+Múltiplo de 0.001.
+\item[peso\_retorno] Tipo: number. Obrigatório: sim. Aceita nulo: não.
+SQL: NUMERIC(10,3).
+Máximo: 0 caracteres.
+Mínimo: -9999999.999.
+Múltiplo de 0.001.
+\item[peso\_retorno\_efetivo] Tipo: number. Obrigatório: sim. Aceita nulo: não.
+SQL: NUMERIC(10,3).
+Máximo: 0 caracteres.
+Mínimo: -9999999.999.
+Múltiplo de 0.001.
+\item[peso\_perda\_evaporacao] Tipo: number. Obrigatório: sim. Aceita nulo: não.
+SQL: NUMERIC(10,3).
+Máximo: 0 caracteres.
+Mínimo: -9999999.999.
+Múltiplo de 0.001.
+\item[densidade\_aplicada] Tipo: number. Obrigatório: sim. Aceita nulo: não.
+SQL: NUMERIC(10,5).
+Máximo: 0 caracteres.
+Mínimo: -99999.99999.
+Múltiplo de 0.00001.
+\item[origem\_tara] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: NULL, REFERENCIA\_TEORICA, MEDIDA\_REAL.
+Máximo: 0 caracteres.
+\item[rota] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: REPETIR\_PESAGEM, CONFIRMAR\_ESGOTAMENTO, RECALIBRAR\_TARA.
+Máximo: 0 caracteres.
+\item[consumo\_validado] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+Máximo: 0 caracteres.
+\end{description}

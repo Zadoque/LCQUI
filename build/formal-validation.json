@@ -4,7 +4,7 @@
   "solver": "sat4j",
   "model": "specification/alloy/reagents/withdrawal.als",
   "model_sha256": "09732c005848617a33d7e34af6126605de57d2cdcb3a53683aa2641551e06bf0",
-  "spec_ir_sha256": "66ec4f2f07f2f17fb385e744ea1aeb4d643a4decad980dd933cf6060f1e5cd07",
+  "spec_ir_sha256": "59c2e9db657fcced7663fb684fc93e22553047b091ca8fe65b025e200ffd6b93",
   "resultados": [
     {
       "id": "INV-FRASCO-001",

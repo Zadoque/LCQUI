@@ -170,3 +170,41 @@ pub fn render_withdrawal_return(v: &crate::validation_m4::ValidationM4) -> Strin
     text.push_str("\\end{description}\nUNSAT para check: nenhum contraexemplo encontrado no escopo declarado. SAT para run: testemunha encontrada. As buscas limitadas não são prova universal.\n\nNão certifica Q06 ou tara (M6), extravio/reencontro/quarentena completos (M5), idempotência transacional (M7), RBAC (M9), Firestore/backend nem concorrência real. A validade calculada, a primeira abertura que vence, o vencimento persistido e a validade desconhecida são representados por fatos abstratos; o snapshot vencido\\_na\\_retirada é formalizado, mas o cálculo efetivo de validade pertence a M6.\n");
     text
 }
+
+fn render_milestone(title: &str, scope: &str, resultados: &[crate::validation::Result]) -> String {
+    let mut text = format!(
+        "% Gerado por lcqui-spec-doc; não editar.\n\\subsection*{{Evidência formal {title}}}\n{scope}\n\\begin{{description}}\n"
+    );
+    for r in resultados {
+        text.push_str(&format!(
+            "\\item[{}] {}: {}.\\newline Escopo: \\texttt{{{}}}.\n",
+            escape(&r.id),
+            escape(&r.assertion),
+            escape(&r.status),
+            escape(&r.scope)
+        ));
+    }
+    text.push_str("\\end{description}\nUNSAT para check indica ausência de contraexemplo no escopo declarado; SAT para run indica testemunha encontrada. A evidência não certifica a implementação Firebase/backend.\n");
+    text
+}
+pub fn render_m5(v: &crate::validation_m5::ValidationM5) -> String {
+    render_milestone(
+        "M5 --- extravio, reencontro e quarentena",
+        "M5 separa estado físico, localização e autorização operacional. CUE verifica contratos estruturais; Alloy verifica preservação física, quarentena, terminalidade e revogação.",
+        &v.resultados,
+    )
+}
+pub fn render_m6(v: &crate::validation_m6::ValidationM6) -> String {
+    render_milestone(
+        "M6 --- metrologia quantitativa",
+        "CUE/Rust verificam tipos, sinais, densidade e limites locais; Alloy verifica as três rotas, preservação de peso histórico e interação com quarentena. A abstração Alloy não prova ponto flutuante real.",
+        &v.resultados,
+    )
+}
+pub fn render_m7(v: &crate::validation_m7::ValidationM7) -> String {
+    render_milestone(
+        "M7 --- idempotência",
+        "Alloy verifica identidade, retry, deduplicação e materialização substitutiva. Rust é a referência determinística para proveniência e canonicalização; isto não prova exactly-once da infraestrutura, TOCTOU ou deadlock.",
+        &v.resultados,
+    )
+}

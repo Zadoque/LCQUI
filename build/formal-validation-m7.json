@@ -1,0 +1,80 @@
+{
+  "versao": 1,
+  "alloy": "6.2.0",
+  "solver": "sat4j",
+  "spec_ir_sha256": "59c2e9db657fcced7663fb684fc93e22553047b091ca8fe65b025e200ffd6b93",
+  "model": "specification/alloy/operations/idempotency_m7.als",
+  "model_sha256": "9b68d044e48eb5747b09b30f70759c2c877a2a8423875b26129f3f4aa1612dc3",
+  "resultados": [
+    {
+      "id": "M7-INV-001",
+      "assertion": "IdentidadeUnicaNaoDuplicaEfeito",
+      "tipo": "check",
+      "scope": "check IdentidadeUnicaNaoDuplicaEfeito for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M7-INV-002",
+      "assertion": "RetryNaoReexecuta",
+      "tipo": "check",
+      "scope": "check RetryNaoReexecuta for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M7-INV-003",
+      "assertion": "ReusoIncompativelRejeitado",
+      "tipo": "check",
+      "scope": "check ReusoIncompativelRejeitado for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M7-INV-004",
+      "assertion": "EventoDeduplicado",
+      "tipo": "check",
+      "scope": "check EventoDeduplicado for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M7-INV-005",
+      "assertion": "MaterializacaoSubstitutiva",
+      "tipo": "check",
+      "scope": "check MaterializacaoSubstitutiva for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M7-INV-006",
+      "assertion": "TransicoesPreservamCoerencia",
+      "tipo": "check",
+      "scope": "check TransicoesPreservamCoerencia for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M7-WIT-007",
+      "assertion": "WitnessPrimeiraExecucao",
+      "tipo": "run",
+      "scope": "run WitnessPrimeiraExecucao for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M7-WIT-008",
+      "assertion": "WitnessRetry",
+      "tipo": "run",
+      "scope": "run WitnessRetry for 6 but exactly 3 Store",
+      "status": "SAT"
+    },
+    {
+      "id": "M7-WIT-009",
+      "assertion": "WitnessEventoDuplicado",
+      "tipo": "run",
+      "scope": "run WitnessEventoDuplicado for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M7-WIT-010",
+      "assertion": "WitnessMaterializacao",
+      "tipo": "run",
+      "scope": "run WitnessMaterializacao for 6",
+      "status": "SAT"
+    }
+  ]
+}

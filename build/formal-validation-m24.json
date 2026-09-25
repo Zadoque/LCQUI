@@ -2,7 +2,7 @@
   "versao": 1,
   "alloy": "6.2.0",
   "solver": "sat4j",
-  "spec_ir_sha256": "66ec4f2f07f2f17fb385e744ea1aeb4d643a4decad980dd933cf6060f1e5cd07",
+  "spec_ir_sha256": "59c2e9db657fcced7663fb684fc93e22553047b091ca8fe65b025e200ffd6b93",
   "model": "specification/alloy/reagents/bottle_composition.als",
   "model_sha256": "a9cfd08bbe88ed4bfb3f6380ed2905b98905865b2074fcfafa8c12ef2c6f8e14",
   "origens": [

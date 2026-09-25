@@ -1,0 +1,29 @@
+\clearpage
+\section{Especificação formal M5: extravio, reencontro e quarentena}
+\label{sec:formal-m5}
+
+M5 formaliza o fluxo de localização do frasco separado do seu estado físico.
+Extravio preserva o último fato físico conhecido, força indisponibilidade e
+revoga a autorização corrente de descarte. Reencontro restaura a localização,
+impõe quarentena e exige nova decisão operacional. Assim, um frasco quebrado
+continua quebrado durante todo o ciclo; o fluxo não fabrica medição, saldo,
+tara ou validade.
+
+\subsection*{Responsabilidade das camadas}
+CUE verifica os campos, enums, nulabilidade e combinações locais dos descritores
+M5. Alloy verifica as transições, preservação física, revogação, quarentena,
+terminalidade e testemunhas de alcançabilidade. Rust valida o receipt, hashes de
+proveniência e a geração determinística desta evidência. Os resultados abaixo
+foram executados com Alloy 6.2.0 e SAT4J.
+
+\begingroup\small\raggedright
+\input{generated/entities/formal_m5_operacao.tex}
+\input{generated/invariants/formal_m5.tex}
+\par\endgroup
+
+\subsection*{Limites}
+O modelo não certifica a implementação Firebase, regras de autorização reais ou
+concorrência de infraestrutura. Quarentena é uma situação operacional distinta
+de indisponibilidade; somente uma nova avaliação pode autorizar descarte ou
+disponibilidade de um frasco fisicamente apto. A evidência também não prova
+propriedades posteriores de TOCTOU, deadlock ou contenção.

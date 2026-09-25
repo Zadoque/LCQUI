@@ -1,0 +1,73 @@
+{
+  "versao": 1,
+  "alloy": "6.2.0",
+  "solver": "sat4j",
+  "spec_ir_sha256": "59c2e9db657fcced7663fb684fc93e22553047b091ca8fe65b025e200ffd6b93",
+  "model": "specification/alloy/reagents/metrology_resolution_m6.als",
+  "model_sha256": "a9cf19d22c856dca998ae2a4ddd8df87fbebd06161edf14421af3aa3f80da758",
+  "resultados": [
+    {
+      "id": "M6-INV-001",
+      "assertion": "PesoRetornoImutavel",
+      "tipo": "check",
+      "scope": "check PesoRetornoImutavel for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M6-INV-002",
+      "assertion": "ResolucaoEncerraPendencia",
+      "tipo": "check",
+      "scope": "check ResolucaoEncerraPendencia for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M6-INV-003",
+      "assertion": "ResolucaoNaoLiberaQuarentena",
+      "tipo": "check",
+      "scope": "check ResolucaoNaoLiberaQuarentena for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M6-INV-004",
+      "assertion": "RotaFechada",
+      "tipo": "check",
+      "scope": "check RotaFechada for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M6-INV-005",
+      "assertion": "SemCorrecaoAdministrativa",
+      "tipo": "check",
+      "scope": "check SemCorrecaoAdministrativa for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M6-INV-006",
+      "assertion": "RecalibracaoExigeQuarentena",
+      "tipo": "check",
+      "scope": "check RecalibracaoExigeQuarentena for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M6-WIT-007",
+      "assertion": "WitnessRepetirPesagem",
+      "tipo": "run",
+      "scope": "run WitnessRepetirPesagem for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M6-WIT-008",
+      "assertion": "WitnessEsgotamento",
+      "tipo": "run",
+      "scope": "run WitnessEsgotamento for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M6-WIT-009",
+      "assertion": "WitnessRecalibracao",
+      "tipo": "run",
+      "scope": "run WitnessRecalibracao for 6",
+      "status": "SAT"
+    }
+  ]
+}

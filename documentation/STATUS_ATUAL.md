@@ -1,5 +1,13 @@
 # Status atual do LCQUI
 
+## Estado corrente pós-backfill pré-M8
+
+M0–M7 = **VALIDATED**; M8 = **NOT_STARTED**. A formalização executável de M5,
+M6 e M7 foi integrada ao IR, receipts, validadores Rust, fragmentos gerados,
+`main.tex` e `main.pdf`, com todos os gates finais PASS. Próxima ação exata:
+**INICIAR M8 DOCUMENTAL**. Os registros abaixo são históricos quando descrevem
+M5–M7 como dívida documental.
+
 Atualizado em 24/09/2026 — documentação de M7 (Idempotência), após M6 (Q06/tara/metrologia). Estado corrente: M0–M4 = VALIDATED, M5 = DOCUMENTATION_VALIDATED, M6 = DOCUMENTATION_VALIDATED, M7 = DOCUMENTATION_VALIDATED, M8 = NOT_STARTED; próxima ação = concluir a formalização executável pré-M8; `INICIAR M8 DOCUMENTAL` somente após todos os gates. A formalização executável CUE/Alloy/Rust de M5–M7 ainda está pendente, sendo quitada nesta etapa pré-M8.
 
 ## Backfill pré-M8 — bloqueio identificado

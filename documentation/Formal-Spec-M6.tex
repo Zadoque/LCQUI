@@ -1,0 +1,26 @@
+\clearpage
+\section{Especificação formal M6: metrologia e Q06}
+\label{sec:formal-m6}
+
+M6 separa contratos quantitativos de relações de estado. CUE verifica tipos,
+rotas metrológicas, não negatividade, densidade positiva e presença dos campos.
+As relações de evaporação e consumo que dependem de aritmética são verificadas
+por validação numérica determinística; Alloy abstrai as transições e preserva o
+histórico de \texttt{peso\_retorno}, a pendência, a resolução e a quarentena.
+
+\subsection*{Responsabilidade das camadas}
+As três rotas V1 são repetir a pesagem da devolução anômala, confirmar
+esgotamento após inspeção e recalibrar a tara de frasco efetivamente vazio.
+Não existe correção administrativa metrológica genérica. Alloy não é usado como
+calculadora decimal e, portanto, a precisão de Q06 e dos limites quantitativos
+permanece na camada de contratos e validação numérica.
+
+\begingroup\small\raggedright
+\input{generated/entities/formal_m6_metrologia.tex}
+\input{generated/invariants/formal_m6.tex}
+\par\endgroup
+
+\subsection*{Limites}
+Os resultados formais não certificam instrumentos, ponto flutuante ou a
+implementação de pesagem. Eles demonstram as relações abstratas declaradas e a
+proveniência dos artefatos usados para gerar esta seção.

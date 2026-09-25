@@ -1,0 +1,21 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{M7\_Operacao\_Idempotente --- formalização executável M7}
+Identidade, estados e deduplicação estrutural; SHA-256/canonicalização são validados por Rust.
+\begin{description}
+\item[id\_operacao] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: VARCHAR(100).
+Máximo: 100 caracteres.
+\item[uid] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: VARCHAR(100).
+Máximo: 100 caracteres.
+\item[tipo\_operacao] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: VARCHAR(100).
+Máximo: 100 caracteres.
+\item[payload\_hash] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Máximo: 0 caracteres.
+\item[status] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: PENDENTE, CONCLUIDA, FALHOU.
+Máximo: 0 caracteres.
+\end{description}

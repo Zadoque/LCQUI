@@ -2,7 +2,7 @@
   "versao": 1,
   "alloy": "6.2.0",
   "solver": "sat4j",
-  "spec_ir_sha256": "66ec4f2f07f2f17fb385e744ea1aeb4d643a4decad980dd933cf6060f1e5cd07",
+  "spec_ir_sha256": "59c2e9db657fcced7663fb684fc93e22553047b091ca8fe65b025e200ffd6b93",
   "model": "specification/alloy/reagents/loan_state.als",
   "model_sha256": "1b7d7e6f8009408a7da19666fe286c8feb578b915318bd5eda9e0eb4dffbc060",
   "resultados": [

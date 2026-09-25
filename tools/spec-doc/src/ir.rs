@@ -43,6 +43,7 @@ pub struct Mapeamento {
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+#[allow(dead_code)]
 pub struct Campo {
     pub nome: String,
     pub tipo: String,
@@ -53,7 +54,7 @@ pub struct Campo {
     pub observacao: String,
     pub max_caracteres: Option<u32>,
     pub padrao: Option<String>,
-    pub minimo: Option<i64>,
+    pub minimo: Option<f64>,
     pub minimo_exclusivo: Option<f64>,
     pub maximo_exclusivo: Option<f64>,
     pub multiplo: Option<f64>,
@@ -61,6 +62,12 @@ pub struct Campo {
     pub sql: Option<String>,
     pub minimo_numero: Option<f64>,
     pub maximo_numero: Option<f64>,
+    #[serde(default)]
+    pub nao_negativo: Option<bool>,
+    #[serde(default)]
+    pub positivo: Option<bool>,
+    #[serde(default)]
+    pub maximo: Option<f64>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

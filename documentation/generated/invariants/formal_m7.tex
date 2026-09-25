@@ -1,0 +1,16 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{Evidência formal M7 --- idempotência}
+Alloy verifica identidade, retry, deduplicação e materialização substitutiva. Rust é a referência determinística para proveniência e canonicalização; isto não prova exactly-once da infraestrutura, TOCTOU ou deadlock.
+\begin{description}
+\item[M7-INV-001] IdentidadeUnicaNaoDuplicaEfeito: UNSAT.\newline Escopo: \texttt{check IdentidadeUnicaNaoDuplicaEfeito for 4}.
+\item[M7-INV-002] RetryNaoReexecuta: UNSAT.\newline Escopo: \texttt{check RetryNaoReexecuta for 6}.
+\item[M7-INV-003] ReusoIncompativelRejeitado: UNSAT.\newline Escopo: \texttt{check ReusoIncompativelRejeitado for 6}.
+\item[M7-INV-004] EventoDeduplicado: UNSAT.\newline Escopo: \texttt{check EventoDeduplicado for 6}.
+\item[M7-INV-005] MaterializacaoSubstitutiva: UNSAT.\newline Escopo: \texttt{check MaterializacaoSubstitutiva for 6}.
+\item[M7-INV-006] TransicoesPreservamCoerencia: UNSAT.\newline Escopo: \texttt{check TransicoesPreservamCoerencia for 6}.
+\item[M7-WIT-007] WitnessPrimeiraExecucao: SAT.\newline Escopo: \texttt{run WitnessPrimeiraExecucao for 4}.
+\item[M7-WIT-008] WitnessRetry: SAT.\newline Escopo: \texttt{run WitnessRetry for 6 but exactly 3 Store}.
+\item[M7-WIT-009] WitnessEventoDuplicado: SAT.\newline Escopo: \texttt{run WitnessEventoDuplicado for 6}.
+\item[M7-WIT-010] WitnessMaterializacao: SAT.\newline Escopo: \texttt{run WitnessMaterializacao for 6}.
+\end{description}
+UNSAT para check indica ausência de contraexemplo no escopo declarado; SAT para run indica testemunha encontrada. A evidência não certifica a implementação Firebase/backend.

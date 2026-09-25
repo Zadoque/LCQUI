@@ -13,6 +13,43 @@ build/ formal e documentação. Proibidos: lógica de frontend/, functions/,
 Rules, configurações Firebase operacionais e mudanças normativas por conveniência.
 generated/ só pode ser escrito pelo Rust.
 
+## Fechamento da quitação executável
+
+Na HEAD `0a47719f08e3f958acc9c8dfd0685107800abb69`, o baseline `just
+formal-check` e `git diff --check` passou antes das alterações. A extensão foi
+aditiva: IR permaneceu v3, recebeu três entidades formais; CUE ganhou contratos
+M5/M6/M7 e fixtures; Alloy ganhou os modelos `loss_found_quarantine_m5.als`,
+`metrology_resolution_m6.als` e `operations/idempotency_m7.als`; Rust passou a
+validar os receipts correspondentes e a gerar seus fragmentos.
+
+M5 produziu 12 checks UNSAT e 4 witnesses SAT nos scopes 4, 6 e ciclo com
+exatamente 6 estados. M6 produziu 6 checks UNSAT e 3 witnesses SAT no scope
+declarado. M7 produziu 6 checks UNSAT e 4 witnesses SAT. Os receipts são
+`build/formal-validation-m5.json`, `m6.json` e `m7.json`, com hashes do IR e dos
+modelos; os validadores são `validation_m5.rs`, `validation_m6.rs` e
+`validation_m7.rs`. O Rust também testa canonicalização recursiva de objetos,
+ordem de arrays, `null`/ausente e sensibilidade ao tipo da operação.
+
+Os contratos CUE totalizam 3 fixtures válidas e 2 inválidas em M5, 2 válidas e
+2 inválidas em M6, e 2 válidas e 2 inválidas em M7. A restrição quantitativa de
+evaporação que exige subtração é declarada no limite da camada CUE e permanece
+protegida por validação numérica; não há clamp silencioso. A autoridade Alloy
+é relacional e não pretende provar ponto flutuante ou o backend Firebase.
+
+O gerador Rust 0.2.0 produziu `Formal-Spec-M5.tex`, `Formal-Spec-M6.tex` e
+`Formal-Spec-M7.tex` a partir de `documentation/generated/`; duas gerações
+consecutivas foram byte-identical. `main.tex` inclui os três capítulos. O build
+LaTeX terminou sem erro fatal e produziu `build/latex/main.pdf` com 352 páginas;
+os warnings overfull/underfull são históricos do documento e não falhas novas.
+As páginas 345–351 contêm M5–M7 e suas tabelas/listagens geradas.
+
+Gates finais: `spec-check` PASS; `spec-export` PASS; `alloy-check` PASS;
+`rust-check` (14 testes e clippy) PASS; `docs-generate` PASS; `docs-check` PASS;
+`docs-build` PASS; `formal-check` PASS; `git diff --check` PASS. Nenhuma
+alteração ocorreu em `frontend/`, `functions/`, Rules ou configurações Firebase.
+M5, M6 e M7 podem ser promovidos para VALIDATED; M8 continua NOT_STARTED e não
+foi iniciado. Próxima ação: **INICIAR M8 DOCUMENTAL**.
+
 Documentação é autoridade humana; CUE verifica estrutura e quantitativos
 expressáveis; Alloy verifica relações/transições em scopes limitados; Rust
 valida proveniência/conjuntos exatos e gera evidência determinística; LaTeX

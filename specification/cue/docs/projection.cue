@@ -208,5 +208,29 @@ ir: {
 			campos:   #CamposEmprestimoM3
 			exemplo:  #EmprestimoM3Exemplo
 		},
+		{
+			arquivo:  "formal_m5_operacao"
+			entidade: "M5_Operacao"
+			etapa:    "formalização executável M5"
+			escopo:   "Contratos estruturais de extravio, reencontro e quarentena; relações e transições são verificadas em Alloy."
+			campos:   domain.#CamposM5
+			exemplo: {id_frasco: 1, tipo_operacao: "EXTRAVIO", estado_fisico: "QUEBRADO", situacao_localizacao: "EXTRAVIADO", disponibilidade: "INDISPONIVEL", em_quarentena: false, descarte_autorizado: false}
+		},
+		{
+			arquivo:  "formal_m6_metrologia"
+			entidade: "M6_Metrologia"
+			etapa:    "formalização executável M6"
+			escopo:   "Contratos quantitativos locais; rotas e preservação histórica são verificadas em Alloy."
+			campos:   domain.#CamposM6
+			exemplo: {peso_saida: 100, peso_retorno: 95, peso_retorno_efetivo: 95, peso_perda_evaporacao: 1, densidade_aplicada: 0.7893, origem_tara: "REFERENCIA_TEORICA", rota: "REPETIR_PESAGEM", consumo_validado: true}
+		},
+		{
+			arquivo:  "formal_m7_operacao"
+			entidade: "M7_Operacao_Idempotente"
+			etapa:    "formalização executável M7"
+			escopo:   "Identidade, estados e deduplicação estrutural; SHA-256/canonicalização são validados por Rust."
+			campos:   domain.#CamposM7
+			exemplo: {id_operacao: "op-1", uid: "uid-1", tipo_operacao: "EXTRAVIO", payload_hash: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", status: "CONCLUIDA"}
+		},
 	]
 }
