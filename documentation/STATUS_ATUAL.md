@@ -1,6 +1,44 @@
 # Status atual do LCQUI
 
-## Estado corrente — M12.1 executável validado (Posts, comentários e moderação)
+## Estado corrente — M12.2 documental validado (Roteiros de Experimento)
+
+Rodada **exclusivamente documental**. HEAD de entrada:
+`b24813c1e77b4a36540a1289abbce0269ed50405`. Nova fonte normativa na
+**Seção 7.7** (`\label{sec:regras-roteiros-m12-2}`), reconciliando 3FN,
+Firestore, UI-11, fluxos, Seção 10.11 e Seção 11, com **Q09 incorporada**
+(definição em `MODIFICACOES_CONSOLIDADAS_LCQUI.md`). **M12.2 =
+DOCUMENTATION_VALIDATED**; M0–M11 e M12.1 = VALIDATED; M12 = NOT_STARTED
+(composição M12.1/M12.2); M13 = NOT_STARTED; HQs M12.2 = 0. Registro em
+[worklog M12.2](worklogs/formal-spec/M12_2_DOCUMENTATION.md).
+
+- **Arquivo e autoria:** dono imutável `id_professor_upload`; referência
+  canônica `storage_path` + `content_type` + `tamanho_bytes` + `owner_uid` +
+  `geracao` + `criado_em`; `file_url` legado, nunca credencial; URL temporária.
+- **Upload/publicabilidade:** professor ativo, PDF estritamente $<15$ MiB, bytes
+  `%PDF-`, caminho/titularidade/geração; publicável só após validação; falha não
+  cria registro utilizável; órfão reconciliado; Firestore–Storage sem transação
+  única.
+- **Compartilhamento/revogação (Q09):** relação única por (roteiro, professor),
+  array server-owned, idempotente M7; revogação impede novas associações e
+  preserva Posts históricos; notificação mínima `ROTEIRO_COMPARTILHADO`.
+- **Leitura/download:** propriedade/compartilhamento atual (professor); vínculo
+  canônico atual + Post acessível (aluno); turma arquivada somente leitura;
+  ex-aluno negado; Chefe por Q13; sem vazamento por URL/cache/erro; falha
+  fechado se objeto/geração ausente.
+- **Anexo a Post:** no máximo um roteiro por Post; acesso atual no commit
+  **inclusive na edição**; snapshot imutável com geração, não é autorização;
+  desvincular não exige acesso e registra histórico M12.1.
+- **Limites:** não certifica `functions/src/roteiros.ts`/`posts.ts`, frontend,
+  Rules, Storage, Auth nem a aplicação real. PDF **424 páginas**, exit 0.
+- **Dívida de implementação:** `roteiros.ts` usa array de e-mail em vez de UID,
+  sem `idOperacao`/M7/geração; `posts.ts` sem snapshot/geração; `storage.rules`
+  libera `read` de `/roteiros` a qualquer autenticado.
+
+Próxima ação exata: formalização executável **M12.2** (CUE → IR → Alloy →
+receipt → Rust → LaTeX → PDF) em rodada separada; depois o fechamento de M12 e,
+por último, M13. O fechamento global após M13 é um gate, sem M14 automático.
+
+## Histórico — M12.1 executável validado (Posts, comentários e moderação)
 
 Cadeia executável aditiva concluída e corrigida na branch
 `feat/formal-spec-cue-alloy`. HEAD de entrada da rodada corretiva:
