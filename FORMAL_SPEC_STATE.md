@@ -1,7 +1,7 @@
 # LCQUI — Formal Specification State
 
 ## 1. Propósito desta fase
-M0 = VALIDATED; M1 = VALIDATED; M2 = VALIDATED; M3 = VALIDATED; M4 = VALIDATED; M5 = VALIDATED; M6 = VALIDATED; M7 = VALIDATED; M8 = VALIDATED; M9 = VALIDATED; M10+ = NOT_STARTED. HEAD de entrada da formalização executável M9: `d105bf8e05bf783c342a02cf4957637594258f5b`; consolidação documental normativa: `dd5024ebd8987a65e18888a6508a79ef54e16431`; HEAD pré-registro de estado/PDF: `d7fdeb3177dca85cf4e38e5875ae64a9d124c534`. M9 fechou CUE → IR v3 aditivo → Alloy → receipt → Rust → LaTeX → PDF com todos os gates PASS. Próxima ação exata: **AVALIAR A ENTRADA EM M10 — PATRIMÔNIO, EM RODADA SEPARADA**. Não iniciar M10. Os parágrafos abaixo preservam o contexto histórico da fase.
+M0 = VALIDATED; M1 = VALIDATED; M2 = VALIDATED; M3 = VALIDATED; M4 = VALIDATED; M5 = VALIDATED; M6 = VALIDATED; M7 = VALIDATED; M8 = VALIDATED; M9 = VALIDATED; M10 = DOCUMENTATION_VALIDATED; M11+ = NOT_STARTED. HEAD de entrada M10: `ca76f5f2319f75be6a93c8173ea147088727a589`; HEAD pré-registro de estado/PDF: `1701baf9c311ecbe7692d84f9d1b7d7f075594cc`. M10 fechou somente a auditoria e reconciliação normativa documental, com todos os gates PASS; a implementação real permanece fora da evidência. Próxima ação exata: **FORMALIZAÇÃO EXECUTÁVEL DE M10 — PATRIMÔNIO, EM RODADA SEPARADA (CUE → IR → Alloy → receipt → Rust → LaTeX → PDF)**. Não iniciar M11. Os parágrafos abaixo preservam o contexto histórico da fase.
 
 Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. M5, M6, M7, M8 e M9 possuem contratos CUE, IR v3, modelos Alloy, receipts verificáveis, validators Rust, fragmentos gerados e capítulos integrados ao PDF. M9 = VALIDATED; próxima ação: avaliar a entrada em M10 (patrimônio).
 
@@ -70,12 +70,14 @@ Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spaw
 | M7 | Idempotência | VALIDATED |
 | M8 | Estoque/escassez/notificações | VALIDATED |
 | M9 | Autorização/usuários | VALIDATED |
-| M10 | Patrimônio | NOT_STARTED |
+| M10 | Patrimônio | DOCUMENTATION_VALIDATED |
 | M11 | Turmas/demais domínios | NOT_STARTED |
 | M12 | Integração/redução de duplicação normativa | NOT_STARTED |
 
 ## 9. Milestone atual
-M4 VALIDATED (Retirada/devolução completas, com erratum pré-M5). M3 VALIDATED (com erratum pré-M5); M5 = VALIDATED; M6 = VALIDATED; M7 = VALIDATED; M8 = VALIDATED; M9 = VALIDATED. Registro M9 em `M9_DOCUMENTATION.md` e `M9_EXECUTABLE_VALIDATION.md`; a implementação Firebase continua fora da evidência formal.
+M4 VALIDATED (Retirada/devolução completas, com erratum pré-M5). M3 VALIDATED (com erratum pré-M5); M5 = VALIDATED; M6 = VALIDATED; M7 = VALIDATED; M8 = VALIDATED; M9 = VALIDATED; M10 = DOCUMENTATION_VALIDATED. A implementação Firebase continua fora da evidência formal.
+
+- M10 = DOCUMENTATION_VALIDATED (entrada `ca76f5f2`; worklog `M10_DOCUMENTATION.md`): identidade de unidade física separada do resumo catalográfico; plaqueta permanente canônica `trim().toUpperCase()` em lock, requisição e `Chaves_Unicas`; máquina V1 `Ativo -> Inservivel -> Ja_dado_baixa`, sem reversão/salto e sem exclusão física; conservação independente. `versao` inicia em 1 e cobre fatos canônicos, não fan-out derivado. Locks carregam proprietário/tipo/chave e não expiram por idade; unicidade, lock, versão e M7 são mecanismos distintos. Baixa é rito próprio M9+M7 com SEI, PDF binariamente validado, histórico e terminalidade. Histórico normativo é a subcoleção `Historico_Patrimonio`; cadastro, edição e baixa são atômicos. Findings M10-F01..F05 resolvidos documentalmente; M10-F06..F12 registram divergências/dívida de implementação. Zero HQ e três auditorias limpas. PDF 381 páginas; gates PASS. Próxima ação: formalização executável de M10 em rodada separada; não iniciar M11.
 
 - M9 = VALIDATED (entrada executável `d105bf8e`): CUE (`#M9Contrato`, 4 fixtures válidas e 6 inválidas), IR v3 aditivo (`formal_m9_autorizacao`), Alloy `authorization_m9.als` (13 checks UNSAT + 9 witnesses SAT, scope 8 com 2 escopos), receipt verificável, validator Rust, guard de drift de papéis, fragmentos e `Formal-Spec-M9.tex` (PDF 375 páginas). `podeExecutar` exige autenticação, usuário ativo, papel persistido, versão corrente, vínculo/escopo ou ownership e recurso não server-owned; `podeCommitar` acrescenta domínio válido. Revogação incrementa versão; claim antiga não restaura autorização; TOCTOU revalida no commit. Nenhuma HQ. Não certifica Firebase, Rules, backend, UI ou infraestrutura. Próxima ação: avaliar M10 em rodada separada.
 
