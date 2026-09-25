@@ -67,6 +67,34 @@ A arquitetura normativa de destino do histórico é `Bem_Patrimonial/{id}/Histor
 | M10-F11 | DIVERGENCIA_IMPLEMENTACAO | Frontend expõe escolhas/fluxos patrimoniais que podem sugerir escrita direta e baixa genérica; UI não é controle de segurança. | Registrado; backend normativo deve negar. **ABERTO (implementação)**. |
 | M10-F12 | DIVIDA_FUTURA | Não há configuração versionada de índices Firestore apesar dos filtros patrimoniais documentados. | Planejar índices e testar consultas na implementação, sem redesenhar M10. **ABERTO (futuro)**. |
 
+## Reconciliação mecânica pós-auditoria / pré-formalização executável
+
+Entrada desta reconciliação: `9208352ab3d43882372ed1709b2f083982d2363d`,
+branch `feat/formal-spec-cue-alloy`, árvore limpa e `origin` sincronizada
+(`0/0`). O baseline `just formal-check` passou com M0--M9 preservados (23
+testes Rust, `clippy`, 10 testes Node/guards e Alloy). Esta seção corrige
+somente resíduos de pseudocódigo/documentação; não altera políticas M10 nem
+artefatos executáveis.
+
+| ID | Categoria | Resíduo verificado | Resolução/estado |
+|---|---|---|---|
+| M10-F13 | CONTRADICAO_DOCUMENTAL | `criarRequisicaoAdicaoBem` não persistia o campo obrigatório `numero_patrimonio_normalizado`; a aprovação o recalculava da forma bruta e o Bem recebia a plaqueta bruta. | Criação calcula/valida N uma vez, persiste bruto + N; aprovação usa N persistido, confere N contra o bruto apenas defensivamente, e Bem/lock/chave usam N. **RESOLVIDO**. |
+| M10-F14 | LACUNA_DE_CONCORRENCIA | `responderRequisicaoEdicaoBem` apagava o lock nos desfechos terminais sem leitura/prova de `id_requisicao`, tipo e recurso. | A transação agora exige lock existente com `id_requisicao`, `EDICAO` e `idBem` corretos antes de qualquer escrita ou `delete`; divergência falha fechada sem mutar Bem/requisição/lock. **RESOLVIDO**. |
+| M10-F15 | LACUNA_DE_CONCORRENCIA | `responderRequisicaoAdicaoBem` podia continuar se o lock estivesse ausente e só conferia parcialmente seu proprietário. | Lock ausente, tipo divergente, proprietário divergente ou chave divergente falha fechada; só lock provado como `ADICAO` da requisição corrente é removido. **RESOLVIDO**. |
+| M10-F16 | LACUNA_DE_CONCORRENCIA | `Chaves_Unicas` já existente lançava exceção e abortava a transação, deixando requisição pendente e lock retido. | Conflito definitivo passou a rejeitar a requisição no mesmo commit, registrar justificativa, manter Bem/chave permanente intactos e liberar somente seu lock. Falha transitória continua propagando. **RESOLVIDO**. |
+| M10-F17 | CONTRADICAO_DOCUMENTAL | A segunda descrição física da Seção 5, ``Complementos físicos obrigatórios e fontes de verdade'', ainda trazia `novo\_documento\_baixa` como proposta da requisição de edição. | Removido o campo legado e enumerados apenas os opcionais canônicos da edição; o item agora remete baixa ao rito próprio RF12/M10. A Seção 5.9 já estava correta, mas não bastava enquanto o complemento permanecesse contraditório. **RESOLVIDO**. |
+
+Paridade manual confirmada: a requisição de adição contém os 17 campos
+normativos, inclusive `numero_patrimonio_proposto` e
+`numero_patrimonio_normalizado`; lock contém `id_requisicao`, `tipo`,
+`chave_recurso`, `criado_em`; e `Bem_Patrimonial.numero_patrimonio` recebe
+somente N. A busca residual por `novo\_documento\_baixa`, nomes de plaqueta,
+`bem_adicao_`, `tx.delete(lockRef)` e `Ja_dado_baixa` foi classificada: o
+resíduo escapado da Seção 5 foi removido; usos ativos de lock em 10.8 agora
+estão todos após a validação de propriedade; ocorrências históricas/arquivadas
+não são autoridade corrente. HQs desta
+reconciliação: **0**.
+
 ## Human Questions
 
 **Nenhuma HQ bloqueante.** As decisões potencialmente sensíveis foram decididas pelas fontes existentes: a baixa já preservava a entidade/UNIQUE em 3FN, RF12 já a tratava como rito próprio, e a versão já era o compare-and-set de edição. O efeito de fan-out foi resolvido como projeção derivada (logo não é versão de fato canônico), sem introduzir nova política de negócio.
@@ -88,7 +116,7 @@ A arquitetura normativa de destino do histórico é `Bem_Patrimonial/{id}/Histor
 
 ## Validação e PDF
 
-Após a reconciliação, `git diff --check`, `cargo fmt --check`, `cargo test --locked`, `cargo clippy --all-targets -- -D warnings` e `just formal-check` foram executados no ambiente Nix documentado com resultado PASS; M0--M9 permaneceram PASS. A compilação de `documentation/main.tex` terminou com exit code `0`; o PDF final tem **381 páginas** (baseline M9: 375, diferença +6). Não há erro LaTeX nem referência indefinida no build final; os avisos Overfull são os 28 herdados. Foram inspecionadas visualmente as páginas patrimoniais alteradas 18, 57, 117, 170 e 285: tabelas, pseudocódigo, sublinhados, quebras, referências e margens estão legíveis, sem corte ou sobreposição.
+Na consolidação documental original, os gates passaram e o PDF tinha 381 páginas. Na reconciliação mecânica pós-auditoria, `git diff --check`, `cargo fmt --check`, `cargo test --locked` (23 testes), `cargo clippy --all-targets -- -D warnings` e `just formal-check` foram repetidos no ambiente Nix com exit code `0`; M0--M9 permaneceram PASS. A primeira invocação incremental deixou um PDF temporariamente truncado embora o arquivo de dependências o marcasse atualizado; o `latexmk -g` forçado o reconstruiu integralmente com exit code `0`. O PDF vigente tem **382 páginas** (baseline M9: 375, diferença +7), sem erro LaTeX ou referência indefinida. Há 28 avisos Overfull herdados. Foram inspecionadas visualmente as páginas 97, 288, 293 e 294 desta reconciliação, além das páginas M10 previamente verificadas 18, 57, 117, 170 e 285: tabelas, listings, sublinhados, quebras, referências e margens estão legíveis, sem corte ou sobreposição.
 
 ## Limites, estado final e próxima ação
 
