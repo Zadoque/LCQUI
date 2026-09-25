@@ -1,0 +1,9 @@
+{
+  "uid": "uid-x",
+  "ativo": true,
+  "versao_permissoes": -1,
+  "papeis_persistidos": ["Aluno"],
+  "claim_papeis": ["Aluno"],
+  "claim_versao": 0,
+  "claims_pendentes": false
+}
