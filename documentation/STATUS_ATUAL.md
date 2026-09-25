@@ -1,6 +1,17 @@
 # Status atual do LCQUI
 
-Atualizado em 24/09/2026 — documentação de M6 (Q06 / tara / metrologia), após M5 documental, a reconciliação pré-M5 (erratum de M3/M4) e a especificação V1 do catálogo JSON. Reconciliação pré-M7 concluída (`PRE_M7_RECONCILIATION = PASS`): estado corrente M0–M4 = VALIDATED, M5 = DOCUMENTATION_VALIDATED, M6 = DOCUMENTATION_VALIDATED, M7 = NOT_STARTED; próxima ação = `INICIAR M7 DOCUMENTAL — Idempotência`.
+Atualizado em 24/09/2026 — documentação de M7 (Idempotência), após M6 (Q06/tara/metrologia). Estado corrente: M0–M4 = VALIDATED, M5 = DOCUMENTATION_VALIDATED, M6 = DOCUMENTATION_VALIDATED, M7 = DOCUMENTATION_VALIDATED, M8 = NOT_STARTED; próxima ação = `INICIAR M8 DOCUMENTAL`.
+
+## M7 documental (Idempotência)
+
+Branch: `feat/formal-spec-cue-alloy`. HEAD de entrada: `f6032a6082bc790d3a8b243970b6355f808f8875`. Rodada **exclusivamente documental**: nenhum arquivo executável ou formal alterado. Registro durável em [worklog M7_DOCUMENTATION](worklogs/formal-spec/M7_DOCUMENTATION.md).
+
+- **Contrato global:** identidade de comando `(uid, tipo_operacao, payload_hash)`; `idOperacao` opaco, obrigatório, criado antes da primeira tentativa e reutilizado em retry (novo id só em nova intenção). Retry devolve o resultado persistido e não reaplica efeitos.
+- **Canonicalização única:** `canonicalize` recursivo (objetos ordenados, arrays preservados, `null` ≠ ausente, `undefined` ≡ ausente, sem trim/upper/arredondamento); `hashPayload = SHA-256(tipo_operacao + "\n" + canonicalize(payload))`; `idOperacao` fora do hash.
+- **Estados:** comando Firestore atômico grava `CONCLUIDA` na mesma transação; workflow com etapa externa usa `PENDENTE`→`CONCLUIDA`/`FALHOU` com outbox/caminho determinístico; reutilização incompatível → `ALREADY_EXISTS` (fail-closed).
+- **Taxonomia distinta:** comando (`Operacoes`), evento (`Eventos_Processados`, ``efeito observado único'', não exactly-once), unicidade (`Chaves_Unicas`), lock (`Locks_Requisicao_Patrimonio`), materialização (recomputação absoluta).
+- **Aplicado a:** retirada, devolução, abertura, M5 e as três rotas M6; jobs (chave determinística vs recomputação absoluta); notificações; etiquetas/PDF (`idOperacao` obrigatório). Matriz de 24 casos.
+- **Findings:** M7-F01..F09 resolvidos; M7-F10 (`functions/` divergente) registrado como dívida de implementação. Nenhuma HQ. PDF **341 páginas**, zero erros. **M7 = DOCUMENTATION_VALIDATED**; 3 auditorias integrais consecutivas limpas.
 
 ## M6 documental (Q06 / tara / metrologia quantitativa)
 
