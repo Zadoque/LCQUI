@@ -18,7 +18,7 @@ const hash = data => crypto.createHash('sha256').update(data).digest('hex');
 function write(file, data) { fs.mkdirSync(path.dirname(file), {recursive:true}); fs.writeFileSync(file,data); }
 function specCheck() {
   run('cue',['vet','./...'],cueDir);
-  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/frasco-completo', '#FrascoCompleto'], ['tests/emprestimo', '#EmprestimoReagente'], ['tests/m5', '#M5Operacao'], ['tests/m6', '#M6Metrologia'], ['tests/m7', '#M7Operacao'], ['tests/m8', '#M8Contrato'], ['tests/m9', '#M9Contrato']];
+  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/frasco-completo', '#FrascoCompleto'], ['tests/emprestimo', '#EmprestimoReagente'], ['tests/m5', '#M5Operacao'], ['tests/m6', '#M6Metrologia'], ['tests/m7', '#M7Operacao'], ['tests/m8', '#M8Contrato'], ['tests/m9', '#M9Contrato'], ['tests/m10', '#M10Contrato']];
   for (const [directory, definition] of groups) for (const kind of ['valid','invalid']) {
     const files = fs.readdirSync(`${cueDir}/${directory}/${kind}`).sort();
     if (!files.length) throw new Error(`Sem fixtures ${kind}`);
@@ -336,6 +336,54 @@ function alloyCheck() {
     ['WitnessNegacaoPorOwnership','run','run WitnessNegacaoPorOwnership for 8 but exactly 2 Escopo'],
     ['WitnessChefeDominioInvalidoNaoComita','run','run WitnessChefeDominioInvalidoNaoComita for 8 but exactly 2 Escopo'],
   ], 'build/formal-validation-m9.json', 'M9');
+  runMilestone('specification/alloy/operations/patrimony_m10.als', [
+    ['PlaquetaUnicaPorBem','check','check PlaquetaUnicaPorBem for 6'],
+    ['ChaveUnicaImpedeNovoBem','check','check ChaveUnicaImpedeNovoBem for 6'],
+    ['BaixaNaoLiberaChave','check','check BaixaNaoLiberaChave for 6'],
+    ['PlaquetaNaoReutilizadaAposBaixa','check','check PlaquetaNaoReutilizadaAposBaixa for 8'],
+    ['ReclassificacaoNaoRenomeiaResumoCompartilhado','check','check ReclassificacaoNaoRenomeiaResumoCompartilhado for 8'],
+    ['CadastroComecaAtivoVersao1','check','check CadastroComecaAtivoVersao1 for 8'],
+    ['SemSaltoAtivoParaBaixa','check','check SemSaltoAtivoParaBaixa for 6'],
+    ['BaixaExigeComprovante','check','check BaixaExigeComprovante for 6'],
+    ['BaixaTerminal','check','check BaixaTerminal for 6'],
+    ['BaixaPreservaBem','check','check BaixaPreservaBem for 6'],
+    ['MutacaoCanonicaIncrementaUmaVez','check','check MutacaoCanonicaIncrementaUmaVez for 6'],
+    ['FanOutNaoIncrementaVersao','check','check FanOutNaoIncrementaVersao for 6'],
+    ['FanOutLocalNaoIncrementaVersao','check','check FanOutLocalNaoIncrementaVersao for 6'],
+    ['FanOutNaoCriaEvento','check','check FanOutNaoCriaEvento for 6'],
+    ['ConflitoVersaoNaoAlteraBem','check','check ConflitoVersaoNaoAlteraBem for 6'],
+    ['RetryNaoDuplicaFato','check','check RetryNaoDuplicaFato for 6'],
+    ['UmaEdicaoPendentePorBem','check','check UmaEdicaoPendentePorBem for 6'],
+    ['UmaAdicaoPendentePorPlaqueta','check','check UmaAdicaoPendentePorPlaqueta for 6'],
+    ['LockTemRequerente','check','check LockTemRequerente for 6'],
+    ['LockAlheioNaoRemovido','check','check LockAlheioNaoRemovido for 6'],
+    ['LockAusenteImpedeResposta','check','check LockAusenteImpedeResposta for 6'],
+    ['CadastroGeraUmEvento','check','check CadastroGeraUmEvento for 8'],
+    ['EdicaoGeraUmEvento','check','check EdicaoGeraUmEvento for 6'],
+    ['BaixaGeraUmEvento','check','check BaixaGeraUmEvento for 6'],
+    ['M9InvalidoImpedeCommit','check','check M9InvalidoImpedeCommit for 8'],
+    ['ProfessorNaoAprova','check','check ProfessorNaoAprova for 8'],
+    ['ProfessorNaoBaixa','check','check ProfessorNaoBaixa for 6'],
+    ['AutorizacaoNaoDispensaDominio','check','check AutorizacaoNaoDispensaDominio for 6'],
+    ['TransicoesPreservamCoerencia','check','check TransicoesPreservamCoerencia for 6'],
+    ['WitnessDoisBensMesmoResumo','run','run WitnessDoisBensMesmoResumo for 6'],
+    ['WitnessReclassificacaoIndividual','run','run WitnessReclassificacaoIndividual for 8'],
+    ['WitnessBemAtivo','run','run WitnessBemAtivo for 4'],
+    ['WitnessTransicaoInservivel','run','run WitnessTransicaoInservivel for 6'],
+    ['WitnessTransicaoBaixa','run','run WitnessTransicaoBaixa for 6'],
+    ['WitnessCadastroAprovado','run','run WitnessCadastroAprovado for 6'],
+    ['WitnessEdicaoAprovada','run','run WitnessEdicaoAprovada for 6'],
+    ['WitnessEdicaoRejeitada','run','run WitnessEdicaoRejeitada for 6'],
+    ['WitnessConflitoVersao','run','run WitnessConflitoVersao for 6'],
+    ['WitnessConflitoUnicidade','run','run WitnessConflitoUnicidade for 6'],
+    ['WitnessDuasPlaquetasDistintas','run','run WitnessDuasPlaquetasDistintas for 6'],
+    ['WitnessLockIntegro','run','run WitnessLockIntegro for 6'],
+    ['WitnessFanOutSemVersao','run','run WitnessFanOutSemVersao for 6'],
+    ['WitnessRetrySemDuplicacao','run','run WitnessRetrySemDuplicacao for 6'],
+    ['WitnessBaixaComHistorico','run','run WitnessBaixaComHistorico for 6'],
+    ['WitnessBemBaixadoExiste','run','run WitnessBemBaixadoExiste for 6'],
+    ['WitnessConservacaoOrtogonal','run','run WitnessConservacaoOrtogonal for 4'],
+  ], 'build/formal-validation-m10.json', 'M10');
 }
 const cmd=process.argv[2];
 if(cmd==='spec-check') specCheck();
