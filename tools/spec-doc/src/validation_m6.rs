@@ -2,7 +2,7 @@ use crate::validation::{Result as Resultado, hash};
 use serde::Deserialize;
 pub const MODEL: &str = "specification/alloy/reagents/metrology_resolution_m6.als";
 
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn q06_tolerance(peso_saida: f64, higroscopico: bool) -> f64 {
     if higroscopico {
         (2.0_f64).max(0.02 * peso_saida)
@@ -11,17 +11,17 @@ pub fn q06_tolerance(peso_saida: f64, higroscopico: bool) -> f64 {
     }
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn q06_anomalia(peso_saida: f64, peso_retorno: f64, higroscopico: bool) -> bool {
     peso_retorno > peso_saida + q06_tolerance(peso_saida, higroscopico)
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn evaporacao_valida(peso_saida: f64, peso_retorno_efetivo: f64, evaporacao: f64) -> bool {
     evaporacao >= 0.0 && evaporacao <= (peso_saida - peso_retorno_efetivo).max(0.0)
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn massa_consumida(peso_saida: f64, peso_retorno_efetivo: f64, evaporacao: f64) -> Option<f64> {
     evaporacao_valida(peso_saida, peso_retorno_efetivo, evaporacao)
         .then(|| (peso_saida - peso_retorno_efetivo - evaporacao).max(0.0))
