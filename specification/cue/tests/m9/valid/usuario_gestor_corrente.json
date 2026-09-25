@@ -1,0 +1,9 @@
+{
+  "uid": "uid-gestor-a",
+  "ativo": true,
+  "versao_permissoes": 4,
+  "papeis_persistidos": ["Gestor_Almoxarifado"],
+  "claim_papeis": ["Gestor_Almoxarifado"],
+  "claim_versao": 4,
+  "claims_pendentes": false
+}
