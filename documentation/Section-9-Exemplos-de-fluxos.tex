@@ -46,7 +46,7 @@ Após efetuar o login, a dashboard do Gestor já apresenta no painel central um 
 Dando continuidade ao fluxo de verificação (após login e abertura da tela de \textit{Split-screen}), o Gestor avalia que a alteração de sala pedida pelo professor está correta. Ele clica no botão verde massivo "Aprovar Alteração" no rodapé. Um ícone de \textit{check} ($\checkmark$) animado aparece no centro da tela. A requisição desaparece da fila de pendentes e um \textit{toast} de sucesso no canto superior direito confirma que o banco de dados principal foi atualizado.
 
 \subsubsection{Alterando um bem patrimonial para: Dado baixa}
-Partindo da tela de login, o Gestor usa a barra de busca central e digita o número da plaqueta de um equipamento que já passou por todo o processo burocrático no SEI. A tela de detalhes do item se abre. O Gestor clica no botão "Editar Status". Um menu \textit{dropdown} aparece e ele seleciona "Ja\_dado\_baixa". Ao selecionar esse status, aparece um novo campo obrigatório para fazer upload do documento pdf que comprove seu status. Ao anexar, o sistema libera o botão para salvar a alteração. Porém, antes de salvar, o sistema exibe um modal de atenção: "\textit{Esta ação é irreversível no histórico ativo. Deseja prosseguir?}". O Gestor clica em "Confirmar". Um \textit{toast} azul confirma a baixa e o item recebe instantaneamente uma etiqueta cinza de inatividade, saindo da listagem de bens ativos.
+Partindo da tela de login, o Gestor usa a busca exata pela plaqueta canônica de um equipamento \textbf{Inservivel} que já passou por todo o processo burocrático no SEI. A tela de detalhes abre o rito próprio ``Registrar baixa'', não um editor genérico de status. O Gestor anexa o PDF no caminho autorizado; o backend valida objeto, dono/origem, tamanho, bytes \texttt{\%PDF-} e geração antes da transação. A confirmação relê autorização M9, status, versão e idempotência M7, grava comprovante imutável, evento histórico \texttt{baixa} e o status terminal \texttt{Ja\_dado\_baixa}. Falha de upload ou conflito preserva o estado anterior. Após sucesso o item sai do filtro ativo, continua consultável com seu histórico e a plaqueta não volta a ficar disponível.
 
 \subsection{Fluxos do usuário Professor}
 
@@ -304,16 +304,16 @@ M7 concluído apenas retorna o resultado já persistido ao mesmo UID.
 \textbf{Contrato:} UI-12. Relatórios > mensal/período > escopo/filtros > revisar > Gerar/Baixar. Servidor valida 31 dias e permissões, separa g/ml e usa fontes históricas adequadas; erro não anuncia PDF pronto.
 
 \subsubsection{PAT-01 --- Gestor Patr.: Criar resumo, cadastrar e editar bem}
-\textbf{Contrato:} UI-09. Patrimônio > Mais > Novo Resumo/Bem, ou detalhe > Editar > preencher/revisar > Salvar. Validar plaqueta única, local, foto e responsável; alteração de nome global exige ação no resumo, reclassificação individual altera referência. Histórico preserva antes/depois.
+\textbf{Contrato:} UI-09. Patrimônio > Mais > Novo Resumo/Bem, ou detalhe > Editar > preencher/revisar > Salvar. Normalizar a plaqueta por \texttt{trim().toUpperCase()}, validar chave permanente, local, foto e responsável; alteração de nome global exige ação no resumo, reclassificação individual altera referência. Transação cria histórico de cadastro/edição e preserva antes/depois; fan-out derivado não fabrica evento nem conflito de versão.
 
 \subsubsection{PAT-02 --- Gestor Patr.: Pesquisar, filtrar e consultar histórico}
 \textbf{Contrato:} UI-04. Patrimônio > prédio/status/letra e filtros opcionais > resumo > plaqueta > detalhe/histórico. Consultar itens e eventos por cursor; mostrar conservação e status distintos, sem substituir histórico pela localização atual.
 
 \subsubsection{PAT-03 --- Gestor Patr.: Analisar, aprovar ou rejeitar pedido}
-\textbf{Contrato:} UI-09. Fila/Sino > requisição pendente > comparação > completar dados obrigatórios > justificativa > Aprovar/Rejeitar. Transação confere versão, persiste decisão, altera/cria bem se aprovado e libera lock; notifica solicitante. Segundo respondente recebe conflito, sem dupla aprovação.
+\textbf{Contrato:} UI-09. Fila/Sino > requisição pendente > comparação > completar dados obrigatórios > justificativa > Aprovar/Rejeitar. Transação revalida M9, confere lock proprietário, versão, chave única, referências e arquivo, persiste decisão, altera/cria bem e histórico se aprovado e libera somente o lock correspondente; notifica solicitante de modo idempotente. Segundo respondente recebe resultado/receipt M7, sem dupla aprovação.
 
 \subsubsection{PAT-04 --- Gestor Patr.: Gerar relação de inservíveis e registrar baixa após SEI}
-\textbf{Contrato:} UI-09 e UI-12. Alertas/Relatórios > Inservíveis > filtros > PDF para procedimento externo. Após conclusão no SEI: bem > Baixa > upload comprovante > confirmar. Somente confirmação persistida altera status; histórico e arquivo permanecem disponíveis.
+\textbf{Contrato:} UI-09 e UI-12. Alertas/Relatórios > Inservíveis > filtros > PDF para procedimento externo. Após conclusão no SEI: bem Inservivel > Baixa > upload comprovante > confirmar. Somente confirmação server-side com PDF binariamente validado altera status; histórico e arquivo permanecem disponíveis, enquanto o Bem e sua plaqueta não são excluídos nem reutilizados.
 
 \subsubsection{PAT-05 --- Gestor Patr.: Gerar relatório mensal, personalizado ou individual}
 \textbf{Contrato:} UI-12. Relatórios ou detalhe do bem > tipo/período/filtros > Gerar > Baixar/Imprimir. Validar intervalo e datas; documento identifica filtros e instante. Mês em aberto é parcial; erro ou dados ausentes têm retorno distinto.
