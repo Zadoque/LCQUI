@@ -23,18 +23,20 @@ M5/M6/M7 e fixtures; Alloy ganhou os modelos `loss_found_quarantine_m5.als`,
 validar os receipts correspondentes e a gerar seus fragmentos.
 
 M5 produziu 12 checks UNSAT e 4 witnesses SAT nos scopes 4, 6 e ciclo com
-exatamente 6 estados. M6 produziu 6 checks UNSAT e 3 witnesses SAT no scope
-declarado. M7 produziu 6 checks UNSAT e 4 witnesses SAT. Os receipts são
+exatamente 6 estados. M6 produziu 7 checks UNSAT e 5 witnesses SAT no scope
+declarado, incluindo a classificação Q06 de ganho e retorno dentro da tolerância.
+M7 produziu 6 checks UNSAT e 4 witnesses SAT. Os receipts são
 `build/formal-validation-m5.json`, `m6.json` e `m7.json`, com hashes do IR e dos
 modelos; os validadores são `validation_m5.rs`, `validation_m6.rs` e
 `validation_m7.rs`. O Rust também testa canonicalização recursiva de objetos,
 ordem de arrays, `null`/ausente e sensibilidade ao tipo da operação.
 
-Os contratos CUE totalizam 3 fixtures válidas e 2 inválidas em M5, 2 válidas e
-2 inválidas em M6, e 2 válidas e 2 inválidas em M7. A restrição quantitativa de
-evaporação que exige subtração é declarada no limite da camada CUE e permanece
-protegida por validação numérica; não há clamp silencioso. A autoridade Alloy
-é relacional e não pretende provar ponto flutuante ou o backend Firebase.
+Os contratos CUE totalizam 3 fixtures válidas e 2 inválidas em M5, 3 válidas e
+2 inválidas em M6, e 2 válidas e 2 inválidas em M7. Rust calcula Q06 para
+substâncias normais e higroscópicas, classifica ganho de massa e valida
+`0 <= evaporação <= perda bruta`, sem clamp silencioso. Alloy usa inteiros
+escalados para verificar a coerência relacional da classificação. Nenhuma dessas
+camadas homologa instrumentos, o backend Firebase ou ponto flutuante de produção.
 
 O gerador Rust 0.2.0 produziu `Formal-Spec-M5.tex`, `Formal-Spec-M6.tex` e
 `Formal-Spec-M7.tex` a partir de `documentation/generated/`; duas gerações

@@ -1,6 +1,6 @@
 % Gerado por lcqui-spec-doc; não editar.
 \subsection*{Evidência formal M6 --- metrologia quantitativa}
-CUE/Rust verificam tipos, sinais, densidade e limites locais; Alloy verifica as três rotas, preservação de peso histórico e interação com quarentena. A abstração Alloy não prova ponto flutuante real.
+CUE verifica estrutura e sinais; Rust calcula Q06 normal/higroscópico, classifica ganho e valida evaporação contra a perda bruta; Alloy verifica a relação abstrata escalada, as três rotas, preservação de peso histórico e interação com quarentena. A abstração Alloy não prova ponto flutuante real.
 \begin{description}
 \item[M6-INV-001] PesoRetornoImutavel: UNSAT.\newline Escopo: \texttt{check PesoRetornoImutavel for 4}.
 \item[M6-INV-002] ResolucaoEncerraPendencia: UNSAT.\newline Escopo: \texttt{check ResolucaoEncerraPendencia for 4}.
@@ -8,8 +8,11 @@ CUE/Rust verificam tipos, sinais, densidade e limites locais; Alloy verifica as 
 \item[M6-INV-004] RotaFechada: UNSAT.\newline Escopo: \texttt{check RotaFechada for 6}.
 \item[M6-INV-005] SemCorrecaoAdministrativa: UNSAT.\newline Escopo: \texttt{check SemCorrecaoAdministrativa for 6}.
 \item[M6-INV-006] RecalibracaoExigeQuarentena: UNSAT.\newline Escopo: \texttt{check RecalibracaoExigeQuarentena for 6}.
-\item[M6-WIT-007] WitnessRepetirPesagem: SAT.\newline Escopo: \texttt{run WitnessRepetirPesagem for 4}.
-\item[M6-WIT-008] WitnessEsgotamento: SAT.\newline Escopo: \texttt{run WitnessEsgotamento for 4}.
-\item[M6-WIT-009] WitnessRecalibracao: SAT.\newline Escopo: \texttt{run WitnessRecalibracao for 6}.
+\item[M6-INV-007] Q06ClassificacaoCoerente: UNSAT.\newline Escopo: \texttt{check Q06ClassificacaoCoerente for 6}.
+\item[M6-WIT-008] WitnessRepetirPesagem: SAT.\newline Escopo: \texttt{run WitnessRepetirPesagem for 4}.
+\item[M6-WIT-009] WitnessEsgotamento: SAT.\newline Escopo: \texttt{run WitnessEsgotamento for 4}.
+\item[M6-WIT-010] WitnessRecalibracao: SAT.\newline Escopo: \texttt{run WitnessRecalibracao for 6}.
+\item[M6-WIT-011] WitnessGanhoQ06: SAT.\newline Escopo: \texttt{run WitnessGanhoQ06 for 6}.
+\item[M6-WIT-012] WitnessRetornoDentroQ06: SAT.\newline Escopo: \texttt{run WitnessRetornoDentroQ06 for 6}.
 \end{description}
 UNSAT para check indica ausência de contraexemplo no escopo declarado; SAT para run indica testemunha encontrada. A evidência não certifica a implementação Firebase/backend.

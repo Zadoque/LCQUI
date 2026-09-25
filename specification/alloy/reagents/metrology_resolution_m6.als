@@ -15,10 +15,22 @@ sig Estado {
   rota: Frasco -> lone Rota,
   resolucao: Frasco -> lone Resolucao,
   quarentena: set Frasco,
-  taraReal: set Frasco
+  taraReal: set Frasco,
+  pesoSaida: Frasco -> one Int,
+  pesoRetornoObservado: Frasco -> one Int,
+  toleranciaQ06: Frasco -> one Int,
+  higroscopico: set Frasco,
+  anomaliaQ06: set Frasco
+}
+
+pred q06Coerente[s: Estado] {
+  all f: Frasco | s.toleranciaQ06[f] >= 0 and
+    ((f in s.anomaliaQ06) iff s.pesoRetornoObservado[f] > s.pesoSaida[f] + s.toleranciaQ06[f])
 }
 
 pred coerente[s: Estado] {
+  all f: Frasco | s.pesoSaida[f] >= 0 and s.pesoRetornoObservado[f] >= 0
+  q06Coerente[s]
   all f: Frasco | f in s.pendencia iff s.status[f] = PENDENTE
   all f: Frasco | some f.(s.resolucao) implies f not in s.pendencia
   all f: Frasco | f in s.taraReal implies f not in s.pendencia
@@ -37,6 +49,11 @@ pred repetirPesagem[a,b: Estado, f: Frasco, r: Resolucao] {
   b.resolucao = a.resolucao ++ f->r
   b.quarentena = a.quarentena
   b.taraReal = a.taraReal
+  b.pesoSaida = a.pesoSaida
+  b.pesoRetornoObservado = a.pesoRetornoObservado
+  b.toleranciaQ06 = a.toleranciaQ06
+  b.higroscopico = a.higroscopico
+  b.anomaliaQ06 = a.anomaliaQ06
 }
 pred confirmarEsgotamento[a,b: Estado, f: Frasco, r: Resolucao] {
   coerente[a]
@@ -49,6 +66,11 @@ pred confirmarEsgotamento[a,b: Estado, f: Frasco, r: Resolucao] {
   b.resolucao = a.resolucao ++ f->r
   b.quarentena = a.quarentena
   b.taraReal = a.taraReal + f
+  b.pesoSaida = a.pesoSaida
+  b.pesoRetornoObservado = a.pesoRetornoObservado
+  b.toleranciaQ06 = a.toleranciaQ06
+  b.higroscopico = a.higroscopico
+  b.anomaliaQ06 = a.anomaliaQ06
 }
 pred recalibrarTara[a,b: Estado, f: Frasco, r: Resolucao] {
   coerente[a]
@@ -62,7 +84,14 @@ pred recalibrarTara[a,b: Estado, f: Frasco, r: Resolucao] {
   b.resolucao = a.resolucao ++ f->r
   b.quarentena = a.quarentena
   b.taraReal = a.taraReal + f
+  b.pesoSaida = a.pesoSaida
+  b.pesoRetornoObservado = a.pesoRetornoObservado
+  b.toleranciaQ06 = a.toleranciaQ06
+  b.higroscopico = a.higroscopico
+  b.anomaliaQ06 = a.anomaliaQ06
 }
+
+assert Q06ClassificacaoCoerente { all s: Estado | coerente[s] implies q06Coerente[s] }
 
 assert PesoRetornoImutavel { all a,b: Estado, f: Frasco |
   (repetirPesagem[a,b,f,Resolucao] or confirmarEsgotamento[a,b,f,Resolucao] or recalibrarTara[a,b,f,Resolucao]) implies
@@ -88,6 +117,10 @@ pred WitnessEsgotamento { some disj a,b: Estado, f: Frasco, r: Resolucao |
   f in a.pendencia and confirmarEsgotamento[a,b,f,r] }
 pred WitnessRecalibracao { some disj a,b: Estado, f: Frasco, r: Resolucao |
   f in a.pendencia and f in a.quarentena and recalibrarTara[a,b,f,r] }
+pred WitnessGanhoQ06 { some s: Estado, f: Frasco |
+  coerente[s] and f in s.anomaliaQ06 and s.pesoSaida[f] = 100 and s.pesoRetornoObservado[f] = 102 and s.toleranciaQ06[f] = 1 }
+pred WitnessRetornoDentroQ06 { some s: Estado, f: Frasco |
+  coerente[s] and f not in s.anomaliaQ06 and s.pesoSaida[f] = 100 and s.pesoRetornoObservado[f] = 101 and s.toleranciaQ06[f] = 1 }
 
 check PesoRetornoImutavel for 4
 check ResolucaoEncerraPendencia for 4
@@ -95,6 +128,9 @@ check ResolucaoNaoLiberaQuarentena for 6
 check RotaFechada for 6
 check SemCorrecaoAdministrativa for 6
 check RecalibracaoExigeQuarentena for 6
+check Q06ClassificacaoCoerente for 6
 run WitnessRepetirPesagem for 4
 run WitnessEsgotamento for 4
 run WitnessRecalibracao for 6
+run WitnessGanhoQ06 for 6
+run WitnessRetornoDentroQ06 for 6

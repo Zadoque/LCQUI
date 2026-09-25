@@ -197,7 +197,7 @@ pub fn render_m5(v: &crate::validation_m5::ValidationM5) -> String {
 pub fn render_m6(v: &crate::validation_m6::ValidationM6) -> String {
     render_milestone(
         "M6 --- metrologia quantitativa",
-        "CUE/Rust verificam tipos, sinais, densidade e limites locais; Alloy verifica as três rotas, preservação de peso histórico e interação com quarentena. A abstração Alloy não prova ponto flutuante real.",
+        "CUE verifica estrutura e sinais; Rust calcula Q06 normal/higroscópico, classifica ganho e valida evaporação contra a perda bruta; Alloy verifica a relação abstrata escalada, as três rotas, preservação de peso histórico e interação com quarentena. A abstração Alloy não prova ponto flutuante real.",
         &v.resultados,
     )
 }

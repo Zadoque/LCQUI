@@ -245,7 +245,7 @@ ir: {
 					}
 				}
 			}]
-			exemplo: {peso_saida: 100, peso_retorno: 95, peso_retorno_efetivo: 95, peso_perda_evaporacao: 1, densidade_aplicada: 0.7893, origem_tara: "REFERENCIA_TEORICA", rota: "REPETIR_PESAGEM", consumo_validado: true}
+			exemplo: {eh_higroscopico: false, peso_saida: 100, peso_retorno: 102, peso_retorno_efetivo: null, peso_perda_evaporacao: 0, densidade_aplicada: 0.7893, anomalia_q06: true, origem_tara: "REFERENCIA_TEORICA", rota: "REPETIR_PESAGEM", consumo_validado: false}
 		},
 		{
 			arquivo:  "formal_m7_operacao"

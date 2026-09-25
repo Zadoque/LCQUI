@@ -1,1 +1,1 @@
-{"peso_saida":100,"peso_retorno":95,"peso_retorno_efetivo":95,"peso_perda_evaporacao":0,"densidade_aplicada":0,"origem_tara":"NULL","rota":"REPETIR_PESAGEM","consumo_validado":false}
+{"eh_higroscopico":false,"peso_saida":100,"peso_retorno":95,"peso_retorno_efetivo":95,"peso_perda_evaporacao":0,"densidade_aplicada":0,"anomalia_q06":false,"origem_tara":"NULL","rota":"REPETIR_PESAGEM","consumo_validado":false}

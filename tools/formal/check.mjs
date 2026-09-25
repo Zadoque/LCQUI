@@ -251,9 +251,12 @@ function alloyCheck() {
     ['RotaFechada','check','check RotaFechada for 6'],
     ['SemCorrecaoAdministrativa','check','check SemCorrecaoAdministrativa for 6'],
     ['RecalibracaoExigeQuarentena','check','check RecalibracaoExigeQuarentena for 6'],
+    ['Q06ClassificacaoCoerente','check','check Q06ClassificacaoCoerente for 6'],
     ['WitnessRepetirPesagem','run','run WitnessRepetirPesagem for 4'],
     ['WitnessEsgotamento','run','run WitnessEsgotamento for 4'],
     ['WitnessRecalibracao','run','run WitnessRecalibracao for 6'],
+    ['WitnessGanhoQ06','run','run WitnessGanhoQ06 for 6'],
+    ['WitnessRetornoDentroQ06','run','run WitnessRetornoDentroQ06 for 6'],
   ], 'build/formal-validation-m6.json', 'M6');
   runMilestone('specification/alloy/operations/idempotency_m7.als', [
     ['IdentidadeUnicaNaoDuplicaEfeito','check','check IdentidadeUnicaNaoDuplicaEfeito for 4'],
