@@ -1,0 +1,17 @@
+{
+  "id": "req-edicao-x",
+  "id_bem_patrimonial": "bem-1",
+  "status": "pendente",
+  "feita_em": "2026-09-25T10:00:00Z",
+  "respondida_em": null,
+  "id_usuario_solicitante": "uid-professor",
+  "id_usuario_respondente": null,
+  "novo_nome": null,
+  "novo_status": null,
+  "novo_estado_conservacao": "REGULAR",
+  "novo_id_local": null,
+  "nova_photo_url": null,
+  "motivo": "Atualização de conservação.",
+  "justificativa_resposta": null,
+  "novo_id_resumo_bem_patrimonial": null
+}
