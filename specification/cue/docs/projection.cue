@@ -271,5 +271,13 @@ ir: {
 			campos:   domain.#CamposM9
 			exemplo: {uid: "uid-gestor-a", ativo: true, versao_permissoes: 4, papeis_persistidos: ["Gestor_Almoxarifado"], claim_papeis: ["Gestor_Almoxarifado"], claim_versao: 4, claims_pendentes: false}
 		},
+		{
+			arquivo:  "formal_m10_patrimonio"
+			entidade: "M10_Patrimonio"
+			etapa:    "formalização executável M10"
+			escopo:   "Shapes estruturais de bem, resumo catalográfico, requisições de adição/edição, lock, baixa, evento histórico e alteração. CUE verifica campos, enums, nulabilidade e limites locais; identidade Resumo x Bem, máquina de estados, locks, unicidade permanente, versionamento, terminalidade e composição M7/M9 são verificados em Alloy; canonicalização de plaqueta e proveniência por Rust. CUE não prova concorrência temporal."
+			campos:   domain.#CamposM10
+			exemplo: {id_resumo_bem_patrimonial: "resumo-1", numero_patrimonio: "ABC-123", estado_conservacao: "BOM", id_local: "local-1", photo_url: "gs://lcqui/fotos/bem-1.jpg", documento_dado_baixa_pdf_url: null, nome_responsavel_sei: "Maria Silva", status: "Ativo", descricao_complementar: null, versao: 1}
+		},
 	]
 }
