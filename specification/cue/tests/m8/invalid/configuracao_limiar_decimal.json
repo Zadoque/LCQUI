@@ -1,0 +1,8 @@
+{
+  "id_almoxarifado": 1,
+  "id_resumo_reagente": 10,
+  "id_especificacao_reagente": 20,
+  "qtd_limiar_escassez": 1.5,
+  "ativo": true,
+  "notificacao_ativa": true
+}

@@ -1,0 +1,65 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{M8\_Estoque\_Escassez\_Notificacao --- formalização executável M8}
+Contratos estruturais de estoque atual, cache, escassez e notificação. Aptidão, escassez, invalidação/publicação do cache e idempotência de alerta são verificadas em Alloy; limites numéricos e chaves por Rust. CUE não prova tempo real.
+\begin{description}
+\item[id\_almoxarifado] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+\item[id\_resumo\_reagente] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+\item[id\_especificacao\_reagente] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+\item[qtd\_limiar\_escassez] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+\item[ativo] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+\item[notificacao\_ativa] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+\item[qtd\_aptos] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+\item[qtd\_total] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+\item[qtd\_emprestados] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+\item[qtd\_saldo\_desconhecido] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+\item[massa\_aferida\_g] Tipo: number. Obrigatório: sim. Aceita nulo: sim.
+SQL: NUMERIC(10,3).
+Mínimo: -9999999.999.
+Múltiplo de 0.001.
+\item[volume\_aferido\_ml] Tipo: number. Obrigatório: sim. Aceita nulo: sim.
+SQL: NUMERIC(10,3).
+Mínimo: -9999999.999.
+Múltiplo de 0.001.
+\item[escopo] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: ESTOQUE\_\_ALMOX, ESTOQUE\_\_ALMOX\_\_RESUMO.
+\item[calculado\_em] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TIMESTAMP.
+\item[versao\_calculo] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+\item[geracao] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+\item[valido] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+\item[id\_destinatario] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+\item[papel\_destinatario] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: Gestor\_Almoxarifado.
+\item[tipo] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: ESCASSEZ\_ESTOQUE.
+\item[entidade\_alvo] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: Almoxarifado.
+\item[id\_alvo] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+\item[quantidade] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+\item[lida] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+\item[emitida\_em] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TIMESTAMP.
+\item[expira\_em] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TIMESTAMP.
+\end{description}

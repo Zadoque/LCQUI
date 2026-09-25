@@ -1,0 +1,290 @@
+{
+  "versao": 1,
+  "alloy": "6.2.0",
+  "solver": "sat4j",
+  "spec_ir_sha256": "16967d23f90fc4de6bad90d0def102952eab1f7414262ae53eb0315812276ba1",
+  "model": "specification/alloy/reagents/stock_cache_scarcity_m8.als",
+  "model_sha256": "76085c96f52bcb2a3b349a7f8da5cf4b308b25c41f67fa7a672c9dbde76634d4",
+  "resultados": [
+    {
+      "id": "M8-INV-001",
+      "assertion": "ExtraviadoNuncaApto",
+      "tipo": "check",
+      "scope": "check ExtraviadoNuncaApto for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-002",
+      "assertion": "QuarentenaNuncaApta",
+      "tipo": "check",
+      "scope": "check QuarentenaNuncaApta for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-003",
+      "assertion": "FisicoImpedidoNuncaApto",
+      "tipo": "check",
+      "scope": "check FisicoImpedidoNuncaApto for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-004",
+      "assertion": "EmprestadoNaoApto",
+      "tipo": "check",
+      "scope": "check EmprestadoNaoApto for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-005",
+      "assertion": "PendenciaNuncaApta",
+      "tipo": "check",
+      "scope": "check PendenciaNuncaApta for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-006",
+      "assertion": "VencidoSemAutorizacaoNaoApto",
+      "tipo": "check",
+      "scope": "check VencidoSemAutorizacaoNaoApto for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-007",
+      "assertion": "AptoNuncaDescartado",
+      "tipo": "check",
+      "scope": "check AptoNuncaDescartado for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-008",
+      "assertion": "AbaixoDoLimiarEhEscassez",
+      "tipo": "check",
+      "scope": "check AbaixoDoLimiarEhEscassez for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-009",
+      "assertion": "IgualAoLimiarNaoEhEscassez",
+      "tipo": "check",
+      "scope": "check IgualAoLimiarNaoEhEscassez for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-010",
+      "assertion": "AcimaDoLimiarNaoEhEscassez",
+      "tipo": "check",
+      "scope": "check AcimaDoLimiarNaoEhEscassez for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-011",
+      "assertion": "AlmoxInativoNaoAvalia",
+      "tipo": "check",
+      "scope": "check AlmoxInativoNaoAvalia for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-012",
+      "assertion": "ConfigInativaNaoAvalia",
+      "tipo": "check",
+      "scope": "check ConfigInativaNaoAvalia for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-013",
+      "assertion": "InvalidacaoMudaGeracaoEInvalida",
+      "tipo": "check",
+      "scope": "check InvalidacaoMudaGeracaoEInvalida for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-014",
+      "assertion": "InvalidacaoNaoRecalcula",
+      "tipo": "check",
+      "scope": "check InvalidacaoNaoRecalcula for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-015",
+      "assertion": "InvalidacaoImpedeHitValido",
+      "tipo": "check",
+      "scope": "check InvalidacaoImpedeHitValido for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-016",
+      "assertion": "PublicacaoExigeMesmaGeracao",
+      "tipo": "check",
+      "scope": "check PublicacaoExigeMesmaGeracao for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-017",
+      "assertion": "CacheMudouGeracaoNaoPublica",
+      "tipo": "check",
+      "scope": "check CacheMudouGeracaoNaoPublica for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-018",
+      "assertion": "PublicacaoNaoAlteraFatos",
+      "tipo": "check",
+      "scope": "check PublicacaoNaoAlteraFatos for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-019",
+      "assertion": "SemEscassezNaoNotifica",
+      "tipo": "check",
+      "scope": "check SemEscassezNaoNotifica for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-020",
+      "assertion": "ConfigInativaNaoEmite",
+      "tipo": "check",
+      "scope": "check ConfigInativaNaoEmite for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-021",
+      "assertion": "NotificacaoDesativadaNaoEmite",
+      "tipo": "check",
+      "scope": "check NotificacaoDesativadaNaoEmite for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-022",
+      "assertion": "GestorNaoVinculadoNaoRecebe",
+      "tipo": "check",
+      "scope": "check GestorNaoVinculadoNaoRecebe for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-023",
+      "assertion": "AlmoxInativoNaoEmite",
+      "tipo": "check",
+      "scope": "check AlmoxInativoNaoEmite for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-024",
+      "assertion": "RetryNaoDuplicaNotificacao",
+      "tipo": "check",
+      "scope": "check RetryNaoDuplicaNotificacao for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-INV-025",
+      "assertion": "NotificacaoUnicaPorDia",
+      "tipo": "check",
+      "scope": "check NotificacaoUnicaPorDia for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M8-WIT-026",
+      "assertion": "WitnessFechadoApto",
+      "tipo": "run",
+      "scope": "run WitnessFechadoApto for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M8-WIT-027",
+      "assertion": "WitnessAbertoApto",
+      "tipo": "run",
+      "scope": "run WitnessAbertoApto for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M8-WIT-028",
+      "assertion": "WitnessVencidoAutorizadoApto",
+      "tipo": "run",
+      "scope": "run WitnessVencidoAutorizadoApto for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M8-WIT-029",
+      "assertion": "WitnessSaldoDesconhecidoApto",
+      "tipo": "run",
+      "scope": "run WitnessSaldoDesconhecidoApto for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M8-WIT-030",
+      "assertion": "WitnessEscassezAbaixo",
+      "tipo": "run",
+      "scope": "run WitnessEscassezAbaixo for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M8-WIT-031",
+      "assertion": "WitnessLimiteExato",
+      "tipo": "run",
+      "scope": "run WitnessLimiteExato for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M8-WIT-032",
+      "assertion": "WitnessAcimaDoLimite",
+      "tipo": "run",
+      "scope": "run WitnessAcimaDoLimite for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M8-WIT-033",
+      "assertion": "WitnessCacheMissCalculaEPublica",
+      "tipo": "run",
+      "scope": "run WitnessCacheMissCalculaEPublica for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M8-WIT-034",
+      "assertion": "WitnessCacheHit",
+      "tipo": "run",
+      "scope": "run WitnessCacheHit for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M8-WIT-035",
+      "assertion": "WitnessInvalidacao",
+      "tipo": "run",
+      "scope": "run WitnessInvalidacao for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M8-WIT-036",
+      "assertion": "WitnessGeracaoMudou",
+      "tipo": "run",
+      "scope": "run WitnessGeracaoMudou for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M8-WIT-037",
+      "assertion": "WitnessNovoCalculoAposInvalidacao",
+      "tipo": "run",
+      "scope": "run WitnessNovoCalculoAposInvalidacao for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M8-WIT-038",
+      "assertion": "WitnessEscassezComNotificacao",
+      "tipo": "run",
+      "scope": "run WitnessEscassezComNotificacao for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M8-WIT-039",
+      "assertion": "WitnessEscassezSilenciada",
+      "tipo": "run",
+      "scope": "run WitnessEscassezSilenciada for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M8-WIT-040",
+      "assertion": "WitnessNovaNotificacaoOutroDia",
+      "tipo": "run",
+      "scope": "run WitnessNovaNotificacaoOutroDia for 6 but exactly 3 Store",
+      "status": "SAT"
+    }
+  ]
+}

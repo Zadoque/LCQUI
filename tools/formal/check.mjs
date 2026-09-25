@@ -18,7 +18,7 @@ const hash = data => crypto.createHash('sha256').update(data).digest('hex');
 function write(file, data) { fs.mkdirSync(path.dirname(file), {recursive:true}); fs.writeFileSync(file,data); }
 function specCheck() {
   run('cue',['vet','./...'],cueDir);
-  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/frasco-completo', '#FrascoCompleto'], ['tests/emprestimo', '#EmprestimoReagente'], ['tests/m5', '#M5Operacao'], ['tests/m6', '#M6Metrologia'], ['tests/m7', '#M7Operacao']];
+  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/frasco-completo', '#FrascoCompleto'], ['tests/emprestimo', '#EmprestimoReagente'], ['tests/m5', '#M5Operacao'], ['tests/m6', '#M6Metrologia'], ['tests/m7', '#M7Operacao'], ['tests/m8', '#M8Contrato']];
   for (const [directory, definition] of groups) for (const kind of ['valid','invalid']) {
     const files = fs.readdirSync(`${cueDir}/${directory}/${kind}`).sort();
     if (!files.length) throw new Error(`Sem fixtures ${kind}`);
@@ -270,6 +270,48 @@ function alloyCheck() {
     ['WitnessEventoDuplicado','run','run WitnessEventoDuplicado for 6'],
     ['WitnessMaterializacao','run','run WitnessMaterializacao for 6'],
   ], 'build/formal-validation-m7.json', 'M7');
+  runMilestone('specification/alloy/reagents/stock_cache_scarcity_m8.als', [
+    ['ExtraviadoNuncaApto','check','check ExtraviadoNuncaApto for 6'],
+    ['QuarentenaNuncaApta','check','check QuarentenaNuncaApta for 6'],
+    ['FisicoImpedidoNuncaApto','check','check FisicoImpedidoNuncaApto for 6'],
+    ['EmprestadoNaoApto','check','check EmprestadoNaoApto for 6'],
+    ['PendenciaNuncaApta','check','check PendenciaNuncaApta for 6'],
+    ['VencidoSemAutorizacaoNaoApto','check','check VencidoSemAutorizacaoNaoApto for 6'],
+    ['AptoNuncaDescartado','check','check AptoNuncaDescartado for 6'],
+    ['AbaixoDoLimiarEhEscassez','check','check AbaixoDoLimiarEhEscassez for 6'],
+    ['IgualAoLimiarNaoEhEscassez','check','check IgualAoLimiarNaoEhEscassez for 6'],
+    ['AcimaDoLimiarNaoEhEscassez','check','check AcimaDoLimiarNaoEhEscassez for 6'],
+    ['AlmoxInativoNaoAvalia','check','check AlmoxInativoNaoAvalia for 6'],
+    ['ConfigInativaNaoAvalia','check','check ConfigInativaNaoAvalia for 6'],
+    ['InvalidacaoMudaGeracaoEInvalida','check','check InvalidacaoMudaGeracaoEInvalida for 4'],
+    ['InvalidacaoNaoRecalcula','check','check InvalidacaoNaoRecalcula for 4'],
+    ['InvalidacaoImpedeHitValido','check','check InvalidacaoImpedeHitValido for 4'],
+    ['PublicacaoExigeMesmaGeracao','check','check PublicacaoExigeMesmaGeracao for 4'],
+    ['CacheMudouGeracaoNaoPublica','check','check CacheMudouGeracaoNaoPublica for 4'],
+    ['PublicacaoNaoAlteraFatos','check','check PublicacaoNaoAlteraFatos for 4'],
+    ['SemEscassezNaoNotifica','check','check SemEscassezNaoNotifica for 6'],
+    ['ConfigInativaNaoEmite','check','check ConfigInativaNaoEmite for 6'],
+    ['NotificacaoDesativadaNaoEmite','check','check NotificacaoDesativadaNaoEmite for 6'],
+    ['GestorNaoVinculadoNaoRecebe','check','check GestorNaoVinculadoNaoRecebe for 6'],
+    ['AlmoxInativoNaoEmite','check','check AlmoxInativoNaoEmite for 6'],
+    ['RetryNaoDuplicaNotificacao','check','check RetryNaoDuplicaNotificacao for 6'],
+    ['NotificacaoUnicaPorDia','check','check NotificacaoUnicaPorDia for 6'],
+    ['WitnessFechadoApto','run','run WitnessFechadoApto for 4'],
+    ['WitnessAbertoApto','run','run WitnessAbertoApto for 4'],
+    ['WitnessVencidoAutorizadoApto','run','run WitnessVencidoAutorizadoApto for 4'],
+    ['WitnessSaldoDesconhecidoApto','run','run WitnessSaldoDesconhecidoApto for 4'],
+    ['WitnessEscassezAbaixo','run','run WitnessEscassezAbaixo for 4'],
+    ['WitnessLimiteExato','run','run WitnessLimiteExato for 4'],
+    ['WitnessAcimaDoLimite','run','run WitnessAcimaDoLimite for 4'],
+    ['WitnessCacheMissCalculaEPublica','run','run WitnessCacheMissCalculaEPublica for 4'],
+    ['WitnessCacheHit','run','run WitnessCacheHit for 4'],
+    ['WitnessInvalidacao','run','run WitnessInvalidacao for 4'],
+    ['WitnessGeracaoMudou','run','run WitnessGeracaoMudou for 4'],
+    ['WitnessNovoCalculoAposInvalidacao','run','run WitnessNovoCalculoAposInvalidacao for 4'],
+    ['WitnessEscassezComNotificacao','run','run WitnessEscassezComNotificacao for 6'],
+    ['WitnessEscassezSilenciada','run','run WitnessEscassezSilenciada for 6'],
+    ['WitnessNovaNotificacaoOutroDia','run','run WitnessNovaNotificacaoOutroDia for 6 but exactly 3 Store'],
+  ], 'build/formal-validation-m8.json', 'M8');
 }
 const cmd=process.argv[2];
 if(cmd==='spec-check') specCheck();

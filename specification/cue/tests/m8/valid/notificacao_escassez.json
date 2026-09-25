@@ -1,0 +1,11 @@
+{
+  "id_destinatario": "uid-gestor-1",
+  "papel_destinatario": "Gestor_Almoxarifado",
+  "tipo": "ESCASSEZ_ESTOQUE",
+  "entidade_alvo": "Almoxarifado",
+  "id_alvo": "almox-1",
+  "quantidade": 0,
+  "lida": false,
+  "emitida_em": "2026-09-25T04:00:00Z",
+  "expira_em": null
+}

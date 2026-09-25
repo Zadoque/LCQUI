@@ -2,7 +2,7 @@
   "versao": 1,
   "alloy": "6.2.0",
   "solver": "sat4j",
-  "spec_ir_sha256": "5f5ee77140ebadc1ea734538f3e6e241cbd3a065dc4fd5c1a72c69fdf88c1fdc",
+  "spec_ir_sha256": "16967d23f90fc4de6bad90d0def102952eab1f7414262ae53eb0315812276ba1",
   "model": "specification/alloy/operations/idempotency_m7.als",
   "model_sha256": "9b68d044e48eb5747b09b30f70759c2c877a2a8423875b26129f3f4aa1612dc3",
   "resultados": [

@@ -255,5 +255,13 @@ ir: {
 			campos:   domain.#CamposM7
 			exemplo: {id_operacao: "op-1", uid: "uid-1", tipo_operacao: "EXTRAVIO", payload_hash: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", status: "CONCLUIDA"}
 		},
+		{
+			arquivo:  "formal_m8_contrato"
+			entidade: "M8_Estoque_Escassez_Notificacao"
+			etapa:    "formalização executável M8"
+			escopo:   "Contratos estruturais de estoque atual, cache, escassez e notificação. Aptidão, escassez, invalidação/publicação do cache e idempotência de alerta são verificadas em Alloy; limites numéricos e chaves por Rust. CUE não prova tempo real."
+			campos:   domain.#CamposM8
+			exemplo: {id_almoxarifado: 1, id_resumo_reagente: 10, id_especificacao_reagente: 20, qtd_limiar_escassez: 5, ativo: true, notificacao_ativa: true}
+		},
 	]
 }

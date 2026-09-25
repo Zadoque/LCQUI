@@ -1,0 +1,15 @@
+{
+  "escopo": "ESTOQUE__ALMOX",
+  "resultado": {
+    "qtd_aptos": 3,
+    "qtd_total": 5,
+    "qtd_emprestados": 1,
+    "qtd_saldo_desconhecido": 1,
+    "massa_aferida_g": null,
+    "volume_aferido_ml": 250.0
+  },
+  "calculado_em": "2026-09-25T04:00:00Z",
+  "versao_calculo": "estoque-v1",
+  "geracao": 7,
+  "valido": true
+}

@@ -173,7 +173,8 @@ pub fn render_withdrawal_return(v: &crate::validation_m4::ValidationM4) -> Strin
 
 fn render_milestone(title: &str, scope: &str, resultados: &[crate::validation::Result]) -> String {
     let mut text = format!(
-        "% Gerado por lcqui-spec-doc; não editar.\n\\subsection*{{Evidência formal {title}}}\n{scope}\n\\begin{{description}}\n"
+        "% Gerado por lcqui-spec-doc; não editar.\n\\subsection*{{Evidência formal {title}}}\n{}\n\\begin{{description}}\n",
+        escape(scope)
     );
     for r in resultados {
         text.push_str(&format!(
@@ -205,6 +206,13 @@ pub fn render_m7(v: &crate::validation_m7::ValidationM7) -> String {
     render_milestone(
         "M7 --- idempotência",
         "Alloy verifica identidade, retry, deduplicação e materialização substitutiva. Rust é a referência determinística para proveniência e canonicalização; isto não prova exactly-once da infraestrutura, TOCTOU ou deadlock.",
+        &v.resultados,
+    )
+}
+pub fn render_m8(v: &crate::validation_m8::ValidationM8) -> String {
+    render_milestone(
+        "M8 --- estoque, escassez e notificações",
+        "CUE verifica os shapes de configuração, resultado de estoque, cache e notificação. Alloy verifica a aptidão única (frascoAptoParaUso), a fronteira estritamente menor da escassez, a invalidação/publicação do cache por geração e a emissão idempotente de ESCASSEZ_ESTOQUE. Rust valida a proveniência do receipt e os limites determinísticos (escassez estritamente menor que o limiar, idade do cache estritamente menor que 30 segundos, rate limit de 5 por minuto, chave determinística e agregação que segrega saldo desconhecido e não soma g com mL). A evidência não certifica a implementação Firebase atual.",
         &v.resultados,
     )
 }

@@ -1,0 +1,46 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{Evidência formal M8 --- estoque, escassez e notificações}
+CUE verifica os shapes de configuração, resultado de estoque, cache e notificação. Alloy verifica a aptidão única (frascoAptoParaUso), a fronteira estritamente menor da escassez, a invalidação/publicação do cache por geração e a emissão idempotente de ESCASSEZ\_ESTOQUE. Rust valida a proveniência do receipt e os limites determinísticos (escassez estritamente menor que o limiar, idade do cache estritamente menor que 30 segundos, rate limit de 5 por minuto, chave determinística e agregação que segrega saldo desconhecido e não soma g com mL). A evidência não certifica a implementação Firebase atual.
+\begin{description}
+\item[M8-INV-001] ExtraviadoNuncaApto: UNSAT.\newline Escopo: \texttt{check ExtraviadoNuncaApto for 6}.
+\item[M8-INV-002] QuarentenaNuncaApta: UNSAT.\newline Escopo: \texttt{check QuarentenaNuncaApta for 6}.
+\item[M8-INV-003] FisicoImpedidoNuncaApto: UNSAT.\newline Escopo: \texttt{check FisicoImpedidoNuncaApto for 6}.
+\item[M8-INV-004] EmprestadoNaoApto: UNSAT.\newline Escopo: \texttt{check EmprestadoNaoApto for 6}.
+\item[M8-INV-005] PendenciaNuncaApta: UNSAT.\newline Escopo: \texttt{check PendenciaNuncaApta for 6}.
+\item[M8-INV-006] VencidoSemAutorizacaoNaoApto: UNSAT.\newline Escopo: \texttt{check VencidoSemAutorizacaoNaoApto for 6}.
+\item[M8-INV-007] AptoNuncaDescartado: UNSAT.\newline Escopo: \texttt{check AptoNuncaDescartado for 6}.
+\item[M8-INV-008] AbaixoDoLimiarEhEscassez: UNSAT.\newline Escopo: \texttt{check AbaixoDoLimiarEhEscassez for 6}.
+\item[M8-INV-009] IgualAoLimiarNaoEhEscassez: UNSAT.\newline Escopo: \texttt{check IgualAoLimiarNaoEhEscassez for 6}.
+\item[M8-INV-010] AcimaDoLimiarNaoEhEscassez: UNSAT.\newline Escopo: \texttt{check AcimaDoLimiarNaoEhEscassez for 6}.
+\item[M8-INV-011] AlmoxInativoNaoAvalia: UNSAT.\newline Escopo: \texttt{check AlmoxInativoNaoAvalia for 6}.
+\item[M8-INV-012] ConfigInativaNaoAvalia: UNSAT.\newline Escopo: \texttt{check ConfigInativaNaoAvalia for 6}.
+\item[M8-INV-013] InvalidacaoMudaGeracaoEInvalida: UNSAT.\newline Escopo: \texttt{check InvalidacaoMudaGeracaoEInvalida for 4}.
+\item[M8-INV-014] InvalidacaoNaoRecalcula: UNSAT.\newline Escopo: \texttt{check InvalidacaoNaoRecalcula for 4}.
+\item[M8-INV-015] InvalidacaoImpedeHitValido: UNSAT.\newline Escopo: \texttt{check InvalidacaoImpedeHitValido for 4}.
+\item[M8-INV-016] PublicacaoExigeMesmaGeracao: UNSAT.\newline Escopo: \texttt{check PublicacaoExigeMesmaGeracao for 4}.
+\item[M8-INV-017] CacheMudouGeracaoNaoPublica: UNSAT.\newline Escopo: \texttt{check CacheMudouGeracaoNaoPublica for 4}.
+\item[M8-INV-018] PublicacaoNaoAlteraFatos: UNSAT.\newline Escopo: \texttt{check PublicacaoNaoAlteraFatos for 4}.
+\item[M8-INV-019] SemEscassezNaoNotifica: UNSAT.\newline Escopo: \texttt{check SemEscassezNaoNotifica for 6}.
+\item[M8-INV-020] ConfigInativaNaoEmite: UNSAT.\newline Escopo: \texttt{check ConfigInativaNaoEmite for 6}.
+\item[M8-INV-021] NotificacaoDesativadaNaoEmite: UNSAT.\newline Escopo: \texttt{check NotificacaoDesativadaNaoEmite for 6}.
+\item[M8-INV-022] GestorNaoVinculadoNaoRecebe: UNSAT.\newline Escopo: \texttt{check GestorNaoVinculadoNaoRecebe for 6}.
+\item[M8-INV-023] AlmoxInativoNaoEmite: UNSAT.\newline Escopo: \texttt{check AlmoxInativoNaoEmite for 6}.
+\item[M8-INV-024] RetryNaoDuplicaNotificacao: UNSAT.\newline Escopo: \texttt{check RetryNaoDuplicaNotificacao for 6}.
+\item[M8-INV-025] NotificacaoUnicaPorDia: UNSAT.\newline Escopo: \texttt{check NotificacaoUnicaPorDia for 6}.
+\item[M8-WIT-026] WitnessFechadoApto: SAT.\newline Escopo: \texttt{run WitnessFechadoApto for 4}.
+\item[M8-WIT-027] WitnessAbertoApto: SAT.\newline Escopo: \texttt{run WitnessAbertoApto for 4}.
+\item[M8-WIT-028] WitnessVencidoAutorizadoApto: SAT.\newline Escopo: \texttt{run WitnessVencidoAutorizadoApto for 4}.
+\item[M8-WIT-029] WitnessSaldoDesconhecidoApto: SAT.\newline Escopo: \texttt{run WitnessSaldoDesconhecidoApto for 4}.
+\item[M8-WIT-030] WitnessEscassezAbaixo: SAT.\newline Escopo: \texttt{run WitnessEscassezAbaixo for 4}.
+\item[M8-WIT-031] WitnessLimiteExato: SAT.\newline Escopo: \texttt{run WitnessLimiteExato for 4}.
+\item[M8-WIT-032] WitnessAcimaDoLimite: SAT.\newline Escopo: \texttt{run WitnessAcimaDoLimite for 4}.
+\item[M8-WIT-033] WitnessCacheMissCalculaEPublica: SAT.\newline Escopo: \texttt{run WitnessCacheMissCalculaEPublica for 4}.
+\item[M8-WIT-034] WitnessCacheHit: SAT.\newline Escopo: \texttt{run WitnessCacheHit for 4}.
+\item[M8-WIT-035] WitnessInvalidacao: SAT.\newline Escopo: \texttt{run WitnessInvalidacao for 4}.
+\item[M8-WIT-036] WitnessGeracaoMudou: SAT.\newline Escopo: \texttt{run WitnessGeracaoMudou for 4}.
+\item[M8-WIT-037] WitnessNovoCalculoAposInvalidacao: SAT.\newline Escopo: \texttt{run WitnessNovoCalculoAposInvalidacao for 4}.
+\item[M8-WIT-038] WitnessEscassezComNotificacao: SAT.\newline Escopo: \texttt{run WitnessEscassezComNotificacao for 6}.
+\item[M8-WIT-039] WitnessEscassezSilenciada: SAT.\newline Escopo: \texttt{run WitnessEscassezSilenciada for 6}.
+\item[M8-WIT-040] WitnessNovaNotificacaoOutroDia: SAT.\newline Escopo: \texttt{run WitnessNovaNotificacaoOutroDia for 6 but exactly 3 Store}.
+\end{description}
+UNSAT para check indica ausência de contraexemplo no escopo declarado; SAT para run indica testemunha encontrada. A evidência não certifica a implementação Firebase/backend.

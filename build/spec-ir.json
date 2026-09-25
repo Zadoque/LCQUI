@@ -1367,6 +1367,323 @@
                 "payload_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
                 "status": "CONCLUIDA"
             }
+        },
+        {
+            "arquivo": "formal_m8_contrato",
+            "entidade": "M8_Estoque_Escassez_Notificacao",
+            "etapa": "formalização executável M8",
+            "escopo": "Contratos estruturais de estoque atual, cache, escassez e notificação. Aptidão, escassez, invalidação/publicação do cache e idempotência de alerta são verificadas em Alloy; limites numéricos e chaves por Rust. CUE não prova tempo real.",
+            "campos": [
+                {
+                    "tipo": "int",
+                    "nome": "id_almoxarifado",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": true,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "int",
+                    "nome": "id_resumo_reagente",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": true,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "int",
+                    "nome": "id_especificacao_reagente",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": true,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "int",
+                    "nome": "qtd_limiar_escassez",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": true
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "ativo",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "notificacao_ativa",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "int",
+                    "nome": "qtd_aptos",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": true
+                },
+                {
+                    "tipo": "int",
+                    "nome": "qtd_total",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": true
+                },
+                {
+                    "tipo": "int",
+                    "nome": "qtd_emprestados",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": true
+                },
+                {
+                    "tipo": "int",
+                    "nome": "qtd_saldo_desconhecido",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": true
+                },
+                {
+                    "tipo": "number",
+                    "minimo": -9999999.999,
+                    "maximo": 9999999.999,
+                    "multiplo": 0.001,
+                    "nome": "massa_aferida_g",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "sql": "NUMERIC(10,3)",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": true
+                },
+                {
+                    "tipo": "number",
+                    "minimo": -9999999.999,
+                    "maximo": 9999999.999,
+                    "multiplo": 0.001,
+                    "nome": "volume_aferido_ml",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "sql": "NUMERIC(10,3)",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": true
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "escopo",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "ESTOQUE__ALMOX",
+                        "ESTOQUE__ALMOX__RESUMO"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "calculado_em",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TIMESTAMP",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "versao_calculo",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "int",
+                    "nome": "geracao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": true
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "valido",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_destinatario",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "papel_destinatario",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "Gestor_Almoxarifado"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "tipo",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "ESCASSEZ_ESTOQUE"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "entidade_alvo",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "Almoxarifado"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_alvo",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "int",
+                    "nome": "quantidade",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": true
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "lida",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "emitida_em",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TIMESTAMP",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "expira_em",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "sql": "TIMESTAMP",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                }
+            ],
+            "exemplo": {
+                "id_almoxarifado": 1,
+                "id_resumo_reagente": 10,
+                "id_especificacao_reagente": 20,
+                "qtd_limiar_escassez": 5,
+                "ativo": true,
+                "notificacao_ativa": true
+            }
         }
     ]
 }
