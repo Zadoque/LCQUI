@@ -20,3 +20,4 @@ functions/lib/
 # Formal specification: local compiler output
 /tools/spec-doc/target/
 /build/latex/
+opencode.json
