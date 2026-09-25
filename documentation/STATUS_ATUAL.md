@@ -1,22 +1,22 @@
 # Status atual do LCQUI
 
-## Estado corrente pós-M10 documental
+## Estado corrente pós-M10 executável
 
-M0–M9 = **VALIDATED**; M10 = **DOCUMENTATION_VALIDATED**; M11+ =
-**NOT_STARTED**. HEAD de entrada M10:
-`ca76f5f2319f75be6a93c8173ea147088727a589`; HEAD pré-registro de estado/PDF:
-`1701baf9c311ecbe7692d84f9d1b7d7f075594cc`. A rodada M10 foi exclusivamente
-documental: fechou identidade Resumo×unidade, plaqueta canônica/permanente,
-máquina `Ativo -> Inservivel -> Ja_dado_baixa`, baixa SEI com PDF, versão,
-locks, histórico, fan-out e composição M7/M9. Nenhum código Firebase, Rules,
-Storage, frontend ou artefato formal M10 foi criado/alterado. Próxima ação
-exata: **FORMALIZAÇÃO EXECUTÁVEL DE M10 — PATRIMÔNIO, EM RODADA SEPARADA
-(CUE → IR → Alloy → receipt → Rust → LaTeX → PDF)**. Não iniciar M11.
+M0–M10 = **VALIDATED**; M11+ = **NOT_STARTED**. HEAD de entrada da formalização
+executável: `1be21d82fb8fa6f9528425578ddec86565cdb797`, árvore limpa e `origin`
+sincronizada. A cadeia CUE → IR → Alloy → receipt → Rust → geração → LaTeX → PDF
+de M10 foi concluída: `#M10Contrato` (11 fixtures válidas + 11 inválidas), IR v3
+aditivo (`formal_m10_patrimonio`), `patrimony_m10.als` (29 checks UNSAT + 17
+witnesses SAT), receipt verificável, validator Rust, guard de drift,
+canonicalização `N(s)` e PDF de 389 páginas. Regressão M0–M9 PASS; receipts
+antigos mudaram somente em `spec_ir_sha256`. Findings independentes de segurança
+Rust (RUST-SAFETY-01..03) resolvidos. A consolidação executável está pronta e
+não commitada. Próxima ação exata: **AVALIAR A ENTRADA EM M11 — TURMAS / DEMAIS
+DOMÍNIOS — EM RODADA SEPARADA**. Não iniciar M11.
 
-Atualizado em 25/09/2026 — M10 documental concluído. Estado corrente:
-M0–M9 = VALIDATED; M10 = DOCUMENTATION_VALIDATED; M11+ = NOT_STARTED;
-nenhuma HQ bloqueante. Registro em
-[worklog M10 documental](worklogs/formal-spec/M10_DOCUMENTATION.md).
+Atualizado em 25/09/2026 — M10 executável concluído. Estado corrente:
+M0–M10 = VALIDATED; M11+ = NOT_STARTED; nenhuma HQ bloqueante. Registro em
+[worklog M10 executável](worklogs/formal-spec/M10_EXECUTABLE_VALIDATION.md).
 
 - **M10 — Patrimônio:** `Bem_Patrimonial` é a unidade física e
   `Resumo_Bem_Patrimonial` é o catálogo; nome/local no bem são projeções. A
@@ -25,10 +25,11 @@ nenhuma HQ bloqueante. Registro em
   independente e baixa é rito M9+M7 próprio, com SEI/PDF binariamente validado,
   histórico e terminalidade. A versão cobre fatos canônicos, não fan-out
   derivado. Locks têm proprietário/tipo/chave, não expiram por idade e não se
-  confundem com `Chaves_Unicas`, versão ou receipt M7. Todos os gates M0–M9
-  passaram, houve três auditorias limpas e o PDF final tem 381 páginas. M10-F01
-  a F05 foram resolvidos documentalmente; M10-F06 a F12 permanecem divergências
-  de implementação/dívida registradas, sem HQ.
+  confundem com `Chaves_Unicas`, versão ou receipt M7. A formalização executável
+  adicionou CUE/Alloy/receipt/validator/guard/canonicalização e elevou o PDF a
+  389 páginas; três auditorias de conteúdo limpas. M10-F01 a F05 e F13 a F17
+  foram resolvidos documentalmente; M10-F06 a F12 permanecem divergências de
+  implementação/dívida registradas, sem HQ.
 
 ## M8 executável (Estoque / Escassez / Notificações)
 
