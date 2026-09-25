@@ -10,7 +10,7 @@ direta e testemunhas SAT das duas rotas. Distingue `estruturaCoerente` (texto)
 de `condicaoEstiloSql` (CHECK OR), explicitando M2-IDENTIDADE-001.
 
 `reagents/bottle_state.als` (M2.2b/M2.2c): coerência de estado corrente —
-terminais não mantêm desconhecimento, flag histórica nunca coexiste com FECHADO
+VAZIO confirmado não mantém desconhecimento; quebra e descarte preservam a flag, flag histórica nunca coexiste com FECHADO
 e transições documentadas (extravio, quebra, descarte, esgotamento) preservam
 coerência e as frame conditions registradas. `em_quarentena`, pesos, tara,
 validade e empréstimo ficam fora deste módulo; a dimensão quarentena permanece

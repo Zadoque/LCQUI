@@ -51,9 +51,9 @@ pred retirarM0[a, b: EstadoIntegrado, f: Frasco, e: Emprestimo] {
 }
 
 pred coerenteM2[s: EstadoIntegrado] {
-  // VAZIO/QUEBRADO/DESCARTADO não mantêm desconhecimento.
+  // VAZIO confirmado resolve desconhecimento; quebra/descarte preservam (emenda pré-M8).
   all f: Frasco |
-    s.fisico[f] in VAZIO + QUEBRADO + DESCARTADO implies f not in s.saldoDesconhecido
+    s.fisico[f] = VAZIO implies f not in s.saldoDesconhecido
   // Flag histórica nunca coexiste com FECHADO.
   all f: Frasco | f in s.aberturaHistorica implies s.fisico[f] != FECHADO
   // Quarentena bloqueia operação (projeção mínima; M0 mantém sua própria).
@@ -114,7 +114,7 @@ pred quebrarM2[a, b: EstadoIntegrado, f: Frasco] {
   a.disponibilidade[f] != EMPRESTADO
   b.fisico = a.fisico ++ f->QUEBRADO
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
-  b.saldoDesconhecido = a.saldoDesconhecido - f
+  b.saldoDesconhecido = a.saldoDesconhecido
   b.aberturaHistorica = a.aberturaHistorica
   preservaValidadeExceto[a, b, f]
   preservaQuarentenaEAutorizacao[a, b]
@@ -125,7 +125,7 @@ pred descartarM2[a, b: EstadoIntegrado, f: Frasco] {
   aptoParaDescarte[a, f]
   b.fisico = a.fisico ++ f->DESCARTADO
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
-  b.saldoDesconhecido = a.saldoDesconhecido - f
+  b.saldoDesconhecido = a.saldoDesconhecido
   b.aberturaHistorica = a.aberturaHistorica
   preservaValidade[a, b]
   b.emQuarentena = a.emQuarentena

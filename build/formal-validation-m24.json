@@ -4,7 +4,7 @@
   "solver": "sat4j",
   "spec_ir_sha256": "0558049777b3f504eb15afaf1490aed335e4b2d9bfe7b9f13e3d41beb847a127",
   "model": "specification/alloy/reagents/bottle_composition.als",
-  "model_sha256": "5b8c4a7fa8eea6d21c66c31a501565b5b13c9fe64dc7ced2c007b5b85c8c2276",
+  "model_sha256": "1706613e01c89c45067b99d201dd5fb3a11ff77258272f4b3f4ef5d5a86c2cf5",
   "origens": [
     {
       "model": "specification/alloy/reagents/withdrawal.als",
@@ -16,7 +16,7 @@
     },
     {
       "model": "specification/alloy/reagents/bottle_state.als",
-      "model_sha256": "e43c72f0c9b8244681d5bde8b2f9c8e784f0462c2bc2173d9d99f302aa57f6c7"
+      "model_sha256": "502630f972ce01ae78388e14fdbc4d0b67a501b97542be45d6b95610ce3d0f9d"
     }
   ],
   "resultados": [

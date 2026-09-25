@@ -1823,3 +1823,6 @@ A única operação que depende do JSON é descoberta/pesquisa de Resumo e Espec
 
 \textbf{Mesma versão publicada, ID ausente:} executa consulta canônica. Se o objeto existe no Firestore, o catálogo publicado está divergente: registra erro técnico, aciona automaticamente reconciliação/rebuild do catálogo e permite que a operação continue com os dados canônicos retornados, se todas as demais pré-condições forem válidas. Se o objeto também não existe no Firestore apesar de \textit{Frasco\_Reagente} referenciá-lo, é \textbf{ERRO DE INTEGRIDADE REFERENCIAL}: não inventar nome, não prosseguir silenciosamente, bloquear a operação dependente dessa referência, registrar erro técnico rastreável e orientar contato com o responsável técnico. Isso não é tratado como simples cache desatualizado.
 \end{regra}
+
+\paragraph{Emenda pré-M8: conhecimento metrológico na quebra e no descarte.}
+Quebra e descarte preservam \texttt{saldo\_desconhecido} e o conhecimento quantitativo anterior, inclusive no reencontro como \texttt{QUEBRADO}. Não fabricam saldo zero, tara ou pesagem. A baixa operacional não mede a quantidade anteriormente existente. Somente vazio efetivamente confirmado pela rota metrológica válida autoriza saldo zero conhecido. Quarentena, autorização de descarte e terminalidade de \texttt{DESCARTADO} permanecem inalteradas.

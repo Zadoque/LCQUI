@@ -93,9 +93,9 @@ fun ativosDoFrasco[s: Estado, f: Frasco]: set Emprestimo {
 // Bloco reproduzido de M2 (bottle_composition.als/coerenteM2); guardado por
 // tools/formal/withdrawal_return.mjs.
 pred coerenteM2[s: Estado] {
-  // VAZIO/QUEBRADO/DESCARTADO não mantêm desconhecimento.
+  // VAZIO confirmado resolve desconhecimento; quebra/descarte preservam (emenda pré-M8).
   all f: Frasco |
-    s.fisico[f] in VAZIO + QUEBRADO + DESCARTADO implies f not in s.saldoDesconhecido
+    s.fisico[f] = VAZIO implies f not in s.saldoDesconhecido
   // Flag histórica nunca coexiste com FECHADO.
   all f: Frasco | f in s.aberturaHistorica implies s.fisico[f] != FECHADO
   // Quarentena bloqueia operação (projeção mínima; M0 mantém sua própria).

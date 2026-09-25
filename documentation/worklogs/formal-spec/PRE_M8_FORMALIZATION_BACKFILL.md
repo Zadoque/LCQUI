@@ -166,3 +166,31 @@ Não há commit declarando quitação ou VALIDATED para M5–M7.
 
 Próxima ação imediata: responder HQ-PRE-M8-001 e reconciliar a regra escolhida;
 depois retomar integralmente a cadeia M5–M7. A entrada em M8 não está liberada.
+
+## Retomada autorizada — HEAD ae7eb4c7013ee809b7bfc87efa355c05716116bf
+
+Árvore limpa; mesma branch. Decisão humana recebida: quebra e descarte preservam
+conhecimento metrológico; somente VAZIO confirmado resolve o desconhecimento
+pela rota válida. HQ001 aguarda implementação e gates, não mais decisão.
+
+Mapa de impacto ANTES da correção: Seções 4:401 e 7:469 contêm a regra antiga;
+HQ-M2-002:59 deve receber emenda auditável. Seções 5/9/10.5 precisam explicitar
+preservação na quebra/descarte. CUE não proíbe a combinação (ciclo operacional
+fora do invariante de linha); adicionar quatro fixtures positivas. Alloy:
+bottle_state é a origem; bottle_composition reproduz coerência/transições via
+composition.mjs; withdrawal_return reproduz coerenteM2 via withdrawal_return.mjs.
+Dois checks obsoletos em check.mjs/validation_m2.rs devem ser substituídos por
+frames e ampliados com witnesses. Mutação do teste withdrawal_return precisa
+acompanhar a cláusula fonte. IR não precisa mudar por esta emenda; receipts
+M2/M2.4/M4 e manifest mudam por hashes/resultados. Fragmento M2 somente via Rust.
+Worklog M2.2 terá nota de supersessão; diagnóstico HQ001 anterior preservado.
+Busca semântica completa registrada localmente em /tmp/pre-m8-impact.txt.
+
+Emenda implementada: CUE 105 fixtures (35 válidas/70 inválidas). Alloy M2
+37 checks UNSAT / 20 witnesses SAT; M2.4 17/11 e M4 40/20 preservados.
+Diagnóstico pós-emenda: check scope 4 UNSAT, origem scope 4 SAT, check scope 6
+UNSAT; Alloy 6.2.0/sat4j. Hash origem ec5030866906599224c0c39d106f78073a5f3afefa2fe004e0344abb0748a1ec;
+hash diagnóstico e33a8dc440cd10ece86c59710b729de373067cd2ec19a8f228e17dad6975b329.
+Evidência local /tmp/lcqui-pre-m8-hq001-R5Etg6/result. Nenhuma witness removida.
+Fragmento M2 regenerado pelo Rust; diferença deliberada limitada aos dois
+frames substituídos e seis comandos novos. IR/M0/M1/M3 inalterados.

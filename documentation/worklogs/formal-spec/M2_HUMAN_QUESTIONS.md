@@ -56,7 +56,7 @@ Decisão humana:
   dados quantitativos suficientes. Com conteúdo nominal desconhecido e sem
   tara, inicia com `true`; abertura ou pesagem bruta isolada não mudam isso.
 - Recipiente efetivamente esvaziado e com tara real medida passa a `false`.
-- Estados VAZIO, QUEBRADO e DESCARTADO não permanecem com desconhecido.
+- **EMENDA PRÉ-M8 (HQ-PRE-M8-001, decisão humana autorizada):** a formulação anterior “Estados VAZIO, QUEBRADO e DESCARTADO não permanecem com desconhecido” está **SUPERSEDIDA**: confundia estado físico com conhecimento metrológico. VAZIO confirmado resolve desconhecimento pela rota metrológica válida; QUEBRADO, DESCARTADO, EXTRAVIADO e QUARENTENA preservam a flag anterior. Quebra e descarte não são medição nem justificam fabricar quantidade zero/tara/pesagem. DESCARTADO permanece terminal operacionalmente.
 - EXTRAVIADO preserva o valor anterior (extravio não cria conhecimento nem
   desconhecimento novo do saldo).
 - Quarentena também não altera a flag por si só.

@@ -256,3 +256,6 @@ Para PESQUISA\_TCC\_POS ou ESTUDO\_DEGRADACAO\_RESIDUOS com frasco vencido ou va
 
 \paragraph{Exceção metrológica na devolução (HQ-M2-005).}
 Se a leitura real contradiz a tara armazenada, o gestor informa exatamente a leitura da balança. O retorno físico encerra a custódia como DEVOLVIDO\_COM\_ANOMALIA, preserva a medição e bloqueia nova retirada; consumo fica pendente até resolução auditada. Referência teórica e tara real são distintas. Confirmar recipiente vazio não autoriza substituir silenciosamente tara real anterior divergente. As opções são nova pesagem, inspeção com confirmação de esgotamento ou recalibração de recipiente vazio conforme o contrato da Seção 10.
+
+\paragraph{Emenda pré-M8: conhecimento metrológico na quebra e no descarte.}
+Quebra e descarte preservam \texttt{saldo\_desconhecido} e o conhecimento quantitativo anterior, inclusive no reencontro como \texttt{QUEBRADO}. Não fabricam saldo zero, tara ou pesagem. A baixa operacional não mede a quantidade anteriormente existente. Somente vazio efetivamente confirmado pela rota metrológica válida autoriza saldo zero conhecido. Quarentena, autorização de descarte e terminalidade de \texttt{DESCARTADO} permanecem inalteradas.

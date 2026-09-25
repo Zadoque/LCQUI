@@ -6,7 +6,7 @@ const read = p => fs.readFileSync(p, 'utf8');
 test('M4 trace accepts originals and rejects drift of reproduced semantics', () => {
   checkWithdrawalReturnTrace(read);
   for (const [file, before, after] of [
-    [withdrawalReturnOrigins[0], 's.fisico[f] in VAZIO + QUEBRADO + DESCARTADO implies f not in s.saldoDesconhecido', 's.fisico[f] in VAZIO + QUEBRADO implies f not in s.saldoDesconhecido'],
+    [withdrawalReturnOrigins[0], 's.fisico[f] = VAZIO implies f not in s.saldoDesconhecido', 's.fisico[f] in VAZIO + QUEBRADO implies f not in s.saldoDesconhecido'],
     [withdrawalReturnOrigins[0], 's.fisico[f] in VAZIO + QUEBRADO + DESCARTADO + EXTRAVIADO', 's.fisico[f] in VAZIO'],
     [withdrawalReturnOrigins[1], 's.status[e] in EM_USO + ATRASADO', 's.status[e] in EM_USO'],
     [withdrawalReturnOrigins[1], 'one sig EM_USO, ATRASADO, DEVOLVIDO', 'one sig EM_USO, DEVOLVIDO'],

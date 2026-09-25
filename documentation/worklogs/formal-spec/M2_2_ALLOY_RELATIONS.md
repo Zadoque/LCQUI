@@ -436,3 +436,6 @@ Estado: M2.2 reaberto e novamente VALIDATED.
 Planejar M2.3 (proveniência/IR/geração) em tarefa separada, sem iniciá-lo
 automaticamente. Não reabrir M0/M1/M2.1d.
 
+
+## Erratum pré-M8 — supersessão autorizada HQ001
+As propriedades históricas QuebraSaldoConhecido/DescarteSaldoConhecido e os IDs INV-M2-TERMINAL-QUEBRA-001/INV-M2-TERMINAL-DESCARTE-001 foram supersedidos por QuebraPreservaConhecimentoMetrologico/DescartePreservaConhecimentoMetrologico (FRAME-M2-QUEBRA-CONHECIMENTO-001/FRAME-M2-DESCARTE-CONHECIMENTO-001). A decisão antiga confundia baixa física com medição. As tabelas acima são evidência histórica, não norma corrente. Nova evidência e gates no worklog pré-M8.

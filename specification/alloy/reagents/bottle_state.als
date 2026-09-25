@@ -43,9 +43,9 @@ sig Estado {
 
 // Invariantes de estado documentadas (Seção 4, 401/403; HQ-M2-008/B).
 pred coerente[s: Estado] {
-  // VAZIO/QUEBRADO/DESCARTADO não mantêm desconhecimento.
+  // VAZIO confirmado resolve desconhecimento; quebra/descarte preservam (emenda pré-M8).
   all f: Frasco |
-    s.fisico[f] in VAZIO + QUEBRADO + DESCARTADO implies f not in s.saldoDesconhecido
+    s.fisico[f] = VAZIO implies f not in s.saldoDesconhecido
   // Flag histórica nunca coexiste com FECHADO.
   all f: Frasco | f in s.aberturaHistorica implies s.fisico[f] != FECHADO
   // Quarentena bloqueia operação (projeção mínima; M0 mantém sua própria).
@@ -106,7 +106,7 @@ pred extraviar[a, b: Estado, f: Frasco] {
   preservaQuarentenaEAutorizacao[a, b]
 }
 
-// Quebra: terminal, não mantém desconhecimento; flag preservada (Seção 4, 403).
+// Quebra: não terminal, preserva conhecimento metrológico e flag histórica (Seção 4, 403).
 // Empréstimo ativo deve ser encerrado antes da transição incompatível (Seção 8,
 // 232). vencido/usoVencido não especificados no alvo; quarentena/autorização
 // preservadas.
@@ -116,7 +116,7 @@ pred quebrar[a, b: Estado, f: Frasco] {
   a.disponibilidade[f] != EMPRESTADO
   b.fisico = a.fisico ++ f->QUEBRADO
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
-  b.saldoDesconhecido = a.saldoDesconhecido - f
+  b.saldoDesconhecido = a.saldoDesconhecido
   b.aberturaHistorica = a.aberturaHistorica
   preservaValidadeExceto[a, b, f]
   preservaQuarentenaEAutorizacao[a, b]
@@ -128,7 +128,7 @@ pred descartar[a, b: Estado, f: Frasco] {
   aptoParaDescarte[a, f]
   b.fisico = a.fisico ++ f->DESCARTADO
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
-  b.saldoDesconhecido = a.saldoDesconhecido - f
+  b.saldoDesconhecido = a.saldoDesconhecido
   b.aberturaHistorica = a.aberturaHistorica
   preservaValidade[a, b]
   b.emQuarentena = a.emQuarentena
@@ -252,13 +252,13 @@ assert QuebraNaoEmprestado {
 }
 
 // INV-M2-TERMINAL-001.
-assert QuebraSaldoConhecido {
+assert QuebraPreservaConhecimentoMetrologico {
   all a, b: Estado, f: Frasco |
-    quebrar[a, b, f] implies f not in b.saldoDesconhecido
+    quebrar[a, b, f] implies b.saldoDesconhecido = a.saldoDesconhecido
 }
-assert DescarteSaldoConhecido {
+assert DescartePreservaConhecimentoMetrologico {
   all a, b: Estado, f: Frasco |
-    descartar[a, b, f] implies f not in b.saldoDesconhecido
+    descartar[a, b, f] implies b.saldoDesconhecido = a.saldoDesconhecido
 }
 assert EsgotamentoSaldoConhecido {
   all a, b: Estado, f: Frasco |
@@ -406,14 +406,14 @@ check QuebraIndisponivel for 4 but exactly 2 Estado
 check QuebraNaoEmprestado for 4 but exactly 2 Estado
 check QuebraNaoInterfereValidade for 4 but exactly 2 Estado
 check DescarteIndisponivel for 4 but exactly 2 Estado
-check DescarteSaldoConhecido for 4 but exactly 2 Estado
+check DescartePreservaConhecimentoMetrologico for 4 but exactly 2 Estado
 check DescarteFisicoDescartado for 4 but exactly 2 Estado
 check DescartePreservaValidade for 4 but exactly 2 Estado
 check DescarteConsomeAutorizacao for 4 but exactly 2 Estado
 check NaoDescarteEmprestado for 4 but exactly 2 Estado
 check UsoVencidoNaoHabilitaDescarte for 4 but exactly 2 Estado
 check EsgotamentoIndisponivel for 4 but exactly 2 Estado
-check QuebraSaldoConhecido for 4 but exactly 2 Estado
+check QuebraPreservaConhecimentoMetrologico for 4 but exactly 2 Estado
 check EsgotamentoSaldoConhecido for 4 but exactly 2 Estado
 check EsgotamentoNaoInterfereValidade for 4 but exactly 2 Estado
 check PreservacaoQuarentenaOrtogonais for 4 but exactly 2 Estado
@@ -430,3 +430,21 @@ run TestemunhaEsgotamento for 4 but exactly 2 Estado
 run TestemunhaVencidoComUsoAutorizado for 4 but exactly 2 Estado
 run TestemunhaResolverQuarentena for 4 but exactly 2 Estado
 run TestemunhaQuarentenaAteDescarte for 5 but exactly 3 Estado
+
+pred QuebraSaldoDesconhecidoHabitavel { some disj a,b: Estado, f: Frasco | quebrar[a,b,f] and f in a.saldoDesconhecido and f in b.saldoDesconhecido }
+run QuebraSaldoDesconhecidoHabitavel for 4 but exactly 2 Estado
+
+pred QuebraSaldoConhecidoHabitavel { some disj a,b: Estado, f: Frasco | quebrar[a,b,f] and f not in a.saldoDesconhecido and f not in b.saldoDesconhecido }
+run QuebraSaldoConhecidoHabitavel for 4 but exactly 2 Estado
+
+assert QuebraPreservaConhecimentoMetrologicoAmpliado { all a,b: Estado, f: Frasco | quebrar[a,b,f] implies b.saldoDesconhecido = a.saldoDesconhecido }
+check QuebraPreservaConhecimentoMetrologicoAmpliado for 6 but exactly 2 Estado
+
+pred DescarteSaldoDesconhecidoHabitavel { some disj a,b: Estado, f: Frasco | descartar[a,b,f] and f in a.saldoDesconhecido and f in b.saldoDesconhecido }
+run DescarteSaldoDesconhecidoHabitavel for 4 but exactly 2 Estado
+
+pred DescarteSaldoConhecidoHabitavel { some disj a,b: Estado, f: Frasco | descartar[a,b,f] and f not in a.saldoDesconhecido and f not in b.saldoDesconhecido }
+run DescarteSaldoConhecidoHabitavel for 4 but exactly 2 Estado
+
+assert DescartePreservaConhecimentoMetrologicoAmpliado { all a,b: Estado, f: Frasco | descartar[a,b,f] implies b.saldoDesconhecido = a.saldoDesconhecido }
+check DescartePreservaConhecimentoMetrologicoAmpliado for 6 but exactly 2 Estado
