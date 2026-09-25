@@ -402,7 +402,7 @@ async function commitEmChunks(
     const chunk = operacoes.slice(i, i + tamanhoDunk);
     const batch = admin.firestore().batch();
     chunk.forEach(({ ref, dados }) => batch.update(ref, dados));
-    await batch.commit(); // idempotente: re-executar o mesmo chunk produz o mesmo estado
+    await batch.commit(); // M7: \texttt{update} de campo determinístico é idempotente (mesmo estado-alvo), sem histórico aleatório, contador ou notificação; por isso a reentrega do trigger é segura. Se o chunk criasse histórico/contador/notificação, exigiria deduplicação por eventId.
   }
 }
 

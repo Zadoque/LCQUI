@@ -220,39 +220,65 @@ interface DadosEtiquetasVirgens {
   codigoFinal: number;
   startRow?: number; // 1 a 10 (Grid A4)
   startCol?: number; // 1 a 3
-  idOperacao?: string;
+  idOperacao: string; // M7: obrigatório; sem fallback Date.now()
 }
 
 export const gerarPdfEtiquetasVirgens = onCall(async (request) => {
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
   const dados = request.data as DadosEtiquetasVirgens;
+  if (!dados.idOperacao) throw new HttpsError("invalid-argument", "idOperacao é obrigatório.");
 
   const total = dados.codigoFinal - dados.codigoInicial + 1;
   if (total <= 0 || total > 50) {
     throw new HttpsError("invalid-argument", "O lote deve conter entre 1 e 50 etiquetas por impressão.");
   }
 
-  // Audita a sessao de geracao de etiquetas virgens (Secao 4.13)
-  await admin.firestore().collection("Impressao_Etiqueta_Frasco").add({
-    gerado_em: admin.firestore.FieldValue.serverTimestamp(),
-    gerado_por: request.auth!.uid,
-    codigo_inicial: dados.codigoInicial,
-    codigo_final: dados.codigoFinal,
-    start_row: dados.startRow || 1,
-    start_col: dados.startCol || 1,
-    status_geracao: "CONCLUIDA",
-    id_operacao: dados.idOperacao || `op_etiquetas_${Date.now()}`,
+  // M7: operação com etapa externa (PDF/upload). Reserva PENDENTE, efeito
+  // externo idempotente (caminho determinístico por idOperacao) e conclusão.
+  const tipoOperacao = "GERAR_ETIQUETAS_VIRGENS";
+  const payloadHash = hashPayload(tipoOperacao, {
+    codigoInicial: dados.codigoInicial, codigoFinal: dados.codigoFinal,
+    startRow: dados.startRow ?? 1, startCol: dados.startCol ?? 1,
   });
+  const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.idOperacao);
+  const auditoriaRef = admin.firestore().collection("Impressao_Etiqueta_Frasco").doc(dados.idOperacao);
+
+  const reserva = await admin.firestore().runTransaction(async (tx) => {
+    const opSnap = await tx.get(operacaoRef);
+    if (opSnap.exists) {
+      const op = opSnap.data()!;
+      if (op.uid === request.auth!.uid && op.tipo_operacao === tipoOperacao && op.payload_hash === payloadHash) {
+        return { concluida: op.status === "CONCLUIDA", resultado: op.resultado };
+      }
+      throw new HttpsError("already-exists", "idOperacao reutilizada com ator, ação ou payload divergente.");
+    }
+    tx.set(operacaoRef, { tipo_operacao: tipoOperacao, uid: request.auth!.uid, payload_hash: payloadHash,
+      status: "PENDENTE", resultado: null,
+      criado_em: admin.firestore.FieldValue.serverTimestamp(),
+      atualizado_em: admin.firestore.FieldValue.serverTimestamp() });
+    tx.set(auditoriaRef, {
+      gerado_em: admin.firestore.FieldValue.serverTimestamp(), gerado_por: request.auth!.uid,
+      codigo_inicial: dados.codigoInicial, codigo_final: dados.codigoFinal,
+      start_row: dados.startRow || 1, start_col: dados.startCol || 1,
+      status_geracao: "SOLICITADA", id_operacao: dados.idOperacao,
+    });
+    return { concluida: false, resultado: null };
+  });
+  if (reserva.concluida) return reserva.resultado; // retry: não regenera
 
   const codigos = Array.from({ length: total }, (_, i) => `LCQUI-${dados.codigoInicial + i}`);
   const buffer = await gerarPdfEtiquetasNovosFrascos(codigos, dados.startRow || 1, dados.startCol || 1);
+  const storagePath = `etiquetas/virgens/${dados.idOperacao}.pdf`; // determinístico: retry sobrescreve
+  const bucket = admin.storage().bucket();
+  await bucket.file(storagePath).save(buffer, { contentType: "application/pdf" });
+  const [url] = await bucket.file(storagePath).getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
 
-  const fileName = `etiquetas/virgens_${dados.codigoInicial}_a_${dados.codigoFinal}_${Date.now()}.pdf`;
-  const fileRef = admin.storage().bucket().file(fileName);
-  await fileRef.save(buffer, { contentType: "application/pdf" });
-  const [url] = await fileRef.getSignedUrl({ action: "read", expires: Date.now() + 3600000 });
-
-  return { url };
+  const resultado = { url, storage_path: storagePath };
+  await admin.firestore().runTransaction(async (tx) => {
+    tx.update(operacaoRef, { status: "CONCLUIDA", resultado, atualizado_em: admin.firestore.FieldValue.serverTimestamp() });
+    tx.update(auditoriaRef, { status_geracao: "CONCLUIDA", storage_path: storagePath });
+  });
+  return resultado;
 });
 
 // ============================================================================

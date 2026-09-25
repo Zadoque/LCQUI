@@ -38,8 +38,8 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
   const crypto = require("crypto");
   const { DateTime } = require("luxon");
   const { idOperacao, ...payloadRelevante } = dados;
-  const payloadString = JSON.stringify(payloadRelevante, Object.keys(payloadRelevante).sort());
-  const payloadHash = crypto.createHash("sha256").update(payloadString).digest("hex");
+  // M7: identidade e canonicalização únicas (Seção 7, Idempotência).
+  const payloadHash = hashPayload("CADASTRAR_FECHADO", payloadRelevante);
 
   const agora = new Date();
   const validadeFechadoStr = dados.validadeDesconhecida ? null : (dados.validadeFechado ?? null);
@@ -198,8 +198,8 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
   const crypto = require("crypto");
   const { DateTime } = require("luxon");
   const { idOperacao, ...payloadRelevante } = dados;
-  const payloadString = JSON.stringify(payloadRelevante, Object.keys(payloadRelevante).sort());
-  const payloadHash = crypto.createHash("sha256").update(payloadString).digest("hex");
+  // M7: identidade e canonicalização únicas (Seção 7, Idempotência).
+  const payloadHash = hashPayload("CADASTRAR_ABERTO", payloadRelevante);
 
   const agora = new Date();
   const validadeAbertoStr = dados.validadeDesconhecida ? null : (dados.validadeAberto ?? null);
@@ -347,6 +347,7 @@ function calcularValidadeEfetivaNaAbertura(frasco: any, dataAbertura: Date): Dat
 
 interface AberturaFrasco {
   idFrasco: string;
+  idOperacao: string;
   destinoSeVencerNaAbertura?: "QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL";
   detalheStatus?: string;
 }
@@ -354,9 +355,24 @@ interface AberturaFrasco {
 export const registrarAberturaFrasco = onCall(async (request) => {
   const dados = request.data as AberturaFrasco;
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  if (!dados.idOperacao) throw new HttpsError("invalid-argument", "idOperacao é obrigatório.");
 
   const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
   return admin.firestore().runTransaction(async (tx) => {
+    // M7: idempotência de comando (uid + tipo_operacao + payload_hash).
+    const tipoOperacao = "ABRIR_FRASCO";
+    const payloadHash = hashPayload(tipoOperacao, {
+      idFrasco: dados.idFrasco,
+      destinoSeVencerNaAbertura: dados.destinoSeVencerNaAbertura ?? null,
+      detalheStatus: dados.detalheStatus ?? null,
+    });
+    const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.idOperacao);
+    const opSnap = await tx.get(operacaoRef);
+    if (opSnap.exists) {
+      const op = opSnap.data()!;
+      if (op.uid === request.auth!.uid && op.tipo_operacao === tipoOperacao && op.payload_hash === payloadHash) return op.resultado;
+      throw new HttpsError("already-exists", "idOperacao reutilizada com ator, ação ou payload divergente.");
+    }
     const snap = await tx.get(frascoRef);
     if (!snap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     const frasco = snap.data()!;
@@ -408,7 +424,11 @@ export const registrarAberturaFrasco = onCall(async (request) => {
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    return { validadeEfetiva, venceu, destino: dados.destinoSeVencerNaAbertura ?? null };
+    const resultado = { validadeEfetiva, venceu, destino: dados.destinoSeVencerNaAbertura ?? null };
+    tx.set(operacaoRef, { tipo_operacao: tipoOperacao, uid: request.auth!.uid, payload_hash: payloadHash,
+      status: "CONCLUIDA", resultado, criado_em: admin.firestore.FieldValue.serverTimestamp(),
+      atualizado_em: admin.firestore.FieldValue.serverTimestamp() });
+    return resultado;
   });
 });
 
@@ -417,6 +437,7 @@ export const registrarAberturaFrasco = onCall(async (request) => {
 \begin{lstlisting}[language=TypeScript, title={Registrar Retirada (Empréstimo)}]
 interface RetiradaFrasco {
   idFrasco: string;
+  idOperacao: string;
   idUsuarioRetirou: string;
   idLocalUsado: string;
   pesoSaida: number;
@@ -432,6 +453,7 @@ interface RetiradaFrasco {
 export const registrarRetirada = onCall(async (request) => {
   const dados = request.data as RetiradaFrasco;
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
+  if (!dados.idOperacao) throw new HttpsError("invalid-argument", "idOperacao é obrigatório.");
 
   // M-05: verificar conta ativa do tomador (Professor ou Bolsista)
   // Custom Claims não estão disponíveis para terceiros; leitura Firestore necessária (1 ou 2 leituras).
@@ -451,6 +473,22 @@ export const registrarRetirada = onCall(async (request) => {
   const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
 
   return admin.firestore().runTransaction(async (tx) => {
+    // M7: idempotência de comando (uid + tipo_operacao + payload_hash).
+    const tipoOperacao = "REGISTRAR_RETIRADA";
+    const payloadHash = hashPayload(tipoOperacao, {
+      idFrasco: dados.idFrasco, idUsuarioRetirou: dados.idUsuarioRetirou, idLocalUsado: dados.idLocalUsado,
+      pesoSaida: dados.pesoSaida, dataDevolucaoPrevista: dados.dataDevolucaoPrevista,
+      confirmarUsoVencido: dados.confirmarUsoVencido ?? false, abrirNoEmprestimo: dados.abrirNoEmprestimo ?? false,
+      finalidadeUso: dados.finalidadeUso, justificativaMetodologica: dados.justificativaMetodologica ?? null,
+      idAceiteTcr: dados.idAceiteTcr ?? null, justificativaAutoAtendimento: dados.justificativaAutoAtendimento ?? null,
+    });
+    const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.idOperacao);
+    const opSnap = await tx.get(operacaoRef);
+    if (opSnap.exists) {
+      const op = opSnap.data()!;
+      if (op.uid === request.auth!.uid && op.tipo_operacao === tipoOperacao && op.payload_hash === payloadHash) return op.resultado;
+      throw new HttpsError("already-exists", "idOperacao reutilizada com ator, ação ou payload divergente.");
+    }
     const frascoSnap = await tx.get(frascoRef);
     if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     const frasco = frascoSnap.data()!;
@@ -552,7 +590,11 @@ export const registrarRetirada = onCall(async (request) => {
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    return { idEmprestimo: emprestimoRef.id };
+    const resultado = { idEmprestimo: emprestimoRef.id };
+    tx.set(operacaoRef, { tipo_operacao: tipoOperacao, uid: request.auth!.uid, payload_hash: payloadHash,
+      status: "CONCLUIDA", resultado, criado_em: admin.firestore.FieldValue.serverTimestamp(),
+      atualizado_em: admin.firestore.FieldValue.serverTimestamp() });
+    return resultado;
   });
 });
 \end{lstlisting}
@@ -564,6 +606,7 @@ A devolução \textbf{não} recalcula o vencimento a partir de \texttt{validade\
 \begin{lstlisting}[language=TypeScript, title={Registrar Devolução com atualização física e histórico completo}]
 interface DevolucaoFrasco {
   idEmprestimo: string;
+  idOperacao: string;
   pesoRetorno: number;
   pesoPerdaEvaporacao?: number;
   // "O frasco ficou vazio nesta devolução?" - autoridade do gestor, válida para
@@ -576,10 +619,27 @@ interface DevolucaoFrasco {
 export const registrarDevolucao = onCall(async (request) => {
   const dados = request.data as DevolucaoFrasco;
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
+  if (!dados.idOperacao) throw new HttpsError("invalid-argument", "idOperacao é obrigatório.");
 
   const emprestimoRef = admin.firestore().collection("Emprestimo_Reagente").doc(dados.idEmprestimo);
 
   return admin.firestore().runTransaction(async (tx) => {
+    // M7: idempotência de comando (uid + tipo_operacao + payload_hash).
+    const tipoOperacao = "REGISTRAR_DEVOLUCAO";
+    const payloadHash = hashPayload(tipoOperacao, {
+      idEmprestimo: dados.idEmprestimo, pesoRetorno: dados.pesoRetorno,
+      pesoPerdaEvaporacao: dados.pesoPerdaEvaporacao ?? 0,
+      confirmarEsgotamento: dados.confirmarEsgotamento ?? false,
+      idUsuarioDevolveu: dados.idUsuarioDevolveu,
+      destinoPosDevolucao: dados.destinoPosDevolucao ?? null,
+    });
+    const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.idOperacao);
+    const opSnap = await tx.get(operacaoRef);
+    if (opSnap.exists) {
+      const op = opSnap.data()!;
+      if (op.uid === request.auth!.uid && op.tipo_operacao === tipoOperacao && op.payload_hash === payloadHash) return op.resultado;
+      throw new HttpsError("already-exists", "idOperacao reutilizada com ator, ação ou payload divergente.");
+    }
     const emprestimoSnap = await tx.get(emprestimoRef);
     if (!emprestimoSnap.exists) throw new HttpsError("not-found", "Empréstimo não encontrado.");
     const emprestimo = emprestimoSnap.data()!;
@@ -822,11 +882,15 @@ export const registrarDevolucao = onCall(async (request) => {
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    return { pesoConsumido: reterPorAnomalia ? null : pesoConsumido,
+    const resultado = { pesoConsumido: reterPorAnomalia ? null : pesoConsumido,
       volumeUtilizado: reterPorAnomalia ? null : volumeUtilizado,
       consumoPendente: reterPorAnomalia, atrasado, frascoVencido,
       classificacao, mensagemRetorno, precisaDestino,
            avisoHigroscopico: avisoHigroscopico || false };
+    tx.set(operacaoRef, { tipo_operacao: tipoOperacao, uid: request.auth!.uid, payload_hash: payloadHash,
+      status: "CONCLUIDA", resultado, criado_em: admin.firestore.FieldValue.serverTimestamp(),
+      atualizado_em: admin.firestore.FieldValue.serverTimestamp() });
+    return resultado;
   });
 });
 \end{lstlisting}
@@ -863,21 +927,20 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
   const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.id_operacao);
 
   return admin.firestore().runTransaction(async (tx) => {
-    const crypto = require("crypto");
+    const tipoOperacao = dados.acao; // "EXTRAVIAR" | "REENCONTRAR"
     const payloadRelevante = dados.acao === "EXTRAVIAR"
-      ? { acao: dados.acao, idFrasco: dados.idFrasco, motivo: dados.motivo }
-      : { acao: dados.acao, idFrasco: dados.idFrasco, motivo: dados.motivo, estadoConstatadoAoReencontrar: dados.estadoConstatadoAoReencontrar };
-    const payloadStr = JSON.stringify(payloadRelevante, Object.keys(payloadRelevante).sort());
-    const payloadHash = crypto.createHash("sha256").update(payloadStr).digest("hex");
+      ? { idFrasco: dados.idFrasco, motivo: dados.motivo }
+      : { idFrasco: dados.idFrasco, motivo: dados.motivo, estadoConstatadoAoReencontrar: dados.estadoConstatadoAoReencontrar };
+    const payloadHash = hashPayload(tipoOperacao, payloadRelevante); // M7, Seção 7
 
-    // 1. ler registro de idempotência
+    // 1. ler registro de idempotência (identidade: uid + tipo_operacao + payload_hash)
     const opSnap = await tx.get(operacaoRef);
     if (opSnap.exists) {
       const op = opSnap.data()!;
-      if (op.uid === request.auth!.uid && op.payload_hash === payloadHash) {
+      if (op.uid === request.auth!.uid && op.tipo_operacao === tipoOperacao && op.payload_hash === payloadHash) {
         return op.resultado;
       }
-      throw new HttpsError("already-exists", "id_operacao duplicada: payload_hash ou ator divergente.");
+      throw new HttpsError("already-exists", "id_operacao reutilizada com ator, ação ou payload divergente.");
     }
 
     // 2. ler frasco
@@ -1019,7 +1082,7 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
     const resultado = { status: "OK" };
     // Grava operação para garantir idempotência
     tx.set(operacaoRef, {
-      tipo_operacao: dados.acao,
+      tipo_operacao: tipoOperacao,
       uid: request.auth!.uid,
       payload_hash: payloadHash,
       resultado: resultado,
@@ -1048,18 +1111,17 @@ export const recalibrarTaraFrascoEsgotado = onCall(async (request) => {
   const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.id_operacao);
 
   return admin.firestore().runTransaction(async (tx) => {
-    const crypto = require("crypto");
-    const payloadRelevante = { acao: "RECALIBRAR_TARA", id_frasco: dados.id_frasco, peso_vazio_real: dados.peso_vazio_real, motivo: dados.motivo };
-    const payloadStr = JSON.stringify(payloadRelevante, Object.keys(payloadRelevante).sort());
-    const payloadHash = crypto.createHash("sha256").update(payloadStr).digest("hex");
+    const tipoOperacao = "RECALIBRAR_TARA";
+    const payloadRelevante = { id_frasco: dados.id_frasco, peso_vazio_real: dados.peso_vazio_real, motivo: dados.motivo };
+    const payloadHash = hashPayload(tipoOperacao, payloadRelevante); // M7, Seção 7
 
     const opSnap = await tx.get(operacaoRef);
     if (opSnap.exists) {
       const op = opSnap.data()!;
-      if (op.uid === request.auth!.uid && op.payload_hash === payloadHash) {
+      if (op.uid === request.auth!.uid && op.tipo_operacao === tipoOperacao && op.payload_hash === payloadHash) {
         return op.resultado;
       }
-      throw new HttpsError("already-exists", "id_operacao duplicada: payload_hash ou ator divergente.");
+      throw new HttpsError("already-exists", "id_operacao reutilizada com ator, ação ou payload divergente.");
     }
 
     validarJustificativaHumana(dados.motivo);
@@ -1125,17 +1187,16 @@ export const descartarFrasco = onCall(async (request) => {
   const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.idOperacao);
 
   return admin.firestore().runTransaction(async (tx) => {
-    const crypto = require("crypto");
-    const payloadStr = JSON.stringify({ idFrasco: dados.idFrasco, motivo: dados.motivo });
-    const payloadHash = crypto.createHash("sha256").update(payloadStr).digest("hex");
+    const tipoOperacao = "DESCARTAR_FRASCO";
+    const payloadHash = hashPayload(tipoOperacao, { idFrasco: dados.idFrasco, motivo: dados.motivo }); // M7, Seção 7
 
     const opSnap = await tx.get(operacaoRef);
     if (opSnap.exists) {
       const op = opSnap.data()!;
-      if (op.uid === request.auth!.uid && op.payload_hash === payloadHash) {
+      if (op.uid === request.auth!.uid && op.tipo_operacao === tipoOperacao && op.payload_hash === payloadHash) {
         return op.resultado;
       }
-      throw new HttpsError("already-exists", "idOperacao duplicada ou ator divergente.");
+      throw new HttpsError("already-exists", "idOperacao reutilizada com ator, ação ou payload divergente.");
     }
 
     const frascoSnap = await tx.get(frascoRef);
@@ -1221,16 +1282,15 @@ export const colocarFrascoEmQuarentena = onCall(async (request) => {
   const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.idOperacao);
 
   return admin.firestore().runTransaction(async (tx) => {
-    const crypto = require("crypto");
-    const payloadStr = JSON.stringify({ idFrasco: dados.idFrasco, motivo: dados.motivo });
-    const payloadHash = crypto.createHash("sha256").update(payloadStr).digest("hex");
+    const tipoOperacao = "COLOCAR_EM_QUARENTENA";
+    const payloadHash = hashPayload(tipoOperacao, { idFrasco: dados.idFrasco, motivo: dados.motivo }); // M7, Seção 7
 
     // Idempotência
     const opSnap = await tx.get(operacaoRef);
     if (opSnap.exists) {
       const op = opSnap.data()!;
-      if (op.uid === request.auth!.uid && op.payload_hash === payloadHash) return op.resultado;
-      throw new HttpsError("already-exists", "idOperacao duplicada ou ator divergente.");
+      if (op.uid === request.auth!.uid && op.tipo_operacao === tipoOperacao && op.payload_hash === payloadHash) return op.resultado;
+      throw new HttpsError("already-exists", "idOperacao reutilizada com ator, ação ou payload divergente.");
     }
 
     validarJustificativaHumana(dados.motivo);
@@ -1295,15 +1355,14 @@ export const resolverQuarentenaFrasco = onCall(async (request) => {
   const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.idOperacao);
 
   return admin.firestore().runTransaction(async (tx) => {
-    const crypto = require("crypto");
-    const payloadStr = JSON.stringify({ idFrasco: dados.idFrasco, decisao: dados.decisao, motivo: dados.motivo });
-    const payloadHash = crypto.createHash("sha256").update(payloadStr).digest("hex");
+    const tipoOperacao = "RESOLVER_QUARENTENA";
+    const payloadHash = hashPayload(tipoOperacao, { idFrasco: dados.idFrasco, decisao: dados.decisao, motivo: dados.motivo }); // M7, Seção 7
 
     const opSnap = await tx.get(operacaoRef);
     if (opSnap.exists) {
       const op = opSnap.data()!;
-      if (op.uid === request.auth!.uid && op.payload_hash === payloadHash) return op.resultado;
-      throw new HttpsError("already-exists", "idOperacao duplicada ou ator divergente.");
+      if (op.uid === request.auth!.uid && op.tipo_operacao === tipoOperacao && op.payload_hash === payloadHash) return op.resultado;
+      throw new HttpsError("already-exists", "idOperacao reutilizada com ator, ação ou payload divergente.");
     }
 
     validarJustificativaHumana(dados.motivo);
@@ -1405,18 +1464,17 @@ export const corrigirOperacao = onCall(async (request) => {
   const originalRef = admin.firestore().collection("Operacoes").doc(dados.idOperacaoCorrigida);
 
   return admin.firestore().runTransaction(async (tx) => {
-    const crypto = require("crypto");
-    const payloadStr = JSON.stringify({
+    const tipoOperacao = "CORRIGIR_OPERACAO";
+    const payloadHash = hashPayload(tipoOperacao, {
       idOperacaoCorrigida: dados.idOperacaoCorrigida, tipoCorrecao: dados.tipoCorrecao,
       idUsuarioRetirouCorreto: dados.idUsuarioRetirouCorreto, motivo: dados.motivo,
-    });
-    const payloadHash = crypto.createHash("sha256").update(payloadStr).digest("hex");
+    }); // M7, Seção 7
 
     const opSnap = await tx.get(operacaoRef);
     if (opSnap.exists) {
       const op = opSnap.data()!;
-      if (op.uid === request.auth!.uid && op.payload_hash === payloadHash) return op.resultado;
-      throw new HttpsError("already-exists", "idOperacao duplicada ou ator divergente.");
+      if (op.uid === request.auth!.uid && op.tipo_operacao === tipoOperacao && op.payload_hash === payloadHash) return op.resultado;
+      throw new HttpsError("already-exists", "idOperacao reutilizada com ator, ação ou payload divergente.");
     }
 
     validarJustificativaHumana(dados.motivo);
@@ -1560,7 +1618,18 @@ export const repetirPesagemDevolucaoAnomala = onCall(async (request) => {
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
   if (!dados.idOperacao) throw new HttpsError("invalid-argument", "idOperacao e obrigatorio.");
   return admin.firestore().runTransaction(async (tx) => {
-    // Idempotencia por Operacoes + payload_hash (padrao da secao).
+    // M7: idempotência de comando (identidade: uid + tipo_operacao + payload_hash).
+    const tipoOperacao = "REPETIR_PESAGEM_ANOMALA";
+    const payloadHash = hashPayload(tipoOperacao, {
+      idEmprestimo: dados.idEmprestimo, pesoNovaMedicao: dados.pesoNovaMedicao, motivo: dados.motivo,
+    });
+    const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.idOperacao);
+    const opSnap = await tx.get(operacaoRef);
+    if (opSnap.exists) {
+      const op = opSnap.data()!;
+      if (op.uid === request.auth!.uid && op.tipo_operacao === tipoOperacao && op.payload_hash === payloadHash) return op.resultado;
+      throw new HttpsError("already-exists", "idOperacao reutilizada com ator, ação ou payload divergente.");
+    }
     const emprestimoRef = admin.firestore().collection("Emprestimo_Reagente").doc(dados.idEmprestimo);
     const emprestimo = (await tx.get(emprestimoRef)).data();
     if (!emprestimo) throw new HttpsError("not-found", "Emprestimo nao encontrado.");
@@ -1572,7 +1641,11 @@ export const repetirPesagemDevolucaoAnomala = onCall(async (request) => {
     validarJustificativaHumana(dados.motivo);
     if (await houveMovimentacaoFisicaPosteriorTx(tx, emprestimo.id_frasco_reagente, emprestimo.data_devolucao_efetuada)) {
       registrarObservacaoSemValidarTx(tx, emprestimoRef, dados);
-      return { status: "PENDENTE_SEM_EVIDENCIA_SUFICIENTE" };
+      const resultado = { status: "PENDENTE_SEM_EVIDENCIA_SUFICIENTE" };
+      tx.set(operacaoRef, { tipo_operacao: tipoOperacao, uid: request.auth!.uid, payload_hash: payloadHash,
+        status: "CONCLUIDA", resultado, criado_em: admin.firestore.FieldValue.serverTimestamp(),
+        atualizado_em: admin.firestore.FieldValue.serverTimestamp() });
+      return resultado;
     }
     const efetiva = dados.pesoNovaMedicao;
     const densidade = emprestimo.densidade_aplicada; // snapshot historico
@@ -1586,7 +1659,11 @@ export const repetirPesagemDevolucaoAnomala = onCall(async (request) => {
     finalizarPendenciaMetrologicaTx(tx, emprestimoRef, emprestimo, {
       pesoRetornoEfetivo: efetiva, medidaUtilizada, motivo: dados.motivo,
     });
-    return { status: "OK" };
+    const resultado = { status: "OK" };
+    tx.set(operacaoRef, { tipo_operacao: tipoOperacao, uid: request.auth!.uid, payload_hash: payloadHash,
+      status: "CONCLUIDA", resultado, criado_em: admin.firestore.FieldValue.serverTimestamp(),
+      atualizado_em: admin.firestore.FieldValue.serverTimestamp() });
+    return resultado;
   });
 });
 
@@ -1598,6 +1675,18 @@ export const confirmarEsgotamentoAposInspecao = onCall(async (request) => {
   await validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"], true);
   if (!dados.idOperacao) throw new HttpsError("invalid-argument", "idOperacao e obrigatorio.");
   return admin.firestore().runTransaction(async (tx) => {
+    // M7: idempotência de comando (identidade: uid + tipo_operacao + payload_hash).
+    const tipoOperacao = "CONFIRMAR_ESGOTAMENTO_INSPECAO";
+    const payloadHash = hashPayload(tipoOperacao, {
+      idEmprestimo: dados.idEmprestimo, pesoVazioRealMedido: dados.pesoVazioRealMedido, motivo: dados.motivo,
+    });
+    const operacaoRef = admin.firestore().collection("Operacoes").doc(dados.idOperacao);
+    const opSnap = await tx.get(operacaoRef);
+    if (opSnap.exists) {
+      const op = opSnap.data()!;
+      if (op.uid === request.auth!.uid && op.tipo_operacao === tipoOperacao && op.payload_hash === payloadHash) return op.resultado;
+      throw new HttpsError("already-exists", "idOperacao reutilizada com ator, ação ou payload divergente.");
+    }
     const emprestimoRef = admin.firestore().collection("Emprestimo_Reagente").doc(dados.idEmprestimo);
     const emprestimo = (await tx.get(emprestimoRef)).data();
     if (!emprestimo) throw new HttpsError("not-found", "Emprestimo nao encontrado.");
@@ -1639,7 +1728,11 @@ export const confirmarEsgotamentoAposInspecao = onCall(async (request) => {
     }
     // Confirmar vazio so valida consumo com evidencia suficiente do retorno.
     if (await houveMovimentacaoFisicaPosteriorTx(tx, emprestimo.id_frasco_reagente, emprestimo.data_devolucao_efetuada)) {
-      return { status: "VAZIO_REGISTRADO_PENDENCIA_MANTIDA" };
+      const resultado = { status: "VAZIO_REGISTRADO_PENDENCIA_MANTIDA" };
+      tx.set(operacaoRef, { tipo_operacao: tipoOperacao, uid: request.auth!.uid, payload_hash: payloadHash,
+        status: "CONCLUIDA", resultado, criado_em: admin.firestore.FieldValue.serverTimestamp(),
+        atualizado_em: admin.firestore.FieldValue.serverTimestamp() });
+      return resultado;
     }
     // Consumo efetivo: perda bruta pela tara medida menos evaporacao declarada,
     // revalidando a constraint M6 (evaporacao <= perda bruta) sem clamp.
@@ -1655,7 +1748,11 @@ export const confirmarEsgotamentoAposInspecao = onCall(async (request) => {
       medidaUtilizada: medidaEfetiva, motivo: dados.motivo,
     });
     // NAO limpar quarentena automaticamente: o gestor usa resolverQuarentenaFrasco.
-    return { status: "OK" };
+    const resultado = { status: "OK" };
+    tx.set(operacaoRef, { tipo_operacao: tipoOperacao, uid: request.auth!.uid, payload_hash: payloadHash,
+      status: "CONCLUIDA", resultado, criado_em: admin.firestore.FieldValue.serverTimestamp(),
+      atualizado_em: admin.firestore.FieldValue.serverTimestamp() });
+    return resultado;
   });
 });
 \end{lstlisting}

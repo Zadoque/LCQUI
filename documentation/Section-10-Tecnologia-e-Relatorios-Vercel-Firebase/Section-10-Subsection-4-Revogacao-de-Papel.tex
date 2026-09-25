@@ -227,13 +227,16 @@ export const desvincularGestorAlmoxarifado = onCall(async (request) => {
   const vinculoRef = db.collection("Gestor_Almoxarifado_x_Almoxarifado").doc(vínculoId);
   const almoxRef = db.collection("Almoxarifado").doc(dados.idAlmoxarifado);
   const operacaoRef = db.collection("Operacoes").doc(dados.idOperacao);
+  // M7: identidade de comando = uid + tipo_operacao + payload_hash.
+  const tipoOperacao = "DESVINCULAR_GESTOR_ALMOXARIFADO";
+  const payloadHash = hashPayload(tipoOperacao, { uidGestor: dados.uidGestor, idAlmoxarifado: dados.idAlmoxarifado });
 
   return db.runTransaction(async (tx) => {
     const operacao = await tx.get(operacaoRef);
     if (operacao.exists) {
       const op = operacao.data()!;
-      if (op.uid === request.auth!.uid) return op.resultado; // idempotente
-      throw new HttpsError("already-exists", "idOperacao duplicada ou ator divergente.");
+      if (op.uid === request.auth!.uid && op.tipo_operacao === tipoOperacao && op.payload_hash === payloadHash) return op.resultado;
+      throw new HttpsError("already-exists", "idOperacao reutilizada com ator, ação ou payload divergente.");
     }
     // Leitura transacional do Almoxarifado serializa remoções concorrentes.
     const [almoxSnap, vinculoSnap] = await tx.getAll(almoxRef, vinculoRef);
@@ -253,7 +256,7 @@ export const desvincularGestorAlmoxarifado = onCall(async (request) => {
     });
     const resultado = { status: "OK", uidGestor: dados.uidGestor };
     tx.set(operacaoRef, {
-      tipo_operacao: "DESVINCULAR_GESTOR_ALMOXARIFADO", uid: request.auth!.uid,
+      tipo_operacao: tipoOperacao, uid: request.auth!.uid, payload_hash: payloadHash,
       resultado, status: "CONCLUIDA",
       criado_em: admin.firestore.FieldValue.serverTimestamp(),
       atualizado_em: admin.firestore.FieldValue.serverTimestamp(),
