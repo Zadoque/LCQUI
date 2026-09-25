@@ -1,0 +1,8 @@
+{
+  "uid": "uid-x",
+  "operacao": "APAGAR_TUDO",
+  "recurso": "Interno",
+  "exige_vinculo": false,
+  "exige_ownership": false,
+  "permitido": true
+}
