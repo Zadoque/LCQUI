@@ -4,5 +4,6 @@
   "destinatario": "uid-aluno-1",
   "tipo": "POST",
   "contem_conteudo_protegido": true,
-  "payload_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  "payload_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "id_operacao": "op-1"
 }

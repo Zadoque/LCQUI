@@ -179,6 +179,7 @@ import "strings"
 	destinatario:              string & strings.MinRunes(1)
 	tipo:                      #M12_1TipoNotificacao
 	contem_conteudo_protegido: false
+	id_operacao:               string & strings.MinRunes(1)
 	payload_hash:              string & strings.MinRunes(1)
 }
 
