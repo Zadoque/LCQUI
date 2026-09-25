@@ -9,7 +9,7 @@ A modelagem da seção anterior é deliberadamente relacional e normalizada (3FN
 \textit{letra\_inicial} de \textit{Resumo\_Reagente} foi reintroduzido como
 denormalização para viabilizar um filtro de igualdade na antiga estratégia de
 busca no Firestore. A estratégia vigente de reagentes é a busca em memória sobre
-o catálogo JSON materializado (Seção~10.5): o catálogo inteiro é carregado no
+o catálogo JSON materializado (Seção~\ref{sec:catalogo-json-reagentes}): o catálogo inteiro é carregado no
 cliente e filtrado localmente, sem consulta Firestore por tecla e sem filtro
 prévio obrigatório. Portanto \textit{letra\_inicial} \textbf{não é requisito da
 busca atual} e não deve ser mantido apenas para viabilizá-la.
@@ -139,7 +139,7 @@ Requisicao\_Adicao\_Bem\_Patrimonial & Coleção raiz & Mesma lógica; query por
 Impressao\_Etiqueta\_Frasco & Coleção raiz & Refere-se a impressão em lote (virgens). Reimpressões avulsas de frascos já cadastrados usam o Registro de Auditoria.\\
 Contador\_Codigo\_Frasco & Documento singleton em \nolinkurl{Contador\_Codigo\_Frasco/singleton} & Sequenciador atômico operado via \texttt{runTransaction} para gerar o \texttt{LCQUI-X}.\\
 Substancia\_Quimica & Coleção raiz & Catálogo global; raramente alterado.\\
-Resumo\_Reagente & Coleção raiz. Denorm: \texttt{letra\_inicial} (legado) & Catálogo de reagentes; a busca vigente é em memória sobre o catálogo JSON (Seção~10.5) e não exige \texttt{letra\_inicial}. Campo mantido como legado; depreciação proposta em rodada formal própria.\\
+Resumo\_Reagente & Coleção raiz. Denorm: \texttt{letra\_inicial} (legado) & Catálogo de reagentes; a busca vigente é em memória sobre o catálogo JSON (Seção~\ref{sec:catalogo-json-reagentes}) e não exige \texttt{letra\_inicial}. Campo mantido como legado; depreciação proposta em rodada formal própria.\\
 Especificacao\_Reagente & Sub-coleção \nolinkurl{Resumo\_Reagente/\{id\}/Especificacoes} & Sempre acessada a partir do resumo; nunca consultada globalmente.\\
 Composicao\_Reagente & Array de maps embutido no documento de \texttt{Especificacao\_Reagente} & N pequeno e fixo (poucas substâncias por especificação); não cresce sem limite.\\
 Lote & Coleção raiz. Denorm: \texttt{id\_especificacao\_reagente}, \texttt{nome\_reagente} & Relatórios consultam todos os lotes de um período sem partir de uma especificação conhecida.\\
@@ -813,7 +813,7 @@ Caminho: \texttt{Atividade\_Gestor\_Bens\_Patrimoniais\_Mensal/\{id\}}.
 \item[Almoxarifado] \texttt{ativo} (boolean, O) e \texttt{qtd\_gestores\_ativos} (inteiro não negativo, O) são necessários à ativação e revogação concorrente. O contador é derivado dos vínculos; ativo exige contador positivo.
 \item[Turma] \texttt{qtd\_alunos} (inteiro não negativo, O) é contador transacional do vínculo ativo, não count lido fora da transação. \texttt{versao} (inteiro positivo, O) permite detectar edições concorrentes.
 \item[Espelho Aluno--Turma] \texttt{Usuarios/uid/Turmas/turmaId}: \texttt{id\_turma}, \texttt{id\_professor}, \texttt{id\_materia}, \texttt{nome\_turma}, \texttt{nome\_materia} (strings O), \texttt{ano}, \texttt{semestre} (inteiros O), \texttt{status} (enum O), \texttt{ingressou\_em} (Timestamp O). Todos derivados de Turma/Matéria ou evento de ingresso; não usar espelho desatualizado como autorização. Vínculo canônico em Turma/id/Alunos/uid contém \texttt{id\_aluno} (string O), \texttt{ingressou\_em} (Timestamp O); nome/foto para colegas são projeções mínimas, sem matrícula/e-mail.
-\item[Reagentes] O estado físico escalar e a higroscopicidade são canônicos no resumo. A descoberta e a listagem de Resumos e Especificações usam o catálogo JSON materializado (Seção~10.5): busca textual e filtros de catálogo ocorrem em memória sobre o catálogo inteiro, sem consulta Firestore por tecla e sem filtro prévio obrigatório. \texttt{letra\_inicial} é legado e não é requisito dessa busca. Especificação embute \texttt{composicao} (array de maps com os campos da composição; IDs de substâncias únicos). O resumo pai fornece seu ID; manter ID de resumo em Lote e Frasco para resolver o caminho completo da especificação.
+\item[Reagentes] O estado físico escalar e a higroscopicidade são canônicos no resumo. A descoberta e a listagem de Resumos e Especificações usam o catálogo JSON materializado (Seção~\ref{sec:catalogo-json-reagentes}): busca textual e filtros de catálogo ocorrem em memória sobre o catálogo inteiro, sem consulta Firestore por tecla e sem filtro prévio obrigatório. \texttt{letra\_inicial} é legado e não é requisito dessa busca. Especificação embute \texttt{composicao} (array de maps com os campos da composição; IDs de substâncias únicos). O resumo pai fornece seu ID; manter ID de resumo em Lote e Frasco para resolver o caminho completo da especificação.
 \item[Lote e Frasco] \texttt{id\_resumo\_reagente}, \texttt{id\_especificacao\_reagente}, \texttt{nome\_reagente} (strings O) são projeções servidor; em Frasco, especificação permanece resolvida mesmo com lote, como desnormalização deliberada. \texttt{unidade\_medida} (ml/g, O), \texttt{localizacao\_detalhada} (string até 500, N), \texttt{versao} (inteiro O), \texttt{ultima\_pesagem\_em} (Timestamp, N) e \texttt{condicao\_inicial\_cadastro} (FECHADO/JA\_ABERTO, O) sustentam UI-06. Não existem modalidades de cadastro de tara conhecida nem de estimativa de volume/massa: \texttt{condicao\_inicial\_cadastro} é fato \textbf{histórico imutável} que registra se o recipiente entrou fisicamente fechado (\texttt{FECHADO}) ou já aberto (\texttt{JA\_ABERTO}), sem definir saldo nem tara. Frasco \texttt{JA\_ABERTO} inicia sem tara e com saldo desconhecido; \texttt{FECHADO} inicia com saldo conhecido e eventual tara apenas derivada enquanto contém produto. \texttt{id\_emprestimo\_ativo} (string N) é ponteiro transacional, limpo no retorno. \texttt{id\_almoxarifado} é fonte da localização operacional, nunca aceito sem escopo.
 \item[Empréstimo] \texttt{id\_almoxarifado}, \texttt{id\_resumo\_reagente}, \texttt{id\_especificacao\_reagente} (strings O), \texttt{densidade\_aplicada} (number positiva C para líquido), \texttt{id\_gestor\_retirada} (string O), \texttt{id\_gestor\_devolucao} (string N até retorno). Snapshot químico da retirada preserva a memória de cálculo; não atualizar retroativamente. Retirante, devolvente e operador são papéis distintos.
 \item[Patrimônio] \texttt{nome\_equipamento}, \texttt{letra\_inicial\_nome}, \texttt{predio}, \texttt{andar}, \texttt{sala} (strings O) são projeções de Resumo/Local. \texttt{versao} (inteiro O) detecta conflitos. Histórico embute \texttt{alteracoes} (array de maps campo/valor anterior/novo, admitindo null para ausência) e snapshot do local quando necessário a relatório histórico; não propagar local atual sobre fatos passados.
@@ -843,18 +843,18 @@ As consultas UI exigem índices versionados em firestore.indexes.json: emprésti
 O Firestore não oferece busca por substring (sem \texttt{LIKE}, sem
 \texttt{icontains}). Por isso, a descoberta e a listagem de
 \textit{Resumo\_Reagente} e \textit{Especificacao\_Reagente} usam o catálogo JSON
-materializado descrito na Seção~10.5: \textbf{Firestore permanece a fonte
+materializado descrito na Seção~\ref{sec:catalogo-json-reagentes}: \textbf{Firestore permanece a fonte
 canônica}; o \textbf{catálogo JSON publicado é uma projeção autorizada} de
 busca/apresentação; o \textbf{cache local é descartável}. A busca textual e os
 filtros de catálogo ocorrem \textbf{em memória sobre o catálogo inteiro}, sem
 consulta Firestore por tecla e sem filtro prévio obrigatório. As estratégias de
 Bens Patrimoniais, Alunos, Professores e demais domínios são independentes e
 seguem as subseções seguintes; os modos exatos de busca por código (LCQUI-N, CAS,
-matrícula, plaqueta) e a política de fallback por ID permanecem os da Seção~10.5.
+matrícula, plaqueta) e a política de fallback por ID permanecem os da Seção~\ref{sec:catalogo-json-reagentes}.
 \end{explicacao}
 
 \subsubsection{Reagentes}
-A busca de reagentes é feita sobre o catálogo JSON materializado (Seção~10.5),
+A busca de reagentes é feita sobre o catálogo JSON materializado (Seção~\ref{sec:catalogo-json-reagentes}),
 carregado integralmente no cliente (ou servido do cache local quando a versão
 publicada não mudou). A pesquisa pode começar a partir do primeiro caractere,
 sem filtro prévio obrigatório e sem consulta Firestore por tecla; os filtros de
