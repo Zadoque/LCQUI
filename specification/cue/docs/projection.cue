@@ -221,7 +221,30 @@ ir: {
 			entidade: "M6_Metrologia"
 			etapa:    "formalização executável M6"
 			escopo:   "Contratos quantitativos locais; rotas e preservação histórica são verificadas em Alloy."
-			campos:   domain.#CamposM6
+			campos: [for c in domain.#CamposM6 {
+				{
+					nome:        c.nome
+					tipo:        c.tipo
+					obrigatorio: c.obrigatorio
+					nulo:        c.nulo
+					valores:     c.valores
+					observacao:  c.observacao
+					sql:         c.sql
+					if c.positivo {minimo_exclusivo: 0}
+					if c.sql == "NUMERIC(10,3)" {
+						if c.nao_negativo {minimo_numero: 0}
+						if !c.positivo && !c.nao_negativo {minimo_numero: c.minimo}
+						maximo_numero: c.maximo
+						multiplo:      c.multiplo
+					}
+					if c.sql == "NUMERIC(10,5)" {
+						if c.nao_negativo {minimo_numero: 0}
+						if !c.positivo && !c.nao_negativo {minimo_numero: c.minimo}
+						maximo_numero: c.maximo
+						multiplo:      c.multiplo
+					}
+				}
+			}]
 			exemplo: {peso_saida: 100, peso_retorno: 95, peso_retorno_efetivo: 95, peso_perda_evaporacao: 1, densidade_aplicada: 0.7893, origem_tara: "REFERENCIA_TEORICA", rota: "REPETIR_PESAGEM", consumo_validado: true}
 		},
 		{

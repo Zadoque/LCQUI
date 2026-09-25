@@ -1163,123 +1163,99 @@
             "escopo": "Contratos quantitativos locais; rotas e preservação histórica são verificadas em Alloy.",
             "campos": [
                 {
-                    "tipo": "number",
-                    "minimo": -9999999.999,
-                    "maximo": 9999999.999,
-                    "multiplo": 0.001,
                     "nome": "peso_saida",
+                    "tipo": "number",
                     "obrigatorio": true,
                     "nulo": false,
-                    "sql": "NUMERIC(10,3)",
                     "valores": [],
                     "observacao": "",
-                    "positivo": false,
-                    "nao_negativo": true,
-                    "max_caracteres": 0
+                    "sql": "NUMERIC(10,3)",
+                    "minimo_numero": 0,
+                    "maximo_numero": 9999999.999,
+                    "multiplo": 0.001
                 },
                 {
-                    "tipo": "number",
-                    "minimo": -9999999.999,
-                    "maximo": 9999999.999,
-                    "multiplo": 0.001,
                     "nome": "peso_retorno",
+                    "tipo": "number",
                     "obrigatorio": true,
                     "nulo": false,
-                    "sql": "NUMERIC(10,3)",
                     "valores": [],
                     "observacao": "",
-                    "positivo": false,
-                    "nao_negativo": true,
-                    "max_caracteres": 0
+                    "sql": "NUMERIC(10,3)",
+                    "minimo_numero": 0,
+                    "maximo_numero": 9999999.999,
+                    "multiplo": 0.001
                 },
                 {
-                    "tipo": "number",
-                    "minimo": -9999999.999,
-                    "maximo": 9999999.999,
-                    "multiplo": 0.001,
                     "nome": "peso_retorno_efetivo",
+                    "tipo": "number",
                     "obrigatorio": true,
                     "nulo": false,
-                    "sql": "NUMERIC(10,3)",
                     "valores": [],
                     "observacao": "",
-                    "positivo": false,
-                    "nao_negativo": true,
-                    "max_caracteres": 0
+                    "sql": "NUMERIC(10,3)",
+                    "minimo_numero": 0,
+                    "maximo_numero": 9999999.999,
+                    "multiplo": 0.001
                 },
                 {
-                    "tipo": "number",
-                    "minimo": -9999999.999,
-                    "maximo": 9999999.999,
-                    "multiplo": 0.001,
                     "nome": "peso_perda_evaporacao",
-                    "obrigatorio": true,
-                    "nulo": false,
-                    "sql": "NUMERIC(10,3)",
-                    "valores": [],
-                    "observacao": "",
-                    "positivo": false,
-                    "nao_negativo": true,
-                    "max_caracteres": 0
-                },
-                {
                     "tipo": "number",
-                    "minimo": -99999.99999,
-                    "maximo": 99999.99999,
-                    "multiplo": 0.00001,
-                    "nome": "densidade_aplicada",
                     "obrigatorio": true,
                     "nulo": false,
-                    "sql": "NUMERIC(10,5)",
                     "valores": [],
                     "observacao": "",
-                    "positivo": true,
-                    "nao_negativo": false,
-                    "max_caracteres": 0
+                    "sql": "NUMERIC(10,3)",
+                    "minimo_numero": 0,
+                    "maximo_numero": 9999999.999,
+                    "multiplo": 0.001
                 },
                 {
-                    "tipo": "enum",
-                    "nome": "origem_tara",
+                    "nome": "densidade_aplicada",
+                    "tipo": "number",
                     "obrigatorio": true,
                     "nulo": false,
-                    "sql": "ENUM",
+                    "valores": [],
+                    "observacao": "",
+                    "sql": "NUMERIC(10,5)",
+                    "minimo_exclusivo": 0,
+                    "maximo_numero": 99999.99999,
+                    "multiplo": 0.00001
+                },
+                {
+                    "nome": "origem_tara",
+                    "tipo": "enum",
+                    "obrigatorio": true,
+                    "nulo": false,
                     "valores": [
                         "NULL",
                         "REFERENCIA_TEORICA",
                         "MEDIDA_REAL"
                     ],
                     "observacao": "",
-                    "positivo": false,
-                    "nao_negativo": false,
-                    "max_caracteres": 0
+                    "sql": "ENUM"
                 },
                 {
-                    "tipo": "enum",
                     "nome": "rota",
+                    "tipo": "enum",
                     "obrigatorio": true,
                     "nulo": false,
-                    "sql": "ENUM",
                     "valores": [
                         "REPETIR_PESAGEM",
                         "CONFIRMAR_ESGOTAMENTO",
                         "RECALIBRAR_TARA"
                     ],
                     "observacao": "",
-                    "positivo": false,
-                    "nao_negativo": false,
-                    "max_caracteres": 0
+                    "sql": "ENUM"
                 },
                 {
-                    "tipo": "bool",
                     "nome": "consumo_validado",
+                    "tipo": "bool",
                     "obrigatorio": true,
                     "nulo": false,
-                    "sql": "BOOLEAN",
                     "valores": [],
                     "observacao": "",
-                    "positivo": false,
-                    "nao_negativo": false,
-                    "max_caracteres": 0
+                    "sql": "BOOLEAN"
                 }
             ],
             "exemplo": {
