@@ -462,6 +462,125 @@ O contrato global aplica-se às operações de M5 (extravio/reencontro/quarenten
 24. retry de correção administrativa & resultado original & contrato global \\
 \end{longtable}
 
+\subsubsection{Estoque atual, aptidão, escassez e notificações (M8)}
+\label{sec:m8-estoque-escassez-notificacoes}
+
+\begin{regra}[Estoque atual e resumos FLOW --- autoridades distintas]
+\textit{Frasco\_Reagente} é a única autoridade do \textbf{estoque atual}. Não existe materialized view persistente de estoque atual e nenhuma regra pode reconstruí-lo por encadeamento diário. É proibido qualquer cálculo do tipo $estoqueAtual = resumoDeOntem + movimentacoesDeHoje$, bem como ``posição de D depende da posição de D-1''. O estoque atual é sempre calculado diretamente sobre o estado canônico corrente.
+
+Os resumos \textit{Resumo\_Almoxarifado\_Diario} e \textit{Resumo\_Reagente\_Diario} são exclusivamente \textbf{projeções FLOW históricas}, derivadas, descartáveis e reconstruíveis a partir de \textit{Historico\_Frasco\_Reagente} e \textit{Emprestimo\_Reagente}. Não são autoridade do estoque atual e não voltam a receber campos STOCK (quantidades de frascos, massa ou volume ``no fim do dia''). Nenhuma leitura de estoque atual usa resumo diário como fonte e nenhuma correção exclusivamente histórica invalida cache de estoque atual se não alterar o estado corrente.
+\end{regra}
+
+\begin{regra}[Agregação protegida]
+A cadeia de agregação é: navegador $\rightarrow$ backend protegido $\rightarrow$ \texttt{count()}/\texttt{sum()} $\rightarrow$ \textit{Frasco\_Reagente}. O navegador não baixa frascos para contá-los, não executa a autoridade da agregação e não trata o catálogo JSON como autoridade operacional. Nenhum contador cadastral (por exemplo, o vínculo de lote) substitui o estoque atual.
+\end{regra}
+
+\begin{regra}[Saldos quantitativos server-owned]
+\texttt{saldo\_aferido\_g} e \texttt{saldo\_aferido\_ml} são campos derivados server-owned, recalculados na mesma transação das alterações de peso, tara ou conhecimento. Saldo desconhecido, metrologicamente inconsistente, ausente ou não mensurável é \texttt{NULL} e \textbf{nunca} é somado como zero conhecido; vazio explicitamente confirmado produz zero conhecido. A origem da tara permanece explícita e massa (g) e volume (mL) \textbf{nunca} são somados entre si.
+
+A dashboard de estoque distingue conceitualmente: quantidade de frascos; quantidade com saldo conhecido; quantidade com saldo desconhecido; massa conhecida (g); volume conhecido (mL). Um frasco extraviado, ainda que fisicamente \texttt{ABERTO}, não integra o saldo disponível.
+\end{regra}
+
+\begin{regra}[Predicado único de aptidão: \texttt{frascoAptoParaUso}]
+Existe uma única autoridade conceitual de aptidão, usada de forma mecanicamente coerente pela dashboard de estoque, pela escassez e pela retirada. Um frasco $f$ é \textbf{apto para uso} se, e somente se, todas as condições abaixo valem:
+\begin{itemize}
+    \item \texttt{situacao\_localizacao = LOCALIZADO};
+    \item \texttt{disponibilidade = DISPONIVEL};
+    \item \texttt{estado\_fisico\_frasco} $\in$ \{\texttt{FECHADO}, \texttt{ABERTO}\};
+    \item \texttt{em\_quarentena = false};
+    \item validade compatível: \texttt{vencido = false} \textbf{ou} \texttt{uso\_vencido\_autorizado = true};
+    \item ausência de pendência metrológica impeditiva (\texttt{existePendenciaMetrologicaTx(f) = false}) e ausência de qualquer bloqueio de M5/M6.
+\end{itemize}
+Consequências: \texttt{ABERTO + EXTRAVIADO} continua fisicamente aberto, mas \textbf{não é apto}; \texttt{QUEBRADO}, \texttt{VAZIO}, \texttt{DESCARTADO}, \texttt{EMPRESTADO} e \texttt{em\_quarentena} não são aptos; frasco vencido sem autorização não é apto. A retirada pode acrescentar pré-condições próprias (escopo, finalidade, aceite de uso vencido), mas \textbf{não} pode empregar uma noção diferente de aptidão. Um frasco extraviado nunca conta como apto, mesmo que a disponibilidade tenha sido alterada por engano.
+\end{regra}
+
+\begin{regra}[\texttt{qtdAptos}]
+Para o par formado por almoxarifado, resumo e especificação, \texttt{qtdAptos} é a contagem dos frascos de \textit{Frasco\_Reagente} cujo \texttt{id\_almoxarifado}, \texttt{id\_resumo\_reagente} e \texttt{id\_especificacao\_reagente} coincidem com o par e para os quais \texttt{frascoAptoParaUso(f)} é verdadeiro.
+\texttt{qtdAptos} é \textbf{número de frascos aptos}, não massa ou volume, e é a única base do critério institucional de escassez. Não confundir com o estoque quantitativo da dashboard (que soma massa/volume conhecidos) apenas porque ambos consultam \textit{Frasco\_Reagente}.
+\end{regra}
+
+\begin{regra}[Configuração canônica de escassez: \textit{Estoques\_Configurados}]
+A configuração corrente é \texttt{Almoxarifado/\{almoxId\}/Estoques\_Configurados/\{configId\}}, com chave determinística \texttt{\{id\_resumo\_reagente\}\_\{id\_especificacao\_reagente\}}. O documento contém \texttt{id\_resumo\_reagente}, \texttt{id\_especificacao\_reagente}, \texttt{id\_almoxarifado}, \texttt{qtd\_limiar\_escassez}, \texttt{ativo} e \texttt{notificacao\_ativa}. \texttt{qtd\_limiar\_escassez} é inteiro \textbf{não negativo} e mede quantidade de frascos; não é massa nem volume. A escolha entre limiar em frascos e limiar quantitativo em g/mL está decidida por \textbf{frascos} e não pode ser alterada silenciosamente.
+
+Semântica das flags:
+\begin{itemize}
+    \item \texttt{ativo = false}: o par não participa da avaliação automática de escassez.
+    \item \texttt{notificacao\_ativa = false}: a escassez pode continuar existindo conceitualmente, mas o job \textbf{não emite} alerta automático; silenciar não apaga a configuração, não altera o estoque e não deve ser exibido como inexistência de estoque.
+    \item \texttt{Almoxarifado.ativo = false}: o job não executa a avaliação automática para o almoxarifado; operações de encerramento ordenado continuam regidas pela subseção ``Almoxarifado inativo''.
+\end{itemize}
+\end{regra}
+
+\begin{regra}[Definição de escassez e fronteira]
+Há escassez para o par (almoxarifado, resumo, especificação) se, e somente se:
+\texttt{qtdAptos} $<$ \texttt{qtd\_limiar\_escassez}.
+A comparação é \textbf{estritamente menor}. Portanto \texttt{qtdAptos = qtdLimiar} \textbf{não} é escassez e \texttt{qtdAptos > qtdLimiar} também não. Casos de fronteira: limiar $0$ nunca gera escassez (não há \texttt{qtdAptos} $<$ 0); limiar 1 gera escassez exatamente quando há 0 frascos aptos; com 3 frascos aptos e limiar 3, não há escassez. A unidade é frascos aptos; o critério não é satisfeito por saldo g/mL.
+\end{regra}
+
+\begin{regra}[Backfill legado como pré-condição operacional]
+A escassez depende de \texttt{id\_resumo\_reagente} e \texttt{id\_especificacao\_reagente}. Frascos legados sem \texttt{id\_especificacao\_reagente} não podem ser ignorados em produção sem reconciliação, sob pena de falso alerta de escassez pela omissão de frascos aptos. Caso determinístico admite backfill legítimo (por exemplo, especificação determinada por lote conhecido); caso ambíguo é pendência manual de reconciliação e \textbf{nunca} se inventa uma especificação para satisfazer o schema. Especificar o job \textbf{não} significa que o backfill já foi executado nem que a cron está ativada: a cron de escassez só é operacional após a conclusão da reconciliação.
+\end{regra}
+
+\begin{regra}[Cache de dashboard não é autoridade da escassez]
+A dashboard de estoque pode usar \texttt{Sistema\_Cache\_Dashboard} com validade semântica de até $30$ segundos. O job de escassez \textbf{não} decide escassez a partir de \texttt{Sistema\_Cache\_Dashboard.resultado}: a autoridade da escassez é o estado canônico corrente de \textit{Frasco\_Reagente} consultado diretamente pelo job. Cache e escassez são contratos distintos.
+\end{regra}
+
+\begin{regra}[Notificações de escassez e idempotência]
+O tipo de notificação é \texttt{ESCASSEZ\_ESTOQUE}, persistido em \texttt{Usuarios/\{uid\}/Notificacoes/\{id\}}. Os campos pertinentes são \texttt{id\_destinatario}, \texttt{papel\_destinatario}, \texttt{tipo}, \texttt{entidade\_alvo}, \texttt{id\_alvo}, \texttt{quantidade}, \texttt{lida}, \texttt{emitida\_em} e \texttt{expira\_em}. Destinatários são \textbf{apenas} os gestores efetivamente vinculados ao almoxarifado (via \textit{Gestor\_Almoxarifado\_x\_Almoxarifado}); possuir o papel global de Gestor de Almoxarifado sem vínculo não faz o usuário receber o alerta. \texttt{expira\_em} é \texttt{NULL} para \texttt{ESCASSEZ\_ESTOQUE}, que é alerta operacional persistente.
+
+A idempotência segue o contrato global (Seção~\ref{sec:idempotencia-m7}) por \textbf{docId determinístico}, equivalente a \texttt{escassez\_\{almox\}\_\{config\}\_\{dataCivil\}}, criado com \texttt{create()} (ou mecanismo equivalente). É proibido usar \texttt{Date.now()}, UUID novo por execução ou \texttt{doc()} aleatório para alertas periódicos deduplicados. Reexecutar o job no mesmo dia é \textbf{no-op} para a chave já existente; somente \texttt{ALREADY\_EXISTS} (``code 6'') é tratado como duplicidade esperada e \textbf{erros de outra natureza não podem ser engolidos}: devem propagar para não perder alertas. Configuração no dia civil seguinte pode gerar nova notificação (a \textit{dataCivil} muda).
+
+A \textit{dataCivil} é derivada do fuso IANA \texttt{America/Sao\_Paulo}; não usar offset fixo \texttt{-03:00} nem \texttt{setHours} dependente do fuso do processo.
+\end{regra}
+
+\begin{regra}[Notificações: leitura, escrita e ``Limpar tudo'']
+O cliente lê apenas as próprias notificações; a escrita é server-owned. Marcar como lida é operação protegida de servidor. ``Limpar tudo'' \textbf{marca como lida} as notificações ativas do usuário, preservando o histórico; não é \texttt{DELETE} e não pode ser implementado por exclusão arbitrária. A taxonomia e o mecanismo de idempotência de \texttt{ESCASSEZ\_ESTOQUE} são compatíveis com os demais tipos já compartilhados (devolução preventiva, atraso, frascos vencidos, vazios, quebrados, em quarentena, a serem pesados e autoatendimento).
+\end{regra}
+
+\paragraph{Matriz de invalidação do estoque atual.}
+Legenda: \textbf{S} = sim; \textbf{N} = não; \textbf{S*} = sim somente quando a operação altera a contribuição corrente (saldo, disponibilidade, localização ou validade); \textbf{C} = condicional a contrato suportado. \texttt{Alm.} = escopo \texttt{ESTOQUE\_\_ALMOX} (mais o registro de geração do almoxarifado); \texttt{Alm+R} = escopo \texttt{ESTOQUE\_\_ALMOX\_\_RESUMO}. ``Orig.$\to$dest.'' identifica os almoxarifados cujas chaves são invalidadas quando há transferência.
+
+\setlength{\tabcolsep}{2pt}
+\footnotesize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.25\textwidth} >{\raggedright\arraybackslash}p{0.05\textwidth} >{\raggedright\arraybackslash}p{0.08\textwidth} >{\raggedright\arraybackslash}p{0.09\textwidth} >{\raggedright\arraybackslash}p{0.14\textwidth} >{\raggedright\arraybackslash}p{0.12\textwidth} >{\raggedright\arraybackslash}p{0.12\textwidth}}
+\toprule
+\textbf{Operação} & \textbf{Est.} & \textbf{Alm.} & \textbf{Alm+R} & \textbf{Orig.$\to$dest.} & \textbf{FLOW} & \textbf{Notif.} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Operação} & \textbf{Est.} & \textbf{Alm.} & \textbf{Alm+R} & \textbf{Orig.$\to$dest.} & \textbf{FLOW} & \textbf{Notif.} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Cadastro de frasco & S & S & S & --- & \texttt{CADASTRO} & N \\
+Abertura & S & S & S & --- & \texttt{ABERTURA} & N \\
+Retirada & S & S & S & --- & \texttt{SAIU}, empr. & N \\
+Devolução normal & S & S & S & --- & \texttt{ENTROU} & N \\
+Devolução anômala & S & S & S & --- & \texttt{ENTROU}, anom. & N \\
+Resolução metrológica & S* & S* & S* & --- & datas afetadas & N \\
+Esgotamento & S & S & S & --- & \texttt{FICOU\_VAZIO} & N \\
+Pesagem ordinária & S* & S* & S* & --- & \texttt{AJUSTE} & N \\
+Evaporação & S* & S* & S* & --- & \texttt{EVAPORACAO} & N \\
+Ajuste & S* & S* & S* & --- & \texttt{AJUSTE} & N \\
+Recalibração de tara & S & S & S & --- & \texttt{AJUSTE} & N \\
+Quebra & S & S & S & --- & \texttt{QUEBROU} & N \\
+Descarte & S & S & S & --- & \texttt{FOI\_DESCARTADO} & N \\
+Extravio & S & S & S & --- & \texttt{EXTRAVIO} & N \\
+Reencontro & S & S & S & --- & \texttt{REENCONTRO} & N \\
+Entrada em quarentena & S & S & S & --- & quarentena & N \\
+Saída de quarentena & S & S & S & --- & liberação & N \\
+Autorização/revogação de uso vencido & S & S & S & --- & evento & N \\
+Autorização de descarte & S & S & S & --- & \texttt{PENDENTE} & N \\
+Vencimento pelo job & S & S & S & --- & \texttt{VENCEU} & S \\
+Transferência/associação & C & C & C & origem e destino & conforme & N \\
+Correção só histórica & N & N & N & --- & reprocessa & N \\
+Job de escassez & N & N & N & --- & N & S \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+A invalidação é transacional com a mutação e \textbf{não} recalcula a agregação no commit. As notificações automáticas efetivamente especificadas na V1 para o escopo M8 são \texttt{FRASCOS\_VENCIDOS} (job de vencimento) e \texttt{ESCASSEZ\_ESTOQUE}; os demais tipos existem na taxonomia compartilhada, sem emissão automática redesenhada nesta rodada.
+
 \subsubsection{Condição inicial, saldo desconhecido e validade desconhecida}
 \begin{regra}
 \texttt{condicao\_inicial\_cadastro} é um fato histórico imutável do \textit{Frasco\_Reagente}, com enum \texttt{FECHADO} ou \texttt{JA\_ABERTO}: \texttt{FECHADO} indica que o recipiente entrou fisicamente fechado no controle do LCQUI; \texttt{JA\_ABERTO} indica que já estava aberto quando passou ao controle do LCQUI. Não se confunde com a modalidade de saldo desconhecido: \texttt{saldo\_desconhecido} é propriedade metrológica atual, enquanto \texttt{condicao\_inicial\_cadastro} é fato histórico que não muda depois.

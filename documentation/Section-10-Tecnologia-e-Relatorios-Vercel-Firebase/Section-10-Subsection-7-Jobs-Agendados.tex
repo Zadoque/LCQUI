@@ -296,6 +296,10 @@ O job de escassez baseia a projeção de estoque nas chaves \texttt{id\_resumo\_
     \item Para legados ambíguos: isolar como pendência de reconciliação manual. \textbf{O sistema nunca deve inventar um \texttt{id\_especificacao\_reagente} para satisfazer o schema}.
     \item A ativação da \textit{cron} de escassez só deve ocorrer após a conclusão desta reconciliação, sob pena de gerar falsos alertas de escassez pela omissão de frascos aptos na query de contagem.
 \end{itemize}
+\textbf{Especificar este job não significa que o backfill foi executado nem que a \textit{cron} está ativada.} A existência do pseudocódigo e do contrato documental é independente da operação real: a cron só é operacional após a reconciliação e a ativação explícita.
+
+\paragraph{Semântica das configurações de escassez.}
+O job avalia apenas configurações com \texttt{ativo = true} e \texttt{notificacao\_ativa = true}; \texttt{ativo = false} não participa da avaliação e \texttt{notificacao\_ativa = false} mantém a configuração e o eventual estoque baixo, mas suprime a emissão automática do alerta (silenciamento, não inexistência). O job percorre somente \texttt{Almoxarifado.ativo = true}. A contagem de aptos usa o predicado único \texttt{frascoAptoParaUso} da Seção~\ref{sec:m8-estoque-escassez-notificacoes} e o estado canônico corrente, nunca o cache da dashboard. A notificação é emitida somente quando \texttt{qtdAptos < qtd\_limiar\_escassez} (comparação estritamente menor).
 
 \begin{lstlisting}[language=TypeScript, title={Escassez de Estoque Baseada em Configuração por Almoxarifado}]
 import { DateTime } from "luxon";
@@ -333,18 +337,30 @@ export const verificarEscassezDeEstoque = onSchedule({
       const config = configDoc.data();
       const qtdLimiar = config.qtd_limiar_escassez;
 
-      // 2. Conta saldo físico apto para retirada
-      const frascosAptosQuery = db.collection("Frasco_Reagente")
+      // 2. Conta frascos aptos pelo predicado unico frascoAptoParaUso
+      //    (Secao 7, M8). A autoridade e o estado canonico corrente de
+      //    Frasco_Reagente; o job NAO usa Sistema_Cache_Dashboard.
+      //    situacao_localizacao e dimensao ortogonal obrigatoria desde M5:
+      //    um frasco ABERTO+EXTRAVIADO nao pode contar como apto.
+      const frascosAptosBase = db.collection("Frasco_Reagente")
         .where("id_almoxarifado", "==", idAlmox)
         .where("id_resumo_reagente", "==", config.id_resumo_reagente)
         .where("id_especificacao_reagente", "==", config.id_especificacao_reagente)
+        .where("situacao_localizacao", "==", "LOCALIZADO")
         .where("disponibilidade", "==", "DISPONIVEL")
         .where("estado_fisico_frasco", "in", ["FECHADO", "ABERTO"])
-        .where("em_quarentena", "==", false)
-        .where("vencido", "==", false);
+        .where("em_quarentena", "==", false);
 
-      const aptosSnap = await frascosAptosQuery.count().get();
-      const qtdAptos = aptosSnap.data().count;
+      // Aptidao = nao vencidos + vencidos com uso explicitamente autorizado
+      // (validade compativel). Pendencia metrologica impeditiva mantem o frasco
+      // INDISPONIVEL e/ou em quarentena, portanto ja excluido
+      // pelo filtro acima; nenhum bloqueio M5/M6 pode inflar qtdAptos.
+      const [naoVencidos, vencidosAutorizados] = await Promise.all([
+        frascosAptosBase.where("vencido", "==", false).count().get(),
+        frascosAptosBase.where("vencido", "==", true)
+          .where("uso_vencido_autorizado", "==", true).count().get(),
+      ]);
+      const qtdAptos = naoVencidos.data().count + vencidosAutorizados.data().count;
 
       // 3. Emite notificação idempotente se o saldo for ESTRITAMENTE MENOR que o limiar
       if (qtdAptos < qtdLimiar) {
@@ -352,7 +368,7 @@ export const verificarEscassezDeEstoque = onSchedule({
           const notifId = `escassez_${idAlmox}_${configDoc.id}_${hojeISO}`;
           const notifRef = db.collection("Usuarios").doc(gestorId).collection("Notificacoes").doc(notifId);
 
-          // Idempotência via create() do BulkWriter. Se já existir para hoje, ignora sem falhar o job.
+          // Idempotencia via create() do BulkWriter. Repetir no mesmo dia e no-op.
           const prom = bw.create(notifRef, {
             id_destinatario: gestorId,
             papel_destinatario: "Gestor_Almoxarifado",
@@ -363,9 +379,10 @@ export const verificarEscassezDeEstoque = onSchedule({
             emitida_em: admin.firestore.FieldValue.serverTimestamp(),
             expira_em: null
           }).catch((err) => {
-            if (err.code !== 6) { // 6 = ALREADY_EXISTS
-              console.error(`Erro ao criar notificação ${notifId} para ${gestorId}:`, err);
-            }
+            // Somente a duplicidade esperada e no-op. Qualquer outro erro
+            // deve propagar: nao engolir falhas diferentes de ALREADY_EXISTS.
+            if (err.code === 6 || err.code === "ALREADY_EXISTS") return;
+            throw err;
           });
           promises.push(prom);
         }

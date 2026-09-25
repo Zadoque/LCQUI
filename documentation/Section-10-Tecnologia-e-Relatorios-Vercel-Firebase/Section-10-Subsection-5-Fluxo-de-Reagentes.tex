@@ -494,6 +494,12 @@ export const registrarRetirada = onCall(async (request) => {
     const frasco = frascoSnap.data()!;
 
     await validarGestorDoAlmoxarifadoTx(tx, request.auth!.uid, frasco.id_almoxarifado);
+    // Predicado unico de aptidao (Secao 7, M8): a localizacao e dimensao
+    // ortogonal obrigatoria desde M5. Um frasco ABERTO+EXTRAVIADO nao e apto
+    // mesmo que algum campo de disponibilidade esteja inconsistente.
+    if (frasco.situacao_localizacao !== "LOCALIZADO") {
+      throw new HttpsError("failed-precondition", "Frasco extraviado não está localizado para retirada.");
+    }
     if (frasco.disponibilidade !== "DISPONIVEL") {
       throw new HttpsError("failed-precondition", "Frasco não está disponível para retirada.");
     }

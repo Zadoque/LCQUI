@@ -313,7 +313,7 @@ A especificação referencia o resumo, fonte do estado físico; a unidade é der
 \begin{entidade}{Estoque\_Minimo\_Almoxarifado}
 \campo{id\_especificacao\_reagente}{INTEGER}{FK, PK, NOT NULL}
 \campo{id\_almoxarifado}{INTEGER}{FK, PK, NOT NULL}
-\campo{qtd\_limiar\_escassez}{INTEGER}{NOT NULL}
+\campo{qtd\_limiar\_escassez}{INTEGER}{CHECK (qtd\_limiar\_escassez >= 0), NOT NULL}
 \campo{ativo}{BOOLEAN}{DEFAULT TRUE, NOT NULL}
 \campo{notificacao\_ativa}{BOOLEAN}{DEFAULT TRUE, NOT NULL}
 \end{entidade}
@@ -322,6 +322,7 @@ A especificação referencia o resumo, fonte do estado físico; a unidade é der
 A entidade \textit{Estoque\_Minimo\_Almoxarifado} estabelece o limiar de escassez (em quantidade de frascos) de uma \textit{Especificacao\_Reagente} para um determinado \textit{Almoxarifado}. O par Especificação × Almoxarifado é a identidade unívoca da configuração. No Firestore, esta entidade é implementada como a subcoleção \texttt{Almoxarifado/\{id\}/Estoques\_Configurados/\{idResumo\_idEspec\}}.
 O campo \textit{ativo} indica que o par continua configurado ou intencionalmente estocado. 
 O campo \textit{notificacao\_ativa} indica que a emissão automática do alerta está habilitada (útil para silenciar alertas sem excluir a intenção de estocar a especificação).
+Há escassez para o par se, e somente se, \texttt{qtdAptos} $<$ \texttt{qtd\_limiar\_escassez}, onde \texttt{qtdAptos} é a quantidade de frascos aptos; a comparação é estritamente menor e nunca satisfeita por saldo em g/mL. A definição canônica de aptidão, as fronteiras e a semântica das flags estão na Seção~\ref{sec:m8-estoque-escassez-notificacoes}.
 \end{explicacao}
 
 \subsection{Lote}
