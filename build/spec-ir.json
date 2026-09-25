@@ -2123,6 +2123,248 @@
                 "descricao_complementar": null,
                 "versao": 1
             }
+        },
+        {
+            "arquivo": "formal_m11_turmas",
+            "entidade": "M11_Turma_Matricula_Convite",
+            "etapa": "formalização executável M11",
+            "escopo": "Shapes estruturais de turma, vínculo canônico Aluno--Turma, espelho mínimo de consulta, evento de inclusão/exclusão, convite de ingresso e chave determinística de pendência. CUE verifica campos, enums fechados, nulabilidade, condicionais (justificativa de exceção, autoria do aceite, modo de ingresso, contexto global) e limites locais; ingresso ordinário por vaga, exceção nominal acima da capacidade, proibição de editar capacidade abaixo da ocupação, unicidade concorrente de pendência, contador, remoção/reingresso, arquivamento somente leitura, idempotência M7 e composição M9 são verificados em Alloy; a canonicalização determinística da pendência (HMAC) e a proveniência por Rust. CUE não prova concorrência temporal.",
+            "campos": [
+                {
+                    "tipo": "string",
+                    "nome": "id_professor",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Professor dono da turma; verificado no servidor.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_materia",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Matéria existente referenciada; não é recriada.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "nome_turma",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Nome de apresentação; no máximo 100 caracteres.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "int",
+                    "nome": "ano",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "Ano letivo inteiro.",
+                    "positivo": true,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "int",
+                    "nome": "semestre",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "Exclusivamente 1 ou 2.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "int",
+                    "nome": "capacidade",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "Máximo ordinário; só edição abaixo da ocupação é proibida (HQ-M11-001 = A).",
+                    "positivo": true,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "codigo_turma",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Código único gerado no servidor, até 20 caracteres; reservado em Chaves_Unicas e não liberado ao arquivar.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "status_turma",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "Ativo",
+                        "Arquivada"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "int",
+                    "nome": "versao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "Detecta edição concorrente de metadados; inclusão/remoção de membro não incrementa.",
+                    "positivo": true,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "int",
+                    "nome": "qtd_alunos",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "nao_negativo": true,
+                    "observacao": "Contador transacional do vínculo ativo; pode exceder capacidade por exceção nominal válida.",
+                    "positivo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_aluno",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "UID do aluno no vínculo canônico.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_turma",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Turma do vínculo/convite; nulo identifica convite global.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "email",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "E-mail normalizado do convite; no máximo 150 caracteres.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "token_hash",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "SHA-256 do token aleatório de 32 bytes; nunca em claro.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "status_convite",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "pendente",
+                        "aceitado",
+                        "expirado"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "exceder_capacidade",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "Exceção nominal do professor dono; justificativa obrigatória.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "modo_ingresso",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "sql": "ENUM",
+                    "valores": [
+                        "CODIGO",
+                        "CONVITE"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "tipo_evento",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "inclusao_aluno",
+                        "exclusao_aluno"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "aceitado_por",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "UID do aluno que aceitou; preservado no histórico.",
+                    "positivo": false,
+                    "nao_negativo": false
+                }
+            ],
+            "exemplo": {
+                "id_professor": "prof-1",
+                "id_materia": "mat-1",
+                "nome_turma": "Química Orgânica I",
+                "ano": 2026,
+                "semestre": 2,
+                "capacidade": 30,
+                "codigo_turma": "ABC123",
+                "status": "Ativo",
+                "versao": 1,
+                "qtd_alunos": 0
+            }
         }
     ]
 }

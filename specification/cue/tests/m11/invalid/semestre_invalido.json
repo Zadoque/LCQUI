@@ -1,0 +1,14 @@
+{
+  "id": "turma-x",
+  "id_professor": "prof-1",
+  "id_materia": "mat-1",
+  "nome_turma": "Turma Inválida",
+  "ano": 2026,
+  "semestre": 3,
+  "capacidade": 10,
+  "codigo_turma": "SEM003",
+  "status": "Ativo",
+  "data_criacao": "2026-09-25T10:00:00Z",
+  "versao": 1,
+  "qtd_alunos": 0
+}

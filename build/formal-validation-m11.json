@@ -1,0 +1,360 @@
+{
+  "versao": 1,
+  "alloy": "6.2.0",
+  "solver": "sat4j",
+  "spec_ir_sha256": "2443afeb9697e217eeb78637301631d7e6319b17900f639cac6f4bf40b744c7d",
+  "model": "specification/alloy/operations/turmas_m11.als",
+  "model_sha256": "5837bcfd083ae1cec28047b5b5a64e0948e54da6c287807283c49dcda7f45783",
+  "resultados": [
+    {
+      "id": "M11-INV-001",
+      "assertion": "CodigoUnicoPorTurma",
+      "tipo": "check",
+      "scope": "check CodigoUnicoPorTurma for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-002",
+      "assertion": "CriarTurmaReservaCodigo",
+      "tipo": "check",
+      "scope": "check CriarTurmaReservaCodigo for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-003",
+      "assertion": "ArquivarPreservaMembros",
+      "tipo": "check",
+      "scope": "check ArquivarPreservaMembros for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-004",
+      "assertion": "ArquivarNaoLiberaCodigo",
+      "tipo": "check",
+      "scope": "check ArquivarNaoLiberaCodigo for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-005",
+      "assertion": "ArquivadaBloqueiaIngresso",
+      "tipo": "check",
+      "scope": "check ArquivadaBloqueiaIngresso for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-006",
+      "assertion": "ArquivadaBloqueiaAceite",
+      "tipo": "check",
+      "scope": "check ArquivadaBloqueiaAceite for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-007",
+      "assertion": "DesarquivarRestauraAtivo",
+      "tipo": "check",
+      "scope": "check DesarquivarRestauraAtivo for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-008",
+      "assertion": "IngressoOrdinarioExigeVaga",
+      "tipo": "check",
+      "scope": "check IngressoOrdinarioExigeVaga for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-009",
+      "assertion": "SemVagaNaoHaIngressoOrdinario",
+      "tipo": "check",
+      "scope": "check SemVagaNaoHaIngressoOrdinario for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-010",
+      "assertion": "ExcecaoExigeConviteJustificado",
+      "tipo": "check",
+      "scope": "check ExcecaoExigeConviteJustificado for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-011",
+      "assertion": "ExcecaoNaoEhBypassGenerico",
+      "tipo": "check",
+      "scope": "check ExcecaoNaoEhBypassGenerico for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-012",
+      "assertion": "EdicaoCapacidadeNaoAbaixoOcupacao",
+      "tipo": "check",
+      "scope": "check EdicaoCapacidadeNaoAbaixoOcupacao for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-013",
+      "assertion": "TransicoesPreservamContador",
+      "tipo": "check",
+      "scope": "check TransicoesPreservamContador for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-014",
+      "assertion": "RemocaoPreservaHistorico",
+      "tipo": "check",
+      "scope": "check RemocaoPreservaHistorico for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-015",
+      "assertion": "RemocaoBloqueiaCodigo",
+      "tipo": "check",
+      "scope": "check RemocaoBloqueiaCodigo for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-016",
+      "assertion": "RemocaoAtualizaEspelho",
+      "tipo": "check",
+      "scope": "check RemocaoAtualizaEspelho for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-017",
+      "assertion": "EspelhoNaoSobreviveRemocao",
+      "tipo": "check",
+      "scope": "check EspelhoNaoSobreviveRemocao for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-018",
+      "assertion": "EspelhoEhProjecao",
+      "tipo": "check",
+      "scope": "check EspelhoEhProjecao for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-019",
+      "assertion": "PendenciaUnicaPorEmailContexto",
+      "tipo": "check",
+      "scope": "check PendenciaUnicaPorEmailContexto for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-020",
+      "assertion": "AceitarTurmaCriaVinculo",
+      "tipo": "check",
+      "scope": "check AceitarTurmaCriaVinculo for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-021",
+      "assertion": "AceitarGlobalNaoMatricula",
+      "tipo": "check",
+      "scope": "check AceitarGlobalNaoMatricula for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-022",
+      "assertion": "AceitarConsomeUmaVez",
+      "tipo": "check",
+      "scope": "check AceitarConsomeUmaVez for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-023",
+      "assertion": "ExpiradoNaoOcupaPendencia",
+      "tipo": "check",
+      "scope": "check ExpiradoNaoOcupaPendencia for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-024",
+      "assertion": "NovoConvitePreservaHistorico",
+      "tipo": "check",
+      "scope": "check NovoConvitePreservaHistorico for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-025",
+      "assertion": "ReenvioMantemDocumento",
+      "tipo": "check",
+      "scope": "check ReenvioMantemDocumento for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-026",
+      "assertion": "PendenciaGlobalDistinta",
+      "tipo": "check",
+      "scope": "check PendenciaGlobalDistinta for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-027",
+      "assertion": "RevogacaoImpedeCommit",
+      "tipo": "check",
+      "scope": "check RevogacaoImpedeCommit for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-028",
+      "assertion": "OwnershipErradoNaoGerencia",
+      "tipo": "check",
+      "scope": "check OwnershipErradoNaoGerencia for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-029",
+      "assertion": "InativoNaoGerencia",
+      "tipo": "check",
+      "scope": "check InativoNaoGerencia for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-030",
+      "assertion": "UsuarioInativoNaoLeTurma",
+      "tipo": "check",
+      "scope": "check UsuarioInativoNaoLeTurma for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-031",
+      "assertion": "RetryNaoDuplicaFato",
+      "tipo": "check",
+      "scope": "check RetryNaoDuplicaFato for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-032",
+      "assertion": "ReusoIncompativelNaoHerda",
+      "tipo": "check",
+      "scope": "check ReusoIncompativelNaoHerda for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-INV-033",
+      "assertion": "TransicoesPreservamCoerencia",
+      "tipo": "check",
+      "scope": "check TransicoesPreservamCoerencia for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M11-WIT-034",
+      "assertion": "WitnessTurmaAtiva",
+      "tipo": "run",
+      "scope": "run WitnessTurmaAtiva for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M11-WIT-035",
+      "assertion": "WitnessCriarTurma",
+      "tipo": "run",
+      "scope": "run WitnessCriarTurma for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M11-WIT-036",
+      "assertion": "WitnessArquivarComMembros",
+      "tipo": "run",
+      "scope": "run WitnessArquivarComMembros for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M11-WIT-037",
+      "assertion": "WitnessDesarquivar",
+      "tipo": "run",
+      "scope": "run WitnessDesarquivar for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M11-WIT-038",
+      "assertion": "WitnessIngressoOrdinario",
+      "tipo": "run",
+      "scope": "run WitnessIngressoOrdinario for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M11-WIT-039",
+      "assertion": "WitnessExcecaoAcimaCapacidade",
+      "tipo": "run",
+      "scope": "run WitnessExcecaoAcimaCapacidade for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M11-WIT-040",
+      "assertion": "WitnessCorridaUltimaVaga",
+      "tipo": "run",
+      "scope": "run WitnessCorridaUltimaVaga for 8",
+      "status": "SAT"
+    },
+    {
+      "id": "M11-WIT-041",
+      "assertion": "WitnessRemocao",
+      "tipo": "run",
+      "scope": "run WitnessRemocao for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M11-WIT-042",
+      "assertion": "WitnessReingressoPorConvite",
+      "tipo": "run",
+      "scope": "run WitnessReingressoPorConvite for 8",
+      "status": "SAT"
+    },
+    {
+      "id": "M11-WIT-043",
+      "assertion": "WitnessConviteGlobal",
+      "tipo": "run",
+      "scope": "run WitnessConviteGlobal for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M11-WIT-044",
+      "assertion": "WitnessAceitarConviteTurma",
+      "tipo": "run",
+      "scope": "run WitnessAceitarConviteTurma for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M11-WIT-045",
+      "assertion": "WitnessReenvioPendente",
+      "tipo": "run",
+      "scope": "run WitnessReenvioPendente for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M11-WIT-046",
+      "assertion": "WitnessNovoConviteAposTerminalidade",
+      "tipo": "run",
+      "scope": "run WitnessNovoConviteAposTerminalidade for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M11-WIT-047",
+      "assertion": "WitnessExpiracao",
+      "tipo": "run",
+      "scope": "run WitnessExpiracao for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M11-WIT-048",
+      "assertion": "WitnessEspelhoProjecao",
+      "tipo": "run",
+      "scope": "run WitnessEspelhoProjecao for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M11-WIT-049",
+      "assertion": "WitnessRevogacaoImpedeCommit",
+      "tipo": "run",
+      "scope": "run WitnessRevogacaoImpedeCommit for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M11-WIT-050",
+      "assertion": "WitnessEdicaoCapacidadeValida",
+      "tipo": "run",
+      "scope": "run WitnessEdicaoCapacidadeValida for 6",
+      "status": "SAT"
+    }
+  ]
+}

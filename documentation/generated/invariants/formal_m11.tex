@@ -1,0 +1,56 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{Evidência formal M11 --- turma, matrícula e convite}
+CUE verifica shapes de turma, vínculo canônico Aluno--Turma, espelho mínimo de consulta, evento de inclusão/exclusão, convite e chave de pendência, com enums fechados, nulabilidade, condicionais (justificativa de exceção, autoria do aceite, modo de ingresso, contexto global) e limites locais. Alloy verifica a unicidade e a reserva permanente de codigo\_turma, o arquivamento e desarquivamento preservando ID/membros/código/histórico e bloqueando escrita acadêmica enquanto arquivada, o ingresso ordinário apenas com vaga estrita em turma Ativa, a exceção nominal válida que pode exceder a capacidade, a proibição de editar capacidade abaixo da ocupação (HQ-M11-001 = A), a coerência vínculo canônico--contador--espelho, a remoção e o reingresso por convite, a unicidade de pendência por (e-mail, contexto) com distinção GLOBAL/turma, expiração, reenvio, terminalidade e preservação de histórico, a idempotência M7 (retry não duplica; reuso incompatível não herda) e a composição M9 (revogação/ownership impedem commit tardio; espelho não autoriza). Rust valida proveniência, ordem exata do receipt e as regras determinísticas de capacidade/exceção e canonicalização de e-mail. A evidência não certifica Firebase, Auth, envio de e-mail, HMAC concreto, Firestore/Storage Rules, backend, índices nem concorrência sob carga.
+\begin{description}
+\item[M11-INV-001] CodigoUnicoPorTurma: UNSAT.\newline Escopo: \texttt{check CodigoUnicoPorTurma for 6}.
+\item[M11-INV-002] CriarTurmaReservaCodigo: UNSAT.\newline Escopo: \texttt{check CriarTurmaReservaCodigo for 6}.
+\item[M11-INV-003] ArquivarPreservaMembros: UNSAT.\newline Escopo: \texttt{check ArquivarPreservaMembros for 6}.
+\item[M11-INV-004] ArquivarNaoLiberaCodigo: UNSAT.\newline Escopo: \texttt{check ArquivarNaoLiberaCodigo for 6}.
+\item[M11-INV-005] ArquivadaBloqueiaIngresso: UNSAT.\newline Escopo: \texttt{check ArquivadaBloqueiaIngresso for 6}.
+\item[M11-INV-006] ArquivadaBloqueiaAceite: UNSAT.\newline Escopo: \texttt{check ArquivadaBloqueiaAceite for 6}.
+\item[M11-INV-007] DesarquivarRestauraAtivo: UNSAT.\newline Escopo: \texttt{check DesarquivarRestauraAtivo for 6}.
+\item[M11-INV-008] IngressoOrdinarioExigeVaga: UNSAT.\newline Escopo: \texttt{check IngressoOrdinarioExigeVaga for 6}.
+\item[M11-INV-009] SemVagaNaoHaIngressoOrdinario: UNSAT.\newline Escopo: \texttt{check SemVagaNaoHaIngressoOrdinario for 6}.
+\item[M11-INV-010] ExcecaoExigeConviteJustificado: UNSAT.\newline Escopo: \texttt{check ExcecaoExigeConviteJustificado for 6}.
+\item[M11-INV-011] ExcecaoNaoEhBypassGenerico: UNSAT.\newline Escopo: \texttt{check ExcecaoNaoEhBypassGenerico for 6}.
+\item[M11-INV-012] EdicaoCapacidadeNaoAbaixoOcupacao: UNSAT.\newline Escopo: \texttt{check EdicaoCapacidadeNaoAbaixoOcupacao for 6}.
+\item[M11-INV-013] TransicoesPreservamContador: UNSAT.\newline Escopo: \texttt{check TransicoesPreservamContador for 6}.
+\item[M11-INV-014] RemocaoPreservaHistorico: UNSAT.\newline Escopo: \texttt{check RemocaoPreservaHistorico for 6}.
+\item[M11-INV-015] RemocaoBloqueiaCodigo: UNSAT.\newline Escopo: \texttt{check RemocaoBloqueiaCodigo for 6}.
+\item[M11-INV-016] RemocaoAtualizaEspelho: UNSAT.\newline Escopo: \texttt{check RemocaoAtualizaEspelho for 6}.
+\item[M11-INV-017] EspelhoNaoSobreviveRemocao: UNSAT.\newline Escopo: \texttt{check EspelhoNaoSobreviveRemocao for 6}.
+\item[M11-INV-018] EspelhoEhProjecao: UNSAT.\newline Escopo: \texttt{check EspelhoEhProjecao for 6}.
+\item[M11-INV-019] PendenciaUnicaPorEmailContexto: UNSAT.\newline Escopo: \texttt{check PendenciaUnicaPorEmailContexto for 6}.
+\item[M11-INV-020] AceitarTurmaCriaVinculo: UNSAT.\newline Escopo: \texttt{check AceitarTurmaCriaVinculo for 6}.
+\item[M11-INV-021] AceitarGlobalNaoMatricula: UNSAT.\newline Escopo: \texttt{check AceitarGlobalNaoMatricula for 6}.
+\item[M11-INV-022] AceitarConsomeUmaVez: UNSAT.\newline Escopo: \texttt{check AceitarConsomeUmaVez for 6}.
+\item[M11-INV-023] ExpiradoNaoOcupaPendencia: UNSAT.\newline Escopo: \texttt{check ExpiradoNaoOcupaPendencia for 6}.
+\item[M11-INV-024] NovoConvitePreservaHistorico: UNSAT.\newline Escopo: \texttt{check NovoConvitePreservaHistorico for 6}.
+\item[M11-INV-025] ReenvioMantemDocumento: UNSAT.\newline Escopo: \texttt{check ReenvioMantemDocumento for 6}.
+\item[M11-INV-026] PendenciaGlobalDistinta: UNSAT.\newline Escopo: \texttt{check PendenciaGlobalDistinta for 6}.
+\item[M11-INV-027] RevogacaoImpedeCommit: UNSAT.\newline Escopo: \texttt{check RevogacaoImpedeCommit for 6}.
+\item[M11-INV-028] OwnershipErradoNaoGerencia: UNSAT.\newline Escopo: \texttt{check OwnershipErradoNaoGerencia for 6}.
+\item[M11-INV-029] InativoNaoGerencia: UNSAT.\newline Escopo: \texttt{check InativoNaoGerencia for 6}.
+\item[M11-INV-030] UsuarioInativoNaoLeTurma: UNSAT.\newline Escopo: \texttt{check UsuarioInativoNaoLeTurma for 6}.
+\item[M11-INV-031] RetryNaoDuplicaFato: UNSAT.\newline Escopo: \texttt{check RetryNaoDuplicaFato for 6}.
+\item[M11-INV-032] ReusoIncompativelNaoHerda: UNSAT.\newline Escopo: \texttt{check ReusoIncompativelNaoHerda for 6}.
+\item[M11-INV-033] TransicoesPreservamCoerencia: UNSAT.\newline Escopo: \texttt{check TransicoesPreservamCoerencia for 6}.
+\item[M11-WIT-034] WitnessTurmaAtiva: SAT.\newline Escopo: \texttt{run WitnessTurmaAtiva for 4}.
+\item[M11-WIT-035] WitnessCriarTurma: SAT.\newline Escopo: \texttt{run WitnessCriarTurma for 4}.
+\item[M11-WIT-036] WitnessArquivarComMembros: SAT.\newline Escopo: \texttt{run WitnessArquivarComMembros for 6}.
+\item[M11-WIT-037] WitnessDesarquivar: SAT.\newline Escopo: \texttt{run WitnessDesarquivar for 6}.
+\item[M11-WIT-038] WitnessIngressoOrdinario: SAT.\newline Escopo: \texttt{run WitnessIngressoOrdinario for 6}.
+\item[M11-WIT-039] WitnessExcecaoAcimaCapacidade: SAT.\newline Escopo: \texttt{run WitnessExcecaoAcimaCapacidade for 6}.
+\item[M11-WIT-040] WitnessCorridaUltimaVaga: SAT.\newline Escopo: \texttt{run WitnessCorridaUltimaVaga for 8}.
+\item[M11-WIT-041] WitnessRemocao: SAT.\newline Escopo: \texttt{run WitnessRemocao for 6}.
+\item[M11-WIT-042] WitnessReingressoPorConvite: SAT.\newline Escopo: \texttt{run WitnessReingressoPorConvite for 8}.
+\item[M11-WIT-043] WitnessConviteGlobal: SAT.\newline Escopo: \texttt{run WitnessConviteGlobal for 4}.
+\item[M11-WIT-044] WitnessAceitarConviteTurma: SAT.\newline Escopo: \texttt{run WitnessAceitarConviteTurma for 6}.
+\item[M11-WIT-045] WitnessReenvioPendente: SAT.\newline Escopo: \texttt{run WitnessReenvioPendente for 4}.
+\item[M11-WIT-046] WitnessNovoConviteAposTerminalidade: SAT.\newline Escopo: \texttt{run WitnessNovoConviteAposTerminalidade for 6}.
+\item[M11-WIT-047] WitnessExpiracao: SAT.\newline Escopo: \texttt{run WitnessExpiracao for 4}.
+\item[M11-WIT-048] WitnessEspelhoProjecao: SAT.\newline Escopo: \texttt{run WitnessEspelhoProjecao for 6}.
+\item[M11-WIT-049] WitnessRevogacaoImpedeCommit: SAT.\newline Escopo: \texttt{run WitnessRevogacaoImpedeCommit for 6}.
+\item[M11-WIT-050] WitnessEdicaoCapacidadeValida: SAT.\newline Escopo: \texttt{run WitnessEdicaoCapacidadeValida for 6}.
+\end{description}
+UNSAT para check indica ausência de contraexemplo no escopo declarado; SAT para run indica testemunha encontrada. A evidência não certifica a implementação Firebase/backend.

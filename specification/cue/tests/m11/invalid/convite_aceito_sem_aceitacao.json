@@ -1,0 +1,16 @@
+{
+  "id": "convite-x",
+  "id_turma": "turma-1",
+  "email": "aluno@uenf.br",
+  "convidado_em": "2026-09-25T10:00:00Z",
+  "status": "aceitado",
+  "expira_em": "2026-10-02T10:00:00Z",
+  "convidado_por": "prof-1",
+  "numero_matricula": null,
+  "token_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+  "ultimo_reenvio_por": null,
+  "exceder_capacidade": false,
+  "justificativa_excecao": null,
+  "aceitado_por": null,
+  "aceitado_em": null
+}

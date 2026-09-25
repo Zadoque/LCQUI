@@ -1,0 +1,16 @@
+{
+  "id": "convite-3",
+  "id_turma": "turma-3",
+  "email": "aluno3@uenf.br",
+  "convidado_em": "2026-09-20T10:00:00Z",
+  "status": "aceitado",
+  "expira_em": "2026-09-27T10:00:00Z",
+  "convidado_por": "prof-1",
+  "numero_matricula": "2026003",
+  "token_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+  "ultimo_reenvio_por": "prof-1",
+  "exceder_capacidade": true,
+  "justificativa_excecao": "Aluno de TCC exige acesso mesmo com turma lotada.",
+  "aceitado_por": "uid-aluno-3",
+  "aceitado_em": "2026-09-21T10:00:00Z"
+}

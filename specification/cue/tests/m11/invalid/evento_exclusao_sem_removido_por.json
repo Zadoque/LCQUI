@@ -1,0 +1,10 @@
+{
+  "id": "evento-x",
+  "id_turma": "turma-1",
+  "id_aluno": "uid-aluno-1",
+  "tipo": "exclusao_aluno",
+  "modo_ingresso": null,
+  "justificativa": null,
+  "timestamp": "2026-09-26T10:00:00Z",
+  "removido_por": null
+}

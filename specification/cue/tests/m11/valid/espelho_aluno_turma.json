@@ -1,0 +1,11 @@
+{
+  "id_turma": "turma-1",
+  "id_professor": "prof-1",
+  "id_materia": "mat-1",
+  "nome_turma": "Química Orgânica I",
+  "nome_materia": "Química Orgânica",
+  "ano": 2026,
+  "semestre": 2,
+  "status": "Ativo",
+  "ingressou_em": "2026-09-25T10:00:00Z"
+}

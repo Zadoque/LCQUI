@@ -1,0 +1,62 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{M11\_Turma\_Matricula\_Convite --- formalização executável M11}
+Shapes estruturais de turma, vínculo canônico Aluno--Turma, espelho mínimo de consulta, evento de inclusão/exclusão, convite de ingresso e chave determinística de pendência. CUE verifica campos, enums fechados, nulabilidade, condicionais (justificativa de exceção, autoria do aceite, modo de ingresso, contexto global) e limites locais; ingresso ordinário por vaga, exceção nominal acima da capacidade, proibição de editar capacidade abaixo da ocupação, unicidade concorrente de pendência, contador, remoção/reingresso, arquivamento somente leitura, idempotência M7 e composição M9 são verificados em Alloy; a canonicalização determinística da pendência (HMAC) e a proveniência por Rust. CUE não prova concorrência temporal.
+\begin{description}
+\item[id\_professor] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Professor dono da turma; verificado no servidor.
+\item[id\_materia] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Matéria existente referenciada; não é recriada.
+\item[nome\_turma] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Nome de apresentação; no máximo 100 caracteres.
+\item[ano] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+Ano letivo inteiro.
+\item[semestre] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+Exclusivamente 1 ou 2.
+\item[capacidade] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+Máximo ordinário; só edição abaixo da ocupação é proibida (HQ-M11-001 = A).
+\item[codigo\_turma] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Código único gerado no servidor, até 20 caracteres; reservado em Chaves\_Unicas e não liberado ao arquivar.
+\item[status\_turma] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: Ativo, Arquivada.
+\item[versao] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+Detecta edição concorrente de metadados; inclusão/remoção de membro não incrementa.
+\item[qtd\_alunos] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+Contador transacional do vínculo ativo; pode exceder capacidade por exceção nominal válida.
+\item[id\_aluno] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+UID do aluno no vínculo canônico.
+\item[id\_turma] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TEXT.
+Turma do vínculo/convite; nulo identifica convite global.
+\item[email] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+E-mail normalizado do convite; no máximo 150 caracteres.
+\item[token\_hash] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+SHA-256 do token aleatório de 32 bytes; nunca em claro.
+\item[status\_convite] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: pendente, aceitado, expirado.
+\item[exceder\_capacidade] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+Exceção nominal do professor dono; justificativa obrigatória.
+\item[modo\_ingresso] Tipo: enum. Obrigatório: sim. Aceita nulo: sim.
+SQL: ENUM.
+Valores: CODIGO, CONVITE.
+\item[tipo\_evento] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: inclusao\_aluno, exclusao\_aluno.
+\item[aceitado\_por] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TEXT.
+UID do aluno que aceitou; preservado no histórico.
+\end{description}

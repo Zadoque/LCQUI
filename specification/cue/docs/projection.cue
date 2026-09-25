@@ -279,5 +279,13 @@ ir: {
 			campos:   domain.#CamposM10
 			exemplo: {id_resumo_bem_patrimonial: "resumo-1", numero_patrimonio: "ABC-123", estado_conservacao: "BOM", id_local: "local-1", photo_url: "gs://lcqui/fotos/bem-1.jpg", documento_dado_baixa_pdf_url: null, nome_responsavel_sei: "Maria Silva", status: "Ativo", descricao_complementar: null, versao: 1}
 		},
+		{
+			arquivo:  "formal_m11_turmas"
+			entidade: "M11_Turma_Matricula_Convite"
+			etapa:    "formalização executável M11"
+			escopo:   "Shapes estruturais de turma, vínculo canônico Aluno--Turma, espelho mínimo de consulta, evento de inclusão/exclusão, convite de ingresso e chave determinística de pendência. CUE verifica campos, enums fechados, nulabilidade, condicionais (justificativa de exceção, autoria do aceite, modo de ingresso, contexto global) e limites locais; ingresso ordinário por vaga, exceção nominal acima da capacidade, proibição de editar capacidade abaixo da ocupação, unicidade concorrente de pendência, contador, remoção/reingresso, arquivamento somente leitura, idempotência M7 e composição M9 são verificados em Alloy; a canonicalização determinística da pendência (HMAC) e a proveniência por Rust. CUE não prova concorrência temporal."
+			campos:   domain.#CamposM11
+			exemplo: {id_professor: "prof-1", id_materia: "mat-1", nome_turma: "Química Orgânica I", ano: 2026, semestre: 2, capacidade: 30, codigo_turma: "ABC123", status: "Ativo", versao: 1, qtd_alunos: 0}
+		},
 	]
 }
