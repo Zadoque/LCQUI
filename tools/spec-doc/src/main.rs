@@ -11,6 +11,7 @@ mod validation;
 mod validation_m10;
 mod validation_m11;
 mod validation_m12_1;
+mod validation_m12_2;
 mod validation_m2;
 mod validation_m24;
 mod validation_m3;
@@ -122,6 +123,43 @@ fn m12_1_exemplo_valido(ir: &ir::Ir) -> bool {
     }
 }
 
+/// Invariante concreto de M12.2: o exemplo do IR deve respeitar o limite
+/// estrito de 15 MiB, o tipo PDF, a titularidade (owner_uid ==
+/// id_professor_upload), o status fechado e o limite de geração/nome. Liga os
+/// shapes CUE à proveniência gerada sem backend.
+fn m12_2_exemplo_valido(ir: &ir::Ir) -> bool {
+    let Some(entity) = ir
+        .entidades
+        .iter()
+        .find(|e| e.arquivo == "formal_m12_2_roteiros")
+    else {
+        return false;
+    };
+    let texto = |k: &str| entity.exemplo.get(k).and_then(|v| v.as_str());
+    let tamanho = entity.exemplo.get("tamanho_bytes").and_then(|v| v.as_u64());
+    let geracao = texto("geracao").map(|s| s.chars().count());
+    let nome = texto("nome").map(|s| s.chars().count());
+    match (
+        tamanho,
+        texto("content_type"),
+        texto("owner_uid"),
+        texto("id_professor_upload"),
+        texto("status_roteiro"),
+        geracao,
+        nome,
+    ) {
+        (Some(bytes), Some(ct), Some(owner), Some(upload), Some(status), Some(g), Some(n)) => {
+            validation_m12_2::tamanho_valido(bytes)
+                && validation_m12_2::content_type_pdf(ct)
+                && validation_m12_2::titularidade_ok(upload, owner)
+                && matches!(status, "PROVISORIO" | "VALIDADO" | "PUBLICAVEL")
+                && (1..=120).contains(&g)
+                && (1..=150).contains(&n)
+        }
+        _ => false,
+    }
+}
+
 fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let raw = fs::read(root.join("build/spec-ir.json"))?;
     let results = fs::read(root.join("build/formal-validation.json"))?;
@@ -137,6 +175,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let results_m10 = fs::read(root.join("build/formal-validation-m10.json"))?;
     let results_m11 = fs::read(root.join("build/formal-validation-m11.json"))?;
     let results_m12_1 = fs::read(root.join("build/formal-validation-m12-1.json"))?;
+    let results_m12_2 = fs::read(root.join("build/formal-validation-m12-2.json"))?;
     let ir = ir::parse(&raw)?;
     let v: validation::Validation = serde_json::from_slice(&results)?;
     let v2: validation_m2::ValidationM2 = serde_json::from_slice(&results_m2)?;
@@ -151,6 +190,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let v10: validation_m10::ValidationM10 = serde_json::from_slice(&results_m10)?;
     let v11: validation_m11::ValidationM11 = serde_json::from_slice(&results_m11)?;
     let v12_1: validation_m12_1::ValidationM12_1 = serde_json::from_slice(&results_m12_1)?;
+    let v12_2: validation_m12_2::ValidationM12_2 = serde_json::from_slice(&results_m12_2)?;
     let identity = fs::read(root.join("specification/alloy/reagents/bottle_identity.als"))?;
     let state = fs::read(root.join("specification/alloy/reagents/bottle_state.als"))?;
     let withdrawal = fs::read(root.join(validation_m24::ORIGINS[0]))?;
@@ -165,6 +205,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let m10_model = fs::read(root.join(validation_m10::MODEL))?;
     let m11_model = fs::read(root.join(validation_m11::MODEL))?;
     let m12_1_model = fs::read(root.join(validation_m12_1::MODEL))?;
+    let m12_2_model = fs::read(root.join(validation_m12_2::MODEL))?;
     let m4_origins = validation_m4::ORIGINS.map(|p| fs::read(root.join(p)).unwrap());
     if !ir.valid()
         || !ir.provenance_ok()
@@ -182,9 +223,11 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
         || !v10.check(&raw, &m10_model)
         || !v11.check(&raw, &m11_model)
         || !v12_1.check(&raw, &m12_1_model)
+        || !v12_2.check(&raw, &m12_2_model)
         || !m10_plaqueta_canonica(&ir)
         || !m11_exemplo_valido(&ir)
         || !m12_1_exemplo_valido(&ir)
+        || !m12_2_exemplo_valido(&ir)
     {
         return Err("IR ou validação inválida/stale; execute alloy-check".into());
     }
@@ -212,6 +255,10 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
         "invariants/formal_m12_1.tex".into(),
         render::render_m12_1(&v12_1),
     );
+    files.insert(
+        "invariants/formal_m12_2.tex".into(),
+        render::render_m12_2(&v12_2),
+    );
     let entries: BTreeMap<_, _> = files
         .iter()
         .map(|(name, text)| (name.clone(), hash(text.as_bytes())))
@@ -232,6 +279,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
         "formal_validation_m10_sha256": hash(&results_m10),
         "formal_validation_m11_sha256": hash(&results_m11),
         "formal_validation_m12_1_sha256": hash(&results_m12_1),
+        "formal_validation_m12_2_sha256": hash(&results_m12_2),
         "files": entries,
     });
     files.insert(
@@ -365,6 +413,10 @@ mod tests {
                 "formal_validation_m12_1_sha256",
                 "build/formal-validation-m12-1.json",
             ),
+            (
+                "formal_validation_m12_2_sha256",
+                "build/formal-validation-m12-2.json",
+            ),
         ] {
             assert_eq!(manifest[key], hash(&fs::read(root.join(path)).unwrap()));
         }
@@ -389,6 +441,7 @@ mod tests {
             "invariants/formal_m10.tex",
             "invariants/formal_m11.tex",
             "invariants/formal_m12_1.tex",
+            "invariants/formal_m12_2.tex",
         ] {
             assert!(outputs.contains_key(name), "saída ausente: {name}");
         }

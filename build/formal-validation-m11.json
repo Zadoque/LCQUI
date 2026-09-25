@@ -2,7 +2,7 @@
   "versao": 1,
   "alloy": "6.2.0",
   "solver": "sat4j",
-  "spec_ir_sha256": "b3a134a1e2f04cc9726c64a0e7a50310e8ee21c162fbbac0256dcabff846cb95",
+  "spec_ir_sha256": "b5671cb75609239db147d9fbe446aafa35d12f2d71ee91753f4d4cb630573fe1",
   "model": "specification/alloy/operations/turmas_m11.als",
   "model_sha256": "5837bcfd083ae1cec28047b5b5a64e0948e54da6c287807283c49dcda7f45783",
   "resultados": [

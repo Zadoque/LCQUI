@@ -1,0 +1,89 @@
+\clearpage
+\section{Especificação formal M12.2: roteiros, compartilhamento e Storage}
+\label{sec:formal-m12-2}
+\sloppy
+
+M12.2 formaliza o alvo normativo de \textit{Roteiro\_Experimento},
+compartilhamento entre professores, upload/download via Storage e associação
+opcional a Post (RF21--RF23, UI-11, Q09, Q13), na composição com M7
+(idempotência), M9 (autorização no commit), M11 (vínculo canônico) e a fronteira
+abstrata \texttt{roteiro\_anexo}/\texttt{acessoRoteiroValidado} de M12.1. Ela
+refina aditivamente a fronteira de M12.1 sem reabrir sua prova executável. A
+evidência cobre somente o modelo formal declarado.
+
+\subsection*{CUE}
+O contrato CUE (\texttt{\#M12\_2Contrato}) verifica shapes de Roteiro
+(provisório/validado/publicável), referência canônica ao objeto no Storage,
+snapshot imutável do anexo e sua ligação explícita à referência canônica,
+compartilhamento único por \texttt{(roteiro, professor)}, contexto de
+autorização/usuário, vínculo canônico, contexto de Post, projeção mínima de
+download, URL já emitida com validade temporal abstrata e operação idempotente.
+Os limites são nomes 1--150, geração 1--120, tamanho positivo e PDF
+\textbf{estritamente menor} que 15 MiB (15\,728\,640 bytes). O snapshot do anexo
+embute \texttt{\#M12\_1RoteiroAnexo} e acrescenta \texttt{geracao}: o contrato
+M12.1 antigo \textbf{não} prova a geração; a prova é dada por M12.2. CUE não
+prova autorização nem concorrência.
+
+\subsection*{Dono, upload e publicabilidade}
+O dono \texttt{id\_professor\_upload} é imutável e coincide com \texttt{owner\_uid}.
+O cadastro cria um Roteiro \texttt{PROVISORIO} sem geração; a validação do objeto
+fixa a geração persistida a partir da geração real do objeto e move para
+\texttt{VALIDADO}; publicar move para \texttt{PUBLICAVEL}. O objeto e a geração
+são fixos (\texttt{ObjetoNuncaSobrescrito}, \texttt{GeracaoNaoMudaSemValidar}) e
+o Roteiro só é elegível a compartilhamento/anexo/download quando publicável.
+Firestore e Storage não têm transação única: a geração é persistida no documento
+e comparada na transação do Firestore; a inspeção do objeto no Storage é etapa
+externa; a janela residual é coberta pela imutabilidade do objeto vinculado e
+pela reconciliação de órfãos.
+
+\subsection*{Compartilhamento, revogação Q09 e download}
+Só o proprietário compartilha ou revoga, sempre para professor ativo e distinto,
+com no máximo uma relação por \texttt{(roteiro, professor)}
+(\texttt{CompartilhamentoUnico}). A revogação impede novas associações
+(\texttt{RevogadoNaoEmite}), mas \textbf{preserva} os Posts históricos e seus
+snapshots. O professor acessa por propriedade ou compartilhamento atual; o aluno,
+pelo vínculo canônico atual e um Post acessível que referencia o roteiro; o
+Chefe, por Q13; um \textbf{ex-aluno} é negado ainda que a claim esteja atualizada
+(\texttt{WitnessExAlunoNaoEmite}). Turma \texttt{Arquivada} é somente leitura:
+membro com vínculo atual ainda baixa o anexo de Post histórico, mas nenhuma
+escrita acadêmica é aceita (\texttt{TurmaArquivadaNegaEscritaRoteiro});
+Post removido não autoriza (\texttt{PostRemovidoNegaAluno}).
+
+A \textbf{URL já emitida} é modelada como fronteira temporal abstrata
+(\texttt{urlsAtivas}): a remoção, a perda de vínculo e a revogação impedem
+\textbf{novas emissões} (\texttt{EmissaoExigeAcesso}), mas uma URL ativa
+permanece utilizável até expirar (\texttt{UrlAtivaUsavel},
+\texttt{WitnessUrlAtivaAposRevogacao}), sem prometer revogação retroativa. A
+geração da URL vinculada é a geração canônica.
+
+\subsection*{Anexo a Post, histórico e composição M7/M9}
+No máximo um anexo por Post. Anexar, trocar e \emph{manter} o anexo exigem
+acesso atual ao roteiro no commit, \textbf{inclusive na edição}; desvincular não
+exige acesso. O snapshot guarda a geração validada
+(\texttt{AnexoEhGeracaoValidada}, \texttt{AnexoUsaGeracaoCanonica}); trocar e
+desvincular registram o snapshot anterior no histórico, que nunca é removido
+(\texttt{HistoricoAnexoNuncaRemovido}); remover o Post da apresentação preserva
+anexos e histórico (\texttt{RemocaoPostPreservaSnapshot}). A composição M7
+modela primeira execução (grava receipt sob o \texttt{idOperacao}), retry
+idêntico (não reaplica) e reuso incompatível (rejeitado); M9 faz a revogação de
+vínculo impedir o commit posterior.
+
+\subsection*{Responsabilidade das camadas e limites}
+CUE valida shapes e limites. Alloy valida posse, transições, ACL de UID único,
+revogação Q09, turma arquivada, ex-aluno, Post removido, anexo/histórico e
+composição M7/M9. Rust valida proveniência, ordem exata do receipt e as regras
+determinísticas de limite estrito de 15 MiB, tipo, titularidade, status,
+ligação do anexo à referência canônica, emissão/uso de URL, aluno/ex-aluno e
+unicidade de UID. A evidência \textbf{não} certifica \texttt{functions/},
+frontend, Firestore/Storage Rules, Auth, Storage real, bytes binários,
+atomicidade entre serviços nem concorrência.
+
+\begingroup\small\raggedright
+\input{generated/entities/formal_m12_2_roteiros.tex}
+\input{generated/invariants/formal_m12_2.tex}
+\par\endgroup
+
+\subsection*{Limites}
+Esta evidência prova somente o modelo formal no escopo declarado
+(\textit{bounded model checking}) e não é homologação da implementação real.
+\fussy

@@ -295,5 +295,13 @@ ir: {
 			campos:   domain.#CamposM12_1
 			exemplo: {id_turma: "turma-1", id_professor: "prof-1", id_post: "post-1", id_usuario: "uid-aluno-1", titulo: "Aula de titulação", descricao: "Orientações da prática.", texto: "Professor, levaremos óculos?", editado: false, editado_em: null, removido_da_apresentacao: false, motivo_remocao: null, moderado: false, motivo_moderacao: null, tipo_historico: "edicao", visao: "COLEGA", contem_conteudo_protegido: false, id_operacao: "op-1", storage_path: "gs://lcqui/roteiros/rot-1.pdf"}
 		},
+		{
+			arquivo:  "formal_m12_2_roteiros"
+			entidade: "M12_2_Roteiros_Compartilhamento_Storage"
+			etapa:    "formalização executável M12.2"
+			escopo:   "Shapes estruturais de Roteiro (provisório/validado/publicável), referência canônica ao objeto no Storage com geração, snapshot imutável do anexo refinando aditivamente #M12_1RoteiroAnexo, ligação explícita do anexo à referência canônica, compartilhamento único por (roteiro, professor), contexto de autorização (M9), vínculo canônico (M11), contexto de Post, projeção mínima de download, URL já emitida com validade temporal abstrata, operação idempotente M7 e efeito mínimo de notificação. CUE verifica campos, enums fechados, nulabilidade, condicionais e limites (nome 1..150, tamanho 1..15728639, geração 1..120, PDF strictly < 15 MiB). Dono imutável, upload provisório->validado->publicável, objeto/geração fixos, compartilhamento único, revogação Q09, ACL de professor versus aluno via vínculo atual + Post acessível, Chefe Q13, turma arquivada somente leitura, ex-aluno negado mesmo com claim atualizada, Post removido, anexar/trocar/manter/desvincular, histórico imutável, distinção entre nova emissão de URL e uso da URL já emitida (sem revogação retroativa) e composição M7/M9 são verificados em Alloy; limites e canonicalização determinística por Rust. CUE não prova autorização, concorrência nem atomicidade Firestore/Storage."
+			campos:   domain.#CamposM12_2
+			exemplo: {id_roteiro: "rot-1", id_professor_upload: "prof-1", nome: "Prática de titulação", storage_path: "gs://lcqui/roteiros/rot-1.pdf", content_type: "application/pdf", tamanho_bytes: 1048576, owner_uid: "prof-1", geracao: "1700000000000000", status_roteiro: "PUBLICAVEL", nome_arquivo: "Pratica_Titulacao.pdf", id_operacao: "op-1", tipo_operacao: "COMPARTILHAR_ROTEIRO", via: "COMPARTILHADO", validade_url: "ATIVA", revogado_em: null, removido_da_apresentacao: false}
+		},
 	]
 }

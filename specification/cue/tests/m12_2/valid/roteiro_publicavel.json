@@ -1,0 +1,17 @@
+{
+  "id": "rot-2",
+  "id_professor_upload": "prof-1",
+  "nome": "Prática de espectroscopia",
+  "descricao": "Roteiro da aula prática de espectroscopia de absorção.",
+  "referencia": {
+    "storage_path": "gs://lcqui/roteiros/rot-2.pdf",
+    "content_type": "application/pdf",
+    "tamanho_bytes": 2097152,
+    "owner_uid": "prof-1",
+    "geracao": "1700000000000001",
+    "criado_em": "2026-09-25 11:00:00"
+  },
+  "status": "PUBLICAVEL",
+  "professores_compartilhados": ["prof-2", "prof-3"],
+  "file_url": "https://legado.example/rot-2.pdf"
+}

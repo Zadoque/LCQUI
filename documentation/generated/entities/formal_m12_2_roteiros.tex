@@ -1,0 +1,57 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{M12\_2\_Roteiros\_Compartilhamento\_Storage --- formalização executável M12.2}
+Shapes estruturais de Roteiro (provisório/validado/publicável), referência canônica ao objeto no Storage com geração, snapshot imutável do anexo refinando aditivamente \#M12\_1RoteiroAnexo, ligação explícita do anexo à referência canônica, compartilhamento único por (roteiro, professor), contexto de autorização (M9), vínculo canônico (M11), contexto de Post, projeção mínima de download, URL já emitida com validade temporal abstrata, operação idempotente M7 e efeito mínimo de notificação. CUE verifica campos, enums fechados, nulabilidade, condicionais e limites (nome 1..150, tamanho 1..15728639, geração 1..120, PDF strictly < 15 MiB). Dono imutável, upload provisório->validado->publicável, objeto/geração fixos, compartilhamento único, revogação Q09, ACL de professor versus aluno via vínculo atual + Post acessível, Chefe Q13, turma arquivada somente leitura, ex-aluno negado mesmo com claim atualizada, Post removido, anexar/trocar/manter/desvincular, histórico imutável, distinção entre nova emissão de URL e uso da URL já emitida (sem revogação retroativa) e composição M7/M9 são verificados em Alloy; limites e canonicalização determinística por Rust. CUE não prova autorização, concorrência nem atomicidade Firestore/Storage.
+\begin{description}
+\item[id\_roteiro] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Identidade do Roteiro; dono imutável e referência canônica.
+\item[id\_professor\_upload] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Dono imutável; coincide com owner\_uid do objeto.
+\item[nome] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Nome de apresentação do Roteiro; de 1 a 150 caracteres.
+\item[storage\_path] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Referência canônica ao objeto no Storage; nunca credencial.
+\item[content\_type] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Formato validado; PDF (application/pdf) na V1.
+\item[tamanho\_bytes] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+Tamanho validado; PDF estritamente menor que 15 MiB (15728640 bytes).
+\item[owner\_uid] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Titular do objeto; coincide com id\_professor\_upload.
+\item[geracao] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Geração/versão validada e imutável do objeto; persistida no Firestore.
+\item[status\_roteiro] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: PROVISORIO, VALIDADO, PUBLICAVEL.
+Upload provisório não é publicável; publicável após objeto validado e geração fixada.
+\item[nome\_arquivo] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Nome do arquivo no snapshot imutável do anexo; até 150 caracteres.
+\item[id\_operacao] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Identidade de comando M7 (uid, tipo\_operacao, payload\_hash).
+\item[tipo\_operacao] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: CADASTRAR\_ROTEIRO, VALIDAR\_OBJETO, PUBLICAR\_ROTEIRO, COMPARTILHAR\_ROTEIRO, REVOGAR\_COMPARTILHAMENTO, ANEXAR\_ROTEIRO\_POST, MANTER\_ROTEIRO\_POST, DESVINCULAR\_ROTEIRO\_POST, EMITIR\_URL.
+Operação idempotente M7 sobre roteiro, compartilhamento ou anexo a Post.
+\item[via] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: PROPRIETARIO, COMPARTILHADO, ALUNO\_POST, CHEFE\_Q13.
+Caminho de autorização do download; Chefe por Q13 apenas em moderação/auditoria.
+\item[validade\_url] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: ATIVA, EXPIRADA.
+Validade temporal abstrata da URL já emitida; não há revogação retroativa.
+\item[revogado\_em] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TIMESTAMP.
+Instante da revogação do compartilhamento; nulo enquanto vigente.
+\item[removido\_da\_apresentacao] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+Post removido da apresentação; snapshot e histórico preservados (Q09/RF25).
+\end{description}

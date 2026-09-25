@@ -1,0 +1,17 @@
+{
+  "id": "rot-1",
+  "id_professor_upload": "prof-1",
+  "nome": "Prática de titulação",
+  "descricao": "Roteiro da aula prática de titulação ácido-base.",
+  "referencia": {
+    "storage_path": "gs://lcqui/roteiros/rot-1.pdf",
+    "content_type": "application/pdf",
+    "tamanho_bytes": 1048576,
+    "owner_uid": "prof-1",
+    "geracao": "1700000000000000",
+    "criado_em": "2026-09-25 10:00:00"
+  },
+  "status": "PROVISORIO",
+  "professores_compartilhados": [],
+  "file_url": null
+}

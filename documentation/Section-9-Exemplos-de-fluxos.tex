@@ -343,7 +343,10 @@ O aluno com vínculo canônico atual baixa o anexo de um Post acessível, mesmo 
 a turma arquivada (somente leitura). Um ex-aluno, ainda que a claim esteja
 atualizada, não baixa nem lê o anexo; nenhum cache, erro ou notificação vaza o
 conteúdo. Post removido da apresentação e roteiro revogado fora de Post
-acessível não liberam download.
+acessível não liberam \textbf{novo} download. Uma URL curta já emitida antes da
+remoção, perda de vínculo ou revogação continua utilizável até expirar: não há
+revogação retroativa do token entregue, ainda que novas emissões sejam
+bloqueadas.
 
 \subsubsection{Anexar, editar e desvincular Post}
 O professor dono publica um Post com roteiro; o backend exige

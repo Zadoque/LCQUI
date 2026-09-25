@@ -1,0 +1,8 @@
+{
+  "id_operacao": "op-1",
+  "uid": "prof-1",
+  "tipo_operacao": "COMPARTILHAR_ROTEIRO",
+  "id_alvo": "rot-1",
+  "status": "CONCLUIDA",
+  "payload_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+}

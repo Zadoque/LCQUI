@@ -1,0 +1,437 @@
+{
+  "versao": 1,
+  "alloy": "6.2.0",
+  "solver": "sat4j",
+  "spec_ir_sha256": "b5671cb75609239db147d9fbe446aafa35d12f2d71ee91753f4d4cb630573fe1",
+  "model": "specification/alloy/operations/roteiros_m12_2.als",
+  "model_sha256": "b86da4bc451d94ac652cba1e34ae0c3453999fe2322040d3340696d41ed77aaf",
+  "resultados": [
+    {
+      "id": "M12_2-INV-001",
+      "assertion": "CadastroComecaProvisorio",
+      "tipo": "check",
+      "scope": "check CadastroComecaProvisorio for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-002",
+      "assertion": "PublicavelSoDeValidado",
+      "tipo": "check",
+      "scope": "check PublicavelSoDeValidado for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-003",
+      "assertion": "ValidarFixaGeracao",
+      "tipo": "check",
+      "scope": "check ValidarFixaGeracao for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-004",
+      "assertion": "RoteiroValidadoTemGeracao",
+      "tipo": "check",
+      "scope": "check RoteiroValidadoTemGeracao for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-005",
+      "assertion": "DonoImutavel",
+      "tipo": "check",
+      "scope": "check DonoImutavel for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-006",
+      "assertion": "ObjetoNuncaSobrescrito",
+      "tipo": "check",
+      "scope": "check ObjetoNuncaSobrescrito for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-007",
+      "assertion": "GeracaoNaoMudaSemValidar",
+      "tipo": "check",
+      "scope": "check GeracaoNaoMudaSemValidar for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-008",
+      "assertion": "SemObjetoNaoEmite",
+      "tipo": "check",
+      "scope": "check SemObjetoNaoEmite for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-009",
+      "assertion": "AnexoUsaGeracaoCanonica",
+      "tipo": "check",
+      "scope": "check AnexoUsaGeracaoCanonica for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-010",
+      "assertion": "AnexoUnicoPorPost",
+      "tipo": "check",
+      "scope": "check AnexoUnicoPorPost for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-011",
+      "assertion": "CompartilharSoProprietario",
+      "tipo": "check",
+      "scope": "check CompartilharSoProprietario for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-012",
+      "assertion": "CompartilharExigeDestinatarioAtivo",
+      "tipo": "check",
+      "scope": "check CompartilharExigeDestinatarioAtivo for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-013",
+      "assertion": "CompartilhamentoUnico",
+      "tipo": "check",
+      "scope": "check CompartilhamentoUnico for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-014",
+      "assertion": "RevogarSoProprietario",
+      "tipo": "check",
+      "scope": "check RevogarSoProprietario for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-015",
+      "assertion": "NaoProprietarioNaoRevoga",
+      "tipo": "check",
+      "scope": "check NaoProprietarioNaoRevoga for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-016",
+      "assertion": "EmissaoExigeAcesso",
+      "tipo": "check",
+      "scope": "check EmissaoExigeAcesso for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-017",
+      "assertion": "ExAlunoNaoEmite",
+      "tipo": "check",
+      "scope": "check ExAlunoNaoEmite for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-018",
+      "assertion": "InativoNaoEmite",
+      "tipo": "check",
+      "scope": "check InativoNaoEmite for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-019",
+      "assertion": "AlunoDependeDeVinculo",
+      "tipo": "check",
+      "scope": "check AlunoDependeDeVinculo for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-020",
+      "assertion": "PostRemovidoNegaAluno",
+      "tipo": "check",
+      "scope": "check PostRemovidoNegaAluno for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-021",
+      "assertion": "TurmaArquivadaNegaEscritaRoteiro",
+      "tipo": "check",
+      "scope": "check TurmaArquivadaNegaEscritaRoteiro for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-022",
+      "assertion": "UrlEmitidaSobreviveARevogacao",
+      "tipo": "check",
+      "scope": "check UrlEmitidaSobreviveARevogacao for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-023",
+      "assertion": "UrlExpiradaNaoUsavel",
+      "tipo": "check",
+      "scope": "check UrlExpiradaNaoUsavel for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-024",
+      "assertion": "UrlAtivaUsavel",
+      "tipo": "check",
+      "scope": "check UrlAtivaUsavel for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-025",
+      "assertion": "AnexarSoDonoDaTurma",
+      "tipo": "check",
+      "scope": "check AnexarSoDonoDaTurma for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-026",
+      "assertion": "AnexarExigeAcessoAtual",
+      "tipo": "check",
+      "scope": "check AnexarExigeAcessoAtual for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-027",
+      "assertion": "ManterExigeAcessoAtual",
+      "tipo": "check",
+      "scope": "check ManterExigeAcessoAtual for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-028",
+      "assertion": "TrocarExigeAcessoAtual",
+      "tipo": "check",
+      "scope": "check TrocarExigeAcessoAtual for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-029",
+      "assertion": "RemocaoPostPreservaSnapshot",
+      "tipo": "check",
+      "scope": "check RemocaoPostPreservaSnapshot for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-030",
+      "assertion": "HistoricoAnexoNuncaRemovido",
+      "tipo": "check",
+      "scope": "check HistoricoAnexoNuncaRemovido for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-031",
+      "assertion": "HistoricoAnexoPreservaObjeto",
+      "tipo": "check",
+      "scope": "check HistoricoAnexoPreservaObjeto for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-032",
+      "assertion": "AnexoEhGeracaoValidada",
+      "tipo": "check",
+      "scope": "check AnexoEhGeracaoValidada for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-033",
+      "assertion": "ChefeNaoAnexa",
+      "tipo": "check",
+      "scope": "check ChefeNaoAnexa for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-034",
+      "assertion": "ChefeNaoCompartilha",
+      "tipo": "check",
+      "scope": "check ChefeNaoCompartilha for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-035",
+      "assertion": "RevogacaoVinculoImpedeCommit",
+      "tipo": "check",
+      "scope": "check RevogacaoVinculoImpedeCommit for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-036",
+      "assertion": "PrimeiraExecucaoProduzReceipt",
+      "tipo": "check",
+      "scope": "check PrimeiraExecucaoProduzReceipt for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-037",
+      "assertion": "IdentidadeComandoUnica",
+      "tipo": "check",
+      "scope": "check IdentidadeComandoUnica for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-038",
+      "assertion": "ReusoIncompativelRejeitado",
+      "tipo": "check",
+      "scope": "check ReusoIncompativelRejeitado for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-039",
+      "assertion": "RetryNaoReexecuta",
+      "tipo": "check",
+      "scope": "check RetryNaoReexecuta for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-040",
+      "assertion": "RetryNaoDuplicaFato",
+      "tipo": "check",
+      "scope": "check RetryNaoDuplicaFato for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-041",
+      "assertion": "TransicoesPreservamCoerencia",
+      "tipo": "check",
+      "scope": "check TransicoesPreservamCoerencia for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-WIT-042",
+      "assertion": "WitnessTurmaAtiva",
+      "tipo": "run",
+      "scope": "run WitnessTurmaAtiva for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-043",
+      "assertion": "WitnessCadastraProvisorio",
+      "tipo": "run",
+      "scope": "run WitnessCadastraProvisorio for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-044",
+      "assertion": "WitnessValidaObjeto",
+      "tipo": "run",
+      "scope": "run WitnessValidaObjeto for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-045",
+      "assertion": "WitnessPublica",
+      "tipo": "run",
+      "scope": "run WitnessPublica for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-046",
+      "assertion": "WitnessProprietarioEmite",
+      "tipo": "run",
+      "scope": "run WitnessProprietarioEmite for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-047",
+      "assertion": "WitnessCompartilhadoEmite",
+      "tipo": "run",
+      "scope": "run WitnessCompartilhadoEmite for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-048",
+      "assertion": "WitnessAlunoEmitePostAtivo",
+      "tipo": "run",
+      "scope": "run WitnessAlunoEmitePostAtivo for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-049",
+      "assertion": "WitnessAlunoEmiteTurmaArquivada",
+      "tipo": "run",
+      "scope": "run WitnessAlunoEmiteTurmaArquivada for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-050",
+      "assertion": "WitnessExAlunoNaoEmite",
+      "tipo": "run",
+      "scope": "run WitnessExAlunoNaoEmite for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-051",
+      "assertion": "WitnessRevogadoNaoEmite",
+      "tipo": "run",
+      "scope": "run WitnessRevogadoNaoEmite for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-052",
+      "assertion": "WitnessUrlAtivaAposRevogacao",
+      "tipo": "run",
+      "scope": "run WitnessUrlAtivaAposRevogacao for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-053",
+      "assertion": "WitnessChefeEmite",
+      "tipo": "run",
+      "scope": "run WitnessChefeEmite for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-054",
+      "assertion": "WitnessPostRemovidoNaoEmiteAluno",
+      "tipo": "run",
+      "scope": "run WitnessPostRemovidoNaoEmiteAluno for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-055",
+      "assertion": "WitnessAnexaComAcesso",
+      "tipo": "run",
+      "scope": "run WitnessAnexaComAcesso for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-056",
+      "assertion": "WitnessMantemComAcesso",
+      "tipo": "run",
+      "scope": "run WitnessMantemComAcesso for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-057",
+      "assertion": "WitnessDesvinculaSemAcesso",
+      "tipo": "run",
+      "scope": "run WitnessDesvinculaSemAcesso for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-058",
+      "assertion": "WitnessTrocaPreservaHistorico",
+      "tipo": "run",
+      "scope": "run WitnessTrocaPreservaHistorico for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-059",
+      "assertion": "WitnessRetryAposExecucao",
+      "tipo": "run",
+      "scope": "run WitnessRetryAposExecucao for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-060",
+      "assertion": "WitnessReusoIncompativel",
+      "tipo": "run",
+      "scope": "run WitnessReusoIncompativel for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-061",
+      "assertion": "WitnessObjetoAusenteNaoEmite",
+      "tipo": "run",
+      "scope": "run WitnessObjetoAusenteNaoEmite for 6",
+      "status": "SAT"
+    }
+  ]
+}

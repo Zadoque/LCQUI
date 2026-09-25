@@ -1,0 +1,14 @@
+{
+  "id_post": "post-1",
+  "id_turma": "turma-1",
+  "id_professor": "prof-1",
+  "status_turma": "Ativo",
+  "removido_da_apresentacao": false,
+  "roteiro_anexo": {
+    "id_roteiro": "rot-2",
+    "nome_arquivo": "Pratica_Espectroscopia.pdf",
+    "tamanho_bytes": 2097152,
+    "storage_path": "gs://lcqui/roteiros/rot-2.pdf",
+    "geracao": "1700000000000001"
+  }
+}

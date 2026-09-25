@@ -18,7 +18,7 @@ const hash = data => crypto.createHash('sha256').update(data).digest('hex');
 function write(file, data) { fs.mkdirSync(path.dirname(file), {recursive:true}); fs.writeFileSync(file,data); }
 function specCheck() {
   run('cue',['vet','./...'],cueDir);
-  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/frasco-completo', '#FrascoCompleto'], ['tests/emprestimo', '#EmprestimoReagente'], ['tests/m5', '#M5Operacao'], ['tests/m6', '#M6Metrologia'], ['tests/m7', '#M7Operacao'], ['tests/m8', '#M8Contrato'], ['tests/m9', '#M9Contrato'], ['tests/m10', '#M10Contrato'], ['tests/m11', '#M11Contrato'], ['tests/m12_1', '#M12_1Contrato']];
+  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/frasco-completo', '#FrascoCompleto'], ['tests/emprestimo', '#EmprestimoReagente'], ['tests/m5', '#M5Operacao'], ['tests/m6', '#M6Metrologia'], ['tests/m7', '#M7Operacao'], ['tests/m8', '#M8Contrato'], ['tests/m9', '#M9Contrato'], ['tests/m10', '#M10Contrato'], ['tests/m11', '#M11Contrato'], ['tests/m12_1', '#M12_1Contrato'], ['tests/m12_2', '#M12_2Contrato']];
   for (const [directory, definition] of groups) for (const kind of ['valid','invalid']) {
     const files = fs.readdirSync(`${cueDir}/${directory}/${kind}`).sort();
     if (!files.length) throw new Error(`Sem fixtures ${kind}`);
@@ -495,6 +495,69 @@ function alloyCheck() {
     ["WitnessRoteiroAceito","run","run WitnessRoteiroAceito for 6"],
     ["WitnessRetry","run","run WitnessRetry for 4"],
   ], 'build/formal-validation-m12-1.json', 'M12_1');
+  runMilestone('specification/alloy/operations/roteiros_m12_2.als', [
+    ['CadastroComecaProvisorio','check','check CadastroComecaProvisorio for 6'],
+    ['PublicavelSoDeValidado','check','check PublicavelSoDeValidado for 6'],
+    ['ValidarFixaGeracao','check','check ValidarFixaGeracao for 6'],
+    ['RoteiroValidadoTemGeracao','check','check RoteiroValidadoTemGeracao for 6'],
+    ['DonoImutavel','check','check DonoImutavel for 6'],
+    ['ObjetoNuncaSobrescrito','check','check ObjetoNuncaSobrescrito for 6'],
+    ['GeracaoNaoMudaSemValidar','check','check GeracaoNaoMudaSemValidar for 6'],
+    ['SemObjetoNaoEmite','check','check SemObjetoNaoEmite for 6'],
+    ['AnexoUsaGeracaoCanonica','check','check AnexoUsaGeracaoCanonica for 6'],
+    ['AnexoUnicoPorPost','check','check AnexoUnicoPorPost for 6'],
+    ['CompartilharSoProprietario','check','check CompartilharSoProprietario for 6'],
+    ['CompartilharExigeDestinatarioAtivo','check','check CompartilharExigeDestinatarioAtivo for 6'],
+    ['CompartilhamentoUnico','check','check CompartilhamentoUnico for 6'],
+    ['RevogarSoProprietario','check','check RevogarSoProprietario for 6'],
+    ['NaoProprietarioNaoRevoga','check','check NaoProprietarioNaoRevoga for 6'],
+    ['EmissaoExigeAcesso','check','check EmissaoExigeAcesso for 6'],
+    ['ExAlunoNaoEmite','check','check ExAlunoNaoEmite for 6'],
+    ['InativoNaoEmite','check','check InativoNaoEmite for 6'],
+    ['AlunoDependeDeVinculo','check','check AlunoDependeDeVinculo for 6'],
+    ['PostRemovidoNegaAluno','check','check PostRemovidoNegaAluno for 6'],
+    ['TurmaArquivadaNegaEscritaRoteiro','check','check TurmaArquivadaNegaEscritaRoteiro for 6'],
+    ['UrlEmitidaSobreviveARevogacao','check','check UrlEmitidaSobreviveARevogacao for 6'],
+    ['UrlExpiradaNaoUsavel','check','check UrlExpiradaNaoUsavel for 6'],
+    ['UrlAtivaUsavel','check','check UrlAtivaUsavel for 6'],
+    ['AnexarSoDonoDaTurma','check','check AnexarSoDonoDaTurma for 6'],
+    ['AnexarExigeAcessoAtual','check','check AnexarExigeAcessoAtual for 6'],
+    ['ManterExigeAcessoAtual','check','check ManterExigeAcessoAtual for 6'],
+    ['TrocarExigeAcessoAtual','check','check TrocarExigeAcessoAtual for 6'],
+    ['RemocaoPostPreservaSnapshot','check','check RemocaoPostPreservaSnapshot for 6'],
+    ['HistoricoAnexoNuncaRemovido','check','check HistoricoAnexoNuncaRemovido for 6'],
+    ['HistoricoAnexoPreservaObjeto','check','check HistoricoAnexoPreservaObjeto for 6'],
+    ['AnexoEhGeracaoValidada','check','check AnexoEhGeracaoValidada for 6'],
+    ['ChefeNaoAnexa','check','check ChefeNaoAnexa for 6'],
+    ['ChefeNaoCompartilha','check','check ChefeNaoCompartilha for 6'],
+    ['RevogacaoVinculoImpedeCommit','check','check RevogacaoVinculoImpedeCommit for 6'],
+    ['PrimeiraExecucaoProduzReceipt','check','check PrimeiraExecucaoProduzReceipt for 6'],
+    ['IdentidadeComandoUnica','check','check IdentidadeComandoUnica for 6'],
+    ['ReusoIncompativelRejeitado','check','check ReusoIncompativelRejeitado for 6'],
+    ['RetryNaoReexecuta','check','check RetryNaoReexecuta for 6'],
+    ['RetryNaoDuplicaFato','check','check RetryNaoDuplicaFato for 6'],
+    ['TransicoesPreservamCoerencia','check','check TransicoesPreservamCoerencia for 6'],
+    ['WitnessTurmaAtiva','run','run WitnessTurmaAtiva for 4'],
+    ['WitnessCadastraProvisorio','run','run WitnessCadastraProvisorio for 6'],
+    ['WitnessValidaObjeto','run','run WitnessValidaObjeto for 6'],
+    ['WitnessPublica','run','run WitnessPublica for 6'],
+    ['WitnessProprietarioEmite','run','run WitnessProprietarioEmite for 6'],
+    ['WitnessCompartilhadoEmite','run','run WitnessCompartilhadoEmite for 6'],
+    ['WitnessAlunoEmitePostAtivo','run','run WitnessAlunoEmitePostAtivo for 6'],
+    ['WitnessAlunoEmiteTurmaArquivada','run','run WitnessAlunoEmiteTurmaArquivada for 6'],
+    ['WitnessExAlunoNaoEmite','run','run WitnessExAlunoNaoEmite for 6'],
+    ['WitnessRevogadoNaoEmite','run','run WitnessRevogadoNaoEmite for 6'],
+    ['WitnessUrlAtivaAposRevogacao','run','run WitnessUrlAtivaAposRevogacao for 6'],
+    ['WitnessChefeEmite','run','run WitnessChefeEmite for 6'],
+    ['WitnessPostRemovidoNaoEmiteAluno','run','run WitnessPostRemovidoNaoEmiteAluno for 6'],
+    ['WitnessAnexaComAcesso','run','run WitnessAnexaComAcesso for 6'],
+    ['WitnessMantemComAcesso','run','run WitnessMantemComAcesso for 6'],
+    ['WitnessDesvinculaSemAcesso','run','run WitnessDesvinculaSemAcesso for 6'],
+    ['WitnessTrocaPreservaHistorico','run','run WitnessTrocaPreservaHistorico for 6'],
+    ['WitnessRetryAposExecucao','run','run WitnessRetryAposExecucao for 6'],
+    ['WitnessReusoIncompativel','run','run WitnessReusoIncompativel for 6'],
+    ['WitnessObjetoAusenteNaoEmite','run','run WitnessObjetoAusenteNaoEmite for 6'],
+  ], 'build/formal-validation-m12-2.json', 'M12_2');
 }
 const cmd=process.argv[2];
 if(cmd==='spec-check') specCheck();

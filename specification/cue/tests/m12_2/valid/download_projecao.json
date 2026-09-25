@@ -1,0 +1,10 @@
+{
+  "id_roteiro": "rot-2",
+  "storage_path": "gs://lcqui/roteiros/rot-2.pdf",
+  "geracao": "1700000000000001",
+  "url": "https://storage.example/signed/rot-2?token=abc",
+  "emitida_em": "2026-09-25 12:00:00",
+  "expira_em": "2026-09-25 12:15:00",
+  "via": "ALUNO_POST",
+  "validade": "ATIVA"
+}

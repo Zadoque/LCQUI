@@ -1,0 +1,8 @@
+{
+  "id_post": "post-1",
+  "id_turma": "turma-1",
+  "id_professor": "prof-1",
+  "status_turma": "Ativo",
+  "removido_da_apresentacao": false,
+  "roteiro_anexo": null
+}

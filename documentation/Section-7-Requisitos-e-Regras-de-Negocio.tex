@@ -606,9 +606,21 @@ se torna \textbf{publicável} (visível em ``Meus'' e elegível a
 compartilhamento/anexo) depois que o objeto é validado e o registro recebe a
 geração validada; o upload provisório não é publicável. Cancelamento ou falha
 não cria Roteiro publicável; objetos órfãos de tentativas falhas são
-reconciliados por rotina server-side (sem apagar objeto referenciado). Firestore
-e Storage \textbf{não} têm transação única: a reconciliação de órfãos é
-explícita, e a geração validada é a garantia contra troca de conteúdo.
+reconciliados por rotina server-side (sem apagar objeto referenciado).
+
+Firestore e Storage \textbf{não} têm transação única. A geração validada é
+\textbf{persistida no documento do Roteiro no Firestore} e é lida e comparada
+\textbf{dentro da transação do Firestore} que altera a associação (criar o
+Roteiro, compartilhar/revogar, anexar/desvincular a Post); a inspeção do objeto
+(existência, bytes \texttt{\%PDF-}, tamanho) ocorre \textbf{fora} dessa
+transação, no Storage, como etapa externa. O Firestore \textbf{não} lê nem
+trava a geração real do Storage de forma atômica: não existe transação única
+entre os dois serviços. Por isso o objeto vinculado e a geração são
+\textbf{imutáveis} e não podem ser sobrescritos depois da validação, e a
+validação binária antecede o vínculo. Há uma \textbf{janela residual} entre
+validar o objeto no Storage e gravar o vínculo no Firestore; a obrigação é
+impedir a sobrescrita do objeto vinculado nessa janela e reconciliar
+falhas/órfãos de forma explícita, sem afirmar atomicidade entre serviços.
 \end{regra}
 
 \begin{regra}[Compartilhamento e revogação (Q09)]
@@ -634,10 +646,18 @@ revalida: para professor, propriedade ou compartilhamento atual; para aluno, o
 \textbf{vínculo canônico atual} à turma e um Post acessível que referencia o
 roteiro. Turma \texttt{Arquivada} é somente leitura: membros com vínculo atual
 ainda leem/baixam o anexo de Post histórico, mas um \textbf{ex-aluno} não
-(mesmo com claim atualizada). Post removido da apresentação e roteiro revogado
-não vazam por URL, cache, erro, notificação ou leitura direta. O download
-retorna o mínimo necessário (URL curta, identidade do objeto e geração) sem
-conteúdo protegido; se o objeto estiver ausente ou a geração divergir, falha
+(mesmo com claim atualizada). A remoção do Post da apresentação, a perda do
+vínculo (inclusive ex-aluno), a revogação do compartilhamento e o objeto
+ausente ou de geração divergente impedem \textbf{novas emissões} de URL; nenhum
+cache, erro, notificação ou leitura direta devolve o conteúdo por um caminho
+novo. Uma URL temporária \textbf{já emitida} antes da remoção, da perda de
+vínculo ou da revogação permanece utilizável até o seu prazo curto expirar: a
+revogação do token já entregue \textbf{não} é instantânea nem retroativa, e o
+endpoint não promete invalidá-lo. Cada nova emissão revalida, no momento,
+propriedade, compartilhamento atual, vínculo canônico atual e Post acessível; o
+controle vale para URLs novas e não é afrouxado pelo prazo da URL anterior. O
+download retorna o mínimo necessário (URL curta, identidade do objeto e geração)
+sem conteúdo protegido; se o objeto estiver ausente ou a geração divergir, falha
 fechado, sem fallback para \texttt{file\_url}. O Chefe acessa por Q13 apenas no
 escopo de moderação/auditoria.
 \end{regra}
@@ -656,6 +676,14 @@ RF25; objeto vira candidato a reconciliação se ficar sem referência). Se o
 compartilhamento foi revogado, a edição que mantém o anexo falha fechado (o
 professor deve remover o anexo ou obter novo acesso); o Post existente e o
 snapshot permanecem para leitura do aluno com vínculo atual.
+
+M12.2 \textbf{refina aditivamente} a fronteira abstrata
+\texttt{roteiro\_anexo}/\texttt{acessoRoteiroValidado} de M12.1 (Seção~7.6), sem
+reabrir a prova executável de M12.1. O contrato M12.1 apenas declara o encaixe do
+anexo e \textbf{não} prova a geração do snapshot; a presença de \texttt{geracao}
+no anexo e sua ligação à referência canônica do Roteiro
+(\texttt{storage\_path}/\texttt{geracao}/\texttt{tamanho\_bytes}) são provadas
+pelo contrato executável M12.2 como extensão aditiva do contrato M12.1.
 \end{regra}
 
 \begin{regra}[Composição M7/M9]
@@ -663,9 +691,11 @@ Upload/cadastro, compartilhar, revogar, associar a Post e desvincular usam
 \texttt{idOperacao} e receipt M7: retry idêntico devolve o resultado e não
 duplica Roteiro, vínculo de compartilhamento, histórico nem notificação; reuso
 incompatível é rejeitado. Toda mutação lê usuário ativo, papel/versão, ownership
-ou compartilhamento atual, estado da turma (Q08) e geração do objeto na mesma
-transação em que escreve (M9); a validação de Storage é etapa externa
-reconciliável e não substitui a decisão de domínio.
+ou compartilhamento atual, estado da turma (Q08) e geração \textbf{persistida no
+documento} do Roteiro (\texttt{geracao}) na mesma transação em que escreve (M9);
+a inspeção do objeto no Storage é etapa externa reconciliável, ocorre fora da
+transação do Firestore e não substitui a decisão de domínio nem promete
+atomicidade entre serviços.
 \end{regra}
 
 \paragraph{Matriz de operações M12.2.}
