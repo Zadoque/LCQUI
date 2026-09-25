@@ -48,7 +48,7 @@ test('M12.1 preserva os nomes canônicos do contrato nas fontes', () => {
     assert.match(docs, new RegExp(value.replaceAll('_', '\\\\_')), `nome documental ausente: ${value}`);
   }
   assert.match(rust, /M12_1-INV-001/);
-  assert.match(rust, /M12_1-WIT-047/);
+  assert.match(rust, /M12_1-WIT-057/);
 });
 
 test('M12.1 preserva os predicados e assertions centrais do Alloy', () => {
@@ -73,8 +73,15 @@ test('M12.1 preserva os predicados e assertions centrais do Alloy', () => {
     'assert RemocaoPreservaDocumento',
     'assert SemAcessoNaoPublicaComRoteiro',
     'assert AutorImutavelPost',
-    'assert RetryNaoDuplica',
     'assert RevogacaoImpedeCommit',
+    'assert ComentarExigeParticipacaoAtual',
+    'assert EditarComentExigeParticipacaoAtual',
+    'assert RemovidoNaoEditaComent',
+    'assert RemovidoNaoLe',
+    'assert PrimeiraExecucaoProduzReceipt',
+    'assert ReusoIncompativelRejeitado',
+    'assert RetryNaoReexecuta',
+    'assert RetryNaoDuplicaFato',
   ]) {
     assert.ok(alloy.includes(assertion), `assertion Alloy ausente: ${assertion}`);
   }
