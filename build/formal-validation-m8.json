@@ -4,7 +4,7 @@
   "solver": "sat4j",
   "spec_ir_sha256": "16967d23f90fc4de6bad90d0def102952eab1f7414262ae53eb0315812276ba1",
   "model": "specification/alloy/reagents/stock_cache_scarcity_m8.als",
-  "model_sha256": "76085c96f52bcb2a3b349a7f8da5cf4b308b25c41f67fa7a672c9dbde76634d4",
+  "model_sha256": "1602610494353930990dfbc08c7c2265b754dfa88763f632338e69c434cc1b3c",
   "resultados": [
     {
       "id": "M8-INV-001",

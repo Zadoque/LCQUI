@@ -13,6 +13,9 @@ abstract sig Localizacao {}
 one sig LOCALIZADO, EXTRAVIADO extends Localizacao {}
 abstract sig Disp {}
 one sig DISPONIVEL, EMPRESTADO, INDISPONIVEL extends Disp {}
+// As dimensões Fisico/Localizacao/Disp são a interface com M5
+// (loss_found_quarantine_m5.als). A cópia é inevitável na arquitetura atual;
+// tools/formal/m8_origins.test.mjs compara mecanicamente os dois modelos.
 abstract sig Bool {}
 one sig True, False extends Bool {}
 
