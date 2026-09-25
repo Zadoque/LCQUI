@@ -263,5 +263,13 @@ ir: {
 			campos:   domain.#CamposM8
 			exemplo: {id_almoxarifado: 1, id_resumo_reagente: 10, id_especificacao_reagente: 20, qtd_limiar_escassez: 5, ativo: true, notificacao_ativa: true}
 		},
+		{
+			arquivo:  "formal_m9_autorizacao"
+			entidade: "M9_Autorizacao_Usuarios"
+			etapa:    "formalização executável M9"
+			escopo:   "Shapes estruturais de usuário, papel, versão de permissões, claim, vínculo, ownership e decisão. A autoridade é persistida; relações, revogação, fail closed, TOCTOU abstrato e separação de domínio são verificados em Alloy."
+			campos:   domain.#CamposM9
+			exemplo: {uid: "uid-gestor-a", ativo: true, versao_permissoes: 4, papeis_persistidos: ["Gestor_Almoxarifado"], claim_papeis: ["Gestor_Almoxarifado"], claim_versao: 4, claims_pendentes: false}
+		},
 	]
 }
