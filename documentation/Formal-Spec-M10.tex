@@ -1,0 +1,104 @@
+\clearpage
+\section{Especificação formal M10: patrimônio}
+\label{sec:formal-m10}
+\sloppy
+
+M10 formaliza o alvo normativo de patrimônio: a identidade entre o modelo
+catalográfico (\texttt{Resumo\_Bem\_Patrimonial}) e a unidade física
+(\texttt{Bem\_Patrimonial}), a plaqueta canônica, a unicidade permanente, a
+máquina de estados, o versionamento, as requisições de adição/edição, os locks,
+o histórico, a baixa e a composição abstrata com M7 (idempotência) e M9
+(autorização). A evidência cobre somente o modelo formal declarado.
+
+\subsection*{CUE}
+O contrato CUE (\texttt{\#M10Contrato}) verifica shapes, enums fechados,
+obrigatoriedade, nulabilidade e limites locais de bem, resumo, requisição de
+adição, requisição de edição, lock, baixa, evento histórico e alteração. O CUE
+não prova concorrência temporal: relações, transições e identidade abstrata
+pertencem ao Alloy; a transformação textual determinística pertence ao Rust.
+
+\subsection*{Identidade Resumo x Bem}
+\texttt{Resumo\_Bem\_Patrimonial} é a identidade catalográfica compartilhável;
+\texttt{Bem\_Patrimonial} é a unidade física individual. Editar ou reclassificar
+uma unidade não renomeia implicitamente o resumo compartilhado das demais: uma
+alteração individual de nome é reclassificação para resumo existente ou criação
+explícita de outro resumo. Há testemunha de dois bens com o mesmo resumo e de
+reclassificação individual que preserva o resumo do outro bem.
+
+\subsection*{Plaqueta canônica e unicidade permanente}
+A plaqueta é a identidade externa da unidade. A forma canônica é
+\[ N(s) = s.\mathrm{trim}().\mathrm{toUpperCase}(), \]
+não vazia e com no máximo 30
+caracteres; zeros iniciais, espaços internos e pontuação são preservados. O
+Alloy representa a identidade já canonicalizada pela relação abstrata
+\texttt{Plaqueta}: uma plaqueta canônica não identifica dois bens distintos.
+\texttt{Chaves\_Unicas} é modelada como reserva permanente (\texttt{reservas}),
+distinta de lock: a baixa não remove o bem nem libera a plaqueta para reuso.
+
+\subsection*{Máquina de estado e conservação ortogonal}
+O ciclo V1 fechado é \texttt{Ativo -> Inservivel -> Ja\_dado\_baixa}. São
+impossíveis o salto \texttt{Ativo -> Ja\_dado\_baixa}, a reversão
+\texttt{Inservivel -> Ativo} e qualquer mutação de negócio posterior ao estado
+terminal. \texttt{Ja\_dado\_baixa} é terminal para fatos da unidade, mas o bem
+permanece existente para retenção, leitura e auditoria. A conservação
+(\texttt{BOM}/\texttt{REGULAR}/\texttt{RUIM}) é ortogonal ao status: há
+testemunha de bem \texttt{Inservivel} com conservação \texttt{BOM}, impedindo
+que o formalizador introduza uma equivalência inexistente.
+
+\subsection*{Versão}
+\texttt{versao} começa em 1 e incrementa exatamente uma vez em cada mutação
+canônica da unidade (edição aprovada, reclassificação, mudança de local, foto,
+conservação, status e baixa). Conflito de versão não altera o bem. Fan-out
+derivado de \texttt{nome\_equipamento} ou das projeções de \texttt{Local} não
+incrementa a versão e não cria evento de negócio, evitando conflito otimista
+falso.
+
+\subsection*{Requisições e locks}
+Há no máximo uma edição pendente por bem (\texttt{bem\_edicao\_\{idBem\}}) e
+uma adição pendente por plaqueta canônica
+(\texttt{bem\_adicao\_\{numeroNormalizado\}}). Todo lock pertence
+inequivocamente a uma requisição e carrega tipo e chave de recurso; uma
+requisição não remove lock alheio, lock incompatível impede mutação e lock
+ausente no momento da resposta é falha de integridade que não permite aprovar
+nem rejeitar como íntegra. Nos desfechos terminais, o lock da própria
+requisição deixa de existir.
+
+\subsection*{Histórico e baixa}
+Cadastro, edição canônica aprovada e baixa válida produzem exatamente um evento
+histórico (\texttt{cadastro}, \texttt{edicao}, \texttt{baixa}); retry M7 não
+cria fato novo e o fan-out derivado não cria histórico de negócio. A baixa é
+rito próprio: exige bem \texttt{Inservivel}, autorização M9 e comprovante
+válido; sem comprovante válido a baixa não ocorre. O resultado é
+\texttt{Ja\_dado\_baixa}, versão incrementada uma vez, comprovante vinculado,
+evento \texttt{baixa}, plaqueta e bem preservados.
+
+\subsection*{Composição M7 e M9}
+A composição com M7 é abstrata: um retry do mesmo comando não produz bem,
+evento, baixa nem notificação extras. A composição com M9 assume a precondição
+\texttt{podeExecutar}/\texttt{podeCommitar}: sem autorização válida no estado do
+commit não há mutação patrimonial crítica. Professor não aprova requisição nem
+executa baixa; Chefia e Gestor autorizados ainda precisam satisfazer a
+precondição de domínio. Autorização é necessária, nunca suficiente.
+
+\subsection*{Responsabilidade das camadas}
+CUE valida shapes e limites locais. Alloy valida identidade, unicidade,
+máquina de estados, terminalidade, versão, locks, histórico, baixa e composição
+abstrata. Rust valida proveniência, hashes, conjunto ordenado do receipt e a
+canonicalização determinística $N(s)$ preservando zeros iniciais. O guard
+mecânico compara enums, nomes e predicados centrais entre documentação, CUE,
+Alloy e Rust.
+
+\begingroup\small\raggedright
+\input{generated/entities/formal_m10_patrimonio.tex}
+\input{generated/invariants/formal_m10.tex}
+\par\endgroup
+
+\subsection*{Limites}
+Esta evidência prova somente o modelo formal no escopo declarado e \textbf{não}
+certifica \texttt{functions/}\allowbreak\texttt{src/}\allowbreak\texttt{patrimonio.ts}, o frontend, \texttt{firestore.rules},
+\texttt{storage.rules}, Firebase, Admin SDK, IAM, App Check, transações reais
+sob carga, o Storage real, a assinatura real dos arquivos, o backfill de
+\texttt{Chaves\_Unicas}, índices, a migração do histórico legado nem a
+infraestrutura em produção. A prova de consistência do modelo não é homologação
+da implementação real.
+\fussy
