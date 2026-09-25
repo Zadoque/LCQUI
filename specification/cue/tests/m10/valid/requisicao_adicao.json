@@ -1,0 +1,20 @@
+{
+  "id": "req-adicao-1",
+  "numero_patrimonio_proposto": " abc-200 ",
+  "numero_patrimonio_normalizado": "ABC-200",
+  "status": "pendente",
+  "feita_em": "2026-09-25T10:00:00Z",
+  "id_bem_patrimonial_se_aprovado": null,
+  "respondida_em": null,
+  "id_usuario_solicitante": "uid-professor",
+  "id_usuario_respondente": null,
+  "estado_conservacao_proposto": "BOM",
+  "photo_url_proposta": "gs://lcqui/fotos/novo.jpg",
+  "nome_responsavel_proposto": "Ana Lima",
+  "id_local": "local-1",
+  "id_resumo_bem_patrimonial": null,
+  "nome_resumo_proposto": "Balança Analítica",
+  "descricao_resumo_proposta": "Balança de precisão 0,1 mg.",
+  "motivo": "Aquisição nova do laboratório.",
+  "justificativa_resposta": null
+}
