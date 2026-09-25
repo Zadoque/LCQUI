@@ -1,0 +1,40 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{M9\_Autorizacao\_Usuarios --- formalização executável M9}
+Shapes estruturais de usuário, papel, versão de permissões, claim, vínculo, ownership e decisão. A autoridade é persistida; relações, revogação, fail closed, TOCTOU abstrato e separação de domínio são verificados em Alloy.
+\begin{description}
+\item[uid] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+\item[ativo] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+\item[versao\_permissoes] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+\item[papeis\_persistidos] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: Chefe\_Geral, Gestor\_Almoxarifado, Gestor\_Bens\_Patrimoniais, Professor, Aluno, Bolsista.
+\item[claim\_papeis] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: Chefe\_Geral, Gestor\_Almoxarifado, Gestor\_Bens\_Patrimoniais, Professor, Aluno, Bolsista.
+\item[claim\_versao] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+\item[claims\_pendentes] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+\item[id\_almoxarifado] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+\item[id\_recurso] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+\item[tipo\_recurso] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: Turma, Post, Roteiro, Requisicao.
+\item[operacao] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: GERIR\_USUARIOS, OPERAR\_ALMOXARIFADO, OPERAR\_PATRIMONIO, OPERAR\_RECURSO\_PROPRIO, LER\_RECURSO\_ACADEMICO, ESCREVER\_SERVER\_OWNED.
+\item[recurso] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: Almoxarifado, Patrimonio, Academico, Interno.
+\item[exige\_vinculo] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+\item[exige\_ownership] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+\item[permitido] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+\end{description}
