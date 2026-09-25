@@ -1,0 +1,19 @@
+{
+  "id": "req-adicao-x",
+  "numero_patrimonio_proposto": "abc-300",
+  "status": "pendente",
+  "feita_em": "2026-09-25T10:00:00Z",
+  "id_bem_patrimonial_se_aprovado": null,
+  "respondida_em": null,
+  "id_usuario_solicitante": "uid-professor",
+  "id_usuario_respondente": null,
+  "estado_conservacao_proposto": "BOM",
+  "photo_url_proposta": "gs://lcqui/fotos/novo.jpg",
+  "nome_responsavel_proposto": "Ana Lima",
+  "id_local": "local-1",
+  "id_resumo_bem_patrimonial": null,
+  "nome_resumo_proposto": "Balança Analítica",
+  "descricao_resumo_proposta": "Balança de precisão.",
+  "motivo": "Aquisição nova.",
+  "justificativa_resposta": null
+}
