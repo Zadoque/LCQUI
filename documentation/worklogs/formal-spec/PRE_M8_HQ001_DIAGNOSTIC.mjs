@@ -39,6 +39,10 @@ assert HQPreservaCoerenciaAmpliado {
   all a, b: Estado, f: Frasco |
     hqReencontroQuebrado[a,b,f] implies coerenteM4[b]
 }
+pred HQOrigemHabitavelAmpliado {
+  some disj a,b: Estado, f: Frasco | hqReencontroQuebrado[a,b,f]
+}
+run HQOrigemHabitavelAmpliado for 6 but exactly 2 Estado
 check HQPreservaCoerencia for 4 but exactly 2 Estado
 run HQOrigemHabitavel for 4 but exactly 2 Estado
 check HQPreservaCoerenciaAmpliado for 6 but exactly 2 Estado

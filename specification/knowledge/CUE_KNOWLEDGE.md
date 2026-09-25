@@ -47,3 +47,8 @@ não em lista paralela.
 os campos `conteudo_nominal`, `peso_no_cadastrado`, `peso_atual`,
 `peso_frasco_vazio` e `medida_usada` passaram a exigir `>= 0`. O milestone M2 não
 foi reaberto; a correção é registrada no erratum de M3.
+
+## Emenda pré-M8 (HQ-PRE-M8-001)
+Quatro fixtures positivas de frasco completo aceitam QUEBRADO/DESCARTADO,
+INDISPONIVEL e saldo_desconhecido true/false. O contrato CUE não modela transições:
+preservação histórica da flag é verificada no Alloy, não por esses exemplos.

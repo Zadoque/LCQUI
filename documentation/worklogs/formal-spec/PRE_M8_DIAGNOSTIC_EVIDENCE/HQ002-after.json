@@ -1,0 +1,30 @@
+{
+  "classificacao": "DIAGNOSTICO_NAO_VALIDACAO",
+  "origin": "specification/alloy/reagents/bottle_composition.als",
+  "origin_sha256": "1706613e01c89c45067b99d201dd5fb3a11ff77258272f4b3f4ef5d5a86c2cf5",
+  "diagnostic_sha256": "36e713cc0aa2db7e6d349cf50350e1f6d7d6cc315a586bdcd6c0c535d7ebff63",
+  "alloy": "6.2.0",
+  "solver": "sat4j",
+  "resultados": [
+    {
+      "comando": "check HQAutorizacaoQuarentena for 4 but exactly 4 EstadoIntegrado",
+      "tipo": "check",
+      "status": "SAT"
+    },
+    {
+      "comando": "run HQCicloHabitavel for 4 but exactly 4 EstadoIntegrado",
+      "tipo": "run",
+      "status": "SAT"
+    },
+    {
+      "comando": "check HQAutorizacaoQuarentenaAmpliado for 6 but exactly 4 EstadoIntegrado",
+      "tipo": "check",
+      "status": "SAT"
+    },
+    {
+      "comando": "run HQCicloHabitavelAmpliado for 6 but exactly 4 EstadoIntegrado",
+      "tipo": "run",
+      "status": "SAT"
+    }
+  ]
+}

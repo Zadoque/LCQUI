@@ -1,0 +1,279 @@
+{
+  "duration":323,
+  "incremental":true,
+  "instances":[
+    {
+      "messages":[
+        
+      ],
+      "skolems":{
+        "$HQAutorizacaoQuarentena_a":{
+          "arity":1,
+          "data":[
+            [
+              "EstadoIntegrado$3"
+            ]
+          ]
+        },
+        "$HQAutorizacaoQuarentena_b":{
+          "arity":1,
+          "data":[
+            [
+              "EstadoIntegrado$2"
+            ]
+          ]
+        },
+        "$HQAutorizacaoQuarentena_c":{
+          "arity":1,
+          "data":[
+            [
+              "EstadoIntegrado$1"
+            ]
+          ]
+        },
+        "$HQAutorizacaoQuarentena_d":{
+          "arity":1,
+          "data":[
+            [
+              "EstadoIntegrado$0"
+            ]
+          ]
+        },
+        "$HQAutorizacaoQuarentena_f":{
+          "arity":1,
+          "data":[
+            [
+              "Frasco$0"
+            ]
+          ]
+        }
+      },
+      "state":0,
+      "values":{
+        "0":{
+          
+        },
+        "1":{
+          
+        },
+        "2":{
+          
+        },
+        "3":{
+          
+        },
+        "ABERTO$0":{
+          
+        },
+        "DESCARTADO$0":{
+          
+        },
+        "DISPONIVEL$0":{
+          
+        },
+        "EMPRESTADO$0":{
+          
+        },
+        "EXTRAVIADO$0":{
+          
+        },
+        "Emprestimo$3":{
+          
+        },
+        "Especificacao$3":{
+          
+        },
+        "EstadoIntegrado$0":{
+          "descarteTecnicoAutorizado":[
+            [
+              "Frasco$0"
+            ]
+          ],
+          "disponibilidade":[
+            [
+              "Frasco$0",
+              "INDISPONIVEL$0"
+            ]
+          ],
+          "vencido":[
+            
+          ],
+          "aberturaHistorica":[
+            [
+              "Frasco$0"
+            ]
+          ],
+          "emQuarentena":[
+            [
+              "Frasco$0"
+            ]
+          ],
+          "saldoDesconhecido":[
+            
+          ],
+          "ativos":[
+            
+          ],
+          "fisico":[
+            [
+              "Frasco$0",
+              "QUEBRADO$0"
+            ]
+          ],
+          "usoVencidoAutorizado":[
+            
+          ]
+        },
+        "EstadoIntegrado$1":{
+          "descarteTecnicoAutorizado":[
+            [
+              "Frasco$0"
+            ]
+          ],
+          "disponibilidade":[
+            [
+              "Frasco$0",
+              "INDISPONIVEL$0"
+            ]
+          ],
+          "vencido":[
+            
+          ],
+          "aberturaHistorica":[
+            [
+              "Frasco$0"
+            ]
+          ],
+          "emQuarentena":[
+            
+          ],
+          "saldoDesconhecido":[
+            
+          ],
+          "ativos":[
+            
+          ],
+          "fisico":[
+            [
+              "Frasco$0",
+              "EXTRAVIADO$0"
+            ]
+          ],
+          "usoVencidoAutorizado":[
+            
+          ]
+        },
+        "EstadoIntegrado$2":{
+          "descarteTecnicoAutorizado":[
+            [
+              "Frasco$0"
+            ]
+          ],
+          "disponibilidade":[
+            [
+              "Frasco$0",
+              "INDISPONIVEL$0"
+            ]
+          ],
+          "vencido":[
+            
+          ],
+          "aberturaHistorica":[
+            [
+              "Frasco$0"
+            ]
+          ],
+          "emQuarentena":[
+            
+          ],
+          "saldoDesconhecido":[
+            
+          ],
+          "ativos":[
+            
+          ],
+          "fisico":[
+            [
+              "Frasco$0",
+              "ABERTO$0"
+            ]
+          ],
+          "usoVencidoAutorizado":[
+            
+          ]
+        },
+        "EstadoIntegrado$3":{
+          "descarteTecnicoAutorizado":[
+            
+          ],
+          "disponibilidade":[
+            [
+              "Frasco$0",
+              "INDISPONIVEL$0"
+            ]
+          ],
+          "vencido":[
+            
+          ],
+          "aberturaHistorica":[
+            [
+              "Frasco$0"
+            ]
+          ],
+          "emQuarentena":[
+            [
+              "Frasco$0"
+            ]
+          ],
+          "saldoDesconhecido":[
+            
+          ],
+          "ativos":[
+            
+          ],
+          "fisico":[
+            [
+              "Frasco$0",
+              "ABERTO$0"
+            ]
+          ],
+          "usoVencidoAutorizado":[
+            
+          ]
+        },
+        "FECHADO$0":{
+          
+        },
+        "Frasco$3":{
+          "id_lote":[
+            
+          ],
+          "id_especificacao_reagente":[
+            
+          ]
+        },
+        "INDISPONIVEL$0":{
+          
+        },
+        "Lote$3":{
+          "id_especificacao":[
+            
+          ]
+        },
+        "QUEBRADO$0":{
+          
+        },
+        "VAZIO$0":{
+          
+        }
+      }
+    }
+  ],
+  "localtime":"2026-09-24T23:09:50.707481335",
+  "loopstate":-1,
+  "sigs":{
+    
+  },
+  "timezone":"America/Sao_Paulo",
+  "utctime":1790302190707
+}

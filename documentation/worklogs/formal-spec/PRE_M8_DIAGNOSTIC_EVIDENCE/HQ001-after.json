@@ -1,0 +1,30 @@
+{
+  "classificacao": "DIAGNOSTICO_NAO_VALIDACAO",
+  "origin": "specification/alloy/reagents/withdrawal_return.als",
+  "origin_sha256": "ec5030866906599224c0c39d106f78073a5f3afefa2fe004e0344abb0748a1ec",
+  "diagnostic_sha256": "1cd5fcfd0818a2f08d5cee4d674630c085b39eb53af475913a0fefc160af3c4d",
+  "alloy": "6.2.0",
+  "solver": "sat4j",
+  "resultados": [
+    {
+      "comando": "run HQOrigemHabitavelAmpliado for 6 but exactly 2 Estado",
+      "tipo": "run",
+      "status": "SAT"
+    },
+    {
+      "comando": "check HQPreservaCoerencia for 4 but exactly 2 Estado",
+      "tipo": "check",
+      "status": "UNSAT"
+    },
+    {
+      "comando": "run HQOrigemHabitavel for 4 but exactly 2 Estado",
+      "tipo": "run",
+      "status": "SAT"
+    },
+    {
+      "comando": "check HQPreservaCoerenciaAmpliado for 6 but exactly 2 Estado",
+      "tipo": "check",
+      "status": "UNSAT"
+    }
+  ]
+}

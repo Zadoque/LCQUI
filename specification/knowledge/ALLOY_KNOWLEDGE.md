@@ -13,3 +13,10 @@ scope, estado inicial/final, regra fonte e interpretação. Classificar como
 BUG_MODELO_FORMAL, TRADUCAO_INCORRETA, LACUNA_POS_3B ou CONTRADICAO_REAL antes de
 alterar regras. Preservar receipt/instância no worklog, removendo volatilidade
 apenas da saída documental. Testes Firebase continuam necessários.
+
+## Emenda pré-M8 (HQ-PRE-M8-001)
+Quebra e descarte preservam `saldoDesconhecido`; somente VAZIO mantém a exclusão
+estrutural desse conjunto. Frames e witnesses conhecido/desconhecido substituem
+as antigas assertions de saldo conhecido. Comparação literal M2→M2.4/M4 mantida.
+HQ-PRE-M8-002 permanece aberta para autorização técnica de descarte no reencontro;
+não inferir cobertura integral de M5 a partir da regressão M0–M4.

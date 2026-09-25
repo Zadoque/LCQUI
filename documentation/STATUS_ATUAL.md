@@ -4,7 +4,7 @@ Atualizado em 24/09/2026 — documentação de M7 (Idempotência), após M6 (Q06
 
 ## Backfill pré-M8 — bloqueio identificado
 
-**M8 NÃO PODE INICIAR.** HQ-PRE-M8-001 OPEN: M5 exige preservar saldo desconhecido no reencontro QUEBRADO; Seção 4 e coerência M2/M4 proíbem QUEBRADO com essa flag. Alloy 6.2.0/SAT4J confirmou contraexemplo nos scopes 4 e 6, com origem habitável. Nenhuma norma/assertion alterada. M5–M7 continuam DOCUMENTATION_VALIDATED; quitação executável não concluída. Registro em [worklog pré-M8](worklogs/formal-spec/PRE_M8_FORMALIZATION_BACKFILL.md).
+**M8 NÃO PODE INICIAR.** HQ-PRE-M8-001 RESOLVED: emenda humana aplicada; quebra/descarte preservam conhecimento metrológico, diagnóstico corrigido UNSAT nos scopes 4/6 com witnesses SAT, regressão M0–M4 PASS. HQ-PRE-M8-002 OPEN: autorização técnica de descarte preservada no extravio conflita com quarentena obrigatória no reencontro. Contraexemplo e ciclo habitável SAT nos scopes 4/6. Decidir revogação ou suspensão da autorização; não houve decisão automática. M5–M7 permanecem DOCUMENTATION_VALIDATED; M8 NOT_STARTED. Evidência em `documentation/worklogs/formal-spec/PRE_M8_FORMALIZATION_BACKFILL.md`. Próxima ação imediata: RESOLVER HQ-PRE-M8-002.
 
 ## M7 documental (Idempotência)
 
