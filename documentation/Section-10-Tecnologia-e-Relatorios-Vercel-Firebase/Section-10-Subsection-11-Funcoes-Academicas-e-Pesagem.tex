@@ -135,3 +135,16 @@ export const obterUrlDownloadRoteiro = onCall(async (request) => {
   return { downloadUrl: url };
 });
 \end{lstlisting}
+
+\paragraph{Contrato M12.2 (roteiros, compartilhamento e download).}
+Os pseudocódigos acima são ilustrativos; o contrato normativo é a
+Seção~\ref{sec:regras-roteiros-m12-2}. O cadastro só torna o Roteiro publicável
+após validação do objeto e fixação da \texttt{geracao} validada; \texttt{file\_url}
+é legado e não serve de fallback. O download revalida, na chamada, propriedade
+ou compartilhamento atual (professor) ou vínculo canônico atual e Post acessível
+(aluno), confere a geração e emite URL curta; se o objeto ou a geração
+divergirem, falha fechado. Compartilhar/revogar é idempotente (M7) e remove ou
+adiciona o UID no array server-owned, preservando Posts históricos (Q09).
+Firestore e Storage não compartilham transação: objetos órfãos de tentativas
+falhas são reconciliados por rotina server-side. A URL assinada já emitida não
+é revogável antes de expirar.

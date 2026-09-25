@@ -312,6 +312,48 @@ protegido. Ao clicar, o cliente revalida o acesso corrente; se o aluno foi
 removido, a turma foi arquivada ou o item foi moderado, a navegação falha sem
 exibir o original a terceiros; a notificação não autoriza leitura por si.
 
+\subsection{Fluxos M12.2 --- roteiros, compartilhamento e download}
+Estes exemplos são o contrato normativo da
+Seção~\ref{sec:regras-roteiros-m12-2}. São ilustrativos e não atestam a
+implementação.
+
+\subsubsection{Upload e publicação de roteiro}
+O professor ativo envia um PDF. O backend valida App Check/Auth/papel, tamanho
+estritamente menor que 15 MiB, bytes \texttt{\%PDF-}, caminho e titularidade, e
+fixa a geração validada antes de tornar o Roteiro publicável. Cancelar ou falhar
+não cria registro utilizável; objeto órfão é reconciliado sem apagar objeto
+referenciado. Um Roteiro não publicável não aparece em ``Meus''.
+
+\subsubsection{Compartilhar e revogar (Q09)}
+O proprietário seleciona professores ativos e autoriza o acesso; a relação
+única por (roteiro, professor) é criada de forma idempotente e emite a
+notificação mínima \texttt{ROTEIRO\_COMPARTILHADO}. Revogar remove o UID do
+array no servidor: o destinatário deixa de ver o roteiro em ``Compartilhados
+comigo'' e não pode criar novas associações, mas os Posts já publicados e seus
+snapshots permanecem (Q09).
+
+\subsubsection{Download por professor}
+O proprietário baixa sempre. O destinatário baixa enquanto o compartilhamento
+vigorar. Um professor terceiro não baixa. O servidor emite URL curta com a
+identidade e a geração do objeto; a URL já emitida não é revogável antes de
+expirar.
+
+\subsubsection{Download por aluno, ex-aluno e turma arquivada}
+O aluno com vínculo canônico atual baixa o anexo de um Post acessível, mesmo com
+a turma arquivada (somente leitura). Um ex-aluno, ainda que a claim esteja
+atualizada, não baixa nem lê o anexo; nenhum cache, erro ou notificação vaza o
+conteúdo. Post removido da apresentação e roteiro revogado fora de Post
+acessível não liberam download.
+
+\subsubsection{Anexar, editar e desvincular Post}
+O professor dono publica um Post com roteiro; o backend exige
+\texttt{acessoRoteiroValidado} no commit e grava o snapshot imutável
+\texttt{roteiro\_anexo} com a geração. Editar o Post mantendo ou trocando o
+anexo exige acesso atual; sem ele, a edição falha fechado e o professor deve
+remover o anexo. Desvincular não exige acesso e registra a versão anterior no
+histórico de M12.1. O snapshot rotula a publicação, mas a leitura revalida o
+acesso atual e nunca usa o snapshot como autorização permanente.
+
 \subsection{Cobertura operacional por papel e ação}
 \label{sec:fluxos-completos}
 Cada fluxo parte de sessão ativa validada por COM-01 e usa os campos/estados do contrato UI referenciado na seção 8. Os nomes de coleções e os efeitos descritos seguem o dicionário da seção 5.9. Não repetir login entre ações da mesma sessão. A coluna de resultado inclui persistência e falhas relevantes.

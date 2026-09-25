@@ -49,7 +49,8 @@ ownership ou chefia.
 \subsection*{Fronteira M12.2, notificação e composição}
 O snapshot \texttt{roteiro\_anexo} é fronteira: publicar com roteiro exige o
 predicado abstrato \texttt{acessoRoteiroValidado}; a ACL/Storage/URL de Roteiros
-não são provadas aqui. A \texttt{POST}/\texttt{COMENTARIO} entra apenas como
+não são provadas aqui e são contratadas na
+Seção~\ref{sec:regras-roteiros-m12-2} (M12.2). A \texttt{POST}/\texttt{COMENTARIO} entra apenas como
 efeito mínimo de notificação, vinculada ao \texttt{idOperacao}, sem conteúdo
 protegido e sem autorizar leitura; a caixa, fan-out, expiração e marcação de
 lida são M13. A composição M7 modela primeira execução (grava receipt sob o

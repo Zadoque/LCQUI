@@ -569,11 +569,17 @@ Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}/Comentarios/\{id\}/HistoricoComen
 Caminho: \texttt{Roteiro\_Experimento/\{id\}}.
 \begin{description}
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
-\item[\texttt{id\_professor\_upload}] string; O. Identificador da entidade professor upload, cuja existência e escopo são verificados no servidor.
-\item[\texttt{file\_url}] string; O. Referência do PDF; download exige revalidar acesso.
+\item[\texttt{id\_professor\_upload}] string; O. Dono imutável; existência e escopo verificados no servidor.
+\item[\texttt{storage\_path}] string; O. Referência canônica ao objeto no bucket; nunca exposta como credencial. O download usa URL temporária emitida por endpoint autorizado.
+\item[\texttt{content\_type}] string; O. Formato validado (PDF).
+\item[\texttt{tamanho\_bytes}] inteiro positivo; O. Tamanho validado (PDF estritamente menor que 15 MiB).
+\item[\texttt{owner\_uid}] string; O. Titular do objeto; coincide com \texttt{id\_professor\_upload}.
+\item[\texttt{geracao}] string; O. Geração/versão validada e imutável do objeto; impede troca/sobrescrita entre validação e vínculo.
+\item[\texttt{criado\_em}] Timestamp; O. Instante do servidor da criação do Roteiro publicável.
 \item[\texttt{nome}] string; O. Nome de apresentação; não substitui a chave do documento. Máximo 150 caracteres.
 \item[\texttt{descricao}] string; O. Valor de descricao, validado pelo formulário e pelo servidor conforme regras do domínio.
-\item[\texttt{professores\_compartilhados}] array de strings; O, padrão vazio. UIDs autorizados, geridos exclusivamente pelo servidor com arrayUnion/arrayRemove; sem escrita direta cliente.
+\item[\texttt{file\_url}] string; N. Referência legada; não é autoridade, credencial nem URL pública permanente. Não usar como fallback de download.
+\item[\texttt{professores\_compartilhados}] array de strings; O, padrão vazio. UIDs autorizados, geridos exclusivamente pelo servidor com arrayUnion/arrayRemove; sem escrita direta cliente. Relação única por (roteiro, professor); revogação remove o UID e preserva Posts históricos (Q09).
 \end{description}
 
 A associação Roteiro\_Professor\_Compartilhado existe somente no modelo relacional 3FN; no Firestore é o array ACL professores\_compartilhados em Roteiro\_Experimento. Consultar Meus por id\_professor\_upload == uid; Compartilhados comigo por array-contains no UID; Eu compartilhei filtra os roteiros próprios carregados com ACL não vazia.

@@ -571,6 +571,135 @@ notificação apontando para conteúdo sem acesso; leitura direta negada e
 endpoint devolvendo máscara. Esses casos são critérios normativos e não atestam
 a implementação.
 
+% M12.2 -- fonte normativa de Roteiros, compartilhamento, Storage e anexo a Post
+\subsection{Roteiros, compartilhamento, upload/download e anexo a Post (M12.2)}
+\label{sec:regras-roteiros-m12-2}
+
+Esta subseção é a fonte normativa de \textit{Roteiro\_Experimento},
+compartilhamento entre professores, upload/Storage, visualização/download e
+associação opcional a Post (RF21, RF22, RF23, UI-11). Ela fecha a fronteira
+abstrata \texttt{acessoRoteiroValidado}/\texttt{roteiro\_anexo} de M12.1 (Seção
+7.6) sem reabrir sua prova executável. A autorização segue M9, a idempotência
+segue M7, a participação acadêmica segue M11 e a decisão \textbf{Q09}
+(revogação de roteiro anexado a Post) está consolidada em
+\texttt{MODIFICACOES\_CONSOLIDADAS\_LCQUI.md} e é incorporada aqui.
+
+\begin{regra}[Identidade, autoria e referência do arquivo]
+\texttt{Roteiro\_Experimento/\{id\}} tem dono imutável
+\texttt{id\_professor\_upload}, \texttt{nome} (1--150), \texttt{descricao} e a
+referência canônica ao objeto no Storage: \texttt{storage\_path},
+\texttt{content\_type}, \texttt{tamanho\_bytes}, \texttt{owner\_uid},
+\texttt{geracao} e \texttt{criado\_em}. \texttt{file\_url} é referência legada:
+não é autoridade, não é credencial e não deve ser persistida como URL pública
+permanente. O download usa URL temporária de validade curta, emitida por
+endpoint autorizado; uma URL já emitida não pode ser revogada antes de expirar,
+o que é uma limitação registrada e não uma autorização permanente. Somente o
+proprietário altera ou compartilha o roteiro; a autoria nunca é transferida.
+\end{regra}
+
+\begin{regra}[Upload seguro e publicabilidade]
+O upload exige professor ativo e é validado no servidor (App Check, Auth, papel
+e escopo); o arquivo é PDF estritamente menor que 15 MiB, com bytes
+\texttt{\%PDF-} verificados, no bucket/caminho autorizado, com titularidade,
+geração e ausência de sobrescrita entre a validação e o vínculo. Um Roteiro só
+se torna \textbf{publicável} (visível em ``Meus'' e elegível a
+compartilhamento/anexo) depois que o objeto é validado e o registro recebe a
+geração validada; o upload provisório não é publicável. Cancelamento ou falha
+não cria Roteiro publicável; objetos órfãos de tentativas falhas são
+reconciliados por rotina server-side (sem apagar objeto referenciado). Firestore
+e Storage \textbf{não} têm transação única: a reconciliação de órfãos é
+explícita, e a geração validada é a garantia contra troca de conteúdo.
+\end{regra}
+
+\begin{regra}[Compartilhamento e revogação (Q09)]
+Somente o proprietário autoriza ou revoga um professor destinatário ativo; há
+no máximo uma relação por \texttt{(id\_roteiro, id\_professor)}, representada na
+3FN por \texttt{Roteiro\_Professor\_Compartilhado} e no Firestore pelo array
+\texttt{professores\_compartilhados}, gerido exclusivamente pelo servidor
+(\texttt{arrayUnion}/\texttt{arrayRemove}). Repetir o compartilhamento é
+idempotente (M7): não duplica vínculo, não gera efeito duplicado. O
+destinatário pode anexar o roteiro a uma turma própria e baixá-lo enquanto o
+compartilhamento estiver vigente, mas \textbf{não} redistribui, não altera a
+autoria e não coopera em nome do dono. A notificação
+\texttt{ROTEIRO\_COMPARTILHADO} é efeito mínimo delimitado (destinatário,
+roteiro, autor); o ciclo completo e a caixa ficam em M13. Revogação (Q09):
+impede novas associações do roteiro pelo destinatário, mas \textbf{preserva os
+Posts históricos} já publicados e seus snapshots; não recalcula o passado.
+\end{regra}
+
+\begin{regra}[Leitura e download]
+A biblioteca tem abas ``Meus'', ``Compartilhados comigo'' e ``Eu compartilhei'',
+com leitura mínima (nome, autor, descrição, ações permitidas). O servidor
+revalida: para professor, propriedade ou compartilhamento atual; para aluno, o
+\textbf{vínculo canônico atual} à turma e um Post acessível que referencia o
+roteiro. Turma \texttt{Arquivada} é somente leitura: membros com vínculo atual
+ainda leem/baixam o anexo de Post histórico, mas um \textbf{ex-aluno} não
+(mesmo com claim atualizada). Post removido da apresentação e roteiro revogado
+não vazam por URL, cache, erro, notificação ou leitura direta. O download
+retorna o mínimo necessário (URL curta, identidade do objeto e geração) sem
+conteúdo protegido; se o objeto estiver ausente ou a geração divergir, falha
+fechado, sem fallback para \texttt{file\_url}. O Chefe acessa por Q13 apenas no
+escopo de moderação/auditoria.
+\end{regra}
+
+\begin{regra}[Associação com Post]
+No máximo um roteiro opcional por Post. O professor dono da turma precisa de
+\texttt{acessoRoteiroValidado} no commit, \textbf{inclusive na edição} que
+mantém ou troca o anexo; remover o anexo não exige acesso. O
+\texttt{roteiro\_anexo} é snapshot \textbf{imutável} de metadados e geração
+(\texttt{id\_roteiro}, \texttt{nome\_arquivo}, \texttt{tamanho\_bytes},
+\texttt{storage\_path}, \texttt{geracao}); ele preserva o histórico e rotula a
+publicação, mas \textbf{não} é autorização futura — a leitura revalida o acesso
+atual. Editar/desvincular atualiza o snapshot e registra a versão anterior no
+histórico de M12.1 (id antigo/novo), sem apagar o objeto anterior (retenção
+RF25; objeto vira candidato a reconciliação se ficar sem referência). Se o
+compartilhamento foi revogado, a edição que mantém o anexo falha fechado (o
+professor deve remover o anexo ou obter novo acesso); o Post existente e o
+snapshot permanecem para leitura do aluno com vínculo atual.
+\end{regra}
+
+\begin{regra}[Composição M7/M9]
+Upload/cadastro, compartilhar, revogar, associar a Post e desvincular usam
+\texttt{idOperacao} e receipt M7: retry idêntico devolve o resultado e não
+duplica Roteiro, vínculo de compartilhamento, histórico nem notificação; reuso
+incompatível é rejeitado. Toda mutação lê usuário ativo, papel/versão, ownership
+ou compartilhamento atual, estado da turma (Q08) e geração do objeto na mesma
+transação em que escreve (M9); a validação de Storage é etapa externa
+reconciliável e não substitui a decisão de domínio.
+\end{regra}
+
+\paragraph{Matriz de operações M12.2.}
+\begin{itemize}
+	\item \textbf{Cadastrar roteiro}: ator professor ativo; pré: PDF $<$15 MiB
+	validado, caminho/titularidade/geração; efeito: Roteiro publicável; falha:
+	objeto órfão reconciliável, sem registro utilizável.
+	\item \textbf{Compartilhar/revogar}: ator proprietário; pré: destinatário
+	professor ativo, relação única; efeito: ACL atualizada (idempotente) +
+	notificação mínima; falha: nenhuma ACL parcial.
+	\item \textbf{Listar biblioteca}: ator proprietário/destinatário atual;
+	efeito: projeção mínima; revogado/ex-aluno não veem.
+	\item \textbf{Baixar}: professor com propriedade/compartilhamento atual, ou
+	aluno com vínculo atual e Post acessível; Chefe por Q13; efeito: URL curta
+	com geração; falha fechado se objeto/geração ausente; ex-aluno/arquivada
+	segundo a regra.
+	\item \textbf{Anexar/editar/desvincular Post}: ator professor dono; pré:
+	acesso atual ao roteiro no commit (exceto remoção do anexo), turma Ativo;
+	efeito: snapshot imutável + histórico M12.1; falha: sem fato parcial.
+	\item \textbf{Retry M7}: devolve receipt; não duplica efeito.
+\end{itemize}
+
+\paragraph{Casos de regressão M12.2.}
+Cobrir: proprietário, destinatário compartilhado, professor terceiro, aluno
+matriculado atual, ex-aluno, Chefe Q13; turma Ativo e Arquivada; upload válido,
+PDF inválido, maior que 15 MiB, objeto ausente/geração divergente; cancelamento
+e órfão; compartilhar/revogar idempotentes; download por proprietário,
+destinatário, aluno e negado a terceiro/ex-aluno; revogação com Post histórico
+preservado e com edição que mantém o anexo (falha fechado); associação,
+substituição e desvinculação de anexo com histórico; Post removido e roteiro
+revogado sem vazamento; retry e reuso incompatível. Esses casos são critérios
+normativos e não atestam a implementação. A formalização executável de M12.2 é
+rodada separada.
+
 \subsubsection{Seleção do tipo em Resumo de Reagente}
 \begin{regra}
 Ao cadastrar uma \textit{Especificacao\_Reagente}, o estado físico do resumo (\texttt{SOLIDO} ou \texttt{LIQUIDO}) determina quais campos operacionais de frasco serão apresentados. O tipo de substância (\texttt{PURA} ou \texttt{MISTURA}) determina as propriedades químicas obrigatórias, conforme a matriz de obrigatoriedade. DP-A01: estado físico e higroscopicidade pertencem ao resumo; unidade é derivada e densidade permanece na especificação. \\

@@ -670,16 +670,40 @@ Seção~\ref{sec:regras-posts-comentarios-m12-1}.
 \begin{entidade}{Roteiro\_Experimento}
 \campo{id}{SERIAL}{PK}
 \campo{id\_professor\_upload}{INTEGER}{FK, NOT NULL}
-\campo{file\_url}{TEXT}{NOT NULL}
+\campo{storage\_path}{TEXT}{NOT NULL}
+\campo{content\_type}{VARCHAR(100)}{NOT NULL}
+\campo{tamanho\_bytes}{INTEGER}{CHECK (tamanho\_bytes > 0), NOT NULL}
+\campo{owner\_uid}{INTEGER}{FK, NOT NULL}
+\campo{geracao}{VARCHAR(120)}{NOT NULL}
+\campo{criado\_em}{TIMESTAMP}{NOT NULL}
 \campo{nome}{VARCHAR(150)}{NOT NULL}
 \campo{descricao}{TEXT}{NOT NULL}
+\campo{file\_url}{TEXT}{NULL; legado}
 \end{entidade}
+\begin{explicacao}
+\textit{storage\_path} é a referência canônica ao objeto; \textit{file\_url} é
+referência legada, sem valor de autorização nem credencial. \textit{owner\_uid}
+coincide com \textit{id\_professor\_upload}. \textit{geracao} é a versão
+validada e imutável do objeto, fixada antes do vínculo; \textit{content\_type} e
+\textit{tamanho\_bytes} registram o formato e o tamanho validados (PDF
+estritamente menor que 15 MiB). Uma URL de download é temporária e não se torna
+credencial permanente. Contrato em
+Seção~\ref{sec:regras-roteiros-m12-2}.
+\end{explicacao}
 
 \subsection{Roteiro Professor Compartilhado}
 \begin{entidade}{Roteiro\_Professor\_Compartilhado}
 \campo{id\_roteiro\_experimento}{INTEGER}{PK, FK}
 \campo{id\_professor}{INTEGER}{PK, FK}
 \end{entidade}
+\begin{explicacao}
+A chave primária composta impede duplicar o compartilhamento do mesmo roteiro
+para o mesmo professor. No Firestore a relação corresponde ao array
+\texttt{professores\_compartilhados} em \textit{Roteiro\_Experimento}, gerido
+exclusivamente pelo servidor. Revogação remove a relação e não reescreve Posts
+históricos (Q09). Contrato em
+Seção~\ref{sec:regras-roteiros-m12-2}.
+\end{explicacao}
 
 \subsection{Professor}
 \begin{entidade}{Professor}
