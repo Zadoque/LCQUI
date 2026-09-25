@@ -1,9 +1,9 @@
 # LCQUI — Formal Specification State
 
 ## 1. Propósito desta fase
-M0 = VALIDATED; M1 = VALIDATED; M2 = VALIDATED; M3 = VALIDATED; M4 = VALIDATED; M5 = VALIDATED; M6 = VALIDATED; M7 = VALIDATED; M8 = VALIDATED; M9 = DOCUMENTATION_VALIDATED; M10+ = NOT_STARTED. HEAD da consolidação documental M9: `dd5024ebd8987a65e18888a6508a79ef54e16431`. A cadeia executável CUE → IR → Alloy → receipts → Rust → LaTeX → PDF de M5–M8 foi concluída com todos os gates PASS. M9 consolidou documentalmente autorização/usuários, mas ainda não possui formalização executável. Próxima ação exata: **FORMALIZAÇÃO EXECUTÁVEL DE M9 EM RODADA SEPARADA (CUE → IR → Alloy → receipt → Rust → LaTeX → PDF)**. Os parágrafos abaixo preservam o contexto histórico da fase.
+M0 = VALIDATED; M1 = VALIDATED; M2 = VALIDATED; M3 = VALIDATED; M4 = VALIDATED; M5 = VALIDATED; M6 = VALIDATED; M7 = VALIDATED; M8 = VALIDATED; M9 = VALIDATED; M10+ = NOT_STARTED. HEAD de entrada da formalização executável M9: `d105bf8e05bf783c342a02cf4957637594258f5b`; consolidação documental normativa: `dd5024ebd8987a65e18888a6508a79ef54e16431`; HEAD pré-registro de estado/PDF: `d7fdeb3177dca85cf4e38e5875ae64a9d124c534`. M9 fechou CUE → IR v3 aditivo → Alloy → receipt → Rust → LaTeX → PDF com todos os gates PASS. Próxima ação exata: **AVALIAR A ENTRADA EM M10 — PATRIMÔNIO, EM RODADA SEPARADA**. Não iniciar M10. Os parágrafos abaixo preservam o contexto histórico da fase.
 
-Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. M5, M6, M7 e M8 agora possuem contratos CUE, IR v3, modelos Alloy, receipts verificáveis, validators Rust, fragmentos gerados e capítulos integrados ao PDF. M8 = VALIDATED; próxima ação: avaliar a entrada em M9 (autorização/usuários).
+Camada formal ADITIVA CUE + Alloy + Rust → LaTeX. M5, M6, M7, M8 e M9 possuem contratos CUE, IR v3, modelos Alloy, receipts verificáveis, validators Rust, fragmentos gerados e capítulos integrados ao PDF. M9 = VALIDATED; próxima ação: avaliar a entrada em M10 (patrimônio).
 
 ## 2. Baseline congelado da Fase 3B
 - FUNCTIONAL_SHA = db29ea2f17dc785fb0b44ffb3aec16db29c45e94
@@ -69,13 +69,15 @@ Sandbox: .git somente leitura exige escalonamento; daemon Nix também; Node spaw
 | M6 | Q06/tara | VALIDATED |
 | M7 | Idempotência | VALIDATED |
 | M8 | Estoque/escassez/notificações | VALIDATED |
-| M9 | Autorização/usuários | DOCUMENTATION_VALIDATED |
+| M9 | Autorização/usuários | VALIDATED |
 | M10 | Patrimônio | NOT_STARTED |
 | M11 | Turmas/demais domínios | NOT_STARTED |
 | M12 | Integração/redução de duplicação normativa | NOT_STARTED |
 
 ## 9. Milestone atual
-M4 VALIDATED (Retirada/devolução completas, com erratum pré-M5). M3 VALIDATED (com erratum pré-M5); M5 = VALIDATED; M6 = VALIDATED; M7 = VALIDATED; M8 = VALIDATED. Registro completo em `M4_VALIDATION.md`, `PRE_M5_RECONCILIATION.md`, `M5_DOCUMENTATION.md`, `M6_DOCUMENTATION.md`, `M7_DOCUMENTATION.md`, `M8_DOCUMENTATION.md`, `M8_EXECUTABLE_VALIDATION.md` e nos worklogs executáveis M5–M8.
+M4 VALIDATED (Retirada/devolução completas, com erratum pré-M5). M3 VALIDATED (com erratum pré-M5); M5 = VALIDATED; M6 = VALIDATED; M7 = VALIDATED; M8 = VALIDATED; M9 = VALIDATED. Registro M9 em `M9_DOCUMENTATION.md` e `M9_EXECUTABLE_VALIDATION.md`; a implementação Firebase continua fora da evidência formal.
+
+- M9 = VALIDATED (entrada executável `d105bf8e`): CUE (`#M9Contrato`, 4 fixtures válidas e 6 inválidas), IR v3 aditivo (`formal_m9_autorizacao`), Alloy `authorization_m9.als` (13 checks UNSAT + 9 witnesses SAT, scope 8 com 2 escopos), receipt verificável, validator Rust, guard de drift de papéis, fragmentos e `Formal-Spec-M9.tex` (PDF 375 páginas). `podeExecutar` exige autenticação, usuário ativo, papel persistido, versão corrente, vínculo/escopo ou ownership e recurso não server-owned; `podeCommitar` acrescenta domínio válido. Revogação incrementa versão; claim antiga não restaura autorização; TOCTOU revalida no commit. Nenhuma HQ. Não certifica Firebase, Rules, backend, UI ou infraestrutura. Próxima ação: avaliar M10 em rodada separada.
 
 - M8 = VALIDATED (entrada documental `4e142287`; formalização executável na sequência): contrato de estoque atual, escassez e notificações com CUE (`#M8Contrato`), IR v3 (entidade aditiva `formal_m8_contrato`), Alloy composto (`stock_cache_scarcity_m8.als`: 25 checks UNSAT + 15 witnesses SAT), receipt `build/formal-validation-m8.json`, validator Rust `validation_m8.rs` (40 resultados exatos + testes semânticos de fronteira/agregação + adulteração), fragmentos gerados e `Formal-Spec-M8.tex` integrado ao PDF (367 páginas). Estoque atual é `Frasco_Reagente` (sem view persistente; resumos `*_Diario` são FLOW histórico); agregação protegida `count()/sum()`; saldos `saldo_aferido_g`/`saldo_aferido_ml` server-owned e desconhecido ≠ zero. Predicado único `frascoAptoParaUso` e `qtdAptos` em frascos. Escassez `qtdAptos < qtd_limiar_escassez` (estritamente menor) por configuração `Almoxarifado/{almox}/Estoques_Configurados/{idResumo_idEspec}`; `ativo`/`notificacao_ativa` distintos; backfill legado é pré-condição operacional. Cache `Sistema_Cache_Dashboard` lazy, TTL semântico < 30 s, geração/invalidação transacional, rate limit 5/min/UID antes do cache (inclusive cache hit); job de escassez não usa cache. Notificação `ESCASSEZ_ESTOQUE` idempotente em `America/Sao_Paulo`, destinatários vinculados. Findings M8-F01..F06 corrigidos documentalmente; M8-F07..F10 permanecem dívida de implementação; nenhuma HQ. A evidência não certifica a implementação Firebase atual. Próxima ação: avaliar a entrada em M9 em rodada separada.
 
@@ -147,9 +149,9 @@ HEAD de entrada: `25e3825f5045a328e59f17115f2dbbda0710fb26`, branch `feat/formal
 Validação naquele checkpoint: just docs-build PASS (275 páginas, zero erros/referências indefinidas; 28 Overfull herdados, comparação com baseline compilado de 267 páginas); spec-check/spec-export/alloy-check PASS no recorte existente; git diff --check PASS. PDF inspecionado antes da publicação. Inventário de arquivos, campos removidos, auditoria e resultados de validação desta rodada: [STATUS_ATUAL.md](documentation/STATUS_ATUAL.md). Os registros M2.1b/M2.1c e M2_HUMAN_QUESTIONS.md não foram reescritos fora do escopo autorizado; seus estados OPEN para HQ004..007 estão superados pelas decisões acima e pelas fontes .tex atuais.
 
 ## 12. Próxima ação EXATA
-**M8 = VALIDATED.** M0–M7 = VALIDATED e o backfill executável M5–M7 foi concluído; a formalização executável de M8 fechou CUE → IR → Alloy → receipt → Rust → LaTeX → PDF, com todos os gates PASS. A modelagem pré-M8 separa `EstadoFisico`, `SituacaoLocalizacao` e autorização operacional: `EXTRAVIADO` preserva `fisico`, revoga a autorização corrente e o reencontro grava `LOCALIZADO` com quarentena. Checks Alloy de coerência são UNSAT e witnesses do ciclo físico/autorização são SAT nos scopes canônicos e ampliados. Regressão M0–M4 PASS.
+**M9 = VALIDATED.** M0–M8 = VALIDATED; M9 fechou CUE → IR → Alloy → receipt → Rust → LaTeX → PDF com 13 checks UNSAT e 9 witnesses SAT. Regressão M0–M8 PASS; a evidência continua restrita ao modelo formal e não certifica a implementação Firebase.
 
-FORMALIZAÇÃO EXECUTÁVEL DE M9 EM RODADA SEPARADA (CUE → IR → Alloy → receipt → Rust → LaTeX → PDF). M0–M8 = VALIDATED; M9 = DOCUMENTATION_VALIDATED; M10+ = NOT_STARTED. Não iniciar M10. Registros em `documentation/worklogs/formal-spec/M9_DOCUMENTATION.md` e nos worklogs M8.
+AVALIAR A ENTRADA EM M10 — PATRIMÔNIO, EM RODADA SEPARADA. M0–M9 = VALIDATED; M10+ = NOT_STARTED. Não iniciar M10 nesta linha. Registros em `documentation/worklogs/formal-spec/M9_DOCUMENTATION.md` e `M9_EXECUTABLE_VALIDATION.md`.
 
 M7 documental: contrato global de idempotência em `documentation/worklogs/formal-spec/M7_DOCUMENTATION.md`; identidade `(uid, tipo_operacao, payload_hash)`, canonicalização única, `idOperacao` obrigatório, comandos atômicos vs workflows externos, dedup de eventos, jobs e materializações; findings M7-F01..F09 corrigidos e M7-F10 registrado como divergência de implementação. A formalização executável CUE/Alloy/Rust de M5–M7 foi concluída no backfill pré-M8. M8 = VALIDATED. Registro: `documentation/worklogs/formal-spec/PRE_M8_FORMALIZATION_BACKFILL.md`, `documentation/worklogs/formal-spec/M8_DOCUMENTATION.md` e `M8_EXECUTABLE_VALIDATION.md`. A implementação real (`functions/src/reagentes.ts`) segue divergente e não foi alterada.
 
