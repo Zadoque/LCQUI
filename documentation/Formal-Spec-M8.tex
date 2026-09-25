@@ -1,0 +1,50 @@
+\clearpage
+\section{Especificação formal M8: estoque, escassez e notificações}
+\label{sec:formal-m8}
+
+M8 formaliza a fotografia corrente de estoque e seus derivados de decisão.
+\textit{Frasco\_Reagente} é a autoridade do estado corrente; os resumos
+\texttt{Resumo\_*\_Diario} são projeções FLOW históricas e nunca autoridade do
+estoque atual. A aptidão operacional é única e compartilhada por dashboard,
+retirada e escassez: \texttt{frascoAptoParaUso} exige localização
+\texttt{LOCALIZADO}, disponibilidade \texttt{DISPONIVEL}, estado físico
+\texttt{FECHADO}/\texttt{ABERTO}, ausência de quarentena, validade compatível
+(não vencido ou com uso vencido autorizado) e ausência de pendência
+metrológica. \texttt{EXTRAVIADO} é localização, não estado físico: um frasco
+\texttt{ABERTO} extraviado permanece fisicamente aberto, mas não é apto.
+
+A escassez é \texttt{qtdAptos} $<$ \texttt{qtd\_limiar\_escassez}, estritamente
+menor; a igualdade ao limiar não é escassez. A configuração pertence ao par
+almoxarifado, resumo e especificação, com \texttt{ativo} e
+\texttt{notificacao\_ativa} distintos: uma configuração silenciada pode manter a
+escassez conceitual sem emitir alerta automático. O cache de dashboard é
+projeção descartável, não fonte de autoridade do estoque: uma publicação só é
+válida enquanto a geração do cache permanecer a mesma do início do cálculo, e
+uma mutação que altera a contribuição corrente incrementa a geração, marca
+\texttt{valido = false} e limpa o resultado na mesma unidade atômica. O alerta
+\texttt{ESCASSEZ\_ESTOQUE} é emitido ao gestor vinculado ao almoxarifado, uma
+vez por identidade lógica diária (idempotência reutilizada de M7).
+
+\subsection*{Responsabilidade das camadas}
+CUE verifica os shapes de configuração, resultado de estoque, cache e
+notificação. Alloy verifica a aptidão única, as fronteiras de escassez, a
+invalidação/publicação do cache por geração e a emissão idempotente do alerta.
+Rust valida a proveniência do receipt e os limites determinísticos: escassez
+estritamente menor, idade do cache estritamente menor que 30 segundos, rate
+limit de 5 solicitações por minuto por UID, chave determinística e agregação que
+segrega saldo desconhecido (nunca zero) e não soma massa com volume.
+
+\begingroup\small\raggedright
+\input{generated/entities/formal_m8_contrato.tex}
+\input{generated/invariants/formal_m8.tex}
+\par\endgroup
+
+\subsection*{Limites}
+A evidência formal M8 não certifica a implementação Firebase atual. O modelo não
+prova disponibilidade física do produto no mundo real, apenas coerência do
+estado persistido segundo os contratos formalizados. O cache é projeção
+descartável, não fonte de autoridade do estoque. Permanecem fora de M8 a
+concorrência real do motor Firestore, a passagem de tempo contínua (TTL é
+abstraído; os limites numéricos são validados por Rust) e o backfill
+operacional de dados legados, que é pré-condição de ativação da cron e não é
+afirmado como executado.
