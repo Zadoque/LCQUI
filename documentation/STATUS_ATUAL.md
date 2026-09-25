@@ -1,6 +1,45 @@
 # Status atual do LCQUI
 
-## Estado corrente — M11 executável validado (Turma, matrícula e convite)
+## Estado corrente — M12.1 documental validado (Posts, comentários, edição/moderação)
+
+Rodada **exclusivamente documental**, recorte estreito de M12.1. HEAD de
+entrada: `9f5c6713114ee9ef2d77eb98f31e0788053caa7b`. Contrato normativo na
+**Seção 7.6** (`\label{sec:regras-posts-comentarios-m12-1}`), reconciliado com
+Seções 3/4/5/8/9/11, Q08/Q10/Q11/Q13, RF25 e M7/M9/M11. **M12.1 =
+DOCUMENTATION_VALIDATED**; M0–M11 = VALIDATED; M12.2 = NOT_STARTED; M12 =
+NOT_STARTED; HQs M12.1 = 0. Registro em
+[worklog M12.1](worklogs/formal-spec/M12_1_DOCUMENTATION.md).
+
+- **Post/Comentário:** autoria imutável; professor dono cria/edita Post; autor
+  edita o próprio Comentário; Chefe intervém só por Q13 (moderação/remoção com
+  motivo e auditoria, sem assumir autoria). Ninguém edita conteúdo alheio.
+- **Remoção lógica:** `removido_da_apresentacao` + motivo/operador/instante;
+  não apaga documento nem histórico (RF25); item some do feed de colegas.
+- **Edição/moderação:** `editado`/`editado_em` em Post e Comentário; histórico
+  imutável `Historico_Posts_Turma` e `Historico_Comentario` com `tipo`
+  (`edicao`/`moderacao`) e `motivo`; moderação não apaga o texto original; a
+  edição do autor não desfaz moderação.
+- **Leitura/máscara:** leitura direta negada; `listarComentariosPost` autorizado
+  revalida vínculo canônico atual e devolve original ao autor, aviso
+  institucional a colegas e original+histórico ao professor dono/Chefe; sem
+  vazamento em cache/notificação/erro.
+- **Q08:** turma arquivada nega toda escrita acadêmica, inclusive moderação e
+  para o Chefe, sem exceção administrativa.
+- **Fronteira M12.2:** criação/edição de Post com roteiro valida o acesso atual
+  e guarda o snapshot `roteiro_anexo`; upload/compartilhamento/URL ficam em
+  M12.2 (dependência D-M12.1-01, não bloqueante).
+- **Notificações `POST`/`COMENTARIO`:** efeito delimitado idempotente M7, sem
+  conteúdo protegido no payload; o clique revalida acesso e a notificação não
+  autoriza leitura. UI-12 completa fica fora de M12.1.
+- **Limites:** não certifica `functions/src/posts.ts`, frontend, Rules, Auth,
+  Storage, índices nem a implementação real. PDF **411 páginas**, exit 0.
+- Dívida de implementação: `posts.ts`/Rules reais divergem do alvo (M12.1-F10).
+
+Próxima ação exata: formalização executável **M12.1** (CUE → IR → Alloy →
+receipt → Rust → LaTeX → PDF) em rodada separada; depois M12.2 e o fechamento
+M12.
+
+## Histórico — M11 executável validado (Turma, matrícula e convite)
 
 Cadeia executável aditiva concluída na branch `feat/formal-spec-cue-alloy`.
 HEAD de entrada: `01fe84fde32aacee8e8c165f76faba40a5b2b786`. Micro-reconciliação
@@ -8,7 +47,7 @@ normativa prévia (`PRE_M11_EXECUTABLE_RECONCILIATION.md`): PRE11-01 capacidade
 (edição abaixo da ocupação proibida; `qtd_alunos > capacidade` válido por
 exceção nominal), PRE11-02 fronteira Auth, PRE11-03 identidade/histórico de
 convite, PRE11-04 idempotência de aceite. **M11 = VALIDATED**; M0–M10 = VALIDATED;
-M12+ = NOT_STARTED; HQs M11 abertas = 0.
+M12.1 = DOCUMENTATION_VALIDATED; M12.2 = NOT_STARTED; M12 = NOT_STARTED (fechamento de composição/regressão M0–M11); HQs M11 abertas = 0.
 
 - **CUE:** `#M11Contrato` (turma, vínculo canônico, espelho, evento, convite,
   pendência HMAC, aceitação); 12 fixtures válidas + 12 inválidas em
@@ -32,8 +71,11 @@ M12+ = NOT_STARTED; HQs M11 abertas = 0.
   e-mail, HMAC concreto, Rules, índices nem concorrência real. Registro em
   [worklog M11 executável](worklogs/formal-spec/M11_EXECUTABLE_VALIDATION.md).
 
-Próxima ação exata: avaliar a entrada em M12 (demais domínios) em rodada
-separada.
+Próxima ação exata: formalização executável M12.1 (CUE → IR → Alloy → receipt
+→ Rust → LaTeX → PDF) em rodada separada; depois M12.2 (Roteiros,
+compartilhamento, Storage/download e associação a Post) e o fechamento M12.
+Cancelamento explícito de convite pendente e transferência de ownership de
+Turma permanecem fora das fatias validadas e não entram em M12 por inércia.
 
 ## Histórico — M11 documental (Turma, matrícula e convite)
 
