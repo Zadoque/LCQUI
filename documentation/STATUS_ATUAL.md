@@ -1,19 +1,18 @@
 # Status atual do LCQUI
 
-## Estado corrente pós-M9 documental
+## Estado corrente pós-M9 executável
 
-M0–M8 = **VALIDATED**; M9 = **DOCUMENTATION_VALIDATED**; M10+ =
-**NOT_STARTED**. HEAD da consolidação documental M9:
-`dd5024ebd8987a65e18888a6508a79ef54e16431`. M9 consolidou RBAC + vínculo/escopo persistido + ownership,
-revogação/claims, TOCTOU, Rules versus Admin SDK e matriz normativa única na
-Seção 7. Não houve formalização executável M9 nesta rodada.
-Próxima ação exata: **FORMALIZAÇÃO EXECUTÁVEL DE M9 EM RODADA SEPARADA
-(CUE → IR → Alloy → receipt → Rust → LaTeX → PDF)**. Não iniciar M10.
+M0–M9 = **VALIDATED**; M10+ = **NOT_STARTED**. HEAD pré-registro de
+estado/PDF: `d7fdeb3177dca85cf4e38e5875ae64a9d124c534`. M9 formalizou RBAC +
+vínculo/escopo persistido + ownership, usuário ativo, versão de permissões,
+claims obsoletas, revogação, TOCTOU abstrato e separação autorização/domínio.
+IR v3 permaneceu aditivo; Alloy executou 13 checks UNSAT e 9 witnesses SAT.
+Próxima ação exata: **AVALIAR A ENTRADA EM M10 — PATRIMÔNIO, EM RODADA
+SEPARADA**. Não iniciar M10.
 
-Atualizado em 25/09/2026 — M9 documental concluído. Estado corrente:
-M0–M8 = VALIDATED; M9 = DOCUMENTATION_VALIDATED; M10+ = NOT_STARTED; nenhuma
-HQ bloqueante. Registro em
-[worklog M9 documental](worklogs/formal-spec/M9_DOCUMENTATION.md).
+Atualizado em 25/09/2026 — M9 executável concluído. Estado corrente:
+M0–M9 = VALIDATED; M10+ = NOT_STARTED; nenhuma HQ bloqueante. Registro em
+[worklog M9 executável](worklogs/formal-spec/M9_EXECUTABLE_VALIDATION.md).
 
 ## M8 executável (Estoque / Escassez / Notificações)
 
