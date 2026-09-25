@@ -13,6 +13,25 @@ A regra raiz do arquivo \texttt{firestore.rules} deve ser:\\
 Todas as exceções são declaradas explicitamente abaixo.
 \end{regra}
 
+\begin{regra}[M9 --- interpretação obrigatória das Rules]
+A matriz de autorização da Seção~7/M9 governa esta seção. Toda exceção de
+leitura direta deve exigir: \texttt{request.auth != null}, documento
+\texttt{Usuarios/uid} existente e \texttt{ativo=true},
+\texttt{request.auth.token.versao\_permissoes} igual à versão persistida,
+claim de papel pertencente à lista fechada e a relação persistida de escopo ou
+ownership aplicável. Campo de token ausente, versão divergente ou falha de
+\texttt{get()} nega. Claim não basta para Gestor\_Almoxarifado: o vínculo N:N
+do almoxarifado também é obrigatório.
+
+Nenhuma mutação de domínio, papel, vínculo, notificação, auditoria, operação
+M7, lock, configuração de estoque, cache, rate limit ou coleção interna é
+permitida diretamente ao cliente. As tabelas históricas abaixo não concedem
+write quando contrariem esta regra. Regras não são filtros: consulta ampla que
+possa retornar documento proibido é negada ou substituída por endpoint
+autorizado. O Admin SDK ignora Rules; cada callable/backend deve aplicar M9 e
+as pré-condições de domínio dentro da própria transação.
+\end{regra}
+
 \subsection{Regras por Coleção}
 
 \small

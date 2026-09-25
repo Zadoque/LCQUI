@@ -17,6 +17,16 @@ Quando se clica na foto de perfil, aparece um modal que se arrasta da direita. N
 \end{verbatim}
 Alterar os botões de papel no header modifica instantaneamente a página toda e o painel lateral para as funcionalidades daquele papel selecionado (ex: de Aluno para Gestor de Almoxarifado).
 
+\begin{regra}[M9 --- UI não é controle de segurança]
+Botões, rotas protegidas, seleção de papel, cache de claims e estados de
+carregamento servem somente à UX. A tela deve ocultar ações incompatíveis,
+recarregar token após aviso de alteração e mostrar negação do servidor sem
+vazar dados; ela não conclui autorização. Resultado de toda mutação e toda
+leitura sensível depende da Seção~7/M9 e da validação server-side/Rules. Uma
+mudança de papel, vínculo, conta ativa ou ownership durante a sessão invalida a
+ação seguinte, mesmo que o botão ainda esteja visível.
+\end{regra}
+
 \subsection{Dashboard-Chefe Geral}
 O Chefe Geral tem uma div \textit{full-width} logo abaixo do header principal, alterando conforme a aba selecionada no painel esquerdo:
 

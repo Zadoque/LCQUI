@@ -7,6 +7,15 @@
 Nada aqui faz parte do modelo 3FN da Seção 4 ou do mapeamento físico Firestore da Seção 5, nem deve ser implementado nesta primeira versão. É o registro de uma proposta para quando reagentes gasosos entrarem no almoxarifado do LCQUI -- hoje nenhum reagente gasoso está cadastrado, por isso \texttt{GASOSO} foi removido de \textit{Resumo\_Reagente.estado\_fisico} (seção 4.17) nesta versão, em vez de deixado junto de campos pensados só para sólido/líquido.
 \end{explicacao}
 
+\subsection{Evoluções posteriores da autorização}
+M9 fixa a V1 em RBAC com escopo/vínculo persistido e ownership, sem introduzir
+ACL, ABAC ou capabilities. Versões futuras só poderão propor novo paradigma
+depois de demonstrar requisito de domínio que a matriz M9 não expressa, com
+migração, regras, backend, revogação, auditoria, idempotência e casos de
+segurança próprios. Não se amplia privilégio por conveniência de interface ou
+por Custom Claim. A implementação do contrato M9 nas Rules, Storage, backend,
+App Check, IAM e testes é trabalho posterior à formalização executável M9.
+
 \subsection{Por que \texttt{GASOSO} sozinho não basta}
 
 Simplesmente devolver \texttt{GASOSO} a \textit{estado\_fisico} resolveria a classificação básica, mas um cilindro de gás carrega informação que \textbf{não} é estado físico e que não deve virar uma explosão de valores dentro do mesmo enum (\texttt{GASOSO\_COMPRIMIDO}, \texttt{GASOSO\_LIQUEFEITO}, \texttt{MISTURA\_GASOSA\_CALIBRACAO}, \ldots). São quatro dimensões independentes, que devem continuar independentes no banco:

@@ -114,6 +114,18 @@ export const revogarPapel = onCall(async (request) => {
 });
 \end{lstlisting}
 
+\begin{regra}[Erratum M9 --- revogação e claims]
+A transação de concessão, revogação, troca de papel ou remoção de vínculo
+incrementa \texttt{Usuarios.versao\_permissoes}, grava
+\texttt{claims\_pendentes=true} e altera os papéis/vínculos antes do efeito
+externo Firebase Auth. Ao commit, reconcilia o conjunto completo por
+\texttt{setCustomUserClaims} e tenta \texttt{revokeRefreshTokens(uid)}; falha
+nessa etapa não reabre a autorização persistida. ID tokens podem reter claims
+até sua renovação (aproximadamente uma hora), portanto nenhuma mutação crítica
+confia apenas no token. A Seção~7/M9 substitui qualquer leitura pré-transacional
+ou retorno idempotente antigo que dispense a decisão atual.
+\end{regra}
+
 
 
 

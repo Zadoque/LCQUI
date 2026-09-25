@@ -51,6 +51,122 @@ RF25 & O sistema deve manter dados históricos e de auditoria sem apagar fatos r
 Quando um frasco de reagente é cadastrado como em quarentena, deve ser obrigatório escrever o detalhe do status explicando o motivo dele estar em quarentena. Essa justificativa humana obrigatória deve possuir no mínimo 20 caracteres após trim; mensagens automáticas do servidor não são entradas humanas.
 Um frasco em quarentena não pode ser descartado diretamente. A quarentena deve ser encerrada por decisão humana explícita: \texttt{VOLTAR\_A\_DISPONIVEL} ou \texttt{PENDENTE\_DE\_DESCARTE}. No segundo caso, a decisão gera autorização operacional estruturada, mantém o frasco \texttt{INDISPONIVEL} e somente então permite \texttt{descartarFrasco}, conforme a máquina de estados da Seção~4.
 \end{regra}
+
+% M9 -- fonte normativa única de autorização
+\subsection{Autorização e usuários (M9)}
+\label{sec:m9-autorizacao}
+
+Esta subseção é a fonte normativa única de autorização. Se uma tabela de
+stakeholder, tela, fluxo, pseudocódigo ou Rules divergir, esta subseção
+prevalece. Autenticação responde quem apresentou uma credencial Firebase
+válida; autorização responde \texttt{podeExecutar(uid, operacao, recurso,
+estadoAtual)}. A primeira não implica a segunda.
+
+\paragraph{Modelo e fontes de verdade.}
+O modelo é RBAC + escopo/vínculo persistido + ownership quando o domínio o
+exige. Os únicos papéis são Chefe\_Geral, Gestor\_Almoxarifado,
+Gestor\_Bens\_Patrimoniais, Professor, Aluno e Bolsista. Papéis atuais são
+os documentos de papel cujo \texttt{id\_usuario} coincide com o UID; Bolsista
+implica Aluno; Chefe\_Geral é exclusivo; Professor e Aluno não coexistem; e
+Bolsista e Gestor\_Almoxarifado não coexistem. Conta, papel, vínculo,
+ownership, recurso ou escopo ausente, inválido, inconsistente ou desconhecido
+significa negação. Nenhum payload, cache, espelho, campo denormalizado, papel
+selecionado na UI ou claim antiga cria autorização.
+
+\begin{itemize}
+  \item \texttt{Usuarios/uid.ativo=true} é pré-condição universal. A ausência
+  do documento ou \texttt{ativo=false} nega.
+  \item A relação \texttt{Gestor\_Almoxarifado\_x\_Almoxarifado} é o escopo
+  N:N canônico do gestor; um gestor pode ter zero ou muitos vínculos.
+  Chefe\_Geral tem escopo global já decidido; Gestor\_Bens\_Patrimoniais tem
+  escopo global do domínio patrimonial. Não há escopo patrimonial alternativo
+  nesta V1.
+  \item Turma pertence a \texttt{id\_professor}; matrícula canônica é
+  \texttt{Turma/id/Alunos/uid}; o espelho em
+  \texttt{Usuarios/uid/Turmas/id} é somente consulta. Roteiro pertence ao
+  professor que o enviou; compartilhamento persistido autoriza apenas o uso
+  previsto, não redistribuição.
+  \item A decisão de domínio continua separada: RBAC não torna válida
+  transição M5 proibida, não corrige fato metrológico M6, não substitui
+  idempotência M7 e não contorna cache/estoque/notificação M8.
+\end{itemize}
+
+\paragraph{Matriz normativa de autorização.}
+Todas as linhas exigem identidade autenticada e Usuário ativo. Tx exige leitura
+da autorização e do recurso na mesma transação que produz a escrita. Rules
+significa leitura direta de cliente apenas se confirmar versão atual e relação
+persistida; backend é Cloud Function privilegiada com validação server-side.
+
+\scriptsize
+\setlength{\tabcolsep}{2pt}
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.15\textwidth}>{\raggedright\arraybackslash}p{0.18\textwidth}>{\raggedright\arraybackslash}p{0.19\textwidth}>{\raggedright\arraybackslash}p{0.16\textwidth}>{\raggedright\arraybackslash}p{0.17\textwidth}}
+\toprule
+Ator/papel & Operação/recurso & Escopo ou ownership & Decisão/origem & Resultado \\
+\midrule
+Chefe\_Geral & gerir usuário, papel, vínculo e almoxarifado & global; RN-ROLE & backend, Tx & permite ou nega invariantes \\
+Chefe\_Geral & operar domínios existentes & global, sem dispensar domínio & backend, Tx em mutação & permite somente matriz \\
+Gestor\_Almoxarifado & cadastro, retirada, devolução, M5/M6, relatório e etiqueta & vínculo atual com almox do recurso & backend, Tx & nega outro almox \\
+Gestor\_Almoxarifado & catálogo global de reagentes & papel atual; sem escopo de almox & backend & permite ações de catálogo V1 \\
+Gestor\_Bens\_Patrimoniais & bem, resposta, baixa e relatório patrimonial & domínio patrimonial global & backend, Tx em mutação & permite; professor não substitui gestor \\
+Professor & turma, post, roteiro e requisição próprios & professor dono; roteiro próprio/compartilhado & backend, Tx em mutação & nega recurso alheio \\
+Aluno & ingresso, leitura/comentário acadêmico & matrícula atual ou convite válido & backend/Rules & nega turma, post ou roteiro alheio \\
+Bolsista & direitos de Aluno e consulta/recebimento de empréstimo & matrícula e próprio empréstimo & backend/Rules & não opera balcão/administração \\
+Destinatário & notificação própria & UID do caminho = destinatário & Rules/backend & lê; marcar lida só servidor \\
+Sistema & trigger, job, notificação, cache & IAM mínimo; entrada server-owned & backend & sem papel humano, com dedup M7 \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\paragraph{Leitura e escrita.}
+Catálogo de reagentes é leitura interna para papéis permitidos na Seção~3; não
+expõe retirantes, auditoria ou dados de terceiros. Empréstimo completo é
+legível pelo retirante, Gestor\_Almoxarifado vinculado e Chefe; bem, requisição
+e histórico seguem a matriz. Consultas que poderiam retornar documento não
+autorizado são negadas, pois Rules não são filtros. Escritas de domínio,
+histórico, auditoria, papéis, vínculos, \texttt{Operacoes}, locks, estoques
+configurados, cache, rate limit e notificações são server-owned. A única
+mutação do destinatário é pedir ao backend que marque a notificação lida;
+Limpar tudo não apaga documentos.
+
+\paragraph{Claims, revogação e sessão.}
+Custom Claims são projeção assinada de \texttt{roles} e
+\texttt{versao\_permissoes}, gravada apenas pelo Admin SDK após o commit. O
+Firebase propaga claim alterada somente para ID token novo; ID tokens têm vida
+curta de cerca de uma hora. Revogar refresh token e pedir refresh melhoram a
+sessão, mas não tornam claim antiga fonte autoritativa. Para leitura direta,
+Rules exigem token com versão igual, Usuário ativo e relação persistida
+aplicável. Para mutação crítica, backend lê documentos atuais dentro da
+transação; não confia somente em claims, inclusive de Chefe\_Geral. Alteração
+de papel, desativação ou remoção de vínculo incrementa versão na transação e
+nega a próxima tentativa que consulte estado persistido.
+
+\paragraph{TOCTOU, transação e idempotência.}
+Para operação crítica, a transação lê Usuário, papéis, vínculo/ownership,
+recurso, estado de domínio e registro M7 antes de escrever. Se revogação ou
+vínculo mudar depois de uma leitura, o Firestore reexecuta a transação e a
+decisão é refeita; commit posterior à revogação é negado. Verificação antes da
+transação é só UX. Retry M7 concluído devolve receipt existente ao mesmo UID
+sem reaplicar efeito; não permite novo efeito após perda de papel. Etapa
+pendente ou efeito externo revalida antes de persistência privilegiada.
+
+\paragraph{Security Rules, Admin SDK e UI.}
+Rules protegem SDKs cliente; Admin SDK as ignora e deve aplicar esta matriz no
+backend. Rules não substituem validação de operação, transação, estado de
+domínio ou IAM. UI pode ocultar ação e pedir refresh, mas é UX. Collections
+internas e server-owned permanecem deny-all ao cliente. Storage exige a mesma
+decisão atual de papel/ownership/escopo, além de caminho, tipo, tamanho e
+objeto validado.
+
+\paragraph{Casos de regressão M9.}
+Cobrir: não autenticado; sem papel; papel desconhecido; Usuário inativo;
+gestor no almoxarifado correto e em outro; vínculo removido; claim antiga após
+revogação; troca de papel; Professor em recurso próprio e alheio; Aluno em
+turma permitida e em ação administrativa; Chefe nos limites da matriz; escrita
+direta server-owned; Admin SDK sem validação; operação iniciada antes e commit
+depois de revogação; retry M7 após mudança autorizativa; cache hit M8 sem
+autorização; notificação de terceiro e alteração cliente-side; e tentativas de
+contornar quarentena M5 ou pendência metrológica M6. Cada caso resulta em
+negação ou no efeito específico da matriz, sem autorização implícita.
 \subsubsection{Seleção do tipo em Resumo de Reagente}
 \begin{regra}
 Ao cadastrar uma \textit{Especificacao\_Reagente}, o estado físico do resumo (\texttt{SOLIDO} ou \texttt{LIQUIDO}) determina quais campos operacionais de frasco serão apresentados. O tipo de substância (\texttt{PURA} ou \texttt{MISTURA}) determina as propriedades químicas obrigatórias, conforme a matriz de obrigatoriedade. DP-A01: estado físico e higroscopicidade pertencem ao resumo; unidade é derivada e densidade permanece na especificação. \\

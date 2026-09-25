@@ -16,7 +16,17 @@ Cada caixa a seguir representa uma \textbf{tabela do PostgreSQL} na Terceira For
 \campo{nome}{VARCHAR(150)}{NOT NULL}
 \campo{email}{VARCHAR(150)}{UNIQUE, NOT NULL}
 \campo{profile\_url\_photo}{TEXT}{NULL}
+\campo{ativo}{BOOLEAN}{DEFAULT TRUE, NOT NULL}
+\campo{versao\_permissoes}{INTEGER}{DEFAULT 0, NOT NULL}
+\campo{claims\_pendentes}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
 \end{entidade}
+\begin{regra}
+\textit{ativo}, \textit{versao\_permissoes} e \textit{claims\_pendentes} pertencem à
+identidade autorizativa, não a um perfil de apresentação. Papéis são relações
+normalizadas nas entidades de papel; Custom Claims são apenas projeção de
+transporte. A autoridade e o algoritmo de decisão estão na Seção~7,
+``Autorização e usuários (M9)''.
+\end{regra}
 
 \subsection{Chefe Geral}
 \begin{entidade}{Chefe\_Geral}

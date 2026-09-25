@@ -153,6 +153,10 @@ Caminho: \texttt{Usuarios/\{uid\}}.
 \item[\texttt{nome}] string; O. Nome de apresentação; não substitui a chave do documento. Máximo 150 caracteres.
 \item[\texttt{email}] string; O. Endereço normalizado para identidade/convite; não divulgar em catálogo público interno. Máximo 150 caracteres. Unicidade garantida por chave determinística/registro de unicidade no servidor.
 \item[\texttt{profile\_url\_photo}] string; N. Foto opcional de apresentação do usuário; ausência usa avatar padrão, com acesso validado ao objeto.
+\item[\texttt{ativo}] boolean; O. Estado autoritativo da conta. \texttt{false} nega toda autorização, mesmo com token ainda válido ou claim antiga.
+\item[\texttt{versao\_permissoes}] inteiro não negativo; O. Incrementado na mesma transação de toda alteração de papel, vínculo ou estado autorizativo; é a barreira contra claim/token obsoleto nas leituras diretas permitidas.
+\item[\texttt{claims\_pendentes}] boolean; O. Indica que a projeção no Firebase Auth ainda precisa ser reconciliada; nunca é autorização transitória.
+\item[\texttt{atualizado\_em}] Timestamp; O. Instante do servidor da última alteração autorizativa.
 \end{description}
 
 \paragraph{Chefe\_Geral}\mbox{}\par
@@ -765,7 +769,7 @@ Caminho: \texttt{Atividade\_Gestor\_Bens\_Patrimoniais\_Mensal/\{id\}}.
 
 \paragraph{Complementos físicos obrigatórios e fontes de verdade.}
 \begin{description}
-\item[Usuarios] \texttt{ativo} (boolean, O), \texttt{versao\_permissoes} (inteiro, O), \texttt{claims\_pendentes} (boolean, O), \texttt{atualizado\_em} (Timestamp, O): controle servidor de ativação e sincronização de autorização. Não replicar papéis editáveis no navegador.
+\item[Usuarios] \texttt{ativo} (boolean, O), \texttt{versao\_permissoes} (inteiro, O), \texttt{claims\_pendentes} (boolean, O), \texttt{atualizado\_em} (Timestamp, O): controle servidor de ativação e sincronização de autorização. Não replicar papéis editáveis no navegador. A autorização crítica consulta este documento e as relações persistidas na mesma transação do efeito (Seção~7/M9).
 \item[Perfis] docId = UID em Chefe\_Geral, Professor, Aluno, Bolsista e gestores; \texttt{id\_usuario} é esse UID. \texttt{nome}, \texttt{email} e \texttt{letra\_inicial}, se usados em busca de perfil, são projeções de Usuarios, com leitura restrita e atualização pelo servidor.
 \item[Almoxarifado] \texttt{ativo} (boolean, O) e \texttt{qtd\_gestores\_ativos} (inteiro não negativo, O) são necessários à ativação e revogação concorrente. O contador é derivado dos vínculos; ativo exige contador positivo.
 \item[Turma] \texttt{qtd\_alunos} (inteiro não negativo, O) é contador transacional do vínculo ativo, não count lido fora da transação. \texttt{versao} (inteiro positivo, O) permite detectar edições concorrentes.

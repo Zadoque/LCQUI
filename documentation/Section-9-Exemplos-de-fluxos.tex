@@ -205,6 +205,14 @@ O sistema renderiza na tela em negrito e com fundo destacado: \textbf{``Volume u
 \label{sec:fluxos-completos}
 Cada fluxo parte de sessão ativa validada por COM-01 e usa os campos/estados do contrato UI referenciado na seção 8. Os nomes de coleções e os efeitos descritos seguem o dicionário da seção 5.9. Não repetir login entre ações da mesma sessão. A coluna de resultado inclui persistência e falhas relevantes.
 
+\begin{regra}[M9 --- pré-condição comum dos fluxos]
+Sessão autenticada não é autorização. Antes de cada leitura sensível ou
+mutação, resolver a decisão atual da Seção~7/M9; para efeito crítico, ler
+Usuário ativo, papel, escopo/ownership, recurso e estado de domínio na mesma
+transação. Fluxo iniciado antes de revogação não pode gravar depois dela. Retry
+M7 concluído apenas retorna o resultado já persistido ao mesmo UID.
+\end{regra}
+
 \subsubsection{COM-01 --- Todos: Login, recuperar senha, perfil, sair e alternar papel}
 \textbf{Contrato:} UI-01. Login ou foto do header; preencher credenciais/perfil ou escolher papel autorizado. Auth e Usuarios determinam sessão; renovar permissões antes da dashboard. Cancelamento preserva sessão anterior; revogação limpa dados e redireciona.
 

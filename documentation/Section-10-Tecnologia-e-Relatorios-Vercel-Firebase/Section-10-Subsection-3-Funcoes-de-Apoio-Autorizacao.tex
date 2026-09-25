@@ -117,3 +117,27 @@ async function obterProximoCodigoFrascoTx(
 Usar \texttt{requerAtivo=true} em retirada, devolução, baixa patrimonial, aprovação/rejeição de requisições e concessão/revogação de papéis. As funções \texttt{concederPapel} e \texttt{revogarPapel} seguem a mesma assinatura. Leituras e mutações sem essa exigência podem continuar confiando em token válido até renovação (aproximadamente uma hora). Verificar ativo não atualiza automaticamente papéis de uma conta ainda ativa. Essa limitação é risco residual aceito da DP-D01, não revogação universal instantânea.
 \end{regra}
 
+\begin{regra}[Erratum M9 --- autoridade atual]
+Este trecho histórico de M0--M8 é substituído, para toda operação crítica,
+pela Seção~7/M9. Autenticação identifica o \texttt{uid}; autorização é a
+decisão \texttt{podeExecutar(uid, operacao, recurso, estadoAtual)}. O backend
+privilegiado lê, \textbf{dentro da mesma transação do efeito}, Usuário ativo,
+papéis persistidos, vínculo/ownership e recurso canônico. Claim é somente
+projeção assinada e nunca prova suficiente de papel atual ou escopo.
+\end{regra}
+
+\begin{lstlisting}[language=TypeScript, title={Núcleo obrigatório M9}]
+async function mutacaoCriticaTx(tx, uid, operacao, recurso, dados) {
+  const decisao = await podeExecutarTx(tx, uid, operacao, recurso);
+  if (!decisao.permitida) throw new HttpsError("permission-denied", decisao.codigo);
+  // idempotência M7 e todas as pré-condições são lidas antes da escrita neste tx.
+  return aplicarEfeitoDeDominioTx(tx, uid, dados, decisao);
+}
+\end{lstlisting}
+
+Estados ausentes, desconhecidos, divergentes ou não determináveis negam acesso.
+Callables privilegiadas exigem App Check antes de Auth; no dashboard a ordem é
+App Check $\rightarrow$ Auth $\rightarrow$ RBAC/escopo $\rightarrow$ rate
+limit $\rightarrow$ cache/agregação, inclusive em cache hit. Jobs/triggers usam
+IAM mínimo e entrada server-owned, e revalidam destinatário/recurso antes de
+cada persistência.
