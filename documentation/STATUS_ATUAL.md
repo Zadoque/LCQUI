@@ -1,15 +1,45 @@
 # Status atual do LCQUI
 
-## Estado corrente pós-M8 documental
+## Estado corrente pós-M8 executável
 
-M0–M7 = **VALIDATED**; M8 = **DOCUMENTATION_VALIDATED**; M9+ = **NOT_STARTED**.
-A cadeia executável CUE → IR → Alloy → receipts → Rust → LaTeX → PDF de M5–M7
-foi concluída, e M8 documental consolidou estoque atual, escassez e notificações.
-Próxima ação exata: **FORMALIZAÇÃO EXECUTÁVEL DE M8** em rodada separada
-(CUE → IR → Alloy → receipt → Rust → LaTeX → PDF). Não iniciar M9.
+M0–M8 = **VALIDATED**; M9+ = **NOT_STARTED**. A cadeia executável
+CUE → IR → Alloy → receipts → Rust → LaTeX → PDF de M5–M8 foi concluída e os
+gates finais passaram. M8 possui CUE (`#M8Contrato`), IR v3 com entidade
+aditiva, modelo Alloy composto (`stock_cache_scarcity_m8.als`, 25 checks UNSAT +
+15 witnesses SAT), receipt `build/formal-validation-m8.json`, validator Rust
+`validation_m8.rs` e `Formal-Spec-M8.tex` integrado ao PDF (367 páginas).
+Próxima ação exata: **AVALIAR A ENTRADA EM M9 — AUTORIZAÇÃO/USUÁRIOS** em rodada
+separada. Não iniciar M9.
 
-Atualizado em 25/09/2026 — M8 documental concluído. Estado corrente:
-M0–M7 = VALIDATED, M8 = DOCUMENTATION_VALIDATED; nenhuma HQ bloqueante.
+Atualizado em 25/09/2026 — M8 executável concluído. Estado corrente:
+M0–M8 = VALIDATED; nenhuma HQ bloqueante. Registro em
+[worklog M8 executável](worklogs/formal-spec/M8_EXECUTABLE_VALIDATION.md).
+
+## M8 executável (Estoque / Escassez / Notificações)
+
+Branch: `feat/formal-spec-cue-alloy`. HEAD de entrada documental `4e142287`;
+a formalização executável parte do M8 documental validado. Foram alterados
+`specification/` (CUE/Alloy/fixtures), `tools/formal/check.mjs`,
+`tools/spec-doc/` (Rust), `build/` (IR/receipt), `documentation/generated/`,
+`documentation/Formal-Spec-M8.tex`, `documentation/main.tex` e `main.pdf`.
+`frontend/`, `functions/`, `firestore.rules` e `storage.rules` permanecem
+intactos.
+
+- **CUE:** `#M8Configuracao`, `#M8Estoque`, `#M8Cache`, `#M8Notificacao` e união
+  `#M8Contrato`; 6 fixtures válidas e 7 inválidas.
+- **Alloy:** aptidão única, fronteira estritamente menor da escassez,
+  invalidação/publicação do cache por geração e emissão idempotente de
+  `ESCASSEZ_ESTOQUE`.
+- **Rust:** validator de 40 resultados exatos, testes semânticos (`<` estrito,
+  idade `< 30 s`, rate limit 5/min, chave determinística, agregação segregada) e
+  testes de adulteração.
+- **Determinismo:** duas gerações consecutivas byte a byte idênticas;
+  `git diff --exit-code -- documentation/generated/` PASS.
+- **PDF:** exit 0, 367 páginas, zero erros, zero referências indefinidas, 32
+  Overfull (herdados).
+- **Limitações:** a evidência não certifica a implementação Firebase atual nem
+  disponibilidade física real; TTL é abstraído com limites em Rust; o backfill
+  legado é pré-condição operacional declarada.
 
 ## M8 documental (Estoque / Escassez / Notificações)
 

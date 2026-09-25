@@ -2,6 +2,14 @@
 
 Estado: **DOCUMENTATION_VALIDATED**. Branch: `feat/formal-spec-cue-alloy`.
 
+> **Supersessão (registro histórico preservado).** Este worklog registra a
+> consolidação documental, que fechou em `M8 = DOCUMENTATION_VALIDATED`. Na
+> sequência, a **formalização executável** foi concluída (CUE → IR → Alloy →
+> receipt → Rust → LaTeX → PDF) e o estado corrente passou a
+> `M8 = VALIDATED`. Ver
+> [M8_EXECUTABLE_VALIDATION.md](M8_EXECUTABLE_VALIDATION.md). Os parágrafos
+> abaixo não foram reescritos.
+
 Esta rodada é **exclusivamente documental**. NÃO cria modelo Alloy M8, receipt
 `formal-validation-m8.json`, validator Rust M8, fragmentos formais M8,
 `Formal-Spec-M8.tex`, implementação real de backend/frontend, deploy, M9 nem
