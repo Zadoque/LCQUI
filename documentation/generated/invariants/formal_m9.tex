@@ -1,0 +1,28 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{Evidência formal M9 --- autorização e usuários}
+CUE verifica shapes de usuário, papel fechado, versão de permissões, claim, vínculo, ownership e decisão. Alloy verifica a autoridade única podeExecutar: usuário autenticado/ativo, papel persistido permitido, versão corrente, vínculo ou ownership aplicável, recurso não server-owned; também verifica revogação, claim obsoleta, TOCTOU abstrato e que autorização não substitui precondição de domínio. Rust valida proveniência, ordem exata do receipt e a decisão determinística fail-closed. A evidência não certifica Firebase, Rules, Admin SDK, UI, token refresh ou concorrência real.
+\begin{description}
+\item[M9-INV-001] UsuarioInativoNuncaAutorizado: UNSAT.\newline Escopo: \texttt{check UsuarioInativoNuncaAutorizado for 8 but exactly 2 Escopo}.
+\item[M9-INV-002] PapelNaoPermitidoNaoAutoriza: UNSAT.\newline Escopo: \texttt{check PapelNaoPermitidoNaoAutoriza for 8 but exactly 2 Escopo}.
+\item[M9-INV-003] SemVinculoNecessarioNega: UNSAT.\newline Escopo: \texttt{check SemVinculoNecessarioNega for 8 but exactly 2 Escopo}.
+\item[M9-INV-004] OwnershipErradoNega: UNSAT.\newline Escopo: \texttt{check OwnershipErradoNega for 8 but exactly 2 Escopo}.
+\item[M9-INV-005] ClaimObsoletaNaoRestauraAutorizacao: UNSAT.\newline Escopo: \texttt{check ClaimObsoletaNaoRestauraAutorizacao for 8 but exactly 2 Escopo}.
+\item[M9-INV-006] VinculoRevogadoRemoveAutorizacao: UNSAT.\newline Escopo: \texttt{check VinculoRevogadoRemoveAutorizacao for 8 but exactly 2 Escopo}.
+\item[M9-INV-007] PapelRevogadoRemoveAutorizacao: UNSAT.\newline Escopo: \texttt{check PapelRevogadoRemoveAutorizacao for 8 but exactly 2 Escopo}.
+\item[M9-INV-008] DesativacaoRemoveAutorizacao: UNSAT.\newline Escopo: \texttt{check DesativacaoRemoveAutorizacao for 8 but exactly 2 Escopo}.
+\item[M9-INV-009] RevogadoAntesDoCommitNaoPodeCommitar: UNSAT.\newline Escopo: \texttt{check RevogadoAntesDoCommitNaoPodeCommitar for 8 but exactly 2 Escopo}.
+\item[M9-INV-010] AutorizacaoNaoBypassaDominio: UNSAT.\newline Escopo: \texttt{check AutorizacaoNaoBypassaDominio for 8 but exactly 2 Escopo}.
+\item[M9-INV-011] ChefeNaoBypassaDominio: UNSAT.\newline Escopo: \texttt{check ChefeNaoBypassaDominio for 8 but exactly 2 Escopo}.
+\item[M9-INV-012] ServerOwnedNuncaEscritaCliente: UNSAT.\newline Escopo: \texttt{check ServerOwnedNuncaEscritaCliente for 8 but exactly 2 Escopo}.
+\item[M9-INV-013] RevalidacaoNoCommitPermiteSomenteAtual: UNSAT.\newline Escopo: \texttt{check RevalidacaoNoCommitPermiteSomenteAtual for 8 but exactly 2 Escopo}.
+\item[M9-WIT-014] WitnessChefeGerenciaUsuario: SAT.\newline Escopo: \texttt{run WitnessChefeGerenciaUsuario for 8 but exactly 2 Escopo}.
+\item[M9-WIT-015] WitnessGestorNoEscopo: SAT.\newline Escopo: \texttt{run WitnessGestorNoEscopo for 8 but exactly 2 Escopo}.
+\item[M9-WIT-016] WitnessProfessorProprio: SAT.\newline Escopo: \texttt{run WitnessProfessorProprio for 8 but exactly 2 Escopo}.
+\item[M9-WIT-017] WitnessVersaoCorrente: SAT.\newline Escopo: \texttt{run WitnessVersaoCorrente for 8 but exactly 2 Escopo}.
+\item[M9-WIT-018] WitnessClaimAntigaAposRevogacao: SAT.\newline Escopo: \texttt{run WitnessClaimAntigaAposRevogacao for 8 but exactly 2 Escopo, exactly 2 Estado}.
+\item[M9-WIT-019] WitnessCommitPermitidoSemRevogacao: SAT.\newline Escopo: \texttt{run WitnessCommitPermitidoSemRevogacao for 8 but exactly 2 Escopo}.
+\item[M9-WIT-020] WitnessNegacaoPorEscopo: SAT.\newline Escopo: \texttt{run WitnessNegacaoPorEscopo for 8 but exactly 2 Escopo}.
+\item[M9-WIT-021] WitnessNegacaoPorOwnership: SAT.\newline Escopo: \texttt{run WitnessNegacaoPorOwnership for 8 but exactly 2 Escopo}.
+\item[M9-WIT-022] WitnessChefeDominioInvalidoNaoComita: SAT.\newline Escopo: \texttt{run WitnessChefeDominioInvalidoNaoComita for 8 but exactly 2 Escopo}.
+\end{description}
+UNSAT para check indica ausência de contraexemplo no escopo declarado; SAT para run indica testemunha encontrada. A evidência não certifica a implementação Firebase/backend.
