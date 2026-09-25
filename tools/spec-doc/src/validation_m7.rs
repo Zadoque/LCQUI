@@ -1,13 +1,15 @@
 use crate::validation::{Result as Resultado, hash};
 use serde::Deserialize;
+#[cfg(test)]
 use serde_json::Value;
+#[cfg(test)]
 use sha2::{Digest, Sha256};
 pub const MODEL: &str = "specification/alloy/operations/idempotency_m7.als";
 
 /// Canonical JSON for the M7 operation identity contract. Object keys are
 /// sorted recursively; arrays retain their input order and null remains an
 /// explicit value.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn canonicalize(value: &Value) -> String {
     match value {
         Value::Null => "null".to_owned(),
@@ -40,7 +42,7 @@ pub fn canonicalize(value: &Value) -> String {
     }
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn payload_hash(tipo_operacao: &str, payload: &Value) -> String {
     let mut input = String::with_capacity(tipo_operacao.len() + 1 + payload.to_string().len());
     input.push_str(tipo_operacao);
