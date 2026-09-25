@@ -1,0 +1,8 @@
+{
+  "uid": "uid-gestor-a",
+  "operacao": "OPERAR_ALMOXARIFADO",
+  "recurso": "Almoxarifado",
+  "exige_vinculo": true,
+  "exige_ownership": false,
+  "permitido": true
+}
