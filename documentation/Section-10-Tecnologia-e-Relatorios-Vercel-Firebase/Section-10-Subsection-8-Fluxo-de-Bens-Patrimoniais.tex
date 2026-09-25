@@ -1,5 +1,23 @@
 \subsubsection{Fluxo de Bens Patrimoniais: Requisições}
 
+\begin{regra}[M10 --- interpretação obrigatória do pseudocódigo]
+Os listings desta subseção descrevem o alvo normativo, não a implementação
+atual. Antes de cada \texttt{runTransaction}, o backend somente valida formato e
+autenticação. Dentro da mesma transação que persiste o efeito ele chama
+\texttt{autorizarPatrimonioTx(tx, uid, operacao, recurso)}, que relê usuário
+ativo, papéis persistidos, \texttt{versao\_permissoes}, escopo patrimonial V1 e
+as precondições M9; ausência, divergência ou revogação nega. Todo callable
+muda apenas uma intenção identificada por M7 e retorna o receipt persistido em
+retry. Qualquer uso de \texttt{validarPermissao} apenas por claim antes da
+transação é triagem e não autorização suficiente.
+
+\texttt{numeroNormalizado} é sempre \texttt{trim().toUpperCase()}, tanto na
+requisição quanto no Bem, lock e \texttt{Chaves\_Unicas}. Foto e comprovante
+são referências a objeto/generation previamente validados pelo backend; MIME,
+extensão e URL declarada não bastam. O servidor controla Bem, resumos, locks,
+chaves, histórico e notificações; o cliente envia somente intenção.
+\end{regra}
+
 \begin{lstlisting}[language=TypeScript, title={Criação e Resposta de Requisição de Edição (C2: lock determinístico)}]
 export const criarRequisicaoEdicaoBem = onCall(async (request) => {
   await validarPermissao(request, ["Professor"]);
@@ -367,6 +385,11 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
         tipo: "Bem\_Patrimonial",
         id\_recurso: idBemCriado,
         criado\_em: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      registrarHistoricoBemTx(tx, bemRef, null, {
+        tipo: "cadastro", id\_usuario: request.auth!.uid,
+        alteracoes: [] // o snapshot inicial é o Bem gravado neste mesmo commit
       });
 
       tx.update(reqRef, {
