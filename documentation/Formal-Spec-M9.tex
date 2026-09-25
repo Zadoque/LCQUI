@@ -1,0 +1,61 @@
+\clearpage
+\section{Especificação formal M9: autorização e usuários}
+\label{sec:formal-m9}
+
+M9 formaliza a decisão abstrata \texttt{podeExecutar(usuario, operacao,
+recurso, estado)}. A decisão não é uma comparação isolada de papel ou de
+\textit{Custom Claim}: requer usuário autenticado e ativo, papel persistido
+permitido, versão de permissões corrente, vínculo/escopo quando aplicável,
+\textit{ownership} quando aplicável e recurso que não seja \textit{server-owned}.
+O conjunto de papéis é fechado: \texttt{Chefe\_Geral},
+\texttt{Gestor\_Almoxarifado}, \texttt{Gestor\_Bens\_Patrimoniais},
+\texttt{Professor}, \texttt{Aluno} e \texttt{Bolsista}.
+
+\subsection*{Autoridade e falha fechada}
+O estado persistido é a autoridade. A claim transporta papel e versão, mas
+somente participa quando sua versão coincide com a versão persistida; ela nunca
+substitui o papel, vínculo ou ownership atuais. Conta inativa, versão divergente,
+papel não permitido, vínculo ausente, ownership errado, recurso incompatível ou
+recurso interno implicam negação. O gestor de almoxarifado exige vínculo com o
+escopo do recurso; professor exige recurso próprio; aluno/bolsista somente leem
+recurso acadêmico matriculado ou próprio. Chefia tem escopo global nas operações
+da matriz, mas não escreve recurso \textit{server-owned} nem deixa de cumprir o
+contrato do domínio.
+
+\subsection*{Revogação e TOCTOU abstrato}
+O Alloy representa estados antes e depois de revogar papel, vínculo ou atividade.
+A transição incrementa a versão persistida e preserva a claim antiga como fato
+possível. A decisão no commit é reavaliada no estado de commit: uma autorização
+de \textit{S0} não permite o efeito depois de revogação em \textit{S1}. Há
+witnesses para operação válida ainda autorizada, gestor no almoxarifado correto,
+professor no recurso próprio e claim antiga sobrevivente, para evitar um modelo
+\textit{deny-all} ou uma suposição de desaparecimento mágico do token.
+
+\subsection*{Autorização não é regra de domínio}
+\texttt{podeCommitar} exige \texttt{podeExecutar} \emph{e} uma precondição de
+domínio válida. Portanto mesmo a Chefia não contorna quarentena M5, pendência
+metrológica M6, identidade/idempotência M7 ou proteções de cache, estoque e
+notificação M8. A abstração não duplica essas máquinas: verifica somente que
+autorização não equivale a validade do efeito.
+
+\subsection*{Responsabilidade das camadas}
+CUE valida os shapes de usuário, papel fechado, versão, claim, vínculo,
+ownership e decisão. Alloy valida relações, fail closed, escopo, ownership,
+revogação, claim obsoleta, TOCTOU abstrato, recursos internos e separação de
+domínio. Rust valida proveniência, hashes, conjunto ordenado do receipt e
+testes determinísticos complementares. O guard mecânico compara os papéis e a
+autoridade central entre documentação, CUE e Alloy.
+
+\begingroup\small\raggedright
+\input{generated/entities/formal_m9_autorizacao.tex}
+\input{generated/invariants/formal_m9.tex}
+\par\endgroup
+
+\subsection*{Limites}
+Esta evidência prova somente o modelo formal no escopo declarado. Não certifica
+a implementação Firebase atual, \texttt{functions/}, \texttt{firestore.rules},
+\texttt{storage.rules}, frontend, Admin SDK, IAM implantado, App Check
+implantado, refresh/revogação real de token, latência de propagação, atomicidade
+externa ou segurança da infraestrutura de produção. Regras de UI não são
+controle de segurança; Rules não protegem Admin SDK. A prova de consistência do
+modelo não é homologação da implementação real.
