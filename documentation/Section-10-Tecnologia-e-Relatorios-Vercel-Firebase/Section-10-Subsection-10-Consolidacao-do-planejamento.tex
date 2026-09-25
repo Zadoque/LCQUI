@@ -85,11 +85,15 @@ async function gerarCodigoTurmaTx(
 \end{lstlisting}
 
 
-\begin{lstlisting}[language=TypeScript, title={N-12: aceitarConviteAluno com criação condicional de conta Firebase Auth}]
-// N-12: ao aceitar um convite, o aluno pode já ter conta Firebase Auth (login Google
-// prévio) ou não. A Cloud Function deve reutilizar o UID existente pelo e-mail,
-// evitando contas duplicadas. Criação é condicional; o papel Aluno é sempre
-// verificado/criado na mesma transação Firestore.
+\begin{lstlisting}[language=TypeScript, title={N-12: aceitarConviteAluno com autenticação prévia e criação condicional Firestore}]
+// N-12: quem aceita o convite já está autenticado em Firebase Auth
+// (request.auth.uid presente) e com e-mail verificado; a conta Auth do
+// solicitante já existe (cadastro/login prévio). Criação condicional refere-se
+// apenas a Usuarios/Aluno no Firestore, reutilizando o UID existente pelo
+// e-mail para evitar identidade duplicada. O papel Aluno e o vínculo são
+// verificados/criados na mesma transação Firestore; nenhuma chamada externa
+// (Auth/e-mail) ocorre dentro da transação. O retry idempotente do mesmo ator
+// devolve o receipt; criação de outra conta Auth não faz parte deste fluxo.
 export const aceitarConviteAluno = onCall(async (request) => {
   const { tokenConvite, matriculaInformada } = request.data as { tokenConvite: string; matriculaInformada?: string };
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Usuario nao autenticado.");
@@ -246,13 +250,18 @@ Seção~\ref{sec:regras-turmas-m11}: o vínculo canônico é
 \texttt{Usuarios/\{uid\}/Turmas/\{id\}} é projeção; \texttt{qtd\_alunos} é lido
 e escrito na transação, nunca recontado fora dela; o docId do convite é
 determinístico por HMAC do contexto e do e-mail normalizado, com unicidade em
-\texttt{Chaves\_Unicas}; a aceitação é única e idempotente (M7) e exige e-mail
-verificado correspondente; convite global não cria matrícula; a criação
-condicional de conta Auth e o envio de e-mail são etapas externas, pós-commit,
-recuperáveis e idempotentes; criar o registro não é enviar o e-mail. M-11
-reserva \texttt{codigo\_turma} em \texttt{Chaves\_Unicas} e arquivar não libera
-o código. O fan-out de \texttt{alterarStatusTurma} para os espelhos é
-idempotente e não é autoridade de escrita (Q08).
+\texttt{Chaves\_Unicas}; o ID do convite é imutável e distinto da chave de
+pendência, de modo que um novo convite após terminalidade não sobrescreve o
+aceito/expirado nem apaga \texttt{aceitado\_por}/\texttt{aceitado\_em}; a
+aceitação exige e-mail verificado correspondente e é idempotente por (ator,
+token, operação) M7, distinguindo retry de tentativa distinta; convite global
+não cria matrícula; a criação condicional de \texttt{Usuarios}/\texttt{Aluno} é
+Firestore e transacional, enquanto o envio de e-mail e a sincronização de
+Custom Claims são etapas externas, pós-commit, recuperáveis e idempotentes;
+criar o registro não é enviar o e-mail. M-11 reserva \texttt{codigo\_turma} em
+\texttt{Chaves\_Unicas} e arquivar não libera o código. O fan-out de
+\texttt{alterarStatusTurma} para os espelhos é idempotente e não é autoridade
+de escrita (Q08).
 
 \begin{lstlisting}[language=TypeScript, title={M-01: registrarBaixaBemPatrimonial (RF12)}]
 // M-01: Regra RF12 -- registro de baixa patrimonial após processo institucional.

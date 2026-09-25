@@ -328,14 +328,20 @@ Somente convite nominal válido, emitido pelo professor dono, com
 persistida, pode ultrapassar a capacidade; a exceção é revalidada na aceitação.
 Ela é específica daquele convite e daquela identidade, não é estado global da
 turma nem passe livre por posse do código. Convite sem exceção continua sujeito
-a vaga, e o código de turma nunca autoriza exceção.
+a vaga, e o código de turma nunca autoriza exceção. Um ingresso excepcional
+válido pode deixar \texttt{qtd\_alunos > capacidade}: esse estado é permitido e
+não torna a turma inválida. Enquanto a ocupação for maior ou igual à capacidade,
+o ingresso ordinário permanece bloqueado até surgir vaga; nenhum membro é
+expulso e \texttt{qtd\_alunos} não é reduzido para satisfazer o limite.
 
-Redução de capacidade: é proibido reduzir \texttt{capacidade} para valor menor
-que \texttt{qtd\_alunos}; o servidor rejeita, fail-closed, com erro recuperável
-e orienta remover membros antes ou manter a capacidade. Assim não há expulsão
-implícita de alunos nem vaga negativa, e a capacidade nunca fica abaixo da
-ocupação. \texttt{qtd\_alunos} nunca é negativo e pode ser reconciliado com os
-vínculos canônicos.
+Edição de capacidade (HQ-M11-001 = A): é proibido \textbf{editar/reduzir}
+\texttt{capacidade} para valor menor que a ocupação já existente
+(\texttt{qtd\_alunos}). O servidor rejeita, fail-closed, com erro recuperável e
+orienta remover membros antes ou manter a capacidade. A proibição recai sobre a
+edição do campo, não sobre o resultado de um ingresso excepcional válido: a
+turma pode ter \texttt{qtd\_alunos > capacidade} sem ser inválida.
+\texttt{qtd\_alunos} nunca é negativo e pode ser reconciliado com os vínculos
+canônicos.
 \end{regra}
 
 \begin{regra}[Convites: token, unicidade e fronteira externa]
@@ -362,29 +368,51 @@ matrícula nem contador, apenas garante \texttt{Usuarios} e o papel Aluno, e o
 aluno ingressa depois por código ou por outro convite. Matrícula é obrigatória
 e única na identidade final \texttt{Aluno}, opcional e não única no convite.
 
+Identidade e histórico: o ID do convite é imutável e distinto da chave de
+pendência. O docId determinístico por HMAC identifica a \emph{pendência}
+(e-mail normalizado, turma|GLOBAL): enquanto há convite pendente, ele é a chave
+de unicidade; aceitação ou expiração liberam a pendência. Um novo convite para a
+mesma dupla após a terminalidade é um \textbf{novo documento}, com novo ID,
+token e hash, e não sobrescreve nem apaga o convite aceito/expirado, preservando
+\texttt{aceitado\_por}, \texttt{aceitado\_em}, \texttt{status} e a auditoria
+histórica. Reenvio de convite ainda pendente substitui hash e expiração no mesmo
+documento; criação nova após terminalidade gera outro documento; retry da mesma
+operação devolve o resultado persistido. O hash de token e o e-mail em claro
+nunca são expostos pela chave.
+
 Expiração operacional: \texttt{expira\_em} vencido torna o convite inaceitável
 e ele deixa de contar como pendente para a unicidade; job ou reconciliação
 idempotente materializa \texttt{expirado}. Toda pendência termina por aceitação,
 expiração ou reenvio, nunca fica eterna.
 
-Fronteira Auth, Firestore e e-mail: a aceitação exige sessão com e-mail
-verificado correspondente. Criação condicional de \texttt{Usuario},
-\texttt{Aluno}, papel e vínculo e o consumo do convite ocorrem na mesma
-transação Firestore; a criação de conta Firebase Auth quando inexistente e o
-envio de e-mail são etapas externas, pós-commit, recuperáveis e idempotentes.
-Falha parcial não pode criar conta, papel, vínculo ou espelho divergente nem
-consumir o convite sem os efeitos correspondentes. Criar o registro do convite
-não é enviar o e-mail.
+Fronteira Auth, Firestore e e-mail: a aceitação é executada por um solicitante
+já autenticado (\texttt{request.auth.uid} presente) com e-mail verificado
+correspondente ao convite; nesse fluxo a conta Firebase Auth do solicitante
+\textbf{já existe} (cadastro ou login prévio). A criação condicional pertence ao
+Firestore, não ao Auth: \texttt{Usuarios}, \texttt{Aluno}, papel e vínculo e o
+consumo do convite ocorrem na mesma transação Firestore. O envio de e-mail do
+convite e a eventual sincronização de Custom Claims são etapas externas,
+pós-commit, recuperáveis e idempotentes; nenhuma chamada externa ocorre dentro da
+transação. Um provisionamento Auth fora do fluxo de aceitação (por exemplo,
+convite de outro papel criado pela chefia) é operação distinta do solicitante e
+não é pressuposto desta aceitação. Falha parcial não pode criar conta, papel,
+vínculo ou espelho divergente nem consumir o convite sem os efeitos
+correspondentes. Criar o registro do convite não é enviar o e-mail.
 \end{regra}
 
 \begin{regra}[Aceitação, reingresso e composição M7/M9]
 Aceitar convite valida, na mesma transação: convite pendente não expirado,
 e-mail verificado, identidade, status Ativo da turma, vaga ou exceção válida e
-ausência de vínculo ativo. A aceitação é única e idempotente (M7): repetir a
-aceitação devolve o resultado persistido, sem recriar vínculo nem incrementar
-\texttt{qtd\_alunos}. Convite consumido, expirado, de e-mail divergente ou de
-turma arquivada resulta em negação específica e recuperável. Aluno removido
-anteriormente só reingressa por convite explícito, nunca pelo código.
+ausência de vínculo ativo. A aceitação é única e idempotente (M7): retry do
+mesmo ator, com o mesmo token e a mesma operação devolve o receipt persistido,
+sem recriar vínculo nem incrementar \texttt{qtd\_alunos}; tentativa distinta, de
+outro ator, com token diferente ou sobre convite já consumido é negação
+específica e recuperável, não replay. Convite expirado, de e-mail divergente ou
+de turma arquivada também é negado com erro específico. Aluno removido
+anteriormente só reingressa por convite explícito, nunca pelo código; o fato de
+remoção é lido do histórico canônico \texttt{Historico\_Alunos\_Turma}
+(\texttt{exclusao\_aluno}) na própria transação, jamais de espelho
+possivelmente obsoleto.
 
 Toda mutação M11 lê autorização e recurso na mesma transação (M9): professor
 dono, conta ativa e versão de permissões, com TOCTOU coberto pela reexecução da
@@ -396,11 +424,14 @@ criado e distingue carregamento, sucesso, vazio, erro e negação.
 
 \paragraph{Casos de regressão M11.}
 Cobrir: corrida pela última vaga; dois convites simultâneos para o mesmo
-(e-mail, turma) e para o global; replay de aceite; remoção concorrente e dupla;
-arquivamento com ocupação, desarquivamento e escrita em turma arquivada; convite
-global sem matrícula; ingresso de removido por código (negado) e por convite
-(exceção válida); exceção de capacidade com e sem justificativa; redução de
-capacidade abaixo da ocupação; contador nunca negativo; espelho ou cache
+(e-mail, turma) e para o global; replay de aceite pelo mesmo ator e tentativa
+distinta de outro ator/token; remoção concorrente e dupla; arquivamento com
+ocupação, desarquivamento e escrita em turma arquivada; convite global sem
+matrícula; ingresso de removido por código (negado) e por convite (válido);
+exceção de capacidade com e sem justificativa; \texttt{qtd\_alunos > capacidade}
+alcançado por exceção válida (estado válido) versus edição/redução de capacidade
+abaixo da ocupação (rejeitada, HQ-M11-001 = A); novo convite após terminalidade
+sem sobrescrever o aceito/expirado; contador nunca negativo; espelho ou cache
 desatualizado não autoriza; retry M7 e revogação M9 antes do commit. Esses
 casos são critérios normativos e não atestam a implementação.
 

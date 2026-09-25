@@ -604,10 +604,14 @@ Caso a capacidade seja atingida, o sistema rejeita o ingresso ordinário. Apenas
 o professor responsável pela turma pode ultrapassar a capacidade por convite
 nominal de exceção, registrando \texttt{exceder\_capacidade} e
 \texttt{justificativa\_excecao} e revalidando a exceção na aceitação; o código
-de turma não autoriza exceção. Removido anteriormente não reingressa por
-código, apenas por convite explícito, e a remoção decrementa o contador uma
-única vez, nunca abaixo de zero. O contrato completo de ingresso, remoção,
-reingresso e arquivamento está na Seção~\ref{sec:regras-turmas-m11}.
+de turma não autoriza exceção. Um ingresso excepcional válido pode deixar
+\texttt{qtd\_alunos > capacidade} sem invalidar a turma; o ingresso ordinário
+permanece bloqueado até surgir vaga, sem expulsar membros. É proibido
+\textbf{editar/reduzir} \texttt{capacidade} para valor menor que
+\texttt{qtd\_alunos} (HQ-M11-001 = A), fail-closed. Removido anteriormente não
+reingressa por código, apenas por convite explícito, e a remoção decrementa o
+contador uma única vez, nunca abaixo de zero. O contrato completo de ingresso,
+remoção, reingresso e arquivamento está na Seção~\ref{sec:regras-turmas-m11}.
 \end{regra}
 
 \subsection{Historico de Alunos na Turma}

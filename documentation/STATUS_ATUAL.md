@@ -1,6 +1,41 @@
 # Status atual do LCQUI
 
-## Estado corrente — M11 documental (Turma, matrícula e convite)
+## Estado corrente — M11 executável validado (Turma, matrícula e convite)
+
+Cadeia executável aditiva concluída na branch `feat/formal-spec-cue-alloy`.
+HEAD de entrada: `01fe84fde32aacee8e8c165f76faba40a5b2b786`. Micro-reconciliação
+normativa prévia (`PRE_M11_EXECUTABLE_RECONCILIATION.md`): PRE11-01 capacidade
+(edição abaixo da ocupação proibida; `qtd_alunos > capacidade` válido por
+exceção nominal), PRE11-02 fronteira Auth, PRE11-03 identidade/histórico de
+convite, PRE11-04 idempotência de aceite. **M11 = VALIDATED**; M0–M10 = VALIDATED;
+M12+ = NOT_STARTED; HQs M11 abertas = 0.
+
+- **CUE:** `#M11Contrato` (turma, vínculo canônico, espelho, evento, convite,
+  pendência HMAC, aceitação); 12 fixtures válidas + 12 inválidas em
+  `specification/cue/tests/m11/`.
+- **IR v3 aditivo:** `formal_m11_turmas`; hash global
+  `2443afeb…4c7d`. Receipts M0–M10 mudaram somente em `spec_ir_sha256`; só o
+  MANIFEST e os dois fragmentos M11 são novos.
+- **Alloy:** `specification/alloy/operations/turmas_m11.als` — **33 checks UNSAT
+  + 17 witnesses SAT** (escopos 4/6/8): código único/reserva permanente,
+  arquivamento/desarquivamento, ingresso por vaga, exceção acima da capacidade,
+  HQ-M11-001 = A, coerência vínculo–contador–espelho, remoção/reingresso,
+  convites e pendência única, idempotência M7 e composição M9.
+- **Receipt:** `build/formal-validation-m11.json`
+  (`1ba2e7b3…bce5`), validado por `validation_m11.rs` com rejeição de
+  adulteração; testes Rust = 29.
+- **Determinismo:** duas gerações consecutivas com diff zero; `docs-check`
+  PASS.
+- **PDF:** `main.pdf` **405 páginas**, exit 0, zero erros/referências
+  indefinidas, 30 Overfull herdados; páginas 399–405 inspecionadas.
+- **Limites:** não certifica backend `functions/src/turmas.ts`, frontend, Auth,
+  e-mail, HMAC concreto, Rules, índices nem concorrência real. Registro em
+  [worklog M11 executável](worklogs/formal-spec/M11_EXECUTABLE_VALIDATION.md).
+
+Próxima ação exata: avaliar a entrada em M12 (demais domínios) em rodada
+separada.
+
+## Histórico — M11 documental (Turma, matrícula e convite)
 
 Rodada **exclusivamente documental** na branch `feat/formal-spec-cue-alloy`.
 HEAD de entrada: `394b88e7c5f2abd5ca0467915bfcd35276bbc4a8` (árvore limpa,

@@ -1,0 +1,89 @@
+\clearpage
+\section{Especificação formal M11: turma, matrícula e convite}
+\label{sec:formal-m11}
+\sloppy
+
+M11 formaliza o alvo normativo de turma, matrícula ativa, vínculo canônico
+Aluno--Turma, espelho de consulta e convite de ingresso (RF17, RF18, RN-TUR-01,
+UI-10), incluindo a decisão humana HQ-M11-001 = A. A evidência cobre somente o
+modelo formal declarado e não homologa a implementação Firebase.
+
+\subsection*{CUE}
+O contrato CUE (\texttt{\#M11Contrato}) verifica shapes, enums fechados,
+obrigatoriedade, nulabilidade e limites locais de turma, vínculo canônico,
+espelho, evento de inclusão/exclusão, convite, chave de pendência e resultado de
+aceitação. Condicionais são verificadas: justificativa obrigatória exatamente
+quando a exceção é declarada, autoria/instante do aceite no estado aceito, modo
+de ingresso na inclusão e contexto \texttt{GLOBAL} quando \texttt{id\_turma} é
+nulo. O CUE não prova concorrência temporal: unicidade, transições, contador,
+exceção e composição pertencem ao Alloy; a forma canônica do e-mail e as regras
+determinísticas de capacidade pertencem ao Rust.
+
+\subsection*{Identidade e ciclo de vida da turma}
+\texttt{Turma} tem dono (\texttt{id\_professor}), matéria existente, nome, ano,
+semestre 1/2, capacidade positiva, \texttt{codigo\_turma} único gerado no
+servidor e \texttt{status} Ativo/Arquivada. \texttt{codigo\_turma} é reservado
+permanentemente em \texttt{Chaves\_Unicas/Turma\_\_\{codigo\}} e arquivar não o
+libera para reuso. Arquivar/desarquivar incrementam \texttt{versao} e preservam
+ID, membros, código e histórico; a turma arquivada bloqueia ingresso e aceite de
+convite de turma (somente leitura), e o desarquivamento restaura Ativo com a
+mesma identidade.
+
+\subsection*{Matrícula canônica, contador e espelho}
+O vínculo \texttt{Turma/\{id\}/Alunos/\{uid\}} é a autoridade de matrícula; o
+espelho \texttt{Usuarios/\{uid\}/Turmas/\{id\}} é modelado como projeção exata
+do vínculo canônico, portanto não sobrevive à remoção e nunca autoriza sozinho.
+O contador \texttt{qtd\_alunos} é igual à cardinalidade dos vínculos canônicos
+ao fim de toda transição e nunca é negativo. Inclusão e remoção produzem
+exatamente um evento histórico cada, e a remoção preserva os eventos anteriores.
+Removido anteriormente não reingressa por código; o reingresso exige convite.
+
+\subsection*{Capacidade, exceção e HQ-M11-001 = A}
+O ingresso ordinário exige \texttt{qtd\_alunos < capacidade} no commit; sem
+vaga, nenhuma transição ordinária existe. A exceção nominal válida — convite
+pendente do professor dono com \texttt{exceder\_capacidade} e justificativa
+persistida — pode ultrapassar a capacidade e deixar \texttt{qtd\_alunos >
+capacidade} sem invalidar a turma; não é bypass genérico e o código de turma
+nunca autoriza exceção. Editar/reduzir a capacidade para valor abaixo da
+ocupação preexistente é proibido, fail-closed (HQ-M11-001 = A).
+
+\subsection*{Convites, pendência e idempotência}
+A chave determinística de pendência (HMAC de e-mail normalizado e turma ou
+GLOBAL) é distinta do ID imutável do convite. Há no máximo uma pendência por
+(e-mail, contexto); aceitação ou expiração a liberam. Um novo convite após
+terminalidade preserva o convite aceito/expirado e sua auditoria; o reenvio de
+convite pendente mantém o mesmo documento. Aceitar convite de turma cria
+vínculo, espelho, evento e incrementa o contador; aceitar convite global não
+cria matrícula. A aceitação consome o convite uma vez; retry do mesmo ator,
+token e operação devolve o receipt (M7), e reuso incompatível não o herda.
+
+\subsection*{Composição M7 e M9}
+A composição com M7 é abstrata: retry não duplica vínculo, evento nem contador,
+e um mesmo \texttt{cmdId} exige a mesma identidade de comando. A composição com
+M9 assume \texttt{authOk} (usuário ativo e versão de permissões corrente):
+gerir turma exige o professor dono (ou a intervenção Q13 da chefia), a revogação
+impede commit posterior e a leitura exige vínculo canônico atual, dono ou
+chefia. Autorização é necessária, nunca suficiente.
+
+\subsection*{Responsabilidade das camadas}
+CUE valida shapes e limites locais. Alloy valida unicidade de código, ciclo de
+vida, ingresso por vaga, exceção acima da capacidade, proibição de reduzir
+capacidade abaixo da ocupação, coerência vínculo--contador--espelho, remoção e
+reingresso, convites e composição M7/M9. Rust valida proveniência, hashes,
+conjunto ordenado do receipt e as regras determinísticas de ingresso, exceção e
+canonicalização de e-mail. O guard mecânico compara enums, nomes e predicados
+centrais entre documentação, CUE, Alloy e Rust.
+
+\begingroup\small\raggedright
+\input{generated/entities/formal_m11_turmas.tex}
+\input{generated/invariants/formal_m11.tex}
+\par\endgroup
+
+\subsection*{Limites}
+Esta evidência prova somente o modelo formal no escopo declarado e \textbf{não}
+certifica \texttt{functions/}\allowbreak\texttt{src/}\allowbreak\texttt{turmas.ts}, o frontend, \texttt{firestore.rules},
+\texttt{storage.rules}, Firebase, Auth, Admin SDK, App Check, envio real de
+e-mail, o HMAC concreto, transações reais sob carga, índices nem a
+infraestrutura em produção. A prova de consistência do modelo não é homologação
+da implementação real.
+\fussy
