@@ -1,0 +1,18 @@
+{
+  "id": "req-edicao-1",
+  "id_bem_patrimonial": "bem-1",
+  "status": "pendente",
+  "feita_em": "2026-09-25T10:00:00Z",
+  "respondida_em": null,
+  "id_usuario_solicitante": "uid-professor",
+  "id_usuario_respondente": null,
+  "novo_nome": "Microscópio Óptico Trinocular",
+  "novo_status": "Inservivel",
+  "novo_estado_conservacao": "REGULAR",
+  "novo_id_local": "local-2",
+  "nova_photo_url": "gs://lcqui/fotos/bem-1-nova.jpg",
+  "motivo": "Reclassificação e atualização de local.",
+  "justificativa_resposta": null,
+  "versao_bem_origem": 1,
+  "novo_id_resumo_bem_patrimonial": "resumo-2"
+}
