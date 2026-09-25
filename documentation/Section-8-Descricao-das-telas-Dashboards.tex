@@ -257,6 +257,15 @@ Minhas Requisições lista somente as do solicitante, por status/data, e abre de
 
 Baixa está no detalhe individual: selecionar Ja\_dado\_baixa exige PDF comprobatório inferior a 10 MiB, prévia/nome do arquivo e confirmação com plaqueta e responsável. O servidor verifica o objeto antes da transação; falha de upload mantém status anterior. Após sucesso, item sai do filtro Ativo e permanece consultável no histórico. Não excluir comprovante associado a evento de baixa.
 
+O seletor de status não é um editor genérico: apresenta apenas a transição
+permitida pelo estado corrente. Em V1, Ativo pode ser marcado Inservivel;
+somente um Bem Inservivel apresenta o rito de baixa, e Ja\_dado\_baixa é somente
+leitura. Conservação continua seletor independente. A tela exibe a versão lida
+e, na confirmação, informa conflito sem sobrescrever a unidade; atualização de
+nome/local no catálogo pode atualizar projeções de leitura, mas não apresenta
+isso como edição do Bem. Os controles são UX: o backend relê M9, lock, versão,
+status, arquivo e idempotência M7.
+
 \subsubsection{UI-10: turmas, membros e convites}
 Nova Turma exige nome (100), matéria existente, ano inteiro, semestre 1/2 e capacidade inteira positiva; responsável vem do contexto autorizado. Código único é gerado no servidor e exibido com Copiar, feedback de sucesso/falha da área de transferência e alternativa de seleção manual. Detalhe de turma tem nome/período, matéria, professor, ocupação/capacidade, feed e Membros. Membros exibem nome/foto para alunos matriculados; matrícula/e-mail ficam restritos à gestão autorizada.
 
