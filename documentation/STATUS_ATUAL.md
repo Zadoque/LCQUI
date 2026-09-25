@@ -1,6 +1,6 @@
 # Status atual do LCQUI
 
-Atualizado em 24/09/2026 — documentação de M7 (Idempotência), após M6 (Q06/tara/metrologia). Estado corrente: M0–M4 = VALIDATED, M5 = DOCUMENTATION_VALIDATED, M6 = DOCUMENTATION_VALIDATED, M7 = DOCUMENTATION_VALIDATED, M8 = NOT_STARTED; próxima ação = `INICIAR M8 DOCUMENTAL`.
+Atualizado em 24/09/2026 — documentação de M7 (Idempotência), após M6 (Q06/tara/metrologia). Estado corrente: M0–M4 = VALIDATED, M5 = DOCUMENTATION_VALIDATED, M6 = DOCUMENTATION_VALIDATED, M7 = DOCUMENTATION_VALIDATED, M8 = NOT_STARTED; próxima ação = concluir a formalização executável pré-M8; `INICIAR M8 DOCUMENTAL` somente após todos os gates. A formalização executável CUE/Alloy/Rust de M5–M7 ainda está pendente, sendo quitada nesta etapa pré-M8.
 
 ## M7 documental (Idempotência)
 
@@ -24,7 +24,7 @@ Branch: `feat/formal-spec-cue-alloy`. Primeira rodada M6: HEAD de entrada `3d6ec
 - **Pendência:** `existePendenciaMetrologicaTx(idFrasco)` = `status = DEVOLVIDO_COM_ANOMALIA` E `consumo_validado = false`; fora desse par, inconsistência de integridade. **Três rotas metrológicas tipadas** (HQ-M6-001); a V1 **não** possui correção administrativa metrológica; resolver não libera quarentena (M5). `massa_perda_estimada_g` permanece estimativa de sinistro.
 - **Prevenção (UI-18):** dupla digitação independente do mesmo operador, unidade fixa em g, contexto visual, alertas de plausibilidade e revisão final antes do commit; valores anômalos fisicamente possíveis são preservados, não “corrigidos”.
 - **Seção 12:** estudos futuros A (integração direta com a balança) e B (correção metrológica auditável excepcionalíssima).
-- **Findings:** M6-F01/F02 resolvidos por HQ-M6-001/HQ-M6-002; M6-F03/F04/F05 corrigidos. PDF **330 páginas**, zero erros. **M6 = DOCUMENTATION_VALIDATED**; a próxima ação é o M7 documental (não iniciar).
+- **Findings:** M6-F01/F02 resolvidos por HQ-M6-001/HQ-M6-002; M6-F03/F04/F05 corrigidos. PDF **330 páginas**, zero erros. **M6 = DOCUMENTATION_VALIDATED**; naquele checkpoint, a próxima ação era o M7 documental, posteriormente concluído.
 
 ## M5 documental (extravio / reencontro / quarentena)
 
@@ -35,7 +35,7 @@ Branch: `feat/formal-spec-cue-alloy`. HEAD de entrada original: `e560416623f55d4
 - **Reencontro:** novo fato físico, só de `EXTRAVIADO`; impõe quarentena compulsória (`em_quarentena = TRUE`, `INDISPONIVEL`), não reabre empréstimo e não recalcula validade (lê `Frasco_Reagente.vencido`). O estado constatado (`ABERTO`/`FECHADO`/`VAZIO`/`QUEBRADO`) é validado contra o último estado antes do extravio (trilha histórica): `FECHADO` só se antes era `FECHADO` e sem abertura; `ABERTO` se antes era `ABERTO`/`FECHADO` (marcando abertura desconhecida no último caso); `VAZIO` só se antes era `VAZIO`; `QUEBRADO` é quebra constatada. Transições impossíveis (`ABERTO`/`VAZIO`/`QUEBRADO` → `FECHADO`; `VAZIO`/`QUEBRADO` → `ABERTO`) são rejeitadas. `REENCONTRADO ≠ DISPONIVEL`.
 - **Quarentena:** dimensão operacional própria, distinta de `INDISPONIVEL`; bloqueia retirada e descarte direto. Saídas: `VOLTAR_A_DISPONIVEL` (só `ABERTO`/`FECHADO`) e `PENDENTE_DE_DESCARTE` (mais permanência); nenhuma revalida validade; sem `QUARENTENA → DESCARTADO` direto; `VAZIO`/`QUEBRADO` nunca voltam a `DISPONIVEL`.
 - **Terminalidade corrigida:** `DESCARTADO` é o único estado terminal; `VAZIO` e `QUEBRADO` são fisicamente não utilizáveis/indisponíveis, normalmente encaminhados para descarte, mas não são terminais.
-- Documentação atualizada nas Seções 4, 7, 8 (UI-16), 9 (Fluxos A–D e casos de regressão) e 10.5 (pseudocódigo de extravio/reencontro); PDF **316 páginas**, zero erros. Findings M5-F01..F08 corrigidos; HQs M5 abertas = 0. **M5 = DOCUMENTATION_VALIDATED**; a formalização executável (CUE/Alloy/Rust) permanece como dívida futura. Naquele checkpoint, a próxima ação era o M6 documental — posteriormente concluído; estado corrente: **M6 = DOCUMENTATION_VALIDATED, M7 = NOT_STARTED**.
+- Documentação atualizada nas Seções 4, 7, 8 (UI-16), 9 (Fluxos A–D e casos de regressão) e 10.5 (pseudocódigo de extravio/reencontro); PDF **316 páginas**, zero erros. Findings M5-F01..F08 corrigidos; HQs M5 abertas = 0. **M5 = DOCUMENTATION_VALIDATED**; a formalização executável (CUE/Alloy/Rust) está pendente e é objeto desta etapa pré-M8. Naquele checkpoint, a próxima ação era o M6 documental — posteriormente concluído; estado corrente: **M6 = DOCUMENTATION_VALIDATED, M7 = DOCUMENTATION_VALIDATED**.
 
 ## Reconciliação pré-M5 (erratum de M3/M4)
 
@@ -48,7 +48,7 @@ O que foi **especificado/validado**:
 - Seção 12: V2 registra a edição de Resumo/Especificação e as três modalidades de correção de validade (`DESCONHECIDA_PARA_CONHECIDA`, `DATA_INCORRETA_PARA_DATA_CORRETA`, `CONHECIDA_PARA_DESCONHECIDA`), sem implementar.
 - Seções 10.5/11: catálogo JSON de Resumo/Especificação para pesquisa client-side; estado server-owned `Sistema_Catalogo_Reagentes/estado` separando `versao_fonte`/`versao_publicada`; geração/publicação por Cloud Function; `obterCatalogoReagentes()`; sincronização client-side; fallback canônico `resolverCatalogoPorIds`; erro de integridade referencial; JSON nunca é autoridade operacional; sem `catalogo_version` em `Usuario`; formato canônico por objetos indexados por ID.
 
-O que continua **pendente de implementação real**: catálogo JSON e suas Cloud Functions; edição V2 e correções de validade; e a lógica legada de devolução/reencontro em `functions/src/reagentes.ts`, que ainda recalcula vencimento pelo relógio e não é homologada. Nenhuma alteração em `frontend/`, `functions/`, `firestore.rules` ou `storage.rules`. Estado corrente: M5 = DOCUMENTATION_VALIDATED e M6 = DOCUMENTATION_VALIDATED; naquele checkpoint pré-M5, M6 ainda estava NOT_STARTED. M7 = NOT_STARTED.
+O que continua **pendente de implementação real**: catálogo JSON e suas Cloud Functions; edição V2 e correções de validade; e a lógica legada de devolução/reencontro em `functions/src/reagentes.ts`, que ainda recalcula vencimento pelo relógio e não é homologada. Nenhuma alteração em `frontend/`, `functions/`, `firestore.rules` ou `storage.rules`. Estado corrente: M5 = DOCUMENTATION_VALIDATED e M6 = DOCUMENTATION_VALIDATED; naquele checkpoint pré-M5, M6 ainda estava NOT_STARTED. M7 = DOCUMENTATION_VALIDATED.
 
 ---
 
@@ -192,7 +192,7 @@ PDF (306 páginas). O CUE/IR não mudaram. A Seção 10.5 foi corrigida
 mecanicamente: os destinos QUARENTENA e PENDENTE_DE_DESCARTE gravam
 `disponibilidade = INDISPONIVEL`. HQs M4 abertas = 0. No checkpoint histórico
 descrito neste parágrafo, M5 ainda estava NOT_STARTED; estado corrente:
-M5 = DOCUMENTATION_VALIDATED, M6 = DOCUMENTATION_VALIDATED, M7 = NOT_STARTED. Detalhes
+M5 = DOCUMENTATION_VALIDATED, M6 = DOCUMENTATION_VALIDATED, M7 = DOCUMENTATION_VALIDATED. Detalhes
 em [worklog M4](worklogs/formal-spec/M4_VALIDATION.md).
 
 **M3 foi VALIDATED**, com erratum pós-validação. A Seção 5 foi reconciliada (5
