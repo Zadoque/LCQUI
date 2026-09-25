@@ -631,7 +631,9 @@ remoção, reingresso e arquivamento está na Seção~\ref{sec:regras-turmas-m11
 \begin{entidade}{Historico\_Posts\_Turma}
 \campo{id}{SERIAL}{PK}
 \campo{id\_post}{INTEGER}{FK, NOT NULL}
+\campo{tipo}{ENUM}{edicao, moderacao, NOT NULL}
 \campo{editado\_por}{INTEGER}{FK, NOT NULL}
+\campo{motivo}{TEXT}{NULL; obrigatório quando tipo = 'moderacao'}
 \campo{novo\_titulo}{VARCHAR(150)}{NULL}
 \campo{novo\_id\_roteiro}{INTEGER}{FK, NULL}
 \campo{nova\_descricao}{TEXT}{NULL}
@@ -642,18 +644,27 @@ remoção, reingresso e arquivamento está na Seção~\ref{sec:regras-turmas-m11
 \end{entidade}
 
 \begin{explicacao}
-O campo \textit{editado\_por} registra o UID do usuário que realizou a edição. Normalmente é o Professor dono da turma, mas o Chefe Geral também pode editar ou remover posts em caráter excepcional de moderação institucional (Q13). O \textit{id\_turma} não é armazenado nesta entidade 3FN porque pode ser obtido por \textit{Historico\_Posts\_Turma.id\_post} $\rightarrow$ \textit{Post.id\_turma}; se a consulta direta por turma for necessária no Firestore, esse vínculo poderá ser denormalizado na coleção de histórico.
+O campo \textit{editado\_por} registra o UID do operador (autor da edição ou moderador), e \textit{tipo} distingue \textit{edicao} de \textit{moderacao}. Normalmente é o Professor dono da turma, mas o Chefe Geral também pode moderar e remover posts em caráter excepcional de moderação institucional (Q13), caso em que \textit{motivo} é obrigatório e o evento é auditado. O \textit{id\_turma} não é armazenado nesta entidade 3FN porque pode ser obtido por \textit{Historico\_Posts\_Turma.id\_post} $\rightarrow$ \textit{Post.id\_turma}; se a consulta direta por turma for necessária no Firestore, esse vínculo poderá ser denormalizado na coleção de histórico. Contrato em Seção~\ref{sec:regras-posts-comentarios-m12-1}.
 \end{explicacao}
 
 \subsection{Historico de Comentario em um Post}
 \begin{entidade}{Historico\_Comentario}
 \campo{id}{SERIAL}{PK}
 \campo{id\_comentario}{INTEGER}{FK, NOT NULL}
-\campo{novo\_texto}{TEXT}{NOT NULL}
-\campo{texto\_antigo}{TEXT}{NOT NULL}
+\campo{tipo}{ENUM}{edicao, moderacao, NOT NULL}
+\campo{novo\_texto}{TEXT}{NULL; obrigatório quando tipo = 'edicao'}
+\campo{texto\_antigo}{TEXT}{NULL; obrigatório quando tipo = 'edicao'}
+\campo{motivo}{TEXT}{NULL; obrigatório quando tipo = 'moderacao'}
 \campo{editado\_em}{TIMESTAMP}{NOT NULL}
 \campo{editado\_por}{INTEGER}{FK, NOT NULL}
 \end{entidade}
+\begin{explicacao}
+Cada edição do autor ou moderação pelo professor dono/Chefe (Q13) gera um
+evento imutável: \textit{tipo} distingue \textit{edicao} de \textit{moderacao};
+edição registra texto antigo e novo; moderação registra motivo e operador. A
+\textit{texto} corrente do Comentário não é apagada. Contrato em
+Seção~\ref{sec:regras-posts-comentarios-m12-1}.
+\end{explicacao}
 
 \subsection{Roteiro de Experimento}
 \begin{entidade}{Roteiro\_Experimento}
@@ -803,7 +814,22 @@ A combinação de prédio, andar e sala deve ser única (\textit{UNIQUE(predio, 
 \campo{titulo}{VARCHAR(150)}{NOT NULL}
 \campo{descricao}{TEXT}{NOT NULL}
 \campo{criado\_em}{TIMESTAMP}{NOT NULL}
+\campo{editado}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+\campo{editado\_em}{TIMESTAMP}{NULL}
+\campo{removido\_da\_apresentacao}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+\campo{motivo\_remocao}{TEXT}{NULL; obrigatório quando removido\_da\_apresentacao}
+\campo{removido\_por}{INTEGER}{FK, NULL}
+\campo{removido\_em}{TIMESTAMP}{NULL}
 \end{entidade}
+\begin{explicacao}
+``Remover da apresentação'' é operação lógica (soft): preserva o Post e seu
+histórico (RF25), oculta o item do feed de colegas e o mantém acessível ao
+professor dono, ao Chefe por Q13 e à auditoria. Não há exclusão física. A
+edição preserva a versão anterior em \textit{Historico\_Posts\_Turma}. O
+snapshot imutável \texttt{roteiro\_anexo} é projeção Firestore da fronteira
+M12.2 e não substitui \textit{id\_roteiro\_experimento}. Contrato em
+Seção~\ref{sec:regras-posts-comentarios-m12-1}.
+\end{explicacao}
 
 \subsection{Comentario}
 \begin{entidade}{Comentario}
@@ -812,11 +838,21 @@ A combinação de prédio, andar e sala deve ser única (\textit{UNIQUE(predio, 
 \campo{id\_usuario}{INTEGER}{FK, NOT NULL}
 \campo{texto}{TEXT}{NOT NULL}
 \campo{criado\_em}{TIMESTAMP}{NOT NULL}
+\campo{editado}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
+\campo{editado\_em}{TIMESTAMP}{NULL}
 \campo{moderado}{BOOLEAN}{DEFAULT FALSE, NOT NULL}
 \campo{motivo\_moderacao}{TEXT}{NULL}
 \campo{moderado\_por}{INTEGER}{FK, NULL}
 \campo{moderado\_em}{TIMESTAMP}{NULL; obrigatório quando moderado}
 \end{entidade}
+\begin{explicacao}
+\textit{texto} guarda o conteúdo corrente (escapado na renderização) e a
+edição preserva a versão anterior em \textit{Historico\_Comentario}. A
+moderação não sobrescreve \textit{texto}: marca \textit{moderado = true} com
+motivo, moderador e instante atômicos. A edição posterior pelo autor não desfaz
+a moderação. Contrato em
+Seção~\ref{sec:regras-posts-comentarios-m12-1}.
+\end{explicacao}
 
 \subsection{Registro de Auditoria}
 \begin{entidade}{Registro\_de\_Auditoria}

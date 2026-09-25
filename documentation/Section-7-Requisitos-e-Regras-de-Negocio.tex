@@ -435,6 +435,127 @@ sem sobrescrever o aceito/expirado; contador nunca negativo; espelho ou cache
 desatualizado não autoriza; retry M7 e revogação M9 antes do commit. Esses
 casos são critérios normativos e não atestam a implementação.
 
+% M12.1 -- fonte normativa de Posts, Comentarios, edicao/moderacao e historicos
+\subsection{Posts, comentários, edição, moderação e históricos (M12.1)}
+\label{sec:regras-posts-comentarios-m12-1}
+
+Esta subseção é a fonte normativa de Post, Comentário, seus históricos de
+edição/moderação e as leituras acadêmicas associadas (RF19, RF20, UI-11). A
+criação/edição de Post com roteiro é \textbf{fronteira com M12.2}: valida-se o
+acesso atual ao roteiro e preserva-se o snapshot \texttt{roteiro\_anexo}, sem
+formalizar upload, compartilhamento, emissão de URL ou a ACL completa de
+Roteiros. A caixa de notificações (UI-12) e seus efeitos completos ficam fora
+de M12.1; contrata-se aqui apenas a emissão \texttt{POST}/\texttt{COMENTARIO}
+como efeito delimitado. A autorização continua regida por M9, a idempotência
+por M7 e o vínculo de participação por M11 (Seção~\ref{sec:regras-turmas-m11}).
+
+\begin{regra}[Identidade, autoria e propriedade]
+O Post mora em \texttt{Turma/\{id\_turma\}/Posts/\{postId\}} e tem autor
+\texttt{id\_professor}; o Comentário mora em
+\texttt{.../Comentarios/\{id\}} e tem autor \texttt{id\_usuario}. A autoridade
+de participação acadêmica é o vínculo canônico atual
+\texttt{Turma/\{id\}/Alunos/\{uid\}} (M11); o espelho
+\texttt{Usuarios/\{uid\}/Turmas/\{id\}}, cache ou claim antigos nunca autorizam.
+Somente o professor dono cria e edita Post da turma. Aluno/Bolsista com vínculo
+canônico atual cria e edita o próprio Comentário e lê o feed. Ninguém edita
+conteúdo alheio; moderação não altera autoria. O Chefe intervém apenas por Q13:
+modera e retira da apresentação com motivo e auditoria, sem assumir autoria e
+sem criar Post; a intervenção é identificada institucionalmente na publicação.
+\end{regra}
+
+\begin{regra}[Estado da turma (Q08)]
+Turma \texttt{Arquivada} é somente leitura para toda escrita acadêmica: criar,
+editar, remover ou moderar Post e criar, editar ou moderar Comentário são
+negados, \textbf{sem exceção administrativa}. O Chefe, inclusive sob Q13, não
+escreve em turma arquivada; nenhuma intervenção de moderação é deduzida como
+exceção não documentada.
+\end{regra}
+
+\begin{regra}[Criação, edição e remoção de Post]
+Criar Post exige professor dono, turma Ativo, \texttt{titulo} de 1 a 150 e
+\texttt{descricao} de 1 a 10\,000 caracteres (Q10), roteiro opcional validado na
+fronteira M12.2 e \texttt{idOperacao} M7. Editar Post é do professor dono:
+preserva a versão anterior em \texttt{Historico\_Posts\_Turma}
+(antigo/novo, operador, motivo quando houver, timestamp), marca
+\texttt{editado}/\texttt{editado\_em} e é idempotente por M7; a concorrência é
+resolvida pela reexecução da transação, sem sobrescrita silenciosa e com a
+versão anterior preservada no histórico. Remover da apresentação é
+\textbf{soft}: exige motivo, operador e timestamp, não apaga o documento nem o
+histórico (RF25), oculta o item do feed de colegas e o mantém acessível ao
+professor dono, ao Chefe Q13 e ao histórico. Não existe exclusão física de Post
+para simular moderação.
+\end{regra}
+
+\begin{regra}[Criação, edição e moderação de Comentário]
+Criar Comentário exige autor com vínculo canônico atual, Post existente na
+turma Ativo, \texttt{texto} de 1 a 2\,000 caracteres (Q10) escapado na
+renderização, sem HTML arbitrário, e \texttt{idOperacao} M7. Editar é exclusivo
+do autor: gera \texttt{Historico\_Comentario} (texto antigo/novo, operador,
+timestamp), marca \texttt{editado}/\texttt{editado\_em} e é idempotente por M7.
+Moderar é do professor dono ou do Chefe por Q13: grava atomicamente
+\texttt{moderado = true}, \texttt{motivo\_moderacao} (1 a 2\,000 caracteres),
+\texttt{moderado\_por} e \texttt{moderado\_em}; \textbf{não} apaga o
+\texttt{texto} original nem o histórico. O autor vê o original marcado; colegas
+veem o aviso institucional de ocultação; professor dono e Chefe veem original e
+histórico para auditoria. A edição posterior pelo autor \textbf{não} desfaz a
+moderação: o estado moderado persiste até nova decisão explícita de moderação,
+fail-closed.
+\end{regra}
+
+\begin{regra}[Leitura, máscara e endpoints]
+A leitura direta da coleção \texttt{Comentarios} e de seu histórico é negada ao
+cliente (Seção~\ref{sec:acesso-detalhado}); \texttt{listarComentariosPost}
+autorizado revalida vínculo canônico atual, estado da turma e existência do
+Post, e devolve máscara institucional a colegas e original ao autor; o
+professor dono e o Chefe recebem original e histórico de auditoria. Nenhum
+cache, notificação, log, mensagem de erro ou projeção pode devolver o original
+a terceiros. O feed (\texttt{listarFeed}) é escopado à Turma, paginado por
+data e ID com mais recentes primeiro; item removido da apresentação não aparece
+para colegas, mas permanece no histórico do professor dono e da chefia.
+\end{regra}
+
+\begin{regra}[Histórico, auditoria e notificações]
+Edição e moderação geram evento histórico imutável com operador, motivo e
+timestamp; intervenção Q13 é registrada em \texttt{Registro\_de\_Auditoria}; o
+retry M7 não duplica evento nem histórico. As notificações
+\texttt{POST}/\texttt{COMENTARIO} são efeitos delimitados em
+\texttt{Usuarios/\{uid\}/Notificacoes}, com docId determinístico M7,
+\texttt{id\_turma}/\texttt{id\_alvo} mínimos e \textbf{sem} conteúdo protegido
+no payload; o clique revalida o acesso corrente e a notificação, por si só,
+nunca autoriza a leitura do conteúdo. ``Limpar tudo'' marca como lida e não
+apaga.
+\end{regra}
+
+\begin{regra}[Fronteira com M12.2 (roteiro anexo)]
+O Post guarda o snapshot imutável \texttt{roteiro\_anexo} (id do roteiro, nome
+do arquivo, tamanho e \texttt{storage\_path}); publicar com roteiro exige
+validar o acesso atual do professor ao roteiro antes de persistir o snapshot.
+O download é mediado por endpoint autorizado que revalida o vínculo atual e
+emite URL temporária, sem leitura cliente da coleção raiz. Upload,
+compartilhamento, revogação e a ACL completa de Roteiros são formalizados em
+M12.2; um Post cujo anexo não possa ser validado com segurança não é publicado.
+\end{regra}
+
+\begin{regra}[Composição M7/M9]
+Toda mutação lê autorização, vínculo canônico atual e estado da turma na mesma
+transação (M9): professor dono para Post, autor para o próprio Comentário,
+professor dono ou Chefe Q13 para moderação. Revogação de vínculo, remoção de
+aluno ou arquivamento antes do commit nega o commit posterior; retry do mesmo
+comando devolve o receipt e não reaplica efeito, e reuso incompatível de
+identidade de comando é rejeitado (M7).
+\end{regra}
+
+\paragraph{Casos de regressão M12.1.}
+Cobrir: turma Ativo e Arquivada (escrita acadêmica negada); professor dono e
+professor terceiro; aluno/Bolsista matriculado atual e removido; Chefe Q13
+moderando e Chefe tentando escrever em turma arquivada; edição concorrente de
+Post/Comentário com histórico preservado; comentário moderado visto por autor
+(original marcado), colega (aviso), professor dono e Chefe (auditoria); replay
+de criação/edição/moderação; Post com e sem roteiro (fronteira M12.2);
+notificação apontando para conteúdo sem acesso; leitura direta negada e
+endpoint devolvendo máscara. Esses casos são critérios normativos e não atestam
+a implementação.
+
 \subsubsection{Seleção do tipo em Resumo de Reagente}
 \begin{regra}
 Ao cadastrar uma \textit{Especificacao\_Reagente}, o estado físico do resumo (\texttt{SOLIDO} ou \texttt{LIQUIDO}) determina quais campos operacionais de frasco serão apresentados. O tipo de substância (\texttt{PURA} ou \texttt{MISTURA}) determina as propriedades químicas obrigatórias, conforme a matriz de obrigatoriedade. DP-A01: estado físico e higroscopicidade pertencem ao resumo; unidade é derivada e densidade permanece na especificação. \\

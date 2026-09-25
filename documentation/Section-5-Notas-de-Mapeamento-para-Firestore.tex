@@ -541,6 +541,8 @@ Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}/HistoricoPosts/\{eventoId\}}.
 \begin{description}
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{id\_post}] string; O. Identificador da entidade post, cuja existência e escopo são verificados no servidor.
+\item[\texttt{tipo}] string enum; O. edicao ou moderacao; distingue a natureza do evento histórico.
+\item[\texttt{motivo}] string; C quando tipo = moderacao, até 2000 caracteres não vazios; obrigatório para moderação.
 \item[\texttt{novo\_titulo}] string; N. Valor novo titulo, restrito ao campo correspondente da entidade de origem; preservar ausência legítima. Máximo 150 caracteres.
 \item[\texttt{novo\_id\_roteiro}] string; N. Valor novo id roteiro, restrito ao campo correspondente da entidade de origem; preservar ausência legítima.
 \item[\texttt{nova\_descricao}] string; N. Valor nova descricao, restrito ao campo correspondente da entidade de origem; preservar ausência legítima.
@@ -555,8 +557,10 @@ Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}/Comentarios/\{id\}/HistoricoComen
 \begin{description}
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{id\_comentario}] string; O. Identificador da entidade comentario, cuja existência e escopo são verificados no servidor.
-\item[\texttt{novo\_texto}] string; O. Valor novo texto, restrito ao campo correspondente da entidade de origem; preservar ausência legítima.
-\item[\texttt{texto\_antigo}] string; O. Valor de texto antigo, validado pelo formulário e pelo servidor conforme regras do domínio.
+\item[\texttt{tipo}] string enum; O. edicao ou moderacao; distingue o evento histórico.
+\item[\texttt{novo\_texto}] string; C quando tipo = edicao. Texto resultante da edição do autor.
+\item[\texttt{texto\_antigo}] string; C quando tipo = edicao. Texto anterior preservado; nunca apagado pela moderação.
+\item[\texttt{motivo}] string; C quando tipo = moderacao, até 2000 caracteres não vazios.
 \item[\texttt{editado\_em}] Timestamp; O. Data/instante de editado em, com ordem temporal validada e autoria do relógio do servidor para eventos.
 \item[\texttt{editado\_por}] string; O. Valor de editado por, validado pelo formulário e pelo servidor conforme regras do domínio.
 \end{description}
@@ -675,7 +679,13 @@ Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}}.
 \item[\texttt{titulo}] string; O. Título obrigatório de publicação, exibido no feed e na navegação de notificações. Máximo 150 caracteres.
 \item[\texttt{descricao}] string; O. Valor de descricao, validado pelo formulário e pelo servidor conforme regras do domínio.
 \item[\texttt{criado\_em}] Timestamp; O. Data/instante de criado em, com ordem temporal validada e autoria do relógio do servidor para eventos.
-\item[\texttt{roteiro\_anexo}] map; N. Snapshot imutável da publicação: id\_roteiro (string O), nome\_arquivo (string O, até 150), tamanho\_bytes (inteiro positivo O), storage\_path (string O). Backend valida acesso ao roteiro antes de publicar. Revogação posterior da ACL não remove o anexo histórico. Aluno recebe os metadados no feed; download via obterUrlDownloadRoteiro valida vínculo atual e emite URL assinada por 15 minutos, sem leitura cliente da coleção raiz.
+\item[\texttt{editado}] boolean; O, padrão false. Marcado quando o autor edita o Post; a versão anterior fica em HistoricoPosts.
+\item[\texttt{editado\_em}] Timestamp; N. Instante do servidor da última edição; preenchido atomicamente com HistoricoPosts e \texttt{editado}.
+\item[\texttt{removido\_da\_apresentacao}] boolean; O, padrão false. Remoção lógica (soft) que oculta o Post do feed de colegas sem apagar documento ou histórico (RF25).
+\item[\texttt{motivo\_remocao}] string; C quando removido\_da\_apresentacao, até 2000 caracteres não vazios.
+\item[\texttt{removido\_por}] string; C quando removido\_da\_apresentacao. UID do professor dono ou do Chefe (Q13), preenchido pelo servidor.
+\item[\texttt{removido\_em}] Timestamp; C quando removido\_da\_apresentacao. Instante do servidor gravado atomicamente.
+\item[\texttt{roteiro\_anexo}] map; N. Snapshot imutável da publicação: id\_roteiro (string O), nome\_arquivo (string O, até 150), tamanho\_bytes (inteiro positivo O), storage\_path (string O). Backend valida acesso ao roteiro antes de publicar. Revogação posterior da ACL não remove o anexo histórico. Aluno recebe os metadados no feed; download via obterUrlDownloadRoteiro valida vínculo atual e emite URL assinada por 15 minutos, sem leitura cliente da coleção raiz. Fronteira formal de M12.2.
 \end{description}
 
 \paragraph{Comentario}\mbox{}\par
@@ -686,6 +696,8 @@ Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}/Comentarios/\{id\}}.
 \item[\texttt{id\_usuario}] string; O. Identificador da entidade usuario, cuja existência e escopo são verificados no servidor.
 \item[\texttt{texto}] string; O. Conteúdo textual do comentário, escapado na renderização; rejeitar texto vazio após trim.
 \item[\texttt{criado\_em}] Timestamp; O. Data/instante de criado em, com ordem temporal validada e autoria do relógio do servidor para eventos.
+\item[\texttt{editado}] boolean; O, padrão false. Marcado quando o autor edita o Comentário; a versão anterior fica em HistoricoComentarios.
+\item[\texttt{editado\_em}] Timestamp; N. Instante do servidor da última edição do autor; a edição não desfaz moderação.
 \item[\texttt{moderado}] boolean; O, padrão false. Visibilidade conforme DP-C02.
 \item[\texttt{motivo\_moderacao}] string; C quando moderado, até 2000 caracteres não vazios.
 \item[\texttt{moderado\_por}] string; C quando moderado. UID autenticado do moderador, preenchido pelo servidor.
