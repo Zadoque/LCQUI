@@ -20,6 +20,12 @@ pub fn q06_anomalia(peso_saida: f64, peso_retorno: f64, higroscopico: bool) -> b
 pub fn evaporacao_valida(peso_saida: f64, peso_retorno_efetivo: f64, evaporacao: f64) -> bool {
     evaporacao >= 0.0 && evaporacao <= (peso_saida - peso_retorno_efetivo).max(0.0)
 }
+
+#[allow(dead_code)]
+pub fn massa_consumida(peso_saida: f64, peso_retorno_efetivo: f64, evaporacao: f64) -> Option<f64> {
+    evaporacao_valida(peso_saida, peso_retorno_efetivo, evaporacao)
+        .then(|| (peso_saida - peso_retorno_efetivo - evaporacao).max(0.0))
+}
 const EXPECTED: &[(&str, &str, &str, &str)] = &[
     ("M6-INV-001", "PesoRetornoImutavel", "check", "UNSAT"),
     ("M6-INV-002", "ResolucaoEncerraPendencia", "check", "UNSAT"),
@@ -101,5 +107,7 @@ mod tests {
         assert!(evaporacao_valida(100.0, 95.0, 5.0));
         assert!(!evaporacao_valida(100.0, 95.0, 5.001));
         assert!(!evaporacao_valida(100.0, 105.0, 0.001));
+        assert_eq!(massa_consumida(100.0, 95.0, 2.0), Some(3.0));
+        assert_eq!(massa_consumida(100.0, 95.0, 5.001), None);
     }
 }
