@@ -1,6 +1,57 @@
 # Status atual do LCQUI
 
-## Estado corrente — M12.2 documental validado (Roteiros de Experimento)
+## Estado corrente — M12.2 executável validado (Roteiros, compartilhamento e Storage)
+
+Cadeia aditiva **CUE → IR v3 → Alloy → receipt → Rust → LaTeX → PDF** para
+Roteiros, compartilhamento, Storage/download e anexo a Post. HEAD de entrada:
+`eb6d89e47fd14eb43ddf98d22f194e9236f3a7d1`; commit executável `a11c716b`.
+**M12.2 = VALIDATED**; M0–M11 e M12.1 = VALIDATED; M12 = NOT_STARTED
+(fechamento de composição/regressão); M13 = NOT_STARTED; **HQs M12.2 = 0**.
+Registro em
+[worklog M12.2 executável](worklogs/formal-spec/M12_2_EXECUTABLE_VALIDATION.md).
+
+- **Realinhamento normativo (Fase 1):** a Seção 7.7 passou a distinguir
+  **novas emissões** de URL (bloqueadas por remoção/perda de vínculo/revogação,
+  revalidadas a cada emissão) do **uso de URL já emitida** (permanece válida até
+  o prazo curto, sem revogação instantânea/retroativa); explicitou-se o limite
+  transacional (geração persistida no Firestore, comparada na transação, versus
+  inspeção externa do objeto no Storage, sem atomicidade entre serviços, com
+  objeto/geração imutáveis e janela residual reconciliada). Seções 8/9/11
+  alinhadas.
+- **Interface M12.1↔M12.2:** `#M12_2RoteiroAnexo` refina aditivamente
+  `#M12_1RoteiroAnexo` (projeção oculta) e acrescenta `geracao`;
+  `#M12_2AnexoVinculado` liga o anexo à referência canônica. M12.1 permanece
+  byte a byte idêntico e não é tratado como prova da geração.
+- **CUE:** `#M12_2Contrato` (13 shapes; **17 fixtures válidas + 16 inválidas**),
+  limites (nome 1–150, geração 1–120, tamanho positivo e **PDF estritamente <
+  15 MiB** = 15 728 640 bytes), ACL de UID único, status fechado
+  `PROVISORIO|VALIDADO|PUBLICAVEL`.
+- **IR:** v3 aditivo (`formal_m12_2_roteiros`, 16 campos); `spec_ir_sha256` =
+  `b5671cb75609239db147d9fbe446aafa35d12f2d71ee91753f4d4cb630573fe1`; receipts
+  antigos mudaram apenas nesse campo.
+- **Alloy:** `roteiros_m12_2.als` com **41 checks UNSAT + 20 witnesses SAT = 61
+  resultados** (scope 6/4): dono imutável, provisório→validado→publicável,
+  objeto/geração fixos, compartilhamento único, revogação Q09, ACL
+  professor/aluno, Chefe Q13, turma arquivada, ex-aluno com claim, Post
+  removido, anexar/trocar/manter/desvincular, histórico imutável, URL já
+  emitida e composição M7/M9.
+- **Receipt/Rust:** `build/formal-validation-m12-2.json` (receipt
+  `ac0c7008…64da`, modelo `b86da4bc…7aaf`); `validation_m12_2.rs` valida 61
+  itens e rejeita adulteração; 33 testes Rust; 36 Node; guard
+  `m12_2_contract.test.mjs`.
+- **PDF:** **434 páginas**, exit 0, zero erros/refs indefinidas, 31 Overfull
+  únicos (iguais ao baseline); páginas 427–434 inspecionadas sem corte.
+- **Limites:** não certifica `functions/src/roteiros.ts`/`posts.ts`, frontend,
+  Rules, Storage real, bytes binários nem atomicidade Firestore/Storage.
+- **Dívida de implementação:** `roteiros.ts` usa array de e-mail em vez de UID,
+  sem `idOperacao`/M7/geração; `posts.ts` sem snapshot/geração; `storage.rules`
+  libera `read` de `/roteiros` a qualquer autenticado.
+
+Próxima ação exata: **fechamento de M12** (composição M12.1/M12.2 e regressão
+M0–M11); depois **M13** (Notificação unificada). O fechamento global após M13 é
+um gate, sem M14 automático.
+
+## Histórico — M12.2 documental validado (Roteiros de Experimento)
 
 Rodada **exclusivamente documental**. HEAD de entrada:
 `b24813c1e77b4a36540a1289abbce0269ed50405`. Nova fonte normativa na
