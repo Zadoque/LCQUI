@@ -1,0 +1,56 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{M10\_Patrimonio --- formalização executável M10}
+Shapes estruturais de bem, resumo catalográfico, requisições de adição/edição, lock, baixa, evento histórico e alteração. CUE verifica campos, enums, nulabilidade e limites locais; identidade Resumo x Bem, máquina de estados, locks, unicidade permanente, versionamento, terminalidade e composição M7/M9 são verificados em Alloy; canonicalização de plaqueta e proveniência por Rust. CUE não prova concorrência temporal.
+\begin{description}
+\item[id\_resumo\_bem\_patrimonial] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+FK do modelo catalográfico compartilhado.
+\item[numero\_patrimonio] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Plaqueta canônica trim().toUpperCase(), não vazia, no máximo 30 caracteres.
+\item[estado\_conservacao] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: BOM, REGULAR, RUIM.
+\item[id\_local] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Autoridade de localização; predio/andar/sala são projeções derivadas.
+\item[photo\_url] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Foto obrigatória da unidade física; validação binária pertence ao backend.
+\item[documento\_dado\_baixa\_pdf\_url] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TEXT.
+Nulo antes da baixa; vinculado e imutável no estado terminal.
+\item[nome\_responsavel\_sei] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Responsável institucional; no máximo 150 caracteres.
+\item[status] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: Ativo, Inservivel, Ja\_dado\_baixa.
+\item[descricao\_complementar] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TEXT.
+Observação da unidade física; no máximo 200 caracteres.
+\item[versao] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+Inicia em 1; incrementa somente em fato canônico, nunca em fan-out derivado.
+\item[numero\_patrimonio\_proposto] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Plaqueta bruta informada na requisição de adição.
+\item[numero\_patrimonio\_normalizado] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+N(proposto) = trim().toUpperCase(); única chave de lock e Chaves\_Unicas.
+\item[versao\_bem\_origem] Tipo: int. Obrigatório: sim. Aceita nulo: não.
+SQL: INTEGER.
+Versão observada para controle otimista de edição.
+\item[id\_requisicao] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Requisição proprietária do lock; precisa coincidir antes da liberação.
+\item[tipo\_lock] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: EDICAO, ADICAO.
+\item[chave\_recurso] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+ID do bem (edição) ou plaqueta normalizada (adição).
+\item[tipo\_historico] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: cadastro, edicao, baixa.
+\end{description}
