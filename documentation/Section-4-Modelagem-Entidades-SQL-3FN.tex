@@ -73,6 +73,31 @@ A chave primária composta \textit{(id\_gestor\_almoxarifado, id\_almoxarifado)}
 \textit{id\_resumo\_bem\_patrimonial}, \textit{numero\_patrimonio}, \textit{estado\_conservacao}, \textit{id\_local}, \textit{photo\_url}, \textit{nome\_responsavel\_sei} e \textit{status} são estritamente \textbf{NOT NULL}. Apenas \textit{documento\_dado\_baixa\_pdf\_url} admite NULL (preenchido exclusivamente quando o bem atinge o status \texttt{Ja\_dado\_baixa}) e \textit{descricao\_complementar} (opcional para notas individuais daquela unidade física).
 \end{explicacao}
 
+\begin{regra}[Identidade, ciclo de vida e versão da unidade]
+\textit{numero\_patrimonio} é a identidade externa permanente da unidade física,
+e não é reutilizado após a baixa. Sua forma canônica é
+\texttt{trim().toUpperCase()}; a entrada vazia após \texttt{trim()} é rejeitada e
+o valor canônico, de no máximo 30 caracteres, é o único valor comparado,
+armazenado, indexado e usado em locks e chaves únicas. Assim \texttt{ABC-123},
+\texttt{abc-123} e \texttt{\ \ ABC-123\ \ } designam a mesma unidade.
+
+\textit{estado\_conservacao} e \textit{status} são dimensões independentes. O
+ciclo V1 fechado é \texttt{Ativo -> Inservivel -> Ja\_dado\_baixa};
+\texttt{Ativo -> Ja\_dado\_baixa} e \texttt{Inservivel -> Ativo} são negados.
+\texttt{Ja\_dado\_baixa} é terminal para fatos da unidade: não há exclusão física,
+troca de foto/local/resumo/status ou reutilização de plaqueta; somente retenção,
+consulta e auditoria são permitidas. A segunda transição exige o rito SEI e o
+comprovante PDF validado.
+
+\textit{versao} começa em 1 e incrementa uma vez em cada mutação canônica da
+unidade (edição aprovada, mudança de local, reclassificação, troca de foto,
+mudança de conservação/status e baixa). Ela não incrementa por fan-out de
+\textit{nome\_equipamento}, \textit{predio}, \textit{andar}, \textit{sala} ou
+\textit{letra\_inicial\_nome}: tais campos são projeções derivadas e não fatos
+editados da unidade. Essa semântica evita conflito falso sem ocultar conflito
+de edição canônica.
+\end{regra}
+
 \subsection{Resumo bem patrimonial}
 \begin{entidade}{Resumo\_Bem\_Patrimonial}
 \campo{id}{SERIAL}{PK}
@@ -138,6 +163,7 @@ RF10: \textit{UNIQUE(id\_bem\_patrimonial) WHERE status = 'pendente'} -- impede 
 \begin{entidade}{Requisicao\_Adicao\_Bem\_Patrimonial}
 \campo{id}{SERIAL}{PK}
 \campo{numero\_patrimonio\_proposto}{VARCHAR(30)}{NOT NULL}
+\campo{numero\_patrimonio\_normalizado}{VARCHAR(30)}{NOT NULL}
 \campo{status}{ENUM}{pendente, aprovada, rejeitada, NOT NULL}
 \campo{feita\_em}{TIMESTAMP}{NOT NULL}
 \campo{id\_bem\_patrimonial\_se\_aprovado}{INTEGER}{FK, NULL}
@@ -159,7 +185,7 @@ RF10: \textit{UNIQUE(id\_bem\_patrimonial) WHERE status = 'pendente'} -- impede 
 Se o local desejado não existir no banco, o professor deve primeiro criar o \textit{Local} no sistema, para então vincular a respectiva FK (\textit{id\_local}) nesta requisição.
 \end{explicacao}
 \begin{regra}
-RF10b: \textit{UNIQUE(numero\_patrimonio\_proposto) WHERE status = 'pendente'} --
+RF10b: \textit{UNIQUE(numero\_patrimonio\_normalizado) WHERE status = 'pendente'} --
 impede mais de uma requisição de adição pendente simultânea para o mesmo
 número de patrimônio. No PostgreSQL, isso é implementado como índice
 único parcial; no Firestore, a verificação é reimplementada na Cloud
@@ -168,6 +194,9 @@ Function de criação da requisição, dentro de uma transação.
 \subsection{Lock de Requisição de Patrimônio}
 \begin{entidade}{Locks\_Requisicao\_Patrimonio}
 \campo{id (docId determinístico)}{VARCHAR(100)}{PK}
+\campo{id\_requisicao}{VARCHAR(100)}{NOT NULL}
+\campo{tipo}{ENUM}{EDICAO, ADICAO, NOT NULL}
+\campo{chave\_recurso}{VARCHAR(100)}{NOT NULL}
 \campo{criado\_em}{TIMESTAMP}{NOT NULL}
 \end{entidade}
 
@@ -178,10 +207,10 @@ A solução é o padrão \textit{deterministic lock}: a Cloud Function tenta cri
 
 \begin{itemize}
   \item Para requisição de \textbf{edição}: docId = \texttt{bem\_edicao\_\{id\_bem\_patrimonial\}}
-  \item Para requisição de \textbf{adição}: docId = \texttt{bem\_adicao\_\{numero\_patrimonio\_proposto\}}
+  \item Para requisição de \textbf{adição}: docId = \texttt{bem\_adicao\_\{numero\_patrimonio\_normalizado\}}
 \end{itemize}
 
-O lock é removido na transação de aprovação/rejeição ordinária. O lock \texttt{Locks\_Requisicao\_Patrimonio/bem\_edicao\_\{id\}} DEVE ser removido pela transação também em caso de rejeição por divergência de versão do bem patrimonial, solucionando deadlocks permanentes. Lock e requisição são criados atomicamente; não há commit parcial dessa transação. Limpeza verifica o vínculo e jamais remove um lock apenas porque a requisição pendente tem mais de 24 horas.
+O lock é removido na transação de aprovação/rejeição ordinária. O lock \texttt{Locks\_Requisicao\_Patrimonio/bem\_edicao\_\{id\}} DEVE ser removido pela transação também em caso de rejeição por divergência de versão, referência inválida ou outro desfecho terminal documentado, solucionando deadlocks permanentes. Antes de removê-lo, a transação exige \textit{id\_requisicao}, \textit{tipo} e \textit{chave\_recurso} correspondentes; lock ausente ou pertencente a outra requisição é falha de integridade que não libera lock alheio. Lock e requisição são criados atomicamente; não há commit parcial dessa transação. Limpeza só pode remover lock órfão após verificar pelo \textit{id\_requisicao} que não há requisição pendente correspondente; jamais remove um lock apenas porque a requisição pendente tem mais de 24 horas.
 \end{regra}
 
 \subsection{Impressão de Etiquetas de Frasco}
