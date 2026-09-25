@@ -1,0 +1,59 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{M12\_1\_Posts\_Comentarios --- formalização executável M12.1}
+Shapes estruturais de Post, Comentário, históricos de edição/moderação, projeção de leitura com máscara, efeito mínimo de notificação e identidade de comando. CUE verifica campos, enums fechados, nulabilidade, condicionais (remoção lógica, edição, moderação, tipo de histórico, visão de leitura) e limites (título 1..150, descrição 1..10000, texto 1..2000, nome de arquivo 1..150, tamanho positivo). Autoridade de participação (vínculo canônico M11), transições, turma arquivada somente leitura, edição concorrente, idempotência M7, autorização M9 e a fronteira abstrata de acesso ao roteiro são verificadas em Alloy; a canonicalização determinística por Rust. CUE não prova concorrência temporal nem ACL de Roteiros (M12.2).
+\begin{description}
+\item[id\_turma] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Turma do Post/Comentário; vínculo canônico atual decide participação (M11).
+\item[id\_professor] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Autor imutável do Post.
+\item[id\_post] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Post pai do Comentário/histórico.
+\item[id\_usuario] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Autor imutável do Comentário.
+\item[titulo] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Título do Post; de 1 a 150 caracteres.
+\item[descricao] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Descrição do Post; de 1 a 10000 caracteres (Q10).
+\item[texto] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Texto do Comentário; de 1 a 2000 caracteres (Q10), escapado na renderização.
+\item[editado] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+Marcado na edição; a versão anterior fica no histórico.
+\item[editado\_em] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TIMESTAMP.
+Instante do servidor da última edição; nulo quando não editado.
+\item[removido\_da\_apresentacao] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+Remoção lógica de Post (RF25); não apaga documento nem histórico.
+\item[motivo\_remocao] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TEXT.
+Obrigatório quando removido\_da\_apresentacao; até 2000 caracteres.
+\item[moderado] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+Comentário moderado; a moderação não apaga o texto original.
+\item[motivo\_moderacao] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TEXT.
+Obrigatório quando moderado; até 2000 caracteres.
+\item[tipo\_historico] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: edicao, moderacao.
+\item[visao] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: AUTOR, COLEGA, AUDITOR.
+\item[contem\_conteudo\_protegido] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+Efeito de notificação nunca transporta conteúdo protegido.
+\item[id\_operacao] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Identidade de comando M7 (uid, tipo\_operacao, payload\_hash).
+\item[storage\_path] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Localizador do snapshot do roteiro; download mediado por endpoint (fronteira M12.2).
+\end{description}

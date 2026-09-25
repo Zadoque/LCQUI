@@ -18,7 +18,7 @@ const hash = data => crypto.createHash('sha256').update(data).digest('hex');
 function write(file, data) { fs.mkdirSync(path.dirname(file), {recursive:true}); fs.writeFileSync(file,data); }
 function specCheck() {
   run('cue',['vet','./...'],cueDir);
-  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/frasco-completo', '#FrascoCompleto'], ['tests/emprestimo', '#EmprestimoReagente'], ['tests/m5', '#M5Operacao'], ['tests/m6', '#M6Metrologia'], ['tests/m7', '#M7Operacao'], ['tests/m8', '#M8Contrato'], ['tests/m9', '#M9Contrato'], ['tests/m10', '#M10Contrato'], ['tests/m11', '#M11Contrato']];
+  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/frasco-completo', '#FrascoCompleto'], ['tests/emprestimo', '#EmprestimoReagente'], ['tests/m5', '#M5Operacao'], ['tests/m6', '#M6Metrologia'], ['tests/m7', '#M7Operacao'], ['tests/m8', '#M8Contrato'], ['tests/m9', '#M9Contrato'], ['tests/m10', '#M10Contrato'], ['tests/m11', '#M11Contrato'], ['tests/m12_1', '#M12_1Contrato']];
   for (const [directory, definition] of groups) for (const kind of ['valid','invalid']) {
     const files = fs.readdirSync(`${cueDir}/${directory}/${kind}`).sort();
     if (!files.length) throw new Error(`Sem fixtures ${kind}`);
@@ -436,6 +436,55 @@ function alloyCheck() {
     ['WitnessRevogacaoImpedeCommit','run','run WitnessRevogacaoImpedeCommit for 6'],
     ['WitnessEdicaoCapacidadeValida','run','run WitnessEdicaoCapacidadeValida for 6'],
   ], 'build/formal-validation-m11.json', 'M11');
+  runMilestone('specification/alloy/operations/posts_m12_1.als', [
+    ['CriarPostSoEmAtivo','check','check CriarPostSoEmAtivo for 6'],
+    ['EditarPostSoEmAtivo','check','check EditarPostSoEmAtivo for 6'],
+    ['RemoverPostSoEmAtivo','check','check RemoverPostSoEmAtivo for 6'],
+    ['CriarComentSoEmAtivo','check','check CriarComentSoEmAtivo for 6'],
+    ['EditarComentSoEmAtivo','check','check EditarComentSoEmAtivo for 6'],
+    ['ModerarComentSoEmAtivo','check','check ModerarComentSoEmAtivo for 6'],
+    ['TurmaArquivadaNegaEscrita','check','check TurmaArquivadaNegaEscrita for 6'],
+    ['ChefeNaoCriaPost','check','check ChefeNaoCriaPost for 6'],
+    ['ChefeNaoEditaConteudo','check','check ChefeNaoEditaConteudo for 6'],
+    ['AutorImutavelPost','check','check AutorImutavelPost for 6'],
+    ['AutorImutavelComent','check','check AutorImutavelComent for 6'],
+    ['TerceiroNaoEditaPost','check','check TerceiroNaoEditaPost for 6'],
+    ['TerceiroNaoEditaComent','check','check TerceiroNaoEditaComent for 6'],
+    ['ComentarExigeVinculoAtual','check','check ComentarExigeVinculoAtual for 6'],
+    ['LerExigeVinculoOuPapel','check','check LerExigeVinculoOuPapel for 6'],
+    ['InativoNaoLe','check','check InativoNaoLe for 6'],
+    ['EdicaoPostCriaHistorico','check','check EdicaoPostCriaHistorico for 6'],
+    ['RemocaoPostCriaHistorico','check','check RemocaoPostCriaHistorico for 6'],
+    ['RemocaoPreservaDocumento','check','check RemocaoPreservaDocumento for 6'],
+    ['HistoricoNuncaRemovido','check','check HistoricoNuncaRemovido for 6'],
+    ['EdicaoComentCriaHistorico','check','check EdicaoComentCriaHistorico for 6'],
+    ['ModeracaoComentCriaHistorico','check','check ModeracaoComentCriaHistorico for 6'],
+    ['EdicaoNaoDesfazModeracao','check','check EdicaoNaoDesfazModeracao for 6'],
+    ['ComentModeradoPreservado','check','check ComentModeradoPreservado for 6'],
+    ['ColegaNaoVeOriginalModerado','check','check ColegaNaoVeOriginalModerado for 6'],
+    ['AutorVeOriginalMarcado','check','check AutorVeOriginalMarcado for 6'],
+    ['AuditorVeOriginal','check','check AuditorVeOriginal for 6'],
+    ['NotificacaoSoDoAlvo','check','check NotificacaoSoDoAlvo for 6'],
+    ['SemAcessoNaoPublicaComRoteiro','check','check SemAcessoNaoPublicaComRoteiro for 6'],
+    ['PublicacaoComRoteiroExigeAcesso','check','check PublicacaoComRoteiroExigeAcesso for 6'],
+    ['ReusoIncompativelNaoHerda','check','check ReusoIncompativelNaoHerda for 6'],
+    ['RetryNaoDuplica','check','check RetryNaoDuplica for 6'],
+    ['RevogacaoImpedeCommit','check','check RevogacaoImpedeCommit for 6'],
+    ['TransicoesPreservamCoerencia','check','check TransicoesPreservamCoerencia for 6'],
+    ['WitnessTurmaAtiva','run','run WitnessTurmaAtiva for 4'],
+    ['WitnessCriarPost','run','run WitnessCriarPost for 6'],
+    ['WitnessPublicaComRoteiro','run','run WitnessPublicaComRoteiro for 6'],
+    ['WitnessEditarPost','run','run WitnessEditarPost for 6'],
+    ['WitnessRemoverPost','run','run WitnessRemoverPost for 6'],
+    ['WitnessCriarComent','run','run WitnessCriarComent for 6'],
+    ['WitnessModerarComent','run','run WitnessModerarComent for 6'],
+    ['WitnessEdicaoNaoDesfazModeracao','run','run WitnessEdicaoNaoDesfazModeracao for 6'],
+    ['WitnessLeituraMascarada','run','run WitnessLeituraMascarada for 6'],
+    ['WitnessChefeModera','run','run WitnessChefeModera for 6'],
+    ['WitnessRemocaoAlunoBloqueia','run','run WitnessRemocaoAlunoBloqueia for 6'],
+    ['WitnessRetry','run','run WitnessRetry for 4'],
+    ['WitnessRoteiroAceito','run','run WitnessRoteiroAceito for 6'],
+  ], 'build/formal-validation-m12-1.json', 'M12_1');
 }
 const cmd=process.argv[2];
 if(cmd==='spec-check') specCheck();

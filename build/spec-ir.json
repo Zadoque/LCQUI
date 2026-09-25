@@ -2365,6 +2365,239 @@
                 "versao": 1,
                 "qtd_alunos": 0
             }
+        },
+        {
+            "arquivo": "formal_m12_1_posts",
+            "entidade": "M12_1_Posts_Comentarios",
+            "etapa": "formalização executável M12.1",
+            "escopo": "Shapes estruturais de Post, Comentário, históricos de edição/moderação, projeção de leitura com máscara, efeito mínimo de notificação e identidade de comando. CUE verifica campos, enums fechados, nulabilidade, condicionais (remoção lógica, edição, moderação, tipo de histórico, visão de leitura) e limites (título 1..150, descrição 1..10000, texto 1..2000, nome de arquivo 1..150, tamanho positivo). Autoridade de participação (vínculo canônico M11), transições, turma arquivada somente leitura, edição concorrente, idempotência M7, autorização M9 e a fronteira abstrata de acesso ao roteiro são verificadas em Alloy; a canonicalização determinística por Rust. CUE não prova concorrência temporal nem ACL de Roteiros (M12.2).",
+            "campos": [
+                {
+                    "tipo": "string",
+                    "nome": "id_turma",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Turma do Post/Comentário; vínculo canônico atual decide participação (M11).",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_professor",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Autor imutável do Post.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_post",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Post pai do Comentário/histórico.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_usuario",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Autor imutável do Comentário.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "titulo",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Título do Post; de 1 a 150 caracteres.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "descricao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Descrição do Post; de 1 a 10000 caracteres (Q10).",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "texto",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Texto do Comentário; de 1 a 2000 caracteres (Q10), escapado na renderização.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "editado",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "Marcado na edição; a versão anterior fica no histórico.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "editado_em",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "sql": "TIMESTAMP",
+                    "valores": [],
+                    "observacao": "Instante do servidor da última edição; nulo quando não editado.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "removido_da_apresentacao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "Remoção lógica de Post (RF25); não apaga documento nem histórico.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "motivo_remocao",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Obrigatório quando removido_da_apresentacao; até 2000 caracteres.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "moderado",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "Comentário moderado; a moderação não apaga o texto original.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "motivo_moderacao",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Obrigatório quando moderado; até 2000 caracteres.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "tipo_historico",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "edicao",
+                        "moderacao"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "visao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "AUTOR",
+                        "COLEGA",
+                        "AUDITOR"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "contem_conteudo_protegido",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "Efeito de notificação nunca transporta conteúdo protegido.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_operacao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Identidade de comando M7 (uid, tipo_operacao, payload_hash).",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "storage_path",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Localizador do snapshot do roteiro; download mediado por endpoint (fronteira M12.2).",
+                    "positivo": false,
+                    "nao_negativo": false
+                }
+            ],
+            "exemplo": {
+                "id_turma": "turma-1",
+                "id_professor": "prof-1",
+                "id_post": "post-1",
+                "id_usuario": "uid-aluno-1",
+                "titulo": "Aula de titulação",
+                "descricao": "Orientações da prática.",
+                "texto": "Professor, levaremos óculos?",
+                "editado": false,
+                "editado_em": null,
+                "removido_da_apresentacao": false,
+                "motivo_remocao": null,
+                "moderado": false,
+                "motivo_moderacao": null,
+                "tipo_historico": "edicao",
+                "visao": "COLEGA",
+                "contem_conteudo_protegido": false,
+                "id_operacao": "op-1",
+                "storage_path": "gs://lcqui/roteiros/rot-1.pdf"
+            }
         }
     ]
 }

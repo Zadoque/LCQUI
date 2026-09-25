@@ -1,0 +1,53 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{Evidência formal M12.1 --- posts, comentários, edição/moderação e históricos}
+CUE verifica shapes de Post, Comentário, históricos de edição/moderação, projeção de leitura com máscara, efeito mínimo de notificação e identidade de comando, com enums fechados, nulabilidade, condicionais (remoção lógica, edição, moderação, tipo de histórico, visão de leitura) e limites (título 1..150, descrição 1..10000, texto 1..2000). Alloy verifica a autoria imutável, a participação por vínculo canônico atual (M11), turma arquivada somente leitura (Q08) inclusive para o Chefe, criação/edição de Post só pelo dono, criação/edição de Comentário só pelo autor, moderação por professor dono ou Chefe Q13, remoção lógica de Post preservando documento/histórico, histórico imutável de edição e moderação, a máscara de leitura (autor vê original marcado, colega vê aviso, auditor vê original), a fronteira abstrata de acesso ao roteiro (sem ACL de Storage), o efeito de notificação sem conteúdo nem autorização de leitura, e a composição M7 (retry não duplica; reuso incompatível não herda) e M9 (revogação impede commit). Rust valida proveniência, ordem exata do receipt e as regras determinísticas de limite, exclusividade de edição e máscara. A evidência não certifica Firebase, backend, Rules, Storage, ACL de Roteiros (M12.2), caixa de notificações (M13) nem concorrência real.
+\begin{description}
+\item[M12\_1-INV-001] CriarPostSoEmAtivo: UNSAT.\newline Escopo: \texttt{check CriarPostSoEmAtivo for 6}.
+\item[M12\_1-INV-002] EditarPostSoEmAtivo: UNSAT.\newline Escopo: \texttt{check EditarPostSoEmAtivo for 6}.
+\item[M12\_1-INV-003] RemoverPostSoEmAtivo: UNSAT.\newline Escopo: \texttt{check RemoverPostSoEmAtivo for 6}.
+\item[M12\_1-INV-004] CriarComentSoEmAtivo: UNSAT.\newline Escopo: \texttt{check CriarComentSoEmAtivo for 6}.
+\item[M12\_1-INV-005] EditarComentSoEmAtivo: UNSAT.\newline Escopo: \texttt{check EditarComentSoEmAtivo for 6}.
+\item[M12\_1-INV-006] ModerarComentSoEmAtivo: UNSAT.\newline Escopo: \texttt{check ModerarComentSoEmAtivo for 6}.
+\item[M12\_1-INV-007] TurmaArquivadaNegaEscrita: UNSAT.\newline Escopo: \texttt{check TurmaArquivadaNegaEscrita for 6}.
+\item[M12\_1-INV-008] ChefeNaoCriaPost: UNSAT.\newline Escopo: \texttt{check ChefeNaoCriaPost for 6}.
+\item[M12\_1-INV-009] ChefeNaoEditaConteudo: UNSAT.\newline Escopo: \texttt{check ChefeNaoEditaConteudo for 6}.
+\item[M12\_1-INV-010] AutorImutavelPost: UNSAT.\newline Escopo: \texttt{check AutorImutavelPost for 6}.
+\item[M12\_1-INV-011] AutorImutavelComent: UNSAT.\newline Escopo: \texttt{check AutorImutavelComent for 6}.
+\item[M12\_1-INV-012] TerceiroNaoEditaPost: UNSAT.\newline Escopo: \texttt{check TerceiroNaoEditaPost for 6}.
+\item[M12\_1-INV-013] TerceiroNaoEditaComent: UNSAT.\newline Escopo: \texttt{check TerceiroNaoEditaComent for 6}.
+\item[M12\_1-INV-014] ComentarExigeVinculoAtual: UNSAT.\newline Escopo: \texttt{check ComentarExigeVinculoAtual for 6}.
+\item[M12\_1-INV-015] LerExigeVinculoOuPapel: UNSAT.\newline Escopo: \texttt{check LerExigeVinculoOuPapel for 6}.
+\item[M12\_1-INV-016] InativoNaoLe: UNSAT.\newline Escopo: \texttt{check InativoNaoLe for 6}.
+\item[M12\_1-INV-017] EdicaoPostCriaHistorico: UNSAT.\newline Escopo: \texttt{check EdicaoPostCriaHistorico for 6}.
+\item[M12\_1-INV-018] RemocaoPostCriaHistorico: UNSAT.\newline Escopo: \texttt{check RemocaoPostCriaHistorico for 6}.
+\item[M12\_1-INV-019] RemocaoPreservaDocumento: UNSAT.\newline Escopo: \texttt{check RemocaoPreservaDocumento for 6}.
+\item[M12\_1-INV-020] HistoricoNuncaRemovido: UNSAT.\newline Escopo: \texttt{check HistoricoNuncaRemovido for 6}.
+\item[M12\_1-INV-021] EdicaoComentCriaHistorico: UNSAT.\newline Escopo: \texttt{check EdicaoComentCriaHistorico for 6}.
+\item[M12\_1-INV-022] ModeracaoComentCriaHistorico: UNSAT.\newline Escopo: \texttt{check ModeracaoComentCriaHistorico for 6}.
+\item[M12\_1-INV-023] EdicaoNaoDesfazModeracao: UNSAT.\newline Escopo: \texttt{check EdicaoNaoDesfazModeracao for 6}.
+\item[M12\_1-INV-024] ComentModeradoPreservado: UNSAT.\newline Escopo: \texttt{check ComentModeradoPreservado for 6}.
+\item[M12\_1-INV-025] ColegaNaoVeOriginalModerado: UNSAT.\newline Escopo: \texttt{check ColegaNaoVeOriginalModerado for 6}.
+\item[M12\_1-INV-026] AutorVeOriginalMarcado: UNSAT.\newline Escopo: \texttt{check AutorVeOriginalMarcado for 6}.
+\item[M12\_1-INV-027] AuditorVeOriginal: UNSAT.\newline Escopo: \texttt{check AuditorVeOriginal for 6}.
+\item[M12\_1-INV-028] NotificacaoSoDoAlvo: UNSAT.\newline Escopo: \texttt{check NotificacaoSoDoAlvo for 6}.
+\item[M12\_1-INV-029] SemAcessoNaoPublicaComRoteiro: UNSAT.\newline Escopo: \texttt{check SemAcessoNaoPublicaComRoteiro for 6}.
+\item[M12\_1-INV-030] PublicacaoComRoteiroExigeAcesso: UNSAT.\newline Escopo: \texttt{check PublicacaoComRoteiroExigeAcesso for 6}.
+\item[M12\_1-INV-031] ReusoIncompativelNaoHerda: UNSAT.\newline Escopo: \texttt{check ReusoIncompativelNaoHerda for 6}.
+\item[M12\_1-INV-032] RetryNaoDuplica: UNSAT.\newline Escopo: \texttt{check RetryNaoDuplica for 6}.
+\item[M12\_1-INV-033] RevogacaoImpedeCommit: UNSAT.\newline Escopo: \texttt{check RevogacaoImpedeCommit for 6}.
+\item[M12\_1-INV-034] TransicoesPreservamCoerencia: UNSAT.\newline Escopo: \texttt{check TransicoesPreservamCoerencia for 6}.
+\item[M12\_1-WIT-035] WitnessTurmaAtiva: SAT.\newline Escopo: \texttt{run WitnessTurmaAtiva for 4}.
+\item[M12\_1-WIT-036] WitnessCriarPost: SAT.\newline Escopo: \texttt{run WitnessCriarPost for 6}.
+\item[M12\_1-WIT-037] WitnessPublicaComRoteiro: SAT.\newline Escopo: \texttt{run WitnessPublicaComRoteiro for 6}.
+\item[M12\_1-WIT-038] WitnessEditarPost: SAT.\newline Escopo: \texttt{run WitnessEditarPost for 6}.
+\item[M12\_1-WIT-039] WitnessRemoverPost: SAT.\newline Escopo: \texttt{run WitnessRemoverPost for 6}.
+\item[M12\_1-WIT-040] WitnessCriarComent: SAT.\newline Escopo: \texttt{run WitnessCriarComent for 6}.
+\item[M12\_1-WIT-041] WitnessModerarComent: SAT.\newline Escopo: \texttt{run WitnessModerarComent for 6}.
+\item[M12\_1-WIT-042] WitnessEdicaoNaoDesfazModeracao: SAT.\newline Escopo: \texttt{run WitnessEdicaoNaoDesfazModeracao for 6}.
+\item[M12\_1-WIT-043] WitnessLeituraMascarada: SAT.\newline Escopo: \texttt{run WitnessLeituraMascarada for 6}.
+\item[M12\_1-WIT-044] WitnessChefeModera: SAT.\newline Escopo: \texttt{run WitnessChefeModera for 6}.
+\item[M12\_1-WIT-045] WitnessRemocaoAlunoBloqueia: SAT.\newline Escopo: \texttt{run WitnessRemocaoAlunoBloqueia for 6}.
+\item[M12\_1-WIT-046] WitnessRetry: SAT.\newline Escopo: \texttt{run WitnessRetry for 4}.
+\item[M12\_1-WIT-047] WitnessRoteiroAceito: SAT.\newline Escopo: \texttt{run WitnessRoteiroAceito for 6}.
+\end{description}
+UNSAT para check indica ausência de contraexemplo no escopo declarado; SAT para run indica testemunha encontrada. A evidência não certifica a implementação Firebase/backend.

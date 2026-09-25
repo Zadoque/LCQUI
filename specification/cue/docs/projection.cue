@@ -287,5 +287,13 @@ ir: {
 			campos:   domain.#CamposM11
 			exemplo: {id_professor: "prof-1", id_materia: "mat-1", nome_turma: "Química Orgânica I", ano: 2026, semestre: 2, capacidade: 30, codigo_turma: "ABC123", status: "Ativo", versao: 1, qtd_alunos: 0}
 		},
+		{
+			arquivo:  "formal_m12_1_posts"
+			entidade: "M12_1_Posts_Comentarios"
+			etapa:    "formalização executável M12.1"
+			escopo:   "Shapes estruturais de Post, Comentário, históricos de edição/moderação, projeção de leitura com máscara, efeito mínimo de notificação e identidade de comando. CUE verifica campos, enums fechados, nulabilidade, condicionais (remoção lógica, edição, moderação, tipo de histórico, visão de leitura) e limites (título 1..150, descrição 1..10000, texto 1..2000, nome de arquivo 1..150, tamanho positivo). Autoridade de participação (vínculo canônico M11), transições, turma arquivada somente leitura, edição concorrente, idempotência M7, autorização M9 e a fronteira abstrata de acesso ao roteiro são verificadas em Alloy; a canonicalização determinística por Rust. CUE não prova concorrência temporal nem ACL de Roteiros (M12.2)."
+			campos:   domain.#CamposM12_1
+			exemplo: {id_turma: "turma-1", id_professor: "prof-1", id_post: "post-1", id_usuario: "uid-aluno-1", titulo: "Aula de titulação", descricao: "Orientações da prática.", texto: "Professor, levaremos óculos?", editado: false, editado_em: null, removido_da_apresentacao: false, motivo_remocao: null, moderado: false, motivo_moderacao: null, tipo_historico: "edicao", visao: "COLEGA", contem_conteudo_protegido: false, id_operacao: "op-1", storage_path: "gs://lcqui/roteiros/rot-1.pdf"}
+		},
 	]
 }

@@ -1,0 +1,339 @@
+{
+  "versao": 1,
+  "alloy": "6.2.0",
+  "solver": "sat4j",
+  "spec_ir_sha256": "b3a134a1e2f04cc9726c64a0e7a50310e8ee21c162fbbac0256dcabff846cb95",
+  "model": "specification/alloy/operations/posts_m12_1.als",
+  "model_sha256": "948947395152179deb7530c52f98d0ceb799aac63853d329421f27291c243a98",
+  "resultados": [
+    {
+      "id": "M12_1-INV-001",
+      "assertion": "CriarPostSoEmAtivo",
+      "tipo": "check",
+      "scope": "check CriarPostSoEmAtivo for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-002",
+      "assertion": "EditarPostSoEmAtivo",
+      "tipo": "check",
+      "scope": "check EditarPostSoEmAtivo for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-003",
+      "assertion": "RemoverPostSoEmAtivo",
+      "tipo": "check",
+      "scope": "check RemoverPostSoEmAtivo for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-004",
+      "assertion": "CriarComentSoEmAtivo",
+      "tipo": "check",
+      "scope": "check CriarComentSoEmAtivo for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-005",
+      "assertion": "EditarComentSoEmAtivo",
+      "tipo": "check",
+      "scope": "check EditarComentSoEmAtivo for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-006",
+      "assertion": "ModerarComentSoEmAtivo",
+      "tipo": "check",
+      "scope": "check ModerarComentSoEmAtivo for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-007",
+      "assertion": "TurmaArquivadaNegaEscrita",
+      "tipo": "check",
+      "scope": "check TurmaArquivadaNegaEscrita for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-008",
+      "assertion": "ChefeNaoCriaPost",
+      "tipo": "check",
+      "scope": "check ChefeNaoCriaPost for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-009",
+      "assertion": "ChefeNaoEditaConteudo",
+      "tipo": "check",
+      "scope": "check ChefeNaoEditaConteudo for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-010",
+      "assertion": "AutorImutavelPost",
+      "tipo": "check",
+      "scope": "check AutorImutavelPost for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-011",
+      "assertion": "AutorImutavelComent",
+      "tipo": "check",
+      "scope": "check AutorImutavelComent for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-012",
+      "assertion": "TerceiroNaoEditaPost",
+      "tipo": "check",
+      "scope": "check TerceiroNaoEditaPost for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-013",
+      "assertion": "TerceiroNaoEditaComent",
+      "tipo": "check",
+      "scope": "check TerceiroNaoEditaComent for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-014",
+      "assertion": "ComentarExigeVinculoAtual",
+      "tipo": "check",
+      "scope": "check ComentarExigeVinculoAtual for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-015",
+      "assertion": "LerExigeVinculoOuPapel",
+      "tipo": "check",
+      "scope": "check LerExigeVinculoOuPapel for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-016",
+      "assertion": "InativoNaoLe",
+      "tipo": "check",
+      "scope": "check InativoNaoLe for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-017",
+      "assertion": "EdicaoPostCriaHistorico",
+      "tipo": "check",
+      "scope": "check EdicaoPostCriaHistorico for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-018",
+      "assertion": "RemocaoPostCriaHistorico",
+      "tipo": "check",
+      "scope": "check RemocaoPostCriaHistorico for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-019",
+      "assertion": "RemocaoPreservaDocumento",
+      "tipo": "check",
+      "scope": "check RemocaoPreservaDocumento for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-020",
+      "assertion": "HistoricoNuncaRemovido",
+      "tipo": "check",
+      "scope": "check HistoricoNuncaRemovido for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-021",
+      "assertion": "EdicaoComentCriaHistorico",
+      "tipo": "check",
+      "scope": "check EdicaoComentCriaHistorico for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-022",
+      "assertion": "ModeracaoComentCriaHistorico",
+      "tipo": "check",
+      "scope": "check ModeracaoComentCriaHistorico for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-023",
+      "assertion": "EdicaoNaoDesfazModeracao",
+      "tipo": "check",
+      "scope": "check EdicaoNaoDesfazModeracao for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-024",
+      "assertion": "ComentModeradoPreservado",
+      "tipo": "check",
+      "scope": "check ComentModeradoPreservado for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-025",
+      "assertion": "ColegaNaoVeOriginalModerado",
+      "tipo": "check",
+      "scope": "check ColegaNaoVeOriginalModerado for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-026",
+      "assertion": "AutorVeOriginalMarcado",
+      "tipo": "check",
+      "scope": "check AutorVeOriginalMarcado for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-027",
+      "assertion": "AuditorVeOriginal",
+      "tipo": "check",
+      "scope": "check AuditorVeOriginal for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-028",
+      "assertion": "NotificacaoSoDoAlvo",
+      "tipo": "check",
+      "scope": "check NotificacaoSoDoAlvo for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-029",
+      "assertion": "SemAcessoNaoPublicaComRoteiro",
+      "tipo": "check",
+      "scope": "check SemAcessoNaoPublicaComRoteiro for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-030",
+      "assertion": "PublicacaoComRoteiroExigeAcesso",
+      "tipo": "check",
+      "scope": "check PublicacaoComRoteiroExigeAcesso for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-031",
+      "assertion": "ReusoIncompativelNaoHerda",
+      "tipo": "check",
+      "scope": "check ReusoIncompativelNaoHerda for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-032",
+      "assertion": "RetryNaoDuplica",
+      "tipo": "check",
+      "scope": "check RetryNaoDuplica for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-033",
+      "assertion": "RevogacaoImpedeCommit",
+      "tipo": "check",
+      "scope": "check RevogacaoImpedeCommit for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-INV-034",
+      "assertion": "TransicoesPreservamCoerencia",
+      "tipo": "check",
+      "scope": "check TransicoesPreservamCoerencia for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_1-WIT-035",
+      "assertion": "WitnessTurmaAtiva",
+      "tipo": "run",
+      "scope": "run WitnessTurmaAtiva for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_1-WIT-036",
+      "assertion": "WitnessCriarPost",
+      "tipo": "run",
+      "scope": "run WitnessCriarPost for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_1-WIT-037",
+      "assertion": "WitnessPublicaComRoteiro",
+      "tipo": "run",
+      "scope": "run WitnessPublicaComRoteiro for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_1-WIT-038",
+      "assertion": "WitnessEditarPost",
+      "tipo": "run",
+      "scope": "run WitnessEditarPost for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_1-WIT-039",
+      "assertion": "WitnessRemoverPost",
+      "tipo": "run",
+      "scope": "run WitnessRemoverPost for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_1-WIT-040",
+      "assertion": "WitnessCriarComent",
+      "tipo": "run",
+      "scope": "run WitnessCriarComent for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_1-WIT-041",
+      "assertion": "WitnessModerarComent",
+      "tipo": "run",
+      "scope": "run WitnessModerarComent for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_1-WIT-042",
+      "assertion": "WitnessEdicaoNaoDesfazModeracao",
+      "tipo": "run",
+      "scope": "run WitnessEdicaoNaoDesfazModeracao for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_1-WIT-043",
+      "assertion": "WitnessLeituraMascarada",
+      "tipo": "run",
+      "scope": "run WitnessLeituraMascarada for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_1-WIT-044",
+      "assertion": "WitnessChefeModera",
+      "tipo": "run",
+      "scope": "run WitnessChefeModera for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_1-WIT-045",
+      "assertion": "WitnessRemocaoAlunoBloqueia",
+      "tipo": "run",
+      "scope": "run WitnessRemocaoAlunoBloqueia for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_1-WIT-046",
+      "assertion": "WitnessRetry",
+      "tipo": "run",
+      "scope": "run WitnessRetry for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_1-WIT-047",
+      "assertion": "WitnessRoteiroAceito",
+      "tipo": "run",
+      "scope": "run WitnessRoteiroAceito for 6",
+      "status": "SAT"
+    }
+  ]
+}

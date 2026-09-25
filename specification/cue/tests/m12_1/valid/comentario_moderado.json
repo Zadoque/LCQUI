@@ -1,0 +1,13 @@
+{
+  "id": "com-3",
+  "id_post": "post-1",
+  "id_usuario": "uid-aluno-1",
+  "texto": "Professor, levaremos óculos?",
+  "criado_em": "2026-09-25T12:00:00Z",
+  "editado": false,
+  "editado_em": null,
+  "moderado": true,
+  "motivo_moderacao": "Ofensa a colega.",
+  "moderado_por": "prof-1",
+  "moderado_em": "2026-09-25T12:10:00Z"
+}

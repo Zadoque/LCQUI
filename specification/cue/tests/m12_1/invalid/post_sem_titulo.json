@@ -1,0 +1,15 @@
+{
+  "id": "post-x",
+  "id_turma": "turma-1",
+  "id_professor": "prof-1",
+  "titulo": "",
+  "descricao": "Orientações da prática.",
+  "criado_em": "2026-09-25T10:00:00Z",
+  "editado": false,
+  "editado_em": null,
+  "removido_da_apresentacao": false,
+  "motivo_remocao": null,
+  "removido_por": null,
+  "removido_em": null,
+  "roteiro_anexo": null
+}

@@ -1,0 +1,8 @@
+{
+  "id_turma": "turma-1",
+  "id_alvo": "post-1",
+  "destinatario": "uid-aluno-1",
+  "tipo": "POST",
+  "contem_conteudo_protegido": true,
+  "payload_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+}
