@@ -224,3 +224,11 @@ pub fn render_m9(v: &crate::validation_m9::ValidationM9) -> String {
         &v.resultados,
     )
 }
+
+pub fn render_m10(v: &crate::validation_m10::ValidationM10) -> String {
+    render_milestone(
+        "M10 --- patrimônio",
+        "CUE verifica shapes de bem, resumo catalográfico, requisições de adição/edição, lock, baixa, evento histórico e alteração, com enums fechados, nulabilidade e limites de comprimento. Alloy verifica a identidade Resumo x Bem, a plaqueta canônica única e não reutilizável, Chaves_Unicas como reserva permanente distinta de lock, a máquina V1 Ativo -> Inservivel -> Ja_dado_baixa, a terminalidade, a ortogonalidade da conservação, o versionamento canônico (fan-out derivado não incrementa), os conflitos de versão/unicidade com liberação do próprio lock, a presença/ownership do lock, o histórico cadastro/edição/baixa e a composição abstrata com M7 (retry não duplica) e M9 (autorização necessária, domínio não dispensado). Rust valida proveniência, ordem exata do receipt e a canonicalização determinística N(s)=trim().toUpperCase() preservando zeros iniciais. A evidência não certifica Firebase, backend, Rules, Storage, assinatura real de PDF, Chaves_Unicas/backfill, índices, migração de histórico legado nem concorrência sob carga.",
+        &v.resultados,
+    )
+}
