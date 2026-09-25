@@ -1,0 +1,9 @@
+{
+  "id_bem_patrimonial": "bem-2",
+  "id_usuario_gestor": "uid-gestor-bens",
+  "status_origem": "Inservivel",
+  "status_destino": "Ja_dado_baixa",
+  "justificativa": "Laudo de baixa aprovado no rito SEI.",
+  "documento_dado_baixa_pdf_url": "gs://lcqui/baixas/bem-2.pdf",
+  "versao_anterior": 2
+}
