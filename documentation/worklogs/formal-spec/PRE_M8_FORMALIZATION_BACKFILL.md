@@ -1,6 +1,6 @@
 # Pré-M8 — reconciliação e backfill executável M5–M7
 
-Estado da rodada: EM ANDAMENTO; nenhum PASS de M5–M7 declarado.
+Estado da rodada: BLOQUEADA por HQ-PRE-M8-001; nenhum PASS de M5–M7 declarado.
 HEAD de entrada: `de6de7f49b766c6bd8bb2c94911d6a5cf74adbc6`.
 Branch: `feat/formal-spec-cue-alloy`; árvore inicialmente limpa.
 
@@ -61,14 +61,108 @@ um frasco com saldo anteriormente desconhecido? Não presumir que mudar a flag
 equivale a medir quantidade zero. Não rejeitar silenciosamente esse reencontro.
 A composição completa de M5 está impedida enquanto ambas as regras forem exigidas.
 
-## Validações e evidências
+## Diagnóstico executado — não constitui validação M5
 
-Pendentes de execução/registro: diagnóstico Alloy, gates, hashes, contagens,
-receipts M5/M6/M7, módulos Rust, geração e integração PDF. IR ainda v3;
-gerador ainda 0.2.0. Nenhuma nova evidência mecânica publicada.
+Reprodução da raiz:
+`node documentation/worklogs/formal-spec/PRE_M8_HQ001_DIAGNOSTIC.mjs`.
+O script copia integralmente o modelo M4 atual para /tmp, sem mudar nenhum
+predicado/assertion existente. Acrescenta somente o diagnóstico, selecionado
+por `-c HQ*`. O reencontro preserva todas as relações ortogonais representadas;
+o saldo desconhecido não é artificialmente removido. A origem satisfaz
+`coerenteM4`; a coerência final é a conclusão testada, não hipótese.
+
+Alloy 6.2.0, solver `sat4j`, execução real:
+
+| Comando | Scope | Resultado |
+|---|---|---|
+| check HQPreservaCoerencia | 4, exactly 2 Estado | SAT — contraexemplo |
+| run HQOrigemHabitavel | 4, exactly 2 Estado | SAT — origem habitável |
+| check HQPreservaCoerenciaAmpliado | 6, exactly 2 Estado | SAT — contraexemplo |
+
+Modelo de origem SHA-256:
+`c8adc6eb5ea9529f45187d3ec8c2b482be8283c1fc2595d758cc2e23035bbdbe`.
+Modelo temporário completo com diagnóstico SHA-256:
+`2c64c0511d2f6a614e537b21a103827bec898bc35e692e47a65a78f5440a0fc9`.
+Receipt bruto e instâncias locais:
+`/tmp/lcqui-pre-m8-hq001-JVJ1dL/result/`.
+O script versionado permite reproduzir a evidência após limpeza de /tmp.
+
+Instância scope 4 inspecionada: `a=Estado$1`, `b=Estado$0`, `f=Frasco$0`.
+Em a: físico EXTRAVIADO, indisponível, membro de saldoDesconhecido.
+Em b: físico QUEBRADO, indisponível, em quarentena, ainda membro de
+saldoDesconhecido. Status dos empréstimos e demais relações preservados.
+A violação é a cláusula QUEBRADO ⇒ ausência de saldoDesconhecido.
+Não foi alterado resultado esperado de nenhum check existente. Não se trata
+de prova completa da transição M5 nem de reprodução do backend.
+
+## Gates de regressão do escopo existente
+
+`just formal-check` executado com exit 0, incluindo rust-check, alloy-check,
+docs-check, docs-build, diff dos gerados e diff-check. Log local:
+`/tmp/lcqui-pre-m8-existing-gates.log`. CUE exigiu escalonamento por
+`spawnSync cue EPERM` no sandbox; execução autorizada fora dele passou.
+O diagnóstico também exigiu execução fora do sandbox.
+
+| Gate | Resultado / limite |
+|---|---|
+| just spec-check | PASS, 101 fixtures existentes: 31 válidas / 70 inválidas |
+| just alloy-check | PASS pela dependência de formal-check, somente M0–M4 |
+| just rust-check | PASS por formal-check: fmt, 10 testes, clippy -D warnings |
+| just docs-check | PASS por formal-check; nenhuma regeneração de LaTeX |
+| just docs-build | PASS por formal-check; latexmk informou up-to-date |
+| just formal-check | PASS para o pipeline existente, não para o backfill solicitado |
+| git diff --check | PASS |
+
+Contagens Alloy existentes (checks/witnesses): M0 2/2; M2 35/16;
+M2.4 17/11; M3 11/11; M4 40/20. Todos os checks UNSAT e witnesses SAT.
+Receipts, IR e fragmentos existentes permaneceram byte a byte idênticos.
+Não confundir o diagnóstico adverso acima com esses resultados históricos
+reexecutados: M4 não modela reencontro.
+
+## Cadeia M5/M6/M7 ainda pendente
+
+| Item | M5 | M6 | M7 |
+|---|---|---|---|
+| Novos contratos/fixtures CUE | não criados | não criados | não criados |
+| Modelo completo integrado / checks / witnesses | não criado; HQ bloqueante | pendente | pendente |
+| Receipt formal-validation-mN.json | ausente | ausente | ausente |
+| validation_mN.rs / manifest | não integrado | não integrado | não integrado |
+| Fragmentos Rust / Formal-Spec-MN.tex | ausentes | ausentes | ausentes |
+| Evidência mecânica no PDF | ausente | ausente | ausente |
+
+IR permanece v3 e gerador 0.2.0; nenhuma entrada nova no manifest, nenhum teste
+Rust novo ou claim de determinismo M5–M7. O teste de determinismo já existente
+passou. Não houve docs-generate nesta rodada. CUE quantitativo M6 e abstração
+relacional M6 ainda não implementados; nenhuma prova numérica nova declarada.
+M7 ainda não prova idempotência/deduplicação formalmente nesta cadeia, muito
+menos exactly-once, concorrência, TOCTOU, deadlock ou trigger loop.
+
+## LaTeX/PDF e preservação
+
+Nenhum Formal-Spec-M5/M6/M7.tex criado/incluído. main.tex inalterado.
+main.pdf versionado não recompilado nem substituído nesta rodada. O gate
+latexmk verificou o build existente; pdfinfo confirmou 341 páginas no artefato
+local. Log final existente: zero erros fatais/referências indefinidas;
+overfulls preexistentes, sem novo conteúdo. Não há páginas de evidência mecânica
+M5–M7 para inspecionar/publicar. Presença de normas M5–M7 no PDF anterior não
+substitui a evidência executável exigida.
+
+Comparação com a HEAD de entrada: diff zero em specification/, tools/, build/
+versionado, generated/, main.tex/main.pdf, frontend/, functions/, Rules e
+configurações Firebase. As alterações desta rodada são Markdown de estado e
+o script diagnóstico no worklog. Nenhum milestone M8+ iniciado.
 
 ## Saída e decisão sobre M8
 
 M0–M4: validações históricas preservadas. M5/M6/M7: DOCUMENTATION_VALIDATED,
 backfill não concluído. M8 = NOT_STARTED. **M8 NÃO PODE INICIAR** enquanto houver
-HQ bloqueante ou gate pendente. Commits/HEAD de saída serão registrados após execução.
+HQ bloqueante ou gate pendente.
+
+Commits: `b86ac5a6` (reconciliação/registro inicial); segundo commit documental
+`docs(pre-m8): preserve Alloy counterexample and block M8 entry` (diagnóstico,
+resultado de regressão e estado bloqueado). HEAD de saída é esse segundo commit,
+resolvido por `git log -1 --format=%H --grep='preserve Alloy counterexample and block M8 entry'`.
+Não há commit declarando quitação ou VALIDATED para M5–M7.
+
+Próxima ação imediata: responder HQ-PRE-M8-001 e reconciliar a regra escolhida;
+depois retomar integralmente a cadeia M5–M7. A entrada em M8 não está liberada.

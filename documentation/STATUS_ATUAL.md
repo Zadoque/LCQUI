@@ -2,6 +2,10 @@
 
 Atualizado em 24/09/2026 — documentação de M7 (Idempotência), após M6 (Q06/tara/metrologia). Estado corrente: M0–M4 = VALIDATED, M5 = DOCUMENTATION_VALIDATED, M6 = DOCUMENTATION_VALIDATED, M7 = DOCUMENTATION_VALIDATED, M8 = NOT_STARTED; próxima ação = concluir a formalização executável pré-M8; `INICIAR M8 DOCUMENTAL` somente após todos os gates. A formalização executável CUE/Alloy/Rust de M5–M7 ainda está pendente, sendo quitada nesta etapa pré-M8.
 
+## Backfill pré-M8 — bloqueio identificado
+
+**M8 NÃO PODE INICIAR.** HQ-PRE-M8-001 OPEN: M5 exige preservar saldo desconhecido no reencontro QUEBRADO; Seção 4 e coerência M2/M4 proíbem QUEBRADO com essa flag. Alloy 6.2.0/SAT4J confirmou contraexemplo nos scopes 4 e 6, com origem habitável. Nenhuma norma/assertion alterada. M5–M7 continuam DOCUMENTATION_VALIDATED; quitação executável não concluída. Registro em [worklog pré-M8](worklogs/formal-spec/PRE_M8_FORMALIZATION_BACKFILL.md).
+
 ## M7 documental (Idempotência)
 
 Branch: `feat/formal-spec-cue-alloy`. HEAD de entrada: `f6032a6082bc790d3a8b243970b6355f808f8875`. Rodada **exclusivamente documental**: nenhum arquivo executável ou formal alterado. Registro durável em [worklog M7_DOCUMENTATION](worklogs/formal-spec/M7_DOCUMENTATION.md).
