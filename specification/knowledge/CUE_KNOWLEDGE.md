@@ -52,3 +52,8 @@ foi reaberto; a correção é registrada no erratum de M3.
 Quatro fixtures positivas de frasco completo aceitam QUEBRADO/DESCARTADO,
 INDISPONIVEL e saldo_desconhecido true/false. O contrato CUE não modela transições:
 preservação histórica da flag é verificada no Alloy, não por esses exemplos.
+
+O enum CUE separa `estado_fisico_frasco` (`FECHADO`, `ABERTO`, `VAZIO`,
+`QUEBRADO`, `DESCARTADO`) de `situacao_localizacao` (`LOCALIZADO`,
+`EXTRAVIADO`). Fixtures aceitam estados físicos conhecidos em localização
+EXTRAVIADO e rejeitam EXTRAVIADO como valor físico.

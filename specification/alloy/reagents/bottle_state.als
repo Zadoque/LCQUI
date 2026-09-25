@@ -23,7 +23,10 @@
 module reagents/bottle_state
 
 abstract sig EstadoFisico {}
-one sig FECHADO, ABERTO, VAZIO, QUEBRADO, DESCARTADO, EXTRAVIADO extends EstadoFisico {}
+one sig FECHADO, ABERTO, VAZIO, QUEBRADO, DESCARTADO extends EstadoFisico {}
+abstract sig SituacaoLocalizacao {}
+one sig LOCALIZADO extends SituacaoLocalizacao {}
+one sig EXTRAVIADO extends SituacaoLocalizacao {}
 abstract sig Disponibilidade {}
 one sig DISPONIVEL, EMPRESTADO, INDISPONIVEL extends Disponibilidade {}
 
@@ -31,6 +34,7 @@ sig Frasco {}
 
 sig Estado {
   fisico: Frasco -> one EstadoFisico,
+  localizacao: Frasco -> one SituacaoLocalizacao,
   disponibilidade: Frasco -> one Disponibilidade,
   saldoDesconhecido: set Frasco,
   aberturaHistorica: set Frasco,
@@ -50,7 +54,7 @@ pred coerente[s: Estado] {
   all f: Frasco | f in s.aberturaHistorica implies s.fisico[f] != FECHADO
   // Quarentena bloqueia operação (projeção mínima; M0 mantém sua própria).
   all f: Frasco |
-    f in s.emQuarentena implies s.disponibilidade[f] = INDISPONIVEL
+    (f in s.emQuarentena or s.localizacao[f] = EXTRAVIADO) implies s.disponibilidade[f] = INDISPONIVEL
   // Autorização técnica só existe após encerrar a quarentena para descarte.
   all f: Frasco |
     f in s.descarteTecnicoAutorizado implies
@@ -66,6 +70,7 @@ pred naoDescartado[s: Estado, f: Frasco] {
 // ser resolvida antes; a quarta rota é a autorização técnica de descarte.
 pred aptoParaDescarte[s: Estado, f: Frasco] {
   naoDescartado[s, f]
+  s.localizacao[f] = LOCALIZADO
   f not in s.emQuarentena
   s.disponibilidade[f] != EMPRESTADO
   (
@@ -92,18 +97,36 @@ pred preservaQuarentenaEAutorizacao[a, b: Estado] {
   b.descarteTecnicoAutorizado = a.descarteTecnicoAutorizado
 }
 
-// Extravio: bloqueia (M0), preserva saldo/flag (Seção 4, 401/403), rejeita
-// extravio repetido (Seção 10.5, 846-847) e preserva quarentena/autorização.
+// Extravio é localização, não estado físico. Preserva o último fato físico,
+// revoga a autorização corrente e mantém o histórico no evento de operação.
 pred extraviar[a, b: Estado, f: Frasco] {
   coerente[a]
   naoDescartado[a, f]
-  a.fisico[f] != EXTRAVIADO
-  b.fisico = a.fisico ++ f->EXTRAVIADO
+  a.localizacao[f] = LOCALIZADO
+  b.fisico = a.fisico
+  b.localizacao = a.localizacao ++ f->EXTRAVIADO
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
   b.saldoDesconhecido = a.saldoDesconhecido
   b.aberturaHistorica = a.aberturaHistorica
   preservaValidade[a, b]
-  preservaQuarentenaEAutorizacao[a, b]
+  b.emQuarentena = a.emQuarentena
+  b.descarteTecnicoAutorizado = a.descarteTecnicoAutorizado - f
+}
+
+// Reencontro localiza novamente o recipiente, conserva o fato físico e impõe
+// quarentena. A autorização anterior não reaparece; nova decisão é necessária.
+pred reencontrar[a, b: Estado, f: Frasco] {
+  coerente[a]
+  a.localizacao[f] = EXTRAVIADO
+  a.fisico[f] != DESCARTADO
+  b.fisico = a.fisico
+  b.localizacao = a.localizacao ++ f->LOCALIZADO
+  b.emQuarentena = a.emQuarentena + f
+  b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
+  b.descarteTecnicoAutorizado = a.descarteTecnicoAutorizado - f
+  b.saldoDesconhecido = a.saldoDesconhecido
+  b.aberturaHistorica = a.aberturaHistorica
+  preservaValidade[a, b]
 }
 
 // Quebra: não terminal, preserva conhecimento metrológico e flag histórica (Seção 4, 403).
@@ -114,7 +137,9 @@ pred quebrar[a, b: Estado, f: Frasco] {
   coerente[a]
   naoDescartado[a, f]
   a.disponibilidade[f] != EMPRESTADO
+  a.localizacao[f] = LOCALIZADO
   b.fisico = a.fisico ++ f->QUEBRADO
+  b.localizacao = a.localizacao
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
   b.saldoDesconhecido = a.saldoDesconhecido
   b.aberturaHistorica = a.aberturaHistorica
@@ -127,6 +152,7 @@ pred descartar[a, b: Estado, f: Frasco] {
   coerente[a]
   aptoParaDescarte[a, f]
   b.fisico = a.fisico ++ f->DESCARTADO
+  b.localizacao = a.localizacao
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
   b.saldoDesconhecido = a.saldoDesconhecido
   b.aberturaHistorica = a.aberturaHistorica
@@ -142,6 +168,7 @@ pred confirmarEsgotamento[a, b: Estado, f: Frasco] {
   coerente[a]
   naoDescartado[a, f]
   b.fisico = a.fisico ++ f->VAZIO
+  b.localizacao = a.localizacao
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
   b.saldoDesconhecido = a.saldoDesconhecido - f
   b.aberturaHistorica = a.aberturaHistorica
@@ -157,17 +184,19 @@ pred resolverQuarentenaParaDescarte[a, b: Estado, f: Frasco] {
   f in a.emQuarentena
   naoDescartado[a, f]
   a.disponibilidade[f] != EMPRESTADO
+  a.localizacao[f] = LOCALIZADO
   b.emQuarentena = a.emQuarentena - f
   b.descarteTecnicoAutorizado = a.descarteTecnicoAutorizado + f
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
   b.fisico = a.fisico
+  b.localizacao = a.localizacao
   b.saldoDesconhecido = a.saldoDesconhecido
   b.aberturaHistorica = a.aberturaHistorica
   preservaValidade[a, b]
 }
 
 pred algumaTransicao[a, b: Estado, f: Frasco] {
-  extraviar[a, b, f] or quebrar[a, b, f] or descartar[a, b, f] or
+  extraviar[a, b, f] or reencontrar[a, b, f] or quebrar[a, b, f] or descartar[a, b, f] or
   confirmarEsgotamento[a, b, f] or resolverQuarentenaParaDescarte[a, b, f]
 }
 
@@ -213,6 +242,18 @@ assert ExtravioIndisponivel {
   all a, b: Estado, f: Frasco |
     extraviar[a, b, f] implies b.disponibilidade[f] = INDISPONIVEL
 }
+assert ExtravioPreservaFisico {
+  all a, b: Estado, f: Frasco |
+    extraviar[a, b, f] implies b.fisico[f] = a.fisico[f]
+}
+assert ExtravioMarcaLocalizacao {
+  all a, b: Estado, f: Frasco |
+    extraviar[a, b, f] implies b.localizacao[f] = EXTRAVIADO
+}
+assert ExtravioRevogaAutorizacao {
+  all a, b: Estado, f: Frasco |
+    extraviar[a, b, f] implies f not in b.descarteTecnicoAutorizado
+}
 assert ExtravioPreservaSaldo {
   all a, b: Estado, f: Frasco |
     extraviar[a, b, f] implies
@@ -225,12 +266,31 @@ assert ExtravioPreservaFlag {
 }
 assert ExtravioNaoRepetido {
   all a, b: Estado, f: Frasco |
-    a.fisico[f] = EXTRAVIADO implies not extraviar[a, b, f]
+    a.localizacao[f] = EXTRAVIADO implies not extraviar[a, b, f]
 }
 assert ExtravioPreservaValidade {
   all a, b: Estado, f: Frasco |
     extraviar[a, b, f] implies
       (b.vencido = a.vencido and b.usoVencidoAutorizado = a.usoVencidoAutorizado)
+}
+assert ReencontroLocalizaEQuarentena {
+  all a, b: Estado, f: Frasco |
+    reencontrar[a, b, f] implies
+      (b.localizacao[f] = LOCALIZADO and f in b.emQuarentena and
+       b.disponibilidade[f] = INDISPONIVEL)
+}
+assert ReencontroPreservaFisico {
+  all a, b: Estado, f: Frasco |
+    reencontrar[a, b, f] implies b.fisico[f] = a.fisico[f]
+}
+assert ReencontroRevogaAutorizacao {
+  all a, b: Estado, f: Frasco |
+    reencontrar[a, b, f] implies f not in b.descarteTecnicoAutorizado
+}
+assert QuebradoNaoDisponivelAposReencontro {
+  all a, b: Estado, f: Frasco |
+    reencontrar[a, b, f] and a.fisico[f] = QUEBRADO
+    implies (b.fisico[f] = QUEBRADO and b.disponibilidade[f] = INDISPONIVEL)
 }
 
 // INV-M2-TERMINAL-IND-001.
@@ -284,7 +344,7 @@ assert DescarteConsomeAutorizacao {
 // e autorização técnica.
 assert PreservacaoQuarentenaOrtogonais {
   all a, b: Estado, f: Frasco |
-    (extraviar[a, b, f] or quebrar[a, b, f] or confirmarEsgotamento[a, b, f])
+    (quebrar[a, b, f] or confirmarEsgotamento[a, b, f])
     implies
       (b.emQuarentena = a.emQuarentena and
        b.descarteTecnicoAutorizado = a.descarteTecnicoAutorizado)
@@ -338,6 +398,20 @@ assert TransicoesPreservamFlag {
 // Testemunhas de não-vacuidade por transição.
 pred TestemunhaExtravio {
   some disj a, b: Estado, f: Frasco | extraviar[a, b, f]
+}
+pred TestemunhaExtravioPreservaFisico {
+  some disj a, b: Estado, f: Frasco |
+    extraviar[a, b, f] and a.fisico[f] = QUEBRADO and
+    b.fisico[f] = QUEBRADO and a.localizacao[f] = LOCALIZADO and
+    b.localizacao[f] = EXTRAVIADO and f not in b.descarteTecnicoAutorizado
+}
+pred TestemunhaReencontroQuebrado {
+  some disj a, b: Estado, c, d: Estado, f: Frasco |
+    resolverQuarentenaParaDescarte[a, b, f] and
+    extraviar[b, c, f] and reencontrar[c, d, f] and
+    a.fisico[f] = QUEBRADO and d.fisico[f] = QUEBRADO and
+    d.localizacao[f] = LOCALIZADO and f in d.emQuarentena and
+    f not in d.descarteTecnicoAutorizado
 }
 pred TestemunhaQuebra {
   some disj a, b: Estado, f: Frasco | quebrar[a, b, f]
@@ -398,10 +472,17 @@ check DescartadoNaoEsgota for 4 but exactly 2 Estado
 check DescartadoNaoResolveQuarentena for 4 but exactly 2 Estado
 check QuarentenaNaoDescartaDireto for 4 but exactly 2 Estado
 check ExtravioIndisponivel for 4 but exactly 2 Estado
+check ExtravioPreservaFisico for 4 but exactly 2 Estado
+check ExtravioMarcaLocalizacao for 4 but exactly 2 Estado
+check ExtravioRevogaAutorizacao for 4 but exactly 2 Estado
 check ExtravioPreservaSaldo for 4 but exactly 2 Estado
 check ExtravioPreservaFlag for 4 but exactly 2 Estado
 check ExtravioNaoRepetido for 4 but exactly 2 Estado
 check ExtravioPreservaValidade for 4 but exactly 2 Estado
+check ReencontroLocalizaEQuarentena for 4 but exactly 2 Estado
+check ReencontroPreservaFisico for 4 but exactly 2 Estado
+check ReencontroRevogaAutorizacao for 4 but exactly 2 Estado
+check QuebradoNaoDisponivelAposReencontro for 4 but exactly 2 Estado
 check QuebraIndisponivel for 4 but exactly 2 Estado
 check QuebraNaoEmprestado for 4 but exactly 2 Estado
 check QuebraNaoInterfereValidade for 4 but exactly 2 Estado
@@ -420,6 +501,8 @@ check PreservacaoQuarentenaOrtogonais for 4 but exactly 2 Estado
 check ResolucaoQuarentenaNaoInterfereOutros for 4 but exactly 2 Estado
 check TransicoesPreservamFlag for 4 but exactly 2 Estado
 run TestemunhaExtravio for 4 but exactly 2 Estado
+run TestemunhaExtravioPreservaFisico for 4 but exactly 2 Estado
+run TestemunhaReencontroQuebrado for 6 but exactly 4 Estado
 run TestemunhaQuebra for 4 but exactly 2 Estado
 run TestemunhaDescarte for 4 but exactly 2 Estado
 run TestemunhaDescarteVazio for 4 but exactly 2 Estado

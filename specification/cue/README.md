@@ -31,3 +31,7 @@ Na raiz, `just spec-check` inclui todos os grupos de fixtures e gate de formata�
 `just spec-export` escreve build/spec-ir.json. Não exportar #Definition supondo
 que será incluída automaticamente; o objeto concreto `ir` importa o domínio.
 Campos `!` em M1 exigem presença, mesmo se a constraint puder inferir null.
+
+No contrato de frasco, `estado_fisico_frasco` contém somente os estados físicos;
+`situacao_localizacao` separa `LOCALIZADO` e `EXTRAVIADO`. Fixtures cobrem a
+combinação de localização extraviada com estado físico preservado.

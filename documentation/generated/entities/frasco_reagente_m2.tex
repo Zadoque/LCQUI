@@ -66,10 +66,13 @@ Maior que 0.
 Seção 5: prazo inteiro positivo quando declarado.
 \item[estado\_fisico\_frasco] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
 SQL: ENUM.
-Valores: FECHADO, ABERTO, VAZIO, QUEBRADO, DESCARTADO, EXTRAVIADO.
+Valores: FECHADO, ABERTO, VAZIO, QUEBRADO, DESCARTADO.
 \item[disponibilidade] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
 SQL: ENUM.
 Valores: DISPONIVEL, EMPRESTADO, INDISPONIVEL.
+\item[situacao\_localizacao] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: LOCALIZADO, EXTRAVIADO.
 \item[vencido] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
 SQL: BOOLEAN.
 \item[em\_quarentena] Tipo: bool. Obrigatório: sim. Aceita nulo: não.

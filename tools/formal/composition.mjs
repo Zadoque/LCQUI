@@ -50,6 +50,32 @@ export const composedExpected = [
     "scope": "check ExtravioCoerente for 4 but exactly 2 EstadoIntegrado"
   },
   {
+    "id": "COMP-M2-EXTRAVIO-FISICO-001",
+    "name": "ExtravioPreservaFisico",
+    "type": "check",
+    "scope": "check ExtravioPreservaFisico for 4 but exactly 2 EstadoIntegrado"
+  },
+  {
+    "id": "COMP-M2-EXTRAVIO-AUTORIZACAO-001",
+    "name": "ExtravioRevogaAutorizacao",
+    "type": "check",
+    "scope": "check ExtravioRevogaAutorizacao for 4 but exactly 2 EstadoIntegrado"
+  },
+  {
+    "id": "COMP-M2-REENCONTRO-COERENCIA-001",
+    "name": "ReencontroCoerente",
+    "type": "check",
+    "scope": "check ReencontroCoerente for 6 but exactly 4 EstadoIntegrado",
+    "overall": 6
+  },
+  {
+    "id": "COMP-M2-REENCONTRO-QUEBRADO-IND-001",
+    "name": "QuebradoReencontradoNaoDisponivel",
+    "type": "check",
+    "scope": "check QuebradoReencontradoNaoDisponivel for 6 but exactly 4 EstadoIntegrado",
+    "overall": 6
+  },
+  {
     "id": "COMP-M2-ESGOTAMENTO-COERENCIA-001",
     "name": "EsgotamentoCoerente",
     "type": "check",
@@ -132,6 +158,19 @@ export const composedExpected = [
     "name": "ResolucaoHabitavel",
     "type": "run",
     "scope": "run ResolucaoHabitavel for 4 but exactly 2 EstadoIntegrado"
+  },
+  {
+    "id": "COMP-M2-EXTRAVIO-QUEBRADO-001",
+    "name": "ExtravioQuebradoHabitavel",
+    "type": "run",
+    "scope": "run ExtravioQuebradoHabitavel for 4 but exactly 2 EstadoIntegrado"
+  },
+  {
+    "id": "COMP-M2-REENCONTRO-QUEBRADO-001",
+    "name": "ReencontroQuebradoHabitavel",
+    "type": "run",
+    "scope": "run ReencontroQuebradoHabitavel for 6 but exactly 4 EstadoIntegrado",
+    "overall": 6
   },
   {
     "id": "COMP-M2-RETIRADA-COERENCIA-006",
@@ -217,8 +256,8 @@ export function checkCompositionTrace(read) {
   compare(1,'sig',['Frasco','Lote','Especificacao']);
   compare(0,'sig',['Emprestimo']);
   for (const i of [0,2]) {
-    compare(i,'abstract sig',['EstadoFisico','Disponibilidade']);
-    compare(i,'one sig',['FECHADO','DISPONIVEL']);
+    compare(i,'abstract sig',['EstadoFisico','SituacaoLocalizacao','Disponibilidade']);
+    compare(i,'one sig',['FECHADO','LOCALIZADO','EXTRAVIADO','DISPONIVEL']);
   }
   const state = rename(block(sources[2],'sig','Estado'),m2Names)
     .replace('fisico:', 'ativos: Frasco -> set Emprestimo, fisico:');

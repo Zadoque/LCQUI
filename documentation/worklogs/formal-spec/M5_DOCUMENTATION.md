@@ -47,8 +47,10 @@ descarte e justificativas); `Section-8` (UI-07/UI-14); `Section-9` (exemplos);
 
 ## Regras de M5 consolidadas
 
-- **Extravio.** Permitido de qualquer estado físico, exceto `DESCARTADO`
-  (terminal) e o próprio `EXTRAVIADO`; efeito `EXTRAVIADO` + `INDISPONIVEL`;
+- **Extravio.** Permitido de qualquer localização `LOCALIZADO` e estado físico,
+  exceto `DESCARTADO` (terminal); efeito `situacao_localizacao = EXTRAVIADO` +
+  `INDISPONIVEL`, preservando o último estado físico e revogando a autorização
+  corrente de descarte. A decisão anterior permanece no histórico.
   preserva saldo, `saldo_desconhecido`, `peso_atual`, tara, validade, `vencido`,
   `uso_vencido_autorizado`, `abertura_historica_desconhecida` e localização.
   Extravio não é consumo, esgotamento nem peso zero.
@@ -58,7 +60,9 @@ descarte e justificativas); `Section-8` (UI-07/UI-14); `Section-9` (exemplos);
   `data_devolucao_efetuada` ficam `NULL`; `consumo_validado = FALSE`;
   `peso_saida` preservado; `massa_perda_estimada_g` só com tara conhecida e como
   estimativa (fronteira M6).
-- **Reencontro.** Só de `EXTRAVIADO`; novo fato físico; estado constatado
+- **Reencontro.** Só de `situacao_localizacao = EXTRAVIADO`; novo fato físico;
+  grava `LOCALIZADO`, revoga autorização corrente e exige nova decisão após a
+  quarentena. O estado constatado
   `ABERTO`/`FECHADO`/`VAZIO`/`QUEBRADO`, validado contra o último estado antes do
   extravio (`FECHADO` só se antes `FECHADO` e sem abertura; `ABERTO` se antes
   `ABERTO`/`FECHADO`, marcando abertura desconhecida no segundo caso; `VAZIO` só

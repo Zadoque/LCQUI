@@ -20,3 +20,12 @@ estrutural desse conjunto. Frames e witnesses conhecido/desconhecido substituem
 as antigas assertions de saldo conhecido. Comparação literal M2→M2.4/M4 mantida.
 HQ-PRE-M8-002 permanece aberta para autorização técnica de descarte no reencontro;
 não inferir cobertura integral de M5 a partir da regressão M0–M4.
+
+## Resolução pré-M8 (HQ-PRE-M8-002)
+`EXTRAVIADO` pertence a `SituacaoLocalizacao`, não a `EstadoFisico`. As
+transições Alloy preservam `fisico`; `extraviar` revoga a autorização corrente e
+`reencontrar` grava `LOCALIZADO` com quarentena. A decisão anterior permanece
+como evento histórico. Witnesses cobrem QUEBRADO antes/durante/depois do ciclo;
+checks de coerência, preservação física e revogação são UNSAT nos scopes
+declarados. Isso não prova implementação TypeScript, exactly-once ou ausência
+de concorrência.

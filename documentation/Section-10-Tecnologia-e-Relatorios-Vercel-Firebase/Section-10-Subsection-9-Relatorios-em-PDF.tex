@@ -11,7 +11,7 @@ import PDFDocument from "pdfkit-table";
 //    peso_frasco_vazio -> tara quando conhecida
 //    conteudo_nominal -> declaração original do fabricante
 //    saldo atual -> derivado apenas quando houver dados físicos suficientes.
-// 2. Frascos com estado EXTRAVIADO não devem ser contados como aptos para retirada. O predicado exige estado_fisico_frasco IN {FECHADO, ABERTO}.
+// 2. Frascos com situacao_localizacao EXTRAVIADO não devem ser contados como aptos para retirada. O predicado exige estado_fisico_frasco IN {FECHADO, ABERTO}.
 //    Eles devem aparecer segregados em seções de perdas/extravios.
 
 interface FiltrosAlmoxarifado {
@@ -326,6 +326,5 @@ export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
   return { url };
 });
 \end{lstlisting}
-
 
 

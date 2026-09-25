@@ -18,6 +18,7 @@
   "validade_desconhecida": true,
   "validade_apos_aberto_dias": null,
   "estado_fisico_frasco": "QUEBRADO",
+  "situacao_localizacao": "LOCALIZADO",
   "disponibilidade": "INDISPONIVEL",
   "vencido": false,
   "em_quarentena": false,

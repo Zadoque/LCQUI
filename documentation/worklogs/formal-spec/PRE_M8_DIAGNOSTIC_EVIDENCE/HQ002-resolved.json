@@ -1,0 +1,40 @@
+{
+  "classificacao": "DIAGNOSTICO_POS_CORRECAO",
+  "origin": "specification/alloy/reagents/bottle_composition.als",
+  "origin_sha256": "a9cfd08bbe88ed4bfb3f6380ed2905b98905865b2074fcfafa8c12ef2c6f8e14",
+  "diagnostic_sha256": "7a118461ea9469bb09cf2ccd684570a08f5d0db1b8d1a9da74bf5c5f8b23ed53",
+  "alloy": "6.2.0",
+  "solver": "sat4j",
+  "resultados": [
+    {
+      "comando": "check HQ002_PreservacaoFisica for 4",
+      "tipo": "check",
+      "status": "UNSAT"
+    },
+    {
+      "comando": "check HQ002_RevogacaoNoExtravio for 4",
+      "tipo": "check",
+      "status": "UNSAT"
+    },
+    {
+      "comando": "check HQ002_ReencontroCoerente for 6",
+      "tipo": "check",
+      "status": "UNSAT"
+    },
+    {
+      "comando": "check HQ002_QuebradoNaoDisponivel for 6",
+      "tipo": "check",
+      "status": "UNSAT"
+    },
+    {
+      "comando": "run HQ002_QuebradoExtravioHabitavel for 4",
+      "tipo": "run",
+      "status": "SAT"
+    },
+    {
+      "comando": "run HQ002_CicloQuebradoHabitavel for 6 but exactly 4 EstadoIntegrado",
+      "tipo": "run",
+      "status": "SAT"
+    }
+  ]
+}

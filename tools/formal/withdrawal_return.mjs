@@ -91,7 +91,7 @@ const activeStatuses = source => ['EM_USO', 'ATRASADO'].every(x => source.includ
 const closedStatuses = source => ['DEVOLVIDO', 'DEVOLVIDO_COM_ATRASO', 'DEVOLVIDO_COM_ANOMALIA', 'ENCERRADO_EXTRAORDINARIO'];
 const physicalClause = source => {
   const t = source.replace(/\/\/[^\n]*/g, '').replace(/\s+/g, ' ');
-  const i = t.indexOf('s.fisico[f] in VAZIO + QUEBRADO + DESCARTADO + EXTRAVIADO');
+  const i = t.indexOf('s.fisico[f] in VAZIO + QUEBRADO + DESCARTADO or s.localizacao[f] = EXTRAVIADO');
   const j = t.indexOf('INDISPONIVEL', i);
   if (i < 0 || j < 0) throw new Error('Drift M4: cláusula física de M0 ausente');
   return t.slice(i, j + 'INDISPONIVEL'.length);

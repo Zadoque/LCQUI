@@ -26,6 +26,7 @@ frascoCompletoCampos: [
 	#CampoFrasco & {nome: "validade_apos_aberto_dias", sql: "INTEGER", nulo: true, positivo: true, observacao: "Seção 5: prazo inteiro positivo quando declarado."},
 	#CampoFrasco & {nome: "estado_fisico_frasco", sql: "ENUM", valores: campos[0].valores},
 	#CampoFrasco & {nome: "disponibilidade", sql: "ENUM", valores: campos[1].valores},
+	#CampoFrasco & {nome: "situacao_localizacao", sql: "ENUM", valores: campos[3].valores},
 	#CampoFrasco & {nome: "vencido", sql: "BOOLEAN"},
 	#CampoFrasco & {nome: "em_quarentena", sql: "BOOLEAN"},
 	#CampoFrasco & {nome: "uso_vencido_autorizado", sql: "BOOLEAN"},

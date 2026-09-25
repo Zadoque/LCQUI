@@ -1,13 +1,17 @@
 module reagents/withdrawal
 
 abstract sig EstadoFisico {}
-one sig FECHADO, ABERTO, VAZIO, QUEBRADO, DESCARTADO, EXTRAVIADO extends EstadoFisico {}
+one sig FECHADO, ABERTO, VAZIO, QUEBRADO, DESCARTADO extends EstadoFisico {}
+abstract sig SituacaoLocalizacao {}
+one sig LOCALIZADO extends SituacaoLocalizacao {}
+one sig EXTRAVIADO extends SituacaoLocalizacao {}
 abstract sig Disponibilidade {}
 one sig DISPONIVEL, EMPRESTADO, INDISPONIVEL extends Disponibilidade {}
 sig Frasco {}
 sig Emprestimo {}
 sig Estado {
   fisico: Frasco -> one EstadoFisico,
+  localizacao: Frasco -> one SituacaoLocalizacao,
   disponibilidade: Frasco -> one Disponibilidade,
   quarentena: set Frasco,
   ativos: Frasco -> set Emprestimo
@@ -17,7 +21,7 @@ sig Estado {
 pred coerente[s: Estado] {
   all f: Frasco | (s.disponibilidade[f] = EMPRESTADO iff some s.ativos[f])
   all f: Frasco | lone s.ativos[f]
-  all f: Frasco | (s.fisico[f] in VAZIO + QUEBRADO + DESCARTADO + EXTRAVIADO or f in s.quarentena) implies s.disponibilidade[f] = INDISPONIVEL
+  all f: Frasco | (s.fisico[f] in VAZIO + QUEBRADO + DESCARTADO or s.localizacao[f] = EXTRAVIADO or f in s.quarentena) implies s.disponibilidade[f] = INDISPONIVEL
 }
 pred filtroFisico[s: Estado, f: Frasco] {
   s.fisico[f] in FECHADO + ABERTO
@@ -30,6 +34,7 @@ pred retirar[a, b: Estado, f: Frasco, e: Emprestimo] {
   filtroFisico[a, f]
   no a.ativos.e
   b.fisico = a.fisico
+  b.localizacao = a.localizacao
   b.quarentena = a.quarentena
   b.ativos = a.ativos + f->e
   b.disponibilidade = a.disponibilidade ++ f->EMPRESTADO
@@ -38,7 +43,7 @@ pred retirar[a, b: Estado, f: Frasco, e: Emprestimo] {
 assert BloqueioFisico {
   all a, b: Estado, f: Frasco, e: Emprestimo |
     retirar[a,b,f,e] implies
-      (a.fisico[f] not in VAZIO + QUEBRADO + DESCARTADO + EXTRAVIADO and f not in a.quarentena)
+      (a.fisico[f] not in VAZIO + QUEBRADO + DESCARTADO and a.localizacao[f] = LOCALIZADO and f not in a.quarentena)
 }
 // INV-EMPRESTIMO-001: condição de pós-estado não é assumida em retirar.
 assert Unicidade {
@@ -50,7 +55,7 @@ pred Testemunha {
 }
 pred IndisponivelNaoApto {
   some s: Estado, f: Frasco |
-    coerente[s] and s.fisico[f] = EXTRAVIADO and
+    coerente[s] and s.localizacao[f] = EXTRAVIADO and
     s.disponibilidade[f] = INDISPONIVEL and not filtroFisico[s,f]
 }
 check BloqueioFisico for 4 but exactly 2 Estado

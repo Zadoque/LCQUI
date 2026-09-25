@@ -2,13 +2,13 @@
   "versao": 1,
   "alloy": "6.2.0",
   "solver": "sat4j",
-  "spec_ir_sha256": "0558049777b3f504eb15afaf1490aed335e4b2d9bfe7b9f13e3d41beb847a127",
+  "spec_ir_sha256": "66ec4f2f07f2f17fb385e744ea1aeb4d643a4decad980dd933cf6060f1e5cd07",
   "model": "specification/alloy/reagents/bottle_composition.als",
-  "model_sha256": "1706613e01c89c45067b99d201dd5fb3a11ff77258272f4b3f4ef5d5a86c2cf5",
+  "model_sha256": "a9cfd08bbe88ed4bfb3f6380ed2905b98905865b2074fcfafa8c12ef2c6f8e14",
   "origens": [
     {
       "model": "specification/alloy/reagents/withdrawal.als",
-      "model_sha256": "e3d6c269901a3d1fee3ba034ed0b5913bb1aa5e16f6cd17bf9e94677de3e6be5"
+      "model_sha256": "09732c005848617a33d7e34af6126605de57d2cdcb3a53683aa2641551e06bf0"
     },
     {
       "model": "specification/alloy/reagents/bottle_identity.als",
@@ -16,7 +16,7 @@
     },
     {
       "model": "specification/alloy/reagents/bottle_state.als",
-      "model_sha256": "502630f972ce01ae78388e14fdbc4d0b67a501b97542be45d6b95610ce3d0f9d"
+      "model_sha256": "a5452b382782bf2b1e874ee82dfca22d4311a869c9f6942aefb562bc9bbb772e"
     }
   ],
   "resultados": [
@@ -74,6 +74,34 @@
       "assertion": "ExtravioCoerente",
       "tipo": "check",
       "scope": "check ExtravioCoerente for 4 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-EXTRAVIO-FISICO-001",
+      "assertion": "ExtravioPreservaFisico",
+      "tipo": "check",
+      "scope": "check ExtravioPreservaFisico for 4 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-EXTRAVIO-AUTORIZACAO-001",
+      "assertion": "ExtravioRevogaAutorizacao",
+      "tipo": "check",
+      "scope": "check ExtravioRevogaAutorizacao for 4 but exactly 2 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-REENCONTRO-COERENCIA-001",
+      "assertion": "ReencontroCoerente",
+      "tipo": "check",
+      "scope": "check ReencontroCoerente for 6 but exactly 4 EstadoIntegrado",
+      "status": "UNSAT"
+    },
+    {
+      "id": "COMP-M2-REENCONTRO-QUEBRADO-IND-001",
+      "assertion": "QuebradoReencontradoNaoDisponivel",
+      "tipo": "check",
+      "scope": "check QuebradoReencontradoNaoDisponivel for 6 but exactly 4 EstadoIntegrado",
       "status": "UNSAT"
     },
     {
@@ -172,6 +200,20 @@
       "assertion": "ResolucaoHabitavel",
       "tipo": "run",
       "scope": "run ResolucaoHabitavel for 4 but exactly 2 EstadoIntegrado",
+      "status": "SAT"
+    },
+    {
+      "id": "COMP-M2-EXTRAVIO-QUEBRADO-001",
+      "assertion": "ExtravioQuebradoHabitavel",
+      "tipo": "run",
+      "scope": "run ExtravioQuebradoHabitavel for 4 but exactly 2 EstadoIntegrado",
+      "status": "SAT"
+    },
+    {
+      "id": "COMP-M2-REENCONTRO-QUEBRADO-001",
+      "assertion": "ReencontroQuebradoHabitavel",
+      "tipo": "run",
+      "scope": "run ReencontroQuebradoHabitavel for 6 but exactly 4 EstadoIntegrado",
       "status": "SAT"
     },
     {

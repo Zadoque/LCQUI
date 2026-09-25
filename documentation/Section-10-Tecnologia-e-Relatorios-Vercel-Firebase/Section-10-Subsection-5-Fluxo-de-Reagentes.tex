@@ -954,7 +954,7 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
 
     // 4. ler eventual empréstimo EM_USO|ATRASADO (se for EXTRAVIAR)
     if (dados.acao === "EXTRAVIAR") {
-      if (frasco.estado_fisico_frasco === "EXTRAVIADO")
+      if (frasco.situacao_localizacao === "EXTRAVIADO")
         throw new HttpsError("failed-precondition", "O frasco já consta como extraviado.");
       // DESCARTADO é terminal: nenhuma transição parte dele (Seção 4).
       if (frasco.estado_fisico_frasco === "DESCARTADO")
@@ -966,14 +966,16 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
         .limit(1);
       const emprestimoAberto = await tx.get(queryEmprestimo);
 
-      // Fato observado: o estado físico passa a EXTRAVIADO e a disponibilidade a
-      // INDISPONIVEL. Extravio NÃO é consumo, esgotamento nem peso zero.
+      // Fato observado: a localização passa a EXTRAVIADO e a disponibilidade a
+      // INDISPONIVEL. O estado físico conhecido é preservado. Extravio NÃO é
+      // consumo, esgotamento nem peso zero.
       // Preserva saldo, saldo_desconhecido, peso_atual, tara, validade, vencido,
-      // abertura_historica_desconhecida e localização. O estado físico e a
-      // disponibilidade anteriores são o fato registrado no histórico.
+      // abertura_historica_desconhecida e localização. A decisão anterior fica
+      // no histórico; a autorização corrente de descarte é revogada.
       tx.update(frascoRef, {
-        estado_fisico_frasco: "EXTRAVIADO",
+        situacao_localizacao: "EXTRAVIADO",
         disponibilidade: "INDISPONIVEL",
+        descarte_tecnico_autorizado: false,
         detalhe_status: dados.motivo,
       });
 
@@ -1019,7 +1021,7 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
       });
 
     } else { // REENCONTRAR
-      if (frasco.estado_fisico_frasco !== "EXTRAVIADO")
+      if (frasco.situacao_localizacao !== "EXTRAVIADO")
         throw new HttpsError("failed-precondition", "Frasco não está extraviado.");
       if (!dados.estadoConstatadoAoReencontrar)
         throw new HttpsError("invalid-argument", "Estado constatado é obrigatório.");
@@ -1053,8 +1055,10 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
       // data exata de validade é indeterminável; nunca agenda nem revalida.
       tx.update(frascoRef, {
         estado_fisico_frasco: constatado,
+        situacao_localizacao: "LOCALIZADO",
         disponibilidade: "INDISPONIVEL", // reencontro impõe quarentena e bloqueia nova retirada
         em_quarentena: true,
+        descarte_tecnico_autorizado: false,
         ...(aberturaSemData && {
           abertura_historica_desconhecida: true,
           data_abertura: null,

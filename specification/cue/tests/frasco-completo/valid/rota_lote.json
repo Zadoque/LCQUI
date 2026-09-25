@@ -18,6 +18,7 @@
   "validade_desconhecida": true,
   "validade_apos_aberto_dias": 30,
   "estado_fisico_frasco": "FECHADO",
+  "situacao_localizacao": "LOCALIZADO",
   "disponibilidade": "DISPONIVEL",
   "vencido": false,
   "em_quarentena": false,

@@ -75,7 +75,7 @@ Isso garante consistência com o mesmo Custom Claim usado pelas Cloud Functions 
 \label{sec:acesso-detalhado}
 
 \begin{regra}[Auditoria de transições críticas e estado físico]
-As transições para estado físico \texttt{EXTRAVIADO}, entrada ou saída de \texttt{em\_quarentena}, desativação ou exclusão lógica nunca devem ser expostas para escrita direta do cliente. O backend deve validar as condições de contorno, registrar motivo e autor da ação, e garantir efeitos colaterais (como encerramento de empréstimos), persistindo toda a operação no \texttt{Historico\_Frasco\_Reagente} de forma atômica.
+As transições de localização para \texttt{EXTRAVIADO} ou \texttt{LOCALIZADO}, entrada ou saída de \texttt{em\_quarentena}, desativação ou exclusão lógica nunca devem ser expostas para escrita direta do cliente. O backend deve validar as condições de contorno, registrar motivo e autor da ação, e garantir efeitos colaterais (como encerramento de empréstimos), persistindo toda a operação no \texttt{Historico\_Frasco\_Reagente} de forma atômica.
 \end{regra}
 
 Além do papel, validar o escopo atual. DP-D01 determina consulta de conta ativa em mutações de alto impacto conforme a seção 10; leituras e demais mutações podem confiar no JWT até renovação. Atualizar Custom Claims não invalida imediatamente o token emitido. Versão de permissões e reconciliação não constituem garantia universal já implementada. Preferência de papel no cliente só altera apresentação.

@@ -59,3 +59,9 @@ retirada cria um ativo `EM_USO` e a devolução sempre encerra a custódia
 (normal/atraso/anomalia), com vazio e destinos de vencido. O guard
 `tools/formal/withdrawal_return.mjs` compara as regras reproduzidas com as
 origens. `just alloy-check` grava `build/formal-validation-m4.json`.
+
+Na reconciliação pré-M8, `EXTRAVIADO` foi removido de `EstadoFisico` e passou a
+`SituacaoLocalizacao`. Os modelos preservam o fato físico no extravio e no
+reencontro; a autorização corrente de descarte é revogada no extravio e nova
+decisão é necessária depois da quarentena. Os witnesses e checks dessa correção
+fazem parte dos receipts M2/M2.4.

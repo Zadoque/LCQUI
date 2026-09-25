@@ -4,7 +4,10 @@
 module reagents/bottle_composition
 
 abstract sig EstadoFisico {}
-one sig FECHADO, ABERTO, VAZIO, QUEBRADO, DESCARTADO, EXTRAVIADO extends EstadoFisico {}
+one sig FECHADO, ABERTO, VAZIO, QUEBRADO, DESCARTADO extends EstadoFisico {}
+abstract sig SituacaoLocalizacao {}
+one sig LOCALIZADO extends SituacaoLocalizacao {}
+one sig EXTRAVIADO extends SituacaoLocalizacao {}
 abstract sig Disponibilidade {}
 one sig DISPONIVEL, EMPRESTADO, INDISPONIVEL extends Disponibilidade {}
 sig Especificacao {}
@@ -19,6 +22,7 @@ sig Emprestimo {}
 sig EstadoIntegrado {
   ativos: Frasco -> set Emprestimo,
   fisico: Frasco -> one EstadoFisico,
+  localizacao: Frasco -> one SituacaoLocalizacao,
   disponibilidade: Frasco -> one Disponibilidade,
   saldoDesconhecido: set Frasco,
   aberturaHistorica: set Frasco,
@@ -31,7 +35,7 @@ sig EstadoIntegrado {
 pred coerenteM0[s: EstadoIntegrado] {
   all f: Frasco | (s.disponibilidade[f] = EMPRESTADO iff some s.ativos[f])
   all f: Frasco | lone s.ativos[f]
-  all f: Frasco | (s.fisico[f] in VAZIO + QUEBRADO + DESCARTADO + EXTRAVIADO or f in s.emQuarentena) implies s.disponibilidade[f] = INDISPONIVEL
+  all f: Frasco | (s.fisico[f] in VAZIO + QUEBRADO + DESCARTADO or s.localizacao[f] = EXTRAVIADO or f in s.emQuarentena) implies s.disponibilidade[f] = INDISPONIVEL
 }
 
 pred filtroFisico[s: EstadoIntegrado, f: Frasco] {
@@ -45,6 +49,7 @@ pred retirarM0[a, b: EstadoIntegrado, f: Frasco, e: Emprestimo] {
   filtroFisico[a, f]
   no a.ativos.e
   b.fisico = a.fisico
+  b.localizacao = a.localizacao
   b.emQuarentena = a.emQuarentena
   b.ativos = a.ativos + f->e
   b.disponibilidade = a.disponibilidade ++ f->EMPRESTADO
@@ -58,7 +63,7 @@ pred coerenteM2[s: EstadoIntegrado] {
   all f: Frasco | f in s.aberturaHistorica implies s.fisico[f] != FECHADO
   // Quarentena bloqueia operação (projeção mínima; M0 mantém sua própria).
   all f: Frasco |
-    f in s.emQuarentena implies s.disponibilidade[f] = INDISPONIVEL
+    (f in s.emQuarentena or s.localizacao[f] = EXTRAVIADO) implies s.disponibilidade[f] = INDISPONIVEL
   // Autorização técnica só existe após encerrar a quarentena para descarte.
   all f: Frasco |
     f in s.descarteTecnicoAutorizado implies
@@ -71,6 +76,7 @@ pred naoDescartado[s: EstadoIntegrado, f: Frasco] {
 
 pred aptoParaDescarte[s: EstadoIntegrado, f: Frasco] {
   naoDescartado[s, f]
+  s.localizacao[f] = LOCALIZADO
   f not in s.emQuarentena
   s.disponibilidade[f] != EMPRESTADO
   (
@@ -99,20 +105,38 @@ pred preservaQuarentenaEAutorizacao[a, b: EstadoIntegrado] {
 pred extraviarM2[a, b: EstadoIntegrado, f: Frasco] {
   coerenteM2[a]
   naoDescartado[a, f]
-  a.fisico[f] != EXTRAVIADO
-  b.fisico = a.fisico ++ f->EXTRAVIADO
+  a.localizacao[f] = LOCALIZADO
+  b.fisico = a.fisico
+  b.localizacao = a.localizacao ++ f->EXTRAVIADO
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
   b.saldoDesconhecido = a.saldoDesconhecido
   b.aberturaHistorica = a.aberturaHistorica
   preservaValidade[a, b]
-  preservaQuarentenaEAutorizacao[a, b]
+  b.emQuarentena = a.emQuarentena
+  b.descarteTecnicoAutorizado = a.descarteTecnicoAutorizado - f
+}
+
+pred reencontrarM2[a, b: EstadoIntegrado, f: Frasco] {
+  coerenteM2[a]
+  a.localizacao[f] = EXTRAVIADO
+  a.fisico[f] != DESCARTADO
+  b.fisico = a.fisico
+  b.localizacao = a.localizacao ++ f->LOCALIZADO
+  b.emQuarentena = a.emQuarentena + f
+  b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
+  b.descarteTecnicoAutorizado = a.descarteTecnicoAutorizado - f
+  b.saldoDesconhecido = a.saldoDesconhecido
+  b.aberturaHistorica = a.aberturaHistorica
+  preservaValidade[a, b]
 }
 
 pred quebrarM2[a, b: EstadoIntegrado, f: Frasco] {
   coerenteM2[a]
   naoDescartado[a, f]
   a.disponibilidade[f] != EMPRESTADO
+  a.localizacao[f] = LOCALIZADO
   b.fisico = a.fisico ++ f->QUEBRADO
+  b.localizacao = a.localizacao
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
   b.saldoDesconhecido = a.saldoDesconhecido
   b.aberturaHistorica = a.aberturaHistorica
@@ -124,6 +148,7 @@ pred descartarM2[a, b: EstadoIntegrado, f: Frasco] {
   coerenteM2[a]
   aptoParaDescarte[a, f]
   b.fisico = a.fisico ++ f->DESCARTADO
+  b.localizacao = a.localizacao
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
   b.saldoDesconhecido = a.saldoDesconhecido
   b.aberturaHistorica = a.aberturaHistorica
@@ -136,6 +161,7 @@ pred confirmarEsgotamentoM2[a, b: EstadoIntegrado, f: Frasco] {
   coerenteM2[a]
   naoDescartado[a, f]
   b.fisico = a.fisico ++ f->VAZIO
+  b.localizacao = a.localizacao
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
   b.saldoDesconhecido = a.saldoDesconhecido - f
   b.aberturaHistorica = a.aberturaHistorica
@@ -148,10 +174,12 @@ pred resolverQuarentenaParaDescarteM2[a, b: EstadoIntegrado, f: Frasco] {
   f in a.emQuarentena
   naoDescartado[a, f]
   a.disponibilidade[f] != EMPRESTADO
+  a.localizacao[f] = LOCALIZADO
   b.emQuarentena = a.emQuarentena - f
   b.descarteTecnicoAutorizado = a.descarteTecnicoAutorizado + f
   b.disponibilidade = a.disponibilidade ++ f->INDISPONIVEL
   b.fisico = a.fisico
+  b.localizacao = a.localizacao
   b.saldoDesconhecido = a.saldoDesconhecido
   b.aberturaHistorica = a.aberturaHistorica
   preservaValidade[a, b]
@@ -192,6 +220,11 @@ pred extraviarComposto[a,b: EstadoIntegrado, f: Frasco] {
   extraviarM2[a,b,f]
   b.ativos = a.ativos - f->Emprestimo
 }
+pred reencontrarComposto[a,b: EstadoIntegrado, f: Frasco] {
+  coerenteIntegrado[a]
+  reencontrarM2[a,b,f]
+  b.ativos = a.ativos
+}
 // S7 esgotamento / S9 ALM-05 / S10.5: fim da custódia na devolução.
 // Efeito abstrato; não modela todos os destinos/metrologia da devolução.
 pred esgotarComposto[a,b: EstadoIntegrado, f: Frasco] {
@@ -216,7 +249,7 @@ pred resolverComposto[a,b: EstadoIntegrado, f: Frasco] {
 }
 pred transicaoLocal[a,b: EstadoIntegrado, f: Frasco] {
   (some e: Emprestimo | retirarComposto[a,b,f,e]) or
-  extraviarComposto[a,b,f] or esgotarComposto[a,b,f] or
+  extraviarComposto[a,b,f] or reencontrarComposto[a,b,f] or esgotarComposto[a,b,f] or
   quebrarComposto[a,b,f] or descartarComposto[a,b,f] or resolverComposto[a,b,f]
 }
 assert RetiradaCoerente {
@@ -233,7 +266,7 @@ assert DescarteTecnicoBloqueia {
 }
 assert TerminaisBloqueiam {
   all a,b: EstadoIntegrado, f: Frasco, e: Emprestimo |
-    a.fisico[f] in VAZIO + QUEBRADO + DESCARTADO + EXTRAVIADO
+    a.fisico[f] in VAZIO + QUEBRADO + DESCARTADO or a.localizacao[f] = EXTRAVIADO
     implies not retirarComposto[a,b,f,e]
 }
 assert QuebraSemAtivo {
@@ -247,6 +280,26 @@ assert ResolucaoSemAtivo {
 }
 assert ExtravioCoerente {
   all a,b: EstadoIntegrado, f: Frasco | extraviarComposto[a,b,f] implies coerenteIntegrado[b]
+}
+assert ExtravioPreservaFisico {
+  all a,b: EstadoIntegrado, f: Frasco |
+    extraviarComposto[a,b,f] implies b.fisico[f] = a.fisico[f]
+}
+assert ExtravioRevogaAutorizacao {
+  all a,b: EstadoIntegrado, f: Frasco |
+    extraviarComposto[a,b,f] implies f not in b.descarteTecnicoAutorizado
+}
+assert ReencontroCoerente {
+  all a,b: EstadoIntegrado, f: Frasco |
+    reencontrarComposto[a,b,f] implies
+      (coerenteIntegrado[b] and b.localizacao[f] = LOCALIZADO and
+       f in b.emQuarentena and b.fisico[f] = a.fisico[f] and
+       f not in b.descarteTecnicoAutorizado)
+}
+assert QuebradoReencontradoNaoDisponivel {
+  all a,b: EstadoIntegrado, f: Frasco |
+    reencontrarComposto[a,b,f] and a.fisico[f] = QUEBRADO
+    implies b.disponibilidade[f] = INDISPONIVEL
 }
 assert EsgotamentoCoerente {
   all a,b: EstadoIntegrado, f: Frasco | esgotarComposto[a,b,f] implies coerenteIntegrado[b]
@@ -299,6 +352,18 @@ pred EsgotamentoSemAtivo {
 pred QuebraHabitavel { some disj a,b: EstadoIntegrado, f: Frasco | quebrarComposto[a,b,f] }
 pred DescarteHabitavel { some disj a,b: EstadoIntegrado, f: Frasco | descartarComposto[a,b,f] }
 pred ResolucaoHabitavel { some disj a,b: EstadoIntegrado, f: Frasco | resolverComposto[a,b,f] }
+pred ExtravioQuebradoHabitavel {
+  some disj a,b: EstadoIntegrado, f: Frasco |
+    extraviarComposto[a,b,f] and a.fisico[f] = QUEBRADO and
+    b.fisico[f] = QUEBRADO and b.localizacao[f] = EXTRAVIADO
+}
+pred ReencontroQuebradoHabitavel {
+  some disj a,b,c,d: EstadoIntegrado, f: Frasco |
+    resolverComposto[a,b,f] and extraviarComposto[b,c,f] and
+    reencontrarComposto[c,d,f] and a.fisico[f] = QUEBRADO and
+    d.fisico[f] = QUEBRADO and d.localizacao[f] = LOCALIZADO and
+    f in d.emQuarentena and f not in d.descarteTecnicoAutorizado
+}
 
 check RetiradaCoerente for 4 but exactly 2 EstadoIntegrado
 check QuarentenaBloqueia for 4 but exactly 2 EstadoIntegrado
@@ -308,6 +373,10 @@ check QuebraSemAtivo for 4 but exactly 2 EstadoIntegrado
 check DescarteSemAtivo for 4 but exactly 2 EstadoIntegrado
 check ResolucaoSemAtivo for 4 but exactly 2 EstadoIntegrado
 check ExtravioCoerente for 4 but exactly 2 EstadoIntegrado
+check ExtravioPreservaFisico for 4 but exactly 2 EstadoIntegrado
+check ExtravioRevogaAutorizacao for 4 but exactly 2 EstadoIntegrado
+check ReencontroCoerente for 6 but exactly 4 EstadoIntegrado
+check QuebradoReencontradoNaoDisponivel for 6 but exactly 4 EstadoIntegrado
 check EsgotamentoCoerente for 4 but exactly 2 EstadoIntegrado
 check TodasCoerentes for 4 but exactly 2 EstadoIntegrado
 check EncerraSomenteAlvo for 4 but exactly 2 EstadoIntegrado
@@ -322,6 +391,8 @@ run EsgotamentoSemAtivo for 4 but exactly 2 EstadoIntegrado
 run QuebraHabitavel for 4 but exactly 2 EstadoIntegrado
 run DescarteHabitavel for 4 but exactly 2 EstadoIntegrado
 run ResolucaoHabitavel for 4 but exactly 2 EstadoIntegrado
+run ExtravioQuebradoHabitavel for 4 but exactly 2 EstadoIntegrado
+run ReencontroQuebradoHabitavel for 6 but exactly 4 EstadoIntegrado
 assert RetiradaCoerenteAmpliado {
   all a,b: EstadoIntegrado, f: Frasco, e: Emprestimo |
     retirarComposto[a,b,f,e] implies coerenteIntegrado[b]

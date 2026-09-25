@@ -1,6 +1,6 @@
 # Pré-M8 — reconciliação e backfill executável M5–M7
 
-Estado corrente: BLOQUEADA por HQ-PRE-M8-002. HQ-PRE-M8-001 RESOLVED na retomada autorizada abaixo; nenhum PASS de M5–M7 declarado. Os registros anteriores à retomada são históricos.
+Estado corrente: HQ-PRE-M8-001 e HQ-PRE-M8-002 RESOLVED. O backfill executável M5–M7 ainda não foi concluído; nenhum PASS de M5–M7 é declarado. Os registros anteriores à retomada são históricos.
 HEAD de entrada: `de6de7f49b766c6bd8bb2c94911d6a5cf74adbc6`.
 Branch: `feat/formal-spec-cue-alloy`; árvore inicialmente limpa.
 
@@ -234,14 +234,18 @@ com manifest e receipts M2/M2.4/M4 atualizados por proveniência.
 
 `just formal-check` PASS (exit 0), incluindo rust-check, spec-check/spec-export,
 alloy-check, docs-check, docs-build e git diff --check. PDF efetivamente recompilado:
-343 páginas, zero erros fatais/zero referências indefinidas no log; 33 ocorrências
+345 páginas, zero erros fatais/zero referências indefinidas no log; 33 ocorrências
 overfull registradas, sem alegação de eliminação dos warnings históricos.
 Poppler pdfinfo/pdftotext confirmou emendas e frames novos. Páginas 97 (norma) e
 326 (evidência M2) renderizadas e inspecionadas visualmente; sem corte das tabelas
 ou texto ilegível nessas páginas. `documentation/main.pdf` atualizado do build.
 Este PDF NÃO contém capítulos formais M5–M7: o backfill continua bloqueado abaixo.
 
-## HQ-PRE-M8-002 — OPEN / bloqueante para composição M5
+## HQ-PRE-M8-002 — registro histórico do bloqueio (superseded)
+
+Este bloco preserva a reprodução do contraexemplo que motivou a decisão humana.
+O estado corrente da HQ está registrado abaixo como `RESOLVED`; os resultados SAT
+seguintes são evidência histórica, não um bloqueio ainda aberto.
 
 Nova escolha humana, independente de conhecimento metrológico: qual é o ciclo de
 vida da autorização técnica de descarte quando o frasco é reencontrado?
@@ -300,8 +304,68 @@ Commits desta retomada: `12c4f1db` e o commit de saída
 HEAD final resolvível por `git log -1 --format=%H` após esse commit; nenhum
 commit declara backfill concluído.
 
+## Retomada da HQ-PRE-M8-002 — RESOLVED
+
+Decisão humana incorporada: `EXTRAVIADO` é situação de localização, não estado
+físico. Foi introduzida a dimensão `SituacaoLocalizacao = LOCALIZADO |
+EXTRAVIADO` nos modelos Alloy e o campo CUE `situacao_localizacao`. O enum
+`EstadoFisico` agora contém somente `FECHADO`, `ABERTO`, `VAZIO`, `QUEBRADO` e
+`DESCARTADO`. Fixtures positivas cobrem `QUEBRADO + EXTRAVIADO`,
+`ABERTO + EXTRAVIADO` e `FECHADO + EXTRAVIADO`; fixture negativa rejeita
+`estado_fisico_frasco = EXTRAVIADO`.
+
+`extraviar` agora preserva `fisico`, exige localização anterior LOCALIZADO,
+marca EXTRAVIADO, força INDISPONIVEL e remove o frasco da autorização corrente
+de descarte. O evento histórico continua sendo a proveniência da decisão
+anterior; nenhum campo histórico artificial foi criado. `reencontrar` exige
+EXTRAVIADO, preserva `fisico`, grava LOCALIZADO, impõe `emQuarentena` e
+INDISPONIVEL e mantém a autorização corrente revogada. A resolução posterior
+da quarentena exige nova autorização antes de `DESCARTADO`. `DESCARTADO` segue
+terminal; operações de retirada, quebra, descarte e esgotamento preservam a
+localização. M0, M2.4 e M4 foram atualizados, e os guards literais de cópia
+foram ampliados para `SituacaoLocalizacao`.
+
+Nova evidência Alloy M2: 44 checks UNSAT e 22 witnesses SAT (37 checks/20
+witnesses anteriores mais 7 checks/2 witnesses da localização e reencontro).
+M2.4: 34 comandos no modelo composto (21 checks UNSAT e 13 witnesses SAT), incluindo checks de preservação física,
+revogação e coerência do reencontro; witnesses de extravio/quebrado e ciclo de
+reencontro SAT. M0 e M4 mantêm seus conjuntos históricos de comandos, com hashes
+de modelo/origens atualizados. Os checks de coerência do reencontro são UNSAT;
+os witnesses `ExtravioQuebradoHabitavel` e `ReencontroQuebradoHabitavel` são
+SAT nos scopes 4 e 6 (scope ampliado usa exatamente 4 estados integrados).
+Não foi reduzido nenhum scope nem removido witness.
+
+O diagnóstico histórico HQ002 em `PRE_M8_HQ002_DIAGNOSTIC.mjs` continua
+preservado. A nova evidência é `PRE_M8_DIAGNOSTIC_EVIDENCE/HQ002-resolved.json`:
+o modelo corrigido executa o ciclo
+`QUEBRADO → autorização → QUEBRADO+EXTRAVIADO → QUEBRADO+LOCALIZADO+QUARENTENA`
+com SAT, enquanto `ReencontroCoerente` e `ExtravioRevogaAutorizacao` são
+UNSAT. A autorização é revogada no próprio extravio; o contraexemplo antigo
+dependia precisamente da cópia indevida da autorização e deixou de existir por
+causa do estado de localização ortogonal, não por antecedente impossível.
+
+CUE foi executado com todos os fixtures; IR v3 permaneceu compatível e recebeu
+o campo estrutural de localização nos descritores derivados. Rust 0.2.0 valida
+os receipts atualizados, incluindo os novos conjuntos M2/M2.4; cargo test,
+fmt e geração determinística foram executados. Os fragmentos M2/M2.4 foram
+regenerados pelo Rust; nenhum arquivo `documentation/generated/` foi editado
+manualmente.
+
+As fontes normativas das Seções 4, 5, 7, 9, 10.5 e 11 foram reconciliadas:
+extravio não sobrescreve estado físico, autorização corrente é revogada,
+reencontro exige quarentena e nova autorização, e terminalidade permanece
+exclusiva de DESCARTADO. Arquivos históricos em `documentation/archive/` e
+worklogs anteriores preservam a formulação antiga como histórico; não são estado
+normativo corrente. `frontend/`, `functions/`, Rules e Firebase permaneceram
+intactos.
+
+HQ-PRE-M8-002 = RESOLVED. M5/M6/M7 ainda são DOCUMENTATION_VALIDATED: esta
+correção fecha a contradição pré-M8 e libera a entrada técnica no backfill M5,
+mas não declara os receipts/capítulos formais de M5–M7 concluídos. M8 continua
+NOT_STARTED e não foi iniciado.
+
 Auditoria final após o registro: `just formal-check` novamente PASS (exit 0);
 reexecução do script HQ002 versionado reproduziu exatamente comandos, hashes e
 resultados registrados. `git diff --check` PASS. Diff dos caminhos proibidos vazio.
 A segunda chamada docs-build estava up-to-date porque a recompilação efetiva de
-343 páginas já havia ocorrido e sido inspecionada nesta retomada.
+345 páginas já havia ocorrido e sido inspecionada nesta retomada.

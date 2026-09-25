@@ -23,9 +23,10 @@ package domain
 // Descritores normativos únicos: schema e documentação derivam deles.
 // Todos os campos desta fatia são obrigatórios e não nulos.
 campos: [
-	#Enum & {nome: "estado_fisico_frasco", valores: ["FECHADO", "ABERTO", "VAZIO", "QUEBRADO", "DESCARTADO", "EXTRAVIADO"]},
+	#Enum & {nome: "estado_fisico_frasco", valores: ["FECHADO", "ABERTO", "VAZIO", "QUEBRADO", "DESCARTADO"]},
 	#Enum & {nome: "disponibilidade", valores: ["DISPONIVEL", "EMPRESTADO", "INDISPONIVEL"]},
 	#Boolean & {nome: "em_quarentena"},
+	#Enum & {nome: "situacao_localizacao", valores: ["LOCALIZADO", "EXTRAVIADO"]},
 ]
 
 #Frasco: {

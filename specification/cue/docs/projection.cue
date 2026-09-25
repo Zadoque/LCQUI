@@ -77,6 +77,7 @@ import (
 	validade_desconhecida:           true
 	validade_apos_aberto_dias:       30
 	estado_fisico_frasco:            "FECHADO"
+	situacao_localizacao:            "LOCALIZADO"
 	disponibilidade:                 "DISPONIVEL"
 	vencido:                         false
 	em_quarentena:                   false
@@ -171,7 +172,7 @@ ir: {
 			etapa:    "fatia M0"
 			escopo:   "M0 parcial: filtro físico; não equivale à autorização completa de retirada."
 			campos:   domain.campos
-			exemplo: domain.#Frasco & {estado_fisico_frasco: "FECHADO", disponibilidade: "DISPONIVEL", em_quarentena: false}
+			exemplo: domain.#Frasco & {estado_fisico_frasco: "FECHADO", disponibilidade: "DISPONIVEL", em_quarentena: false, situacao_localizacao: "LOCALIZADO"}
 		},
 		{
 			arquivo:    "resumo_reagente"

@@ -27,7 +27,10 @@
 module reagents/withdrawal_return
 
 abstract sig EstadoFisico {}
-one sig FECHADO, ABERTO, VAZIO, QUEBRADO, DESCARTADO, EXTRAVIADO extends EstadoFisico {}
+one sig FECHADO, ABERTO, VAZIO, QUEBRADO, DESCARTADO extends EstadoFisico {}
+abstract sig SituacaoLocalizacao {}
+one sig LOCALIZADO extends SituacaoLocalizacao {}
+one sig EXTRAVIADO extends SituacaoLocalizacao {}
 abstract sig Disponibilidade {}
 one sig DISPONIVEL, EMPRESTADO, INDISPONIVEL extends Disponibilidade {}
 abstract sig Status {}
@@ -68,6 +71,7 @@ sig Devolucao {
 
 sig Estado {
   fisico: Frasco -> one EstadoFisico,
+  localizacao: Frasco -> one SituacaoLocalizacao,
   disponibilidade: Frasco -> one Disponibilidade,
   saldoDesconhecido: set Frasco,
   aberturaHistorica: set Frasco,
@@ -100,7 +104,7 @@ pred coerenteM2[s: Estado] {
   all f: Frasco | f in s.aberturaHistorica implies s.fisico[f] != FECHADO
   // Quarentena bloqueia operação (projeção mínima; M0 mantém sua própria).
   all f: Frasco |
-    f in s.emQuarentena implies s.disponibilidade[f] = INDISPONIVEL
+    (f in s.emQuarentena or s.localizacao[f] = EXTRAVIADO) implies s.disponibilidade[f] = INDISPONIVEL
   // Autorização técnica só existe após encerrar a quarentena para descarte.
   all f: Frasco |
     f in s.descarteTecnicoAutorizado implies
@@ -119,7 +123,7 @@ pred coerenteM4[s: Estado] {
   all f: Frasco | (s.disponibilidade[f] = EMPRESTADO iff some ativosDoFrasco[s, f])
   // M0: estado físico não utilizável e quarentena implicam INDISPONIVEL.
   all f: Frasco |
-    (s.fisico[f] in VAZIO + QUEBRADO + DESCARTADO + EXTRAVIADO or f in s.emQuarentena)
+    (s.fisico[f] in VAZIO + QUEBRADO + DESCARTADO or s.localizacao[f] = EXTRAVIADO or f in s.emQuarentena)
     implies s.disponibilidade[f] = INDISPONIVEL
 }
 
@@ -180,6 +184,7 @@ pred retirar[a, b: Estado, f: Frasco, e: Emprestimo, op: Retirada] {
    (f not in b.vencido and b.vencidoNaRetirada = a.vencidoNaRetirada - e))
   // Demais dimensões preservadas (validade calculada pertence a M6).
   b.saldoDesconhecido = a.saldoDesconhecido
+  b.localizacao = a.localizacao
   b.aberturaHistorica = a.aberturaHistorica
   b.validadeDesconhecida = a.validadeDesconhecida
   b.usoVencidoAutorizado = a.usoVencidoAutorizado
@@ -223,6 +228,7 @@ pred devolver[a, b: Estado, e: Emprestimo, f: Frasco, op: Devolucao] {
    (op.anomaliaMetrologica = Nao and not precisaDestino[a, f] and b.usoVencidoAutorizado = a.usoVencidoAutorizado))
   // Vencimento persistido e snapshot histórico: NÃO recalculados nem reescritos.
   b.vencido = a.vencido
+  b.localizacao = a.localizacao
   b.vencidoNaRetirada = a.vencidoNaRetirada
   b.validadeDesconhecida = a.validadeDesconhecida
   b.aberturaHistorica = a.aberturaHistorica

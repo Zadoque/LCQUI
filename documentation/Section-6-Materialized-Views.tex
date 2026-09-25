@@ -78,7 +78,7 @@ O campo legado que misturava unidades foi removido por redundância; consumo usa
 \begin{explicacao}[Contratos do Estoque Atual (fora dos resumos diários)]
 As regras a seguir pertencem exclusivamente às agregações atuais protegidas no backend sobre Frasco\_Reagente, não aos resumos FLOW:
 \begin{itemize}
-    \item \textbf{Frascos Extraviados:} Frascos com estado \texttt{EXTRAVIADO} \textbf{nunca} são contabilizados no saldo disponível, seja na quantidade de frascos ou na massa/volume total.
+    \item \textbf{Frascos Extraviados:} Frascos com \texttt{situacao\_localizacao = EXTRAVIADO} \textbf{nunca} são contabilizados no saldo disponível, seja na quantidade de frascos ou na massa/volume total.
     \item \textbf{Conteúdo Nominal vs. Saldo:} O \textit{conteudo\_nominal} (capacidade original do fabricante) \textbf{não representa} o saldo atual do frasco e não deve ser somado no lugar de saldos medidos.
     \item \textbf{Saldos Desconhecidos:} Se o saldo de um frasco é desconhecido (ex.: frasco aberto sem \textit{peso\_atual} preciso registrado), ele não deve ser somado como zero (\texttt{0}) nos agregados totais de volume ou massa, pois isso distorceria a realidade física. Esses frascos devem ser segregados na camada de agregação, distinguindo claramente a ``quantidade conhecida'' da ``quantidade com saldo desconhecido''.
 \end{itemize}

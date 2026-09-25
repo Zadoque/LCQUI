@@ -22,8 +22,7 @@
                         "ABERTO",
                         "VAZIO",
                         "QUEBRADO",
-                        "DESCARTADO",
-                        "EXTRAVIADO"
+                        "DESCARTADO"
                     ]
                 },
                 {
@@ -43,12 +42,23 @@
                     "nulo": false,
                     "tipo": "bool",
                     "valores": []
+                },
+                {
+                    "nome": "situacao_localizacao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "tipo": "enum",
+                    "valores": [
+                        "LOCALIZADO",
+                        "EXTRAVIADO"
+                    ]
                 }
             ],
             "exemplo": {
                 "estado_fisico_frasco": "FECHADO",
                 "disponibilidade": "DISPONIVEL",
-                "em_quarentena": false
+                "em_quarentena": false,
+                "situacao_localizacao": "LOCALIZADO"
             }
         },
         {
@@ -494,8 +504,7 @@
                         "ABERTO",
                         "VAZIO",
                         "QUEBRADO",
-                        "DESCARTADO",
-                        "EXTRAVIADO"
+                        "DESCARTADO"
                     ],
                     "observacao": "",
                     "sql": "ENUM"
@@ -509,6 +518,18 @@
                         "DISPONIVEL",
                         "EMPRESTADO",
                         "INDISPONIVEL"
+                    ],
+                    "observacao": "",
+                    "sql": "ENUM"
+                },
+                {
+                    "nome": "situacao_localizacao",
+                    "tipo": "enum",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "valores": [
+                        "LOCALIZADO",
+                        "EXTRAVIADO"
                     ],
                     "observacao": "",
                     "sql": "ENUM"
@@ -616,6 +637,7 @@
                 "peso_atual": 500,
                 "peso_frasco_vazio": null,
                 "peso_no_cadastrado": 500,
+                "situacao_localizacao": "LOCALIZADO",
                 "validade_apos_aberto_dias": 30,
                 "validade_desconhecida": true,
                 "validade_efetiva": null,

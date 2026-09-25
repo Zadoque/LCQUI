@@ -2,13 +2,13 @@
   "versao": 1,
   "alloy": "6.2.0",
   "solver": "sat4j",
-  "spec_ir_sha256": "0558049777b3f504eb15afaf1490aed335e4b2d9bfe7b9f13e3d41beb847a127",
+  "spec_ir_sha256": "66ec4f2f07f2f17fb385e744ea1aeb4d643a4decad980dd933cf6060f1e5cd07",
   "model": "specification/alloy/reagents/withdrawal_return.als",
-  "model_sha256": "ec5030866906599224c0c39d106f78073a5f3afefa2fe004e0344abb0748a1ec",
+  "model_sha256": "825a60399d0523c830104a7d6c21a1164331c29c85b89b407b4aee580d84ced3",
   "origens": [
     {
       "model": "specification/alloy/reagents/bottle_composition.als",
-      "model_sha256": "1706613e01c89c45067b99d201dd5fb3a11ff77258272f4b3f4ef5d5a86c2cf5"
+      "model_sha256": "a9cfd08bbe88ed4bfb3f6380ed2905b98905865b2074fcfafa8c12ef2c6f8e14"
     },
     {
       "model": "specification/alloy/reagents/loan_state.als",
