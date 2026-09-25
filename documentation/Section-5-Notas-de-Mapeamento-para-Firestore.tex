@@ -28,15 +28,25 @@ O mapeamento físico adotado é \texttt{composicao}, array de mapas na especific
 \subsection{Tabelas ``Materialized'' são coleções próprias, não \textit{views} do SGBD}
 As tabelas descritas na seção \textit{Materialized (Views)} não são \textit{materialized views} no sentido de PostgreSQL (não existe \texttt{REFRESH MATERIALIZED VIEW} no Firestore). Cada uma delas é implementada como sua própria coleção Firestore, escrita por \textit{Cloud Functions} -- gatilhos de escrita (\texttt{onDocumentWritten}) para contadores que reagem a um evento pontual (ex.: \textit{Lote\_Materializado}), ou funções agendadas (\texttt{onSchedule}) para os resumos diários/mensais. Ver pseudo-código na seção \textit{Tecnologia e Relatórios}.
 
-\subsection{Unicidade de \texttt{numero\_patrimonio\_proposto} no Firestore}
+\subsection{Unicidade canônica e permanente de \texttt{numero\_patrimonio} no Firestore}
 O PostgreSQL implementa a regra RF10b via índice único parcial
-\texttt{UNIQUE(numero\_patrimonio\_proposto) WHERE status = 'pendente'},
+\texttt{UNIQUE(numero\_patrimonio\_normalizado) WHERE status = 'pendente'},
 impedindo duas requisições simultâneas para a mesma plaqueta enquanto
 o bem patrimonial ainda não existe. No Firestore não há índice parcial
 nem \emph{unique constraint} nativo, então a garantia é reimplementada
 na Cloud Function de criação da requisição de adição.
 
-A criação lê o documento determinístico em \texttt{Locks\_Requisicao\_Patrimonio}, verifica a plaqueta já cadastrada e grava lock e requisição na mesma transação. Aprovação e rejeição removem o lock na mesma transação da resposta. Uma consulta prévia pode melhorar a mensagem de erro, mas não substitui a chave de unicidade. Locks vinculados a requisições pendentes não expiram por idade.
+A canonicalização única é \texttt{normalizarNumeroPatrimonio(s) =
+s.trim().toUpperCase()}. O resultado não pode ser vazio, deve respeitar o limite
+de 30 caracteres e é armazenado como \texttt{numero\_patrimonio} no Bem e como
+\texttt{numero\_patrimonio\_normalizado} na requisição. Lock, consulta exata e
+documento permanente \texttt{Chaves\_Unicas/Bem\_Patrimonial\_\_\{numero\}} usam
+exclusivamente essa chave. A criação lê lock e chave permanente e grava lock e
+requisição na mesma transação. A aprovação relê a chave e, no mesmo commit,
+grava Bem, chave, resposta, histórico de cadastro e liberação do lock. A chave
+não é apagada na baixa; o lock sim termina com a requisição. Uma consulta prévia
+pode melhorar a mensagem de erro, mas não substitui a chave de unicidade. Locks
+vinculados a requisições pendentes não expiram por idade.
 
 \subsection{Mecanismo de Sequenciamento Atômico via Documento Singleton (\textit{Contador\_Codigo\_Frasco})}
 A coleção \texttt{Contador\_Codigo\_Frasco} não existe no modelo 3FN porque bancos relacionais possuem primitivas de \texttt{SEQUENCE/SERIAL}. Para gerar o identificador atômico \texttt{LCQUI-X}, utiliza-se o documento singleton \texttt{Contador\_Codigo\_Frasco/singleton} com o campo \texttt{ultimo\_codigo\_gerado}, operado atomicamente via \texttt{runTransaction} no backend. A transação garante a unicidade; contenção e custo devem ser medidos incluindo histórico, auditoria, índices e tentativas repetidas. Não se fixa aqui uma cota universal de escritas por segundo.
@@ -189,7 +199,7 @@ Caminho: \texttt{Bem\_Patrimonial/\{id\}}.
 \begin{description}
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{id\_resumo\_bem\_patrimonial}] string; O. Identificador da entidade resumo bem patrimonial, cuja existência e escopo são verificados no servidor.
-\item[\texttt{numero\_patrimonio}] string; O. Plaqueta institucional em texto, preservando zeros iniciais; identifica unicamente a unidade física. Máximo 30 caracteres.
+\item[\texttt{numero\_patrimonio}] string; O. Plaqueta institucional canônica, preservando zeros iniciais; é \texttt{trim().toUpperCase()} da entrada e identifica unicamente a unidade física. Máximo 30 caracteres.
 \item[\texttt{estado\_conservacao}] string enum; O. Valor de estado conservacao, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: BOM, REGULAR, RUIM.
 \item[\texttt{id\_local}] string; O. Identificador da entidade local, cuja existência e escopo são verificados no servidor.
 \item[\texttt{photo\_url}] string; O. Referência da foto validada; não confiar em URL arbitrária.
@@ -197,6 +207,7 @@ Caminho: \texttt{Bem\_Patrimonial/\{id\}}.
 \item[\texttt{nome\_responsavel\_sei}] string; O. Responsável institucional em texto; não é FK de usuário. Máximo 150 caracteres.
 \item[\texttt{status}] string enum; O. Estado controlado pelo domínio; transições são validadas no servidor. Valores: Ativo, Inservivel, Ja\_dado\_baixa.
 \item[\texttt{descricao\_complementar}] string; N. Observação opcional da unidade física, sem alterar a descrição compartilhada do modelo. Máximo 200 caracteres.
+\item[\texttt{versao}] number; O. Inteiro iniciado em 1 para controle otimista de fatos canônicos da unidade. Fan-out puramente derivado não o incrementa.
 \end{description}
 
 \paragraph{Resumo\_Bem\_Patrimonial}\mbox{}\par
@@ -251,6 +262,7 @@ Caminho: \texttt{Requisicao\_Adicao\_Bem\_Patrimonial/\{id\}}.
 \begin{description}
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{numero\_patrimonio\_proposto}] string; O. Plaqueta solicitada para o novo bem; unicidade entre pendências e bens existentes. Máximo 30 caracteres.
+\item[\texttt{numero\_patrimonio\_normalizado}] string; O. \texttt{trim().toUpperCase()} da plaqueta proposta; é a única chave usada em lock, \texttt{Chaves\_Unicas}, comparação e aprovação.
 \item[\texttt{status}] string enum; O. Estado controlado pelo domínio; transições são validadas no servidor. Valores: pendente, aprovada, rejeitada.
 \item[\texttt{feita\_em}] Timestamp; O. Data/instante de feita em, com ordem temporal validada e autoria do relógio do servidor para eventos.
 \item[\texttt{id\_bem\_patrimonial\_se\_aprovado}] string; N. Identificador da entidade bem patrimonial se aprovado, cuja existência e escopo são verificados no servidor.
@@ -272,6 +284,9 @@ Caminho: \texttt{Requisicao\_Adicao\_Bem\_Patrimonial/\{id\}}.
 Caminho: \texttt{Locks\_Requisicao\_Patrimonio/\{id\}}.
 \begin{description}
 \item[\texttt{id (docId determinístico)}] string; O. Identificador da entidade id (docId determinístico), cuja existência e escopo são verificados no servidor. Máximo 100 caracteres.
+\item[\texttt{id\_requisicao}] string; O. Requisição pendente proprietária do lock; precisa coincidir antes da liberação.
+\item[\texttt{tipo}] string enum; O. EDICAO ou ADICAO; precisa coincidir com o caminho de resposta.
+\item[\texttt{chave\_recurso}] string; O. ID do bem para edição ou plaqueta normalizada para adição.
 \item[\texttt{criado\_em}] Timestamp; O. Data/instante de criado em, com ordem temporal validada e autoria do relógio do servidor para eventos.
 \end{description}
 
