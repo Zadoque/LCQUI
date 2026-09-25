@@ -1,0 +1,13 @@
+{
+  "id": "bem-2",
+  "id_resumo_bem_patrimonial": "resumo-1",
+  "numero_patrimonio": "ABC-124",
+  "estado_conservacao": "RUIM",
+  "id_local": "local-2",
+  "photo_url": "gs://lcqui/fotos/bem-2.jpg",
+  "nome_responsavel_sei": "João Souza",
+  "status": "Inservivel",
+  "descricao_complementar": "Equipamento aguardando rito SEI.",
+  "versao": 2,
+  "documento_dado_baixa_pdf_url": null
+}
