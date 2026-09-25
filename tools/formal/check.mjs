@@ -18,7 +18,7 @@ const hash = data => crypto.createHash('sha256').update(data).digest('hex');
 function write(file, data) { fs.mkdirSync(path.dirname(file), {recursive:true}); fs.writeFileSync(file,data); }
 function specCheck() {
   run('cue',['vet','./...'],cueDir);
-  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/frasco-completo', '#FrascoCompleto'], ['tests/emprestimo', '#EmprestimoReagente'], ['tests/m5', '#M5Operacao'], ['tests/m6', '#M6Metrologia'], ['tests/m7', '#M7Operacao'], ['tests/m8', '#M8Contrato']];
+  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/frasco-completo', '#FrascoCompleto'], ['tests/emprestimo', '#EmprestimoReagente'], ['tests/m5', '#M5Operacao'], ['tests/m6', '#M6Metrologia'], ['tests/m7', '#M7Operacao'], ['tests/m8', '#M8Contrato'], ['tests/m9', '#M9Contrato']];
   for (const [directory, definition] of groups) for (const kind of ['valid','invalid']) {
     const files = fs.readdirSync(`${cueDir}/${directory}/${kind}`).sort();
     if (!files.length) throw new Error(`Sem fixtures ${kind}`);
@@ -219,7 +219,7 @@ function alloyCheck() {
     const expected = entries.map(([name,type,scope], i) => ({
       id: `${milestone}-${type === 'check' ? 'INV' : 'WIT'}-${String(i + 1).padStart(3, '0')}`,
       name, type, scope,
-      overall: scope.includes('for 7') ? 7 : scope.includes('for 6') ? 6 : 4,
+      overall: scope.includes('for 8') ? 8 : scope.includes('for 7') ? 7 : scope.includes('for 6') ? 6 : 4,
     }));
     const result = execAlloy(model, expected);
     write(file, JSON.stringify({versao: 1, alloy: version, solver: result.solver,
@@ -312,6 +312,30 @@ function alloyCheck() {
     ['WitnessEscassezSilenciada','run','run WitnessEscassezSilenciada for 6'],
     ['WitnessNovaNotificacaoOutroDia','run','run WitnessNovaNotificacaoOutroDia for 6 but exactly 3 Store'],
   ], 'build/formal-validation-m8.json', 'M8');
+  runMilestone('specification/alloy/operations/authorization_m9.als', [
+    ['UsuarioInativoNuncaAutorizado','check','check UsuarioInativoNuncaAutorizado for 8 but exactly 2 Escopo'],
+    ['PapelNaoPermitidoNaoAutoriza','check','check PapelNaoPermitidoNaoAutoriza for 8 but exactly 2 Escopo'],
+    ['SemVinculoNecessarioNega','check','check SemVinculoNecessarioNega for 8 but exactly 2 Escopo'],
+    ['OwnershipErradoNega','check','check OwnershipErradoNega for 8 but exactly 2 Escopo'],
+    ['ClaimObsoletaNaoRestauraAutorizacao','check','check ClaimObsoletaNaoRestauraAutorizacao for 8 but exactly 2 Escopo'],
+    ['VinculoRevogadoRemoveAutorizacao','check','check VinculoRevogadoRemoveAutorizacao for 8 but exactly 2 Escopo'],
+    ['PapelRevogadoRemoveAutorizacao','check','check PapelRevogadoRemoveAutorizacao for 8 but exactly 2 Escopo'],
+    ['DesativacaoRemoveAutorizacao','check','check DesativacaoRemoveAutorizacao for 8 but exactly 2 Escopo'],
+    ['RevogadoAntesDoCommitNaoPodeCommitar','check','check RevogadoAntesDoCommitNaoPodeCommitar for 8 but exactly 2 Escopo'],
+    ['AutorizacaoNaoBypassaDominio','check','check AutorizacaoNaoBypassaDominio for 8 but exactly 2 Escopo'],
+    ['ChefeNaoBypassaDominio','check','check ChefeNaoBypassaDominio for 8 but exactly 2 Escopo'],
+    ['ServerOwnedNuncaEscritaCliente','check','check ServerOwnedNuncaEscritaCliente for 8 but exactly 2 Escopo'],
+    ['RevalidacaoNoCommitPermiteSomenteAtual','check','check RevalidacaoNoCommitPermiteSomenteAtual for 8 but exactly 2 Escopo'],
+    ['WitnessChefeGerenciaUsuario','run','run WitnessChefeGerenciaUsuario for 8 but exactly 2 Escopo'],
+    ['WitnessGestorNoEscopo','run','run WitnessGestorNoEscopo for 8 but exactly 2 Escopo'],
+    ['WitnessProfessorProprio','run','run WitnessProfessorProprio for 8 but exactly 2 Escopo'],
+    ['WitnessVersaoCorrente','run','run WitnessVersaoCorrente for 8 but exactly 2 Escopo'],
+    ['WitnessClaimAntigaAposRevogacao','run','run WitnessClaimAntigaAposRevogacao for 8 but exactly 2 Escopo, exactly 2 Estado'],
+    ['WitnessCommitPermitidoSemRevogacao','run','run WitnessCommitPermitidoSemRevogacao for 8 but exactly 2 Escopo'],
+    ['WitnessNegacaoPorEscopo','run','run WitnessNegacaoPorEscopo for 8 but exactly 2 Escopo'],
+    ['WitnessNegacaoPorOwnership','run','run WitnessNegacaoPorOwnership for 8 but exactly 2 Escopo'],
+    ['WitnessChefeDominioInvalidoNaoComita','run','run WitnessChefeDominioInvalidoNaoComita for 8 but exactly 2 Escopo'],
+  ], 'build/formal-validation-m9.json', 'M9');
 }
 const cmd=process.argv[2];
 if(cmd==='spec-check') specCheck();
