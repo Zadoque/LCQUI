@@ -1,18 +1,34 @@
 # Status atual do LCQUI
 
-## Estado corrente pós-M9 executável
+## Estado corrente pós-M10 documental
 
-M0–M9 = **VALIDATED**; M10+ = **NOT_STARTED**. HEAD pré-registro de
-estado/PDF: `d7fdeb3177dca85cf4e38e5875ae64a9d124c534`. M9 formalizou RBAC +
-vínculo/escopo persistido + ownership, usuário ativo, versão de permissões,
-claims obsoletas, revogação, TOCTOU abstrato e separação autorização/domínio.
-IR v3 permaneceu aditivo; Alloy executou 13 checks UNSAT e 9 witnesses SAT.
-Próxima ação exata: **AVALIAR A ENTRADA EM M10 — PATRIMÔNIO, EM RODADA
-SEPARADA**. Não iniciar M10.
+M0–M9 = **VALIDATED**; M10 = **DOCUMENTATION_VALIDATED**; M11+ =
+**NOT_STARTED**. HEAD de entrada M10:
+`ca76f5f2319f75be6a93c8173ea147088727a589`; HEAD pré-registro de estado/PDF:
+`1701baf9c311ecbe7692d84f9d1b7d7f075594cc`. A rodada M10 foi exclusivamente
+documental: fechou identidade Resumo×unidade, plaqueta canônica/permanente,
+máquina `Ativo -> Inservivel -> Ja_dado_baixa`, baixa SEI com PDF, versão,
+locks, histórico, fan-out e composição M7/M9. Nenhum código Firebase, Rules,
+Storage, frontend ou artefato formal M10 foi criado/alterado. Próxima ação
+exata: **FORMALIZAÇÃO EXECUTÁVEL DE M10 — PATRIMÔNIO, EM RODADA SEPARADA
+(CUE → IR → Alloy → receipt → Rust → LaTeX → PDF)**. Não iniciar M11.
 
-Atualizado em 25/09/2026 — M9 executável concluído. Estado corrente:
-M0–M9 = VALIDATED; M10+ = NOT_STARTED; nenhuma HQ bloqueante. Registro em
-[worklog M9 executável](worklogs/formal-spec/M9_EXECUTABLE_VALIDATION.md).
+Atualizado em 25/09/2026 — M10 documental concluído. Estado corrente:
+M0–M9 = VALIDATED; M10 = DOCUMENTATION_VALIDATED; M11+ = NOT_STARTED;
+nenhuma HQ bloqueante. Registro em
+[worklog M10 documental](worklogs/formal-spec/M10_DOCUMENTATION.md).
+
+- **M10 — Patrimônio:** `Bem_Patrimonial` é a unidade física e
+  `Resumo_Bem_Patrimonial` é o catálogo; nome/local no bem são projeções. A
+  plaqueta é `trim().toUpperCase()`, única e não reutilizável após baixa. A
+  única máquina V1 é `Ativo -> Inservivel -> Ja_dado_baixa`; conservação é
+  independente e baixa é rito M9+M7 próprio, com SEI/PDF binariamente validado,
+  histórico e terminalidade. A versão cobre fatos canônicos, não fan-out
+  derivado. Locks têm proprietário/tipo/chave, não expiram por idade e não se
+  confundem com `Chaves_Unicas`, versão ou receipt M7. Todos os gates M0–M9
+  passaram, houve três auditorias limpas e o PDF final tem 381 páginas. M10-F01
+  a F05 foram resolvidos documentalmente; M10-F06 a F12 permanecem divergências
+  de implementação/dívida registradas, sem HQ.
 
 ## M8 executável (Estoque / Escassez / Notificações)
 
