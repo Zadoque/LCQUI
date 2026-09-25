@@ -1,0 +1,164 @@
+{
+  "versao": 1,
+  "alloy": "6.2.0",
+  "solver": "sat4j",
+  "spec_ir_sha256": "9c9a325b807e5d392422d4112ac577692a859ed00209eba3fbee1643caf6c23d",
+  "model": "specification/alloy/operations/authorization_m9.als",
+  "model_sha256": "ddd4db6fc9ecfc055cdbca89660fac974b3bb368a4d876311470c998148ac7cb",
+  "resultados": [
+    {
+      "id": "M9-INV-001",
+      "assertion": "UsuarioInativoNuncaAutorizado",
+      "tipo": "check",
+      "scope": "check UsuarioInativoNuncaAutorizado for 8 but exactly 2 Escopo",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M9-INV-002",
+      "assertion": "PapelNaoPermitidoNaoAutoriza",
+      "tipo": "check",
+      "scope": "check PapelNaoPermitidoNaoAutoriza for 8 but exactly 2 Escopo",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M9-INV-003",
+      "assertion": "SemVinculoNecessarioNega",
+      "tipo": "check",
+      "scope": "check SemVinculoNecessarioNega for 8 but exactly 2 Escopo",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M9-INV-004",
+      "assertion": "OwnershipErradoNega",
+      "tipo": "check",
+      "scope": "check OwnershipErradoNega for 8 but exactly 2 Escopo",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M9-INV-005",
+      "assertion": "ClaimObsoletaNaoRestauraAutorizacao",
+      "tipo": "check",
+      "scope": "check ClaimObsoletaNaoRestauraAutorizacao for 8 but exactly 2 Escopo",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M9-INV-006",
+      "assertion": "VinculoRevogadoRemoveAutorizacao",
+      "tipo": "check",
+      "scope": "check VinculoRevogadoRemoveAutorizacao for 8 but exactly 2 Escopo",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M9-INV-007",
+      "assertion": "PapelRevogadoRemoveAutorizacao",
+      "tipo": "check",
+      "scope": "check PapelRevogadoRemoveAutorizacao for 8 but exactly 2 Escopo",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M9-INV-008",
+      "assertion": "DesativacaoRemoveAutorizacao",
+      "tipo": "check",
+      "scope": "check DesativacaoRemoveAutorizacao for 8 but exactly 2 Escopo",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M9-INV-009",
+      "assertion": "RevogadoAntesDoCommitNaoPodeCommitar",
+      "tipo": "check",
+      "scope": "check RevogadoAntesDoCommitNaoPodeCommitar for 8 but exactly 2 Escopo",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M9-INV-010",
+      "assertion": "AutorizacaoNaoBypassaDominio",
+      "tipo": "check",
+      "scope": "check AutorizacaoNaoBypassaDominio for 8 but exactly 2 Escopo",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M9-INV-011",
+      "assertion": "ChefeNaoBypassaDominio",
+      "tipo": "check",
+      "scope": "check ChefeNaoBypassaDominio for 8 but exactly 2 Escopo",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M9-INV-012",
+      "assertion": "ServerOwnedNuncaEscritaCliente",
+      "tipo": "check",
+      "scope": "check ServerOwnedNuncaEscritaCliente for 8 but exactly 2 Escopo",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M9-INV-013",
+      "assertion": "RevalidacaoNoCommitPermiteSomenteAtual",
+      "tipo": "check",
+      "scope": "check RevalidacaoNoCommitPermiteSomenteAtual for 8 but exactly 2 Escopo",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M9-WIT-014",
+      "assertion": "WitnessChefeGerenciaUsuario",
+      "tipo": "run",
+      "scope": "run WitnessChefeGerenciaUsuario for 8 but exactly 2 Escopo",
+      "status": "SAT"
+    },
+    {
+      "id": "M9-WIT-015",
+      "assertion": "WitnessGestorNoEscopo",
+      "tipo": "run",
+      "scope": "run WitnessGestorNoEscopo for 8 but exactly 2 Escopo",
+      "status": "SAT"
+    },
+    {
+      "id": "M9-WIT-016",
+      "assertion": "WitnessProfessorProprio",
+      "tipo": "run",
+      "scope": "run WitnessProfessorProprio for 8 but exactly 2 Escopo",
+      "status": "SAT"
+    },
+    {
+      "id": "M9-WIT-017",
+      "assertion": "WitnessVersaoCorrente",
+      "tipo": "run",
+      "scope": "run WitnessVersaoCorrente for 8 but exactly 2 Escopo",
+      "status": "SAT"
+    },
+    {
+      "id": "M9-WIT-018",
+      "assertion": "WitnessClaimAntigaAposRevogacao",
+      "tipo": "run",
+      "scope": "run WitnessClaimAntigaAposRevogacao for 8 but exactly 2 Escopo, exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "M9-WIT-019",
+      "assertion": "WitnessCommitPermitidoSemRevogacao",
+      "tipo": "run",
+      "scope": "run WitnessCommitPermitidoSemRevogacao for 8 but exactly 2 Escopo",
+      "status": "SAT"
+    },
+    {
+      "id": "M9-WIT-020",
+      "assertion": "WitnessNegacaoPorEscopo",
+      "tipo": "run",
+      "scope": "run WitnessNegacaoPorEscopo for 8 but exactly 2 Escopo",
+      "status": "SAT"
+    },
+    {
+      "id": "M9-WIT-021",
+      "assertion": "WitnessNegacaoPorOwnership",
+      "tipo": "run",
+      "scope": "run WitnessNegacaoPorOwnership for 8 but exactly 2 Escopo",
+      "status": "SAT"
+    },
+    {
+      "id": "M9-WIT-022",
+      "assertion": "WitnessChefeDominioInvalidoNaoComita",
+      "tipo": "run",
+      "scope": "run WitnessChefeDominioInvalidoNaoComita for 8 but exactly 2 Escopo",
+      "status": "SAT"
+    }
+  ]
+}
