@@ -43,7 +43,6 @@ pub struct Mapeamento {
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-#[allow(dead_code)]
 pub struct Campo {
     pub nome: String,
     pub tipo: String,
@@ -68,6 +67,19 @@ pub struct Campo {
     pub positivo: Option<bool>,
     #[serde(default)]
     pub maximo: Option<f64>,
+}
+impl Campo {
+    /// Metadados numéricos (`positivo`, `nao_negativo`, `maximo`) só se aplicam
+    /// a tipos numéricos. Mantém os campos declarados no schema (serde
+    /// `deny_unknown_fields`) efetivamente lidos e consistentes.
+    pub fn metadata_ok(&self) -> bool {
+        let numerico = matches!(
+            self.sql.as_deref(),
+            Some("SERIAL" | "INTEGER" | "NUMERIC(10,3)" | "NUMERIC(10,5)")
+        );
+        let marcado = self.positivo.unwrap_or(false) || self.nao_negativo.unwrap_or(false);
+        (!marcado || numerico) && (self.maximo.is_none() || numerico)
+    }
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -150,7 +162,7 @@ impl Ir {
                     && e.exemplo.is_object()
                     && e.campos
                         .iter()
-                        .all(|c| !c.nome.is_empty() && fields.insert(&c.nome))
+                        .all(|c| !c.nome.is_empty() && fields.insert(&c.nome) && c.metadata_ok())
             })
     }
     /// Confere a proveniência declarada contra os baselines versionados.
