@@ -114,6 +114,18 @@ import (
 	}
 }
 
+// Escopo Q13: intervenção administrativa de moderação/auditoria do Chefe sobre
+// um Post que referencia o roteiro (registrada em Registro_de_Auditoria). É a
+// condição de autorização para o Chefe emitir URL nova; sem registro ativo, o
+// Chefe não emite (a URL já emitida permanece utilizável até expirar).
+#M12_2EscopoAuditoriaQ13: {
+	id_roteiro:    string & strings.MinRunes(1)
+	id_chefe:      string & strings.MinRunes(1)
+	id_post:       string & strings.MinRunes(1)
+	registrado_em: string & strings.MinRunes(1)
+	motivo:        string & strings.MinRunes(1) & strings.MaxRunes(2000)
+}
+
 // Contexto abstrato de autorização (M9): autoridade persistida mais claim. A
 // claim atualizada não recria participação (ex-aluno).
 #M12_2UsuarioContexto: {
@@ -195,7 +207,7 @@ import (
 }
 
 // Uma fixture M12.2 é exatamente um dos shapes estruturais acima.
-#M12_2Contrato: #M12_2ReferenciaCanonica | #M12_2Roteiro | #M12_2RoteiroAnexo | #M12_2AnexoVinculado | #M12_2Compartilhamento | #M12_2UsuarioContexto | #M12_2VinculoTurma | #M12_2PostContexto | #M12_2DownloadProjecao | #M12_2UrlEmitida | #M12_2SolicitacaoDownload | #M12_2Operacao | #M12_2NotificacaoCompartilhamento
+#M12_2Contrato: #M12_2ReferenciaCanonica | #M12_2Roteiro | #M12_2RoteiroAnexo | #M12_2AnexoVinculado | #M12_2Compartilhamento | #M12_2EscopoAuditoriaQ13 | #M12_2UsuarioContexto | #M12_2VinculoTurma | #M12_2PostContexto | #M12_2DownloadProjecao | #M12_2UrlEmitida | #M12_2SolicitacaoDownload | #M12_2Operacao | #M12_2NotificacaoCompartilhamento
 
 #CamposM12_2: [
 	#CampoFrasco & {nome: "id_roteiro", sql: "TEXT", observacao: "Identidade do Roteiro; dono imutável e referência canônica."},

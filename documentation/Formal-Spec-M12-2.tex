@@ -30,7 +30,11 @@ O cadastro cria um Roteiro \texttt{PROVISORIO} sem geração; a validação do o
 fixa a geração persistida a partir da geração real do objeto e move para
 \texttt{VALIDADO}; publicar move para \texttt{PUBLICAVEL}. O objeto e a geração
 são fixos (\texttt{ObjetoNuncaSobrescrito}, \texttt{GeracaoNaoMudaSemValidar}) e
-o Roteiro só é elegível a compartilhamento/anexo/download quando publicável.
+o Roteiro só é elegível a compartilhamento/anexo/download quando publicável:
+um Roteiro \texttt{PROVISORIO} ou \texttt{VALIDADO} não pode ser compartilhado
+(\texttt{CompartilhamentoSoDePublicavel}, \texttt{NaoCompartilhaNaoPublicavel},
+e testemunhas alcançáveis \texttt{WitnessProvisorioNaoCompartilha} e
+\texttt{WitnessValidadoNaoCompartilha}).
 Firestore e Storage não têm transação única: a geração é persistida no documento
 e comparada na transação do Firestore; a inspeção do objeto no Storage é etapa
 externa; a janela residual é coberta pela imutabilidade do objeto vinculado e
@@ -43,7 +47,12 @@ com no máximo uma relação por \texttt{(roteiro, professor)}
 (\texttt{RevogadoNaoEmite}), mas \textbf{preserva} os Posts históricos e seus
 snapshots. O professor acessa por propriedade ou compartilhamento atual; o aluno,
 pelo vínculo canônico atual e um Post acessível que referencia o roteiro; o
-Chefe, por Q13; um \textbf{ex-aluno} é negado ainda que a claim esteja atualizada
+Chefe, \textbf{somente sob escopo Q13 registrado} (intervenção de
+moderação/auditoria sobre um Post que referencia o roteiro, com Chefe exclusivo e
+sem vínculo de aluno), de modo que um Chefe ativo e um roteiro publicável
+\textbf{sem} caso de auditoria não emitem
+(\texttt{ChefeSemEscopoNaoEmite}, \texttt{EscopoQ13SoDeChefeComPostReferenciado});
+um \textbf{ex-aluno} é negado ainda que a claim esteja atualizada
 (\texttt{WitnessExAlunoNaoEmite}). Turma \texttt{Arquivada} é somente leitura:
 membro com vínculo atual ainda baixa o anexo de Post histórico, mas nenhuma
 escrita acadêmica é aceita (\texttt{TurmaArquivadaNegaEscritaRoteiro});
@@ -53,8 +62,12 @@ A \textbf{URL já emitida} é modelada como fronteira temporal abstrata
 (\texttt{urlsAtivas}): a remoção, a perda de vínculo e a revogação impedem
 \textbf{novas emissões} (\texttt{EmissaoExigeAcesso}), mas uma URL ativa
 permanece utilizável até expirar (\texttt{UrlAtivaUsavel},
-\texttt{WitnessUrlAtivaAposRevogacao}), sem prometer revogação retroativa. A
-geração da URL vinculada é a geração canônica.
+\texttt{WitnessUrlAtivaAposRevogacao}), sem prometer revogação retroativa. O
+\textbf{fim do escopo Q13} também impede novas emissões do Chefe, preservando
+apenas as URLs já emitidas (\texttt{EncerrarEscopoImpedeNovaEmissao},
+\texttt{UrlEmitidaSobreviveAoEncerramentoEscopo},
+\texttt{WitnessEncerrarEscopoImpedeEmissao}). A geração da URL vinculada é a
+geração canônica.
 
 \subsection*{Anexo a Post, histórico e composição M7/M9}
 No máximo um anexo por Post. Anexar, trocar e \emph{manter} o anexo exigem
@@ -70,11 +83,12 @@ vínculo impedir o commit posterior.
 
 \subsection*{Responsabilidade das camadas e limites}
 CUE valida shapes e limites. Alloy valida posse, transições, ACL de UID único,
-revogação Q09, turma arquivada, ex-aluno, Post removido, anexo/histórico e
+revogação Q09, turma arquivada, ex-aluno, Post removido, anexo/histórico,
+elegibilidade de compartilhamento (só publicável), escopo Q13 do Chefe e
 composição M7/M9. Rust valida proveniência, ordem exata do receipt e as regras
 determinísticas de limite estrito de 15 MiB, tipo, titularidade, status,
-ligação do anexo à referência canônica, emissão/uso de URL, aluno/ex-aluno e
-unicidade de UID. A evidência \textbf{não} certifica \texttt{functions/},
+ligação do anexo à referência canônica, emissão/uso de URL, aluno/ex-aluno,
+escopo Q13 e unicidade de UID. A evidência \textbf{não} certifica \texttt{functions/},
 frontend, Firestore/Storage Rules, Auth, Storage real, bytes binários,
 atomicidade entre serviços nem concorrência.
 

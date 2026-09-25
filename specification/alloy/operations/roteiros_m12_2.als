@@ -40,6 +40,14 @@ sig HistAnexo {
 	hRoteiro: one Roteiro,
 	hGeracao: one Geracao
 }
+// Escopo Q13: intervenção administrativa de moderação/auditoria da Chefia
+// registrada (Q13) sobre um Post que referencia o roteiro. É o único caminho
+// pelo qual o Chefe emite URL de roteiro; sem registro ativo, não emite.
+sig AuditoriaQ13 {
+	aqChefe:   one Usuario,
+	aqRoteiro: one Roteiro,
+	aqPost:    one Post
+}
 sig UrlEmitida {
 	uRoteiro: one Roteiro,
 	uUid:     one Usuario,
@@ -66,7 +74,8 @@ one sig Provisorio, Validado, Publicavel extends StatusRoteiro {}
 
 abstract sig TipoCmd {}
 one sig TCadastrar, TValidar, TPublicar, TCompartilhar, TRevogar,
-	TAnexar, TTrocar, TManter, TDesanexar, TRemoverPost, TEmitirUrl extends TipoCmd {}
+	TAnexar, TTrocar, TManter, TDesanexar, TRemoverPost, TAuditar,
+	TEmitirUrl extends TipoCmd {}
 
 // ---- Estado ----------------------------------------------------------------
 sig Estado {
@@ -87,6 +96,7 @@ sig Estado {
 	compartilhados:  set Compartilhamento,
 	anexos:          set AnexoPost,
 	histsAnexo:      set HistAnexo,
+	auditorias:      set AuditoriaQ13,
 	urls:            set UrlEmitida,
 	urlsAtivas:      set UrlEmitida,
 	// M9 abstrato
@@ -132,11 +142,16 @@ pred alunoPodeBaixar[s: Estado, u: Usuario, r: Roteiro] {
 	some p: s.posts | alunoAcessoPost[s, u, p]
 		and (some x: s.anexos | x.aPost = p and x.aRoteiro = r)
 }
+// Escopo Q13 concreto: existe intervenção registrada do Chefe sobre um Post que
+// referencia o roteiro. Um booleano livre ou `u in chefes` isolado não autoriza.
+pred escopoQ13[s: Estado, u: Usuario, r: Roteiro] {
+	some aq: s.auditorias | aq.aqChefe = u and aq.aqRoteiro = r
+}
 pred podeEmitirUrl[s: Estado, u: Usuario, r: Roteiro] {
 	authOk[s, u] and roteiroPublicavel[s, r] and (
 		(u in s.professores and (proprietario[s, u, r] or compartilhadoAtual[s, u, r]))
 		or alunoPodeBaixar[s, u, r]
-		or u in s.chefes)
+		or (u in s.chefes and escopoQ13[s, u, r]))
 }
 pred podeUsarUrl[s: Estado, url: UrlEmitida] {
 	url in s.urlsAtivas
@@ -159,7 +174,11 @@ pred coerente[s: Estado] {
 	all v: s.vinculos | v.vTurma in s.turmas
 	all disj v1, v2: s.vinculos |
 		v1.vAluno != v2.vAluno or v1.vTurma != v2.vTurma
+	// Chefe Geral é papel exclusivo (RN-ROLE-01): não acumula vínculo de aluno.
+	all v: s.vinculos | v.vAluno not in s.chefes
+	// Compartilhamento só existe para roteiro publicável (S7.7).
 	all c: s.compartilhados | c.cRoteiro in s.roteiros
+		and s.roteiroStatus[c.cRoteiro] = Publicavel
 		and c.cProfessor in s.professores
 		and c.cProfessor != s.roteiroDono[c.cRoteiro]
 	all disj c1, c2: s.compartilhados |
@@ -169,6 +188,13 @@ pred coerente[s: Estado] {
 		and x.aGeracao = s.geracaoValida[x.aRoteiro]
 	all disj x1, x2: s.anexos | x1.aPost != x2.aPost
 	all h: s.histsAnexo | h.hPost in s.posts and h.hRoteiro in s.roteiros
+	// Escopo Q13 exige Chefe e um Post removido da apresentação que referencia o
+	// roteiro; no máximo um escopo ativo por (chefe, roteiro).
+	all aq: s.auditorias | aq.aqChefe in s.chefes and aq.aqRoteiro in s.roteiros
+		and aq.aqPost in s.posts and aq.aqPost in s.postRemovido
+		and (some x: s.anexos | x.aPost = aq.aqPost and x.aRoteiro = aq.aqRoteiro)
+	all disj aq1, aq2: s.auditorias |
+		aq1.aqChefe != aq2.aqChefe or aq1.aqRoteiro != aq2.aqRoteiro
 	all url: s.urls | url.uRoteiro in s.roteiros
 		and one s.geracaoValida[url.uRoteiro]
 		and url.uGeracao = s.geracaoValida[url.uRoteiro]
@@ -206,6 +232,7 @@ pred fGeracao[a, b: Estado] { b.geracaoValida = a.geracaoValida }
 pred fCompartilhados[a, b: Estado] { b.compartilhados = a.compartilhados }
 pred fAnexos[a, b: Estado] { b.anexos = a.anexos }
 pred fHistAnexo[a, b: Estado] { b.histsAnexo = a.histsAnexo }
+pred fAuditorias[a, b: Estado] { b.auditorias = a.auditorias }
 pred fUrls[a, b: Estado] { b.urls = a.urls and b.urlsAtivas = a.urlsAtivas }
 pred fUrlsSet[a, b: Estado] { b.urls = a.urls }
 pred fUrlsAtivas[a, b: Estado] { b.urlsAtivas = a.urlsAtivas }
@@ -229,7 +256,7 @@ pred cadastrarProvisorio[a, b: Estado, u: Usuario, r: Roteiro, obj: Objeto, o: C
 	obj not in a.roteiroObj[Roteiro]
 	fTurma[a, b] and fVinculo[a, b] and fPosts[a, b]
 	fObjetos[a, b] and fGeracao[a, b] and fCompartilhados[a, b] and fAnexos[a, b]
-	fHistAnexo[a, b] and fUrls[a, b] and fPessoas[a, b]
+	fHistAnexo[a, b] and fAuditorias[a, b] and fUrls[a, b] and fPessoas[a, b]
 	registraComando[a, b, o]
 	b.roteiros = a.roteiros + r
 	b.roteiroDono = a.roteiroDono ++ (r -> u)
@@ -245,7 +272,7 @@ pred validarObjeto[a, b: Estado, u: Usuario, r: Roteiro, o: Comando] {
 	o.cmdUid = u and o.cmdTipo = TValidar
 	fTurma[a, b] and fVinculo[a, b] and fPosts[a, b] and fRoteiroId[a, b]
 	fObjetos[a, b] and fCompartilhados[a, b] and fAnexos[a, b]
-	fHistAnexo[a, b] and fUrls[a, b] and fPessoas[a, b]
+	fHistAnexo[a, b] and fAuditorias[a, b] and fUrls[a, b] and fPessoas[a, b]
 	registraComando[a, b, o]
 	b.roteiroStatus = a.roteiroStatus ++ (r -> Validado)
 	b.geracaoValida = a.geracaoValida ++ (r -> a.objetoGeracao[a.roteiroObj[r]])
@@ -258,7 +285,7 @@ pred publicar[a, b: Estado, u: Usuario, r: Roteiro, o: Comando] {
 	o.cmdUid = u and o.cmdTipo = TPublicar
 	fTurma[a, b] and fVinculo[a, b] and fPosts[a, b] and fRoteiroId[a, b]
 	fObjetos[a, b] and fGeracao[a, b] and fCompartilhados[a, b] and fAnexos[a, b]
-	fHistAnexo[a, b] and fUrls[a, b] and fPessoas[a, b]
+	fHistAnexo[a, b] and fAuditorias[a, b] and fUrls[a, b] and fPessoas[a, b]
 	registraComando[a, b, o]
 	b.roteiroStatus = a.roteiroStatus ++ (r -> Publicavel)
 	coerente[b]
@@ -271,7 +298,7 @@ pred compartilhar[a, b: Estado, u: Usuario, r: Roteiro, dest: Usuario,
 	o.cmdUid = u and o.cmdTipo = TCompartilhar
 	cc not in a.compartilhados and cc.cRoteiro = r and cc.cProfessor = dest
 	fTurma[a, b] and fVinculo[a, b] and fPosts[a, b] and fRoteiros[a, b]
-	fObjetos[a, b] and fGeracao[a, b] and fAnexos[a, b] and fHistAnexo[a, b]
+	fObjetos[a, b] and fGeracao[a, b] and fAnexos[a, b] and fHistAnexo[a, b] and fAuditorias[a, b]
 	fUrls[a, b] and fPessoas[a, b]
 	registraComando[a, b, o]
 	b.compartilhados = a.compartilhados + cc
@@ -283,7 +310,7 @@ pred revogarCompartilhamento[a, b: Estado, u: Usuario, r: Roteiro, dest: Usuario
 	some c: a.compartilhados | c.cRoteiro = r and c.cProfessor = dest
 	o.cmdUid = u and o.cmdTipo = TRevogar
 	fTurma[a, b] and fVinculo[a, b] and fPosts[a, b] and fRoteiros[a, b]
-	fObjetos[a, b] and fGeracao[a, b] and fAnexos[a, b] and fHistAnexo[a, b]
+	fObjetos[a, b] and fGeracao[a, b] and fAnexos[a, b] and fHistAnexo[a, b] and fAuditorias[a, b]
 	fUrls[a, b] and fPessoas[a, b]
 	registraComando[a, b, o]
 	b.compartilhados = a.compartilhados - {c: a.compartilhados | c.cRoteiro = r and c.cProfessor = dest}
@@ -300,7 +327,7 @@ pred anexarPost[a, b: Estado, p: Post, r: Roteiro, u: Usuario, x: AnexoPost, o: 
 	x not in a.anexos
 	x.aPost = p and x.aRoteiro = r and x.aGeracao = a.geracaoValida[r]
 	fTurma[a, b] and fVinculo[a, b] and fPosts[a, b] and fRoteiros[a, b]
-	fObjetos[a, b] and fGeracao[a, b] and fCompartilhados[a, b] and fHistAnexo[a, b]
+	fObjetos[a, b] and fGeracao[a, b] and fCompartilhados[a, b] and fHistAnexo[a, b] and fAuditorias[a, b]
 	fUrls[a, b] and fPessoas[a, b]
 	registraComando[a, b, o]
 	b.anexos = a.anexos + x
@@ -321,7 +348,7 @@ pred trocarAnexo[a, b: Estado, p: Post, r: Roteiro, u: Usuario, x: AnexoPost,
 		and hx.hRoteiro = y.aRoteiro and hx.hGeracao = y.aGeracao)
 	fTurma[a, b] and fVinculo[a, b] and fPosts[a, b] and fRoteiros[a, b]
 	fObjetos[a, b] and fGeracao[a, b] and fCompartilhados[a, b]
-	fUrls[a, b] and fPessoas[a, b]
+	fUrls[a, b] and fAuditorias[a, b] and fPessoas[a, b]
 	registraComando[a, b, o]
 	b.anexos = (a.anexos - {y: a.anexos | y.aPost = p}) + x
 	b.histsAnexo = a.histsAnexo + hx
@@ -337,7 +364,7 @@ pred manterAnexo[a, b: Estado, p: Post, r: Roteiro, u: Usuario, o: Comando] {
 	some y: a.anexos | y.aPost = p and y.aRoteiro = r
 	fTurma[a, b] and fVinculo[a, b] and fPosts[a, b] and fRoteiros[a, b]
 	fObjetos[a, b] and fGeracao[a, b] and fCompartilhados[a, b] and fAnexos[a, b]
-	fHistAnexo[a, b] and fUrls[a, b] and fPessoas[a, b]
+	fHistAnexo[a, b] and fAuditorias[a, b] and fUrls[a, b] and fPessoas[a, b]
 	registraComando[a, b, o]
 	coerente[b]
 }
@@ -352,7 +379,7 @@ pred desvincularPost[a, b: Estado, p: Post, u: Usuario, hx: HistAnexo, o: Comand
 		and hx.hRoteiro = y.aRoteiro and hx.hGeracao = y.aGeracao)
 	fTurma[a, b] and fVinculo[a, b] and fPosts[a, b] and fRoteiros[a, b]
 	fObjetos[a, b] and fGeracao[a, b] and fCompartilhados[a, b]
-	fUrls[a, b] and fPessoas[a, b]
+	fUrls[a, b] and fAuditorias[a, b] and fPessoas[a, b]
 	registraComando[a, b, o]
 	b.anexos = a.anexos - {y: a.anexos | y.aPost = p}
 	b.histsAnexo = a.histsAnexo + hx
@@ -367,9 +394,39 @@ pred removerPostApresentacao[a, b: Estado, p: Post, u: Usuario, o: Comando] {
 	o.cmdUid = u and o.cmdTipo = TRemoverPost
 	fTurma[a, b] and fVinculo[a, b] and fPostsId[a, b] and fRoteiros[a, b]
 	fObjetos[a, b] and fGeracao[a, b] and fCompartilhados[a, b] and fAnexos[a, b]
-	fHistAnexo[a, b] and fUrls[a, b] and fPessoas[a, b]
+	fHistAnexo[a, b] and fAuditorias[a, b] and fUrls[a, b] and fPessoas[a, b]
 	registraComando[a, b, o]
 	b.postRemovido = a.postRemovido + p
+	coerente[b]
+}
+// Registra o escopo Q13 do Chefe sobre um Post removido da apresentação que
+// referencia o roteiro. É uma intervenção administrativa auditada (Q13).
+pred registrarAuditoriaQ13[a, b: Estado, u: Usuario, p: Post, r: Roteiro,
+		aq: AuditoriaQ13, o: Comando] {
+	coerente[a]
+	authOk[a, u] and u in a.chefes
+	p in a.postRemovido
+	some x: a.anexos | x.aPost = p and x.aRoteiro = r
+	aq not in a.auditorias
+	aq.aqChefe = u and aq.aqRoteiro = r and aq.aqPost = p
+	o.cmdUid = u and o.cmdTipo = TAuditar
+	fTurma[a, b] and fVinculo[a, b] and fPosts[a, b] and fRoteiros[a, b]
+	fObjetos[a, b] and fGeracao[a, b] and fCompartilhados[a, b] and fAnexos[a, b]
+	fHistAnexo[a, b] and fUrls[a, b] and fPessoas[a, b]
+	registraComando[a, b, o]
+	b.auditorias = a.auditorias + aq
+	coerente[b]
+}
+// Fim/revogação do escopo Q13: impede novas emissões; URLs já emitidas
+// permanecem (b.urls e b.urlsAtivas preservados).
+pred encerrarAuditoriaQ13[a, b: Estado, aq: AuditoriaQ13] {
+	coerente[a]
+	aq in a.auditorias
+	fTurma[a, b] and fVinculo[a, b] and fPosts[a, b] and fRoteiros[a, b]
+	fObjetos[a, b] and fGeracao[a, b] and fCompartilhados[a, b] and fAnexos[a, b]
+	fHistAnexo[a, b] and fUrls[a, b] and fPessoas[a, b]
+	b.comandos = a.comandos and b.recibos = a.recibos
+	b.auditorias = a.auditorias - aq
 	coerente[b]
 }
 pred emitirUrl[a, b: Estado, r: Roteiro, u: Usuario, url: UrlEmitida, o: Comando] {
@@ -380,7 +437,7 @@ pred emitirUrl[a, b: Estado, r: Roteiro, u: Usuario, url: UrlEmitida, o: Comando
 	url.uRoteiro = r and url.uUid = u and url.uGeracao = a.geracaoValida[r]
 	fTurma[a, b] and fVinculo[a, b] and fPosts[a, b] and fRoteiros[a, b]
 	fObjetos[a, b] and fGeracao[a, b] and fCompartilhados[a, b] and fAnexos[a, b]
-	fHistAnexo[a, b] and fPessoas[a, b]
+	fHistAnexo[a, b] and fAuditorias[a, b] and fPessoas[a, b]
 	registraComando[a, b, o]
 	b.urls = a.urls + url
 	b.urlsAtivas = a.urlsAtivas + url
@@ -391,7 +448,7 @@ pred expirarUrl[a, b: Estado, url: UrlEmitida] {
 	url in a.urlsAtivas
 	fTurma[a, b] and fVinculo[a, b] and fPosts[a, b] and fRoteiros[a, b]
 	fObjetos[a, b] and fGeracao[a, b] and fCompartilhados[a, b] and fAnexos[a, b]
-	fHistAnexo[a, b] and fUrlsSet[a, b] and fPessoas[a, b]
+	fHistAnexo[a, b] and fAuditorias[a, b] and fUrlsSet[a, b] and fPessoas[a, b]
 	b.comandos = a.comandos and b.recibos = a.recibos
 	b.urlsAtivas = a.urlsAtivas - url
 	coerente[b]
@@ -408,7 +465,7 @@ pred arquivarTurma[a, b: Estado, t: Turma, u: Usuario] {
 	(ehDonoTurma[a, u, t] or u in a.chefes)
 	fVinculo[a, b] and fPosts[a, b] and fRoteiros[a, b]
 	fObjetos[a, b] and fGeracao[a, b] and fCompartilhados[a, b]
-	fAnexos[a, b] and fHistAnexo[a, b] and fUrls[a, b] and fPessoas[a, b]
+	fAnexos[a, b] and fHistAnexo[a, b] and fAuditorias[a, b] and fUrls[a, b] and fPessoas[a, b]
 	b.comandos = a.comandos and b.recibos = a.recibos
 	b.turmas = a.turmas and b.donoT = a.donoT
 	b.statusT = a.statusT ++ (t -> Arquivada)
@@ -422,7 +479,7 @@ pred revogarVinculo[a, b: Estado, u: Usuario, t: Turma] {
 	a.versaoPerm[u] < 7
 	fTurma[a, b] and fPosts[a, b] and fRoteiros[a, b]
 	fObjetos[a, b] and fGeracao[a, b] and fCompartilhados[a, b]
-	fAnexos[a, b] and fHistAnexo[a, b] and fUrls[a, b]
+	fAnexos[a, b] and fHistAnexo[a, b] and fAuditorias[a, b] and fUrls[a, b]
 	b.comandos = a.comandos and b.recibos = a.recibos
 	b.ativos = a.ativos and b.professores = a.professores and b.chefes = a.chefes
 	b.claimVersao = a.claimVersao
@@ -436,7 +493,7 @@ pred atualizarClaim[a, b: Estado, u: Usuario] {
 	coerente[a]
 	fTurma[a, b] and fVinculo[a, b] and fPosts[a, b]
 	fRoteiros[a, b] and fObjetos[a, b] and fGeracao[a, b]
-	fCompartilhados[a, b] and fAnexos[a, b] and fHistAnexo[a, b] and fUrls[a, b]
+	fCompartilhados[a, b] and fAnexos[a, b] and fHistAnexo[a, b] and fAuditorias[a, b] and fUrls[a, b]
 	b.comandos = a.comandos and b.recibos = a.recibos
 	b.ativos = a.ativos and b.professores = a.professores and b.chefes = a.chefes
 	b.versaoPerm = a.versaoPerm
@@ -452,7 +509,7 @@ pred retryM7[a, b: Estado, o: Comando] {
 // Disjunção de todas as transições para quantificação universal.
 pred transicao[a, b: Estado] {
 	some u, dest: Usuario, r: Roteiro, obj: Objeto, x: AnexoPost, cc: Compartilhamento,
-		hx: HistAnexo, p: Post, t: Turma, c: Comando, url: UrlEmitida |
+		hx: HistAnexo, aq: AuditoriaQ13, p: Post, t: Turma, c: Comando, url: UrlEmitida |
 		cadastrarProvisorio[a, b, u, r, obj, c]
 		or validarObjeto[a, b, u, r, c]
 		or publicar[a, b, u, r, c]
@@ -463,6 +520,8 @@ pred transicao[a, b: Estado] {
 		or manterAnexo[a, b, p, r, u, c]
 		or desvincularPost[a, b, p, u, hx, c]
 		or removerPostApresentacao[a, b, p, u, c]
+		or registrarAuditoriaQ13[a, b, u, p, r, aq, c]
+		or encerrarAuditoriaQ13[a, b, aq]
 		or emitirUrl[a, b, r, u, url, c]
 		or expirarUrl[a, b, url]
 		or usarUrlEmitida[a, b, url]
@@ -545,6 +604,18 @@ assert NaoProprietarioNaoRevoga {
 	all a, b: Estado, u: Usuario, r: Roteiro, dest: Usuario, o: Comando |
 		revogarCompartilhamento[a, b, u, r, dest, o] implies
 			(some c: a.compartilhados | c.cRoteiro = r and c.cProfessor = dest)
+}
+// Só roteiro publicável é compartilhado (S7.7): invariante de estado e
+// inexistência de transição a partir de Provisorio/Validado.
+assert CompartilhamentoSoDePublicavel {
+	all s: Estado | coerente[s] implies
+		(all c: s.compartilhados | s.roteiroStatus[c.cRoteiro] = Publicavel)
+}
+assert NaoCompartilhaNaoPublicavel {
+	all a: Estado, u: Usuario, r: Roteiro, dest: Usuario, cc: Compartilhamento,
+			o: Comando |
+		(coerente[a] and a.roteiroStatus[r] != Publicavel)
+			implies (no b: Estado | compartilhar[a, b, u, r, dest, cc, o])
 }
 
 // ---- Assertions: download, URLs e turma ------------------------------------
@@ -652,13 +723,41 @@ assert ChefeNaoCompartilha {
 			cc: Compartilhamento, o: Comando |
 		compartilhar[a, b, u, r, dest, cc, o] implies u not in a.chefes
 }
+// Chefe só emite URL sob escopo Q13 registrado (intervenção sobre Post que
+// referencia o roteiro); sem escopo, nenhuma emissão nova.
+assert ChefeSemEscopoNaoEmite {
+	all s: Estado, u: Usuario, r: Roteiro |
+		(coerente[s] and u in s.chefes and not escopoQ13[s, u, r])
+			implies not podeEmitirUrl[s, u, r]
+}
+assert EscopoQ13SoDeChefeComPostReferenciado {
+	all s: Estado, aq: AuditoriaQ13 |
+		(coerente[s] and aq in s.auditorias) implies
+			(aq.aqChefe in s.chefes and aq.aqPost in s.postRemovido
+				and (some x: s.anexos |
+					x.aPost = aq.aqPost and x.aRoteiro = aq.aqRoteiro))
+}
+assert EncerrarEscopoImpedeNovaEmissao {
+	all a, b: Estado, u: Usuario, r: Roteiro, aq: AuditoriaQ13 |
+		(coerente[a] and aq in a.auditorias and aq.aqChefe = u and aq.aqRoteiro = r
+			and encerrarAuditoriaQ13[a, b, aq]
+			and (no aq2: b.auditorias | aq2.aqChefe = u and aq2.aqRoteiro = r)
+			and u not in b.professores and not alunoPodeBaixar[b, u, r])
+			implies not podeEmitirUrl[b, u, r]
+}
+assert UrlEmitidaSobreviveAoEncerramentoEscopo {
+	all a, b: Estado, aq: AuditoriaQ13 |
+		encerrarAuditoriaQ13[a, b, aq] implies
+			(b.urls = a.urls and b.urlsAtivas = a.urlsAtivas)
+}
 assert RevogacaoVinculoImpedeCommit {
 	all a, b: Estado, u: Usuario, t: Turma |
 		revogarVinculo[a, b, u, t] implies not authOk[b, u]
 }
 assert PrimeiraExecucaoProduzReceipt {
 	all a, b: Estado, u, dest: Usuario, r: Roteiro, obj: Objeto, x: AnexoPost,
-			cc: Compartilhamento, hx: HistAnexo, p: Post, url: UrlEmitida, o: Comando |
+			cc: Compartilhamento, hx: HistAnexo, aq: AuditoriaQ13, p: Post,
+			url: UrlEmitida, o: Comando |
 		(cadastrarProvisorio[a, b, u, r, obj, o]
 			or validarObjeto[a, b, u, r, o]
 			or publicar[a, b, u, r, o]
@@ -669,6 +768,7 @@ assert PrimeiraExecucaoProduzReceipt {
 			or manterAnexo[a, b, p, r, u, o]
 			or desvincularPost[a, b, p, u, hx, o]
 			or removerPostApresentacao[a, b, p, u, o]
+			or registrarAuditoriaQ13[a, b, u, p, r, aq, o]
 			or emitirUrl[a, b, r, u, url, o])
 			implies (o in b.comandos and b.recibos[o.cmdId] = o and o not in a.comandos)
 }
@@ -700,6 +800,8 @@ assert ReusoIncompativelRejeitado {
 					desvincularPost[a, b, p, u, hx, o2])
 				or (some b: Estado, p: Post, u: Usuario |
 					removerPostApresentacao[a, b, p, u, o2])
+				or (some b: Estado, p: Post, u: Usuario, r: Roteiro, aq: AuditoriaQ13 |
+					registrarAuditoriaQ13[a, b, u, p, r, aq, o2])
 				or (some b: Estado, r: Roteiro, u: Usuario, url: UrlEmitida |
 					emitirUrl[a, b, r, u, url, o2])
 			)
@@ -780,10 +882,55 @@ pred WitnessUrlAtivaAposRevogacao {
 		and revogarCompartilhamento[a, b, u, r, dest, o]
 		and url in b.urls and url in b.urlsAtivas and podeUsarUrl[b, url]
 }
-pred WitnessChefeEmite {
+// Chefe emite URL somente com escopo Q13 registrado: registra a auditoria e
+// emite na sequência; o escopo liga Chefe, roteiro e Post removido.
+pred WitnessChefeComEscopoQ13 {
+	some a, b, c: Estado, u: Usuario, r: Roteiro, p: Post, aq: AuditoriaQ13,
+			url: UrlEmitida, o, o2: Comando |
+		coerente[a] and u in a.chefes and authOk[a, u]
+		and p in a.postRemovido
+		and (some x: a.anexos | x.aPost = p and x.aRoteiro = r)
+		and registrarAuditoriaQ13[a, b, u, p, r, aq, o]
+		and emitirUrl[b, c, r, u, url, o2]
+}
+// Chefe ativo e roteiro publicável, mas sem escopo Q13: não emite.
+pred WitnessChefeSemEscopoNaoEmite {
 	some s: Estado, u: Usuario, r: Roteiro |
-		coerente[s] and u in s.chefes and authOk[s, u] and podeEmitirUrl[s, u, r]
-		and u not in s.professores
+		coerente[s] and u in s.chefes and authOk[s, u] and roteiroPublicavel[s, r]
+		and (no aq: s.auditorias | aq.aqChefe = u and aq.aqRoteiro = r)
+		and u not in s.professores and not podeEmitirUrl[s, u, r]
+}
+// Encerrar o escopo impede nova emissão, mas preserva URLs já emitidas.
+pred WitnessEncerrarEscopoImpedeEmissao {
+	some a, b: Estado, u: Usuario, r: Roteiro, aq: AuditoriaQ13 |
+		coerente[a] and aq in a.auditorias and aq.aqChefe = u and aq.aqRoteiro = r
+		and u in a.chefes and not alunoPodeBaixar[a, u, r]
+		and encerrarAuditoriaQ13[a, b, aq]
+		and not podeEmitirUrl[b, u, r]
+}
+// Cenários alcançáveis de roteiro Provisorio/Validado com dono e destinatário
+// aptos: compartilhar não é possível; só Publicavel é compartilhável.
+pred WitnessProvisorioNaoCompartilha {
+	some a, b: Estado, u: Usuario, r: Roteiro, obj: Objeto, dest: Usuario, o: Comando |
+		cadastrarProvisorio[a, b, u, r, obj, o]
+		and authOk[b, dest] and dest in b.professores and dest != u
+		and (no b2: Estado, cc: Compartilhamento, o2: Comando |
+			compartilhar[b, b2, u, r, dest, cc, o2])
+}
+pred WitnessValidadoNaoCompartilha {
+	some a, b, c: Estado, u: Usuario, r: Roteiro, obj: Objeto, dest: Usuario,
+			o, o2: Comando |
+		cadastrarProvisorio[a, b, u, r, obj, o] and validarObjeto[b, c, u, r, o2]
+		and authOk[c, dest] and dest in c.professores and dest != u
+		and (no c2: Estado, cc: Compartilhamento, o3: Comando |
+			compartilhar[c, c2, u, r, dest, cc, o3])
+}
+pred WitnessCompartilhaPublicavel {
+	some a, b, c, d, e: Estado, u: Usuario, r: Roteiro, obj: Objeto, dest: Usuario,
+			cc: Compartilhamento, o, o2, o3, o4: Comando |
+		cadastrarProvisorio[a, b, u, r, obj, o]
+		and validarObjeto[b, c, u, r, o2] and publicar[c, d, u, r, o3]
+		and compartilhar[d, e, u, r, dest, cc, o4] and roteiroPublicavel[d, r]
 }
 pred WitnessPostRemovidoNaoEmiteAluno {
 	some a, b: Estado, u: Usuario, r: Roteiro, p: Post, o: Comando |
@@ -842,6 +989,8 @@ check CompartilharExigeDestinatarioAtivo for 6
 check CompartilhamentoUnico for 6
 check RevogarSoProprietario for 6
 check NaoProprietarioNaoRevoga for 6
+check CompartilhamentoSoDePublicavel for 6
+check NaoCompartilhaNaoPublicavel for 6
 check EmissaoExigeAcesso for 6
 check ExAlunoNaoEmite for 6
 check InativoNaoEmite for 6
@@ -851,6 +1000,8 @@ check TurmaArquivadaNegaEscritaRoteiro for 6
 check UrlEmitidaSobreviveARevogacao for 6
 check UrlExpiradaNaoUsavel for 6
 check UrlAtivaUsavel for 6
+check EncerrarEscopoImpedeNovaEmissao for 6
+check UrlEmitidaSobreviveAoEncerramentoEscopo for 6
 check AnexarSoDonoDaTurma for 6
 check AnexarExigeAcessoAtual for 6
 check ManterExigeAcessoAtual for 6
@@ -861,6 +1012,8 @@ check HistoricoAnexoPreservaObjeto for 6
 check AnexoEhGeracaoValidada for 6
 check ChefeNaoAnexa for 6
 check ChefeNaoCompartilha for 6
+check ChefeSemEscopoNaoEmite for 6
+check EscopoQ13SoDeChefeComPostReferenciado for 6
 check RevogacaoVinculoImpedeCommit for 6
 check PrimeiraExecucaoProduzReceipt for 6
 check IdentidadeComandoUnica for 6
@@ -880,7 +1033,12 @@ run WitnessAlunoEmiteTurmaArquivada for 6
 run WitnessExAlunoNaoEmite for 6
 run WitnessRevogadoNaoEmite for 6
 run WitnessUrlAtivaAposRevogacao for 6
-run WitnessChefeEmite for 6
+run WitnessProvisorioNaoCompartilha for 6
+run WitnessValidadoNaoCompartilha for 6
+run WitnessCompartilhaPublicavel for 6
+run WitnessChefeComEscopoQ13 for 6
+run WitnessChefeSemEscopoNaoEmite for 6
+run WitnessEncerrarEscopoImpedeEmissao for 6
 run WitnessPostRemovidoNaoEmiteAluno for 6
 run WitnessAnexaComAcesso for 6
 run WitnessMantemComAcesso for 6

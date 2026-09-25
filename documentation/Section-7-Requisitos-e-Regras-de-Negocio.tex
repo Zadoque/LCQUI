@@ -659,7 +659,22 @@ controle vale para URLs novas e não é afrouxado pelo prazo da URL anterior. O
 download retorna o mínimo necessário (URL curta, identidade do objeto e geração)
 sem conteúdo protegido; se o objeto estiver ausente ou a geração divergir, falha
 fechado, sem fallback para \texttt{file\_url}. O Chefe acessa por Q13 apenas no
-escopo de moderação/auditoria.
+escopo de \textbf{moderação/auditoria}: a intervenção administrativa excepcional
+sobre um Post que referencia o roteiro, registrada em
+\texttt{Registro\_de\_Auditoria} (Q13). Sem esse vínculo concreto e ativo entre o
+Chefe, o roteiro e o Post sob intervenção, o Chefe \textbf{não} emite URL nova;
+um booleano livre ou o papel isolado não autorizam, e o fim/revogação do escopo
+impede apenas novas emissões, preservando as URLs já emitidas até expirarem. O
+escopo Q13 é exclusivo de quem possui o papel de Chefe (RN-ROLE-01, sem acúmulo
+de vínculo de aluno).
+\end{regra}
+
+\begin{regra}[Elegibilidade para compartilhamento]
+Só um Roteiro \textbf{publicável} --- objeto validado e geração fixada --- é
+elegível a compartilhamento e anexo; um Roteiro \texttt{PROVISORIO} ou
+\texttt{VALIDADO} não pode ser compartilhado, e um compartilhamento existente
+nunca aponta para Roteiro não publicável. Repetir o compartilhamento de um
+Roteiro publicável permanece idempotente (M7).
 \end{regra}
 
 \begin{regra}[Associação com Post]
@@ -703,13 +718,14 @@ atomicidade entre serviços.
 	\item \textbf{Cadastrar roteiro}: ator professor ativo; pré: PDF $<$15 MiB
 	validado, caminho/titularidade/geração; efeito: Roteiro publicável; falha:
 	objeto órfão reconciliável, sem registro utilizável.
-	\item \textbf{Compartilhar/revogar}: ator proprietário; pré: destinatário
-	professor ativo, relação única; efeito: ACL atualizada (idempotente) +
-	notificação mínima; falha: nenhuma ACL parcial.
+	\item \textbf{Compartilhar/revogar}: ator proprietário; pré: roteiro
+	\textbf{publicável}, destinatário professor ativo, relação única; efeito: ACL
+	atualizada (idempotente) + notificação mínima; falha: nenhuma ACL parcial.
 	\item \textbf{Listar biblioteca}: ator proprietário/destinatário atual;
 	efeito: projeção mínima; revogado/ex-aluno não veem.
 	\item \textbf{Baixar}: professor com propriedade/compartilhamento atual, ou
-	aluno com vínculo atual e Post acessível; Chefe por Q13; efeito: URL curta
+	aluno com vínculo atual e Post acessível; Chefe por Q13 somente sob escopo de
+	moderação/auditoria registrado sobre Post que referencia o roteiro; efeito: URL curta
 	com geração; falha fechado se objeto/geração ausente; ex-aluno/arquivada
 	segundo a regra.
 	\item \textbf{Anexar/editar/desvincular Post}: ator professor dono; pré:

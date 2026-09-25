@@ -4,7 +4,7 @@
   "solver": "sat4j",
   "spec_ir_sha256": "b5671cb75609239db147d9fbe446aafa35d12f2d71ee91753f4d4cb630573fe1",
   "model": "specification/alloy/operations/roteiros_m12_2.als",
-  "model_sha256": "b86da4bc451d94ac652cba1e34ae0c3453999fe2322040d3340696d41ed77aaf",
+  "model_sha256": "51348d15c00a3ac629cbe9232025846cbc3856e98be064377f24bff9847e417a",
   "resultados": [
     {
       "id": "M12_2-INV-001",
@@ -113,321 +113,398 @@
     },
     {
       "id": "M12_2-INV-016",
+      "assertion": "CompartilhamentoSoDePublicavel",
+      "tipo": "check",
+      "scope": "check CompartilhamentoSoDePublicavel for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-017",
+      "assertion": "NaoCompartilhaNaoPublicavel",
+      "tipo": "check",
+      "scope": "check NaoCompartilhaNaoPublicavel for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-018",
       "assertion": "EmissaoExigeAcesso",
       "tipo": "check",
       "scope": "check EmissaoExigeAcesso for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-017",
+      "id": "M12_2-INV-019",
       "assertion": "ExAlunoNaoEmite",
       "tipo": "check",
       "scope": "check ExAlunoNaoEmite for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-018",
+      "id": "M12_2-INV-020",
       "assertion": "InativoNaoEmite",
       "tipo": "check",
       "scope": "check InativoNaoEmite for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-019",
+      "id": "M12_2-INV-021",
       "assertion": "AlunoDependeDeVinculo",
       "tipo": "check",
       "scope": "check AlunoDependeDeVinculo for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-020",
+      "id": "M12_2-INV-022",
       "assertion": "PostRemovidoNegaAluno",
       "tipo": "check",
       "scope": "check PostRemovidoNegaAluno for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-021",
+      "id": "M12_2-INV-023",
       "assertion": "TurmaArquivadaNegaEscritaRoteiro",
       "tipo": "check",
       "scope": "check TurmaArquivadaNegaEscritaRoteiro for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-022",
+      "id": "M12_2-INV-024",
       "assertion": "UrlEmitidaSobreviveARevogacao",
       "tipo": "check",
       "scope": "check UrlEmitidaSobreviveARevogacao for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-023",
+      "id": "M12_2-INV-025",
       "assertion": "UrlExpiradaNaoUsavel",
       "tipo": "check",
       "scope": "check UrlExpiradaNaoUsavel for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-024",
+      "id": "M12_2-INV-026",
       "assertion": "UrlAtivaUsavel",
       "tipo": "check",
       "scope": "check UrlAtivaUsavel for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-025",
+      "id": "M12_2-INV-027",
+      "assertion": "EncerrarEscopoImpedeNovaEmissao",
+      "tipo": "check",
+      "scope": "check EncerrarEscopoImpedeNovaEmissao for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-028",
+      "assertion": "UrlEmitidaSobreviveAoEncerramentoEscopo",
+      "tipo": "check",
+      "scope": "check UrlEmitidaSobreviveAoEncerramentoEscopo for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-029",
       "assertion": "AnexarSoDonoDaTurma",
       "tipo": "check",
       "scope": "check AnexarSoDonoDaTurma for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-026",
+      "id": "M12_2-INV-030",
       "assertion": "AnexarExigeAcessoAtual",
       "tipo": "check",
       "scope": "check AnexarExigeAcessoAtual for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-027",
+      "id": "M12_2-INV-031",
       "assertion": "ManterExigeAcessoAtual",
       "tipo": "check",
       "scope": "check ManterExigeAcessoAtual for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-028",
+      "id": "M12_2-INV-032",
       "assertion": "TrocarExigeAcessoAtual",
       "tipo": "check",
       "scope": "check TrocarExigeAcessoAtual for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-029",
+      "id": "M12_2-INV-033",
       "assertion": "RemocaoPostPreservaSnapshot",
       "tipo": "check",
       "scope": "check RemocaoPostPreservaSnapshot for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-030",
+      "id": "M12_2-INV-034",
       "assertion": "HistoricoAnexoNuncaRemovido",
       "tipo": "check",
       "scope": "check HistoricoAnexoNuncaRemovido for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-031",
+      "id": "M12_2-INV-035",
       "assertion": "HistoricoAnexoPreservaObjeto",
       "tipo": "check",
       "scope": "check HistoricoAnexoPreservaObjeto for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-032",
+      "id": "M12_2-INV-036",
       "assertion": "AnexoEhGeracaoValidada",
       "tipo": "check",
       "scope": "check AnexoEhGeracaoValidada for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-033",
+      "id": "M12_2-INV-037",
       "assertion": "ChefeNaoAnexa",
       "tipo": "check",
       "scope": "check ChefeNaoAnexa for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-034",
+      "id": "M12_2-INV-038",
       "assertion": "ChefeNaoCompartilha",
       "tipo": "check",
       "scope": "check ChefeNaoCompartilha for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-035",
+      "id": "M12_2-INV-039",
+      "assertion": "ChefeSemEscopoNaoEmite",
+      "tipo": "check",
+      "scope": "check ChefeSemEscopoNaoEmite for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-040",
+      "assertion": "EscopoQ13SoDeChefeComPostReferenciado",
+      "tipo": "check",
+      "scope": "check EscopoQ13SoDeChefeComPostReferenciado for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-041",
       "assertion": "RevogacaoVinculoImpedeCommit",
       "tipo": "check",
       "scope": "check RevogacaoVinculoImpedeCommit for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-036",
+      "id": "M12_2-INV-042",
       "assertion": "PrimeiraExecucaoProduzReceipt",
       "tipo": "check",
       "scope": "check PrimeiraExecucaoProduzReceipt for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-037",
+      "id": "M12_2-INV-043",
       "assertion": "IdentidadeComandoUnica",
       "tipo": "check",
       "scope": "check IdentidadeComandoUnica for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-038",
+      "id": "M12_2-INV-044",
       "assertion": "ReusoIncompativelRejeitado",
       "tipo": "check",
       "scope": "check ReusoIncompativelRejeitado for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-039",
+      "id": "M12_2-INV-045",
       "assertion": "RetryNaoReexecuta",
       "tipo": "check",
       "scope": "check RetryNaoReexecuta for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-040",
+      "id": "M12_2-INV-046",
       "assertion": "RetryNaoDuplicaFato",
       "tipo": "check",
       "scope": "check RetryNaoDuplicaFato for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-INV-041",
+      "id": "M12_2-INV-047",
       "assertion": "TransicoesPreservamCoerencia",
       "tipo": "check",
       "scope": "check TransicoesPreservamCoerencia for 6",
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-WIT-042",
+      "id": "M12_2-WIT-048",
       "assertion": "WitnessTurmaAtiva",
       "tipo": "run",
       "scope": "run WitnessTurmaAtiva for 4",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-043",
+      "id": "M12_2-WIT-049",
       "assertion": "WitnessCadastraProvisorio",
       "tipo": "run",
       "scope": "run WitnessCadastraProvisorio for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-044",
+      "id": "M12_2-WIT-050",
       "assertion": "WitnessValidaObjeto",
       "tipo": "run",
       "scope": "run WitnessValidaObjeto for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-045",
+      "id": "M12_2-WIT-051",
       "assertion": "WitnessPublica",
       "tipo": "run",
       "scope": "run WitnessPublica for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-046",
+      "id": "M12_2-WIT-052",
       "assertion": "WitnessProprietarioEmite",
       "tipo": "run",
       "scope": "run WitnessProprietarioEmite for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-047",
+      "id": "M12_2-WIT-053",
       "assertion": "WitnessCompartilhadoEmite",
       "tipo": "run",
       "scope": "run WitnessCompartilhadoEmite for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-048",
+      "id": "M12_2-WIT-054",
       "assertion": "WitnessAlunoEmitePostAtivo",
       "tipo": "run",
       "scope": "run WitnessAlunoEmitePostAtivo for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-049",
+      "id": "M12_2-WIT-055",
       "assertion": "WitnessAlunoEmiteTurmaArquivada",
       "tipo": "run",
       "scope": "run WitnessAlunoEmiteTurmaArquivada for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-050",
+      "id": "M12_2-WIT-056",
       "assertion": "WitnessExAlunoNaoEmite",
       "tipo": "run",
       "scope": "run WitnessExAlunoNaoEmite for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-051",
+      "id": "M12_2-WIT-057",
       "assertion": "WitnessRevogadoNaoEmite",
       "tipo": "run",
       "scope": "run WitnessRevogadoNaoEmite for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-052",
+      "id": "M12_2-WIT-058",
       "assertion": "WitnessUrlAtivaAposRevogacao",
       "tipo": "run",
       "scope": "run WitnessUrlAtivaAposRevogacao for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-053",
-      "assertion": "WitnessChefeEmite",
+      "id": "M12_2-WIT-059",
+      "assertion": "WitnessProvisorioNaoCompartilha",
       "tipo": "run",
-      "scope": "run WitnessChefeEmite for 6",
+      "scope": "run WitnessProvisorioNaoCompartilha for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-054",
+      "id": "M12_2-WIT-060",
+      "assertion": "WitnessValidadoNaoCompartilha",
+      "tipo": "run",
+      "scope": "run WitnessValidadoNaoCompartilha for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-061",
+      "assertion": "WitnessCompartilhaPublicavel",
+      "tipo": "run",
+      "scope": "run WitnessCompartilhaPublicavel for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-062",
+      "assertion": "WitnessChefeComEscopoQ13",
+      "tipo": "run",
+      "scope": "run WitnessChefeComEscopoQ13 for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-063",
+      "assertion": "WitnessChefeSemEscopoNaoEmite",
+      "tipo": "run",
+      "scope": "run WitnessChefeSemEscopoNaoEmite for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-064",
+      "assertion": "WitnessEncerrarEscopoImpedeEmissao",
+      "tipo": "run",
+      "scope": "run WitnessEncerrarEscopoImpedeEmissao for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-065",
       "assertion": "WitnessPostRemovidoNaoEmiteAluno",
       "tipo": "run",
       "scope": "run WitnessPostRemovidoNaoEmiteAluno for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-055",
+      "id": "M12_2-WIT-066",
       "assertion": "WitnessAnexaComAcesso",
       "tipo": "run",
       "scope": "run WitnessAnexaComAcesso for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-056",
+      "id": "M12_2-WIT-067",
       "assertion": "WitnessMantemComAcesso",
       "tipo": "run",
       "scope": "run WitnessMantemComAcesso for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-057",
+      "id": "M12_2-WIT-068",
       "assertion": "WitnessDesvinculaSemAcesso",
       "tipo": "run",
       "scope": "run WitnessDesvinculaSemAcesso for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-058",
+      "id": "M12_2-WIT-069",
       "assertion": "WitnessTrocaPreservaHistorico",
       "tipo": "run",
       "scope": "run WitnessTrocaPreservaHistorico for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-059",
+      "id": "M12_2-WIT-070",
       "assertion": "WitnessRetryAposExecucao",
       "tipo": "run",
       "scope": "run WitnessRetryAposExecucao for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-060",
+      "id": "M12_2-WIT-071",
       "assertion": "WitnessReusoIncompativel",
       "tipo": "run",
       "scope": "run WitnessReusoIncompativel for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-061",
+      "id": "M12_2-WIT-072",
       "assertion": "WitnessObjetoAusenteNaoEmite",
       "tipo": "run",
       "scope": "run WitnessObjetoAusenteNaoEmite for 6",
