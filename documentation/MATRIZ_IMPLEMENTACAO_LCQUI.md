@@ -20,8 +20,8 @@
 | Total de features | 70 |
 | Auditadas | 70 |
 | Não auditadas | 0 |
-| DIVERGENTE | 52 |
-| NÃO DIVERGENTE | 1 |
+| DIVERGENTE | 51 |
+| NÃO DIVERGENTE | 2 |
 | NÃO IMPLEMENTADO | 17 |
 
 <!-- MATRIX_COUNTS_END -->
@@ -106,7 +106,7 @@ Abreviações: `S5`–`S11` = seções normativas; `UI-n` = contrato de tela; `C
 | ID | Domínio | Feature | Fonte normativa | Milestone(s) | Implementação encontrada | Auditado | Estado | Divergência / evidência | Testes existentes relacionados | Teste futuro necessário |
 |---|---|---|---|---|---|---|---|---|---|---|
 | IMP-NOTIF-001 | Notificações | Caixa única e sino por UID | S7 RN-M13-01; S8 UI-12; S9 M13 | M13 | subcoleção `Usuarios/uid/Notificacoes`; placeholders de UI | SIM | DIVERGENTE | Modelo de caminho existe, mas não há caixa funcional unificada; schema exclui Chefe e usa enum divergente; frontend não lista/navega/revalida alvos. | `notificacoes.test.ts` (marcação) | Caixa multi-role, Bolsista/Chefe e ACL atual |
-| IMP-NOTIF-002 | Notificações | Marcar uma como lida | RN-M13-02 | M9, M13 | `marcarNotificacaoComoLida` | SIM | DIVERGENTE | Idempotência preserva instante, mas não valida usuário persistido ativo/versão; Rules permitem update/delete direto, contrariando server-owned. | `notificacoes.test.ts` | Dono/terceiro, token obsoleto e instante estável |
+| IMP-NOTIF-002 | Notificações | Marcar uma como lida | RN-M13-02 | M9, M13 | `notificacoes.ts: marcarNotificacaoComoLida`; `firestore.rules` Notificacoes server-owned | SIM | NÃO DIVERGENTE | Marcação exige autoridade persistida M9 (ativo + versão corrente + papel persistido) relida na transação e aceita apenas o próprio UID; `lida_em` é preservado em repetição; Rules tornam a subcoleção somente leitura ao dono (`write: false`), eliminando o update/delete direto. | `notificacoes.test.ts` (`TEST-INT-NOTIF-M9-001–007`); `security/notificacoes.rules.test.ts` (`TEST-RULES-NOTIF-001–007`) | Nenhum para o escopo examinado; manter regressão |
 | IMP-NOTIF-003 | Notificações | Limpar todas por corte paginado | RN-M13-02; S9 M13 | M7, M13 | nenhum endpoint | SIM | NÃO IMPLEMENTADO | Ausentes paginação reentrante, corte estável e retry sem DELETE. | nenhum | Falha parcial, emissão concorrente e retomada |
 | IMP-NOTIF-004 | Notificações | Expiração e conjunto ativo | RN-M13-03 | M13 | emissor fixa 30 dias para tudo | SIM | DIVERGENTE | Aplica prazo arbitrário universal; escassez deveria ter `null`; não há processamento/filtro que preserve fato expirado fora do ativo. | nenhum | Null, vencido, lido e janelas de devolução |
 | IMP-NOTIF-005 | Notificações | Emissão, fan-out e deduplicação | RN-M13-05–07; obrigações V1 | M7, M8, M11–M13 | `adicionarNotificacaoTx` usado em patrimônio/roteiro/matrícula | SIM | DIVERGENTE | IDs aleatórios duplicam retries; enums/contexto divergem; faltam POST, COMENTARIO, jobs, arquivamento e autoatendimento; payload aceita mensagem livre. | roteiros/patrimônio/turmas (parcial) | Cada emissor V1, dedup por destinatário e erro não-code-6 |

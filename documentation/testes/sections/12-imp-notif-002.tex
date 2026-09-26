@@ -1,0 +1,68 @@
+\section{Evidência de IMP-NOTIF-002 (marcar como lida, M9 + server-owned)}
+
+\textbf{Feature:} \texttt{IMP-NOTIF-002} --- marcar uma notificação como lida.
+
+\textbf{Estado anterior:} \texttt{DIVERGENTE}. A callable usava apenas
+\texttt{request.auth.uid}, sem reler atividade/versão/papel persistidos, e as
+Rules permitiam \texttt{update}/\texttt{delete} diretos do dono, contrariando o
+modelo server-owned e ``marcar lida só servidor''.
+
+\textbf{Estado depois:} \texttt{NÃO DIVERGENTE} para o escopo examinado.
+
+\subsection{Contrato}
+
+Fontes: Seção~7 \texttt{RN-M13-02} e a matriz de autorização M9 (destinatário lê
+a própria notificação; marcar lida só pelo servidor). A autoridade é a base M9
+persistida (usuário ativo, versão corrente, papel persistido) e o ownership do
+caminho (\texttt{Usuarios/\{uid\}/Notificacoes}).
+
+\subsection{Mudança}
+
+\begin{itemize}
+  \item \path{functions/src/notificacoes.ts}: \texttt{marcarNotificacaoComoLida}
+  passou a extrair claims e a reexecutar
+  \texttt{resolverAutoridadePersistidaTx(tx, claims, PAPEIS\_CONHECIDOS)} dentro
+  da transação; a notificação continua acessível apenas ao próprio UID;
+  \item \path{firestore.rules}: a subcoleção \texttt{Notificacoes} passa a
+  \texttt{allow read: if isOwner(uid); allow write: if false;}, tornando a
+  marcação exclusivamente server-owned.
+\end{itemize}
+
+\subsection{TDD}
+
+\small
+\begin{longtable}{@{}p{0.30\textwidth}p{0.52\textwidth}@{}}
+\toprule
+ID & Resultado \\
+\midrule
+\endhead
+TEST-INT-NOTIF-M9-001 & Dono ativo e corrente marca; \texttt{lida\_em} definido \\
+TEST-INT-NOTIF-M9-002 & Não autenticado nega \\
+TEST-INT-NOTIF-M9-003 & Usuário inativo nega e não altera \\
+TEST-INT-NOTIF-M9-004 & Token obsoleto nega \\
+TEST-INT-NOTIF-M9-005 & Claim sem papel persistido nega \\
+TEST-INT-NOTIF-M9-006 & Repetição preserva \texttt{lida\_em} \\
+TEST-INT-NOTIF-M9-007 & Notificação inexistente nega \\
+TEST-RULES-NOTIF-001 & Dono com autoridade lê a própria notificação \\
+TEST-RULES-NOTIF-002 & \texttt{update} direto negado \\
+TEST-RULES-NOTIF-003 & \texttt{delete} direto negado \\
+TEST-RULES-NOTIF-004 & \texttt{create} direto negado \\
+TEST-RULES-NOTIF-005 & Terceiro não lê notificação alheia \\
+TEST-RULES-NOTIF-006 & Token obsoleto não lê \\
+TEST-RULES-NOTIF-007 & Usuário inativo não lê \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+RED: três casos de integração (inativo, versão obsoleta, sem papel) e dois de
+Rules (\texttt{update}/\texttt{delete}) falharam contra a implementação/Rules
+anteriores. GREEN sob Node 20.19.6: integração 7/7, Rules 69/69.
+
+\subsection{Regressão}
+
+Sob Node 20.19.6: \texttt{build} PASS; \texttt{test:unit} PASS (71/71);
+integração completa 117 passam / 14 falham (14 legadas em reagentes/patrimônio/
+roteiros); Rules 69/69.
+
+\textbf{Estado final:} \texttt{IMP-NOTIF-002} = \texttt{NÃO DIVERGENTE} no
+escopo auditado. As demais linhas de notificação permanecem abertas.

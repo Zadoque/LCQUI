@@ -99,6 +99,20 @@ executado contra a implementação anterior (id derivado e \texttt{hash\_entrada
 os quatro casos foram corrigidos sob Node 20.19.6. As features permanecem
 \texttt{DIVERGENTE} por causa do efeito externo pré-commit e do aceite de convite.
 
+\subsection{Sexta cadeia executada}
+
+\begin{center}
+Seção 7 RN-M13-02 e M9; Seção 11
+$\rightarrow$ \texttt{IMP-NOTIF-002}
+$\rightarrow$ \texttt{TEST-INT-NOTIF-M9-001--007} e \texttt{TEST-RULES-NOTIF-001--007}
+$\rightarrow$ \nolinkurl{functions/src/notificacoes.ts} e \nolinkurl{firestore.rules}
+$\rightarrow$ PASS Node 20
+\end{center}
+
+O RED detectou três casos de integração (inativo, versão obsoleta, sem papel) e
+dois de Rules (\texttt{update}/\texttt{delete}). Após a mudança, \texttt{IMP-NOTIF-002}
+passou a \texttt{NÃO DIVERGENTE}: integração 7/7, Rules 69/69 sob Node 20.19.6.
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara
