@@ -46,8 +46,8 @@ async function seedUser(
   });
 }
 
-function dbFor(uid: string, roles: string[], version: number | undefined = CURRENT_VERSION) {
-  const token = version === undefined
+function dbFor(uid: string, roles: string[], version: number | null = CURRENT_VERSION) {
+  const token = version === null
     ? {roles}
     : {roles, versao_permissoes: version};
   return testEnv.authenticatedContext(uid, token).firestore();
@@ -102,7 +102,7 @@ describe("IMP-RULES-001 — autoridade persistida M9", () => {
   // Seção 11: campo versao_permissoes ausente no token falha fechado.
   it("TEST-RULES-M9-004 nega token sem versão de permissões", async () => {
     await seedUser("sem-versao", {roles: ["Aluno"]});
-    const db = dbFor("sem-versao", ["Aluno"], undefined);
+    const db = dbFor("sem-versao", ["Aluno"], null);
     await assertFails(catalogRef(db).get());
   });
 

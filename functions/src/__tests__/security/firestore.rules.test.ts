@@ -9,6 +9,41 @@ import * as path from "path";
 
 let testEnv: RulesTestEnvironment;
 
+type KnownRole =
+  | "Chefe_Geral"
+  | "Gestor_Almoxarifado"
+  | "Gestor_Bens_Patrimoniais"
+  | "Professor"
+  | "Aluno"
+  | "Bolsista";
+
+const AUTHORITY_VERSION = 1;
+const LEGACY_AUTHORITIES: Record<string, KnownRole[]> = {
+  alice: ["Aluno"],
+  boss: ["Chefe_Geral"],
+  aluno1: ["Aluno"],
+  prof1: ["Professor"],
+  prof2: ["Professor"],
+  gestor1: ["Gestor_Bens_Patrimoniais"],
+  gestorAlm: ["Gestor_Almoxarifado"],
+  prof: ["Professor"],
+};
+
+async function seedAuthority(uid: string, roles: KnownRole[]): Promise<void> {
+  await testEnv.withSecurityRulesDisabled(async context => {
+    const db = context.firestore();
+    const batch = db.batch();
+    batch.set(db.collection("Usuarios").doc(uid), {
+      ativo: true,
+      versao_permissoes: AUTHORITY_VERSION,
+    });
+    for (const role of roles) {
+      batch.set(db.collection(role).doc(uid), {id_usuario: uid, ativo: true});
+    }
+    await batch.commit();
+  });
+}
+
 beforeAll(async () => {
   // Inicializa o ambiente de teste apontando para o emulador
   testEnv = await initializeTestEnvironment({
@@ -23,6 +58,9 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await testEnv.clearFirestore();
+  for (const [uid, roles] of Object.entries(LEGACY_AUTHORITIES)) {
+    await seedAuthority(uid, roles);
+  }
 });
 
 afterAll(async () => {
@@ -34,8 +72,8 @@ describe("Firestore Security Rules", () => {
   // Helpers
   const unauthedDb = () => testEnv.unauthenticatedContext().firestore();
   
-  const authedDb = (uid: string, roles: string[] = []) => 
-    testEnv.authenticatedContext(uid, { roles }).firestore();
+  const authedDb = (uid: string, roles: KnownRole[] = LEGACY_AUTHORITIES[uid] ?? []) =>
+    testEnv.authenticatedContext(uid, {roles, versao_permissoes: AUTHORITY_VERSION}).firestore();
 
   describe("Acessos Básicos", () => {
     it("não deve permitir leitura ou escrita se não estiver autenticado", async () => {
@@ -199,11 +237,15 @@ describe("Firestore Security Rules", () => {
 
 // AUD-35/36: usar documentos existentes para provar negativa por Rules, não ausência.
 describe.each(["Controle_Papeis", "Operacoes", "Chaves_Unicas"])("Coleção interna %s", colecao => {
-  it.each([[], ["Aluno"], ["Professor"], ["Gestor_Almoxarifado"], ["Chefe_Geral"]])("nega cliente com roles %j", async (...roles) => {
+  it.each<KnownRole[]>([[], ["Aluno"], ["Professor"], ["Gestor_Almoxarifado"], ["Chefe_Geral"]])("nega cliente com roles %j", async (...roles) => {
     await testEnv.withSecurityRulesDisabled(async ctx => {
       await ctx.firestore().collection(colecao).doc("singleton").set({ versao: 1 });
     });
-    const db = testEnv.authenticatedContext("cliente", { roles }).firestore();
+    await seedAuthority("cliente", roles);
+    const db = testEnv.authenticatedContext("cliente", {
+      roles,
+      versao_permissoes: AUTHORITY_VERSION,
+    }).firestore();
     const ref = db.collection(colecao).doc("singleton");
     await assertFails(ref.get());
     await assertFails(db.collection(colecao).get());
