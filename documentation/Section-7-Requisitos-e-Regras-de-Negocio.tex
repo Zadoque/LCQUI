@@ -1332,6 +1332,222 @@ As seguintes operações permanecem permitidas para encerramento ordenado:
 A reativação do almoxarifado (\texttt{ativo = true}) é possível e não exige recriação da entidade. A desativação é auditada em \textit{Registro\_de\_Auditoria} com ação \texttt{DESATIVACAO\_ALMOXARIFADO}.
 \end{regra}
 
+% M13 -- fonte normativa da Notificacao unificada (caixa, leitura, alvo e dedup)
+\subsection{Notificação unificada (M13)}
+\label{sec:regras-notificacoes-m13}
+
+Esta subseção é a fonte normativa da entidade única \textit{Notificacao} e da
+caixa (UI-12). Ela compõe a idempotência M7
+(Seção~\ref{sec:idempotencia-m7}), a emissão de escassez e o docId diário de M8
+(Seção~\ref{sec:m8-estoque-escassez-notificacoes}), a autorização corrente M9
+(Seção~\ref{sec:m9-autorizacao}), a participação acadêmica M11
+(Seção~\ref{sec:regras-turmas-m11}) e os efeitos delimitados de M12.1/M12.2
+(Seções~\ref{sec:regras-posts-comentarios-m12-1} e
+\ref{sec:regras-roteiros-m12-2}) sem reabrir suas provas. A implementação
+Firebase (\texttt{functions/}, \texttt{frontend/}, Rules) permanece fora desta
+rodada; a evidência é estrutural (CUE) e relacional/temporal abstrata (Alloy).
+
+\begin{regra}[Identidade, caixa única e leitura (RN-M13-01)]
+A notificação é a entidade única \textit{Notificacao} da 3FN, implementada em
+\texttt{Usuarios/\{uid\}/Notificacoes/\{id\}}. O \texttt{uid} do caminho e o
+campo \texttt{id\_destinatario} correspondem ao destinatário autenticado: existe
+\textbf{um único sino/caixa por conta} (UID), reunindo todos os
+\texttt{papel\_destinatario} de que a pessoa participa. O papel selecionado no
+header é apenas \textbf{contexto de apresentação}; ele não filtra
+silenciosamente a caixa própria nem concede privilégio algum. O campo
+\texttt{papel\_destinatario} é contexto de exibição e \textbf{nunca} uma
+concessão de papel. A caixa inclui \texttt{Bolsista} (Q12) e
+\texttt{Chefe\_Geral}; o Bolsista agrega alertas de empréstimo independentemente
+do papel visual corrente. Nenhum usuário lê a caixa de outro UID.
+\end{regra}
+
+\begin{regra}[Mutação, marcação e ``Limpar tudo'' (RN-M13-02)]
+Criação, marcação individual de leitura e ``Limpar tudo'' são
+\textbf{server-owned}; o cliente apenas lê os próprios documentos, sujeitos à
+proteção de conteúdo. Vale \texttt{lida = false} $\Rightarrow$
+\texttt{lida\_em = null}; ao marcar, \texttt{lida = true} e \texttt{lida\_em}
+recebe o instante do servidor. Repetir a marcação é idempotente: não altera um
+instante lógico já gravado nem cria novo fato. ``Limpar tudo'' marca como lida
+toda notificação ativa elegível daquele UID, inclusive de outros
+\texttt{papel\_destinatario}, por processamento \textbf{paginado e
+reentrante}; não executa \texttt{DELETE}, não apaga o histórico e não age na
+caixa de terceiro. Cada rodada encerra em um \textbf{corte estável} dos itens
+existentes no início; avisos emitidos após esse corte permanecem disponíveis
+para a próxima rodada. Isso é uma regra de execução do contrato de paginação,
+não uma promessa de transação ilimitada nem de varredura atômica de toda a
+coleção. Falha parcial ou retry retoma do corte, sem marcar um item novo por
+engano.
+\end{regra}
+
+\begin{regra}[Vida temporal e expiração (RN-M13-03)]
+\texttt{expira\_em = null} significa \textbf{ausência de expiração temporal
+automática}; é o caso de \texttt{ESCASSEZ\_ESTOQUE}, alerta operacional
+persistente. Quando \texttt{expira\_em} é alcançado, o aviso sai do conjunto
+\textbf{ativo} sem apagar o fato (o documento permanece para o histórico).
+Aviso expirado ou já lido \textbf{nunca} confere autorização ao objeto de
+origem: ler ou expirar não cria acesso. Não se atribui duração arbitrária aos
+demais tipos; usam-se apenas prazos determinados na fonte. Em particular,
+\texttt{DATA\_DEVOLUCAO\_REAGENTE} é preventivo e cobre a janela
+``amanhã~$\rightarrow$~hoje'' com docId \texttt{\{id\_emprestimo\}--\{janela\}}
+(\texttt{VENCE\_AMANHA}/\texttt{VENCE\_HOJE}); um empréstimo que muda de janela
+cria um segundo documento e o anterior não é removido, apenas expirado.
+\end{regra}
+
+\begin{regra}[Alvo, deep link e revalidação (RN-M13-04)]
+\texttt{entidade\_alvo} pertence a uma lista fechada de rotas conhecidas e
+\texttt{id\_alvo} é o identificador de um recurso, \textbf{nunca} uma URL
+arbitrária. Abrir o aviso relê a autorização \textbf{corrente} de M9 e o
+contrato do domínio: vínculo canônico atual em Turma/Post (M11/M12.1), estado de
+remoção/moderação, propriedade/compartilhamento de Roteiro e geração (M12.2) e
+escopo Q13 do Chefe. Revogação, remoção da apresentação, perda de vínculo ou
+objeto inacessível produzem \textbf{resposta neutra}, sem texto protegido; a
+notificação \textbf{não cria} participação nem acesso. Uma URL de Storage já
+emitida mantém o limite temporal curto da Seção~\ref{sec:regras-roteiros-m12-2}
+e \textbf{não é revogada retroativamente}; o aviso em si jamais é uma URL ou
+credencial.
+\end{regra}
+
+\begin{regra}[Privacidade do payload (RN-M13-05)]
+O payload é mínimo: identificadores e tipo. Não carrega o corpo original de
+comentário moderado, conteúdo de Post protegido, PDF, e-mail sensível, token nem
+URL assinada. Listagem, resumo, cache, mensagem de erro ou contador do sino
+\textbf{não} revela conteúdo de recurso que o usuário deixou de poder acessar. A
+leitura direta dos próprios documentos é compatível com eventual projeção segura
+no backend; declara-se explicitamente que \textbf{Firestore Rules autorizam ou
+negam documentos completos e não mascaram campos} de um documento. A máscara de
+comentário moderado (M12.1) continua sendo responsabilidade do endpoint
+autorizado, nunca do registro de notificação.
+\end{regra}
+
+\begin{regra}[Emissão e deduplicação (RN-M13-06)]
+A emissão reutiliza os contratos já provados: M7 para efeitos por
+\texttt{idOperacao}/\texttt{evento} (incluindo \texttt{POST}/\texttt{COMENTARIO}
+de M12.1), M12.2 para \texttt{ROTEIRO\_COMPARTILHADO} e a prova/docId diário de
+M8 para \texttt{ESCASSEZ\_ESTOQUE} (destinatário vinculado ao almoxarifado e
+\texttt{expira\_em = null}; M8 \textbf{não} é reconstruído aqui).
+\texttt{DATA\_DEVOLUCAO\_REAGENTE} conserva o docId
+\texttt{\{id\_emprestimo\}--\{janela\}}; os contratos de patrimônio e demais
+alertas permanecem como definidos. Retry da mesma identidade não cria aviso
+extra. \textbf{Não} existe fórmula universal de docId nem obrigação de emissão
+automática para todos os 20 valores do enum: apenas os tipos com emissão V1
+efetivamente especificada devem ser emitidos. Somente a duplicidade esperada
+(\texttt{ALREADY\_EXISTS}/``code 6'') é no-op; \textbf{erros de outra natureza
+não são engolidos} e devem propagar.
+\end{regra}
+
+\begin{regra}[Condições específicas de contexto (RN-M13-07)]
+\texttt{id\_turma} é \textbf{obrigatório} para os tipos acadêmicos
+(\texttt{COMENTARIO}, \texttt{POST}, \texttt{ADICIONADO}, \texttt{REMOVIDO},
+\texttt{TURMA\_ARQUIVADA}, \texttt{TURMA\_DESARQUIVADA}) e \textbf{nulo} para os
+avisos operacionais de almoxarifado/patrimônio. O contexto de Roteiro é
+preservado sem lhe atribuir \texttt{id\_turma} apenas por existir. O enum 3FN
+(Seção~4) e o dicionário Firestore (Seção~5) coincidem nos 20 valores, sem
+renomear por conveniência.
+\end{regra}
+
+\begin{explicacao}[Reconciliação da nullabilidade de \texttt{id\_turma}]
+A nota antiga da Seção~4, que listava como exceção ``\textit{id\_turma} da
+notificação de professor quando o tipo não é \texttt{COMENTARIO}'', é
+\textbf{reconciliada}: a regra acadêmica posterior (RN-M13-07) torna
+\texttt{id\_turma} obrigatório para todos os tipos acadêmicos listados e nulo
+para os operacionais. A regra posterior prevalece; a redação antiga é preservada
+apenas como histórico.
+\end{explicacao}
+
+\begin{regra}[Projeção do anexo M12.2 (RN-M13-08)]
+O snapshot \texttt{roteiro\_anexo} do Post inclui a \texttt{geracao} validada
+(\texttt{id\_roteiro}, \texttt{nome\_arquivo}, \texttt{tamanho\_bytes},
+\texttt{storage\_path}, \texttt{geracao}), conforme a referência canônica da
+Seção~\ref{sec:regras-roteiros-m12-2}. Esta é uma emenda textual mínima ao
+dicionário da Seção~5, sem alterar a semântica provada de M12.1 nem receipts
+antigos.
+\end{regra}
+
+\paragraph{Tipos com emissão V1 efetivamente especificada.}
+Dos 20 valores do enum, apenas os abaixo têm emissão V1 definida; os demais são
+valores de taxonomia compartilhada, \textbf{sem} obrigação de emissão automática
+nesta versão:
+\begin{itemize}
+  \item \texttt{ESCASSEZ\_ESTOQUE}: job M8, docId diário, \texttt{expira\_em = NULL};
+  \item \texttt{FRASCOS\_VENCIDOS}: job de vencimento (M8);
+  \item \texttt{POST} e \texttt{COMENTARIO}: efeitos M12.1 vinculados ao \texttt{idOperacao};
+  \item \texttt{ROTEIRO\_COMPARTILHADO}: efeito M12.2;
+  \item \texttt{DATA\_DEVOLUCAO\_REAGENTE}: job preventivo, docId \texttt{\{id\_emprestimo\}--\{janela\}}.
+\end{itemize}
+Os demais valores permanecem na taxonomia, sem emissão automática redesenhada e
+\textbf{sem} se inferir uma obrigação a partir da enumeração:
+\begin{itemize}
+  \item \texttt{ADICIONADO}, \texttt{REMOVIDO}, \texttt{TURMA\_ARQUIVADA}, \texttt{TURMA\_DESARQUIVADA};
+  \item \texttt{REQUISICAO\_BEM}, \texttt{REQUISICAO\_EDICAO\_BEM}, \texttt{REQUISICAO\_ADICAO\_BEM};
+  \item \texttt{BEM\_INSERVIVEL}, \texttt{ENTREGA\_ATRASADA};
+  \item \texttt{FRASCOS\_VAZIOS}, \texttt{FRASCOS\_QUEBRADOS}, \texttt{FRASCOS\_EM\_QUARENTENA};
+  \item \texttt{FRASCOS\_A\_SEREM\_PESADOS};
+  \item \texttt{AUTO\_ATENDIMENTO\_RETIRADA}.
+\end{itemize}
+
+\paragraph{Matriz de rastreabilidade M13.}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.14\textwidth} >{\raggedright\arraybackslash}p{0.18\textwidth} >{\raggedright\arraybackslash}p{0.17\textwidth} >{\raggedright\arraybackslash}p{0.21\textwidth} >{\raggedright\arraybackslash}p{0.16\textwidth}}
+\toprule
+\textbf{Regra} & \textbf{Fonte} & \textbf{Contrato} & \textbf{Prova planejada} & \textbf{Fronteira} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Regra} & \textbf{Fonte} & \textbf{Contrato} & \textbf{Prova planejada} & \textbf{Fronteira} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+RN-M13-01 caixa única & Seção~4; Seção~5; UI-12 & CUE \texttt{\#M13Contrato}; Alloy caixa e papel & caixa/papel (ver abaixo) & Papel visual real do frontend \\
+RN-M13-02 marcação e Limpar tudo & Seção~4; Seção~5; UI-12; M8 & CUE \texttt{lida/lida\_em}; Alloy transições de lote & lote/idempotência & Falha parcial real, paginação real \\
+RN-M13-03 expiração & Seção~4; Seção~5; regra de professor & CUE \texttt{expira\_em}; Alloy ativo/expirado & temporal & Relógio real America/Sao\_Paulo \\
+RN-M13-04 alvo e deep link & Seção~5; M9; M11; M12.1; M12.2 & CUE \texttt{entidade\_alvo/id\_alvo}; Alloy ponte de acesso & alvo/ACL & Roteador/URL do frontend \\
+RN-M13-05 privacidade & Seção~5; Seção~11; M12.1 & CUE payload mínimo; Alloy ausência de conteúdo & privacidade & Projeção real do backend \\
+RN-M13-06 emissão/dedup & M7; M8; M12.1; M12.2 & CUE comando/alvo; Alloy chaves & dedup/chaves & Erros reais do Firestore/Admin SDK \\
+RN-M13-07 contexto & Seção~4; Seção~5; regra de professor & CUE \texttt{id\_turma} condicional & contexto/turma & Dados legados sem contexto \\
+RN-M13-08 anexo com geração & Seção~7.7; M12.2 & CUE \texttt{geracao} no snapshot & geração do anexo & Objeto real no Storage \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\noindent Assertions planejadas (nomes exatos no modelo executável M13):
+\begin{itemize}
+  \item RN-M13-01: \texttt{NaoLeCaixaAlheia}, \newline \texttt{PapelVisualNaoFiltraCaixa}, \newline \texttt{BolsistaVeCaixa};
+  \item RN-M13-02: \texttt{MarcarSoProprias}, \newline \texttt{LoteSoProprias}, \newline \texttt{SemDelete}, \newline \texttt{LimparTudoCorteEstavel};
+  \item RN-M13-03: \texttt{ExpiracaoDistingueNull}, \newline \texttt{ExpiradoForaDoAtivo};
+  \item RN-M13-04: \texttt{AlvoInvalidoNaoNavega}, \newline \texttt{RevogacaoCortaClique}, \newline \texttt{AlertaNaoContornaAcl};
+  \item RN-M13-05: \texttt{NotificacaoNaoExpoeOriginal};
+  \item RN-M13-06: \texttt{EmissaoMesmaIdentidadeNaoDuplica}, \newline \texttt{EmissaoChaveDistintaEmite}, \newline \texttt{ErroEmissaoNaoViraSucesso};
+  \item RN-M13-07: \texttt{IdTurmaAcademicoObrigatorio}, \newline \texttt{IdTurmaOperacionalNulo};
+  \item RN-M13-08: reuso da prova M12.2 (\texttt{AnexoCompostoUsaGeracaoCanonica}).
+\end{itemize}
+
+\paragraph{Casos de regressão M13.}
+Cobrir: leitura da caixa própria e negação da caixa alheia; usuário multi-role
+com papel visual diferente do papel da notificação (inclusive Bolsista por Q12);
+marcação individual e ``Limpar tudo'' idempotentes, sem \texttt{DELETE},
+inclusive de notificações de outros papéis; corte estável de ``Limpar tudo''
+com nova emissão concorrente após o corte; falha parcial e retry de ``Limpar
+tudo''; \texttt{expira\_em = null} versus vencido; aviso expirado ou lido que não
+autoriza o objeto; revogação de vínculo/compartilhamento após a emissão (corta
+novas emissões, preserva o fato e a URL já emitida até expirar); alvo removido ou
+inacessível com resposta neutra; \texttt{entidade\_alvo} inválida ou URL
+arbitrária que não navega; Chefe sem escopo Q13 que não acessa; colisão de dedup
+(mesma identidade M7 ou chave M8 não duplica, chaves distintas podem emitir);
+erro de emissão distinto de ``code 6'' que propaga. Esses casos são critérios
+normativos e \textbf{não} atestam a implementação.
+
+\paragraph{Fronteira da prova.}
+A formalização executável M13 (CUE $\rightarrow$ IR $\rightarrow$ Alloy
+$\rightarrow$ receipt $\rightarrow$ Rust $\rightarrow$ LaTeX) verifica as
+propriedades relacionais e temporais abstratas acima no escopo declarado. Ela
+\textbf{não} certifica \texttt{functions/}, \texttt{frontend/}, Firestore/
+Storage Rules, Auth, Storage real, entrega de e-mail, relógio de produção,
+concorrência sob carga, paginação real do Firestore nem atomicidade entre
+serviços; esses pontos permanecem como dívida de implementação e só a
+implementação real poderá exercitá-los.
+
 \subsection{Matriz formal de obrigatoriedade e dependência de campos}
 
 \small

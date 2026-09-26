@@ -201,3 +201,11 @@ async function consultarEstoque(request) {
 
 \paragraph{Interface e relatórios.}
 A UI mantém cache curto, nunca além da validade restante informada pelo servidor, cancela requisições antigas ao mudar escopo e invalida seu cache após mutação. Exibe instante de cálculo, atualização em andamento e ação Atualizar com tratamento de rate limit; não consulta automaticamente a cada 30 segundos. Dados já exibidos podem ficar desatualizados por mutação de outro usuário, portanto nunca autorizam retirada. Estado atual é fotografia corrente separada. Relatórios por período usam FLOW e fatos históricos; não prometem séries de saldo, fechados ou emprestados ao fim de cada dia. Patrimônio mantém seu contrato próprio de snapshots diários.
+
+\paragraph{Notificações não são cache nem materialização.}
+A caixa de notificações é um conjunto de fatos persistidos com estado de leitura
+próprio, não uma projeção descartável. Cache, resumo ou listagem do sino nunca
+substitui a autorização corrente do objeto de origem nem pode devolver conteúdo
+que o usuário deixou de poder acessar. A validade de $30$~segundos de
+\texttt{Sistema\_Cache\_Dashboard} e o alerta de escassez são contratos
+distintos (Seção~\ref{sec:regras-notificacoes-m13}).

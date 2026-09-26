@@ -804,7 +804,7 @@ A combinação \textit{email + id\_turma} não pode possuir mais de um convite \
 \begin{explicacao}[Unificação das Notificações]
 As quatro tabelas de notificação anteriores (\textit{Notificacao\_para\_Aluno}, \textit{Notificacao\_para\_Professor}, \textit{Notificacao\_para\_Gestor\_de\_bens\_Patrimoniais}, \textit{Notificacao\_para\_Gestor\_de\_Reagentes}) foram consolidadas em uma única entidade \textit{Notificacao}. O campo \textit{papel\_destinatario} indica em qual contexto de papel a notificação deve ser exibida, incluindo Aluno, Professor, Bolsista, Gestor\_Bens\_Patrimoniais, Gestor\_Almoxarifado e Chefe\_Geral.
 
-No Firestore, esta entidade é implementada como sub-coleção \texttt{Usuarios/\{uid\}/Notificacoes}, eliminando a necessidade de queries em múltiplas coleções para usuários multi-role. A ação de ``Limpar tudo'' na interface marca \texttt{lida = true} e \texttt{lida\_em = NOW()} em todas as notificações ativas do usuário, preservando o histórico de auditoria. Os campos \textit{entidade\_alvo} e \textit{id\_alvo} viabilizam a navegação direta (\textit{deep linking}) para o objeto de origem ao clicar no aviso. O campo \textit{expira\_em} é nulo para notificações operacionais persistentes (como \texttt{ESCASSEZ\_ESTOQUE}), que não possuem expiração temporal automática.
+No Firestore, esta entidade é implementada como sub-coleção \texttt{Usuarios/\{uid\}/Notificacoes}, eliminando a necessidade de queries em múltiplas coleções para usuários multi-role. O \texttt{uid} do caminho coincide com \texttt{id\_destinatario} e há uma única caixa por conta; \textit{papel\_destinatario} é apenas contexto de apresentação e não concede papel nem filtra a própria caixa. A ação de ``Limpar tudo'' na interface marca \texttt{lida = true} e \texttt{lida\_em = NOW()} em todas as notificações ativas do usuário, por processamento paginado/reentrante, preservando o histórico de auditoria. Os campos \textit{entidade\_alvo} e \textit{id\_alvo} viabilizam a navegação direta (\textit{deep linking}) para o objeto de origem ao clicar no aviso, sempre com revalidação do acesso corrente. O campo \textit{expira\_em} é nulo para notificações operacionais persistentes (como \texttt{ESCASSEZ\_ESTOQUE}), que não possuem expiração temporal automática. A fonte normativa completa é a Seção~\ref{sec:regras-notificacoes-m13}.
 \end{explicacao}
 
 \subsection{Tabela Aluno Turma (N para N)}
@@ -949,7 +949,7 @@ Todo atributo é \textbf{NOT NULL} por padrão. Um campo só pode ser NULL quand
     \item validade\_efetiva antes da abertura quando sua definição depende do prazo após abertura;
     \item dados de devolução de empréstimo antes da devolução;
     \item id\_local da linha agregada ``Geral'' no resumo patrimonial diário;
-    \item id\_turma da notificação de professor quando o tipo não é COMENTARIO;
+    \item id\_turma da notificação em tipos operacionais/patrimônio; obrigatório nos tipos acadêmicos (\texttt{COMENTARIO}, \texttt{POST}, \texttt{ADICIONADO}, \texttt{REMOVIDO}, \texttt{TURMA\_ARQUIVADA}, \texttt{TURMA\_DESARQUIVADA}), conforme a Seção~\ref{sec:regras-notificacoes-m13};
     \item atributos de composição cuja ausência é necessária para representar faixa ou notação textual do fabricante.
 \end{itemize}
 

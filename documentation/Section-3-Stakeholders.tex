@@ -136,6 +136,7 @@ Moderar posts/comentários & \checkmark\ (Q13) & -- & -- & \checkmark\ (dono) & 
 Gerenciar roteiros próprios & \checkmark & -- & -- & \checkmark & -- & --\\
 Compartilhar roteiros & \checkmark & -- & -- & \checkmark & -- & --\\
 Baixar roteiro (dono, compartilhado ou Post acessível) & \checkmark\ (Q13) & -- & -- & \checkmark & \checkmark & \checkmark\\
+Receber notificações próprias (caixa única por conta) & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark\\
 Cadastrar/editar matérias & \checkmark & -- & -- & \checkmark & -- & --\\
 Gerar etiquetas de frasco & \checkmark & \checkmark & -- & -- & -- & --\\
 \bottomrule
@@ -146,6 +147,8 @@ Gerar etiquetas de frasco & \checkmark & \checkmark & -- & -- & -- & --\\
 A Cloud Function responsável por cada mutação deve resolver os papéis a partir dos registros persistidos e, quando aplicável, validar também o escopo do recurso. Por exemplo, um Gestor de Almoxarifado só atua sobre almoxarifados aos quais está vinculado. O frontend pode ocultar ou desabilitar ações, mas não constitui autorização.
 
 A linha ``Gerenciar turmas próprias'' pertence ao professor dono. O Chefe Geral não possui turmas próprias (RN-ROLE-01) e não recebe ownership de turma alheia: sua atuação acadêmica é a intervenção excepcional de moderação Q13, com justificativa, auditoria e a marcação institucional nas publicações. O contrato de Turma, matrícula e convites é a Seção~\ref{sec:regras-turmas-m11}.
+
+A caixa de notificações é única por conta (UID) e reúne todos os papéis de que a pessoa participa, inclusive Bolsista e Chefe; o papel visual selecionado no header não filtra a caixa nem concede privilégio. O contrato da entidade única \textit{Notificacao}, da marcação de leitura, de ``Limpar tudo'', da expiração e do alvo é a Seção~\ref{sec:regras-notificacoes-m13}.
 \end{explicacao}
 
 \paragraph{Operador e retirante (AUDITORIA-7, C002).}

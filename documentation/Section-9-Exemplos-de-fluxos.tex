@@ -357,6 +357,51 @@ remover o anexo. Desvincular não exige acesso e registra a versão anterior no
 histórico de M12.1. O snapshot rotula a publicação, mas a leitura revalida o
 acesso atual e nunca usa o snapshot como autorização permanente.
 
+\subsection{Fluxos M13 --- notificação unificada}
+Estes exemplos são o contrato normativo da
+Seção~\ref{sec:regras-notificacoes-m13}. São ilustrativos e não atestam a
+implementação.
+
+\subsubsection{Caixa única por conta e papel visual}
+Um usuário multi-role (por exemplo Aluno com Bolsista) abre o sino e vê todos
+os avisos de todos os papéis de que participa, independentemente do papel
+selecionado no header. O Bolsista recebe também alertas de empréstimo (Q12). O
+papel visual não filtra a caixa nem concede acesso ao objeto; cada aviso exibe
+o contexto a que se destina.
+
+\subsubsection{Marcar lida e Limpar tudo}
+Marcar um aviso grava \texttt{lida = true} e \texttt{lida\_em} do servidor;
+repetir não altera o instante lógico. ``Limpar tudo'' marca, em rodadas
+paginadas/reentrantes, todas as notificações ativas do próprio UID, inclusive de
+outros papéis, sem \texttt{DELETE} e preservando o histórico. Um aviso emitido
+após o corte de uma rodada permanece para a próxima; falha parcial ou retry
+retoma do corte sem marcar um item novo por engano.
+
+\subsubsection{Expiração e avisos já lidos}
+\texttt{ESCASSEZ\_ESTOQUE} não expira (\texttt{expira\_em = NULL}) e permanece
+ativo. Quando \texttt{expira\_em} é alcançado, o aviso sai do conjunto ativo sem
+ser apagado. Aviso expirado ou já lido, ao ser clicado, não autoriza nenhuma
+ação: a navegação revalida o acesso corrente e, se indisponível, apresenta
+resposta neutra.
+
+\subsubsection{Alvo revogado e deduplicação}
+Um aviso \texttt{ROTEIRO\_COMPARTILHADO} emitido antes da revogação permanece
+como fato, mas o clique relê o compartilhamento atual e, sem acesso, não baixa o
+objeto; uma URL já emitida continua válida até o prazo curto. Emitir o mesmo
+efeito com a mesma identidade M7 (ou a mesma chave diária de M8) não duplica o
+aviso; chaves distintas (janela nova, destinatário distinto, dia civil
+seguinte) podem emitir. Erro de emissão diferente de ``code 6'' propaga e não é
+mascarado como sucesso.
+
+\subsubsection{Casos de regressão M13}
+Cobrir: caixa própria versus caixa alheia; multi-role com papel visual distinto;
+Bolsista por Q12 e Chefe sem escopo Q13; marcação individual e ``Limpar tudo''
+idempotentes e sem \texttt{DELETE}; corte estável com emissão concorrente após o
+corte; \texttt{expira\_em = NULL} versus vencido; revogação após emissão;
+alvo removido/inacessível; \texttt{entidade\_alvo} inválida/URL arbitrária;
+colisão de dedup M7/M8; erro de emissão propagado. Esses casos são critérios
+normativos e não atestam a implementação.
+
 \subsection{Cobertura operacional por papel e ação}
 \label{sec:fluxos-completos}
 Cada fluxo parte de sessão ativa validada por COM-01 e usa os campos/estados do contrato UI referenciado na seção 8. Os nomes de coleções e os efeitos descritos seguem o dicionário da seção 5.9. Não repetir login entre ações da mesma sessão. A coluna de resultado inclui persistência e falhas relevantes.

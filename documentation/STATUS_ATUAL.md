@@ -1,6 +1,46 @@
 # Status atual do LCQUI
 
-## Estado corrente — M12 fechado (composição M12.1 × M12.2)
+## Estado corrente — M13 documental validado (Notificação unificada)
+
+A rodada **exclusivamente documental** de M13 consolidou o contrato da entidade
+única `Notificacao` na nova **Seção 7.8**
+(`\label{sec:regras-notificacoes-m13}`), compondo M7, M8, M9, M11, M12.1 e M12.2
+sem reabrir suas provas. HEAD de entrada:
+`430fb0ad2b2df6f5542635d7a7bbea43e311ae5f` (árvore limpa, `origin` sincronizada).
+Baseline e gate final `just formal-check` exit `0`. **M0–M12 = VALIDATED; M13 =
+DOCUMENTATION_VALIDATED** (executável pendente, Etapa B); HQs M13 = 0. Registro
+em [worklog M13 documental](worklogs/formal-spec/M13_DOCUMENTATION.md).
+
+- **Regras:** caixa única por conta (UID) reunindo todos os papéis, sem o papel
+  visual filtrar nem conceder; leitura só da própria caixa; criação/marcação/
+  `Limpar tudo` server-owned, `lida = false ⇒ lida_em = null`, retry
+  idempotente, lote paginado/reentrante com **corte estável** por rodada e sem
+  `DELETE`; `expira_em = null` em `ESCASSEZ_ESTOQUE`, expirado sai do ativo sem
+  apagar; alvo/deep link revalida autorização corrente (M9/M11/M12) e nunca é
+  URL/credencial; payload mínimo e Rules não mascaram campos; dedup reutiliza
+  M7/M12.1/M12.2 e a prova M8 de `ESCASSEZ_ESTOQUE` (sem reconstruir M8), com
+  docId `{id_emprestimo}--{janela}` para `DATA_DEVOLUCAO_REAGENTE`; `id_turma`
+  obrigatório nos tipos acadêmicos e nulo nos operacionais.
+- **Reconciliações:** M13-REC-01 (`id_turma` da Seção 4 reconciliado com a regra
+  acadêmica) e M13-REC-02 (`geracao` incluída no snapshot `roteiro_anexo` da
+  Seção 5, alinhando com a Seção 7.7 e a prova M12.2).
+- **Projeções:** Seções 3, 4, 5, 6, 8 (UI-12), 9 (fluxos/regressão) e 11
+  alinhadas; enum 3FN × dicionário nos 20 valores.
+- **Gates:** PDF **450 páginas**, exit 0, zero erros e zero referências
+  indefinidas, **31 Overfull** (idêntico ao baseline verificado em worktree
+  limpo); `git diff --check` PASS; nenhum artefato formal (CUE/IR/Alloy/receipt/
+  Rust/`generated/`) alterado e nenhum receipt mudou.
+- **Limites:** não certifica `functions/`, `frontend/`, Rules, Auth, Storage,
+  relógio real, paginação/concorrência real nem entrega externa; dívida de
+  implementação registrada para a matriz futura.
+
+Próxima ação exata: **Etapa B de M13** (CUE `#M13Contrato` → IR v3 aditivo →
+`notificacoes_m13.als` com estado composto e ponte M7/M8/M9/M12 → receipt →
+`validation_m13.rs` → guard Node → geração determinística → capítulo
+`Formal-Spec-M13.tex` → PDF); depois, o fechamento global pós-M13 é um gate
+separado, sem M14 automático.
+
+## Histórico — M12 fechado (composição M12.1 × M12.2)
 
 Fechamento de **M12 = VALIDATED**: prova conjunta de Posts/Comentários (M12.1) e
 Roteiros/Storage/compartilhamento (M12.2) em um único `EstadoIntegrado`
@@ -89,10 +129,10 @@ VALIDATED; M13 = NOT_STARTED; **HQs M12.2 = 0**. Registro em
   sem `idOperacao`/M7/geração; `posts.ts` sem snapshot/geração; `storage.rules`
   libera `read` de `/roteiros` a qualquer autenticado.
 
-Próxima ação exata: **M13** (Notificação unificada: entidade `Notificacao`
-M7/M8/M9/M12, reutilizando `ESCASSEZ_ESTOQUE` de M8). **M12 = VALIDATED**
-(composição M12.1/M12.2). O fechamento global após M13 é um gate, sem M14
-automático.
+Naquele checkpoint a próxima ação era **M13** (Notificação unificada: entidade
+`Notificacao` M7/M8/M9/M12, reutilizando `ESCASSEZ_ESTOQUE` de M8), depois
+concluída na rodada documental acima. **M12 = VALIDATED** (composição
+M12.1/M12.2). O fechamento global após M13 é um gate, sem M14 automático.
 
 ## Histórico — M12.2 documental validado (Roteiros de Experimento)
 

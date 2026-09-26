@@ -657,6 +657,8 @@ Caminho: \texttt{Usuarios/\{uid\}/Notificacoes/\{id\}}.
 \item[\texttt{tipo}] string enum; O. Valor de tipo, validado pelo formulário e pelo servidor conforme regras do domínio. Valores: ADICIONADO, POST, COMENTARIO, REMOVIDO, TURMA\_ARQUIVADA, TURMA\_DESARQUIVADA, REQUISICAO\_BEM, DATA\_DEVOLUCAO\_REAGENTE, ROTEIRO\_COMPARTILHADO, REQUISICAO\_EDICAO\_BEM, REQUISICAO\_ADICAO\_BEM, BEM\_INSERVIVEL, ENTREGA\_ATRASADA, FRASCOS\_VAZIOS, FRASCOS\_QUEBRADOS, FRASCOS\_VENCIDOS, FRASCOS\_A\_SEREM\_PESADOS, FRASCOS\_EM\_QUARENTENA, ESCASSEZ\_ESTOQUE, AUTO\_ATENDIMENTO\_RETIRADA.
 \end{description}
 
+\noindent O \texttt{uid} do caminho coincide com \texttt{id\_destinatario} e há uma única caixa por conta; \textit{papel\_destinatario} é contexto de apresentação sem conceder papel nem filtrar a própria caixa. A leitura direta é restrita ao próprio UID; Rules autorizam ou negam documentos completos e \textbf{não mascaram campos}, portanto o payload é mínimo, sem conteúdo protegido, e a projeção segura de conteúdo é responsabilidade de endpoint autorizado. Contrato completo em Seção~\ref{sec:regras-notificacoes-m13}.
+
 \paragraph{Aluno\_x\_Turma}\mbox{}\par
 Caminho: \texttt{Turma/\{id\}/Alunos/\{uid\}}.
 \begin{description}
@@ -691,7 +693,7 @@ Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}}.
 \item[\texttt{motivo\_remocao}] string; C quando removido\_da\_apresentacao, até 2000 caracteres não vazios.
 \item[\texttt{removido\_por}] string; C quando removido\_da\_apresentacao. UID do professor dono ou do Chefe (Q13), preenchido pelo servidor.
 \item[\texttt{removido\_em}] Timestamp; C quando removido\_da\_apresentacao. Instante do servidor gravado atomicamente.
-\item[\texttt{roteiro\_anexo}] map; N. Snapshot imutável da publicação: id\_roteiro (string O), nome\_arquivo (string O, até 150), tamanho\_bytes (inteiro positivo O), storage\_path (string O). Backend valida acesso ao roteiro antes de publicar. Revogação posterior da ACL não remove o anexo histórico. Aluno recebe os metadados no feed; download via obterUrlDownloadRoteiro valida vínculo atual e emite URL assinada por 15 minutos, sem leitura cliente da coleção raiz. Fronteira formal de M12.2.
+\item[\texttt{roteiro\_anexo}] map; N. Snapshot imutável da publicação: id\_roteiro (string O), nome\_arquivo (string O, até 150), tamanho\_bytes (inteiro positivo O), storage\_path (string O), \texttt{geracao} (string O, geração validada do objeto). Backend valida acesso ao roteiro antes de publicar. Revogação posterior da ACL não remove o anexo histórico. Aluno recebe os metadados no feed; download via obterUrlDownloadRoteiro valida vínculo atual e emite URL assinada por 15 minutos, sem leitura cliente da coleção raiz. Fronteira formal de M12.2 (Seção~\ref{sec:regras-roteiros-m12-2}); a presença de \texttt{geracao} é exigida pela regra RN-M13-08 (Seção~\ref{sec:regras-notificacoes-m13}).
 \end{description}
 
 \paragraph{Comentario}\mbox{}\par
