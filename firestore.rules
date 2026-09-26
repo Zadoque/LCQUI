@@ -118,7 +118,7 @@ service cloud.firestore {
     // --- Turmas e Materias ---
     match /Materia/{materiaId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow write: if false; // catálogo server-owned via gerenciarMateria
     }
 
     match /Turma/{turmaId} {

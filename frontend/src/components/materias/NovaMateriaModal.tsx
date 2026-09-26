@@ -26,11 +26,12 @@ export function NovaMateriaModal({ isOpen, onClose }: NovaMateriaModalProps) {
 
     try {
       const functions = getFunctions();
-      const criarMateria = httpsCallable(functions, "criarMateria");
-      
-      await criarMateria({
-        nome,
-        codigoMateria: codigoMateria.toUpperCase()
+      const gerenciarMateria = httpsCallable(functions, "gerenciarMateria");
+
+      await gerenciarMateria({
+        acao: "CRIAR",
+        nome: nome.trim(),
+        codigoMateria: codigoMateria.trim().toUpperCase()
       });
       
       onClose();
