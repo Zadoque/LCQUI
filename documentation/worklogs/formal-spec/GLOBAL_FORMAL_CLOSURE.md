@@ -18,7 +18,7 @@ nunca incluídos nas fatias aprovadas.
   **exit 0** nessa revisão (35 testes Rust, 44 Node, `alloy-check` PASS,
   `docs-check` PASS, stale gate PASS, `git diff --check` PASS).
 - O commit de encerramento é **exclusivamente documental**:
-  `git diff --name-only 9c01d58a..HEAD` contém apenas arquivos `*.md`
+  `git diff --name-only 203bb788..HEAD` contém apenas arquivos `*.md`
   (`GLOBAL_FORMAL_CLOSURE.md`, `FORMAL_SPEC_STATE.md`, `STATUS_ATUAL.md`). Nenhuma
   entrada de pipeline (CUE, IR, Alloy, receipt, Rust, gerador, LaTeX) mudou, logo
   o gate acima permanece o gate da revisão de evidência.
@@ -96,7 +96,7 @@ interfaces.
 
 ## 5. Reprodução e regressão global (item 6.3)
 
-- `just formal-check` **exit 0** na revisão de evidência `9c01d58a`:
+- `just formal-check` **exit 0** na revisão de evidência `203bb788`:
   `cargo fmt --check`; `cargo test --locked` (35 testes); `cargo clippy
   --all-targets -- -D warnings`; 44 testes Node (guards); `alloy-check` PASS com o
   solver real de todas as fatias previstas pelo runner; `docs-check` PASS; stale
@@ -124,6 +124,10 @@ interfaces.
   reproduzem `composition_m12.als` com guard e origens no receipt/Rust.
 - **M13-CORR-03** (generalização de emissão V1): corrigido; tabela dos 20 tipos no
   worklog M13 e Seção 7.8 reconciliada.
+- **Revisão semântica adicional:** deduplicação por destinatário com fan-out
+  (`FanOutNaoDuplicaDestinatario`/`WitnessFanOutMesmaOperacao`), preservação de
+  coerência não vacua (`TransicoesPreservamCoerencia` derivada por frames) e
+  expiração usando o conjunto ativo; evidência em `203bb788`.
 
 ## 7. Limites aceitos
 
@@ -138,4 +142,4 @@ fechamento formal, por não contradizerem a norma nem a evidência.
 
 **PASS.** Matriz de rastreabilidade coerente, regressão M0–M12 preservada,
 determinismo confirmado, PDF válido, guardas e validadores exercitados na
-revisão `9c01d58a`. Nenhum bloqueio. Nenhum novo milestone criado.
+revisão `203bb788`. Nenhum bloqueio. Nenhum novo milestone criado.
