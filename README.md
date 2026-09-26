@@ -224,9 +224,9 @@ editados manualmente.
 
 ## Roadmap imediato
 
-1. **Limpeza e classificação da documentação Markdown** obsoleta/superada.
-2. **Nova matriz de implementação** derivada da especificação formal encerrada.
-3. **Reconciliação sistemática** da implementação (`frontend/`, `functions/`,
-   Rules) contra o contrato formal.
-4. **Testes:** consolidar Jest + Emulator Suite no backend e introduzir
+1. **Reconciliação sistemática** da implementação (`frontend/`, `functions/`,
+   Rules) conforme a nova matriz derivada da especificação formal encerrada.
+2. **Testes backend:** derivar contratos da matriz e consolidar Jest + Firebase
+   Emulator Suite.
+3. **Testes frontend/E2E:** derivar os fluxos da Seção 9 e introduzir
    Playwright para frontend/E2E.
