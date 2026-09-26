@@ -10,6 +10,7 @@ mod render;
 mod validation;
 mod validation_m10;
 mod validation_m11;
+mod validation_m12;
 mod validation_m12_1;
 mod validation_m12_2;
 mod validation_m2;
@@ -176,6 +177,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let results_m11 = fs::read(root.join("build/formal-validation-m11.json"))?;
     let results_m12_1 = fs::read(root.join("build/formal-validation-m12-1.json"))?;
     let results_m12_2 = fs::read(root.join("build/formal-validation-m12-2.json"))?;
+    let results_m12 = fs::read(root.join("build/formal-validation-m12.json"))?;
     let ir = ir::parse(&raw)?;
     let v: validation::Validation = serde_json::from_slice(&results)?;
     let v2: validation_m2::ValidationM2 = serde_json::from_slice(&results_m2)?;
@@ -191,6 +193,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let v11: validation_m11::ValidationM11 = serde_json::from_slice(&results_m11)?;
     let v12_1: validation_m12_1::ValidationM12_1 = serde_json::from_slice(&results_m12_1)?;
     let v12_2: validation_m12_2::ValidationM12_2 = serde_json::from_slice(&results_m12_2)?;
+    let v12: validation_m12::ValidationM12 = serde_json::from_slice(&results_m12)?;
     let identity = fs::read(root.join("specification/alloy/reagents/bottle_identity.als"))?;
     let state = fs::read(root.join("specification/alloy/reagents/bottle_state.als"))?;
     let withdrawal = fs::read(root.join(validation_m24::ORIGINS[0]))?;
@@ -206,6 +209,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let m11_model = fs::read(root.join(validation_m11::MODEL))?;
     let m12_1_model = fs::read(root.join(validation_m12_1::MODEL))?;
     let m12_2_model = fs::read(root.join(validation_m12_2::MODEL))?;
+    let m12_model = fs::read(root.join(validation_m12::MODEL))?;
     let m4_origins = validation_m4::ORIGINS.map(|p| fs::read(root.join(p)).unwrap());
     if !ir.valid()
         || !ir.provenance_ok()
@@ -224,6 +228,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
         || !v11.check(&raw, &m11_model)
         || !v12_1.check(&raw, &m12_1_model)
         || !v12_2.check(&raw, &m12_2_model)
+        || !v12.check(&raw, &m12_model, [&m12_1_model, &m12_2_model])
         || !m10_plaqueta_canonica(&ir)
         || !m11_exemplo_valido(&ir)
         || !m12_1_exemplo_valido(&ir)
@@ -259,6 +264,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
         "invariants/formal_m12_2.tex".into(),
         render::render_m12_2(&v12_2),
     );
+    files.insert("invariants/formal_m12.tex".into(), render::render_m12(&v12));
     let entries: BTreeMap<_, _> = files
         .iter()
         .map(|(name, text)| (name.clone(), hash(text.as_bytes())))
@@ -280,6 +286,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
         "formal_validation_m11_sha256": hash(&results_m11),
         "formal_validation_m12_1_sha256": hash(&results_m12_1),
         "formal_validation_m12_2_sha256": hash(&results_m12_2),
+        "formal_validation_m12_sha256": hash(&results_m12),
         "files": entries,
     });
     files.insert(
@@ -417,6 +424,10 @@ mod tests {
                 "formal_validation_m12_2_sha256",
                 "build/formal-validation-m12-2.json",
             ),
+            (
+                "formal_validation_m12_sha256",
+                "build/formal-validation-m12.json",
+            ),
         ] {
             assert_eq!(manifest[key], hash(&fs::read(root.join(path)).unwrap()));
         }
@@ -442,6 +453,7 @@ mod tests {
             "invariants/formal_m11.tex",
             "invariants/formal_m12_1.tex",
             "invariants/formal_m12_2.tex",
+            "invariants/formal_m12.tex",
         ] {
             assert!(outputs.contains_key(name), "saída ausente: {name}");
         }

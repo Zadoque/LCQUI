@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import {composedModel, composedExpected, origins, checkCompositionTrace} from './composition.mjs';
 import {withdrawalReturnModel, withdrawalReturnOrigins, withdrawalReturnExpected, checkWithdrawalReturnTrace} from './withdrawal_return.mjs';
+import {composedModelM12, composedExpectedM12, originsM12, checkM12CompositionTrace} from './m12_composition.mjs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -543,6 +544,11 @@ function alloyCheck() {
     ['RetryNaoReexecuta','check','check RetryNaoReexecuta for 6'],
     ['RetryNaoDuplicaFato','check','check RetryNaoDuplicaFato for 6'],
     ['TransicoesPreservamCoerencia','check','check TransicoesPreservamCoerencia for 6'],
+    ['CompartilharExigePublicavel','check','check CompartilharExigePublicavel for 6'],
+    ['RotaAcademicaExigePapel','check','check RotaAcademicaExigePapel for 6'],
+    ['ChefeComVinculoLegadoNaoUsaRotaAcademica','check','check ChefeComVinculoLegadoNaoUsaRotaAcademica for 6'],
+    ['PromoverChefePreservaVinculoLegado','check','check PromoverChefePreservaVinculoLegado for 6'],
+    ['PromoverChefePreservaCoerencia','check','check PromoverChefePreservaCoerencia for 6'],
     ['WitnessTurmaAtiva','run','run WitnessTurmaAtiva for 4'],
     ['WitnessCadastraProvisorio','run','run WitnessCadastraProvisorio for 6'],
     ['WitnessValidaObjeto','run','run WitnessValidaObjeto for 6'],
@@ -568,7 +574,18 @@ function alloyCheck() {
     ['WitnessRetryAposExecucao','run','run WitnessRetryAposExecucao for 6'],
     ['WitnessReusoIncompativel','run','run WitnessReusoIncompativel for 6'],
     ['WitnessObjetoAusenteNaoEmite','run','run WitnessObjetoAusenteNaoEmite for 6'],
+    ['WitnessChefeComVinculoLegadoNaoUsaRotaAcademica','run','run WitnessChefeComVinculoLegadoNaoUsaRotaAcademica for 6'],
+    ['WitnessPromocaoChefeMantemVinculo','run','run WitnessPromocaoChefeMantemVinculo for 6'],
   ], 'build/formal-validation-m12-2.json', 'M12_2');
+  // M12: composição M12.1 x M12.2. Guard de drift das origens e receipt com
+  // origens explícitas (não duplica os dois modelos isolados).
+  checkM12CompositionTrace(file => fs.readFileSync(file));
+  const m12run = execAlloy(composedModelM12, composedExpectedM12);
+  write('build/formal-validation-m12.json', JSON.stringify({versao: 1, alloy: version,
+    solver: m12run.solver, spec_ir_sha256: hash(ir), model: composedModelM12,
+    model_sha256: hash(m12run.source),
+    origens: originsM12.map(model => ({model, model_sha256: hash(fs.readFileSync(model))})),
+    resultados: m12run.results}, null, 2) + '\n');
 }
 const cmd=process.argv[2];
 if(cmd==='spec-check') specCheck();

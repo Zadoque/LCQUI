@@ -99,10 +99,12 @@ sig Estado {
 	auditorias:      set AuditoriaQ13,
 	urls:            set UrlEmitida,
 	urlsAtivas:      set UrlEmitida,
-	// M9 abstrato
+	// M9 abstrato. `alunos` é o papel acadêmico (Aluno/Bolsista) que, junto ao
+	// vínculo canônico atual, habilita a rota acadêmica de download.
 	ativos:          set Usuario,
 	professores:     set Usuario,
 	chefes:          set Usuario,
+	alunos:          set Usuario,
 	versaoPerm:      Usuario -> one Int,
 	claimVersao:     Usuario -> lone Int,
 	// M7 abstrato
@@ -134,7 +136,12 @@ pred acessoProfessorRoteiro[s: Estado, u: Usuario, r: Roteiro] {
 	authOk[s, u] and u in s.professores and roteiroPublicavel[s, r]
 	and (proprietario[s, u, r] or compartilhadoAtual[s, u, r])
 }
+// Rota acadêmica fail-closed: exige o papel acadêmico autorizado (`alunos`) E o
+// vínculo canônico atual (M11) E Post acessível. Um Chefe com vínculo legado não
+// tem o papel de aluno e não usa esta rota; o vínculo canônico tem vida própria e
+// não é apagado atomicamente por uma mudança de papel (M9/M11).
 pred alunoAcessoPost[s: Estado, u: Usuario, p: Post] {
+	u in s.alunos
 	p in s.posts and p not in s.postRemovido
 	and some v: s.vinculos | v.vAluno = u and v.vTurma = s.postTurma[p]
 }
@@ -174,8 +181,14 @@ pred coerente[s: Estado] {
 	all v: s.vinculos | v.vTurma in s.turmas
 	all disj v1, v2: s.vinculos |
 		v1.vAluno != v2.vAluno or v1.vTurma != v2.vTurma
-	// Chefe Geral é papel exclusivo (RN-ROLE-01): não acumula vínculo de aluno.
-	all v: s.vinculos | v.vAluno not in s.chefes
+	// Chefe Geral é papel exclusivo (RN-ROLE-01): não acumula papel acadêmico.
+	// O vínculo canônico Turma/Alunos é estado de matrícula, não papel, e pode
+	// sobreviver a uma mudança de papel; por isso NÃO se assume aqui que um Chefe
+	// jamais possui vínculo legado — a rota acadêmica é fechada por papel.
+	no u: Usuario | u in s.chefes and u in s.alunos
+	// Domínio do vínculo: a matrícula é de um aluno corrente ou de um ex-aluno
+	// promovido a Chefe (vínculo legado). Não restringe o caso em teste.
+	all v: s.vinculos | v.vAluno in s.alunos or v.vAluno in s.chefes
 	// Compartilhamento só existe para roteiro publicável (S7.7).
 	all c: s.compartilhados | c.cRoteiro in s.roteiros
 		and s.roteiroStatus[c.cRoteiro] = Publicavel
@@ -238,6 +251,7 @@ pred fUrlsSet[a, b: Estado] { b.urls = a.urls }
 pred fUrlsAtivas[a, b: Estado] { b.urlsAtivas = a.urlsAtivas }
 pred fPessoas[a, b: Estado] {
 	b.ativos = a.ativos and b.professores = a.professores and b.chefes = a.chefes
+	and b.alunos = a.alunos
 	and b.versaoPerm = a.versaoPerm and b.claimVersao = a.claimVersao
 }
 // Primeira execução de um comando: exige identidade nova e grava o recibo.
@@ -294,6 +308,8 @@ pred compartilhar[a, b: Estado, u: Usuario, r: Roteiro, dest: Usuario,
 		cc: Compartilhamento, o: Comando] {
 	coerente[a]
 	authOk[a, u] and proprietario[a, u, r]
+	// Elegibilidade explícita (S7.7): só roteiro publicável é compartilhável.
+	roteiroPublicavel[a, r]
 	authOk[a, dest] and dest in a.professores and dest != u
 	o.cmdUid = u and o.cmdTipo = TCompartilhar
 	cc not in a.compartilhados and cc.cRoteiro = r and cc.cProfessor = dest
@@ -482,6 +498,7 @@ pred revogarVinculo[a, b: Estado, u: Usuario, t: Turma] {
 	fAnexos[a, b] and fHistAnexo[a, b] and fAuditorias[a, b] and fUrls[a, b]
 	b.comandos = a.comandos and b.recibos = a.recibos
 	b.ativos = a.ativos and b.professores = a.professores and b.chefes = a.chefes
+	b.alunos = a.alunos
 	b.claimVersao = a.claimVersao
 	b.vinculos = a.vinculos - {v: a.vinculos | v.vAluno = u and v.vTurma = t}
 	b.versaoPerm = a.versaoPerm ++ (u -> plus[a.versaoPerm[u], 1])
@@ -496,8 +513,28 @@ pred atualizarClaim[a, b: Estado, u: Usuario] {
 	fCompartilhados[a, b] and fAnexos[a, b] and fHistAnexo[a, b] and fAuditorias[a, b] and fUrls[a, b]
 	b.comandos = a.comandos and b.recibos = a.recibos
 	b.ativos = a.ativos and b.professores = a.professores and b.chefes = a.chefes
+	b.alunos = a.alunos
 	b.versaoPerm = a.versaoPerm
 	b.claimVersao = a.claimVersao ++ (u -> a.versaoPerm[u])
+	coerente[b]
+}
+// M9 abstrato: mudança de papel acadêmico -> Chefe. Como M9/M11 não definem
+// remoção/vínculo atômica dos vínculos acadêmicos (o vínculo canônico tem vida
+// própria), esta transição preserva os vínculos e remove apenas o papel de aluno.
+// Ela existe para expor o caso perigoso e provar que a rota acadêmica é fechada
+// por papel, não por um invariante assumido.
+pred promoverChefe[a, b: Estado, u: Usuario] {
+	coerente[a]
+	authOk[a, u]
+	u not in a.chefes and u in a.alunos
+	fTurma[a, b] and fVinculo[a, b] and fPosts[a, b] and fRoteiros[a, b]
+	fObjetos[a, b] and fGeracao[a, b] and fCompartilhados[a, b]
+	fAnexos[a, b] and fHistAnexo[a, b] and fAuditorias[a, b] and fUrls[a, b]
+	b.comandos = a.comandos and b.recibos = a.recibos
+	b.ativos = a.ativos and b.professores = a.professores
+	b.versaoPerm = a.versaoPerm and b.claimVersao = a.claimVersao
+	b.chefes = a.chefes + u
+	b.alunos = a.alunos - u
 	coerente[b]
 }
 pred retryM7[a, b: Estado, o: Comando] {
@@ -818,6 +855,30 @@ assert RetryNaoDuplicaFato {
 assert TransicoesPreservamCoerencia {
 	all a, b: Estado | transicao[a, b] implies coerente[b]
 }
+// ---- Assertions: papel acadêmico, vínculo legado e Q13 ----------------------
+assert CompartilharExigePublicavel {
+	all a, b: Estado, u: Usuario, r: Roteiro, dest: Usuario,
+			cc: Compartilhamento, o: Comando |
+		compartilhar[a, b, u, r, dest, cc, o] implies roteiroPublicavel[a, r]
+}
+assert RotaAcademicaExigePapel {
+	all s: Estado, u: Usuario, r: Roteiro |
+		alunoPodeBaixar[s, u, r] implies u in s.alunos
+}
+assert ChefeComVinculoLegadoNaoUsaRotaAcademica {
+	all s: Estado, u: Usuario, r: Roteiro |
+		(coerente[s] and u in s.chefes and u not in s.alunos)
+			implies not alunoPodeBaixar[s, u, r]
+}
+assert PromoverChefePreservaVinculoLegado {
+	all a, b: Estado, u: Usuario |
+		promoverChefe[a, b, u] implies
+			((some v: a.vinculos | v.vAluno = u)
+				implies (some v: b.vinculos | v.vAluno = u))
+}
+assert PromoverChefePreservaCoerencia {
+	all a, b: Estado, u: Usuario | promoverChefe[a, b, u] implies coerente[b]
+}
 
 // ---- Witnesses --------------------------------------------------------------
 pred WitnessTurmaAtiva {
@@ -972,6 +1033,29 @@ pred WitnessObjetoAusenteNaoEmite {
 		and no s.roteiroObj[r]
 		and (all u: Usuario | not podeEmitirUrl[s, u, r])
 }
+// Estado coerente com Chefe que reteve um vínculo acadêmico legado (sem papel de
+// aluno): a rota acadêmica permanece fechada e a emissão só existiria por Q13.
+pred WitnessChefeComVinculoLegadoNaoUsaRotaAcademica {
+	some s: Estado, u: Usuario, r: Roteiro, p: Post |
+		coerente[s] and u in s.chefes and u not in s.alunos
+		and p in s.posts and p not in s.postRemovido
+		and (some v: s.vinculos | v.vAluno = u and v.vTurma = s.postTurma[p])
+		and (some x: s.anexos | x.aPost = p and x.aRoteiro = r)
+		and not alunoPodeBaixar[s, u, r] and not podeEmitirUrl[s, u, r]
+}
+// Trajetória: aluno com vínculo e anexo baixa; após promoção a Chefe o vínculo é
+// preservado, mas a rota acadêmica é fechada por papel.
+pred WitnessPromocaoChefeMantemVinculo {
+	some a, b: Estado, u: Usuario, r: Roteiro, p: Post |
+		coerente[a] and u in a.alunos and authOk[a, u]
+		and p in a.posts and p not in a.postRemovido
+		and (some v: a.vinculos | v.vAluno = u and v.vTurma = a.postTurma[p])
+		and (some x: a.anexos | x.aPost = p and x.aRoteiro = r)
+		and alunoPodeBaixar[a, u, r]
+		and promoverChefe[a, b, u]
+		and (some v: b.vinculos | v.vAluno = u)
+		and not alunoPodeBaixar[b, u, r] and not podeEmitirUrl[b, u, r]
+}
 
 // ---- Comandos ---------------------------------------------------------------
 check CadastroComecaProvisorio for 6
@@ -1021,6 +1105,11 @@ check ReusoIncompativelRejeitado for 6
 check RetryNaoReexecuta for 6
 check RetryNaoDuplicaFato for 6
 check TransicoesPreservamCoerencia for 6
+check CompartilharExigePublicavel for 6
+check RotaAcademicaExigePapel for 6
+check ChefeComVinculoLegadoNaoUsaRotaAcademica for 6
+check PromoverChefePreservaVinculoLegado for 6
+check PromoverChefePreservaCoerencia for 6
 
 run WitnessTurmaAtiva for 4
 run WitnessCadastraProvisorio for 6
@@ -1047,3 +1136,5 @@ run WitnessTrocaPreservaHistorico for 6
 run WitnessRetryAposExecucao for 6
 run WitnessReusoIncompativel for 6
 run WitnessObjetoAusenteNaoEmite for 6
+run WitnessChefeComVinculoLegadoNaoUsaRotaAcademica for 6
+run WitnessPromocaoChefeMantemVinculo for 6

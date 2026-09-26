@@ -1,13 +1,46 @@
 # Status atual do LCQUI
 
-## Estado corrente — M12.2 executável validado (Roteiros, compartilhamento e Storage)
+## Estado corrente — M12 fechado (composição M12.1 × M12.2)
+
+Fechamento de **M12 = VALIDATED**: prova conjunta de Posts/Comentários (M12.1) e
+Roteiros/Storage/compartilhamento (M12.2) em um único `EstadoIntegrado`
+(`specification/alloy/operations/composition_m12.als`), com a ponte
+`ponteAcessoRoteiro`, guard de drift (`m12_composition.mjs`/`m12_contract.test.mjs`),
+receipt `build/formal-validation-m12.json`, validador Rust `validation_m12.rs`,
+capítulo `Formal-Spec-M12.tex` e PDF de **442 páginas**. HEAD de entrada:
+`2922dd69a790e05aeeef776b4596e37e98d00401`. M0–M11, M12.1 e M12.2 seguem
+VALIDATED; M13 = NOT_STARTED; **HQs M12 = 0**. Registro em
+[worklog M12 fechamento](worklogs/formal-spec/M12_CLOSURE.md).
+
+- **Composição (`composition_m12.als`):** **37 checks UNSAT + 18 witnesses
+  SAT = 55 resultados** (scope 4/5); M12.2 passou a **52 checks UNSAT + 27
+  witnesses SAT = 79 resultados**. `model_sha256` composição
+  `2fa2d9f6…c4c16e`; receipt M12 `c0e091d4…1e1392`.
+- **Item 2a (M12-CORR-01):** `compartilhar` exige `roteiroPublicavel[a,r]`
+  explícito (check `CompartilharExigePublicavel`), alinhando o código ao worklog;
+  negativas e sucesso nos três status (`WitnessProvisorio…`, `WitnessValidado…`,
+  `WitnessCompartilhaPublicavel`).
+- **Item 2b (M12-CORR-02):** M9/M11 não eliminam atomicamente vínculos ao
+  tornar-se Chefe; a rota acadêmica exige papel `alunos` **e** vínculo atual.
+  `coerente` de M12.2 deixou de assumir `vAluno not in chefes`; `promoverChefe`
+  modela o vínculo legado e `ChefeComVinculoLegado…` prova a negação, mantendo o
+  Chefe só por Q13. Alinha Alloy/CUE/Rust (`aluno_baixa` já exigia `ALUNO`).
+- **M7/M9/Q09:** receipt na primeira execução, retry sem duplicar, reuso
+  incompatível rejeitado, revogação preserva Post/snapshot/histórico/objeto/URL,
+  M9 impede commit após revogação de vínculo.
+- **Sem CUE/IR novo:** a ponte de dados já existe (`#M12_2RoteiroAnexo` embute
+  `#M12_1RoteiroAnexo`; `#M12_2AnexoVinculado`); IR e receipts M0–M12.1
+  inalterados (`spec_ir_sha256` idêntico).
+- **Limites:** prova *bounded* (for 4/5); não certifica `functions/`, frontend,
+  Rules, Storage real, bytes, concorrência nem atomicidade Firestore–Storage.
+
+## Histórico — M12.2 executável validado (Roteiros, compartilhamento e Storage)
 
 Cadeia aditiva **CUE → IR v3 → Alloy → receipt → Rust → LaTeX → PDF** para
 Roteiros, compartilhamento, Storage/download e anexo a Post. HEAD de entrada da
 rodada corretiva: `1000513a0e54de0f2f69583ff50532a6096420fc`; commit executável
 `8fc21a61`. **M12.2 = VALIDATED** (após rodada corretiva); M0–M11 e M12.1 =
-VALIDATED; M12 = NOT_STARTED (fechamento de composição/regressão); M13 =
-NOT_STARTED; **HQs M12.2 = 0**. Registro em
+VALIDATED; M13 = NOT_STARTED; **HQs M12.2 = 0**. Registro em
 [worklog M12.2 executável](worklogs/formal-spec/M12_2_EXECUTABLE_VALIDATION.md).
 
 - **Rodada corretiva (dois achados fechados):** (1) `compartilhar` passou a
@@ -56,9 +89,10 @@ NOT_STARTED; **HQs M12.2 = 0**. Registro em
   sem `idOperacao`/M7/geração; `posts.ts` sem snapshot/geração; `storage.rules`
   libera `read` de `/roteiros` a qualquer autenticado.
 
-Próxima ação exata: **fechamento de M12** (composição M12.1/M12.2 e regressão
-M0–M11); depois **M13** (Notificação unificada). O fechamento global após M13 é
-um gate, sem M14 automático.
+Próxima ação exata: **M13** (Notificação unificada: entidade `Notificacao`
+M7/M8/M9/M12, reutilizando `ESCASSEZ_ESTOQUE` de M8). **M12 = VALIDATED**
+(composição M12.1/M12.2). O fechamento global após M13 é um gate, sem M14
+automático.
 
 ## Histórico — M12.2 documental validado (Roteiros de Experimento)
 

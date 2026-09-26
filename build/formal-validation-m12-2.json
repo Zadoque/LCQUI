@@ -4,7 +4,7 @@
   "solver": "sat4j",
   "spec_ir_sha256": "b5671cb75609239db147d9fbe446aafa35d12f2d71ee91753f4d4cb630573fe1",
   "model": "specification/alloy/operations/roteiros_m12_2.als",
-  "model_sha256": "51348d15c00a3ac629cbe9232025846cbc3856e98be064377f24bff9847e417a",
+  "model_sha256": "19ca6ca07d294c3513e6adfd0adf444eb54eb0565121c8641d0ce0e634355436",
   "resultados": [
     {
       "id": "M12_2-INV-001",
@@ -336,178 +336,227 @@
       "status": "UNSAT"
     },
     {
-      "id": "M12_2-WIT-048",
+      "id": "M12_2-INV-048",
+      "assertion": "CompartilharExigePublicavel",
+      "tipo": "check",
+      "scope": "check CompartilharExigePublicavel for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-049",
+      "assertion": "RotaAcademicaExigePapel",
+      "tipo": "check",
+      "scope": "check RotaAcademicaExigePapel for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-050",
+      "assertion": "ChefeComVinculoLegadoNaoUsaRotaAcademica",
+      "tipo": "check",
+      "scope": "check ChefeComVinculoLegadoNaoUsaRotaAcademica for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-051",
+      "assertion": "PromoverChefePreservaVinculoLegado",
+      "tipo": "check",
+      "scope": "check PromoverChefePreservaVinculoLegado for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-INV-052",
+      "assertion": "PromoverChefePreservaCoerencia",
+      "tipo": "check",
+      "scope": "check PromoverChefePreservaCoerencia for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M12_2-WIT-053",
       "assertion": "WitnessTurmaAtiva",
       "tipo": "run",
       "scope": "run WitnessTurmaAtiva for 4",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-049",
+      "id": "M12_2-WIT-054",
       "assertion": "WitnessCadastraProvisorio",
       "tipo": "run",
       "scope": "run WitnessCadastraProvisorio for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-050",
+      "id": "M12_2-WIT-055",
       "assertion": "WitnessValidaObjeto",
       "tipo": "run",
       "scope": "run WitnessValidaObjeto for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-051",
+      "id": "M12_2-WIT-056",
       "assertion": "WitnessPublica",
       "tipo": "run",
       "scope": "run WitnessPublica for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-052",
+      "id": "M12_2-WIT-057",
       "assertion": "WitnessProprietarioEmite",
       "tipo": "run",
       "scope": "run WitnessProprietarioEmite for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-053",
+      "id": "M12_2-WIT-058",
       "assertion": "WitnessCompartilhadoEmite",
       "tipo": "run",
       "scope": "run WitnessCompartilhadoEmite for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-054",
+      "id": "M12_2-WIT-059",
       "assertion": "WitnessAlunoEmitePostAtivo",
       "tipo": "run",
       "scope": "run WitnessAlunoEmitePostAtivo for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-055",
+      "id": "M12_2-WIT-060",
       "assertion": "WitnessAlunoEmiteTurmaArquivada",
       "tipo": "run",
       "scope": "run WitnessAlunoEmiteTurmaArquivada for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-056",
+      "id": "M12_2-WIT-061",
       "assertion": "WitnessExAlunoNaoEmite",
       "tipo": "run",
       "scope": "run WitnessExAlunoNaoEmite for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-057",
+      "id": "M12_2-WIT-062",
       "assertion": "WitnessRevogadoNaoEmite",
       "tipo": "run",
       "scope": "run WitnessRevogadoNaoEmite for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-058",
+      "id": "M12_2-WIT-063",
       "assertion": "WitnessUrlAtivaAposRevogacao",
       "tipo": "run",
       "scope": "run WitnessUrlAtivaAposRevogacao for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-059",
+      "id": "M12_2-WIT-064",
       "assertion": "WitnessProvisorioNaoCompartilha",
       "tipo": "run",
       "scope": "run WitnessProvisorioNaoCompartilha for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-060",
+      "id": "M12_2-WIT-065",
       "assertion": "WitnessValidadoNaoCompartilha",
       "tipo": "run",
       "scope": "run WitnessValidadoNaoCompartilha for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-061",
+      "id": "M12_2-WIT-066",
       "assertion": "WitnessCompartilhaPublicavel",
       "tipo": "run",
       "scope": "run WitnessCompartilhaPublicavel for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-062",
+      "id": "M12_2-WIT-067",
       "assertion": "WitnessChefeComEscopoQ13",
       "tipo": "run",
       "scope": "run WitnessChefeComEscopoQ13 for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-063",
+      "id": "M12_2-WIT-068",
       "assertion": "WitnessChefeSemEscopoNaoEmite",
       "tipo": "run",
       "scope": "run WitnessChefeSemEscopoNaoEmite for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-064",
+      "id": "M12_2-WIT-069",
       "assertion": "WitnessEncerrarEscopoImpedeEmissao",
       "tipo": "run",
       "scope": "run WitnessEncerrarEscopoImpedeEmissao for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-065",
+      "id": "M12_2-WIT-070",
       "assertion": "WitnessPostRemovidoNaoEmiteAluno",
       "tipo": "run",
       "scope": "run WitnessPostRemovidoNaoEmiteAluno for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-066",
+      "id": "M12_2-WIT-071",
       "assertion": "WitnessAnexaComAcesso",
       "tipo": "run",
       "scope": "run WitnessAnexaComAcesso for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-067",
+      "id": "M12_2-WIT-072",
       "assertion": "WitnessMantemComAcesso",
       "tipo": "run",
       "scope": "run WitnessMantemComAcesso for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-068",
+      "id": "M12_2-WIT-073",
       "assertion": "WitnessDesvinculaSemAcesso",
       "tipo": "run",
       "scope": "run WitnessDesvinculaSemAcesso for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-069",
+      "id": "M12_2-WIT-074",
       "assertion": "WitnessTrocaPreservaHistorico",
       "tipo": "run",
       "scope": "run WitnessTrocaPreservaHistorico for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-070",
+      "id": "M12_2-WIT-075",
       "assertion": "WitnessRetryAposExecucao",
       "tipo": "run",
       "scope": "run WitnessRetryAposExecucao for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-071",
+      "id": "M12_2-WIT-076",
       "assertion": "WitnessReusoIncompativel",
       "tipo": "run",
       "scope": "run WitnessReusoIncompativel for 6",
       "status": "SAT"
     },
     {
-      "id": "M12_2-WIT-072",
+      "id": "M12_2-WIT-077",
       "assertion": "WitnessObjetoAusenteNaoEmite",
       "tipo": "run",
       "scope": "run WitnessObjetoAusenteNaoEmite for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-078",
+      "assertion": "WitnessChefeComVinculoLegadoNaoUsaRotaAcademica",
+      "tipo": "run",
+      "scope": "run WitnessChefeComVinculoLegadoNaoUsaRotaAcademica for 6",
+      "status": "SAT"
+    },
+    {
+      "id": "M12_2-WIT-079",
+      "assertion": "WitnessPromocaoChefeMantemVinculo",
+      "tipo": "run",
+      "scope": "run WitnessPromocaoChefeMantemVinculo for 6",
       "status": "SAT"
     }
   ]

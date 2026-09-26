@@ -1,0 +1,61 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{Evidência formal M12 --- composição M12.1 x M12.2 (Posts e Roteiros)}
+Prova conjunta em um único EstadoIntegrado, com o mesmo Post, vínculo canônico, professor, Roteiro, anexo e comando. Reproduz os predicados de autorização/coerência de fronteira de M12.1/M12.2 (guard de drift em tools/formal/m12\_composition.mjs). A ponte `ponteAcessoRoteiro` exige que todo acesso abstrato M12.1 (`acessoRoteiroValidado`) seja fundamentado no acesso concreto M12.2 (`acessoProfessorRoteiro`, com objeto e geração canônica); a publicação composta prova a geração do anexo, ausente na prova isolada de M12.1. A rota acadêmica exige o papel acadêmico autorizado (`alunos`) E o vínculo canônico atual: um Chefe com vínculo legado (M9/M11 não removem vínculos atomicamente) não contorna Q13. Revogação Q09 preserva Post/snapshot/histórico; M7/M9 cobrem receipt, retry, reuso e revalidação. Escopos limitados a for 4/for 5. Não certifica Firebase, Storage real, Rules, auth, bytes nem atomicidade Firestore-Storage.
+\begin{description}
+\item[M12-INV-001] PublicacaoCompostaExigeDono: UNSAT.\newline Escopo: \texttt{check PublicacaoCompostaExigeDono for 4}.
+\item[M12-INV-002] PublicacaoCompostaRefinaAcessoM12\_1: UNSAT.\newline Escopo: \texttt{check PublicacaoCompostaRefinaAcessoM12\_1 for 4}.
+\item[M12-INV-003] SemAcessoM12\_1NaoPublicaComposto: UNSAT.\newline Escopo: \texttt{check SemAcessoM12\_1NaoPublicaComposto for 4}.
+\item[M12-INV-004] PublicacaoCompostaProvaGeracao: UNSAT.\newline Escopo: \texttt{check PublicacaoCompostaProvaGeracao for 4}.
+\item[M12-INV-005] AnexoCompostoUsaGeracaoCanonica: UNSAT.\newline Escopo: \texttt{check AnexoCompostoUsaGeracaoCanonica for 4}.
+\item[M12-INV-006] TerceiroNaoPublicaComAnexo: UNSAT.\newline Escopo: \texttt{check TerceiroNaoPublicaComAnexo for 4}.
+\item[M12-INV-007] ProvisorioNaoPublicaComAnexo: UNSAT.\newline Escopo: \texttt{check ProvisorioNaoPublicaComAnexo for 4}.
+\item[M12-INV-008] ValidadoNaoPublicaComAnexo: UNSAT.\newline Escopo: \texttt{check ValidadoNaoPublicaComAnexo for 4}.
+\item[M12-INV-009] GeracaoDivergenteNaoPublicaComAnexo: UNSAT.\newline Escopo: \texttt{check GeracaoDivergenteNaoPublicaComAnexo for 4}.
+\item[M12-INV-010] CompartilhamentoCompostoSoPublicavel: UNSAT.\newline Escopo: \texttt{check CompartilhamentoCompostoSoPublicavel for 4}.
+\item[M12-INV-011] AcessoCompartilhadoFundamentaM12\_1: UNSAT.\newline Escopo: \texttt{check AcessoCompartilhadoFundamentaM12\_1 for 4}.
+\item[M12-INV-012] RevogacaoCompostaPreservaPost: UNSAT.\newline Escopo: \texttt{check RevogacaoCompostaPreservaPost for 4}.
+\item[M12-INV-013] RevogacaoCompostaPreservaAnexo: UNSAT.\newline Escopo: \texttt{check RevogacaoCompostaPreservaAnexo for 4}.
+\item[M12-INV-014] RevogacaoCompostaPreservaObjeto: UNSAT.\newline Escopo: \texttt{check RevogacaoCompostaPreservaObjeto for 4}.
+\item[M12-INV-015] RevogacaoCompostaPreservaUrls: UNSAT.\newline Escopo: \texttt{check RevogacaoCompostaPreservaUrls for 4}.
+\item[M12-INV-016] RevogadoNaoMantemAnexoSemAcesso: UNSAT.\newline Escopo: \texttt{check RevogadoNaoMantemAnexoSemAcesso for 4}.
+\item[M12-INV-017] DesvinculacaoNaoExigeAcesso: UNSAT.\newline Escopo: \texttt{check DesvinculacaoNaoExigeAcesso for 4}.
+\item[M12-INV-018] HistoricoAnexoCompostoPreservado: UNSAT.\newline Escopo: \texttt{check HistoricoAnexoCompostoPreservado for 4}.
+\item[M12-INV-019] DesvinculoConservaObjeto: UNSAT.\newline Escopo: \texttt{check DesvinculoConservaObjeto for 4}.
+\item[M12-INV-020] RotaAcademicaExigePapelEVinculo: UNSAT.\newline Escopo: \texttt{check RotaAcademicaExigePapelEVinculo for 4}.
+\item[M12-INV-021] PostRemovidoNaoBaixaComposto: UNSAT.\newline Escopo: \texttt{check PostRemovidoNaoBaixaComposto for 4}.
+\item[M12-INV-022] ChefeComVinculoLegadoNaoBaixaComposto: UNSAT.\newline Escopo: \texttt{check ChefeComVinculoLegadoNaoBaixaComposto for 4}.
+\item[M12-INV-023] ClaimAntigaNaoAutorizaComposto: UNSAT.\newline Escopo: \texttt{check ClaimAntigaNaoAutorizaComposto for 4}.
+\item[M12-INV-024] UrlEmitidaCompostaSobreviveRevogacao: UNSAT.\newline Escopo: \texttt{check UrlEmitidaCompostaSobreviveRevogacao for 4}.
+\item[M12-INV-025] UrlExpiradaNaoUsavelComposto: UNSAT.\newline Escopo: \texttt{check UrlExpiradaNaoUsavelComposto for 4}.
+\item[M12-INV-026] UrlAtivaUsavelComposto: UNSAT.\newline Escopo: \texttt{check UrlAtivaUsavelComposto for 4}.
+\item[M12-INV-027] ChefeNaoPublicaPostComposto: UNSAT.\newline Escopo: \texttt{check ChefeNaoPublicaPostComposto for 4}.
+\item[M12-INV-028] ChefeNaoCompartilhaComposto: UNSAT.\newline Escopo: \texttt{check ChefeNaoCompartilhaComposto for 4}.
+\item[M12-INV-029] ChefeSemEscopoNaoEmiteComposto: UNSAT.\newline Escopo: \texttt{check ChefeSemEscopoNaoEmiteComposto for 4}.
+\item[M12-INV-030] EscopoQ13CompostoExigePostRemovido: UNSAT.\newline Escopo: \texttt{check EscopoQ13CompostoExigePostRemovido for 4}.
+\item[M12-INV-031] TurmaArquivadaNegaEscritaComposta: UNSAT.\newline Escopo: \texttt{check TurmaArquivadaNegaEscritaComposta for 4}.
+\item[M12-INV-032] ChefeAnexoSoQ13: UNSAT.\newline Escopo: \texttt{check ChefeAnexoSoQ13 for 4}.
+\item[M12-INV-033] PrimeiraExecucaoCompostaProduzReceipt: UNSAT.\newline Escopo: \texttt{check PrimeiraExecucaoCompostaProduzReceipt for 4}.
+\item[M12-INV-034] RetryCompostoNaoDuplicaFato: UNSAT.\newline Escopo: \texttt{check RetryCompostoNaoDuplicaFato for 4}.
+\item[M12-INV-035] ReusoIncompativelCompostoNaoHerda: UNSAT.\newline Escopo: \texttt{check ReusoIncompativelCompostoNaoHerda for 4}.
+\item[M12-INV-036] RevogacaoVinculoCompostaImpedeCommit: UNSAT.\newline Escopo: \texttt{check RevogacaoVinculoCompostaImpedeCommit for 4}.
+\item[M12-INV-037] PromoverChefeCompostoPreservaVinculo: UNSAT.\newline Escopo: \texttt{check PromoverChefeCompostoPreservaVinculo for 4}.
+\item[M12-WIT-038] WitnessEstadoComposto: SAT.\newline Escopo: \texttt{run WitnessEstadoComposto for 4}.
+\item[M12-WIT-039] WitnessTrajetoriaCompartilhaRevoga: SAT.\newline Escopo: \texttt{run WitnessTrajetoriaCompartilhaRevoga for 5}.
+\item[M12-WIT-040] WitnessPublicaRoteiroCompartilhado: SAT.\newline Escopo: \texttt{run WitnessPublicaRoteiroCompartilhado for 4}.
+\item[M12-WIT-041] WitnessProvisorioNaoPublica: SAT.\newline Escopo: \texttt{run WitnessProvisorioNaoPublica for 4}.
+\item[M12-WIT-042] WitnessValidadoNaoPublica: SAT.\newline Escopo: \texttt{run WitnessValidadoNaoPublica for 4}.
+\item[M12-WIT-043] WitnessAlunoBaixaAtivo: SAT.\newline Escopo: \texttt{run WitnessAlunoBaixaAtivo for 4}.
+\item[M12-WIT-044] WitnessAlunoBaixaArquivada: SAT.\newline Escopo: \texttt{run WitnessAlunoBaixaArquivada for 4}.
+\item[M12-WIT-045] WitnessExAlunoNaoBaixa: SAT.\newline Escopo: \texttt{run WitnessExAlunoNaoBaixa for 5}.
+\item[M12-WIT-046] WitnessPostRemovidoNaoBaixa: SAT.\newline Escopo: \texttt{run WitnessPostRemovidoNaoBaixa for 4}.
+\item[M12-WIT-047] WitnessRevogacaoPreservaHistorico: SAT.\newline Escopo: \texttt{run WitnessRevogacaoPreservaHistorico for 4}.
+\item[M12-WIT-048] WitnessDesvinculaSemAcesso: SAT.\newline Escopo: \texttt{run WitnessDesvinculaSemAcesso for 4}.
+\item[M12-WIT-049] WitnessChefeComEscopoQ13: SAT.\newline Escopo: \texttt{run WitnessChefeComEscopoQ13 for 5}.
+\item[M12-WIT-050] WitnessChefeSemEscopoNaoEmite: SAT.\newline Escopo: \texttt{run WitnessChefeSemEscopoNaoEmite for 4}.
+\item[M12-WIT-051] WitnessChefeComVinculoLegado: SAT.\newline Escopo: \texttt{run WitnessChefeComVinculoLegado for 4}.
+\item[M12-WIT-052] WitnessUrlAtivaAposRevogacao: SAT.\newline Escopo: \texttt{run WitnessUrlAtivaAposRevogacao for 4}.
+\item[M12-WIT-053] WitnessTurmaArquivadaNegaEscrita: SAT.\newline Escopo: \texttt{run WitnessTurmaArquivadaNegaEscrita for 4}.
+\item[M12-WIT-054] WitnessRetryComposto: SAT.\newline Escopo: \texttt{run WitnessRetryComposto for 4}.
+\item[M12-WIT-055] WitnessReusoIncompativelComposto: SAT.\newline Escopo: \texttt{run WitnessReusoIncompativelComposto for 4}.
+\end{description}
+UNSAT para check indica ausência de contraexemplo no escopo declarado; SAT para run indica testemunha encontrada. A evidência não certifica a implementação Firebase/backend.

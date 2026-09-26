@@ -1,0 +1,98 @@
+\clearpage
+\section{Especificação formal M12: composição M12.1 $\times$ M12.2}
+\label{sec:formal-m12}
+\sloppy
+
+M12.1 (Posts, comentários e históricos) e M12.2 (Roteiros, compartilhamento,
+Storage e anexo a Post) foram provados isoladamente. Esta seção registra a
+\textbf{prova composta}: um único modelo Alloy
+(\texttt{specification/alloy/operations/composition\_m12.als}) com um
+\texttt{EstadoIntegrado} onde o mesmo Post, vínculo canônico, professor, Roteiro,
+anexo e comando representam os mesmos fatos ao longo da trajetória. Não se trata
+de dois modelos justapostos: as transições são ligadas e os predicados de
+autorização/coerência de fronteira são reproduzidos das fontes e verificados por
+um guard de drift (\texttt{tools/formal/m12\_composition.mjs}). O contrato CUE já
+fornece a ponte de dados aditiva (\texttt{\#M12\_2RoteiroAnexo} embute
+\texttt{\#M12\_1RoteiroAnexo} e \texttt{\#M12\_2AnexoVinculado} liga o snapshot à
+referência canônica); nenhum shape novo foi necessário.
+
+\subsection*{Ponte de acesso e geração}
+A ponte \texttt{ponteAcessoRoteiro} exige que todo acesso abstrato de M12.1
+(\texttt{acessoRoteiroValidado}) seja fundamentado no acesso concreto de M12.2
+(\texttt{acessoProfessorRoteiro}: dono ou compartilhamento atual, Roteiro
+publicável com objeto e geração canônica). A publicação composta
+(\texttt{publicarPostComAnexo}) exige ambos e prova
+\texttt{x.aGeracao = geracaoValida[rot] = objetoGeracao[roteiroObj[rot]]}. Assim
+\texttt{\#M12\_2RoteiroAnexo} refina a projeção M12.1 \textbf{sem} supor que
+M12.1, isolado, já provava a geração
+(\texttt{PublicacaoCompostaRefinaAcessoM12\_1},
+\texttt{PublicacaoCompostaProvaGeracao}, \texttt{AnexoCompostoUsaGeracaoCanonica}).
+Professor terceiro, Roteiro \texttt{PROVISORIO}/\texttt{VALIDADO} e geração
+divergente não publicam (\texttt{TerceiroNaoPublicaComAnexo},
+\texttt{ProvisorioNaoPublicaComAnexo}, \texttt{ValidadoNaoPublicaComAnexo},
+\texttt{GeracaoDivergenteNaoPublicaComAnexo}).
+
+\subsection*{Publicabilidade explícita (M12-CORR-01)}
+O worklog corretivo de M12.2 afirmava que \texttt{compartilhar} chamava
+\texttt{roteiroPublicavel[a,r]}, mas a proibição era obtida indiretamente por
+\texttt{coerente[b]}. Nesta rodada a pré-condição tornou-se \textbf{explícita} em
+\texttt{roteiros\_m12\_2.als}, alinhando o código à afirmação factual; o check
+\texttt{CompartilharExigePublicavel} e o testemunho
+\texttt{WitnessCompartilhaPublicavel} reexecutam a evidência.
+
+\subsection*{Papel acadêmico versus vínculo persistido (M12-CORR-02)}
+M12.2 excluía \texttt{vAluno in chefes} de \texttt{coerente} citando RN-ROLE-01,
+mas RN-ROLE-01 proíbe acumular \emph{papéis}, enquanto
+\texttt{Turma/\{id\}/Alunos/\{uid\}} é vínculo canônico com vida própria. M9/M11
+\textbf{não} definem transição que elimine/vede atomicamente vínculos ao tornar-se
+Chefe. A rota acadêmica passou a exigir o papel acadêmico autorizado
+(\texttt{alunos}) \textbf{e} o vínculo canônico atual; a coerência não pressupõe
+mais que um Chefe jamais reteve vínculo. Um Chefe com vínculo legado não usa a
+rota acadêmica nem contorna Q13 (\texttt{RotaAcademicaExigePapelEVinculo},
+\texttt{ChefeComVinculoLegadoNaoBaixaComposto} e a trajetória
+\texttt{WitnessChefeComVinculoLegado}, que promove a Chefe preservando o vínculo e
+prova a negação). A regra determinística Rust \texttt{aluno\_baixa} já exigia
+\texttt{papel == "ALUNO"}; a mudança alinha Alloy, CUE (\texttt{papel}) e Rust.
+
+\subsection*{Revogação Q09, aluno e Chefe}
+A revogação preserva Post, snapshot, histórico, objeto e URLs já emitidas e impede
+nova associação ou edição que mantém o anexo sem acesso
+(\texttt{RevogacaoCompostaPreservaPost/Anexo/Objeto/Urls},
+\texttt{RevogadoNaoMantemAnexoSemAcesso}); a desvinculação autorizada não exige
+acesso e conserva o objeto (\texttt{DesvinculacaoNaoExigeAcesso},
+\texttt{DesvinculoConservaObjeto}). O aluno com vínculo canônico atual baixa o
+anexo de Post acessível, inclusive em turma arquivada
+(\texttt{WitnessAlunoBaixaAtivo}, \texttt{WitnessAlunoBaixaArquivada}); ex-aluno
+após remoção e refresh de claim não obtém nova URL
+(\texttt{WitnessExAlunoNaoBaixa}); Post removido não aparece
+(\texttt{WitnessPostRemovidoNaoBaixa}); URL já emitida só é utilizável enquanto
+ativa (\texttt{WitnessUrlAtivaAposRevogacao}); claim antiga não autoriza
+(\texttt{ClaimAntigaNaoAutorizaComposto}). O Chefe só emite sob escopo Q13
+registrado, vinculado a Post removido que referencia o Roteiro
+(\texttt{ChefeSemEscopoNaoEmiteComposto},
+\texttt{WitnessChefeComEscopoQ13}); não cria Post alheio, não compartilha e não
+usa a rota acadêmica (\texttt{ChefeNaoPublicaPostComposto},
+\texttt{ChefeNaoCompartilhaComposto}, \texttt{ChefeAnexoSoQ13}); turma arquivada
+nega escrita inclusive a intervenção (\texttt{TurmaArquivadaNegaEscritaComposta}).
+
+\subsection*{M7/M9 na composição}
+A primeira execução grava receipt sob o \texttt{idOperacao}
+(\texttt{PrimeiraExecucaoCompostaProduzReceipt}); o retry idêntico não duplica
+Post, anexo, histórico, compartilhamento nem notificação
+(\texttt{RetryCompostoNaoDuplicaFato}); o reuso incompatível não herda receipt
+(\texttt{ReusoIncompativelCompostoNaoHerda}); a revogação de vínculo impede o
+commit posterior (\texttt{RevogacaoVinculoCompostaImpedeCommit}). Isto é
+comportamento do modelo \emph{bounded}, não garantia de transação
+Firestore--Storage nem revogação instantânea de URL já emitida.
+
+\begingroup\small\raggedright
+\input{generated/invariants/formal_m12.tex}
+\par\endgroup
+
+\subsection*{Limites}
+A prova composta usa escopos limitados (\texttt{for 4}/\texttt{for 5}) e não
+certifica \texttt{functions/}, frontend, Rules, Firebase, Auth, Storage real,
+bytes binários, HMAC, concorrência nem atomicidade entre serviços. Cada milestone
+isolado (M12.1/M12.2) permanece válido e \textbf{não} é substituído por esta
+seção; a propriedade composta é o que se demonstra aqui.
+\fussy

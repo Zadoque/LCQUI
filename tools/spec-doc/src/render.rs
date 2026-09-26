@@ -249,6 +249,14 @@ pub fn render_m12_2(v: &crate::validation_m12_2::ValidationM12_2) -> String {
     )
 }
 
+pub fn render_m12(v: &crate::validation_m12::ValidationM12) -> String {
+    render_milestone(
+        "M12 --- composição M12.1 x M12.2 (Posts e Roteiros)",
+        "Prova conjunta em um único EstadoIntegrado, com o mesmo Post, vínculo canônico, professor, Roteiro, anexo e comando. Reproduz os predicados de autorização/coerência de fronteira de M12.1/M12.2 (guard de drift em tools/formal/m12_composition.mjs). A ponte `ponteAcessoRoteiro` exige que todo acesso abstrato M12.1 (`acessoRoteiroValidado`) seja fundamentado no acesso concreto M12.2 (`acessoProfessorRoteiro`, com objeto e geração canônica); a publicação composta prova a geração do anexo, ausente na prova isolada de M12.1. A rota acadêmica exige o papel acadêmico autorizado (`alunos`) E o vínculo canônico atual: um Chefe com vínculo legado (M9/M11 não removem vínculos atomicamente) não contorna Q13. Revogação Q09 preserva Post/snapshot/histórico; M7/M9 cobrem receipt, retry, reuso e revalidação. Escopos limitados a for 4/for 5. Não certifica Firebase, Storage real, Rules, auth, bytes nem atomicidade Firestore-Storage.",
+        &v.resultados,
+    )
+}
+
 pub fn render_m11(v: &crate::validation_m11::ValidationM11) -> String {
     render_milestone(
         "M11 --- turma, matrícula e convite",

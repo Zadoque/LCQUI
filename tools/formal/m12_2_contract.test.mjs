@@ -46,7 +46,7 @@ test('M12.2 preserva os nomes canônicos e a fronteira de M12.1', () => {
     assert.match(docs, new RegExp(value.replaceAll('_', '\\\\_')), `nome documental ausente: ${value}`);
   }
   assert.match(rust, /M12_2-INV-001/);
-  assert.match(rust, /M12_2-WIT-072/);
+  assert.match(rust, /M12_2-WIT-079/);
   // Refinamento aditivo: M12.2 embute o anexo M12.1 e M12.1 permanece assinado.
   assert.match(cue, /#M12_2RoteiroAnexo: \{[^}]*_refina_m12_1:\s*#M12_1RoteiroAnexo/s, 'projeção de refinamento ausente');
   assert.match(cueM121, /#M12_1RoteiroAnexo:/, 'anexo M12.1 ausente');
@@ -104,8 +104,16 @@ test('M12.2 preserva os predicados e assertions centrais do Alloy', () => {
     'assert RetryNaoReexecuta',
     'assert RevogacaoVinculoImpedeCommit',
     'assert TransicoesPreservamCoerencia',
+    'assert CompartilharExigePublicavel',
+    'assert RotaAcademicaExigePapel',
+    'assert ChefeComVinculoLegadoNaoUsaRotaAcademica',
+    'assert PromoverChefePreservaVinculoLegado',
+    'assert PromoverChefePreservaCoerencia',
   ]) {
     assert.ok(alloy.includes(assertion), `assertion Alloy ausente: ${assertion}`);
+  }
+  for (const pred of ['pred promoverChefe']) {
+    assert.ok(alloy.includes(pred), `predicado Alloy ausente: ${pred}`);
   }
 });
 
