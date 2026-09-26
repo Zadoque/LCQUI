@@ -6,7 +6,7 @@ process.env.FUNCTIONS_EMULATOR = "true";
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { CallableRequest } from "firebase-functions/v2/https";
-import { marcarNotificacaoComoLida } from "../notificacoes";
+import { marcarNotificacaoComoLida, limparTudoNotificacoes } from "../notificacoes";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -194,5 +194,185 @@ describe("Módulo de Notificações (M9 + server-owned)", () => {
 
     const snap = await ref.get();
     expect(snap.data()?.lida).toBe(false);
+  });
+
+  describe("Limpar tudo (RN-M13-02, M7/M13)", () => {
+    const agora = Date.now();
+    const corte = new Date(agora).toISOString();
+
+    it("TEST-INT-NOTIF-M13-012 — marca todas as ativas do próprio UID sem DELETE", async () => {
+      const uid = uidUnico("notif_limpar");
+      await semear(uid);
+      const n1 = await semearNotificacao(uid, "a", {
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora - 2000),
+      });
+      const n2 = await semearNotificacao(uid, "b", {
+        papel_destinatario: "Gestor_Almoxarifado",
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora - 1000),
+      });
+
+      const wrapped = testEnv.wrap(limparTudoNotificacoes);
+      const resultado = await wrapped(mockRequest({ corte }, uid));
+
+      expect(resultado.marcadas).toBe(2);
+      expect(resultado.continuar).toBe(false);
+      for (const ref of [n1, n2]) {
+        const dados = (await ref.get()).data();
+        expect(dados?.lida).toBe(true);
+        expect(dados?.lida_em).not.toBeNull();
+      }
+      const snap = await db.collection("Usuarios").doc(uid).collection("Notificacoes").get();
+      expect(snap.size).toBe(2);
+    });
+
+    it("TEST-INT-NOTIF-M13-013 — retry preserva o instante já gravado", async () => {
+      const uid = uidUnico("notif_limpar_idem");
+      await semear(uid);
+      const antigo = new Date(agora - 100000);
+      const jaLida = await semearNotificacao(uid, "ja_lida", {
+        lida: true,
+        lida_em: antigo,
+        emitida_em: new Date(agora - 2000),
+      });
+      const nova = await semearNotificacao(uid, "nova", {
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora - 1000),
+      });
+
+      const wrapped = testEnv.wrap(limparTudoNotificacoes);
+      await wrapped(mockRequest({ corte }, uid));
+      const primeiro = (await nova.get()).data()?.lida_em.toMillis();
+      await wrapped(mockRequest({ corte }, uid));
+      const segundo = (await nova.get()).data()?.lida_em.toMillis();
+
+      expect(segundo).toBe(primeiro);
+      expect((await jaLida.get()).data()?.lida_em.toMillis()).toBe(antigo.getTime());
+    });
+
+    it("TEST-INT-NOTIF-M13-014 — corte estável exclui emissão posterior", async () => {
+      const uid = uidUnico("notif_limpar_corte");
+      await semear(uid);
+      const antes = await semearNotificacao(uid, "antes", {
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora - 1000),
+      });
+      const depois = await semearNotificacao(uid, "depois", {
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora + 30000),
+      });
+
+      const wrapped = testEnv.wrap(limparTudoNotificacoes);
+      const resultado = await wrapped(mockRequest({ corte }, uid));
+
+      expect(resultado.marcadas).toBe(1);
+      expect((await antes.get()).data()?.lida).toBe(true);
+      expect((await depois.get()).data()?.lida).toBe(false);
+
+      const proxima = await wrapped(
+        mockRequest({ corte: new Date(agora + 45000).toISOString() }, uid)
+      );
+      expect(proxima.marcadas).toBe(1);
+      expect((await depois.get()).data()?.lida).toBe(true);
+    });
+
+    it("TEST-INT-NOTIF-M13-015 — não age na caixa de terceiro", async () => {
+      const uid = uidUnico("notif_limpar_dono");
+      const outro = uidUnico("notif_limpar_outro");
+      await semear(uid);
+      await semear(outro);
+      const alheia = await semearNotificacao(outro, "x", {
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora - 1000),
+      });
+
+      const wrapped = testEnv.wrap(limparTudoNotificacoes);
+      await wrapped(mockRequest({ corte }, uid));
+
+      expect((await alheia.get()).data()?.lida).toBe(false);
+    });
+
+    it("TEST-INT-NOTIF-M13-016 — paginação reentrante com mesmo corte", async () => {
+      const uid = uidUnico("notif_limpar_pag");
+      await semear(uid);
+      for (const id of ["a", "b", "c"]) {
+        await semearNotificacao(uid, id, {
+          tipo: "FRASCOS_VAZIOS",
+          emitida_em: new Date(agora - 5000),
+        });
+      }
+
+      const wrapped = testEnv.wrap(limparTudoNotificacoes);
+      const primeira = await wrapped(mockRequest({ corte, limite: 2 }, uid));
+      expect(primeira.marcadas).toBe(2);
+      expect(primeira.continuar).toBe(true);
+
+      const segunda = await wrapped(mockRequest({ corte, limite: 2 }, uid));
+      expect(segunda.marcadas).toBe(1);
+      expect(segunda.continuar).toBe(false);
+    });
+
+    it("TEST-INT-NOTIF-M13-017 — documento com id_destinatario divergente não é marcado", async () => {
+      const uid = uidUnico("notif_limpar_div");
+      const outro = uidUnico("notif_limpar_div_alvo");
+      await semear(uid);
+      const coerente = await semearNotificacao(uid, "ok", {
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora - 1000),
+      });
+      const divergente = await semearNotificacao(uid, "div", {
+        id_destinatario: outro,
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora - 2000),
+      });
+
+      const wrapped = testEnv.wrap(limparTudoNotificacoes);
+      const resultado = await wrapped(mockRequest({ corte }, uid));
+
+      expect(resultado.marcadas).toBe(1);
+      expect((await coerente.get()).data()?.lida).toBe(true);
+      expect((await divergente.get()).data()?.lida).toBe(false);
+    });
+
+    it("TEST-INT-NOTIF-M13-018 — estado lida=false com lida_em preenchido falha fechado", async () => {
+      const uid = uidUnico("notif_limpar_incoerente");
+      await semear(uid);
+      const ruim = await semearNotificacao(uid, "ruim", {
+        lida: false,
+        lida_em: new Date(agora - 5000),
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora - 1000),
+      });
+
+      const wrapped = testEnv.wrap(limparTudoNotificacoes);
+      await expect(wrapped(mockRequest({ corte }, uid))).rejects.toMatchObject({
+        code: "failed-precondition",
+      });
+      expect((await ruim.get()).data()?.lida).toBe(false);
+    });
+
+    it("TEST-INT-NOTIF-M13-019 — autoridade inativa nega sem marcar nada", async () => {
+      const uid = uidUnico("notif_limpar_inativo");
+      await semear(uid, { ativo: false });
+      await semearNotificacao(uid, "a", {
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora - 1000),
+      });
+
+      const wrapped = testEnv.wrap(limparTudoNotificacoes);
+      await expect(wrapped(mockRequest({ corte }, uid))).rejects.toMatchObject({
+        code: "permission-denied",
+      });
+    });
+
+    it("TEST-INT-NOTIF-M13-020 — corte inválido é invalid-argument", async () => {
+      const uid = uidUnico("notif_limpar_corte_invalido");
+      await semear(uid);
+      const wrapped = testEnv.wrap(limparTudoNotificacoes);
+      await expect(wrapped(mockRequest({ corte: "nao-e-data" }, uid))).rejects.toMatchObject({
+        code: "invalid-argument",
+      });
+    });
   });
 });

@@ -1,0 +1,14 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "Notificacoes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_destinatario", "order": "ASCENDING" },
+        { "fieldPath": "lida", "order": "ASCENDING" },
+        { "fieldPath": "emitida_em", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

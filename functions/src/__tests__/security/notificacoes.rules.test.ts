@@ -150,4 +150,27 @@ describe("IMP-NOTIF-002 — notificações server-owned", () => {
       db.collection("Usuarios").doc("dono").collection("Notificacoes").doc("n_coerente").get()
     );
   });
+
+  it("TEST-RULES-NOTIF-010 — listagem filtrada por id_destinatario é permitida", async () => {
+    await seedUser("dono");
+    await seedNotificacao("dono", "n1", { idDestinatario: "dono" });
+    const db = dbFor("dono");
+    await assertSucceeds(
+      db
+        .collection("Usuarios")
+        .doc("dono")
+        .collection("Notificacoes")
+        .where("id_destinatario", "==", "dono")
+        .get()
+    );
+  });
+
+  it("TEST-RULES-NOTIF-011 — listagem sem o filtro de coerência é negada", async () => {
+    await seedUser("dono");
+    await seedNotificacao("dono", "n1", { idDestinatario: "dono" });
+    const db = dbFor("dono");
+    await assertFails(
+      db.collection("Usuarios").doc("dono").collection("Notificacoes").get()
+    );
+  });
 });

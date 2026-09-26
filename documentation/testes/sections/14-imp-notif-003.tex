@@ -1,0 +1,86 @@
+\section{Evidência de IMP-NOTIF-003 (``Limpar tudo'' por corte paginado)}
+
+\textbf{Feature:} \texttt{IMP-NOTIF-003} --- marcar como lidas, em rodadas
+paginadas e reentrantes, todas as notificações ativas do próprio UID.
+
+\textbf{Estado anterior:} \texttt{NÃO IMPLEMENTADO}. Não havia endpoint; a única
+mutação era a marcação individual de \texttt{IMP-NOTIF-002}.
+
+\textbf{Estado depois:} \texttt{NÃO DIVERGENTE} para o escopo backend examinado.
+O disparo pela interface pertence à caixa unificada (\texttt{IMP-NOTIF-001} e
+\texttt{IMP-UI-004}), ainda abertas.
+
+\subsection{Contrato}
+
+Fontes: Seção~7 RN-M13-02; Seção~9 ``Marcar lida e Limpar tudo''; CUE
+\texttt{\#M13LimparTudo}; Alloy \texttt{limparTudo},
+\texttt{LimparTudoCorteEstavel}, \texttt{LoteSoProprias}, \texttt{SemDelete},
+\texttt{WitnessLimparTudoRetry}, \texttt{WitnessLimparTudoCorteComNovaEmissao}.
+Propriedades derivadas:
+
+\begin{itemize}
+  \item server-owned com autoridade M9 persistida relida na transação;
+  \item marca apenas notificações endereçadas ao próprio UID
+        (\texttt{id\_destinatario == uid}, RN-M13-01);
+  \item \texttt{lida=true} com \texttt{lida\_em} do servidor; \texttt{lida=false}
+        $\Rightarrow$ \texttt{lida\_em=null} (\#M13Notificacao);
+  \item sem \texttt{DELETE}: o documento permanece para o histórico;
+  \item corte estável: avisos emitidos após o corte ficam para a próxima
+        invocação;
+  \item retry/reentrância: avisos já marcados saem da consulta
+        (\texttt{lida == false}) e não recebem novo instante.
+\end{itemize}
+
+A identidade M7 não se aplica como receipt de lote: \texttt{\#M13LimparTudo} e
+\texttt{\#M13Marcacao} não carregam \texttt{id\_operacao}; a idempotência é
+por item, preservando \texttt{lida\_em}, e a retomada é definida pelo corte
+estável, não por uma operação única.
+
+\subsection{Mudança}
+
+\begin{itemize}
+  \item \path{functions/src/notificacoes.ts}: nova callable
+  \texttt{limparTudoNotificacoes}, com \texttt{corte} opcional (ISO 8601) e
+  \texttt{limite} de página (padrão 100, máximo 200). A consulta filtra
+  \texttt{id\_destinatario == uid}, \texttt{lida == false} e
+  \texttt{emitida\_em <= corte}, ordena por \texttt{emitida\_em} e marca a
+  página inteira na mesma transação; estado \texttt{lida}/\texttt{lida\_em}
+  incoerente falha fechado;
+  \item \path{firestore.indexes.json}: índice composto
+  \texttt{Notificacoes(id\_destinatario, lida, emitida\_em)} referenciado por
+  \path{firebase.json}.
+\end{itemize}
+
+\subsection{TDD}
+
+\small
+\begin{longtable}{@{}p{0.30\textwidth}p{0.52\textwidth}@{}}
+\toprule
+ID & Resultado \\
+\midrule
+\endhead
+TEST-INT-NOTIF-M13-012 & Marca todas as ativas do UID, inclusive outro papel, sem \texttt{DELETE} \\
+TEST-INT-NOTIF-M13-013 & Retry preserva \texttt{lida\_em} já gravado e o de item já lido \\
+TEST-INT-NOTIF-M13-014 & Corte estável exclui emissão posterior; nova invocação a marca \\
+TEST-INT-NOTIF-M13-015 & Não age na caixa de terceiro \\
+TEST-INT-NOTIF-M13-016 & Paginação reentrante com o mesmo corte (2 + 1) \\
+TEST-INT-NOTIF-M13-017 & Documento com \texttt{id\_destinatario} divergente não é marcado \\
+TEST-INT-NOTIF-M13-018 & \texttt{lida=false} com \texttt{lida\_em} preenchido falha fechado \\
+TEST-INT-NOTIF-M13-019 & Autoridade inativa nega sem marcar nada \\
+TEST-INT-NOTIF-M13-020 & Corte inválido é \texttt{invalid-argument} \\
+TEST-RULES-NOTIF-010 & Listagem filtrada por \texttt{id\_destinatario} é permitida \\
+TEST-RULES-NOTIF-011 & Listagem sem o filtro de coerência é negada \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+RED: a suíte de integração não compilava contra a implementação anterior
+(\texttt{limparTudoNotificacoes} inexistente), caracterizando a feature ausente.
+GREEN sob Node 20.19.6: notificações 31/31 (integração 20/20 e Rules 11/11);
+unit 71/71; Rules 77/77. Regressão: \texttt{build} PASS e integração completa
+138 passam / 14 falham (falhas legadas em reagentes/patrimônio/roteiros,
+inalteradas).
+
+\textbf{Estado final:} \texttt{IMP-NOTIF-003} = \texttt{NÃO DIVERGENTE} no
+escopo backend auditado; UI de disparo permanece sob \texttt{IMP-NOTIF-001} e
+\texttt{IMP-UI-004}.

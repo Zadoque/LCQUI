@@ -146,6 +146,22 @@ completa de Rules foi a 75/75 e a integração permaneceu com as mesmas 14 falha
 legadas de reagentes/patrimônio/roteiros. Os achados agregados da matriz foram
 atualizados para descrever o estado corrente.
 
+\subsection{Nona cadeia executada}
+
+\begin{center}
+Seção 7 RN-M13-02, Seção 9, CUE \texttt{\#M13LimparTudo}, Alloy \texttt{limparTudo}/\texttt{LimparTudoCorteEstavel}/\texttt{SemDelete}
+$\rightarrow$ \texttt{IMP-NOTIF-003}
+$\rightarrow$ \texttt{TEST-INT-NOTIF-M13-012--020} e \texttt{TEST-RULES-NOTIF-010--011}
+$\rightarrow$ \nolinkurl{functions/src/notificacoes.ts}
+$\rightarrow$ PASS Node 20
+\end{center}
+
+O RED foi a ausência da callable \texttt{limparTudoNotificacoes} (a suíte não
+compilava). Após a implementação, integração de notificações 20/20 e Rules
+11/11, com corte estável, paginação reentrante e ausência de \texttt{DELETE};
+a suíte completa de Rules foi a 77/77 e a integração manteve as 14 falhas
+legadas de reagentes/patrimônio/roteiros.
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara

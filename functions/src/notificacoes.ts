@@ -110,3 +110,76 @@ export const marcarNotificacaoComoLida = onCall(async (request) => {
     return { success: true };
   });
 });
+
+/** Tamanho de página padrão do "Limpar tudo" paginado/reentrante (RN-M13-02). */
+export const LIMPAR_TUDO_LIMITE_PADRAO = 100;
+/** Teto de página do "Limpar tudo" (limite de transação e previsibilidade). */
+export const LIMPAR_TUDO_LIMITE_MAXIMO = 200;
+/** Tolerância de relógio aceita para um corte vindo de uma rodada anterior. */
+const LIMPAR_TUDO_TOLERANCIA_CORTE_MS = 60_000;
+
+// Endpoint "Limpar tudo": marca como lida, por rodadas paginadas e reentrantes,
+// todas as notificações ativas do próprio UID, sem DELETE e preservando o
+// histórico. O `corte` (instante do início da primeira rodada) é estável entre
+// rodadas: avisos emitidos depois dele ficam para uma nova invocação.
+export const limparTudoNotificacoes = onCall(async (request) => {
+  const claims = extrairClaimsAutoridade(request);
+
+  const { corte, limite } = validatePayload(
+    z.object({
+      corte: z.string().min(1).optional(),
+      limite: z.number().int().min(1).max(LIMPAR_TUDO_LIMITE_MAXIMO).optional(),
+    }),
+    request.data ?? {}
+  );
+
+  const limiteEfetivo = limite ?? LIMPAR_TUDO_LIMITE_PADRAO;
+  const corteEfetivo = corte === undefined ? new Date() : new Date(corte);
+  if (Number.isNaN(corteEfetivo.getTime())) {
+    throw new HttpsError("invalid-argument", "Corte inválido.");
+  }
+  if (corteEfetivo.getTime() > Date.now() + LIMPAR_TUDO_TOLERANCIA_CORTE_MS) {
+    throw new HttpsError("invalid-argument", "Corte inválido.");
+  }
+
+  const db = admin.firestore();
+  const colecao = db.collection("Usuarios").doc(claims.uid).collection("Notificacoes");
+
+  return db.runTransaction(async (tx) => {
+    // M9: autoridade persistida relida na mesma transação do efeito.
+    await resolverAutoridadePersistidaTx(tx, claims, PAPEIS_CONHECIDOS);
+
+    // RN-M13-01: só notificações endereçadas ao próprio UID entram no lote.
+    // O corte limita a itens existentes no início (`emitida_em <= corte`).
+    const consulta = colecao
+      .where("id_destinatario", "==", claims.uid)
+      .where("lida", "==", false)
+      .where("emitida_em", "<=", corteEfetivo)
+      .orderBy("emitida_em", "asc")
+      .limit(limiteEfetivo);
+
+    const snap = await tx.get(consulta);
+
+    for (const doc of snap.docs) {
+      const dados = doc.data();
+      // `lida=false => lida_em=null` (#M13Notificacao). Estado incoerente não é
+      // reparado silenciosamente: falha fechada e a rodada inteira é revertida.
+      const lidaEmPresente = dados.lida_em !== null && dados.lida_em !== undefined;
+      if (dados.lida !== false || lidaEmPresente) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Notificação com estado de leitura incoerente."
+        );
+      }
+      tx.update(doc.ref, { lida: true, lida_em: FieldValue.serverTimestamp() });
+    }
+
+    // Avisos já marcados saem da consulta (`lida == false`), então repetir com o
+    // mesmo corte retoma do ponto sem marcar item novo por engano.
+    return {
+      corte: corteEfetivo.toISOString(),
+      marcadas: snap.size,
+      continuar: snap.size === limiteEfetivo,
+    };
+  });
+});
