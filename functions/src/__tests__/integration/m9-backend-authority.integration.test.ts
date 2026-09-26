@@ -246,6 +246,87 @@ describe("TEST-INT-M9-AUTH — autoridade persistida backend (Admin SDK)", () =>
       "Bolsista",
     ]);
   });
+
+  it("TEST-INT-M9-AUTH-016 (M9 §fontes de verdade; RN-ROLE-01) — Chefe+Professor persistidos nega mesmo com claim só de Chefe", async () => {
+    const uid = uidUnico("persistido_chefe_professor");
+    await semearAutoridade(db, {
+      uid,
+      papeisPersistidos: ["Chefe_Geral", "Professor"],
+      versaoPersistida: 2,
+    });
+    const req = mockRequest(uid, { roles: ["Chefe_Geral"], versao_permissoes: 2 });
+    await expect(validarAutoridadePersistida(req, ["Chefe_Geral"])).rejects.toMatchObject({
+      code: "permission-denied",
+    });
+  });
+
+  it("TEST-INT-M9-AUTH-017 (M9 §fontes de verdade) — Professor+Aluno persistidos negam", async () => {
+    const uid = uidUnico("persistido_professor_aluno");
+    await semearAutoridade(db, {
+      uid,
+      papeisPersistidos: ["Professor", "Aluno"],
+      versaoPersistida: 2,
+    });
+    const req = mockRequest(uid, { roles: ["Professor"], versao_permissoes: 2 });
+    await expect(validarAutoridadePersistida(req, ["Professor"])).rejects.toMatchObject({
+      code: "permission-denied",
+    });
+  });
+
+  it("TEST-INT-M9-AUTH-018 (RN-ROLE-BOLSISTA) — Bolsista persistido sem Aluno nega", async () => {
+    const uid = uidUnico("persistido_bolsista_sem_aluno");
+    await semearAutoridade(db, {
+      uid,
+      papeisPersistidos: ["Bolsista"],
+      versaoPersistida: 1,
+    });
+    const req = mockRequest(uid, { roles: ["Bolsista"], versao_permissoes: 1 });
+    await expect(validarAutoridadePersistida(req, ["Bolsista"])).rejects.toMatchObject({
+      code: "permission-denied",
+    });
+  });
+
+  it("TEST-INT-M9-AUTH-019 (RN-ROLE-BOLSISTA) — Bolsista+Gestor_Almoxarifado persistidos negam", async () => {
+    const uid = uidUnico("persistido_bolsista_gestor");
+    await semearAutoridade(db, {
+      uid,
+      papeisPersistidos: ["Aluno", "Bolsista", "Gestor_Almoxarifado"],
+      versaoPersistida: 3,
+    });
+    const req = mockRequest(uid, {
+      roles: ["Aluno", "Bolsista", "Gestor_Almoxarifado"],
+      versao_permissoes: 3,
+    });
+    await expect(validarAutoridadePersistida(req, ["Bolsista"])).rejects.toMatchObject({
+      code: "permission-denied",
+    });
+  });
+
+  it("TEST-INT-M9-AUTH-020 (M9 §Claims projeção) — claim incompleta (subconjunto) nega", async () => {
+    const uid = uidUnico("claim_incompleta");
+    await semearAutoridade(db, {
+      uid,
+      papeisPersistidos: ["Aluno", "Bolsista"],
+      versaoPersistida: 5,
+    });
+    const req = mockRequest(uid, { roles: ["Aluno"], versao_permissoes: 5 });
+    await expect(validarAutoridadePersistida(req, ["Aluno"])).rejects.toMatchObject({
+      code: "permission-denied",
+    });
+  });
+
+  it("TEST-INT-M9-AUTH-021 (M9 §Claims projeção) — claim superconjunto (papel sem persistência) nega", async () => {
+    const uid = uidUnico("claim_superconjunto");
+    await semearAutoridade(db, {
+      uid,
+      papeisPersistidos: ["Aluno"],
+      versaoPersistida: 5,
+    });
+    const req = mockRequest(uid, { roles: ["Aluno", "Bolsista"], versao_permissoes: 5 });
+    await expect(validarAutoridadePersistida(req, ["Aluno"])).rejects.toMatchObject({
+      code: "permission-denied",
+    });
+  });
 });
 
 describe("TEST-INT-M9-AUTH-OP — operação real protegida (revogarUsuarioPapel)", () => {
