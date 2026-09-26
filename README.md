@@ -127,10 +127,12 @@ modelos e resultados a hashes, e os validadores Rust rejeitam adulteração.
 - `build/formal-validation*.json` — receipts de evidência.
 - [`tools/spec-doc/`](tools/spec-doc/) — gerador/validadores em Rust.
 
-> [`documentation/MATRIZ_IMPLEMENTACAO_LCQUI.md`](documentation/MATRIZ_IMPLEMENTACAO_LCQUI.md)
-> é um artefato histórico. Uma nova matriz de implementação, baseada na
-> especificação formal encerrada, será construída na fase de reconciliação. O
-> arquivo atual **não** é apresentado aqui como a matriz normativa corrente.
+> A matriz antiga de implementação foi movida para o arquivo histórico
+> [`documentation/archive/pre-formal/MATRIZ_IMPLEMENTACAO_LCQUI_2026-09-13.md`](documentation/archive/pre-formal/MATRIZ_IMPLEMENTACAO_LCQUI_2026-09-13.md).
+> Uma nova matriz de implementação, baseada na especificação formal encerrada,
+> será construída na fase de reconciliação em
+> `documentation/MATRIZ_IMPLEMENTACAO_LCQUI.md` (ainda inexistente). A versão
+> antiga **não** é a matriz normativa corrente.
 
 ## Implementação
 

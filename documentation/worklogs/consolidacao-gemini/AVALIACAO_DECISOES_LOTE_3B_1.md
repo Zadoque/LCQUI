@@ -19,8 +19,8 @@ Os diffs de arquivos novos correspondem integralmente aos respectivos textos rec
 
 Referências documentais usadas nas fichas:
 
-- **H:** [MODIFICACOES_CONSOLIDADAS_LCQUI.md](../../MODIFICACOES_CONSOLIDADAS_LCQUI.md), especialmente Q04/Q05/Q07/Q14, Q06 §§2.1–2.3 e DP-A01/A02/D01/D02. Referência histórica localizada em [archive/DUVIDAS_PENDENTES_LCQUI.md](../../archive/DUVIDAS_PENDENTES_LCQUI.md), pois o caminho antigo na raiz de documentation não existe mais.
-- **P:** [proposta recebida](../../DECISOES_DOCUMENTAIS_LOTE_3B_LCQUI_CONSOLIDADO.md), com numeração original preservada.
+- **H:** [MODIFICACOES_CONSOLIDADAS_LCQUI.md](../../archive/pre-formal/MODIFICACOES_CONSOLIDADAS_LCQUI.md), especialmente Q04/Q05/Q07/Q14, Q06 §§2.1–2.3 e DP-A01/A02/D01/D02. Referência histórica localizada em [archive/DUVIDAS_PENDENTES_LCQUI.md](../../archive/DUVIDAS_PENDENTES_LCQUI.md), pois o caminho antigo na raiz de documentation não existe mais.
+- **P:** [proposta recebida](../../archive/pre-formal/DECISOES_DOCUMENTAIS_LOTE_3B_LCQUI_CONSOLIDADO.md), com numeração original preservada.
 - **S3–S11:** seções normativas homônimas; **T5/T7/T9/T10:** subseções de Fluxo de Reagentes, Jobs, Relatórios e Consolidação da seção 10. **UI:** contratos da seção 8; **ALM:** fluxos da seção 9.
 - **CC:** [Contract Cards do 3B](LOTE_3B_CONTRACT_CARDS.md). **DP:** [registro canônico de dúvidas](DECISOES_DOCUMENTAIS_NECESSARIAS.md).
 
