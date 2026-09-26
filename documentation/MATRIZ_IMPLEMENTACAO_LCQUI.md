@@ -20,8 +20,8 @@
 | Total de features | 70 |
 | Auditadas | 70 |
 | Não auditadas | 0 |
-| DIVERGENTE | 53 |
-| NÃO DIVERGENTE | 0 |
+| DIVERGENTE | 52 |
+| NÃO DIVERGENTE | 1 |
 | NÃO IMPLEMENTADO | 17 |
 
 <!-- MATRIX_COUNTS_END -->
@@ -115,7 +115,7 @@ Abreviações: `S5`–`S11` = seções normativas; `UI-n` = contrato de tela; `C
 | IMP-REP-003 | Relatórios | Transporte/URL temporária de relatório | S10.1/10.9/10.10; S8 UI-12 | M9 | callables retornam PDF inteiro em base64 | SIM | DIVERGENTE | Contrato prevê artefato/URL assinada curta e limites operacionais; implementação retorna buffer base64 síncrono e não aplica rate limit/App Check. | `relatorios.test.ts` textual contradiz o código | Tamanho, timeout, URL expirada e falha Storage |
 | IMP-LABEL-001 | Etiquetas | Etiquetas virgens | S8 UI-08; S10.1/10.10; S9 ALM-07 | M7, M9 | `gerarPdfEtiquetasVirgens`; modal | SIM | DIVERGENTE | Gera grade/limite, mas não revalida vínculo de almox, idempotência ou origem segura do intervalo; registro não comprova impressão, e resposta é base64. | `relatorios.test.ts` textual | Geometria, offset, limites, origem e retry |
 | IMP-LABEL-002 | Etiquetas | Segunda via e ficha por frasco | S7 reimpressão; S8 UI-08 | M7, M9 | `gerarPdfReimpressaoFrascos` | SIM | DIVERGENTE | Não valida almox de cada frasco, permite resultado parcial ao ignorar IDs ausentes, grava auditoria antes de concluir PDF e depende de campos inconsistentes. | `relatorios.test.ts` textual | Falha de um item, escopo misto, 10 eventos e retry |
-| IMP-RULES-001 | Security Rules | Autoridade de usuário, versão e papéis | S7 M9; S11 | M9 | helpers e matches em `firestore.rules` | SIM | DIVERGENTE | Helpers usam claims sem consultar `Usuarios.ativo/versao_permissoes` e coleções de papel são legíveis por qualquer autenticado. | `security/firestore.rules.test.ts` | Inativo, versão antiga, papel desconhecido e doc ausente |
+| IMP-RULES-001 | Security Rules | Autoridade de usuário, versão e papéis | S7 M9; S11 | M9 | `firestore.rules`: `hasCurrentUser`, `hasRole` e matches das coleções de papel | SIM | NÃO DIVERGENTE | Exige usuário persistido ativo, versão inteira não negativa e corrente, claim de papel fechado e documento de papel com UID correspondente; claims antigas/inventadas falham fechado e a leitura de papéis respeita a superfície normativa. | `security/m9-authority.rules.test.ts` (`TEST-RULES-M9-001`–`014`); regressão Rules | Nenhum para o escopo auditado; manter regressão ao alterar M9 |
 | IMP-RULES-002 | Security Rules | Escopo de reagentes/patrimônio e server-owned | S7 M9; S11 | M8–M10 | matches de domínio em `firestore.rules` | SIM | DIVERGENTE | Frasco/lote/contador são amplos; patrimônio e requisições permitem escrita direta; empréstimo ignora retirante/almox; coleções M8 e projeção de descarte nem aparecem. | Rules existentes validam permissões antigas | Matriz por coleção, vínculo e negação de writes |
 | IMP-RULES-003 | Security Rules | ACL acadêmica, moderação e notificações | S7 M11–M13; S11 | M11–M13 | matches `Turma`, subcoleções e notificações | SIM | DIVERGENTE | Qualquer autenticado lê Turmas/Posts/Alunos; professor pode update direto; comentários são legíveis diretamente; destinatário pode update/delete notificação. | Rules existentes codificam alvo antigo | Dono/membro/ex-membro, máscara e server-owned |
 | IMP-RULES-004 | Storage Rules | Ownership, tipo, tamanho e acesso por recurso | S7 M9/M12.2; S11 | M9, M10, M12.2 | `storage.rules` | SIM | DIVERGENTE | Todas as pastas permitem leitura a qualquer autenticado; claims não têm versão/estado; update/delete não validam objeto vinculado/imutabilidade; comprovante pode ser removido. | `security/storage.rules.test.ts` | Leitura por recurso, binário, geração e retenção |

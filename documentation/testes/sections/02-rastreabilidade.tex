@@ -21,15 +21,28 @@ ser incorporado, por exemplo \texttt{TEST-RULES-M9-001}. O registro associa o ID
 à referência normativa exata, à feature da matriz, ao arquivo/símbolo exercitado,
 ao resultado e à evidência da execução.
 
+\subsection{Primeira cadeia executada}
+
+\begin{center}
+Seção 7/M9, Seção 11, CUE M9 e Alloy M9
+$\rightarrow$ \texttt{IMP-RULES-001}
+$\rightarrow$ \texttt{TEST-RULES-M9-001--014}
+$\rightarrow$ \nolinkurl{functions/src/__tests__/security/m9-authority.rules.test.ts}
+$\rightarrow$ PASS (14/14)
+\end{center}
+
+O RED foi executado contra as Rules anteriores: onze casos detectaram a
+divergência e três controles já conformes passaram. Depois da mudança mínima,
+os catorze casos passaram e a suíte completa de Rules passou com 62/62 testes.
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara
 teste criado nem resultado:
 
 \begin{center}
-Seção 7, M9 $\rightarrow$ \texttt{IMP-RULES-001}
-$\rightarrow$ \texttt{TEST-RULES-M9-001}
-$\rightarrow$ futuro arquivo de Rules $\rightarrow$ resultado ainda não produzido
+Uma futura feature \texttt{IMP-*} $\rightarrow$ seu \texttt{TEST-*}
+$\rightarrow$ arquivo ainda não criado $\rightarrow$ resultado ainda não produzido
 \end{center}
 
 Não se preenchem resultados futuros e não se cria rastreabilidade retroativa por

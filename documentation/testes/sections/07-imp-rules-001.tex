@@ -1,0 +1,88 @@
+\section{Evidência de IMP-RULES-001}
+
+\textbf{Feature:} \texttt{IMP-RULES-001} --- autoridade de usuário, versão e
+papéis nas Firestore Security Rules.
+
+\textbf{Estado anterior:} \texttt{DIVERGENTE}. Os helpers aceitavam autenticação
+ou papel declarado na claim sem consultar atividade, versão e papel persistidos;
+as coleções de papel também tinham leitura ampla para qualquer autenticado.
+
+\subsection{Contrato e fontes}
+
+Foram aplicadas a Seção 7/M9, que é a fonte normativa única de autorização, a
+interpretação obrigatória de M9 e a tabela de coleções da Seção 11, a shape
+\texttt{\#M9Usuario}/\texttt{\#M9Papel} do CUE e as propriedades e witnesses de
+\nolinkurl{specification/alloy/operations/authorization_m9.als}. O escopo desta
+evidência é a autoridade base: autenticação, existência e atividade do usuário,
+versão corrente, conjunto fechado de papéis, concessão persistida e superfície
+das coleções de autoridade. Escopo de almoxarifado, ACL de domínio e Storage
+permanecem em \texttt{IMP-RULES-002--004}.
+
+\subsection{Casos permanentes e ciclo RED/GREEN}
+
+O arquivo de teste dedicado é:
+
+\begin{center}\small
+\path{functions/src/__tests__/security/m9-authority.rules.test.ts}
+\end{center}
+
+Ele usa \path{@firebase/rules-unit-testing} contra o Firestore Emulator. Dados
+privilegiados são inseridos com Rules desabilitadas somente no arrange; cada
+operação observada usa contexto autenticado ou não autenticado real.
+
+\small
+\begin{longtable}{@{}p{0.19\textwidth}p{0.45\textwidth}p{0.12\textwidth}p{0.11\textwidth}@{}}
+\toprule
+ID & Obrigação observada & Rules antigas & Rules novas \\
+\midrule
+\endhead
+TEST-RULES-M9-001 & Não autenticado nega & PASS controle & PASS \\
+TEST-RULES-M9-002 & UID sem \texttt{Usuarios} nega & FAIL esperado & PASS \\
+TEST-RULES-M9-003 & Usuário inativo nega & FAIL esperado & PASS \\
+TEST-RULES-M9-004 & Token sem versão nega & FAIL esperado & PASS \\
+TEST-RULES-M9-005 & Versão obsoleta nega & FAIL esperado & PASS \\
+TEST-RULES-M9-006 & Versão e papel persistido coerentes permitem & PASS controle & PASS \\
+TEST-RULES-M9-007 & Ausência de papel nega & FAIL esperado & PASS \\
+TEST-RULES-M9-008 & Papel desconhecido nega & FAIL esperado & PASS \\
+TEST-RULES-M9-009 & Claim sem papel persistido nega & FAIL esperado & PASS \\
+TEST-RULES-M9-010 & Papel persistido incompatível com token nega & FAIL esperado & PASS \\
+TEST-RULES-M9-011 & Leitura de papel limita próprio/terceiro/query & FAIL esperado & PASS \\
+TEST-RULES-M9-012 & Coleção interna permanece negada & PASS controle & PASS \\
+TEST-RULES-M9-013 & Versão persistida inválida nega & FAIL esperado & PASS \\
+TEST-RULES-M9-014 & \texttt{id\_usuario} do papel incompatível nega & FAIL esperado & PASS \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+No RED funcional, 11 de 14 casos falharam pela aceitação indevida das Rules
+antigas; os três restantes eram controles já satisfeitos. Após a implementação,
+\texttt{TEST-RULES-M9-001--014} passou integralmente.
+
+\subsection{Mudança e regressão}
+
+\texttt{firestore.rules} passou a exigir documento
+\nolinkurl{Usuarios/uid} existente e ativo, versão persistida inteira e não
+negativa igual à claim, papel pertencente ao conjunto fechado e documento do
+papel no mesmo UID com \texttt{id\_usuario} correspondente. As coleções
+\texttt{Professor} e \texttt{Aluno} permitem o documento próprio ou Chefia; as
+demais coleções de papel permitem somente o documento próprio. Escritas de
+papel e coleções internas continuam negadas ao cliente.
+
+As expectativas dos testes legados não foram alteradas. Seu arrange recebeu
+somente fixtures M9 válidas para que cada caso continuasse medindo sua ACL de
+domínio original. A regressão \texttt{npm run test:rules} passou: 3 suites,
+62 testes aprovados e nenhuma falha. A regressão unitária
+\texttt{npm run test:unit} passou: 3 suites e 53/53 testes.
+
+\subsection{Ambiente e estado final}
+
+As execuções usaram Node 26.8.1; o backend declara Node 20. A baseline de Rules
+antes da mudança passou com 48/48 e o Emulator aceitou toda a campanha, logo
+\texttt{NODE26\_IMPACT = NONE\_FOR\_RULES}. Isto não torna Node 26 equivalente
+ao runtime de produção de Cloud Functions: evidências futuras de Functions
+devem ser reproduzidas em Node 20.
+
+\textbf{Estado final:} \texttt{NÃO DIVERGENTE} para as obrigações examinadas de
+\texttt{IMP-RULES-001}. Isso não significa homologação de produção e não altera
+o estado de \texttt{IMP-RULES-002}, \texttt{IMP-RULES-003} ou
+\texttt{IMP-RULES-004}.
