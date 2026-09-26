@@ -1,0 +1,135 @@
+\section{Evidência de IMP-IDEM-001 --- Etapa A (fundação canônica M7)}
+
+\textbf{Feature:} \texttt{IMP-IDEM-001} --- receipt e retry universal de mutações
+críticas.
+
+\textbf{Estado anterior:} \texttt{DIVERGENTE}. Só \texttt{usuarios.ts} possuía
+uma forma parcial de receipt, com hash \texttt{JSON.stringify(dados)}, sem
+\texttt{tipo\_operacao}/\texttt{payload\_hash} canônicos, e \texttt{idOperacao}
+opcional com geração de UUID novo.
+
+\textbf{Estado depois:} \texttt{DIVERGENTE}. Esta rodada cria e comprova a
+fundação canônica M7 reutilizável; nenhuma mutação de produto foi migrada e as
+contagens da matriz não mudam.
+
+\subsection{Contrato M7 derivado}
+
+Fontes: Seção~7 (\texttt{sec:idempotencia-m7}), Seção~5
+(\textit{Operações técnicas}) e o CUE \texttt{formal\_m7} (estados fechados,
+\texttt{payload\_hash} hexadecimal de 64). Pontos confirmados:
+
+\begin{itemize}
+  \item identidade semântica \texttt{(uid, tipo\_operacao, payload\_hash)}; as
+  três componentes são comparadas no retry;
+  \item \texttt{hashPayload(tipoOperacao, payload) =
+  SHA-256(tipoOperacao + "\textbackslash n" + canonicalize(payload))};
+  \item \texttt{idOperacao} opaco, \texttt{[A-Za-z0-9\_-]\{1,128\}}, fora do
+  hash; novo id só em nova intenção;
+  \item \texttt{Operacoes/\{idOperacao\}}: \texttt{uid}, \texttt{tipo\_operacao},
+  \texttt{payload\_hash}, \texttt{status} (PENDENTE/CONCLUIDA/FALHOU),
+  \texttt{resultado}, \texttt{criado\_em}, \texttt{atualizado\_em};
+  \item comando atômico grava \texttt{CONCLUIDA} na mesma transação; fluxo
+  externo usa \texttt{PENDENTE}$\rightarrow$\texttt{CONCLUIDA}/\texttt{FALHOU};
+  \item receipt corrompido falha fechado; retry não atualiza \texttt{timestamp}.
+\end{itemize}
+
+\subsection{Canonicalização}
+
+A canonicalização ordena chaves de objeto por code unit recursivamente, ignora
+\texttt{undefined} em objeto (equivalente a ausente), preserva a ordem de
+arrays, distingue \texttt{null} de ausente e não aplica trim/caixa/arredondamento.
+Tipos não suportados (não finitos, \texttt{bigint}, função, símbolo,
+\texttt{undefined} isolado e objetos não planos como \texttt{Date}) falham
+fechado, pois não pertencem ao domínio de payload JSON.
+
+\subsection{Fundação implementada}
+
+\begin{center}\small
+\path{functions/src/idempotencia.ts}
+\end{center}
+
+\begin{itemize}
+  \item \texttt{canonicalize(value)} --- impressão determinística do payload;
+  \item \texttt{hashPayload(tipoOperacao, payload)} --- SHA-256 canônico global;
+  \item \texttt{construirIdentidade(uid, tipoOperacao, payload)} --- monta a
+  identidade semântica;
+  \item \texttt{validarIdOperacao(idOperacao)} --- formato normativo;
+  \item \texttt{resolverOperacaoTx(tx, idOperacao, identidade)} --- decide
+  \texttt{NOVA}/\texttt{REPLAY}/\texttt{PENDENTE}/\texttt{FALHOU} ou rejeita
+  reutilização incompatível com \texttt{already-exists}; receipt inconsistente
+  falha fechado;
+  \item \texttt{registrarOperacaoConcluidaTx}/\texttt{registrarOperacaoPendenteTx}
+  --- escrita do receipt;
+  \item \texttt{concluirOperacaoPendenteTx}/\texttt{falharOperacaoPendenteTx} ---
+  transição \texttt{PENDENTE}$\rightarrow$\texttt{CONCLUIDA}/\texttt{FALHOU}.
+\end{itemize}
+
+\subsection{TDD: RED e GREEN}
+
+RED contra o scaffold ingênuo (ordem de chave via \texttt{JSON.stringify},
+comparação apenas de \texttt{uid}, sem validação de receipt):
+
+\small
+\begin{longtable}{@{}p{0.26\textwidth}p{0.55\textwidth}@{}}
+\toprule
+ID & Resultado \\
+\midrule
+\endhead
+TEST-UNIT-M7-CANON-001 & FAIL (ordem de chave alterava o canonical) \\
+TEST-UNIT-M7-CANON-002 & FAIL (objetos aninhados não ordenados) \\
+TEST-UNIT-M7-CANON-009 & FAIL (tipos não suportados não falhavam fechado) \\
+TEST-UNIT-M7-HASH-001 & FAIL (payload permutado gerava hash diferente) \\
+TEST-INT-M7-RECEIPT-003 & FAIL (outro ator tratado como replay) \\
+TEST-INT-M7-RECEIPT-004 & FAIL (outro tipo tratado como replay) \\
+TEST-INT-M7-RECEIPT-005 & FAIL (outro payload tratado como replay) \\
+TEST-INT-M7-RECEIPT-008 & FAIL (receipt corrompido não falhava fechado) \\
+TEST-INT-M7-RECEIPT-009 & FAIL (\texttt{PENDENTE} tratado como nova) \\
+TEST-INT-M7-RECEIPT-010 & FAIL (processador não implementado) \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+Após a implementação, sob Node 20.19.6: unidade \texttt{TEST-UNIT-M7-*}
+(18/18) e integração \texttt{TEST-INT-M7-RECEIPT-001--012} (12/12) aprovadas,
+incluindo concorrência idêntica (\texttt{006}), intenções distintas
+(\texttt{007}), \texttt{idOperacao} fora do hash (\texttt{011}) e
+\texttt{FALHOU} terminal (\texttt{012}).
+
+\subsection{Node 20 e regressão}
+
+Evidência final sob Node \textbf{20.19.6} via
+\path{nix shell github:nixos/nixpkgs/nixos-25.05#nodejs_20}
+(\texttt{NODE20\_STRATEGY = TEMPORARY\_NIX\_ONLY}; Home Manager inalterado).
+
+\small
+\begin{longtable}{@{}p{0.52\textwidth}p{0.38\textwidth}@{}}
+\toprule
+Verificação (Node 20.19.6) & Resultado \\
+\midrule
+\endhead
+\texttt{npm run build} & PASS \\
+\texttt{npm run test:unit} & PASS (71/71, inclui 18 M7) \\
+\texttt{TEST-INT-M7-RECEIPT-001--012} (emulator) & PASS (12/12) \\
+\texttt{npm run test:integration} & 108 passam / 14 falham \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+A baseline imediatamente anterior era 96/14; o delta são exatamente os 12 casos
+M7 novos. As 14 falhas permanecem em \texttt{reagentes} (10),
+\texttt{patrimonio} (2) e \texttt{roteiros} (2); nenhuma falha nova.
+
+\subsection{Divergência registrada e limites}
+
+\texttt{usuarios.ts} continua intocado e é evidência da divergência: usa
+\texttt{Operacoes} com id derivado e \texttt{hash\_entrada =
+JSON.stringify(dados)}, sem \texttt{tipo\_operacao}/\texttt{payload\_hash}
+canônicos, e \texttt{idOperacao} opcional. Nenhum domínio de produto foi migrado;
+nenhum processador/outbox externo foi implementado (apenas a taxonomia de
+estados é suportada). A pendência externa de \texttt{convidarUsuario}
+(Auth entre pré-checagem e commit), documentada na Etapa A.1, permanece
+inalterada e é candidata natural à fundação M7/outbox posterior.
+
+\textbf{Estado final:} \texttt{IMP-IDEM-001} continua \texttt{DIVERGENTE}. A
+fundação M7 está estável e revisável isoladamente para receber a primeira
+mutação real em rodada própria.

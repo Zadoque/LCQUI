@@ -66,6 +66,23 @@ ler o conjunto persistido completo; após o endurecimento, todos passam. A
 regressão de integração sob Node 20 ficou em 96 aprovados e 14 falhas legadas
 conhecidas.
 
+\subsection{Quarta cadeia executada}
+
+\begin{center}
+Seção 7/M7 e Seção 5/Operações, CUE \texttt{formal\_m7}
+$\rightarrow$ \texttt{IMP-IDEM-001} (Etapa A)
+$\rightarrow$ \texttt{TEST-UNIT-M7-CANON/HASH/ID} e \texttt{TEST-INT-M7-RECEIPT-001--012}
+$\rightarrow$ \nolinkurl{functions/src/idempotencia.ts}
+$\rightarrow$ PASS Node 20
+\end{center}
+
+O RED foi executado contra um scaffold ingênuo (canonicalização por
+\texttt{JSON.stringify}, comparação apenas de \texttt{uid}, receipt sem
+validação): quatro casos unitários e seis integrados falharam. Após a
+implementação canônica, a unidade ficou em 18/18 e a integração em 12/12 sob
+Node 20.19.6. A feature \texttt{IMP-IDEM-001} permanece \texttt{DIVERGENTE}
+porque nenhuma mutação de produto foi migrada.
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara
