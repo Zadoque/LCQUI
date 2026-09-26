@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { FieldValue } from "firebase-admin/firestore";
 import * as admin from "firebase-admin";
-import { createHash, randomUUID } from "crypto";
+import { createHash } from "crypto";
 import {
   ClaimsAutoridade,
   PAPEIS_CONHECIDOS,
@@ -10,6 +10,11 @@ import {
   validarAutoridadePersistidaComClaims,
   validarMatrizPapeis,
 } from "./auth";
+import {
+  construirIdentidade,
+  registrarOperacaoConcluidaTx,
+  resolverOperacaoTx,
+} from "./idempotencia";
 import { validatePayload } from "./utils/validation";
 import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema } from "./schemas/usuarios.schema";
 
@@ -45,7 +50,17 @@ export async function reconciliarClaimsUsuario(uid: string): Promise<void> {
         tx.update(ref, { claims_pendentes: false });
         return true;
       });
-      if (atual) return;
+      if (atual) {
+        // M9/RN-ROLE-14: etapa externa pós-commit. Revogar refresh tokens impede
+        // que o ID token antigo continue sendo aceito até a renovação. Falha aqui
+        // não reabre a autorização persistida já bloqueada.
+        try {
+          await admin.auth().revokeRefreshTokens(uid);
+        } catch {
+          // Reconciliável em nova tentativa; não falha a mutação persistida.
+        }
+        return;
+      }
     }
     throw new Error("Permissões alteradas durante reconciliação.");
   } catch {
@@ -59,18 +74,29 @@ async function alterarPapel(dados: Mutacao, claims: ClaimsAutoridade): Promise<{
   const db = admin.firestore();
   const controleRef = db.collection("Controle_Papeis").doc("singleton");
   const usuarioRef = db.collection("Usuarios").doc(dados.uid);
-  const chave = createHash("sha256").update(JSON.stringify([dados.ator, dados.idOperacao])).digest("hex");
-  const operacaoRef = db.collection("Operacoes").doc(chave);
-  const entrada = createHash("sha256").update(JSON.stringify(dados)).digest("hex");
-  const auditRef = db.collection("Registro_de_Auditoria").doc(`papel_${chave}`);
+  // M7: identidade canônica (uid, tipo_operacao, payload_hash); `idOperacao` é o
+  // próprio id do receipt e não entra no payload/hash.
+  const tipoOperacao = dados.conceder ? "CONCEDER_PAPEL" : "REVOGAR_PAPEL";
+  const identidade = construirIdentidade(claims.uid, tipoOperacao, {
+    uidAlvo: dados.uid,
+    papel: dados.papel,
+    conceder: dados.conceder,
+    motivo: dados.motivo,
+    perfil: dados.perfil,
+    identidade: dados.identidade,
+    materias: dados.materias,
+  });
+  const auditRef = db.collection("Registro_de_Auditoria").doc(`papel_${dados.idOperacao}`);
   try {
     return await db.runTransaction(async tx => {
       const controle = await tx.get(controleRef);
-      const operacao = await tx.get(operacaoRef);
-      if (operacao.exists) {
-        if (operacao.data()!.hash_entrada !== entrada)
-          throw new HttpsError("already-exists", "Identificador de operação reutilizado com outros dados.");
-        return operacao.data()!.resultado as { uid: string; ativo: boolean };
+      // M7: replay devolve o resultado persistido; reuso incompatível falha fechado.
+      const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+      if (decisao.estado === "REPLAY") {
+        return decisao.resultado as { uid: string; ativo: boolean };
+      }
+      if (decisao.estado !== "NOVA") {
+        throw new HttpsError("failed-precondition", "Operação de papel não concluída.");
       }
       // M9: autoridade persistida relida na MESMA transação do efeito (fecha TOCTOU).
       await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral"]);
@@ -136,9 +162,7 @@ async function alterarPapel(dados: Mutacao, claims: ClaimsAutoridade): Promise<{
       tx.set(controleRef, { chefes_ativos: chefesDepois, gestores_patrimoniais_ativos: gestoresDepois,
         versao: (controle.data()?.versao ?? 0) + 1 }, { merge: true });
       const resultado = { uid: dados.uid, ativo };
-      tx.create(operacaoRef, { uid: dados.ator, acao: dados.conceder ? "CONCEDER_PAPEL" : "REVOGAR_PAPEL",
-        recurso: dados.uid, hash_entrada: entrada, status: "CONCLUIDA", resultado,
-        criado_em: FieldValue.serverTimestamp() });
+      registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
       tx.set(auditRef, { id_usuario: dados.ator, acao: dados.conceder ? "CONCEDER_PAPEL" : "REVOGAR_PAPEL",
         tipo_entidade_sofre_acao: "USUARIO", id_do_objeto_da_entidade: dados.uid,
         acao_feita_em: FieldValue.serverTimestamp(), metadata: { papel: dados.papel, motivo: dados.motivo,
@@ -147,7 +171,7 @@ async function alterarPapel(dados: Mutacao, claims: ClaimsAutoridade): Promise<{
     });
   } catch (error) {
     // Fora do callback: registrar rejeição sem desfazer a tentativa já concluída.
-    if (error instanceof HttpsError) await db.collection("Registro_de_Auditoria").doc(`rejeicao_${chave}_${entrada}`).set({
+    if (error instanceof HttpsError) await db.collection("Registro_de_Auditoria").doc(`rejeicao_${dados.idOperacao}`).set({
       id_usuario: dados.ator, acao: "ALTERACAO_PAPEL_REJEITADA", tipo_entidade_sofre_acao: "USUARIO",
       id_do_objeto_da_entidade: dados.uid, acao_feita_em: FieldValue.serverTimestamp(),
       metadata: { papel: dados.papel, motivo: dados.motivo, resultado: error.code },
@@ -176,7 +200,7 @@ export const convidarUsuario = onCall(async request => {
   if (dados.papel === "Aluno") perfil.letra_inicial = dados.nome.charAt(0).toUpperCase();
   if (dados.papel === "Professor") { perfil.centro = dados.centro ?? "N/A"; perfil.laboratorio = dados.laboratorio ?? "N/A"; }
   const resultado = await alterarPapel({ ator: claims.uid, uid: user.uid, papel: dados.papel,
-    conceder: true, motivo: dados.motivo ?? "Concessão solicitada pela chefia", idOperacao: dados.idOperacao ?? randomUUID(),
+    conceder: true, motivo: dados.motivo ?? "Concessão solicitada pela chefia", idOperacao: dados.idOperacao,
     perfil, identidade: { nome: dados.nome, email: dados.email }, materias: dados.materias ?? [] }, claims);
   await reconciliarClaimsUsuario(user.uid);
   const resetLink = await admin.auth().generatePasswordResetLink(dados.email);
@@ -191,7 +215,7 @@ export const revogarUsuarioPapel = onCall(async request => {
   catch { throw new HttpsError("not-found", "Usuário não encontrado."); }
   // A decisão autoritativa é tomada dentro da transação de `alterarPapel`.
   const resultado = await alterarPapel({ ator: claims.uid, uid: user.uid, papel: dados.papel,
-    conceder: false, motivo: dados.motivo, idOperacao: dados.idOperacao ?? randomUUID() }, claims);
+    conceder: false, motivo: dados.motivo, idOperacao: dados.idOperacao }, claims);
   await reconciliarClaimsUsuario(user.uid);
   return resultado;
 });
