@@ -309,6 +309,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
                 &fs::read(root.join(validation_m13::ORIGINS[2]))?,
                 &fs::read(root.join(validation_m13::ORIGINS[3]))?,
                 &fs::read(root.join(validation_m13::ORIGINS[4]))?,
+                &fs::read(root.join(validation_m13::ORIGINS[5]))?,
             ],
         )
         || !m10_plaqueta_canonica(&ir)

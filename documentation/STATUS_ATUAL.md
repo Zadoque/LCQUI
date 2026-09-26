@@ -22,26 +22,35 @@ M13 = 0. Registros em
   M7/M12.1/M12.2 e a prova M8 de `ESCASSEZ_ESTOQUE` (sem reconstruir M8), com
   docId `{id_emprestimo}--{janela}` para `DATA_DEVOLUCAO_REAGENTE`; `id_turma`
   obrigatório nos tipos acadêmicos e nulo nos operacionais.
-- **Executável:** CUE `#M13Contrato` (**14 fixtures válidas + 17 inválidas**),
+- **Executável:** CUE `#M13Contrato` (**16 fixtures válidas + 18 inválidas**),
   IR v3 aditivo `formal_m13_notificacoes`, `notificacoes_m13.als` com estado
-  composto (**28 checks UNSAT + 18 witnesses SAT = 46 resultados**, escopos 4/5),
+  composto (**34 checks UNSAT + 25 witnesses SAT = 59 resultados**, escopos 4/5),
   receipt `build/formal-validation-m13.json`, `validation_m13.rs` (35 testes Rust
   no total), guards `m13_composition.mjs`/`m13_composition.test.mjs`/
-  `m13_contract.test.mjs` (43 testes Node no total), geração determinística e
-  capítulo `Formal-Spec-M13.tex`. `model_sha256 = e5d6bd0f…78625`; receipt
-  `fdf66039…308ce7d`.
+  `m13_contract.test.mjs` (44 testes Node no total), geração determinística e
+  capítulo `Formal-Spec-M13.tex`. `model_sha256 = 8fcf8cb9…c07463`; receipt
+  `78a94897…d94d3c`.
+- **Rodada corretiva (M13-CORR-01/02/03):** os seis tipos acadêmicos são
+  representados no Alloy e guardados por `checkM13AcademicTypes` (com mutação de
+  omissão); a autorização de Posts/Comentários/Roteiros/compartilhamento/Q13 é
+  reproduzida de `composition_m12.als` com rotas explícitas (a rota acadêmica
+  exige papel + vínculo; Chefe com vínculo legado não a usa; URL de Roteiro por
+  Chefe exige escopo M12.2); a Seção 7.8 deixou de generalizar “somente seis” e
+  passou a tabelar as obrigações V1 dos 20 tipos (worklog executável).
 - **Reconciliações:** M13-REC-01 (`id_turma` da Seção 4 reconciliado com a regra
   acadêmica) e M13-REC-02 (`geracao` incluída no snapshot `roteiro_anexo` da
   Seção 5, alinhando com a Seção 7.7 e a prova M12.2).
 - **Projeções:** Seções 3, 4, 5, 6, 8 (UI-12), 9 (fluxos/regressão) e 11
-  alinhadas; enum 3FN × dicionário nos 20 valores. Receipts M0–M12 mudaram
-  somente em `spec_ir_sha256` (IR aditivo); nenhum `model_sha256` antigo mudou.
-- **Gates:** `just formal-check` exit 0 (35 Rust, 43 Node, Alloy PASS, docs-check
-  PASS, stale gate PASS); PDF **456 páginas**, exit 0, zero erros e zero
-  referências indefinidas, **31 Overfull** (idêntico ao baseline da Etapa A).
-- **Limites:** prova *bounded* (`for 4`/`for 5`); não certifica `functions/`,
-  `frontend/`, Rules, Auth, Storage, relógio real, paginação/concorrência real
-  nem entrega externa; dívida de implementação registrada para a matriz futura.
+  alinhadas; enum 3FN × dicionário nos 20 valores. Nesta rodada
+  `spec_ir_sha256` e todos os receipts M0–M12 permaneceram **inalterados**
+  (nenhum `model_sha256` antigo mudou).
+- **Gates:** `just formal-check` exit 0 (35 Rust, 44 Node, Alloy PASS, docs-check
+  PASS, stale gate PASS); PDF **457 páginas**, exit 0, zero erros e zero
+  referências indefinidas, **31 Overfull** (idêntico ao baseline).
+- **Limites:** prova *bounded* (`for 4`/`for 5`) e de lote abstrato para
+  ``Limpar tudo''; não certifica `functions/`, `frontend/`, Rules, Auth, Storage,
+  relógio real, paginação/concorrência real nem entrega externa; dívida de
+  implementação registrada para a matriz futura.
 
 Próxima ação exata: **fechamento global pós-M13** (gate separado, sem M14
 automático). Não implementar `functions/`, `frontend/`, `firestore.rules` ou

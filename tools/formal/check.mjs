@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import {composedModel, composedExpected, origins, checkCompositionTrace} from './composition.mjs';
 import {withdrawalReturnModel, withdrawalReturnOrigins, withdrawalReturnExpected, checkWithdrawalReturnTrace} from './withdrawal_return.mjs';
 import {composedModelM12, composedExpectedM12, originsM12, checkM12CompositionTrace} from './m12_composition.mjs';
-import {m13Model, m13BridgeOrigins, m13Expected, checkM13CompositionTrace} from './m13_composition.mjs';
+import {m13Model, m13BridgeOrigins, m13Expected, checkM13CompositionTrace, checkM13AcademicTypes} from './m13_composition.mjs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -590,6 +590,7 @@ function alloyCheck() {
   // M13: Notificação unificada. Guard de drift dos predicados copiados de M12.1
   // e receipt com as origens de composição (M7/M8/M9/M12).
   checkM13CompositionTrace(file => fs.readFileSync(file));
+  checkM13AcademicTypes(file => fs.readFileSync(file));
   const m13run = execAlloy(m13Model, m13Expected);
   write('build/formal-validation-m13.json', JSON.stringify({versao: 1, alloy: version,
     solver: m13run.solver, spec_ir_sha256: hash(ir), model: m13Model,

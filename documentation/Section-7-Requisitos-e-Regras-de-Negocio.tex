@@ -1463,27 +1463,36 @@ dicionário da Seção~5, sem alterar a semântica provada de M12.1 nem receipts
 antigos.
 \end{regra}
 
-\paragraph{Tipos com emissão V1 efetivamente especificada.}
-Dos 20 valores do enum, apenas os abaixo têm emissão V1 definida; os demais são
-valores de taxonomia compartilhada, \textbf{sem} obrigação de emissão automática
-nesta versão:
+\paragraph{Obrigações V1 de emissão por tipo.}
+Os 20 valores do enum não implicam obrigação automática de emissão, mas várias
+fontes exigem emissões na V1. A tabela de reconciliação completa (fonte de
+obrigação, evento/destinatário, cobertura estrutural M13, prova de emissão
+existente e fronteira ainda não provada) está no worklog
+\texttt{documentation/worklogs/formal-spec/M13\_EXECUTABLE\_VALIDATION.md}. São
+obrigatórias na V1, ainda que sua prova de emissão não esteja formalizada:
 \begin{itemize}
-  \item \texttt{ESCASSEZ\_ESTOQUE}: job M8, docId diário, \texttt{expira\_em = NULL};
-  \item \texttt{FRASCOS\_VENCIDOS}: job de vencimento (M8);
   \item \texttt{POST} e \texttt{COMENTARIO}: efeitos M12.1 vinculados ao \texttt{idOperacao};
   \item \texttt{ROTEIRO\_COMPARTILHADO}: efeito M12.2;
-  \item \texttt{DATA\_DEVOLUCAO\_REAGENTE}: job preventivo, docId \texttt{\{id\_emprestimo\}--\{janela\}}.
+  \item \texttt{ESCASSEZ\_ESTOQUE}: job M8, docId diário, \texttt{expira\_em = NULL};
+  \item \texttt{FRASCOS\_VENCIDOS}: job de vencimento (Seção~10.7), gestores vinculados;
+  \item \texttt{DATA\_DEVOLUCAO\_REAGENTE}: job preventivo, docId \texttt{\{id\_emprestimo\}--\{janela\}};
+  \item \texttt{ENTREGA\_ATRASADA}: job de atraso (Seção~10.7), gestores vinculados;
+  \item \texttt{REQUISICAO\_BEM}, \texttt{REQUISICAO\_ADICAO\_BEM} e \texttt{REQUISICAO\_EDICAO\_BEM}: resposta ao Professor e aviso aos gestores na abertura (Seção~4/7.8);
+  \item \texttt{TURMA\_ARQUIVADA} e \texttt{TURMA\_DESARQUIVADA}: notificação aos membros ao arquivar/desarquivar (Seções~8--9);
+  \item \texttt{AUTO\_ATENDIMENTO\_RETIRADA}: notificação à chefia (Q14).
 \end{itemize}
-Os demais valores permanecem na taxonomia, sem emissão automática redesenhada e
-\textbf{sem} se inferir uma obrigação a partir da enumeração:
+Estar fora da prova de emissão M13 \textbf{não} significa estar fora da V1. Os
+valores a seguir permanecem taxonomia compartilhada \textbf{sem} obrigação de
+emissão automaticamente decidida:
 \begin{itemize}
-  \item \texttt{ADICIONADO}, \texttt{REMOVIDO}, \texttt{TURMA\_ARQUIVADA}, \texttt{TURMA\_DESARQUIVADA};
-  \item \texttt{REQUISICAO\_BEM}, \texttt{REQUISICAO\_EDICAO\_BEM}, \texttt{REQUISICAO\_ADICAO\_BEM};
-  \item \texttt{BEM\_INSERVIVEL}, \texttt{ENTREGA\_ATRASADA};
-  \item \texttt{FRASCOS\_VAZIOS}, \texttt{FRASCOS\_QUEBRADOS}, \texttt{FRASCOS\_EM\_QUARENTENA};
+  \item \texttt{ADICIONADO}, \texttt{REMOVIDO};
+  \item \texttt{BEM\_INSERVIVEL};
+  \item \texttt{FRASCOS\_VAZIOS}, \texttt{FRASCOS\_QUEBRADOS};
   \item \texttt{FRASCOS\_A\_SEREM\_PESADOS};
-  \item \texttt{AUTO\_ATENDIMENTO\_RETIRADA}.
+  \item \texttt{FRASCOS\_EM\_QUARENTENA}.
 \end{itemize}
+Para eles a fonte não decide destinatário, frequência, prazo nem chave de dedup,
+e essa lacuna não é convertida em prova nem em dispensa funcional.
 
 \paragraph{Matriz de rastreabilidade M13.}
 \footnotesize
@@ -1502,8 +1511,8 @@ Os demais valores permanecem na taxonomia, sem emissão automática redesenhada 
 RN-M13-01 caixa única & Seção~4; Seção~5; UI-12 & CUE \texttt{\#M13Contrato}; Alloy caixa e papel & caixa/papel (ver abaixo) & Papel visual real do frontend \\
 RN-M13-02 marcação e Limpar tudo & Seção~4; Seção~5; UI-12; M8 & CUE \texttt{lida/lida\_em}; Alloy transições de lote & lote/idempotência & Falha parcial real, paginação real \\
 RN-M13-03 expiração & Seção~4; Seção~5; regra de professor & CUE \texttt{expira\_em}; Alloy ativo/expirado & temporal & Relógio real America/Sao\_Paulo \\
-RN-M13-04 alvo e deep link & Seção~5; M9; M11; M12.1; M12.2 & CUE \texttt{entidade\_alvo/id\_alvo}; Alloy ponte de acesso & alvo/ACL & Roteador/URL do frontend \\
-RN-M13-05 privacidade & Seção~5; Seção~11; M12.1 & CUE payload mínimo; Alloy ausência de conteúdo & privacidade & Projeção real do backend \\
+RN-M13-04 alvo, rotas e Q13 & Seção~5; M9; M11; M12.1; M12.2 & CUE \texttt{entidade\_alvo/id\_alvo}; Alloy rotas e ponte & alvo/rotas/Q13 & Roteador/URL do frontend \\
+RN-M13-05 privacidade e máscara & Seção~5; Seção~11; M12.1 & CUE payload mínimo; Alloy visão do comentário & privacidade/projeção & Projeção real do backend \\
 RN-M13-06 emissão/dedup & M7; M8; M12.1; M12.2 & CUE comando/alvo; Alloy chaves & dedup/chaves & Erros reais do Firestore/Admin SDK \\
 RN-M13-07 contexto & Seção~4; Seção~5; regra de professor & CUE \texttt{id\_turma} condicional & contexto/turma & Dados legados sem contexto \\
 RN-M13-08 anexo com geração & Seção~7.7; M12.2 & CUE \texttt{geracao} no snapshot & geração do anexo & Objeto real no Storage \\
@@ -1511,14 +1520,14 @@ RN-M13-08 anexo com geração & Seção~7.7; M12.2 & CUE \texttt{geracao} no sna
 \end{longtable}
 \normalsize
 
-\noindent Assertions planejadas (nomes exatos no modelo executável M13):
+\noindent Assertions do modelo executável M13 (nomes exatos):
 \begin{itemize}
   \item RN-M13-01: \texttt{NaoLeCaixaAlheia}, \newline \texttt{PapelVisualNaoFiltraCaixa}, \newline \texttt{BolsistaVeCaixa};
-  \item RN-M13-02: \texttt{MarcarSoProprias}, \newline \texttt{LoteSoProprias}, \newline \texttt{SemDelete}, \newline \texttt{LimparTudoCorteEstavel};
+  \item RN-M13-02: \texttt{MarcarSoProprias}, \newline \texttt{MarcaIdempotente}, \newline \texttt{MarcaNaoReverte}, \newline \texttt{LoteSoProprias}, \newline \texttt{SemDelete}, \newline \texttt{LimparTudoCorteEstavel};
   \item RN-M13-03: \texttt{ExpiracaoDistingueNull}, \newline \texttt{ExpiradoForaDoAtivo};
-  \item RN-M13-04: \texttt{AlvoInvalidoNaoNavega}, \newline \texttt{RevogacaoCortaClique}, \newline \texttt{AlertaNaoContornaAcl};
-  \item RN-M13-05: \texttt{NotificacaoNaoExpoeOriginal};
-  \item RN-M13-06: \texttt{EmissaoMesmaIdentidadeNaoDuplica}, \newline \texttt{EmissaoChaveDistintaEmite}, \newline \texttt{ErroEmissaoNaoViraSucesso};
+  \item RN-M13-04: \texttt{AlvoInvalidoNaoNavega}, \newline \texttt{AlertaNaoContornaAcl}, \newline \texttt{RotaAcademicaExigePapel}, \newline \texttt{ChefeLegadoNaoUsaAcademico}, \newline \texttt{SemVinculoNaoRestaura}, \newline \texttt{ProfessorDonoMantemAcesso}, \newline \texttt{CompartilhamentoSoProfessor}, \newline \texttt{ChefeAdminNaoHerdaAcademico}, \newline \texttt{ChefeSemEscopoNaoEmiteUrl}, \newline \texttt{EscopoEncerradoImpedeNovaEmissao}, \newline \texttt{EncerramentoEscopoPreservaRoteiro}, \newline \texttt{RoteiroAlunoExigePostEAnexo}, \newline \texttt{PonteRotaChefeRoteiroRefinaUrl};
+  \item RN-M13-05: \texttt{NotificacaoNaoExpoeOriginal}, \newline \texttt{ColegaVeAviso}, \newline \texttt{AutorVeOriginal}, \newline \texttt{AuditorVeOriginal};
+  \item RN-M13-06: \texttt{EmissaoMesmaIdentidadeNaoDuplica}, \newline \texttt{ComposicaoM7RetryNaoDuplica}, \newline \texttt{EmissaoChaveDistintaEmite}, \newline \texttt{ErroEmissaoNaoViraSucesso};
   \item RN-M13-07: \texttt{IdTurmaAcademicoObrigatorio}, \newline \texttt{IdTurmaOperacionalNulo};
   \item RN-M13-08: reuso da prova M12.2 (\texttt{AnexoCompostoUsaGeracaoCanonica}).
 \end{itemize}

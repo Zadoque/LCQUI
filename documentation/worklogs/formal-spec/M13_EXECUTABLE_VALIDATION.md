@@ -115,3 +115,122 @@ contrato.
 `documentation/{main.tex,main.pdf,Formal-Spec-M13.tex}` e a atualização de
 estado. Nenhum arquivo de aplicação. Próxima ação: fechamento global pós-M13
 (gate separado), sem M14 automático.
+
+---
+
+# Rodada corretiva (M13-CORR-01/02/03)
+
+Esta rodada corrige três achados encontrados por revisão adversarial sobre a
+revisão `88b821c2`. O relato acima é preservado como histórico; os números
+correntes desta rodada estão abaixo. M13 permanece `VALIDATED` somente após o
+gate desta rodada.
+
+## CORR-01 — contexto acadêmico completo (seis tipos)
+
+O Alloy representava apenas quatro dos seis tipos acadêmicos
+(`TPost`, `TComentario`, `TAdicionado`, `TRemovido`), omitindo `TURMA_ARQUIVADA` e
+`TURMA_DESARQUIVADA`, enquanto CUE/IR/Seção 7.8 exigiam os seis. Correção:
+
+- Os 20 valores do enum estão agora como `one sig` em `academico`, com `academico`
+  cobrindo explicitamente os seis (`TComentario`, `TPost`, `TAdicionado`,
+  `TRemovido`, `TArquivada`, `TDesarquivada`).
+- Testemunhas `WitnessArquivamentoTurma` e `WitnessDesarquivamentoTurma`, com
+  `id_turma`/turma e navegação; checks `IdTurmaAcademicoObrigatorio` e
+  `IdTurmaOperacionalNulo` cobrem os seis.
+- Fixtures novas: `notificacao_turma_arquivada`, `notificacao_turma_desarquivada`
+  (válidas) e `notificacao_turma_arquivada_sem_turma` (inválida). Totais: **16
+  válidas + 18 inválidas**.
+- Guard `checkM13AcademicTypes` compara CUE, Alloy, Seção 7.8 e o capítulo LaTeX,
+  com teste de adulteração que remove um tipo em cada camada.
+- A propriedade é estrutural (contexto), não de emissão: cobrir `id_turma` de um
+  tipo não cria fluxo emissor nem alega emissão provada.
+
+## CORR-02 — ponte real de autorização (M9/M11/M12)
+
+Na referência, `alunoComVinculo` não exigia papel acadêmico e `PonteM12NaoAfrouxaAcl`
+usava o próprio `acessoAtual` (circular). Contraexemplo reproduzido no solver da
+referência: um Chefe com vínculo legado, sem papel acadêmico, satisfazia a rota
+acadêmica em `EPost` (`run ContraexemploChefeLegado` = SAT na revisão `88b821c2`).
+Correção:
+
+- O vocabulário de autorização de `notificacoes_m13.als` passa a ser o de
+  `composition_m12.als` e os predicados `versaoCorrente`, `authOk`, `temVinculo`,
+  `proprietario`, `compartilhadoAtual`, `roteiroPublicavel`,
+  `acessoProfessorRoteiro`, `alunoAcessoPost`, `alunoPodeBaixar`, `escopoQ13` e
+  `podeEmitirUrl` são cópias verificadas por token (guard
+  `m13_composition.mjs`); `composition_m12.als` entra nas origens do receipt
+  (6 origens) e no validador Rust.
+- Rotas explícitas: `rotaAcademicaPost` (= `alunoAcessoPost`: papel `alunos` +
+  vínculo canônico + Post não removido), `rotaProfessorPost`,
+  `rotaChefeAdmin` (Q13 de Post/Comentário, sem registro de URL),
+  `rotaProfessorRoteiro` (= `acessoProfessorRoteiro`), `rotaAlunoRoteiro`
+  (= `alunoPodeBaixar`), `rotaChefeRoteiro` (Chefe + roteiro publicável +
+  `escopoQ13`), `rotaTurma`, `rotaAlmox`, `rotaEmprestimo`.
+- Checks: `RotaAcademicaExigePapel`, `ChefeLegadoNaoUsaAcademico`,
+  `ChefeAdminNaoHerdaAcademico`, `SemVinculoNaoRestaura`,
+  `ProfessorDonoMantemAcesso`, `CompartilhamentoSoProfessor`,
+  `ChefeSemEscopoNaoEmiteUrl`, `EscopoEncerradoImpedeNovaEmissao`,
+  `EncerramentoEscopoPreservaRoteiro`, `RoteiroAlunoExigePostEAnexo`,
+  `PonteRotaChefeRoteiroRefinaUrl`, `AlertaNaoContornaAcl`.
+- Projeção de comentário moderado: `ColegaVeAviso`, `AutorVeOriginal`,
+  `AuditorVeOriginal` e `NotificacaoNaoExpoeOriginal`.
+- Testemunhas positivas impedem a correção que nega tudo:
+  `WitnessRotaAcademicaValida`, `WitnessChefeLegadoNaoUsaAcademico`,
+  `WitnessProfessorDonoPost`, `WitnessCompartilhamentoRoteiro`,
+  `WitnessChefeComEscopo`, `WitnessEscopoEncerrado`, `WitnessSemVinculoClaimAtual`
+  e as de projeção de comentário.
+- A paginação continua sendo um lote abstrato com corte estável; o capítulo e
+  este worklog declaram esse limite, sem retirar o requisito normativo.
+
+## CORR-03 — obrigação V1 versus cobertura da prova
+
+A generalização anterior (“somente seis tipos / os outros 14”) era incorreta:
+havia obrigações fora daquela lista. A tabela de reconciliação dos 20 tipos:
+
+| Tipo | Fonte de obrigação V1 | Evento/destinatário definido | Cobertura estrutural M13 | Prova de emissão existente | Fronteira não provada |
+|---|---|---|---|---|---|
+| POST | Seção 7.6 (M12.1) | Post em turma; membros/autores | `#M13Notificacao` (acadêmico) | M12.1 (efeito delimitado) | Entrega real |
+| COMENTARIO | Seção 7.6 (M12.1) | Comentário; autor/colegas | `#M13Notificacao` (acadêmico) | M12.1 | Entrega real |
+| ROTEIRO_COMPARTILHADO | Seção 7.7 (M12.2) | Professor destinatário | `#M13Notificacao` | M12.2 | Entrega real |
+| ESCASSEZ_ESTOQUE | Seção 7.8/10.7 (M8) | Gestor vinculado ao almoxarifado; docId diário | `#M13Notificacao` + M8 | M8 (receipt) | Job/cron real |
+| FRASCOS_VENCIDOS | Seção 10.7 (job) | Gestores vinculados; `vencidos_{almox}_{dia}` | `#M13Notificacao` (operacional) | Não formalizada em M13 | Job real; dedup |
+| DATA_DEVOLUCAO_REAGENTE | Seção 7.8/10.7 | Retirante (Professor/Bolsista); `{id_emprestimo}--{janela}` | `#M13Notificacao` | Não (M8 diário não cobre) | Job real; janela |
+| ENTREGA_ATRASADA | Seção 10.7 (job) | Gestores vinculados; `atraso_{almox}_{dia}` | `#M13Notificacao` (operacional) | Não formalizada | Job real; dedup |
+| REQUISICAO_BEM | Seção 4/7.8 | Professor solicitante, na resposta | Enum `#M13Tipo` | Não (patrimônio fora de M13) | Fluxo de requisição |
+| REQUISICAO_ADICAO_BEM | Seção 4/7.8 | Gestores de bens, na abertura | Enum | Não | Fluxo de requisição |
+| REQUISICAO_EDICAO_BEM | Seção 4/7.8 | Gestores de bens, na abertura | Enum | Não | Fluxo de requisição |
+| TURMA_ARQUIVADA | Seções 8--9 (PRO-02) | Membros da turma | `#M13Notificacao` (acadêmico) | M11 ar/desarquivamento; emissão não formalizada | Backend |
+| TURMA_DESARQUIVADA | Seções 8--9 (PRO-02) | Membros da turma | `#M13Notificacao` (acadêmico) | Idem | Backend |
+| AUTO_ATENDIMENTO_RETIRADA | Q14 (Seção 7) | Chefia | Enum (operacional) | Não formalizada | Backend |
+| ADICIONADO | Sem obrigação V1 decidida | — | Acadêmico | — | Destinatário/mecanismo não decididos |
+| REMOVIDO | Sem obrigação V1 decidida | — | Acadêmico | — | Destinatário/mecanismo não decididos |
+| BEM_INSERVIVEL | Sem obrigação V1 decidida | — | Enum | — | Destinatário/mecanismo não decididos |
+| FRASCOS_VAZIOS | Taxonomia compartilhada (7.8) | — | Enum | — | Destinatário/mecanismo não decididos |
+| FRASCOS_QUEBRADOS | Taxonomia compartilhada (7.8) | — | Enum | — | Destinatário/mecanismo não decididos |
+| FRASCOS_A_SEREM_PESADOS | Taxonomia compartilhada (7.8) | — | Enum | — | Destinatário/mecanismo não decididos |
+| FRASCOS_EM_QUARENTENA | Taxonomia compartilhada (7.8) | — | Enum | — | Destinatário/mecanismo não decididos |
+
+“Fora da prova de emissão M13” não significa “fora da V1”. A Seção 7.8 foi
+corrigida para não generalizar; destinatário, frequência, prazo e chave de dedup
+dos tipos sem fonte decisória permanecem lacuna explícita, não prova nem
+dispensa.
+
+## Evidência da rodada corretiva
+
+- Alloy: **34 checks UNSAT + 25 witnesses SAT = 59 resultados** (escopos 4/5,
+  três comandos `for 5`); `model_sha256 =
+  8fcf8cb9085d8c9005ae95e5521caac29cf20191317797cd270ee2f0bfc07463`.
+- Receipt `build/formal-validation-m13.json` (6 origens; sha256
+  `78a94897b561c8eb9f473abf60e416cd480c70a6c4e80827e4641a1d67d94d3c`).
+- CUE/IR: `spec_ir_sha256` **inalterado** (`9f2bf722…36fd579`); M0–M12
+  preservados byte a byte (nenhum `model_sha256` ou receipt antigo mudou).
+- Rust `validation_m13.rs` com 6 origens e 59 entradas exatas; 35 testes Rust.
+- Node: 44 testes (inclui o guard de tipos acadêmicos e a mutação controlada).
+- PDF de 457 páginas, 0 erros, 0 referências indefinidas, 31 Overfull (igual ao
+  baseline `88b821c2`).
+
+## Limites preservados
+
+Continua sendo prova *bounded* (`for 4`/`for 5`), de lote abstrato para ``Limpar
+tudo'', e não certifica Firebase, Firestore/Storage, Rules, Auth, relógio real,
+paginação/concorrência real nem entrega externa.

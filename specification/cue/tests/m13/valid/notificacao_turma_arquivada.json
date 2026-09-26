@@ -1,0 +1,17 @@
+{
+  "uid": "u-aluno-1",
+  "id": "n-1",
+  "id_destinatario": "u-aluno-1",
+  "papel_destinatario": "Aluno",
+  "tipo": "TURMA_ARQUIVADA",
+  "id_quem_fez_acao": "u-prof-1",
+  "id_turma": "t-1",
+  "quantidade": null,
+  "entidade_alvo": "Turma",
+  "id_alvo": "t-1",
+  "lida": false,
+  "lida_em": null,
+  "emitida_em": "2026-09-26 10:00:00",
+  "expira_em": null,
+  "contem_conteudo_protegido": false
+}

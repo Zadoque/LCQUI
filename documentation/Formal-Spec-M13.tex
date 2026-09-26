@@ -5,63 +5,91 @@
 
 M13 formaliza a entidade única \textit{Notificacao} e a caixa (UI-12) como uma
 \textbf{composição} das fatias já validadas: idempotência M7, escassez e docId
-diário M8, autorização M9, participação canônica M11, efeitos delimitados de
+diário M8, autorização M9, participação canônica M11 e efeitos delimitados de
 M12.1/M12.2. O contrato estrutural está em
-\texttt{specification/cue/domain/formal\_m13.cue}
-(\texttt{\#M13Contrato}) e a prova relacional/temporal em
+\texttt{specification/cue/domain/formal\_m13.cue} (\texttt{\#M13Contrato}) e a
+prova relacional/temporal em
 \texttt{specification/alloy/operations/notificacoes\_m13.als}. O modelo é
-composto, não justaposto: caixa, leitura, marcação, ``Limpar tudo'', expiração,
-alvo e emissão compartilham o mesmo estado, e os predicados de autorização
-(\texttt{versaoCorrente}, \texttt{authOk}, \texttt{temVinculo}) são reproduzidos
-de M12.1/M9 com guard de drift (\texttt{tools/formal/m13\_composition.mjs}). A
-fonte normativa humana é a Seção~\ref{sec:regras-notificacoes-m13}.
+composto, não justaposto: caixa, leitura, rotas de autorização, expiração, alvo e
+emissão compartilham o mesmo estado. A autorização de Posts, Comentários,
+Roteiros, compartilhamento e escopo Q13 é \textbf{reproduzida} de
+\texttt{composition\_m12.als} (que reproduz M12.1/M12.2/M9/M11) e verificada por
+guard de drift (\texttt{tools/formal/m13\_composition.mjs}); não há duas ACLs
+independentes com o mesmo rótulo. A fonte normativa humana é a
+Seção~\ref{sec:regras-notificacoes-m13}.
 
 \subsection*{Caixa única, papel visual e Bolsista/Q12}
 A visibilidade normativa é a posse (\texttt{caixaDe[s,u,n]}), independente do
 papel selecionado no header; o papel armazenado é contexto de apresentação e
 nunca concede recurso. Um usuário não lê a caixa de outro UID
-(\texttt{NaoLeCaixaAlheia}); o papel visual não filtra a própria caixa nem
-concede acesso ao alvo (\texttt{PapelVisualNaoFiltraCaixa},
-\texttt{PapelVisualNaoConcedeRecurso}); o Bolsista vê os alertas próprios
+(\texttt{NaoLeCaixaAlheia}); o papel visual não filtra a própria caixa
+(\texttt{PapelVisualNaoFiltraCaixa}); o Bolsista vê os alertas próprios
 (\texttt{BolsistaVeCaixa}, \texttt{WitnessBolsistaVeAlerta}) e uma conta
-multi-role reúne avisos de papéis distintos
-(\texttt{WitnessCaixaMultiRole}).
+multi-role reúne avisos de papéis distintos (\texttt{WitnessCaixaMultiRole}).
 
-\subsection*{Marcação e ``Limpar tudo''}
+\subsection*{Rotas de autorização e Q13 por recurso}
+Abrir um aviso revalida a autorização \textbf{corrente} por rota
+(\texttt{acessoAtual}, \texttt{AlertaNaoContornaAcl}). A rota acadêmica exige o
+\textbf{papel acadêmico autorizado} (\texttt{alunos}) \textbf{e} o vínculo
+canônico atual (\texttt{alunoAcessoPost}, reproduzido de M12.1/M12): um Chefe
+com vínculo legado não a usa (\texttt{RotaAcademicaExigePapel},
+\texttt{ChefeLegadoNaoUsaAcademico}, \texttt{ChefeAdminNaoHerdaAcademico},
+\texttt{WitnessChefeLegadoNaoUsaAcademico}); a perda do vínculo seguida de claim
+atualizada não restaura a participação (\texttt{SemVinculoNaoRestaura},
+\texttt{WitnessSemVinculoClaimAtual}). O Professor dono mantém o acesso próprio
+(\texttt{ProfessorDonoMantemAcesso}, \texttt{WitnessProfessorDonoPost}) e o
+compartilhamento de Roteiro só autoriza professor
+(\texttt{CompartilhamentoSoProfessor}, \texttt{WitnessCompartilhamentoRoteiro}).
+O Chefe atua em Q13 \textbf{conforme o recurso e a operação}: leitura/moderação
+de Post/Comentário pela rota administrativa (\texttt{rotaChefeAdmin}), sem
+exigir registro de auditoria de URL; já a emissão de URL de Roteiro exige o
+escopo de auditoria de M12.2 (\texttt{escopoQ13}, \texttt{podeEmitirUrl}),
+provado por \texttt{ChefeSemEscopoNaoEmiteUrl} e
+\texttt{PonteRotaChefeRoteiroRefinaUrl}, com
+\texttt{WitnessChefeComEscopo}. Encerrar o escopo impede novas emissões sem
+apagar Roteiro/anexo/URL já emitida
+(\texttt{EscopoEncerradoImpedeNovaEmissao},
+\texttt{EncerramentoEscopoPreservaRoteiro}, \texttt{WitnessEscopoEncerrado}).
+Acesso de aluno a Roteiro exige Post acessível com anexo
+(\texttt{RoteiroAlunoExigePostEAnexo}).
+
+\subsection*{Marcação, ``Limpar tudo'' e expiração}
 Marcar lida é restrito ao dono, idempotente e não reverte
 (\texttt{MarcarSoProprias}, \texttt{MarcaIdempotente}, \texttt{MarcaNaoReverte});
 ``Limpar tudo'' marca apenas itens do próprio UID, por corte, sem
 \texttt{DELETE}, e um aviso emitido após o corte permanece para a próxima rodada
 (\texttt{LoteSoProprias}, \texttt{SemDelete}, \texttt{LimparTudoCorteEstavel},
-\texttt{WitnessLimparTudoCorteComNovaEmissao}); o retry retoma do corte sem
-deixar itens presos (\texttt{WitnessLimparTudoRetry}).
+\texttt{WitnessLimparTudoCorteComNovaEmissao}); o retry retoma do corte
+(\texttt{WitnessLimparTudoRetry}). \texttt{expira\_em = null} não expira
+automaticamente (\texttt{ExpiracaoDistingueNull}) e a expiração retira do
+conjunto ativo sem apagar o fato (\texttt{ExpiradoForaDoAtivo});
+\texttt{ESCASSEZ\_ESTOQUE} permanece nulo e persistente
+(\texttt{WitnessNullNaoExpira}).
 
-\subsection*{Expiração e alvo}
-\texttt{expira\_em = null} não expira automaticamente
-(\texttt{ExpiracaoDistingueNull}) e a expiração retira do conjunto ativo sem
-apagar o fato (\texttt{ExpiradoForaDoAtivo}); \texttt{ESCASSEZ\_ESTOQUE}
-permanece nulo e persistente (\texttt{WitnessNullNaoExpira}). \texttt{entidade\_alvo}
-é rota conhecida e \texttt{id\_alvo} é identificador de recurso; URL arbitrária
-não navega (\texttt{AlvoInvalidoNaoNavega}, \texttt{UrlArbitrariaNaoNavega}).
-Abrir revalida autorização corrente: sem vínculo canônico, com objeto removido ou
-sem escopo Q13 do Chefe, não há acesso
-(\texttt{VinculoCanonicoRequerido}, \texttt{ObjetoRemovidoNaoNavega},
-\texttt{ChefeSemEscopoNaoAcessa}); a revogação corta o clique sem apagar o fato
-(\texttt{RevogacaoCortaClique}, \texttt{WitnessRevogacaoPreservaFato}); a
-notificação nunca contorna a ACL (\texttt{AlertaNaoContornaAcl}). As pontes
-\texttt{PonteM9ExigeAuth} e \texttt{PonteM12NaoAfrouxaAcl} provam que o acesso
-derivado exige autorização e não é ampliado pela caixa.
+\subsection*{Alvo, privacidade e comentário moderado}
+Alvo inválido ou URL arbitrária não navega
+(\texttt{AlvoInvalidoNaoNavega}, \texttt{WitnessAlvoInvalidoNaoNavega}). O
+payload é mínimo (\texttt{NotificacaoNaoExpoeOriginal}) e a projeção de
+comentário moderado distingue autor (\texttt{AutorVeOriginal},
+\texttt{WitnessAutorVeOriginal}), colega (\texttt{ColegaVeAviso},
+\texttt{WitnessColegaVeAviso}) e auditor (\texttt{AuditorVeOriginal},
+\texttt{WitnessAuditorVeOriginal}), sem confundir o acesso ao aviso com o acesso
+ao original.
 
-\subsection*{Privacidade e emissão/deduplicação}
-O payload é mínimo: nenhuma notificação carrega conteúdo protegido
-(\texttt{NotificacaoNaoExpoeOriginal}) e Firestore Rules não mascaram campos.
-A emissão reutiliza a identidade M7 e a chave determinística M8: a mesma
-identidade não duplica (\texttt{EmissaoMesmaIdentidadeNaoDuplica},
+\subsection*{Contexto acadêmico e emissão}
+O contexto é condicional: \texttt{id\_turma} é obrigatório nos seis tipos
+acadêmicos \texttt{COMENTARIO}, \texttt{POST}, \texttt{ADICIONADO},
+\texttt{REMOVIDO}, \texttt{TURMA\_ARQUIVADA} e \texttt{TURMA\_DESARQUIVADA}, e
+nulo nos demais (\texttt{IdTurmaAcademicoObrigatorio},
+\texttt{IdTurmaOperacionalNulo}; testemunhas
+\texttt{WitnessArquivamentoTurma}, \texttt{WitnessDesarquivamentoTurma}). O guard
+\texttt{checkM13AcademicTypes} detecta a omissão de um tipo acadêmico entre CUE,
+Alloy, fonte normativa e este capítulo. A emissão reutiliza a identidade M7 e a
+chave determinística M8: a mesma identidade não duplica
+(\texttt{EmissaoMesmaIdentidadeNaoDuplica},
 \texttt{ComposicaoM7RetryNaoDuplica}), chaves distintas podem emitir
 (\texttt{EmissaoChaveDistintaEmite}) e erro de emissão não vira sucesso
-(\texttt{ErroEmissaoNaoViraSucesso}). O contexto é condicional: \texttt{id\_turma}
-obrigatório em tipo acadêmico e nulo nos demais
-(\texttt{IdTurmaAcademicoObrigatorio}, \texttt{IdTurmaOperacionalNulo}).
+(\texttt{ErroEmissaoNaoViraSucesso}).
 
 \subsection*{Rastreabilidade norma $\rightarrow$ CUE/IR $\rightarrow$ prova $\rightarrow$ receipt}
 \begingroup\scriptsize
@@ -77,13 +105,13 @@ obrigatório em tipo acadêmico e nulo nos demais
 \endhead
 \bottomrule
 \endfoot
-RN-M13-01 & \texttt{\#M13Notificacao}, \texttt{\#M13Caixa} & \texttt{NaoLeCaixaAlheia}, \newline \texttt{PapelVisualNaoFiltraCaixa}, \newline \texttt{BolsistaVeCaixa}, \newline \texttt{WitnessCaixaMultiRole} & M13-INV-002..005, M13-WIT-029/030 \\
-RN-M13-02 & \texttt{\#M13Marcacao}, \texttt{\#M13LimparTudo} & \texttt{MarcarSoProprias}, \newline \texttt{MarcaIdempotente}, \newline \texttt{LoteSoProprias}, \newline \texttt{SemDelete}, \newline \texttt{LimparTudoCorteEstavel} & M13-INV-006..011, M13-WIT-031..035 \\
-RN-M13-03 & \texttt{\#M13Expiracao} & \texttt{ExpiracaoDistingueNull}, \newline \texttt{ExpiradoForaDoAtivo}, \newline \texttt{WitnessNullNaoExpira} & M13-INV-012/013, M13-WIT-036/037 \\
-RN-M13-04 & \texttt{\#M13Alvo} & \texttt{AlvoInvalidoNaoNavega}, \newline \texttt{UrlArbitrariaNaoNavega}, \newline \texttt{AlertaNaoContornaAcl}, \newline \texttt{RevogacaoCortaClique}, \newline \texttt{ChefeSemEscopoNaoAcessa}, \newline \texttt{PonteM9ExigeAuth} & M13-INV-014..020, \newline M13-INV-027/028, \newline M13-WIT-038..040/044 \\
-RN-M13-05 & \texttt{contem\_conteudo\_protegido} & \texttt{NotificacaoNaoExpoeOriginal} & M13-INV-021 \\
-RN-M13-06 & \texttt{\#M13Emissao}, \texttt{\#M13Operacao} & \texttt{EmissaoMesmaIdentidadeNaoDuplica}, \newline \texttt{ComposicaoM7RetryNaoDuplica}, \newline \texttt{EmissaoChaveDistintaEmite}, \newline \texttt{ErroEmissaoNaoViraSucesso} & M13-INV-022..024, \newline M13-WIT-041..043 \\
-RN-M13-07 & \texttt{id\_turma} condicional & \texttt{IdTurmaAcademicoObrigatorio}, \newline \texttt{IdTurmaOperacionalNulo} & M13-INV-025/026, \newline M13-WIT-045/046 \\
+RN-M13-01 & \texttt{\#M13Notificacao}, \texttt{\#M13Caixa} & \texttt{NaoLeCaixaAlheia}, \newline \texttt{PapelVisualNaoFiltraCaixa}, \newline \texttt{BolsistaVeCaixa}, \newline \texttt{WitnessCaixaMultiRole} & M13-INV-002..004, M13-WIT-035/036 \\
+RN-M13-02 & \texttt{\#M13Marcacao}, \texttt{\#M13LimparTudo} & \texttt{MarcarSoProprias}, \newline \texttt{MarcaIdempotente}, \newline \texttt{MarcaNaoReverte}, \newline \texttt{LoteSoProprias}, \newline \texttt{SemDelete}, \newline \texttt{LimparTudoCorteEstavel} & M13-INV-005..010, M13-WIT-037..041 \\
+RN-M13-03 & \texttt{\#M13Expiracao} & \texttt{ExpiracaoDistingueNull}, \newline \texttt{ExpiradoForaDoAtivo}, \newline \texttt{WitnessNullNaoExpira} & M13-INV-011/012, M13-WIT-042/043 \\
+RN-M13-04 & \texttt{\#M13Alvo}, \texttt{\#M13Leitura} & \texttt{AlvoInvalidoNaoNavega}, \newline \texttt{AlertaNaoContornaAcl}, \newline \texttt{RotaAcademicaExigePapel}, \newline \texttt{ChefeLegadoNaoUsaAcademico}, \newline \texttt{SemVinculoNaoRestaura}, \newline \texttt{ChefeSemEscopoNaoEmiteUrl}, \newline \texttt{PonteRotaChefeRoteiroRefinaUrl} & M13-INV-013..025, \newline M13-WIT-044..053 \\
+RN-M13-05 & \texttt{contem\_conteudo\_protegido} & \texttt{NotificacaoNaoExpoeOriginal}, \newline \texttt{ColegaVeAviso}, \newline \texttt{AutorVeOriginal}, \newline \texttt{AuditorVeOriginal} & M13-INV-026..029, \newline M13-WIT-057..059 \\
+RN-M13-06 & \texttt{\#M13Emissao}, \texttt{\#M13Operacao} & \texttt{EmissaoMesmaIdentidadeNaoDuplica}, \newline \texttt{ComposicaoM7RetryNaoDuplica}, \newline \texttt{EmissaoChaveDistintaEmite}, \newline \texttt{ErroEmissaoNaoViraSucesso} & M13-INV-030..032, \newline M13-WIT-054..056 \\
+RN-M13-07 & \texttt{id\_turma} condicional & \texttt{IdTurmaAcademicoObrigatorio}, \newline \texttt{IdTurmaOperacionalNulo}, \newline \texttt{WitnessArquivamentoTurma}, \newline \texttt{WitnessDesarquivamentoTurma} & M13-INV-033/034, \newline M13-WIT-046/047 \\
 RN-M13-08 & reuso M12.2 (\texttt{geracao}) & \texttt{AnexoCompostoUsaGeracaoCanonica} (M12) & receipt M12 \\
 \bottomrule
 \end{longtable}
@@ -98,7 +126,9 @@ Escopos limitados (\texttt{for 4}/\texttt{for 5}). A prova composta não
 certifica \texttt{functions/}, \texttt{frontend/}, Firestore/Storage Rules, Auth,
 Storage real, entrega de e-mail, relógio de produção (fuso
 América/São Paulo), paginação e concorrência real do Firestore nem atomicidade
-entre serviços. O receipt registra \texttt{model\_sha256},
-\texttt{spec\_ir\_sha256} e as origens de composição (M7/M8/M9/M12). O capítulo
-não reabre nem substitui as provas isoladas dessas fatias.
+entre serviços. A paginação/reentrância de ``Limpar tudo'' é representada por um
+lote abstrato com corte estável, não pela paginação real do Firestore. O receipt
+registra \texttt{model\_sha256}, \texttt{spec\_ir\_sha256} e as origens de
+composição (M12, M12.1, M12.2, M9, M7 e M8). O capítulo não reabre nem
+substitui as provas isoladas dessas fatias.
 \fussy

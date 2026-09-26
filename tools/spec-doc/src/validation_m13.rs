@@ -3,16 +3,18 @@ use serde::Deserialize;
 
 // M13 — Notificação unificada: caixa única, leitura/marcação/Limpar tudo,
 // expiração, alvo/deep link com revalidação corrente, privacidade e
-// emissão/deduplicação. Modelo composto que reproduz os predicados de
-// autorização de M12.1/M9 (guard de drift tools/formal/m13_composition.mjs) e
-// registra as origens de composição por hash.
+// emissão/deduplicação. Modelo composto que reproduz a autorização de M12
+// (composition_m12.als, que reproduz M12.1/M12.2/M9/M11), com rotas explícitas
+// (acadêmica com papel + vínculo, professor, compartilhamento, Chefe Q13 por
+// recurso) e guard de drift tools/formal/m13_composition.mjs.
 pub const MODEL: &str = "specification/alloy/operations/notificacoes_m13.als";
-pub const ORIGINS: [&str; 5] = [
+pub const ORIGINS: [&str; 6] = [
+    "specification/alloy/operations/composition_m12.als",
     "specification/alloy/operations/posts_m12_1.als",
+    "specification/alloy/operations/roteiros_m12_2.als",
     "specification/alloy/operations/authorization_m9.als",
     "specification/alloy/operations/idempotency_m7.als",
     "specification/alloy/reagents/stock_cache_scarcity_m8.als",
-    "specification/alloy/operations/roteiros_m12_2.als",
 ];
 // Contrato fechado: não inferir IDs/tipos/scopes a partir da evidência recebida.
 const EXPECTED: &[(&str, &str, &str, &str, &str)] = &[
@@ -46,24 +48,24 @@ const EXPECTED: &[(&str, &str, &str, &str, &str)] = &[
     ),
     (
         "M13-INV-005",
-        "PapelVisualNaoConcedeRecurso",
-        "check",
-        "UNSAT",
-        "check PapelVisualNaoConcedeRecurso for 4",
-    ),
-    (
-        "M13-INV-006",
         "MarcarSoProprias",
         "check",
         "UNSAT",
         "check MarcarSoProprias for 4",
     ),
     (
-        "M13-INV-007",
+        "M13-INV-006",
         "MarcaIdempotente",
         "check",
         "UNSAT",
         "check MarcaIdempotente for 4",
+    ),
+    (
+        "M13-INV-007",
+        "MarcaNaoReverte",
+        "check",
+        "UNSAT",
+        "check MarcaNaoReverte for 4",
     ),
     (
         "M13-INV-008",
@@ -88,255 +90,346 @@ const EXPECTED: &[(&str, &str, &str, &str, &str)] = &[
     ),
     (
         "M13-INV-011",
-        "MarcaNaoReverte",
-        "check",
-        "UNSAT",
-        "check MarcaNaoReverte for 4",
-    ),
-    (
-        "M13-INV-012",
         "ExpiracaoDistingueNull",
         "check",
         "UNSAT",
         "check ExpiracaoDistingueNull for 4",
     ),
     (
-        "M13-INV-013",
+        "M13-INV-012",
         "ExpiradoForaDoAtivo",
         "check",
         "UNSAT",
         "check ExpiradoForaDoAtivo for 4",
     ),
     (
-        "M13-INV-014",
+        "M13-INV-013",
         "AlvoInvalidoNaoNavega",
         "check",
         "UNSAT",
         "check AlvoInvalidoNaoNavega for 4",
     ),
     (
-        "M13-INV-015",
-        "UrlArbitrariaNaoNavega",
-        "check",
-        "UNSAT",
-        "check UrlArbitrariaNaoNavega for 4",
-    ),
-    (
-        "M13-INV-016",
+        "M13-INV-014",
         "AlertaNaoContornaAcl",
         "check",
         "UNSAT",
         "check AlertaNaoContornaAcl for 4",
     ),
     (
-        "M13-INV-017",
-        "RevogacaoCortaClique",
+        "M13-INV-015",
+        "RotaAcademicaExigePapel",
         "check",
         "UNSAT",
-        "check RevogacaoCortaClique for 4",
+        "check RotaAcademicaExigePapel for 4",
+    ),
+    (
+        "M13-INV-016",
+        "ChefeLegadoNaoUsaAcademico",
+        "check",
+        "UNSAT",
+        "check ChefeLegadoNaoUsaAcademico for 4",
+    ),
+    (
+        "M13-INV-017",
+        "SemVinculoNaoRestaura",
+        "check",
+        "UNSAT",
+        "check SemVinculoNaoRestaura for 4",
     ),
     (
         "M13-INV-018",
-        "VinculoCanonicoRequerido",
+        "ProfessorDonoMantemAcesso",
         "check",
         "UNSAT",
-        "check VinculoCanonicoRequerido for 4",
+        "check ProfessorDonoMantemAcesso for 4",
     ),
     (
         "M13-INV-019",
-        "ObjetoRemovidoNaoNavega",
+        "CompartilhamentoSoProfessor",
         "check",
         "UNSAT",
-        "check ObjetoRemovidoNaoNavega for 4",
+        "check CompartilhamentoSoProfessor for 4",
     ),
     (
         "M13-INV-020",
-        "ChefeSemEscopoNaoAcessa",
+        "ChefeAdminNaoHerdaAcademico",
         "check",
         "UNSAT",
-        "check ChefeSemEscopoNaoAcessa for 4",
+        "check ChefeAdminNaoHerdaAcademico for 4",
     ),
     (
         "M13-INV-021",
+        "ChefeSemEscopoNaoEmiteUrl",
+        "check",
+        "UNSAT",
+        "check ChefeSemEscopoNaoEmiteUrl for 4",
+    ),
+    (
+        "M13-INV-022",
+        "EscopoEncerradoImpedeNovaEmissao",
+        "check",
+        "UNSAT",
+        "check EscopoEncerradoImpedeNovaEmissao for 4",
+    ),
+    (
+        "M13-INV-023",
+        "EncerramentoEscopoPreservaRoteiro",
+        "check",
+        "UNSAT",
+        "check EncerramentoEscopoPreservaRoteiro for 4",
+    ),
+    (
+        "M13-INV-024",
+        "RoteiroAlunoExigePostEAnexo",
+        "check",
+        "UNSAT",
+        "check RoteiroAlunoExigePostEAnexo for 4",
+    ),
+    (
+        "M13-INV-025",
+        "PonteRotaChefeRoteiroRefinaUrl",
+        "check",
+        "UNSAT",
+        "check PonteRotaChefeRoteiroRefinaUrl for 4",
+    ),
+    (
+        "M13-INV-026",
         "NotificacaoNaoExpoeOriginal",
         "check",
         "UNSAT",
         "check NotificacaoNaoExpoeOriginal for 4",
     ),
     (
-        "M13-INV-022",
+        "M13-INV-027",
+        "ColegaVeAviso",
+        "check",
+        "UNSAT",
+        "check ColegaVeAviso for 4",
+    ),
+    (
+        "M13-INV-028",
+        "AutorVeOriginal",
+        "check",
+        "UNSAT",
+        "check AutorVeOriginal for 4",
+    ),
+    (
+        "M13-INV-029",
+        "AuditorVeOriginal",
+        "check",
+        "UNSAT",
+        "check AuditorVeOriginal for 4",
+    ),
+    (
+        "M13-INV-030",
         "EmissaoMesmaIdentidadeNaoDuplica",
         "check",
         "UNSAT",
         "check EmissaoMesmaIdentidadeNaoDuplica for 4",
     ),
     (
-        "M13-INV-023",
+        "M13-INV-031",
         "ErroEmissaoNaoViraSucesso",
         "check",
         "UNSAT",
         "check ErroEmissaoNaoViraSucesso for 4",
     ),
     (
-        "M13-INV-024",
+        "M13-INV-032",
         "ComposicaoM7RetryNaoDuplica",
         "check",
         "UNSAT",
         "check ComposicaoM7RetryNaoDuplica for 4",
     ),
     (
-        "M13-INV-025",
+        "M13-INV-033",
         "IdTurmaAcademicoObrigatorio",
         "check",
         "UNSAT",
         "check IdTurmaAcademicoObrigatorio for 4",
     ),
     (
-        "M13-INV-026",
+        "M13-INV-034",
         "IdTurmaOperacionalNulo",
         "check",
         "UNSAT",
         "check IdTurmaOperacionalNulo for 4",
     ),
     (
-        "M13-INV-027",
-        "PonteM9ExigeAuth",
-        "check",
-        "UNSAT",
-        "check PonteM9ExigeAuth for 4",
-    ),
-    (
-        "M13-INV-028",
-        "PonteM12NaoAfrouxaAcl",
-        "check",
-        "UNSAT",
-        "check PonteM12NaoAfrouxaAcl for 4",
-    ),
-    (
-        "M13-WIT-029",
+        "M13-WIT-035",
         "WitnessCaixaMultiRole",
         "run",
         "SAT",
         "run WitnessCaixaMultiRole for 4",
     ),
     (
-        "M13-WIT-030",
+        "M13-WIT-036",
         "WitnessBolsistaVeAlerta",
         "run",
         "SAT",
         "run WitnessBolsistaVeAlerta for 4",
     ),
     (
-        "M13-WIT-031",
+        "M13-WIT-037",
         "WitnessMarcarLidaPropria",
         "run",
         "SAT",
         "run WitnessMarcarLidaPropria for 4",
     ),
     (
-        "M13-WIT-032",
+        "M13-WIT-038",
         "WitnessMarcacaoIdempotente",
         "run",
         "SAT",
         "run WitnessMarcacaoIdempotente for 4",
     ),
     (
-        "M13-WIT-033",
+        "M13-WIT-039",
         "WitnessLimparTudoProprias",
         "run",
         "SAT",
         "run WitnessLimparTudoProprias for 4",
     ),
     (
-        "M13-WIT-034",
+        "M13-WIT-040",
         "WitnessLimparTudoRetry",
         "run",
         "SAT",
         "run WitnessLimparTudoRetry for 5",
     ),
     (
-        "M13-WIT-035",
+        "M13-WIT-041",
         "WitnessLimparTudoCorteComNovaEmissao",
         "run",
         "SAT",
         "run WitnessLimparTudoCorteComNovaEmissao for 5",
     ),
     (
-        "M13-WIT-036",
+        "M13-WIT-042",
         "WitnessExpiraAtivo",
         "run",
         "SAT",
         "run WitnessExpiraAtivo for 4",
     ),
     (
-        "M13-WIT-037",
+        "M13-WIT-043",
         "WitnessNullNaoExpira",
         "run",
         "SAT",
         "run WitnessNullNaoExpira for 4",
     ),
     (
-        "M13-WIT-038",
-        "WitnessNavegaAlvoValido",
-        "run",
-        "SAT",
-        "run WitnessNavegaAlvoValido for 4",
-    ),
-    (
-        "M13-WIT-039",
+        "M13-WIT-044",
         "WitnessAlvoInvalidoNaoNavega",
         "run",
         "SAT",
         "run WitnessAlvoInvalidoNaoNavega for 4",
     ),
     (
-        "M13-WIT-040",
-        "WitnessRevogacaoPreservaFato",
+        "M13-WIT-045",
+        "WitnessRotaAcademicaValida",
         "run",
         "SAT",
-        "run WitnessRevogacaoPreservaFato for 4",
+        "run WitnessRotaAcademicaValida for 4",
     ),
     (
-        "M13-WIT-041",
-        "WitnessEmissaoUnica",
+        "M13-WIT-046",
+        "WitnessArquivamentoTurma",
         "run",
         "SAT",
-        "run WitnessEmissaoUnica for 4",
+        "run WitnessArquivamentoTurma for 4",
     ),
     (
-        "M13-WIT-042",
-        "EmissaoChaveDistintaEmite",
+        "M13-WIT-047",
+        "WitnessDesarquivamentoTurma",
         "run",
         "SAT",
-        "run EmissaoChaveDistintaEmite for 4",
+        "run WitnessDesarquivamentoTurma for 4",
     ),
     (
-        "M13-WIT-043",
-        "WitnessErroNaoEmite",
+        "M13-WIT-048",
+        "WitnessChefeLegadoNaoUsaAcademico",
         "run",
         "SAT",
-        "run WitnessErroNaoEmite for 4",
+        "run WitnessChefeLegadoNaoUsaAcademico for 4",
     ),
     (
-        "M13-WIT-044",
+        "M13-WIT-049",
+        "WitnessSemVinculoClaimAtual",
+        "run",
+        "SAT",
+        "run WitnessSemVinculoClaimAtual for 4",
+    ),
+    (
+        "M13-WIT-050",
+        "WitnessProfessorDonoPost",
+        "run",
+        "SAT",
+        "run WitnessProfessorDonoPost for 4",
+    ),
+    (
+        "M13-WIT-051",
+        "WitnessCompartilhamentoRoteiro",
+        "run",
+        "SAT",
+        "run WitnessCompartilhamentoRoteiro for 4",
+    ),
+    (
+        "M13-WIT-052",
         "WitnessChefeComEscopo",
         "run",
         "SAT",
         "run WitnessChefeComEscopo for 4",
     ),
     (
-        "M13-WIT-045",
-        "WitnessIdTurmaAcademico",
+        "M13-WIT-053",
+        "WitnessEscopoEncerrado",
         "run",
         "SAT",
-        "run WitnessIdTurmaAcademico for 4",
+        "run WitnessEscopoEncerrado for 4",
     ),
     (
-        "M13-WIT-046",
-        "WitnessIdTurmaOperacional",
+        "M13-WIT-054",
+        "WitnessEmissaoUnica",
         "run",
         "SAT",
-        "run WitnessIdTurmaOperacional for 4",
+        "run WitnessEmissaoUnica for 4",
+    ),
+    (
+        "M13-WIT-055",
+        "EmissaoChaveDistintaEmite",
+        "run",
+        "SAT",
+        "run EmissaoChaveDistintaEmite for 4",
+    ),
+    (
+        "M13-WIT-056",
+        "WitnessErroNaoEmite",
+        "run",
+        "SAT",
+        "run WitnessErroNaoEmite for 4",
+    ),
+    (
+        "M13-WIT-057",
+        "WitnessColegaVeAviso",
+        "run",
+        "SAT",
+        "run WitnessColegaVeAviso for 4",
+    ),
+    (
+        "M13-WIT-058",
+        "WitnessAutorVeOriginal",
+        "run",
+        "SAT",
+        "run WitnessAutorVeOriginal for 4",
+    ),
+    (
+        "M13-WIT-059",
+        "WitnessAuditorVeOriginal",
+        "run",
+        "SAT",
+        "run WitnessAuditorVeOriginal for 4",
     ),
 ];
 
@@ -359,7 +452,7 @@ pub struct ValidationM13 {
     pub resultados: Vec<Resultado>,
 }
 impl ValidationM13 {
-    pub fn check(&self, ir: &[u8], model: &[u8], origins: [&[u8]; 5]) -> bool {
+    pub fn check(&self, ir: &[u8], model: &[u8], origins: [&[u8]; 6]) -> bool {
         self.versao == 1
             && self.alloy == "6.2.0"
             && self.solver == "sat4j"
@@ -392,30 +485,29 @@ impl ValidationM13 {
 mod tests {
     use super::*;
     use serde_json::{Value, json};
+    fn origins_bytes(root: &std::path::Path) -> [Vec<u8>; 6] {
+        ORIGINS.map(|p| std::fs::read(root.join(p)).unwrap())
+    }
     #[test]
     fn accepts_real_receipt_and_rejects_all_required_tampering() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let ir = std::fs::read(root.join("build/spec-ir.json")).unwrap();
         let model = std::fs::read(root.join(MODEL)).unwrap();
-        let origins = ORIGINS.map(|p| std::fs::read(root.join(p)).unwrap());
+        let origins = origins_bytes(&root);
+        let refs: [&[u8]; 6] = [
+            &origins[0],
+            &origins[1],
+            &origins[2],
+            &origins[3],
+            &origins[4],
+            &origins[5],
+        ];
         let original: Value = serde_json::from_slice(
             &std::fs::read(root.join("build/formal-validation-m13.json")).unwrap(),
         )
         .unwrap();
         let valid = |value: Value| {
-            serde_json::from_value::<ValidationM13>(value).is_ok_and(|v| {
-                v.check(
-                    &ir,
-                    &model,
-                    [
-                        &origins[0],
-                        &origins[1],
-                        &origins[2],
-                        &origins[3],
-                        &origins[4],
-                    ],
-                )
-            })
+            serde_json::from_value::<ValidationM13>(value).is_ok_and(|v| v.check(&ir, &model, refs))
         };
         assert!(valid(original.clone()));
         for (pointer, replacement) in [
@@ -426,7 +518,7 @@ mod tests {
             ("/model_sha256", json!("0".repeat(64))),
             ("/model", json!(ORIGINS[0])),
             ("/resultados/0/status", json!("SAT")),
-            ("/resultados/28/status", json!("UNSAT")),
+            ("/resultados/34/status", json!("UNSAT")),
             (
                 "/resultados/0/scope",
                 json!("check TransicoesPreservamCoerencia for 1"),
@@ -436,7 +528,7 @@ mod tests {
             ("/resultados/0/tipo", json!("run")),
             ("/origens/0/model", json!("unexpected")),
             ("/origens/0/model_sha256", json!("0".repeat(64))),
-            ("/origens/4/model_sha256", json!("0".repeat(64))),
+            ("/origens/5/model_sha256", json!("0".repeat(64))),
         ] {
             let mut bad = original.clone();
             *bad.pointer_mut(pointer).unwrap() = replacement;
@@ -459,27 +551,7 @@ mod tests {
             }
         }
         let v: ValidationM13 = serde_json::from_value(original).unwrap();
-        assert!(!v.check(
-            b"changed IR",
-            &model,
-            [
-                &origins[0],
-                &origins[1],
-                &origins[2],
-                &origins[3],
-                &origins[4]
-            ]
-        ));
-        assert!(!v.check(
-            &ir,
-            b"changed model",
-            [
-                &origins[0],
-                &origins[1],
-                &origins[2],
-                &origins[3],
-                &origins[4]
-            ]
-        ));
+        assert!(!v.check(b"changed IR", &model, refs));
+        assert!(!v.check(&ir, b"changed model", refs));
     }
 }
