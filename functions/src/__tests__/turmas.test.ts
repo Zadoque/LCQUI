@@ -27,10 +27,39 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     data,
     auth: {
       uid,
-      token: { roles }
+      token: { roles, versao_permissoes: 1 }
     },
     rawRequest: {}
   });
+
+  let opSeq = 0;
+  const novaOperacao = (): string => `op_turma_${Date.now()}_${++opSeq}`;
+
+  async function semearProfessor(uid: string): Promise<void> {
+    await db.collection("Usuarios").doc(uid).set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Professor").doc(uid).set({ id_usuario: uid, ativo: true });
+  }
+
+  async function semearMateria(id: string, nome: string): Promise<void> {
+    await db.collection("Materia").doc(id).set({ nome, codigo_materia: id.toUpperCase() });
+  }
+
+  async function criarTurmaOk(
+    uid: string,
+    campos: { idMateria: string; nomeTurma: string; ano?: number; semestre?: number; capacidade?: number; nomeMateria?: string }
+  ): Promise<{ id: string; codigoTurma: string }> {
+    await semearProfessor(uid);
+    await semearMateria(campos.idMateria, campos.nomeMateria ?? campos.nomeTurma);
+    const wrapped = testEnv.wrap(criarTurma);
+    return wrapped(mockRequest({
+      idOperacao: novaOperacao(),
+      idMateria: campos.idMateria,
+      nomeTurma: campos.nomeTurma,
+      ano: campos.ano ?? 2026,
+      semestre: campos.semestre ?? 1,
+      capacidade: campos.capacidade ?? 30,
+    }, uid));
+  }
 
   it("deve falhar se idMateria for vazio na criação da turma", async () => {
     const wrapped = testEnv.wrap(criarTurma);
@@ -66,12 +95,10 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
   });
 
   it("deve garantir a unicidade do codigo_turma via lock transacional determinístico e criar a turma", async () => {
-    const wrapped = testEnv.wrap(criarTurma);
-    const req = mockRequest({
+    const result = await criarTurmaOk("prof_x", {
       idMateria: "mat_x", nomeTurma: "Turma de Teste", ano: 2026, semestre: 1, capacidade: 30, nomeMateria: "Materia de Teste"
-    }, "prof_x");
-    
-    const result = await wrapped(req);
+    });
+
     expect(result.id).toBeDefined();
     expect(result.codigoTurma).toHaveLength(6);
 
@@ -79,14 +106,15 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     expect(doc.exists).toBe(true);
     expect(doc.data()?.qtd_alunos).toBe(0);
     expect(doc.data()?.status).toBe("Ativo");
+    const chave = await db.collection("Chaves_Unicas").doc(`Turma_codigo__${result.codigoTurma}`).get();
+    expect(chave.exists).toBe(true);
+    expect(chave.data()?.id_recurso).toBe(result.id);
   });
 
   it("deve garantir o controle de capacidade da turma impedindo ingresso por código se COUNT(alunos) >= capacidade (RN-TUR-01)", async () => {
-    const wrappedCriar = testEnv.wrap(criarTurma);
-    const reqCriar = mockRequest({
-      idMateria: "mat_c", nomeTurma: "Turma Cheia", ano: 2026, semestre: 1, capacidade: 1, nomeMateria: "Cheia"
-    }, "prof_c");
-    const turma = await wrappedCriar(reqCriar);
+    const turma = await criarTurmaOk("prof_c", {
+      idMateria: "mat_c", nomeTurma: "Turma Cheia", capacidade: 1, nomeMateria: "Cheia"
+    });
 
     const wrappedIngressar = testEnv.wrap(ingressarEmTurmaPorCodigo);
     
@@ -98,11 +126,9 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
   });
 
   it("deve garantir que o ingresso de aluno registre o evento no Historico_Alunos_Turma como inclusao_aluno", async () => {
-    const wrappedCriar = testEnv.wrap(criarTurma);
-    const reqCriar = mockRequest({
-      idMateria: "mat_h", nomeTurma: "Turma Historico", ano: 2026, semestre: 1, capacidade: 5, nomeMateria: "Historico"
-    }, "prof_h");
-    const turma = await wrappedCriar(reqCriar);
+    const turma = await criarTurmaOk("prof_h", {
+      idMateria: "mat_h", nomeTurma: "Turma Historico", capacidade: 5, nomeMateria: "Historico"
+    });
 
     const wrappedIngressar = testEnv.wrap(ingressarEmTurmaPorCodigo);
     const reqAluno = mockRequest({ codigoTurma: turma.codigoTurma }, "aluno_h", ["Aluno"]);
@@ -122,11 +148,9 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
   });
 
   it("deve rejeitar o ingresso por código se a turma estiver com status Arquivada", async () => {
-    const wrappedCriar = testEnv.wrap(criarTurma);
-    const reqCriar = mockRequest({
-      idMateria: "mat_a", nomeTurma: "Turma Arq", ano: 2026, semestre: 1, capacidade: 5, nomeMateria: "Arq"
-    }, "prof_arq");
-    const turma = await wrappedCriar(reqCriar);
+    const turma = await criarTurmaOk("prof_arq", {
+      idMateria: "mat_a", nomeTurma: "Turma Arq", capacidade: 5, nomeMateria: "Arq"
+    });
 
     const wrappedArquivar = testEnv.wrap(arquivarTurma);
     await wrappedArquivar(mockRequest({ idTurma: turma.id }, "prof_arq"));
@@ -137,11 +161,9 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
   });
 
   it("deve registrar o evento de exclusao_aluno no Historico_Alunos_Turma quando professor remover", async () => {
-    const wrappedCriar = testEnv.wrap(criarTurma);
-    const reqCriar = mockRequest({
-      idMateria: "mat_r", nomeTurma: "Turma Rem", ano: 2026, semestre: 1, capacidade: 5, nomeMateria: "Rem"
-    }, "prof_rem");
-    const turma = await wrappedCriar(reqCriar);
+    const turma = await criarTurmaOk("prof_rem", {
+      idMateria: "mat_r", nomeTurma: "Turma Rem", capacidade: 5, nomeMateria: "Rem"
+    });
 
     const wrappedIngressar = testEnv.wrap(ingressarEmTurmaPorCodigo);
     await wrappedIngressar(mockRequest({ codigoTurma: turma.codigoTurma }, "aluno_rem", ["Aluno"]));
@@ -157,11 +179,9 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
   });
 
   it("deve criar um Registro_de_Auditoria do tipo ALUNO sempre que um aluno for removido da sala", async () => {
-    const wrappedCriar = testEnv.wrap(criarTurma);
-    const reqCriar = mockRequest({
-      idMateria: "mat_r2", nomeTurma: "Turma Rem2", ano: 2026, semestre: 1, capacidade: 5, nomeMateria: "Rem2"
-    }, "prof_rem2");
-    const turma = await wrappedCriar(reqCriar);
+    const turma = await criarTurmaOk("prof_rem2", {
+      idMateria: "mat_r2", nomeTurma: "Turma Rem2", capacidade: 5, nomeMateria: "Rem2"
+    });
 
     const wrappedIngressar = testEnv.wrap(ingressarEmTurmaPorCodigo);
     await wrappedIngressar(mockRequest({ codigoTurma: turma.codigoTurma }, "aluno_rem2", ["Aluno"]));
@@ -178,11 +198,9 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
   });
 
   it("deve registrar em Registro_de_Auditoria a ação de alterar o status de turma para ARQUIVADA", async () => {
-    const wrappedCriar = testEnv.wrap(criarTurma);
-    const reqCriar = mockRequest({
-      idMateria: "mat_a2", nomeTurma: "Turma Arq2", ano: 2026, semestre: 1, capacidade: 5, nomeMateria: "Arq2"
-    }, "prof_arq2");
-    const turma = await wrappedCriar(reqCriar);
+    const turma = await criarTurmaOk("prof_arq2", {
+      idMateria: "mat_a2", nomeTurma: "Turma Arq2", capacidade: 5, nomeMateria: "Arq2"
+    });
 
     const wrappedArquivar = testEnv.wrap(arquivarTurma);
     await wrappedArquivar(mockRequest({ idTurma: turma.id }, "prof_arq2"));
@@ -196,11 +214,9 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
   });
 
   it("deve permitir que o professor adicione aluno existente via adicionarAlunoExistenteTurma e crie notificacao", async () => {
-    const wrappedCriar = testEnv.wrap(criarTurma);
-    const reqCriar = mockRequest({
-      idMateria: "mat_add", nomeTurma: "Turma Add", ano: 2026, semestre: 1, capacidade: 5, nomeMateria: "Add"
-    }, "prof_add");
-    const turma = await wrappedCriar(reqCriar);
+    const turma = await criarTurmaOk("prof_add", {
+      idMateria: "mat_add", nomeTurma: "Turma Add", capacidade: 5, nomeMateria: "Add"
+    });
 
     await db.collection("Aluno").doc("aluno_add").set({
       nome: "Aluno Add", email: "add@ufsc.br", numero_matricula: "21100000"
@@ -217,11 +233,9 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
   });
 
   it("deve falhar ao adicionar aluno se a turma ja estiver cheia", async () => {
-    const wrappedCriar = testEnv.wrap(criarTurma);
-    const reqCriar = mockRequest({
-      idMateria: "mat_full", nomeTurma: "Turma Full", ano: 2026, semestre: 1, capacidade: 1, nomeMateria: "Full"
-    }, "prof_full");
-    const turma = await wrappedCriar(reqCriar);
+    const turma = await criarTurmaOk("prof_full", {
+      idMateria: "mat_full", nomeTurma: "Turma Full", capacidade: 1, nomeMateria: "Full"
+    });
 
     await db.collection("Aluno").doc("aluno_f1").set({ nome: "A1", email: "a1@ufsc.br" });
     await db.collection("Aluno").doc("aluno_f2").set({ nome: "A2", email: "a2@ufsc.br" });
@@ -249,5 +263,89 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     await wrappedConvidar(mockRequest({ email: "dup@ufsc.br", idTurma: "turma_dup" }, "prof_dup"));
     
     await expect(wrappedConvidar(mockRequest({ email: "dup@ufsc.br", idTurma: "turma_dup" }, "prof_dup"))).rejects.toThrow(/pendente para este email e turma/);
+  });
+
+  it("TEST-INT-TURMA-M9-001 — professor sem papel persistido é negado (M9)", async () => {
+    await semearMateria("mat_m9", "M9");
+    const wrapped = testEnv.wrap(criarTurma);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(), idMateria: "mat_m9", nomeTurma: "T", ano: 2026, semestre: 1, capacidade: 5
+    }, "prof_sem_papel"))).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("TEST-INT-TURMA-MAT-001 — idMateria inexistente é not-found", async () => {
+    await semearProfessor("prof_mat");
+    const wrapped = testEnv.wrap(criarTurma);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(), idMateria: "mat_inexistente", nomeTurma: "T", ano: 2026, semestre: 1, capacidade: 5
+    }, "prof_mat"))).rejects.toMatchObject({ code: "not-found" });
+  });
+
+  it("TEST-INT-TURMA-NAME-001 — nome_materia vem do documento persistido, não do payload", async () => {
+    await semearProfessor("prof_nome");
+    await semearMateria("mat_nome", "Química Geral");
+    const wrapped = testEnv.wrap(criarTurma);
+    const res = await wrapped(mockRequest({
+      idOperacao: novaOperacao(), idMateria: "mat_nome", nomeTurma: "Minha Turma",
+      ano: 2026, semestre: 1, capacidade: 5, nomeMateria: "Falsa"
+    }, "prof_nome"));
+    const doc = await db.collection("Turma").doc(res.id).get();
+    expect(doc.data()?.nome_materia).toBe("Química Geral");
+  });
+
+  it("TEST-INT-TURMA-M7-001 — replay do mesmo idOperacao não duplica a turma", async () => {
+    await semearProfessor("prof_replay");
+    await semearMateria("mat_replay", "Replay");
+    const op = novaOperacao();
+    const body = { idOperacao: op, idMateria: "mat_replay", nomeTurma: "Turma Replay", ano: 2026, semestre: 1, capacidade: 5 };
+    const wrapped = testEnv.wrap(criarTurma);
+    const primeiro = await wrapped(mockRequest(body, "prof_replay"));
+    const segundo = await wrapped(mockRequest(body, "prof_replay"));
+    expect(segundo).toEqual(primeiro);
+    const turmas = await db.collection("Turma").where("id_materia", "==", "mat_replay").get();
+    expect(turmas.size).toBe(1);
+  });
+
+  it("TEST-INT-TURMA-M7-002 — reuso incompatível do idOperacao é already-exists", async () => {
+    await semearProfessor("prof_reuso");
+    await semearMateria("mat_reuso", "Reuso");
+    const op = novaOperacao();
+    const wrapped = testEnv.wrap(criarTurma);
+    await wrapped(mockRequest({
+      idOperacao: op, idMateria: "mat_reuso", nomeTurma: "A", ano: 2026, semestre: 1, capacidade: 5
+    }, "prof_reuso"));
+    await expect(wrapped(mockRequest({
+      idOperacao: op, idMateria: "mat_reuso", nomeTurma: "B", ano: 2026, semestre: 1, capacidade: 5
+    }, "prof_reuso"))).rejects.toMatchObject({ code: "already-exists" });
+  });
+
+  it("TEST-INT-TURMA-Q13-001 — professor não cria turma em nome de outro (M9/Q13)", async () => {
+    await semearProfessor("prof_q13");
+    await semearMateria("mat_q13", "Q13");
+    const wrapped = testEnv.wrap(criarTurma);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(), idMateria: "mat_q13", nomeTurma: "T", ano: 2026, semestre: 1,
+      capacidade: 5, idProfessor: "outro_prof"
+    }, "prof_q13"))).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("TEST-INT-TURMA-Q13-002 — Chefe cria em nome de professor ativo e audita", async () => {
+    const chefe = "chefe_q13";
+    const alvo = "prof_alvo_q13";
+    await db.collection("Usuarios").doc(chefe).set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Chefe_Geral").doc(chefe).set({ id_usuario: chefe, ativo: true });
+    await semearProfessor(alvo);
+    await semearMateria("mat_q13b", "Q13B");
+    const op = novaOperacao();
+    const wrapped = testEnv.wrap(criarTurma);
+    const res = await wrapped(mockRequest({
+      idOperacao: op, idMateria: "mat_q13b", nomeTurma: "Turma do Alvo", ano: 2026, semestre: 1,
+      capacidade: 5, idProfessor: alvo
+    }, chefe, ["Chefe_Geral"]));
+    const doc = await db.collection("Turma").doc(res.id).get();
+    expect(doc.data()?.id_professor).toBe(alvo);
+    const audit = await db.collection("Registro_de_Auditoria").doc(`criar_turma_${op}`).get();
+    expect(audit.exists).toBe(true);
+    expect(audit.data()?.id_usuario).toBe(chefe);
   });
 });

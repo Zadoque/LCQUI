@@ -128,6 +128,7 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
       const materiaObj = materiasDb.find(m => m.id === idMateria);
       
       const payload: any = {
+        idOperacao: crypto.randomUUID(),
         idMateria,
         nomeMateria: materiaObj ? materiaObj.nome : "Desconhecida",
         nomeTurma: nome,

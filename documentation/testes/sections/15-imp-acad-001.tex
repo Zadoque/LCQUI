@@ -1,0 +1,71 @@
+\section{Evidência de IMP-ACAD-001 (criar turma com código único, M7/M9/M11)}
+
+\textbf{Feature:} \texttt{IMP-ACAD-001} --- criar turma com \texttt{codigo\_turma}
+único gerado exclusivamente pelo servidor.
+
+\textbf{Estado anterior:} \texttt{DIVERGENTE}. A callable autorizava apenas pelo
+JWT, consultava a coleção \texttt{Turma} para checar colisão de código (corrida),
+confiava no \texttt{nomeMateria} do payload e não relia M9 nem aplicava M7.
+
+\textbf{Estado depois:} backend convergido; permanece \texttt{DIVERGENTE} até o
+E2E UI-10.
+
+\subsection{Contrato}
+
+Fontes: RF17; Seção~7 M11 (identidade e ciclo de vida da Turma); Seção~9
+PRO-01; CUE \texttt{\#M11Turma} (inclui \texttt{versao >= 1} e
+\texttt{codigo\_turma} ``reservado em \texttt{Chaves\_Unicas} e não liberado ao
+arquivar''); M7 (identidade canônica e receipt) e M9 (autoridade persistida).
+
+Propriedades: criação ordinária pelo professor autenticado para si
+(\texttt{id\_professor = UID}); criar em nome de outro professor é intervenção
+excepcional M9/Q13, auditada; \texttt{id\_materia} refere matéria existente
+verificada no servidor; \texttt{codigo\_turma} único, gerado pelo servidor;
+idempotência por \texttt{idOperacao}.
+
+\subsection{Mudança}
+
+\begin{itemize}
+  \item \path{functions/src/turmas.ts}: \texttt{criarTurma} passou a usar
+  \texttt{extrairClaimsAutoridade} e \texttt{resolverAutoridadePersistidaTx}
+  dentro da transação; \texttt{construirIdentidade}/\texttt{resolverOperacaoTx}/
+  \texttt{registrarOperacaoConcluidaTx} aplicam M7 (replay devolve o resultado;
+  reuso incompatível é \texttt{already-exists});
+  \item \texttt{id\_materia} é lido de \texttt{Materia/\{id\}}; \texttt{nome\_materia}
+  é projeção do documento persistido e nunca do payload;
+  \item o código é reservado em \texttt{Chaves\_Unicas/Turma\_codigo\_\_\{codigo\}}
+  na mesma transação, eliminando a consulta de colisão a \texttt{Turma}; a
+  criação em nome de outro professor exige chefe, verifica professor ativo e
+  grava \texttt{Registro\_de\_Auditoria};
+  \item \path{functions/src/schemas/turmas.schema.ts}: \texttt{idOperacao}
+  obrigatório; \texttt{nomeTurma} limitada a 100; \texttt{nomeMateria} removido;
+  \item \path{frontend/src/components/turmas/ModaisAcademico.tsx}: o modal gera
+  \texttt{idOperacao} (\texttt{crypto.randomUUID()}).
+\end{itemize}
+
+\subsection{TDD}
+
+\small
+\begin{longtable}{@{}p{0.30\textwidth}p{0.52\textwidth}@{}}
+\toprule
+ID & Resultado \\
+\midrule
+\endhead
+TEST-INT-TURMA-M9-001 & Professor sem papel persistido é negado \\
+TEST-INT-TURMA-MAT-001 & \texttt{idMateria} inexistente é \texttt{not-found} \\
+TEST-INT-TURMA-NAME-001 & \texttt{nome\_materia} vem do documento persistido \\
+TEST-INT-TURMA-M7-001 & Replay do mesmo \texttt{idOperacao} não duplica \\
+TEST-INT-TURMA-M7-002 & Reuso incompatível é \texttt{already-exists} \\
+TEST-INT-TURMA-Q13-001 & Professor não cria turma em nome de outro \\
+TEST-INT-TURMA-Q13-002 & Chefe cria em nome de ativo e audita \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+Regressão (Node 20.19.6): \texttt{turmas.test.ts} 23/23; \texttt{build} PASS;
+unit 71/71; Rules 77/77; integração completa 145 passam / 14 falham (falhas
+legadas em reagentes/patrimônio/roteiros). \texttt{tsc --noEmit} do frontend
+PASS.
+
+\textbf{Estado final:} \texttt{IMP-ACAD-001} permanece \texttt{DIVERGENTE}
+apenas pelo E2E UI-10; backend, Rules e modal estão convergidos.

@@ -162,6 +162,22 @@ compilava). Após a implementação, integração de notificações 20/20 e Rule
 a suíte completa de Rules foi a 77/77 e a integração manteve as 14 falhas
 legadas de reagentes/patrimônio/roteiros.
 
+\subsection{Décima cadeia executada}
+
+\begin{center}
+Seção 7 M11 (Turma), CUE \texttt{\#M11Turma}, M7 e M9
+$\rightarrow$ \texttt{IMP-ACAD-001}
+$\rightarrow$ \texttt{TEST-INT-TURMA-M9-001}, \texttt{-MAT-001}, \texttt{-NAME-001}, \texttt{-M7-001/002}, \texttt{-Q13-001/002}
+$\rightarrow$ \nolinkurl{functions/src/turmas.ts}, \nolinkurl{functions/src/schemas/turmas.schema.ts} e \nolinkurl{frontend/src/components/turmas/ModaisAcademico.tsx}
+$\rightarrow$ PASS Node 20
+\end{center}
+
+A callable passou a reler M9 na transação, aplicar M7 (\texttt{idOperacao} com
+replay), verificar a matéria e projetar o nome do documento persistido, e
+reservar \texttt{codigo\_turma} em \texttt{Chaves\_Unicas}. A suíte de turmas
+foi a 23/23; integração completa 145 passam / 14 falham (legadas). A feature
+permanece \texttt{DIVERGENTE} apenas pelo E2E UI-10.
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara

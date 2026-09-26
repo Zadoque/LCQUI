@@ -1,7 +1,8 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
-import { validarPermissao } from "./auth";
+import { validarPermissao, extrairClaimsAutoridade, resolverAutoridadePersistidaTx } from "./auth";
+import { construirIdentidade, registrarOperacaoConcluidaTx, resolverOperacaoTx } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
 import { 
   IngressarTurmaPorCodigoSchema, 
@@ -98,84 +99,125 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
 });
 
 export const criarTurma = onCall(async (request) => {
-  try {
-    validarPermissao(request, ["Professor", "Chefe_Geral"]);
+  const claims = extrairClaimsAutoridade(request);
+  const payload = validatePayload(CriarTurmaSchema, request.data);
+  const { idOperacao, idMateria, nomeTurma, ano, semestre, capacidade, idProfessor } = payload;
 
-    const payload = validatePayload(CriarTurmaSchema, request.data);
-    const { idMateria, nomeTurma, ano, semestre, capacidade, nomeMateria, idProfessor } = payload;
-    console.log("Recebido payload criarTurma:", payload);
+  const db = admin.firestore();
 
-    const authRoles = request.auth?.token.roles || [];
-    const isChefeGeral = authRoles.includes("Chefe_Geral");
-    
-    let id_professor = request.auth!.uid;
-    if (isChefeGeral && idProfessor) {
-      if (idProfessor === request.auth!.uid) {
-        throw new HttpsError("invalid-argument", "O chefe geral não pode criar uma turma para si mesmo.");
+  return db.runTransaction(async (tx) => {
+    // M9: autoridade persistida relida na mesma transação do efeito.
+    const autoridade = await resolverAutoridadePersistidaTx(tx, claims, ["Professor", "Chefe_Geral"]);
+    const autorizadoComoChefe = autoridade.papelAutorizado === "Chefe_Geral";
+
+    // Criação ordinária é do professor para si; criar em nome de outro professor
+    // é intervenção excepcional M9/Q13, auditada.
+    let idProfessorEfetivo = claims.uid;
+    if (idProfessor && idProfessor !== claims.uid) {
+      if (!autorizadoComoChefe) {
+        throw new HttpsError("permission-denied", "Somente Chefe_Geral pode criar turma em nome de outro professor.");
       }
-      id_professor = idProfessor;
+      idProfessorEfetivo = idProfessor;
     }
 
-    const anoNum = ano;
-    const semestreNum = semestre;
-    const capacidadeNum = capacidade;
-
-    const db = admin.firestore();
-
-    return await db.runTransaction(async (tx) => {
-      const generateCode = () => {
-        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        let code = "";
-        for (let i = 0; i < 6; i++) {
-          code += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return code;
-      };
-
-      let uniqueCode = "";
-      let codeIsUnique = false;
-      let attempts = 0;
-
-      while (!codeIsUnique && attempts < 5) {
-        const tempCode = generateCode();
-        const query = await tx.get(
-          db.collection("Turma").where("codigo_turma", "==", tempCode).limit(1)
-        );
-        if (query.empty) {
-          uniqueCode = tempCode;
-          codeIsUnique = true;
-        }
-        attempts++;
-      }
-
-      if (!codeIsUnique) {
-        throw new HttpsError("internal", "Não foi possível gerar um código único. Tente novamente.");
-      }
-
-      const docRef = db.collection("Turma").doc();
-      tx.set(docRef, {
-        id_materia: idMateria,
-        nome_materia: nomeMateria,
-        id_professor: id_professor,
-        status: "Ativo",
-        nome_turma: nomeTurma,
-        ano: anoNum,
-        semestre: semestreNum,
-        capacidade: capacidadeNum,
-        qtd_alunos: 0,
-        codigo_turma: uniqueCode,
-        data_criacao: FieldValue.serverTimestamp()
-      });
-
-      return { id: docRef.id, codigoTurma: uniqueCode };
+    // M7: identidade canônica (uid, tipo_operacao, payload_hash); replay devolve o
+    // resultado persistido e reuso incompatível falha fechado.
+    const identidade = construirIdentidade(claims.uid, "CRIAR_TURMA", {
+      idMateria,
+      nomeTurma,
+      ano,
+      semestre,
+      capacidade,
+      idProfessor: idProfessorEfetivo,
     });
-  } catch (error: any) {
-    console.error("ERRO FATAL NO BACKEND (criarTurma):", error);
-    if (error instanceof HttpsError) {
-      throw error;
+    const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+    if (decisao.estado === "REPLAY") {
+      return decisao.resultado as { id: string; codigoTurma: string };
     }
-    throw new HttpsError("internal", `ERRO INTERNO: ${error?.message || error}`);
-  }
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError("failed-precondition", "Operação de criação de turma não concluída.");
+    }
+
+    // `id_materia` refere matéria existente, verificada no servidor; o nome é
+    // projeção do documento persistido e nunca vem do payload.
+    const materiaSnap = await tx.get(db.collection("Materia").doc(idMateria));
+    if (!materiaSnap.exists) {
+      throw new HttpsError("not-found", "Matéria não encontrada.");
+    }
+    const nomeMateria = materiaSnap.data()!.nome;
+    if (typeof nomeMateria !== "string" || nomeMateria.length === 0) {
+      throw new HttpsError("failed-precondition", "Matéria persistida sem nome (fail-closed).");
+    }
+
+    if (idProfessorEfetivo !== claims.uid) {
+      const [usuarioAlvo, papelAlvo] = await tx.getAll(
+        db.collection("Usuarios").doc(idProfessorEfetivo),
+        db.collection("Professor").doc(idProfessorEfetivo)
+      );
+      if (!usuarioAlvo.exists || usuarioAlvo.data()?.ativo !== true || !papelAlvo.exists) {
+        throw new HttpsError("failed-precondition", "Professor alvo inexistente ou inativo.");
+      }
+    }
+
+    // Unicidade do código: reserva determinística em `Chaves_Unicas` na mesma
+    // transação, sem depender de consulta a `Turma`. Colisão concorrente faz a
+    // transação reiniciar e um novo candidato é sorteado.
+    const alfabeto = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const sortear = () => {
+      let candidato = "";
+      for (let i = 0; i < 6; i++) candidato += alfabeto.charAt(Math.floor(Math.random() * alfabeto.length));
+      return candidato;
+    };
+    let codigo = "";
+    let chaveRef: admin.firestore.DocumentReference | null = null;
+    for (let tentativa = 0; tentativa < 8 && chaveRef === null; tentativa++) {
+      const ref = db.collection("Chaves_Unicas").doc(`Turma_codigo__${sortear()}`);
+      const snap = await tx.get(ref);
+      if (!snap.exists) {
+        codigo = ref.id.slice("Turma_codigo__".length);
+        chaveRef = ref;
+      }
+    }
+    if (chaveRef === null) {
+      throw new HttpsError("internal", "Não foi possível reservar um código único de turma.");
+    }
+
+    const turmaRef = db.collection("Turma").doc();
+    tx.set(turmaRef, {
+      id_materia: idMateria,
+      nome_materia: nomeMateria,
+      id_professor: idProfessorEfetivo,
+      status: "Ativo",
+      nome_turma: nomeTurma,
+      ano,
+      semestre,
+      capacidade,
+      qtd_alunos: 0,
+      codigo_turma: codigo,
+      versao: 1,
+      data_criacao: FieldValue.serverTimestamp(),
+    });
+    tx.set(chaveRef, {
+      tipo: "Turma",
+      id_recurso: turmaRef.id,
+      codigo,
+      criado_em: FieldValue.serverTimestamp(),
+    });
+    if (idProfessorEfetivo !== claims.uid) {
+      tx.set(db.collection("Registro_de_Auditoria").doc(`criar_turma_${idOperacao}`), {
+        id_usuario: claims.uid,
+        acao: "CRIAR_TURMA_EM_NOME_DE_PROFESSOR",
+        tipo_entidade_sofre_acao: "TURMA",
+        id_do_objeto_da_entidade: turmaRef.id,
+        acao_feita_em: FieldValue.serverTimestamp(),
+        metadata: { id_professor: idProfessorEfetivo, idMateria },
+      });
+    }
+
+    const resultado = { id: turmaRef.id, codigoTurma: codigo };
+    registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+    return resultado;
+  });
 });
 
 export const removerAlunoTurma = onCall(async (request) => {

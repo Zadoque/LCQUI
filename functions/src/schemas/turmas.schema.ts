@@ -1,13 +1,19 @@
 import { z } from "zod";
 
+// M7: `idOperacao` é obrigatório, opaco e criado pelo cliente antes da primeira
+// tentativa; nunca é gerado no servidor nem substituído em retry.
+export const IdOperacaoTurmaSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{1,128}$/, "idOperacao inválido (use [A-Za-z0-9_-]{1,128}).");
+
 export const IngressarTurmaPorCodigoSchema = z.object({
   codigoTurma: z.string().min(1, "O código da turma é obrigatório.").max(10, "Código de turma inválido.")
 });
 
 export const CriarTurmaSchema = z.object({
+  idOperacao: IdOperacaoTurmaSchema,
   idMateria: z.string().min(1, "ID da matéria é obrigatório."),
-  nomeMateria: z.string().min(1, "Nome da matéria é obrigatório."),
-  nomeTurma: z.string().min(1, "Nome da turma é obrigatório."),
+  nomeTurma: z.string().min(1, "Nome da turma é obrigatório.").max(100, "Nome da turma excede 100 caracteres."),
   ano: z.coerce.number().min(2000, "O ano deve ser válido e maior ou igual a 2000."),
   semestre: z.coerce.number().refine(val => val === 1 || val === 2, "O semestre deve ser 1 ou 2."),
   capacidade: z.coerce.number().int().positive("A capacidade deve ser um número inteiro positivo."),
