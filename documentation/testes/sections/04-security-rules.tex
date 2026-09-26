@@ -1,0 +1,21 @@
+\section{Security Rules}
+
+Security Rules são verificadas com \texttt{@firebase/rules-unit-testing} contra
+Firestore e Storage Emulators locais. Casos devem cobrir, conforme aplicável:
+
+\begin{itemize}
+  \item acesso permitido e acesso negado;
+  \item o mesmo ato por outro usuário;
+  \item o mesmo usuário sobre outro recurso;
+  \item token ou claims obsoletos;
+  \item conta inativa, versão divergente e papel persistido divergente;
+  \item documento de autoridade ausente e estado alterado entre leitura e commit.
+\end{itemize}
+
+Dados de preparação são inseridos com Rules desabilitadas somente no bloco de
+arranjo. A operação sob teste usa contexto autenticado ou não autenticado real.
+Nenhum teste desta camada pode atingir um projeto Firebase remoto.
+
+A primeira feature planejada para este pipeline é \texttt{IMP-RULES-001}, sobre
+autoridade de usuário, versão e papéis. Ela não foi implementada nem corrigida
+nesta rodada.

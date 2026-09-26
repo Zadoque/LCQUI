@@ -1,0 +1,34 @@
+\section{Backend}
+
+Os testes de backend são derivados em conjunto de CUE, Alloy, Seções normativas
+e da divergência descrita na matriz.
+
+\begin{longtable}{p{0.28\textwidth}p{0.62\textwidth}}
+\toprule
+Fonte & Tradução para cenário concreto \\
+\midrule
+\endhead
+Fixture CUE válida & cenário positivo com payload, precondições e estado posterior esperados \\
+Fixture CUE inválida & rejeição explícita, sem efeitos parciais \\
+Witness Alloy SAT & cenário positivo alcançável, materializado com entidades e relações concretas \\
+Assertion ou propriedade Alloy & um ou mais cenários negativos, de transição ou concorrência \\
+Seção normativa e matriz & autorização, efeitos, falhas, auditoria e lacuna específica da feature \\
+\bottomrule
+\end{longtable}
+
+Um resultado UNSAT não é copiado mecanicamente para Jest. A propriedade formal
+é traduzida em arranjo, operação, interleaving quando aplicável e assertions
+observáveis. Jest é usado para lógica/callables; Firebase Emulator Suite, para
+integração; e \texttt{@firebase/rules-unit-testing}, para Rules.
+
+\subsection{Suites existentes}
+
+Na baseline desta rodada, \texttt{auth.test.ts} e \texttt{domain/*.test.ts} são
+unitários/mocados. Os testes de integração sob \texttt{integration/} e os testes
+de notificações, patrimônio, reagentes, relatórios, roteiros e turmas usam Admin
+SDK ou \texttt{firebase-functions-test} em processo e dependem dos Emulators.
+Nenhum deles chama o Functions Emulator por HTTP.
+
+Os 46 casos atuais de \texttt{relatorios.test.ts} contêm assertions triviais e
+são classificados como testes estruturais/textuais de baixo valor. Permanecem
+na baseline, mas um PASS nesses casos não prova os comportamentos descritos.

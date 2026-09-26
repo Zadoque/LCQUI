@@ -1,0 +1,18 @@
+\section{E2E}
+
+Os casos E2E derivam principalmente da Seção 9 (fluxos), da Seção 8 (telas e
+estados) e da Seção 7 (resultados e regras). O estado atual da interface não é
+fonte para inventar comportamento.
+
+Playwright CLI é ferramenta de exploração: snapshots, locators, requests,
+console, screenshots e depuração. Playwright Test mantém specs, assertions e
+regressão automatizada. A exploração não substitui a suite permanente.
+
+Locators permanentes preferem papel, label e texto semanticamente estável;
+\texttt{data-testid} é usado quando necessário. Seletores CSS baseados na
+estrutura visual devem ser evitados. Sessões exploratórias independentes não
+compartilham estado sem intenção explícita.
+
+O bootstrap Playwright 1.61.1 com browsers Nix está disponível, mas esta rodada
+não criou configuração de suite nem teste E2E de negócio. Esses artefatos devem
+nascer com o primeiro fluxo real.

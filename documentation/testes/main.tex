@@ -1,0 +1,46 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[brazilian]{babel}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\geometry{margin=2.5cm}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+
+\title{LCQUI\\Estratégia e Evidências de Verificação da Implementação}
+\author{Projeto LCQUI}
+\date{Baseline de 26 de setembro de 2026}
+
+\begin{document}
+\maketitle
+
+\begin{center}
+\fcolorbox{black}{gray!10}{\parbox{0.9\textwidth}{
+\textbf{Natureza deste documento.} Este documento não constitui fonte normativa
+do comportamento do LCQUI. A autoridade normativa permanece na especificação
+principal. Este documento registra estratégia, rastreabilidade e evidências de
+que a implementação é verificada contra aquela especificação.
+}}
+\end{center}
+
+O documento principal responde o que o LCQUI deve fazer. Este documento responde
+como sabemos que a implementação satisfaz a especificação, sem redefinir o
+comportamento esperado.
+
+\tableofcontents
+\clearpage
+
+\input{sections/01-estrategia}
+\input{sections/02-rastreabilidade}
+\input{sections/03-backend}
+\input{sections/04-security-rules}
+\input{sections/05-e2e}
+\input{sections/06-resultados}
+
+\end{document}

@@ -1,0 +1,53 @@
+\section{Resultados da baseline}
+
+\subsection{Estados}
+
+\begin{description}
+  \item[PASS] comando executou e todas as verificações abrangidas passaram;
+  \item[FAIL] comando executou e preservou uma ou mais falhas;
+  \item[NOT\_RUN] não executado nesta baseline;
+  \item[BLOCKED] pré-condição externa impediu a execução;
+  \item[INFRA\_FAILURE] ferramenta, dependência ou ambiente impediu observar o produto;
+  \item[KNOWN\_IMPLEMENTATION\_DIVERGENCE] falha coerente com divergência já registrada na matriz;
+  \item[LEGACY\_TEST\_EXPECTATION] fixture ou expectativa codifica interface/estado anterior e requer rederivação normativa.
+\end{description}
+
+\subsection{Execução de 26 de setembro de 2026}
+
+Ambiente observado: Node 26.8.1, npm 11.19.0, Java 21.0.12,
+Jest 29.7.0, Firebase CLI 15.29.0 e Playwright 1.61.1. O backend declara Node 20;
+o aviso de engine produzido pelo Node 26 fica registrado e não impediu a baseline.
+
+\begin{longtable}{p{0.22\textwidth}p{0.14\textwidth}p{0.54\textwidth}}
+\toprule
+Verificação & Estado & Evidência \\
+\midrule
+\endhead
+Backend build & PASS & \texttt{npm run build}; exit 0. \texttt{functions/lib} permaneceu ignorado. \\
+Backend lint & FAIL & \texttt{npm run lint}; ESLint local iniciou e encontrou 82 erros existentes, sem falha de infraestrutura. \\
+Jest unitário & PASS & \texttt{npm run test:unit}; 3 suites, 53 testes aprovados, 0 falhas. \\
+Rules & PASS & \texttt{npm run test:rules}; 2 suites, 48 testes aprovados, 0 falhas; Emulators encerrados. \\
+Integração & FAIL & \texttt{npm run test:integration}; 7 suites: 3 passaram e 4 falharam; 69 testes passaram e 16 falharam. \\
+Wrapper agregado & FAIL & \texttt{npm run test:emulator}; Rules passaram, integração preservou exit 1 e os Emulators foram encerrados. \\
+Frontend typecheck & PASS & \texttt{npx --no-install tsc --noEmit}; exit 0. \\
+Frontend lint & FAIL & \texttt{npm run lint}; 79 erros e 29 avisos existentes. \\
+Playwright bootstrap & PASS & Dependências e browser Nix 1.61.1; smoke aprovado na rodada anterior, não repetido. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Classificação das 16 falhas de integração}
+
+Treze falhas são classificadas como \texttt{LEGACY\_TEST\_EXPECTATION} nesta
+baseline: dez fixtures de reagentes não fornecem \texttt{idResumoReagente}; uma
+expectativa patrimonial exige texto antigo de validação; e dois casos de usuário
+não preparam a autoridade ativa agora exigida antes da regra que pretendem testar.
+Essa classificação não autoriza atualizar os testes sem rederivá-los da norma.
+
+Três falhas são \texttt{KNOWN\_IMPLEMENTATION\_DIVERGENCE}: uma em patrimônio e
+duas em compartilhamento de roteiro executam leitura depois de escrita na mesma
+transação Firestore. As áreas correspondentes já estão DIVERGENTES na matriz.
+Nenhuma causa foi corrigida nesta rodada.
+
+Não houve \texttt{INFRA\_FAILURE} após a instalação local do ESLint e a criação
+dos wrappers. A baseline vermelha representa código/expectativas existentes e
+continua visível pelos exit codes.

@@ -1,0 +1,46 @@
+\section{Estratégia}
+
+\subsection{Oráculo e precedência}
+
+A verificação parte da seguinte precedência:
+
+\begin{center}
+documentação normativa $\rightarrow$ CUE $\rightarrow$ Alloy $\rightarrow$
+matriz de implementação $\rightarrow$ implementação
+\end{center}
+
+Os worklogs M0--M13 registram rationale e contraexemplos, mas não substituem a
+redação normativa final. A implementação existente também não altera o contrato
+silenciosamente. Um conflito real entre fontes normativas interrompe o trabalho
+até que seja relatado e resolvido na fonte competente.
+
+\subsection{Camadas}
+
+\begin{itemize}
+  \item testes unitários isolam funções puras ou dependências controladas por mocks;
+  \item testes de integração exercitam Admin SDK, callables e serviços locais;
+  \item testes de Security Rules usam os Emulators e contextos autenticados;
+  \item testes E2E exercitam fluxos observáveis no navegador;
+  \item build, typecheck e lint fornecem evidência estrutural, não conformidade funcional.
+\end{itemize}
+
+\subsection{TDD incremental e RED/GREEN}
+
+A unidade de trabalho é uma ou poucas features \texttt{IMP-*} fortemente
+relacionadas. Primeiro se extrai o contrato e se cria um teste que falha pela
+ausência ou divergência pretendida (RED). A menor mudança de implementação é
+então feita até o teste passar (GREEN), seguida da regressão relevante. Uma
+falha de ambiente, dependência ou comando é \emph{INFRA\_FAILURE}; ela não é um
+RED válido de produto.
+
+Uma feature somente pode mudar para \texttt{NÃO DIVERGENTE} depois da revisão
+das obrigações normativas e da aprovação das camadas aplicáveis de backend,
+Rules, frontend e E2E, sem divergência conhecida restante. Esse estado não
+equivale a homologação de produção.
+
+\subsection{Limitações}
+
+Teste aprovado demonstra apenas os cenários cobertos. Mocks não provam integração;
+compilação não prova invariantes; e uma suite legada pode codificar contrato
+anterior. Resultados devem registrar versão, comando, escopo e classificação da
+falha. Ausência de teste não é evidência de conformidade.

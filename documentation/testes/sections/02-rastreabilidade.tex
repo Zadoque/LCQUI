@@ -1,0 +1,36 @@
+\section{Rastreabilidade}
+
+A cadeia mínima de evidência é:
+
+\begin{center}
+Norma $\downarrow$ \texttt{IMP-*} $\downarrow$ \texttt{TEST-*}
+$\downarrow$ arquivo de teste $\downarrow$ resultado
+\end{center}
+
+Cada caso permanente recebe um identificador estável por camada:
+
+\begin{itemize}
+  \item \texttt{TEST-UNIT-*}: lógica isolada;
+  \item \texttt{TEST-INT-*}: integração com serviços locais;
+  \item \texttt{TEST-RULES-*}: autorização em Firestore ou Storage Rules;
+  \item \texttt{TEST-E2E-*}: fluxo observável no navegador.
+\end{itemize}
+
+O sufixo deve ser legível e estável. Quando houver milestone relevante, ele pode
+ser incorporado, por exemplo \texttt{TEST-RULES-M9-001}. O registro associa o ID
+à referência normativa exata, à feature da matriz, ao arquivo/símbolo exercitado,
+ao resultado e à evidência da execução.
+
+\subsection{Exemplo não executado}
+
+O encadeamento abaixo é somente um exemplo de identificação futura; não declara
+teste criado nem resultado:
+
+\begin{center}
+Seção 7, M9 $\rightarrow$ \texttt{IMP-RULES-001}
+$\rightarrow$ \texttt{TEST-RULES-M9-001}
+$\rightarrow$ futuro arquivo de Rules $\rightarrow$ resultado ainda não produzido
+\end{center}
+
+Não se preenchem resultados futuros e não se cria rastreabilidade retroativa por
+inferência. A evidência deve nascer da execução registrada.
