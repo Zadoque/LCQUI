@@ -13,15 +13,18 @@ nunca incluídos nas fatias aprovadas.
 - `ENTRY_HEAD` da rodada de correção: `88b821c25e1477f0e7ee8251a8fc5a0c65c9e678`
   (árvore limpa, `origin` sincronizada).
 - Baseline do gate: `just formal-check` **exit 0** em `88b821c2`.
-- Revisão de evidência verificada: **`9c01d58a`** ("fix(m13): complete academic
-  types, real authorization bridge and V1 reconciliation"); `just formal-check`
+- Revisão de evidência verificada: **`203bb788`** ("fix(m13): per-recipient
+  dedup with fan-out and derived coherence preservation"); `just formal-check`
   **exit 0** nessa revisão (35 testes Rust, 44 Node, `alloy-check` PASS,
   `docs-check` PASS, stale gate PASS, `git diff --check` PASS).
-- O commit de encerramento é **exclusivamente documental**:
-  `git diff --name-only 203bb788..HEAD` contém apenas arquivos `*.md`
-  (`GLOBAL_FORMAL_CLOSURE.md`, `FORMAL_SPEC_STATE.md`, `STATUS_ATUAL.md`). Nenhuma
-  entrada de pipeline (CUE, IR, Alloy, receipt, Rust, gerador, LaTeX) mudou, logo
-  o gate acima permanece o gate da revisão de evidência.
+- O commit de encerramento `6c8a9119` é **exclusivamente documental**:
+  `git diff --name-only 203bb788..6c8a9119` contém apenas
+  `documentation/worklogs/formal-spec/GLOBAL_FORMAL_CLOSURE.md`. Nenhuma entrada
+  de pipeline (CUE, IR, Alloy, receipt, Rust, gerador, LaTeX) mudou após
+  `203bb788`, logo o gate acima permanece a evidência técnica final. A
+  micro-reconciliação de metadados posterior também é exclusivamente documental:
+  no HEAD final, `git diff --name-only 203bb788..HEAD` contém apenas
+  `FORMAL_SPEC_STATE.md`, `documentation/STATUS_ATUAL.md` e este arquivo.
 - HEAD final e `origin` reportados ao fim da rodada (push normal).
 
 ## 2. Matriz compacta de fechamento

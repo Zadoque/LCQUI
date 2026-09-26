@@ -6,12 +6,15 @@ O gate de encerramento da especificação formal no escopo declarado **M0–M13*
 resultou **PASS**, registrado em
 [GLOBAL_FORMAL_CLOSURE.md](worklogs/formal-spec/GLOBAL_FORMAL_CLOSURE.md). A
 revisão de evidência verificada é
-`9c01d58a` (`just formal-check` exit 0: 35 testes Rust, 44 Node, `alloy-check`
+`203bb788` (`just formal-check` exit 0: 35 testes Rust, 44 Node, `alloy-check`
 PASS, `docs-check` PASS, stale gate PASS, `git diff --check` PASS); o commit do
 registro é exclusivamente documental. A matriz compacta por fatia/contrato,
 a auditoria de compatibilidade, a regressão M0–M12 (inalterada byte a byte) e os
 limites aceitos estão nesse registro. **Nenhum novo milestone foi criado;
 não há M14.**
+
+**Próxima ação formal: nenhuma.** Fechamento global M0–M13 concluído;
+**M13 = VALIDATED**; sem M14.
 
 - **Correções de M13 resolvidas:** M13-CORR-01 (seis tipos acadêmicos no Alloy +
   guard de completude), M13-CORR-02 (ponte real de autorização reproduzindo
@@ -19,8 +22,8 @@ não há M14.**
   legado eliminado) e M13-CORR-03 (reconciliação das obrigações V1 dos 20 tipos
   na Seção 7.8 e no worklog). Detalhes em
   [M13 executável](worklogs/formal-spec/M13_EXECUTABLE_VALIDATION.md).
-- **Evidência M13:** 16 fixtures válidas + 18 inválidas; 34 checks UNSAT + 25
-  witnesses SAT; `model_sha256 = bd407107…f292b14c`; receipt
+- **Evidência M13:** 16 fixtures válidas + 18 inválidas; 35 checks UNSAT + 26
+  witnesses SAT = 61 resultados; `model_sha256 = bd407107…f292b14c`; receipt
   `7be91301…34cb762`; PDF de 458 páginas (0 erros, 31 Overfull = baseline).
 - **Regressão:** `spec_ir_sha256` e todos os receipts M0–M12 inalterados;
   determinismo de geração confirmado.
@@ -80,9 +83,9 @@ M13 = 0. Registros em
   relógio real, paginação/concorrência real nem entrega externa; dívida de
   implementação registrada para a matriz futura.
 
-Próxima ação exata: **fechamento global pós-M13** (gate separado, sem M14
-automático). Não implementar `functions/`, `frontend/`, `firestore.rules` ou
-`storage.rules` nesta rodada.
+Naquele checkpoint, a próxima ação era o fechamento global pós-M13 (gate
+separado, sem M14 automático), posteriormente concluído. Não implementar
+`functions/`, `frontend/`, `firestore.rules` ou `storage.rules` nesta rodada.
 
 ## Histórico — M12 fechado (composição M12.1 × M12.2)
 
