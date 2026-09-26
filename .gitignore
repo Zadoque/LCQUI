@@ -2,6 +2,11 @@
 node_modules/
 **/node_modules/
 
+# Playwright ephemeral artifacts
+.playwright-cli/
+playwright-report/
+test-results/
+
 # Firebase / Firestore debug
 firebase-debug.log
 firebase-debug.*.log
