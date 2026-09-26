@@ -74,8 +74,31 @@ export const marcarNotificacaoComoLida = onCall(async (request) => {
       throw new HttpsError("not-found", "Notificação não encontrada.");
     }
 
+    const dados = snap.data();
+    // RN-M13-01: o UID do caminho e `id_destinatario` correspondem ao
+    // destinatário autenticado. Documento endereçado a outro UID não é
+    // mutável por `claims.uid`, ainda que esteja no caminho dele (fail-closed).
+    if (typeof dados?.id_destinatario !== "string" || dados.id_destinatario !== claims.uid) {
+      throw new HttpsError(
+        "permission-denied",
+        "Notificação não pertence ao destinatário autenticado."
+      );
+    }
+
+    // M13: `lida` e `lida_em` são coerentes por invariante (#M13Notificacao):
+    // lida=false => lida_em=null; lida=true => lida_em definido. Estado
+    // persistido incoerente não é reparado silenciosamente: falha fechada.
+    const lida = dados.lida;
+    const lidaEmPresente = dados.lida_em !== null && dados.lida_em !== undefined;
+    if (typeof lida !== "boolean" || lida !== lidaEmPresente) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Notificação com estado de leitura incoerente."
+      );
+    }
+
     // Idempotente: repetir a marcação preserva o instante original.
-    if (snap.data()?.lida) {
+    if (lida) {
       return { success: true };
     }
 

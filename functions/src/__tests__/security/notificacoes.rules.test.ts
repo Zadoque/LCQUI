@@ -28,7 +28,12 @@ async function seedUser(
   });
 }
 
-async function seedNotificacao(uid: string, id: string): Promise<void> {
+async function seedNotificacao(
+  uid: string,
+  id: string,
+  options: { idDestinatario?: string; lida?: boolean; lidaEm?: unknown } = {}
+): Promise<void> {
+  const { idDestinatario = uid, lida = false, lidaEm = null } = options;
   await testEnv.withSecurityRulesDisabled(async context => {
     await context
       .firestore()
@@ -36,7 +41,7 @@ async function seedNotificacao(uid: string, id: string): Promise<void> {
       .doc(uid)
       .collection("Notificacoes")
       .doc(id)
-      .set({ lida: false, tipo: "POST" });
+      .set({ id_destinatario: idDestinatario, lida, lida_em: lidaEm, tipo: "POST" });
   });
 }
 
@@ -125,6 +130,24 @@ describe("IMP-NOTIF-002 — notificações server-owned", () => {
     const db = dbFor("dono");
     await assertFails(
       db.collection("Usuarios").doc("dono").collection("Notificacoes").doc("n1").get()
+    );
+  });
+
+  it("TEST-RULES-NOTIF-008 — dono não lê documento cujo id_destinatario difere do UID do caminho", async () => {
+    await seedUser("dono");
+    await seedNotificacao("dono", "n_alheia", { idDestinatario: "outro" });
+    const db = dbFor("dono");
+    await assertFails(
+      db.collection("Usuarios").doc("dono").collection("Notificacoes").doc("n_alheia").get()
+    );
+  });
+
+  it("TEST-RULES-NOTIF-009 — leitura coerente (id_destinatario == UID do caminho) é permitida", async () => {
+    await seedUser("dono");
+    await seedNotificacao("dono", "n_coerente", { idDestinatario: "dono" });
+    const db = dbFor("dono");
+    await assertSucceeds(
+      db.collection("Usuarios").doc("dono").collection("Notificacoes").doc("n_coerente").get()
     );
   });
 });

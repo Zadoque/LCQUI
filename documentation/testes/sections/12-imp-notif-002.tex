@@ -64,5 +64,56 @@ Sob Node 20.19.6: \texttt{build} PASS; \texttt{test:unit} PASS (71/71);
 integração completa 117 passam / 14 falham (14 legadas em reagentes/patrimônio/
 roteiros); Rules 69/69.
 
+\subsection{Hardening de consistência persistida (M13)}
+
+Auditoria independente apontou que o fechamento anterior provava a autoridade M9
+e o server-owned, mas não a consistência da entidade formal \texttt{\#M13Notificacao}
+no momento da marcação. Duas lacunas foram corrigidas.
+
+\paragraph{Lacuna 1 --- UID do caminho vs.\ \texttt{id\_destinatario}.}
+A norma (RN-M13-01; CUE \texttt{\#M13Notificacao} e \texttt{\#M13Marcacao};
+Alloy \texttt{MarcarSoProprias}) exige que o \texttt{uid} do caminho e
+\texttt{id\_destinatario} sejam o destinatário autenticado. Um documento em
+\texttt{Usuarios/u1/...} com \texttt{id\_destinatario=u2} não pode ser marcado
+por \texttt{u1}. \texttt{marcarNotificacaoComoLida} passou a exigir
+\texttt{id\_destinatario == claims.uid} e falha fechado. As Rules de leitura
+passaram a exigir \texttt{resource.data.id\_destinatario == uid} (CUE
+\texttt{\#M13Leitura}: \texttt{id\_destinatario != uid} $\Rightarrow$
+\texttt{autorizado=false}), fechando a leitura de documento endereçado a
+terceiro ainda que situado no próprio caminho.
+
+\paragraph{Lacuna 2 --- coerência \texttt{lida}/\texttt{lida\_em}.}
+CUE \texttt{\#M13Notificacao} estabelece \texttt{lida=false} $\Rightarrow$
+\texttt{lida\_em=null} e \texttt{lida=true} $\Rightarrow$ \texttt{lida\_em}
+presente; a Alloy impõe a mesma coerência. Não há mecanismo normativo de
+reparo. Estado persistido incoerente (\texttt{lida=true, lida\_em=null} ou o
+inverso) faz a marcação falhar fechado com \texttt{failed-precondition}, sem
+mutação e sem auto-reparo silencioso.
+
+\small
+\begin{longtable}{@{}p{0.30\textwidth}p{0.52\textwidth}@{}}
+\toprule
+ID & Resultado \\
+\midrule
+\endhead
+TEST-INT-NOTIF-M13-008 & Caminho de \texttt{u1} com \texttt{id\_destinatario=u2} nega e não altera \\
+TEST-INT-NOTIF-M13-009 & \texttt{lida=true, lida\_em=null} falha fechado sem mutação \\
+TEST-INT-NOTIF-M13-010 & \texttt{lida=false, lida\_em} preenchido falha fechado sem mutação \\
+TEST-INT-NOTIF-M13-011 & Notificação sem \texttt{id\_destinatario} nega (fail-closed) \\
+TEST-RULES-NOTIF-008 & Dono não lê documento com \texttt{id\_destinatario} divergente \\
+TEST-RULES-NOTIF-009 & Leitura coerente (\texttt{id\_destinatario == uid}) é permitida \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+RED: os casos 008--011 falharam contra a implementação anterior (marcação
+aceitava documento alheio e estado incoerente) e o caso de Rules 008 falhou
+contra as Rules anteriores. GREEN sob Node 20.19.6: integração de notificações
+11/11 e Rules de notificações 9/9. Regressão: \texttt{build} PASS; unit 71/71;
+Rules 75/75; integração completa 129 passam / 14 falham (falhas legadas em
+reagentes/patrimônio/roteiros, sem relação com a correção). Documentação
+matricial: achados de ``Achados de maior impacto'' atualizados para o estado
+corrente (M7 canônico existe e cobre papéis; notificações fechadas).
+
 \textbf{Estado final:} \texttt{IMP-NOTIF-002} = \texttt{NÃO DIVERGENTE} no
 escopo auditado. As demais linhas de notificação permanecem abertas.

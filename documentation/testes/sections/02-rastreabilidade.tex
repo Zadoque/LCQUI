@@ -128,6 +128,24 @@ canonicalização/Chaves, sem edição). O backend passou a \texttt{gerenciarMat
 com unicidade transacional, M9 e projeção \texttt{Turma.nome\_materia}; falta a UI
 de edição, por isso a feature permanece \texttt{DIVERGENTE}.
 
+\subsection{Oitava cadeia executada}
+
+\begin{center}
+Seção 7 RN-M13-01/RN-M13-02, CUE \texttt{\#M13Notificacao}/\texttt{\#M13Marcacao}/\texttt{\#M13Leitura}, Alloy \texttt{MarcarSoProprias}/coerência
+$\rightarrow$ \texttt{IMP-NOTIF-002} (hardening)
+$\rightarrow$ \texttt{TEST-INT-NOTIF-M13-008--011} e \texttt{TEST-RULES-NOTIF-008--009}
+$\rightarrow$ \nolinkurl{functions/src/notificacoes.ts} e \nolinkurl{firestore.rules}
+$\rightarrow$ PASS Node 20
+\end{center}
+
+O RED detectou quatro casos de integração (destinatário divergente do caminho,
+estado \texttt{lida}/\texttt{lida\_em} incoerente nos dois sentidos, campo
+ausente) e um de Rules (leitura de documento endereçado a terceiro). Após a
+correção, integração de notificações 11/11 e Rules de notificações 9/9; a suíte
+completa de Rules foi a 75/75 e a integração permaneceu com as mesmas 14 falhas
+legadas de reagentes/patrimônio/roteiros. Os achados agregados da matriz foram
+atualizados para descrever o estado corrente.
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara
