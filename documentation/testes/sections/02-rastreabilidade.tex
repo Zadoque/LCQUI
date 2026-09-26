@@ -35,6 +35,22 @@ O RED foi executado contra as Rules anteriores: onze casos detectaram a
 divergência e três controles já conformes passaram. Depois da mudança mínima,
 os catorze casos passaram e a suíte completa de Rules passou com 62/62 testes.
 
+\subsection{Segunda cadeia executada}
+
+\begin{center}
+Seção 7/M9, Seção 10.2--10.4 e Alloy M9
+$\rightarrow$ \texttt{IMP-ROLE-003} (Etapa A)
+$\rightarrow$ \texttt{TEST-INT-M9-AUTH-001--015} e \texttt{-OP-001--004}
+$\rightarrow$ \nolinkurl{functions/src/__tests__/integration/m9-backend-authority.integration.test.ts}
+$\rightarrow$ PASS Node 20 (19/19)
+\end{center}
+
+O RED foi executado contra o mecanismo anterior (claims JWT) e seis casos
+detectaram a divergência; após a primitiva transacional persistida, os dezenove
+casos passam sob Node 20.19.6, junto de 53/53 testes unitários e da operação
+real \texttt{revogarUsuarioPapel}. A feature \texttt{IMP-ROLE-003} permanece
+\texttt{DIVERGENTE} porque as demais callables não foram migradas.
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara

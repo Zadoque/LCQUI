@@ -1,0 +1,171 @@
+\section{Evidência de IMP-ROLE-003 --- Etapa A (fundação M9 backend)}
+
+\textbf{Feature:} \texttt{IMP-ROLE-003} --- autorização persistida no commit.
+
+\textbf{Estado anterior:} \texttt{DIVERGENTE}. O backend autorizava por
+\texttt{validarPermissao}, que decide somente pela claim JWT; a maioria das
+mutações não relia atividade, versão e papel persistidos, e o escopo de domínio
+era consultado fora da unidade transacional.
+
+\textbf{Estado depois:} \texttt{DIVERGENTE}. Esta rodada entrega apenas a
+fundação de autoridade persistida M9 e migra o primeiro conjunto restrito de
+operações de usuários/papéis. As demais callables ainda não foram migradas, logo
+a feature transversal permanece aberta e as contagens globais da matriz não
+mudam.
+
+\subsection{Contrato M9 derivado}
+
+A decisão de autoridade base exige, de forma fail closed: autenticação;
+\texttt{Usuarios/uid} existente e \texttt{ativo=true}; \texttt{versao\_permissoes}
+persistida inteira e não negativa; claim \texttt{versao\_permissoes} presente e
+igual à persistida; claim \texttt{roles} em lista; toda claim de papel
+pertencente ao conjunto fechado e com concessão persistida cujo
+\texttt{id\_usuario} coincide com o UID; e o papel exigido pela operação presente
+entre os papéis afirmados e persistidos. Fontes: Seção~7/M9, a interpretação
+normativa da Seção~10.2--10.4 (\textit{erratum} M9), CUE
+\texttt{formal\_m9\_autorizacao} e Alloy M9
+(\texttt{M9-INV-001/002/005/008}, \texttt{M9-WIT-014/017/018}) e a superfície já
+fixada em \texttt{IMP-RULES-001}. Escopo específico de domínio (vínculo de
+almoxarifado, ownership de professor) permanece fora da primitiva base.
+
+\subsection{Primitiva implementada}
+
+\begin{center}\small
+\path{functions/src/auth.ts}
+\end{center}
+
+\begin{itemize}
+  \item \texttt{PAPEIS\_CONHECIDOS}: conjunto fechado M9 como fonte única no
+  backend, reutilizado por \path{functions/src/usuarios.ts}.
+  \item \texttt{extrairClaimsAutoridade(request)}: valida apenas a estrutura das
+  claims (auth, lista de papéis, conjunto fechado, versão inteira não negativa).
+  \item \texttt{resolverAutoridadePersistidaTx(tx, claims, papeisRequeridos)}:
+  núcleo transacional; lê, na mesma transação do efeito, \texttt{Usuarios/uid} e
+  cada documento de papel, e decide. Retorna
+  \texttt{\{uid, papeis, versaoPermissoes, papelAutorizado\}}.
+  \item \texttt{validarAutoridadePersistida}/
+  \texttt{validarAutoridadePersistidaComClaims}: conveniências para pré-checagem
+  antes de efeitos externos, reexecutando a leitura numa transação.
+  \item \texttt{validarPermissao} permanece marcada como \textbf{LEGACY AUTH
+  PATH}, explicitamente insuficiente para mutações críticas M9.
+\end{itemize}
+
+\subsection{Casos permanentes e ciclo RED/GREEN}
+
+\begin{center}\small
+\path{functions/src/__tests__/integration/m9-backend-authority.integration.test.ts}
+\end{center}
+
+Os casos usam Firestore Emulator e Admin SDK (não são mocks), com claims e
+\texttt{request} construídos determinísticamente. A tabela registra a fonte
+normativa, o comportamento do mecanismo anterior (RED) e o resultado após a
+implementação (GREEN).
+
+\small
+\begin{longtable}{@{}p{0.18\textwidth}p{0.38\textwidth}p{0.13\textwidth}p{0.11\textwidth}@{}}
+\toprule
+ID & Obrigação observada & Antes & Depois \\
+\midrule
+\endhead
+TEST-INT-M9-AUTH-001 & Não autenticado nega & PASS controle & PASS \\
+TEST-INT-M9-AUTH-002 & UID sem \texttt{Usuarios} nega & FAIL & PASS \\
+TEST-INT-M9-AUTH-003 & Usuário inativo nega & FAIL & PASS \\
+TEST-INT-M9-AUTH-004 & Claim sem versão nega & PASS controle & PASS \\
+TEST-INT-M9-AUTH-005 & Versão obsoleta nega & FAIL & PASS \\
+TEST-INT-M9-AUTH-006 & Versão corrente + papel persistido autoriza & PASS controle & PASS \\
+TEST-INT-M9-AUTH-007 & Papel permitido ausente nega & PASS controle & PASS \\
+TEST-INT-M9-AUTH-008 & Papel desconhecido nega & PASS controle & PASS \\
+TEST-INT-M9-AUTH-009 & Claim de papel sem concessão persistida nega & FAIL & PASS \\
+TEST-INT-M9-AUTH-010 & Papel persistido não afirmado na claim nega & PASS controle & PASS \\
+TEST-INT-M9-AUTH-011 & Documento de papel com UID incompatível nega & FAIL & PASS \\
+TEST-INT-M9-AUTH-012 & \texttt{roles} não-array nega & PASS controle & PASS \\
+TEST-INT-M9-AUTH-013 & Multi-role válido (Aluno+Bolsista) autoriza & PASS controle & PASS \\
+TEST-INT-M9-AUTH-014 & Multi-role com papel desconhecido nega & PASS controle & PASS \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+O RED foi executado antes da implementação, contra o mecanismo anterior: 6 de 19
+casos falharam (002, 003, 005, 009, 011 e OP-002), evidenciando precisamente a
+aceitação de token sem atividade, sem versão corrente e sem papel persistido.
+Após a implementação, os 19 casos passam.
+
+\subsection{Operação real protegida e ausência de escrita parcial}
+
+Além da primitiva, \path{functions/src/usuarios.ts} foi migrado para a nova
+autoridade transacional nas operações \texttt{convidarUsuario},
+\texttt{revogarUsuarioPapel} e no núcleo \texttt{alterarPapel}. O bloco seguinte
+do mesmo arquivo de teste prova a operação real.
+
+\small
+\begin{longtable}{@{}p{0.24\textwidth}p{0.58\textwidth}@{}}
+\toprule
+ID & Resultado \\
+\midrule
+\endhead
+TEST-INT-M9-AUTH-OP-001 & Chefia corrente e persistida autoriza; revogação aplicada. \\
+TEST-INT-M9-AUTH-OP-002 & Token obsoleto nega e o Firestore permanece inalterado. \\
+TEST-INT-M9-AUTH-OP-003 & Chefia inativa nega e o Firestore permanece inalterado. \\
+TEST-INT-M9-AUTH-OP-004 & Claim de Chefe sem documento persistido nega e não muta. \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+Cada caso negado verifica o estado persistido posterior, não apenas o
+\texttt{HttpsError}: o documento do papel do alvo e o \texttt{ativo} permanecem.
+
+\subsection{Ambiente e estratégia Node 20}
+
+O backend declara \texttt{engines.node=20}. A evidência final foi executada em
+Node \textbf{20.19.6} (npm 10.8.2). O \texttt{nixpkgs} atual removeu
+\texttt{nodejs\_20} por EOL em 30/04/2026; a execução usou
+\path{nix shell github:nixos/nixpkgs/nixos-25.05#nodejs_20} como fornecimento
+temporário, sem alterar \texttt{flake.lock} e sem alterar o Home Manager:
+
+\begin{center}
+\texttt{NODE20\_STRATEGY = TEMPORARY\_NIX\_ONLY}; \quad
+\texttt{HOME\_MANAGER\_CHANGED = NO}
+\end{center}
+
+\subsection{Resultados e regressão}
+
+\small
+\begin{longtable}{@{}p{0.52\textwidth}p{0.38\textwidth}@{}}
+\toprule
+Verificação (Node 20.19.6) & Resultado \\
+\midrule
+\endhead
+\texttt{npm run build} & PASS \\
+\texttt{npm run test:unit} & PASS (53/53) \\
+\texttt{TEST-INT-M9-AUTH-*} + \texttt{-OP-*} (emulator) & PASS (19/19) \\
+\texttt{usuarios.integration.test.ts} (fixtures M9) & PASS (2/2) \\
+\texttt{npm run test:integration} & 90 passam / 14 falham \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+A baseline registrada era 69 passam / 16 falham. A diferença é integralmente
+explicada: os 19 casos M9 são novos e passam, e 2 casos legados de
+\texttt{usuarios.integration.test.ts} que já falhavam por fixture sem autoridade
+persistida passaram a ter arrange M9 válido. As 14 falhas remanescentes estão
+somente em \texttt{reagentes} (10), \texttt{patrimonio} (2) e \texttt{roteiros}
+(2), nenhuma em \texttt{auth}/\texttt{usuarios}; nenhuma falha nova não explicada.
+
+O lint direcionado aos arquivos alterados não introduz novos erros; os avisos
+remanescentes (\texttt{no-explicit-any} em \texttt{catch} legado e no teste
+legado) já existiam.
+
+\subsection{Escopo e pendências}
+
+Migrado nesta etapa: \texttt{alterarPapel}, \texttt{convidarUsuario} e
+\texttt{revogarUsuarioPapel}, com a decisão de chefia relida na transação do
+efeito (fecha TOCTOU). A ordem de \texttt{convidarUsuario} mantém efeitos de
+Firebase Auth após uma pré-checagem M9 e antes da revalidação transacional; o
+risco residual (criação de identidade Auth entre pré-checagem e commit) fica
+registrado como dependência futura, sem redesenho do workflow de convite nesta
+rodada.
+
+Não migrado: reagentes, patrimônio, turmas, posts, roteiros, notificações,
+relatórios, etiquetas; e \texttt{IMP-ROLE-001}, \texttt{IMP-ROLE-002} e
+\texttt{IMP-IDEM-001} permanecem intocados. \texttt{IMP-ROLE-003} continua
+\texttt{DIVERGENTE} por desenho.
