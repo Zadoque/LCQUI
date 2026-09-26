@@ -2,11 +2,18 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { FieldValue } from "firebase-admin/firestore";
 import * as admin from "firebase-admin";
 import { createHash, randomUUID } from "crypto";
-import { validarPermissao, validarMatrizPapeis } from "./auth";
+import {
+  ClaimsAutoridade,
+  PAPEIS_CONHECIDOS,
+  extrairClaimsAutoridade,
+  resolverAutoridadePersistidaTx,
+  validarAutoridadePersistidaComClaims,
+  validarMatrizPapeis,
+} from "./auth";
 import { validatePayload } from "./utils/validation";
 import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema } from "./schemas/usuarios.schema";
 
-const PAPEIS = ["Chefe_Geral", "Gestor_Almoxarifado", "Gestor_Bens_Patrimoniais", "Professor", "Aluno", "Bolsista"];
+const PAPEIS: string[] = [...PAPEIS_CONHECIDOS];
 
 type Mutacao = {
   ator: string; uid: string; papel: string; conceder: boolean; motivo: string;
@@ -48,7 +55,7 @@ export async function reconciliarClaimsUsuario(uid: string): Promise<void> {
 }
 
 /** Todas as concessões/revogações compartilham o singleton, inclusive o bootstrap de contagens. */
-async function alterarPapel(dados: Mutacao): Promise<{ uid: string; ativo: boolean }> {
+async function alterarPapel(dados: Mutacao, claims: ClaimsAutoridade): Promise<{ uid: string; ativo: boolean }> {
   const db = admin.firestore();
   const controleRef = db.collection("Controle_Papeis").doc("singleton");
   const usuarioRef = db.collection("Usuarios").doc(dados.uid);
@@ -65,11 +72,9 @@ async function alterarPapel(dados: Mutacao): Promise<{ uid: string; ativo: boole
           throw new HttpsError("already-exists", "Identificador de operação reutilizado com outros dados.");
         return operacao.data()!.resultado as { uid: string; ativo: boolean };
       }
-      const [ator, chefeAtor, usuario] = await tx.getAll(
-        db.collection("Usuarios").doc(dados.ator), db.collection("Chefe_Geral").doc(dados.ator), usuarioRef,
-      );
-      if (ator.data()?.ativo !== true || !chefeAtor.exists)
-        throw new HttpsError("permission-denied", "Chefia ativa necessária.");
+      // M9: autoridade persistida relida na MESMA transação do efeito (fecha TOCTOU).
+      await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral"]);
+      const usuario = await tx.get(usuarioRef);
       const perfis = await tx.getAll(...PAPEIS.map(p => db.collection(p).doc(dados.uid)));
       const atuais = PAPEIS.filter((_, i) => perfis[i].exists);
       if (!dados.conceder && dados.papel === "Chefe_Geral" && dados.ator !== dados.uid)
@@ -152,14 +157,11 @@ async function alterarPapel(dados: Mutacao): Promise<{ uid: string; ativo: boole
 }
 
 export const convidarUsuario = onCall(async request => {
-  validarPermissao(request, ["Chefe_Geral"]);
+  const claims = extrairClaimsAutoridade(request);
   const dados = validatePayload(ConvidarUsuarioSchema, request.data);
-  // Evitar criar identidade Auth antes de verificar a chefia persistida.
-  const [ator, chefe] = await admin.firestore().getAll(
-    admin.firestore().collection("Usuarios").doc(request.auth!.uid),
-    admin.firestore().collection("Chefe_Geral").doc(request.auth!.uid),
-  );
-  if (ator.data()?.ativo !== true || !chefe.exists) throw new HttpsError("permission-denied", "Chefia ativa necessária.");
+  // Pré-checagem M9 antes de criar identidade Auth (efeito externo). A decisão
+  // autoritativa é refeita por `alterarPapel` dentro da transação do efeito.
+  await validarAutoridadePersistidaComClaims(claims, ["Chefe_Geral"]);
   let user;
   try { user = await admin.auth().getUserByEmail(dados.email); }
   catch (error: any) {
@@ -173,22 +175,23 @@ export const convidarUsuario = onCall(async request => {
   const perfil: Record<string, unknown> = { nome: dados.nome, email: dados.email };
   if (dados.papel === "Aluno") perfil.letra_inicial = dados.nome.charAt(0).toUpperCase();
   if (dados.papel === "Professor") { perfil.centro = dados.centro ?? "N/A"; perfil.laboratorio = dados.laboratorio ?? "N/A"; }
-  const resultado = await alterarPapel({ ator: request.auth!.uid, uid: user.uid, papel: dados.papel,
+  const resultado = await alterarPapel({ ator: claims.uid, uid: user.uid, papel: dados.papel,
     conceder: true, motivo: dados.motivo ?? "Concessão solicitada pela chefia", idOperacao: dados.idOperacao ?? randomUUID(),
-    perfil, identidade: { nome: dados.nome, email: dados.email }, materias: dados.materias ?? [] });
+    perfil, identidade: { nome: dados.nome, email: dados.email }, materias: dados.materias ?? [] }, claims);
   await reconciliarClaimsUsuario(user.uid);
   const resetLink = await admin.auth().generatePasswordResetLink(dados.email);
   return { ...resultado, resetLink };
 });
 
 export const revogarUsuarioPapel = onCall(async request => {
-  validarPermissao(request, ["Chefe_Geral"]);
+  const claims = extrairClaimsAutoridade(request);
   const dados = validatePayload(RevogarUsuarioPapelSchema, request.data);
   let user;
   try { user = await admin.auth().getUserByEmail(dados.email); }
   catch { throw new HttpsError("not-found", "Usuário não encontrado."); }
-  const resultado = await alterarPapel({ ator: request.auth!.uid, uid: user.uid, papel: dados.papel,
-    conceder: false, motivo: dados.motivo, idOperacao: dados.idOperacao ?? randomUUID() });
+  // A decisão autoritativa é tomada dentro da transação de `alterarPapel`.
+  const resultado = await alterarPapel({ ator: claims.uid, uid: user.uid, papel: dados.papel,
+    conceder: false, motivo: dados.motivo, idOperacao: dados.idOperacao ?? randomUUID() }, claims);
   await reconciliarClaimsUsuario(user.uid);
   return resultado;
 });
