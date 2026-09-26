@@ -45,7 +45,7 @@ Legenda de contagem: `checks/witnesses` UNSAT/SAT no receipt.
 | M12.1 | Seção 7.6 | `#M12_1` / `formal_m12_1_posts` | `posts_m12_1.als` 40/17 | `m12-1.json`; `validation_m12_1.rs` | `formal_m12_1.tex`; `Formal-Spec-M12-1.tex` | posts/comentários/moderação; ACL de Roteiro em M12.2 | PASS |
 | M12.2 | Seção 7.7 | `#M12_2` / `formal_m12_2_roteiros` | `roteiros_m12_2.als` 52/27 | `m12-2.json`; `validation_m12_2.rs` | `formal_m12_2.tex`; `Formal-Spec-M12-2.tex` | Roteiros/URL/compartilhamento; Storage real fora | PASS |
 | M12 | Seções 7.6/7.7 | `#M12_1`+`#M12_2` | `composition_m12.als` 37/18; origens M12.1/M12.2 | `m12.json`; `validation_m12.rs` | `formal_m12.tex`; `Formal-Spec-M12.tex` | composição M12.1×M12.2; ponte de geração | PASS |
-| M13 | Seção 7.8 | `#M13` / `formal_m13_notificacoes` | `notificacoes_m13.als` 34/25; 6 origens | `m13.json`; `validation_m13.rs` | `formal_m13.tex`; `Formal-Spec-M13.tex` | notificação unificada; rotas reproduzem M12; lote abstrato | PASS |
+| M13 | Seção 7.8 | `#M13` / `formal_m13_notificacoes` | `notificacoes_m13.als` 35/26; 6 origens | `m13.json`; `validation_m13.rs` | `formal_m13.tex`; `Formal-Spec-M13.tex` | notificação unificada; rotas reproduzem M12; lote abstrato | PASS |
 
 Todos os receipts M0–M13 estão ligados ao `spec_ir_sha256` atual
 (`9f2bf7226eddabd9731a4b14302b78e71667d007466bffbc8f455c27a36fd579`) e aos
@@ -107,9 +107,9 @@ interfaces.
   mudaram.
 - **Determinismo:** duas gerações consecutivas do gerador produziram
   `documentation/generated/` byte a byte idêntico.
-- **PDF:** `documentation/main.pdf` com **457 páginas**, exit 0, zero erros e zero
+- **PDF:** `documentation/main.pdf` com **458 páginas**, exit 0, zero erros e zero
   referências indefinidas, **31 Overfull** (idêntico ao baseline `88b821c2`); as
-  páginas 451–457 (capítulo M13) foram renderizadas e inspecionadas visualmente.
+  páginas 451–458 (capítulo M13) foram renderizadas e inspecionadas visualmente.
 - **Ligação de artefatos:** IR ↔ modelos ↔ origens ↔ receipts ↔ validadores ↔
   MANIFEST ↔ fragmentos verificada pelo `docs-check` do gerador e pelos testes de
   adulteração Rust/Node.

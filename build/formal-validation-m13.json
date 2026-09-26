@@ -4,7 +4,7 @@
   "solver": "sat4j",
   "spec_ir_sha256": "9f2bf7226eddabd9731a4b14302b78e71667d007466bffbc8f455c27a36fd579",
   "model": "specification/alloy/operations/notificacoes_m13.als",
-  "model_sha256": "8fcf8cb9085d8c9005ae95e5521caac29cf20191317797cd270ee2f0bfc07463",
+  "model_sha256": "bd407107463a8a9cb32991546257e21b716b9460cb3a8dc6321ec264f292b14c",
   "origens": [
     {
       "model": "specification/alloy/operations/composition_m12.als",
@@ -244,27 +244,34 @@
     },
     {
       "id": "M13-INV-031",
+      "assertion": "FanOutNaoDuplicaDestinatario",
+      "tipo": "check",
+      "scope": "check FanOutNaoDuplicaDestinatario for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-032",
       "assertion": "ErroEmissaoNaoViraSucesso",
       "tipo": "check",
       "scope": "check ErroEmissaoNaoViraSucesso for 4",
       "status": "UNSAT"
     },
     {
-      "id": "M13-INV-032",
+      "id": "M13-INV-033",
       "assertion": "ComposicaoM7RetryNaoDuplica",
       "tipo": "check",
       "scope": "check ComposicaoM7RetryNaoDuplica for 4",
       "status": "UNSAT"
     },
     {
-      "id": "M13-INV-033",
+      "id": "M13-INV-034",
       "assertion": "IdTurmaAcademicoObrigatorio",
       "tipo": "check",
       "scope": "check IdTurmaAcademicoObrigatorio for 4",
       "status": "UNSAT"
     },
     {
-      "id": "M13-INV-034",
+      "id": "M13-INV-035",
       "assertion": "IdTurmaOperacionalNulo",
       "tipo": "check",
       "scope": "check IdTurmaOperacionalNulo for 4",
@@ -419,27 +426,34 @@
     },
     {
       "id": "M13-WIT-056",
+      "assertion": "WitnessFanOutMesmaOperacao",
+      "tipo": "run",
+      "scope": "run WitnessFanOutMesmaOperacao for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-057",
       "assertion": "WitnessErroNaoEmite",
       "tipo": "run",
       "scope": "run WitnessErroNaoEmite for 4",
       "status": "SAT"
     },
     {
-      "id": "M13-WIT-057",
+      "id": "M13-WIT-058",
       "assertion": "WitnessColegaVeAviso",
       "tipo": "run",
       "scope": "run WitnessColegaVeAviso for 4",
       "status": "SAT"
     },
     {
-      "id": "M13-WIT-058",
+      "id": "M13-WIT-059",
       "assertion": "WitnessAutorVeOriginal",
       "tipo": "run",
       "scope": "run WitnessAutorVeOriginal for 4",
       "status": "SAT"
     },
     {
-      "id": "M13-WIT-059",
+      "id": "M13-WIT-060",
       "assertion": "WitnessAuditorVeOriginal",
       "tipo": "run",
       "scope": "run WitnessAuditorVeOriginal for 4",

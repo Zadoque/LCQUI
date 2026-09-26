@@ -87,9 +87,11 @@ nulo nos demais (\texttt{IdTurmaAcademicoObrigatorio},
 Alloy, fonte normativa e este capítulo. A emissão reutiliza a identidade M7 e a
 chave determinística M8: a mesma identidade não duplica
 (\texttt{EmissaoMesmaIdentidadeNaoDuplica},
-\texttt{ComposicaoM7RetryNaoDuplica}), chaves distintas podem emitir
-(\texttt{EmissaoChaveDistintaEmite}) e erro de emissão não vira sucesso
-(\texttt{ErroEmissaoNaoViraSucesso}).
+\texttt{ComposicaoM7RetryNaoDuplica}) e a deduplicação é \textbf{por
+destinatário}, permitindo o fan-out do domínio sem duplicar o mesmo UID
+(\texttt{FanOutNaoDuplicaDestinatario}, \texttt{WitnessFanOutMesmaOperacao});
+chaves distintas podem emitir (\texttt{EmissaoChaveDistintaEmite}) e erro de
+emissão não vira sucesso (\texttt{ErroEmissaoNaoViraSucesso}).
 
 \subsection*{Rastreabilidade norma $\rightarrow$ CUE/IR $\rightarrow$ prova $\rightarrow$ receipt}
 \begingroup\scriptsize
@@ -109,9 +111,9 @@ RN-M13-01 & \texttt{\#M13Notificacao}, \texttt{\#M13Caixa} & \texttt{NaoLeCaixaA
 RN-M13-02 & \texttt{\#M13Marcacao}, \texttt{\#M13LimparTudo} & \texttt{MarcarSoProprias}, \newline \texttt{MarcaIdempotente}, \newline \texttt{MarcaNaoReverte}, \newline \texttt{LoteSoProprias}, \newline \texttt{SemDelete}, \newline \texttt{LimparTudoCorteEstavel} & M13-INV-005..010, M13-WIT-037..041 \\
 RN-M13-03 & \texttt{\#M13Expiracao} & \texttt{ExpiracaoDistingueNull}, \newline \texttt{ExpiradoForaDoAtivo}, \newline \texttt{WitnessNullNaoExpira} & M13-INV-011/012, M13-WIT-042/043 \\
 RN-M13-04 & \texttt{\#M13Alvo}, \texttt{\#M13Leitura} & \texttt{AlvoInvalidoNaoNavega}, \newline \texttt{AlertaNaoContornaAcl}, \newline \texttt{RotaAcademicaExigePapel}, \newline \texttt{ChefeLegadoNaoUsaAcademico}, \newline \texttt{SemVinculoNaoRestaura}, \newline \texttt{ChefeSemEscopoNaoEmiteUrl}, \newline \texttt{PonteRotaChefeRoteiroRefinaUrl} & M13-INV-013..025, \newline M13-WIT-044..053 \\
-RN-M13-05 & \texttt{contem\_conteudo\_protegido} & \texttt{NotificacaoNaoExpoeOriginal}, \newline \texttt{ColegaVeAviso}, \newline \texttt{AutorVeOriginal}, \newline \texttt{AuditorVeOriginal} & M13-INV-026..029, \newline M13-WIT-057..059 \\
-RN-M13-06 & \texttt{\#M13Emissao}, \texttt{\#M13Operacao} & \texttt{EmissaoMesmaIdentidadeNaoDuplica}, \newline \texttt{ComposicaoM7RetryNaoDuplica}, \newline \texttt{EmissaoChaveDistintaEmite}, \newline \texttt{ErroEmissaoNaoViraSucesso} & M13-INV-030..032, \newline M13-WIT-054..056 \\
-RN-M13-07 & \texttt{id\_turma} condicional & \texttt{IdTurmaAcademicoObrigatorio}, \newline \texttt{IdTurmaOperacionalNulo}, \newline \texttt{WitnessArquivamentoTurma}, \newline \texttt{WitnessDesarquivamentoTurma} & M13-INV-033/034, \newline M13-WIT-046/047 \\
+RN-M13-05 & \texttt{contem\_conteudo\_protegido} & \texttt{NotificacaoNaoExpoeOriginal}, \newline \texttt{ColegaVeAviso}, \newline \texttt{AutorVeOriginal}, \newline \texttt{AuditorVeOriginal} & M13-INV-026..029, \newline M13-WIT-058..060 \\
+RN-M13-06 & \texttt{\#M13Emissao}, \texttt{\#M13Operacao} & \texttt{EmissaoMesmaIdentidadeNaoDuplica}, \newline \texttt{FanOutNaoDuplicaDestinatario}, \newline \texttt{ComposicaoM7RetryNaoDuplica}, \newline \texttt{EmissaoChaveDistintaEmite}, \newline \texttt{ErroEmissaoNaoViraSucesso} & M13-INV-030..033, \newline M13-WIT-054..057 \\
+RN-M13-07 & \texttt{id\_turma} condicional & \texttt{IdTurmaAcademicoObrigatorio}, \newline \texttt{IdTurmaOperacionalNulo}, \newline \texttt{WitnessArquivamentoTurma}, \newline \texttt{WitnessDesarquivamentoTurma} & M13-INV-034/035, \newline M13-WIT-046/047 \\
 RN-M13-08 & reuso M12.2 (\texttt{geracao}) & \texttt{AnexoCompostoUsaGeracaoCanonica} (M12) & receipt M12 \\
 \bottomrule
 \end{longtable}

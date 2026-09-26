@@ -1428,7 +1428,9 @@ M8 para \texttt{ESCASSEZ\_ESTOQUE} (destinatário vinculado ao almoxarifado e
 \texttt{DATA\_DEVOLUCAO\_REAGENTE} conserva o docId
 \texttt{\{id\_emprestimo\}--\{janela\}}; os contratos de patrimônio e demais
 alertas permanecem como definidos. Retry da mesma identidade não cria aviso
-extra. \textbf{Não} existe fórmula universal de docId nem obrigação de emissão
+extra; a deduplicação é \textbf{por destinatário}, de modo que a mesma operação
+pode ter fan-out para destinatários distintos sem notificar o mesmo UID duas
+vezes. \textbf{Não} existe fórmula universal de docId nem obrigação de emissão
 automática para todos os 20 valores do enum: apenas os tipos com emissão V1
 efetivamente especificada devem ser emitidos. Somente a duplicidade esperada
 (\texttt{ALREADY\_EXISTS}/``code 6'') é no-op; \textbf{erros de outra natureza
@@ -1527,7 +1529,7 @@ RN-M13-08 anexo com geração & Seção~7.7; M12.2 & CUE \texttt{geracao} no sna
   \item RN-M13-03: \texttt{ExpiracaoDistingueNull}, \newline \texttt{ExpiradoForaDoAtivo};
   \item RN-M13-04: \texttt{AlvoInvalidoNaoNavega}, \newline \texttt{AlertaNaoContornaAcl}, \newline \texttt{RotaAcademicaExigePapel}, \newline \texttt{ChefeLegadoNaoUsaAcademico}, \newline \texttt{SemVinculoNaoRestaura}, \newline \texttt{ProfessorDonoMantemAcesso}, \newline \texttt{CompartilhamentoSoProfessor}, \newline \texttt{ChefeAdminNaoHerdaAcademico}, \newline \texttt{ChefeSemEscopoNaoEmiteUrl}, \newline \texttt{EscopoEncerradoImpedeNovaEmissao}, \newline \texttt{EncerramentoEscopoPreservaRoteiro}, \newline \texttt{RoteiroAlunoExigePostEAnexo}, \newline \texttt{PonteRotaChefeRoteiroRefinaUrl};
   \item RN-M13-05: \texttt{NotificacaoNaoExpoeOriginal}, \newline \texttt{ColegaVeAviso}, \newline \texttt{AutorVeOriginal}, \newline \texttt{AuditorVeOriginal};
-  \item RN-M13-06: \texttt{EmissaoMesmaIdentidadeNaoDuplica}, \newline \texttt{ComposicaoM7RetryNaoDuplica}, \newline \texttt{EmissaoChaveDistintaEmite}, \newline \texttt{ErroEmissaoNaoViraSucesso};
+  \item RN-M13-06: \texttt{EmissaoMesmaIdentidadeNaoDuplica}, \newline \texttt{FanOutNaoDuplicaDestinatario}, \newline \texttt{ComposicaoM7RetryNaoDuplica}, \newline \texttt{EmissaoChaveDistintaEmite}, \newline \texttt{ErroEmissaoNaoViraSucesso};
   \item RN-M13-07: \texttt{IdTurmaAcademicoObrigatorio}, \newline \texttt{IdTurmaOperacionalNulo};
   \item RN-M13-08: reuso da prova M12.2 (\texttt{AnexoCompostoUsaGeracaoCanonica}).
 \end{itemize}

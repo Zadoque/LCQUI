@@ -32,10 +32,11 @@ CUE verifica os shapes de Notificação unificada (caixa, leitura, marcação, L
 \item[M13-INV-028] AutorVeOriginal: UNSAT.\newline Escopo: \texttt{check AutorVeOriginal for 4}.
 \item[M13-INV-029] AuditorVeOriginal: UNSAT.\newline Escopo: \texttt{check AuditorVeOriginal for 4}.
 \item[M13-INV-030] EmissaoMesmaIdentidadeNaoDuplica: UNSAT.\newline Escopo: \texttt{check EmissaoMesmaIdentidadeNaoDuplica for 4}.
-\item[M13-INV-031] ErroEmissaoNaoViraSucesso: UNSAT.\newline Escopo: \texttt{check ErroEmissaoNaoViraSucesso for 4}.
-\item[M13-INV-032] ComposicaoM7RetryNaoDuplica: UNSAT.\newline Escopo: \texttt{check ComposicaoM7RetryNaoDuplica for 4}.
-\item[M13-INV-033] IdTurmaAcademicoObrigatorio: UNSAT.\newline Escopo: \texttt{check IdTurmaAcademicoObrigatorio for 4}.
-\item[M13-INV-034] IdTurmaOperacionalNulo: UNSAT.\newline Escopo: \texttt{check IdTurmaOperacionalNulo for 4}.
+\item[M13-INV-031] FanOutNaoDuplicaDestinatario: UNSAT.\newline Escopo: \texttt{check FanOutNaoDuplicaDestinatario for 4}.
+\item[M13-INV-032] ErroEmissaoNaoViraSucesso: UNSAT.\newline Escopo: \texttt{check ErroEmissaoNaoViraSucesso for 4}.
+\item[M13-INV-033] ComposicaoM7RetryNaoDuplica: UNSAT.\newline Escopo: \texttt{check ComposicaoM7RetryNaoDuplica for 4}.
+\item[M13-INV-034] IdTurmaAcademicoObrigatorio: UNSAT.\newline Escopo: \texttt{check IdTurmaAcademicoObrigatorio for 4}.
+\item[M13-INV-035] IdTurmaOperacionalNulo: UNSAT.\newline Escopo: \texttt{check IdTurmaOperacionalNulo for 4}.
 \item[M13-WIT-035] WitnessCaixaMultiRole: SAT.\newline Escopo: \texttt{run WitnessCaixaMultiRole for 4}.
 \item[M13-WIT-036] WitnessBolsistaVeAlerta: SAT.\newline Escopo: \texttt{run WitnessBolsistaVeAlerta for 4}.
 \item[M13-WIT-037] WitnessMarcarLidaPropria: SAT.\newline Escopo: \texttt{run WitnessMarcarLidaPropria for 4}.
@@ -57,9 +58,10 @@ CUE verifica os shapes de Notificação unificada (caixa, leitura, marcação, L
 \item[M13-WIT-053] WitnessEscopoEncerrado: SAT.\newline Escopo: \texttt{run WitnessEscopoEncerrado for 4}.
 \item[M13-WIT-054] WitnessEmissaoUnica: SAT.\newline Escopo: \texttt{run WitnessEmissaoUnica for 4}.
 \item[M13-WIT-055] EmissaoChaveDistintaEmite: SAT.\newline Escopo: \texttt{run EmissaoChaveDistintaEmite for 4}.
-\item[M13-WIT-056] WitnessErroNaoEmite: SAT.\newline Escopo: \texttt{run WitnessErroNaoEmite for 4}.
-\item[M13-WIT-057] WitnessColegaVeAviso: SAT.\newline Escopo: \texttt{run WitnessColegaVeAviso for 4}.
-\item[M13-WIT-058] WitnessAutorVeOriginal: SAT.\newline Escopo: \texttt{run WitnessAutorVeOriginal for 4}.
-\item[M13-WIT-059] WitnessAuditorVeOriginal: SAT.\newline Escopo: \texttt{run WitnessAuditorVeOriginal for 4}.
+\item[M13-WIT-056] WitnessFanOutMesmaOperacao: SAT.\newline Escopo: \texttt{run WitnessFanOutMesmaOperacao for 4}.
+\item[M13-WIT-057] WitnessErroNaoEmite: SAT.\newline Escopo: \texttt{run WitnessErroNaoEmite for 4}.
+\item[M13-WIT-058] WitnessColegaVeAviso: SAT.\newline Escopo: \texttt{run WitnessColegaVeAviso for 4}.
+\item[M13-WIT-059] WitnessAutorVeOriginal: SAT.\newline Escopo: \texttt{run WitnessAutorVeOriginal for 4}.
+\item[M13-WIT-060] WitnessAuditorVeOriginal: SAT.\newline Escopo: \texttt{run WitnessAuditorVeOriginal for 4}.
 \end{description}
 UNSAT para check indica ausência de contraexemplo no escopo declarado; SAT para run indica testemunha encontrada. A evidência não certifica a implementação Firebase/backend.

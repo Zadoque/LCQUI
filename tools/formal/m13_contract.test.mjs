@@ -60,7 +60,7 @@ test('M13 orquestração, validação Rust, LaTeX e fonte normativa registram a 
   assert.match(rust, /specification\/alloy\/operations\/notificacoes_m13\.als/);
   assert.match(rust, /composition_m12\.als/);
   assert.match(rust, /M13-INV-001/);
-  assert.match(rust, /M13-WIT-059/);
+  assert.match(rust, /M13-WIT-060/);
   assert.match(rust, /origins: \[&\[u8\]; 6\]/);
   assert.match(render, /pub fn render_m13/);
   assert.match(mainTex, /\\input\{Formal-Spec-M13\.tex\}/);

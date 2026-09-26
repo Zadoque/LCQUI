@@ -215,19 +215,36 @@ corrigida para não generalizar; destinatário, frequência, prazo e chave de de
 dos tipos sem fonte decisória permanecem lacuna explícita, não prova nem
 dispensa.
 
+## Ajustes de revisão semântica (fan-out, coerência e expiração)
+
+Após revisão adversarial dos próprios resultados:
+
+- **Fan-out versus dedup.** A restrição original “um aviso por operação” foi
+  substituída por deduplicação **por destinatário**: a mesma operação (ou a mesma
+  chave determinística M8) não notifica o mesmo UID duas vezes, mas pode ter
+  fan-out para destinatários distintos (`fanOut`, `FanOutNaoDuplicaDestinatario`,
+  `WitnessFanOutMesmaOperacao`). Isso alinha M7 (identidade de comando por
+  retry) e M8 (chave determinística) sem impedir o fan-out do domínio.
+- **Preservação de coerência não vacua.** As transições deixaram de incluir
+  `coerente[b]` como conclusão; a preservação passou a ser **derivada** por
+  `TransicoesPreservamCoerencia`, com frames explícitos. Isso encontrou e fechou
+  lacunas reais de preservação (alvo válido/`alvoInvalido` e id_turma/escassez
+  nas emissões; consistência de `lida/lida_em` em átomos não emitidos no lote).
+- **Expiração e conjunto ativo.** `ExpiradoForaDoAtivo` passou a usar
+  `ativo[s,n]` (emitido e não vencido): o aviso expirado sai do conjunto ativo e
+  o registro permanece, sem `DELETE`.
+
 ## Evidência da rodada corretiva
 
-- Alloy: **34 checks UNSAT + 25 witnesses SAT = 59 resultados** (escopos 4/5,
-  três comandos `for 5`); `model_sha256 =
-  8fcf8cb9085d8c9005ae95e5521caac29cf20191317797cd270ee2f0bfc07463`.
-- Receipt `build/formal-validation-m13.json` (6 origens; sha256
-  `78a94897b561c8eb9f473abf60e416cd480c70a6c4e80827e4641a1d67d94d3c`).
+- Alloy: **35 checks UNSAT + 26 witnesses SAT = 61 resultados** (escopos 4/5;
+  comandos `for 5` conforme o modelo).
+- Receipt `build/formal-validation-m13.json` (6 origens); hashes atualizados
+  abaixo após a regeneração.
 - CUE/IR: `spec_ir_sha256` **inalterado** (`9f2bf722…36fd579`); M0–M12
   preservados byte a byte (nenhum `model_sha256` ou receipt antigo mudou).
-- Rust `validation_m13.rs` com 6 origens e 59 entradas exatas; 35 testes Rust.
-- Node: 44 testes (inclui o guard de tipos acadêmicos e a mutação controlada).
-- PDF de 457 páginas, 0 erros, 0 referências indefinidas, 31 Overfull (igual ao
-  baseline `88b821c2`).
+- Rust `validation_m13.rs` com 6 origens e 61 entradas exatas.
+- Node: 44 testes (guards de composição, tipos acadêmicos e mutação controlada).
+- PDF com 0 erros, 0 referências indefinidas, 31 Overfull (igual ao baseline).
 
 ## Limites preservados
 

@@ -20,8 +20,8 @@ não há M14.**
   na Seção 7.8 e no worklog). Detalhes em
   [M13 executável](worklogs/formal-spec/M13_EXECUTABLE_VALIDATION.md).
 - **Evidência M13:** 16 fixtures válidas + 18 inválidas; 34 checks UNSAT + 25
-  witnesses SAT; `model_sha256 = 8fcf8cb9…c07463`; receipt
-  `78a94897…d94d3c`; PDF de 457 páginas (0 erros, 31 Overfull = baseline).
+  witnesses SAT; `model_sha256 = bd407107…f292b14c`; receipt
+  `7be91301…34cb762`; PDF de 458 páginas (0 erros, 31 Overfull = baseline).
 - **Regressão:** `spec_ir_sha256` e todos os receipts M0–M12 inalterados;
   determinismo de geração confirmado.
 - **Limites:** prova *bounded* e abstrata; não certifica Firebase,
@@ -52,12 +52,12 @@ M13 = 0. Registros em
   obrigatório nos tipos acadêmicos e nulo nos operacionais.
 - **Executável:** CUE `#M13Contrato` (**16 fixtures válidas + 18 inválidas**),
   IR v3 aditivo `formal_m13_notificacoes`, `notificacoes_m13.als` com estado
-  composto (**34 checks UNSAT + 25 witnesses SAT = 59 resultados**, escopos 4/5),
+  composto (**35 checks UNSAT + 26 witnesses SAT = 61 resultados**, escopos 4/5),
   receipt `build/formal-validation-m13.json`, `validation_m13.rs` (35 testes Rust
   no total), guards `m13_composition.mjs`/`m13_composition.test.mjs`/
   `m13_contract.test.mjs` (44 testes Node no total), geração determinística e
-  capítulo `Formal-Spec-M13.tex`. `model_sha256 = 8fcf8cb9…c07463`; receipt
-  `78a94897…d94d3c`.
+  capítulo `Formal-Spec-M13.tex`. `model_sha256 = bd407107…f292b14c`; receipt
+  `7be91301…34cb762`.
 - **Rodada corretiva (M13-CORR-01/02/03):** os seis tipos acadêmicos são
   representados no Alloy e guardados por `checkM13AcademicTypes` (com mutação de
   omissão); a autorização de Posts/Comentários/Roteiros/compartilhamento/Q13 é
@@ -73,7 +73,7 @@ M13 = 0. Registros em
   `spec_ir_sha256` e todos os receipts M0–M12 permaneceram **inalterados**
   (nenhum `model_sha256` antigo mudou).
 - **Gates:** `just formal-check` exit 0 (35 Rust, 44 Node, Alloy PASS, docs-check
-  PASS, stale gate PASS); PDF **457 páginas**, exit 0, zero erros e zero
+  PASS, stale gate PASS); PDF **458 páginas**, exit 0, zero erros e zero
   referências indefinidas, **31 Overfull** (idêntico ao baseline).
 - **Limites:** prova *bounded* (`for 4`/`for 5`) e de lote abstrato para
   ``Limpar tudo''; não certifica `functions/`, `frontend/`, Rules, Auth, Storage,

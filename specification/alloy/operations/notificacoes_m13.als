@@ -199,14 +199,19 @@ pred academico[t: Tipo] {
 }
 
 pred temAlvoValido[s: EstadoM13, n: Notificacao] {
-	(some n.notTurma) or (some n.notPost) or (some n.notComentario)
-	or (some n.notRoteiro) or (some n.notAlmox) or (some n.notEmprestimo)
+	#(n.notTurma + n.notPost + n.notComentario + n.notRoteiro + n.notAlmox
+		+ n.notEmprestimo) = 1
 }
 
 // ---- Caixa única, rotas e navegação -----------------------------------------
 
 pred caixaDe[s: EstadoM13, u: Usuario, n: Notificacao] {
 	n in s.emitidas and n.notDono = u
+}
+
+// Aviso ativo: emitido e não expirado (a expiração retira do conjunto ativo).
+pred ativo[s: EstadoM13, n: Notificacao] {
+	n in s.emitidas and s.notExpira[n] != EVencido
 }
 
 // Rota acadêmica de Post: exige papel `alunos` E vínculo canônico atual (M12).
@@ -312,7 +317,14 @@ pred coerente[s: EstadoM13] {
 		#(n.notTurma + n.notPost + n.notComentario + n.notRoteiro + n.notAlmox
 			+ n.notEmprestimo) = 1 or n in s.alvoInvalido
 	all n: s.emitidas | one n.notOperacao and n.notOperacao in s.operacoes
-	all disj n1, n2: s.emitidas | n1.notOperacao = n2.notOperacao implies n1 = n2
+	// Deduplicação por destinatário: a mesma operação (ou a mesma chave
+	// determinística M8) não notifica o mesmo UID duas vezes, mas pode ter
+	// fan-out para destinatários distintos.
+	all disj n1, n2: s.emitidas |
+		(n1.notDono = n2.notDono and n1.notOperacao = n2.notOperacao) implies n1 = n2
+	all disj n1, n2: s.emitidas |
+		(n1.notDono = n2.notDono and n1.notOperacao.opChave = n2.notOperacao.opChave)
+			implies n1 = n2
 	all disj o1, o2: s.operacoes |
 		(o1.opUid = o2.opUid and o1.opTipo = o2.opTipo and o1.opChave = o2.opChave)
 			implies o1 = o2
@@ -369,6 +381,12 @@ pred emitir[a, b: EstadoM13, n: Notificacao, o: Operacao] {
 	o not in a.operacoes
 	no x: a.operacoes | x.opUid = o.opUid and x.opTipo = o.opTipo and x.opChave = o.opChave
 	n.notOperacao = o
+	n in a.alvoInvalido or temAlvoValido[a, n]
+	no x: a.emitidas | x.notDono = n.notDono and x.notOperacao.opChave = o.opChave
+	academico[n.notTipo] implies one n.notTurma
+	not academico[n.notTipo] implies no n.notTurma
+	n.notTipo = TEscassez implies
+		(a.notExpira[n] = ENulo and no n.notPost and no n.notComentario and no n.notRoteiro)
 	b.emitidas = a.emitidas + n
 	b.alvoInvalido = a.alvoInvalido
 	b.operacoes = a.operacoes + o
@@ -381,7 +399,34 @@ pred emitir[a, b: EstadoM13, n: Notificacao, o: Operacao] {
 	preservaAuditorias[a, b]
 	preservaExpira[a, b]
 	preservaConteudo[a, b]
-	coerente[b]
+}
+
+// Fan-out M7/M8: a mesma operação (mesma identidade/chave) emite para outro
+// destinatário, sem criar nova operação e sem duplicar destinatário.
+pred fanOut[a, b: EstadoM13, n: Notificacao, o: Operacao] {
+	coerente[a]
+	o in a.operacoes
+	n not in a.emitidas
+	n.notOperacao = o
+	no x: a.emitidas | x.notDono = n.notDono and x.notOperacao = o
+	n in a.alvoInvalido or temAlvoValido[a, n]
+	no x: a.emitidas | x.notDono = n.notDono and x.notOperacao.opChave = o.opChave
+	academico[n.notTipo] implies one n.notTurma
+	not academico[n.notTipo] implies no n.notTurma
+	n.notTipo = TEscassez implies
+		(a.notExpira[n] = ENulo and no n.notPost and no n.notComentario and no n.notRoteiro)
+	b.emitidas = a.emitidas + n
+	b.alvoInvalido = a.alvoInvalido
+	b.operacoes = a.operacoes
+	b.notLida = a.notLida ++ n -> False
+	b.notLidaEm = a.notLidaEm ++ n -> False
+	fixo[a, b]
+	preservaClaim[a, b]
+	preservaVinculos[a, b]
+	preservaCompartilhados[a, b]
+	preservaAuditorias[a, b]
+	preservaExpira[a, b]
+	preservaConteudo[a, b]
 }
 
 pred retryEmissao[a, b: EstadoM13, o: Operacao] {
@@ -397,7 +442,6 @@ pred retryEmissao[a, b: EstadoM13, o: Operacao] {
 	preservaExpira[a, b]
 	preservaConteudo[a, b]
 	preservaOperacoes[a, b]
-	coerente[b]
 }
 
 pred falhaEmissao[a, b: EstadoM13, o: Operacao] {
@@ -413,7 +457,6 @@ pred falhaEmissao[a, b: EstadoM13, o: Operacao] {
 	preservaExpira[a, b]
 	preservaConteudo[a, b]
 	preservaOperacoes[a, b]
-	coerente[b]
 }
 
 pred marcarLida[a, b: EstadoM13, u: Usuario, n: Notificacao] {
@@ -431,7 +474,6 @@ pred marcarLida[a, b: EstadoM13, u: Usuario, n: Notificacao] {
 	preservaExpira[a, b]
 	preservaConteudo[a, b]
 	preservaOperacoes[a, b]
-	coerente[b]
 }
 
 pred limparTudo[a, b: EstadoM13, u: Usuario, corte: set Notificacao] {
@@ -443,6 +485,8 @@ pred limparTudo[a, b: EstadoM13, u: Usuario, corte: set Notificacao] {
 	all n: a.emitidas - corte | b.notLidaEm[n] = a.notLidaEm[n]
 	all n: corte | a.notLida[n] = False implies b.notLidaEm[n] = True
 	all n: corte | a.notLida[n] = True implies b.notLidaEm[n] = a.notLidaEm[n]
+	all n: Notificacao - a.emitidas |
+		b.notLida[n] = a.notLida[n] and b.notLidaEm[n] = a.notLidaEm[n]
 	fixo[a, b]
 	preservaClaim[a, b]
 	preservaVinculos[a, b]
@@ -452,7 +496,6 @@ pred limparTudo[a, b: EstadoM13, u: Usuario, corte: set Notificacao] {
 	preservaExpira[a, b]
 	preservaConteudo[a, b]
 	preservaOperacoes[a, b]
-	coerente[b]
 }
 
 pred limparTudoDepoisEmite[a, b, c: EstadoM13, u: Usuario, corte: set Notificacao,
@@ -476,7 +519,6 @@ pred expirar[a, b: EstadoM13, n: Notificacao] {
 	preservaLeitura[a, b]
 	preservaConteudo[a, b]
 	preservaOperacoes[a, b]
-	coerente[b]
 }
 
 pred revogarCompartilhamento[a, b: EstadoM13, u: Usuario, r: Roteiro] {
@@ -492,7 +534,6 @@ pred revogarCompartilhamento[a, b: EstadoM13, u: Usuario, r: Roteiro] {
 	preservaExpira[a, b]
 	preservaConteudo[a, b]
 	preservaOperacoes[a, b]
-	coerente[b]
 }
 
 pred removerVinculo[a, b: EstadoM13, u: Usuario, t: Turma] {
@@ -508,7 +549,6 @@ pred removerVinculo[a, b: EstadoM13, u: Usuario, t: Turma] {
 	preservaExpira[a, b]
 	preservaConteudo[a, b]
 	preservaOperacoes[a, b]
-	coerente[b]
 }
 
 pred atualizarClaim[a, b: EstadoM13, u: Usuario] {
@@ -523,7 +563,6 @@ pred atualizarClaim[a, b: EstadoM13, u: Usuario] {
 	preservaExpira[a, b]
 	preservaConteudo[a, b]
 	preservaOperacoes[a, b]
-	coerente[b]
 }
 
 pred encerrarEscopoQ13[a, b: EstadoM13, aq: AuditoriaQ13] {
@@ -539,7 +578,6 @@ pred encerrarEscopoQ13[a, b: EstadoM13, aq: AuditoriaQ13] {
 	preservaExpira[a, b]
 	preservaConteudo[a, b]
 	preservaOperacoes[a, b]
-	coerente[b]
 }
 
 // ---- Preservação de coerência -----------------------------------------------
@@ -548,7 +586,7 @@ assert TransicoesPreservamCoerencia {
 	all a, b: EstadoM13, n: Notificacao, o: Operacao, u: Usuario, t: Turma,
 			r: Roteiro, aq: AuditoriaQ13, corte: set Notificacao |
 		coerente[a] and
-		(emitir[a, b, n, o] or retryEmissao[a, b, o] or falhaEmissao[a, b, o] or
+		(emitir[a, b, n, o] or fanOut[a, b, n, o] or retryEmissao[a, b, o] or falhaEmissao[a, b, o] or
 		 marcarLida[a, b, u, n] or limparTudo[a, b, u, corte] or
 		 expirar[a, b, n] or revogarCompartilhamento[a, b, u, r] or
 		 removerVinculo[a, b, u, t] or atualizarClaim[a, b, u] or
@@ -609,7 +647,7 @@ assert ExpiracaoDistingueNull {
 }
 assert ExpiradoForaDoAtivo {
 	all a, b: EstadoM13, n: Notificacao |
-		expirar[a, b, n] implies (b.notExpira[n] = EVencido and no removidas[a, b])
+		expirar[a, b, n] implies (not ativo[b, n] and n in b.emitidas and no removidas[a, b])
 }
 
 // ---- RN-M13-04: alvo, deep link e autorização corrente ----------------------
@@ -713,6 +751,11 @@ assert EmissaoMesmaIdentidadeNaoDuplica {
 	all a, b: EstadoM13, o: Operacao |
 		retryEmissao[a, b, o]
 			implies no n: Notificacao | n in b.emitidas and n not in a.emitidas
+}
+assert FanOutNaoDuplicaDestinatario {
+	all a, b: EstadoM13, n: Notificacao, o: Operacao |
+		fanOut[a, b, n, o]
+			implies no x: a.emitidas | x.notDono = n.notDono and x.notOperacao = o
 }
 assert ErroEmissaoNaoViraSucesso {
 	all a, b: EstadoM13, o: Operacao |
@@ -864,6 +907,10 @@ pred EmissaoChaveDistintaEmite {
 		o1.opUid = o2.opUid and o1.opTipo = o2.opTipo and o1.opChave != o2.opChave and
 		emitir[a, b, n1, o1] and emitir[b, c, n2, o2]
 }
+pred WitnessFanOutMesmaOperacao {
+	some a, b, c: EstadoM13, disj n1, n2: Notificacao, o: Operacao |
+		emitir[a, b, n1, o] and fanOut[b, c, n2, o] and n1.notDono != n2.notDono
+}
 pred WitnessErroNaoEmite {
 	some a, b: EstadoM13, o: Operacao |
 		falhaEmissao[a, b, o] and no removidas[a, b] and b.emitidas = a.emitidas
@@ -918,6 +965,7 @@ check ColegaVeAviso for 4
 check AutorVeOriginal for 4
 check AuditorVeOriginal for 4
 check EmissaoMesmaIdentidadeNaoDuplica for 4
+check FanOutNaoDuplicaDestinatario for 4
 check ErroEmissaoNaoViraSucesso for 4
 check ComposicaoM7RetryNaoDuplica for 4
 check IdTurmaAcademicoObrigatorio for 4
@@ -944,6 +992,7 @@ run WitnessChefeComEscopo for 4
 run WitnessEscopoEncerrado for 4
 run WitnessEmissaoUnica for 4
 run EmissaoChaveDistintaEmite for 4
+run WitnessFanOutMesmaOperacao for 4
 run WitnessErroNaoEmite for 4
 run WitnessColegaVeAviso for 4
 run WitnessAutorVeOriginal for 4
