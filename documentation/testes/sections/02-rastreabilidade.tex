@@ -51,6 +51,21 @@ casos passam sob Node 20.19.6, junto de 53/53 testes unitários e da operação
 real \texttt{revogarUsuarioPapel}. A feature \texttt{IMP-ROLE-003} permanece
 \texttt{DIVERGENTE} porque as demais callables não foram migradas.
 
+\subsection{Terceira cadeia executada}
+
+\begin{center}
+Seção 7/M9 (papéis atuais, matriz fechada, projeção assinada)
+$\rightarrow$ \texttt{IMP-ROLE-003} (Etapa A.1)
+$\rightarrow$ \texttt{TEST-INT-M9-AUTH-016--021}
+$\rightarrow$ \nolinkurl{functions/src/__tests__/integration/m9-backend-authority.integration.test.ts}
+$\rightarrow$ PASS Node 20 (25/25 na campanha M9)
+\end{center}
+
+O RED foi executado contra a fundação da Etapa A: cinco casos falharam por não
+ler o conjunto persistido completo; após o endurecimento, todos passam. A
+regressão de integração sob Node 20 ficou em 96 aprovados e 14 falhas legadas
+conhecidas.
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara

@@ -1,0 +1,102 @@
+\section{Evidência de IMP-ROLE-003 --- Etapa A.1 (endurecimento da fundação)}
+
+\textbf{Feature:} \texttt{IMP-ROLE-003} --- autorização persistida no commit.
+
+\textbf{Estado anterior:} \texttt{DIVERGENTE}. A fundação M9 da Etapa A relia
+apenas os documentos de papel afirmados na claim, deixando invisível um papel
+persistido adicional e incompatível.
+
+\textbf{Estado depois:} \texttt{DIVERGENTE}. Esta microcorreção endurece a
+primitiva para ler e validar o conjunto persistido completo. Nenhuma nova
+callable foi migrada e as contagens da matriz não mudam.
+
+\subsection{Lacuna encontrada}
+
+A Seção~7/M9 define que papéis atuais são os documentos de papel cujo
+\texttt{id\_usuario} coincide com o UID, com matriz fechada: Chefe\_Geral é
+exclusivo; Professor e Aluno não coexistem; Bolsista implica Aluno; Bolsista e
+Gestor\_Almoxarifado não coexistem; e estado inconsistente significa negação. A
+primitiva anterior lia somente \texttt{claims.papeis}, de modo que um estado
+persistido como \texttt{Chefe\_Geral + Professor} podia autorizar uma ação de
+Chefia com \texttt{roles=["Chefe\_Geral"]}.
+
+\subsection{Correção}
+
+\path{functions/src/auth.ts}, em
+\texttt{resolverAutoridadePersistidaTx}, agora:
+
+\begin{itemize}
+  \item lê os seis documentos canônicos de papel do UID a partir de
+  \texttt{PAPEIS\_CONHECIDOS} (fonte única), não apenas os da claim;
+  \item exige \texttt{id\_usuario == uid} em todo documento existente;
+  \item executa \texttt{validarMatrizPapeis} sobre o conjunto
+  \textbf{persistido} e converte combinação inválida em \texttt{permission-denied};
+  \item exige que a claim projete \textbf{exatamente} o conjunto persistido na
+  versão corrente (nem subconjunto nem superconjunto);
+  \item só então valida o papel requerido.
+\end{itemize}
+
+\subsection{Casos permanentes e ciclo RED/GREEN}
+
+Novos casos em
+\path{functions/src/__tests__/integration/m9-backend-authority.integration.test.ts}:
+
+\small
+\begin{longtable}{@{}p{0.18\textwidth}p{0.45\textwidth}p{0.1\textwidth}p{0.1\textwidth}@{}}
+\toprule
+ID & Obrigação observada & Antes & Depois \\
+\midrule
+\endhead
+TEST-INT-M9-AUTH-016 & Chefe+Professor persistidos negam (claim só de Chefe) & FAIL & PASS \\
+TEST-INT-M9-AUTH-017 & Professor+Aluno persistidos negam & FAIL & PASS \\
+TEST-INT-M9-AUTH-018 & Bolsista persistido sem Aluno nega & FAIL & PASS \\
+TEST-INT-M9-AUTH-019 & Bolsista+Gestor\_Almoxarifado persistidos negam & FAIL & PASS \\
+TEST-INT-M9-AUTH-020 & Claim incompleta (subconjunto do persistido) nega & FAIL & PASS \\
+TEST-INT-M9-AUTH-021 & Claim superconjunto (papel sem persistência) nega & PASS controle & PASS \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+RED executado contra a fundação da Etapa A: 5 de 6 casos falharam (016--020) e
+021 já negava por documento ausente. Após a correção, todos passam; a campanha
+M9 completa fica em 25/25.
+
+\subsection{Node 20 e regressão}
+
+Evidência final sob Node \textbf{20.19.6} via
+\path{nix shell github:nixos/nixpkgs/nixos-25.05#nodejs_20}
+(\texttt{NODE20\_STRATEGY = TEMPORARY\_NIX\_ONLY}; Home Manager inalterado).
+
+\small
+\begin{longtable}{@{}p{0.52\textwidth}p{0.38\textwidth}@{}}
+\toprule
+Verificação (Node 20.19.6) & Resultado \\
+\midrule
+\endhead
+\texttt{npm run build} & PASS \\
+\texttt{npm run test:unit} & PASS (53/53) \\
+\texttt{TEST-INT-M9-AUTH-*} + \texttt{-OP-*} (emulator) & PASS (25/25) \\
+\texttt{usuarios.integration.test.ts} & PASS (2/2) \\
+\texttt{npm run test:integration} & 96 passam / 14 falham \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+A baseline imediatamente anterior era 90/14; o delta são exatamente os 6 casos
+M9 novos aprovados. As 14 falhas permanecem em \texttt{reagentes} (10),
+\texttt{patrimonio} (2) e \texttt{roteiros} (2); nenhuma falha nova não
+explicada.
+
+\subsection{Pendência externa (não resolvida)}
+
+\texttt{convidarUsuario} ainda executa efeito externo de Firebase Auth
+(\texttt{createUser}) entre a pré-checagem M9 e o commit Firestore. Se a
+autoridade mudar nesse intervalo, o commit Firestore é revalidado e negado, mas
+uma identidade Auth pode já existir. Essa é uma divergência conhecida de
+\texttt{IMP-ROLE-003}, que toca M7/outbox e \texttt{IMP-ROLE-001/002}, e
+permanece como fatia futura; não foi silenciosamente absorvida nesta
+microcorreção.
+
+\textbf{Estado final:} \texttt{IMP-ROLE-003} continua \texttt{DIVERGENTE}. A
+fundação agora é confiável para crescer: valida conjunto persistido completo,
+matriz normativa e coerência claim/persistência.
