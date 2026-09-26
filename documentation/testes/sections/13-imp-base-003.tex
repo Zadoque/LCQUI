@@ -1,0 +1,72 @@
+\section{Evidência de IMP-BASE-003 (Matérias: criação e edição)}
+
+\textbf{Feature:} \texttt{IMP-BASE-003} --- Matérias.
+
+\textbf{Estado anterior:} \texttt{DIVERGENTE}. Só existia criação; a unicidade era
+consulta prévia sem chave canônica, não havia canonicalização de código, a
+autorização confiava apenas no JWT e não havia edição nem propagação de projeção.
+
+\textbf{Estado depois:} \texttt{DIVERGENTE}. O backend foi convergido; falta a UI
+de edição/detalhe no frontend.
+
+\subsection{Contrato}
+
+Fontes: Seção~8/UI-03 (nome 100, código 10, não vazios; normalizar código e
+verificar unicidade transacional; editar mantém ID e atualiza projeções, sem
+recriar turmas; Chefe e Professor), Seção~9/MAT-01, Seção~5 (denormalização
+\texttt{Turma.nome\_materia}) e Seção~7/M9.
+
+\subsection{Mudança}
+
+\begin{itemize}
+  \item \path{functions/src/materias.ts}: \texttt{criarMateria} dá lugar a
+  \texttt{gerenciarMateria} (\texttt{CRIAR}/\texttt{EDITAR}) com
+  \texttt{N(s)=s.trim().toUpperCase()}, unicidade transacional em
+  \texttt{Chaves\_Unicas/Materia\_\_N}, autoridade M9 persistida
+  (\texttt{Professor} ou \texttt{Chefe\_Geral}) e atualização da projeção
+  \texttt{Turma.nome\_materia} por \texttt{id\_materia};
+  \item \path{functions/src/schemas/materias.schema.ts}: schema discriminado por
+  \texttt{acao} com limites de UI-03;
+  \item \path{firestore.rules}: \texttt{Materia} passa a \texttt{write: false}
+  (server-owned);
+  \item \path{frontend/src/components/materias/NovaMateriaModal.tsx}: passa a
+  chamar \texttt{gerenciarMateria} com \texttt{acao:"CRIAR"}.
+\end{itemize}
+
+\subsection{TDD}
+
+RED contra o comportamento anterior (JWT-only, sem canonicalização/Chaves, sem
+edição): 6 de 8 casos falharam (\texttt{001}, \texttt{002}, \texttt{004},
+\texttt{005}, \texttt{007}, \texttt{008}). GREEN sob Node 20.19.6.
+
+\small
+\begin{longtable}{@{}p{0.26\textwidth}p{0.55\textwidth}@{}}
+\toprule
+ID & Obrigação observada \\
+\midrule
+\endhead
+TEST-INT-MAT-001 & Cria, reserva \texttt{Chaves\_Unicas}, grava autoria \\
+TEST-INT-MAT-002 & Código normalizado em uso nega e não duplica \\
+TEST-INT-MAT-003 & Criação concorrente do mesmo código: um efeito \\
+TEST-INT-MAT-004 & Editar mantém ID e atualiza \texttt{Turma.nome\_materia} \\
+TEST-INT-MAT-005 & Trocar código reserva nova chave e libera a antiga \\
+TEST-INT-MAT-006 & Aluno sem papel autorizado nega \\
+TEST-INT-MAT-007 & Token com versão obsoleta nega \\
+TEST-INT-MAT-008 & Professor inativo nega \\
+TEST-RULES-MATERIA-001 & Autoridade lê o catálogo \\
+TEST-RULES-MATERIA-002 & Professor não cria direto \\
+TEST-RULES-MATERIA-003 & Chefe não escreve direto (server-owned) \\
+TEST-RULES-MATERIA-004 & Não autenticado não lê \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\subsection{Regressão e pendência}
+
+Sob Node 20.19.6: \texttt{build} PASS; \texttt{test:unit} PASS (71/71);
+integração completa 125 passam / 14 falham (14 legadas em reagentes/patrimônio/
+roteiros); Rules 73/73. Verificação de tipos do frontend
+(\texttt{tsc --noEmit}) PASS.
+
+Falta a UI de edição/detalhe de matéria (não há listagem/edição hoje); por isso
+\texttt{IMP-BASE-003} permanece \texttt{DIVERGENTE}.
