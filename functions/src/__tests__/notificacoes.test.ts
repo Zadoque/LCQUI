@@ -5,11 +5,18 @@ process.env.FUNCTIONS_EMULATOR = "true";
 
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
+import { CallableRequest } from "firebase-functions/v2/https";
 import { marcarNotificacaoComoLida } from "../notificacoes";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
-describe("Módulo de Notificações", () => {
+let contador = 0;
+function uidUnico(prefixo: string): string {
+  contador += 1;
+  return `${prefixo}_${Date.now()}_${contador}`;
+}
+
+describe("Módulo de Notificações (M9 + server-owned)", () => {
   let db: admin.firestore.Firestore;
 
   beforeAll(() => {
@@ -23,33 +30,97 @@ describe("Módulo de Notificações", () => {
     testEnv.cleanup();
   });
 
-  const mockRequest = (data: any, uid: string): any => ({
-    data,
-    auth: {
-      uid,
-      token: { roles: [] }
-    },
-    rawRequest: {}
-  });
+  const mockRequest = (data: unknown, uid: string | undefined, versao = 1): CallableRequest =>
+    ({
+      data,
+      auth: uid === undefined ? undefined : { uid, token: { roles: ["Aluno"], versao_permissoes: versao } },
+      rawRequest: {},
+    }) as unknown as CallableRequest;
 
-  it("deve marcar notificação como lida", async () => {
-    const notifRef = db.collection("Usuarios").doc("user_notif").collection("Notificacoes").doc("notif1");
-    await notifRef.set({
-      lida: false,
-      tipo: "POST"
-    });
+  async function semear(
+    uid: string,
+    opcoes: { ativo?: boolean; versao?: number; comPapel?: boolean } = {}
+  ): Promise<void> {
+    const { ativo = true, versao = 1, comPapel = true } = opcoes;
+    await db.collection("Usuarios").doc(uid).set({ ativo, versao_permissoes: versao });
+    if (comPapel) await db.collection("Aluno").doc(uid).set({ id_usuario: uid });
+  }
+
+  it("TEST-INT-NOTIF-M9-001 — dono ativo e corrente marca como lida", async () => {
+    const uid = uidUnico("notif_ok");
+    await semear(uid);
+    const ref = db.collection("Usuarios").doc(uid).collection("Notificacoes").doc("n1");
+    await ref.set({ lida: false, tipo: "POST" });
 
     const wrapped = testEnv.wrap(marcarNotificacaoComoLida);
-    await wrapped(mockRequest({ idNotificacao: "notif1" }, "user_notif"));
+    const resultado = await wrapped(mockRequest({ idNotificacao: "n1" }, uid));
 
-    const snap = await notifRef.get();
+    expect(resultado).toEqual({ success: true });
+    const snap = await ref.get();
     expect(snap.data()?.lida).toBe(true);
     expect(snap.data()?.lida_em).toBeDefined();
   });
 
-  it("deve falhar ao marcar notificação inexistente como lida", async () => {
+  it("TEST-INT-NOTIF-M9-002 — não autenticado nega", async () => {
     const wrapped = testEnv.wrap(marcarNotificacaoComoLida);
-    await expect(wrapped(mockRequest({ idNotificacao: "nao_existe" }, "user_notif")))
-      .rejects.toThrow(/não encontrada/i);
+    await expect(wrapped(mockRequest({ idNotificacao: "n1" }, undefined))).rejects.toMatchObject({
+      code: "unauthenticated",
+    });
+  });
+
+  it("TEST-INT-NOTIF-M9-003 — usuário inativo nega e não altera a notificação", async () => {
+    const uid = uidUnico("notif_inativo");
+    await semear(uid, { ativo: false });
+    const ref = db.collection("Usuarios").doc(uid).collection("Notificacoes").doc("n1");
+    await ref.set({ lida: false, tipo: "POST" });
+
+    const wrapped = testEnv.wrap(marcarNotificacaoComoLida);
+    await expect(wrapped(mockRequest({ idNotificacao: "n1" }, uid))).rejects.toMatchObject({
+      code: "permission-denied",
+    });
+    expect((await ref.get()).data()?.lida).toBe(false);
+  });
+
+  it("TEST-INT-NOTIF-M9-004 — token com versão obsoleta nega", async () => {
+    const uid = uidUnico("notif_obsoleto");
+    await semear(uid, { versao: 5 });
+    await db.collection("Usuarios").doc(uid).collection("Notificacoes").doc("n1").set({ lida: false });
+    const wrapped = testEnv.wrap(marcarNotificacaoComoLida);
+    await expect(wrapped(mockRequest({ idNotificacao: "n1" }, uid, 4))).rejects.toMatchObject({
+      code: "permission-denied",
+    });
+  });
+
+  it("TEST-INT-NOTIF-M9-005 — claim de papel sem concessão persistida nega", async () => {
+    const uid = uidUnico("notif_sem_papel");
+    await semear(uid, { comPapel: false });
+    await db.collection("Usuarios").doc(uid).collection("Notificacoes").doc("n1").set({ lida: false });
+    const wrapped = testEnv.wrap(marcarNotificacaoComoLida);
+    await expect(wrapped(mockRequest({ idNotificacao: "n1" }, uid))).rejects.toMatchObject({
+      code: "permission-denied",
+    });
+  });
+
+  it("TEST-INT-NOTIF-M9-006 — repetir preserva o lida_em (instante estável)", async () => {
+    const uid = uidUnico("notif_idem");
+    await semear(uid);
+    const ref = db.collection("Usuarios").doc(uid).collection("Notificacoes").doc("n1");
+    await ref.set({ lida: false, tipo: "POST" });
+    const wrapped = testEnv.wrap(marcarNotificacaoComoLida);
+
+    await wrapped(mockRequest({ idNotificacao: "n1" }, uid));
+    const primeiro = (await ref.get()).data()?.lida_em.toMillis();
+    await wrapped(mockRequest({ idNotificacao: "n1" }, uid));
+    const segundo = (await ref.get()).data()?.lida_em.toMillis();
+    expect(segundo).toBe(primeiro);
+  });
+
+  it("TEST-INT-NOTIF-M9-007 — notificação inexistente nega", async () => {
+    const uid = uidUnico("notif_ausente");
+    await semear(uid);
+    const wrapped = testEnv.wrap(marcarNotificacaoComoLida);
+    await expect(wrapped(mockRequest({ idNotificacao: "nao_existe" }, uid))).rejects.toMatchObject({
+      code: "not-found",
+    });
   });
 });
