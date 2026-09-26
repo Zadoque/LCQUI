@@ -64,9 +64,10 @@ export function extrairClaimsAutoridade(request: CallableRequest): ClaimsAutorid
 
 /**
  * Núcleo M9: resolve a autoridade PERSISTIDA de forma transacional.
- * Lê, na mesma transação do efeito, Usuário ativo, versão corrente e os
- * documentos de papel do UID. A claim só participa quando a versão coincide e
- * os papéis por ela afirmados têm concessão persistida. Falha fechada.
+ * Lê, na mesma transação do efeito, Usuário ativo, versão corrente e TODOS os
+ * documentos canônicos de papel do UID (não apenas os afirmados na claim).
+ * A matriz normativa de combinações é validada sobre o conjunto persistido e a
+ * claim precisa projetar exatamente esse conjunto. Falha fechada.
  */
 export async function resolverAutoridadePersistidaTx(
   tx: admin.firestore.Transaction,
@@ -75,7 +76,7 @@ export async function resolverAutoridadePersistidaTx(
 ): Promise<AutoridadePersistida> {
   const db = admin.firestore();
   const usuarioRef = db.collection("Usuarios").doc(claims.uid);
-  const refsPorPapel = claims.papeis.map((papel) => db.collection(papel).doc(claims.uid));
+  const refsPorPapel = PAPEIS_CONHECIDOS.map((papel) => db.collection(papel).doc(claims.uid));
   const snaps = await tx.getAll(usuarioRef, ...refsPorPapel);
   const usuarioSnap = snaps[0];
 
@@ -94,17 +95,36 @@ export async function resolverAutoridadePersistidaTx(
     throw new HttpsError("permission-denied", "Permissões desatualizadas. Faça login novamente.");
   }
 
+  // Todo documento de papel existente entra no conjunto persistido, mesmo que a
+  // claim não o afirme; id_usuario precisa coincidir com o UID.
   const papeisPersistidos: PapelConhecido[] = [];
-  claims.papeis.forEach((papel, indice) => {
+  PAPEIS_CONHECIDOS.forEach((papel, indice) => {
     const snap = snaps[indice + 1];
-    if (!snap.exists) {
-      throw new HttpsError("permission-denied", "Claim de papel sem concessão persistida.");
-    }
+    if (!snap.exists) return;
     if (snap.data()?.id_usuario !== claims.uid) {
       throw new HttpsError("permission-denied", "Documento de papel com UID incompatível.");
     }
     papeisPersistidos.push(papel);
   });
+
+  // Matriz normativa de combinações (Chefe exclusivo; Professor/Aluno; Bolsista
+  // implica Aluno; Bolsista/Gestor_Almoxarifado). Combinação inválida nega.
+  try {
+    validarMatrizPapeis([...papeisPersistidos]);
+  } catch (erro) {
+    const motivo = erro instanceof HttpsError ? erro.message : "Matriz de papéis persistida inválida.";
+    throw new HttpsError("permission-denied", motivo);
+  }
+
+  // A claim é projeção assinada: precisa projetar exatamente o conjunto
+  // persistido na versão corrente (nem subconjunto nem superconjunto).
+  const conjuntoClaim = new Set<string>(claims.papeis);
+  if (
+    conjuntoClaim.size !== papeisPersistidos.length ||
+    papeisPersistidos.some((papel) => !conjuntoClaim.has(papel))
+  ) {
+    throw new HttpsError("permission-denied", "Claims de papel inconsistentes com o estado persistido.");
+  }
 
   const papelAutorizado = papeisRequeridos.find((papel) => papeisPersistidos.includes(papel));
   if (!papelAutorizado) {
