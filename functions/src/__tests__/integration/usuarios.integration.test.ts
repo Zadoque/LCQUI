@@ -27,9 +27,15 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
     data,
     auth: {
       uid,
-      token: { roles }
+      token: { roles, versao_permissoes: 1 }
     },
     rawRequest: {}
+  });
+
+  // M9: o ator exige autoridade persistida (Usuarios ativo + documento de papel).
+  beforeEach(async () => {
+    await db.collection("Usuarios").doc("chefe123").set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Chefe_Geral").doc("chefe123").set({ id_usuario: "chefe123" });
   });
 
   it("deve bloquear a atribuição de Professor para um usuário que já é Aluno, sem poluir Firestore", async () => {
