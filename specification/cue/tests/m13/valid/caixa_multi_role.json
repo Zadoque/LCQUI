@@ -1,0 +1,41 @@
+{
+  "uid": "u-multi-1",
+  "papel_visual": "Aluno",
+  "papel_visual_filtra_caixa": false,
+  "notificacoes": [
+    {
+      "uid": "u-multi-1",
+      "id": "n-bolsa",
+      "id_destinatario": "u-multi-1",
+      "papel_destinatario": "Bolsista",
+      "tipo": "DATA_DEVOLUCAO_REAGENTE",
+      "id_quem_fez_acao": "u-prof-1",
+      "id_turma": null,
+      "quantidade": null,
+      "entidade_alvo": "Emprestimo",
+      "id_alvo": "e-1",
+      "lida": false,
+      "lida_em": null,
+      "emitida_em": "2026-09-26 10:00:00",
+      "expira_em": null,
+      "contem_conteudo_protegido": false
+    },
+    {
+      "uid": "u-multi-1",
+      "id": "n-post",
+      "id_destinatario": "u-multi-1",
+      "papel_destinatario": "Aluno",
+      "tipo": "COMENTARIO",
+      "id_quem_fez_acao": "u-prof-1",
+      "id_turma": "t-1",
+      "quantidade": null,
+      "entidade_alvo": "Comentario",
+      "id_alvo": "c-1",
+      "lida": false,
+      "lida_em": null,
+      "emitida_em": "2026-09-26 10:00:00",
+      "expira_em": null,
+      "contem_conteudo_protegido": false
+    }
+  ]
+}

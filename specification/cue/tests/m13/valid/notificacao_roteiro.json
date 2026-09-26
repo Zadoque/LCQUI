@@ -1,0 +1,17 @@
+{
+  "uid": "u-prof-2",
+  "id": "rot-1",
+  "id_destinatario": "u-prof-2",
+  "papel_destinatario": "Professor",
+  "tipo": "ROTEIRO_COMPARTILHADO",
+  "id_quem_fez_acao": "u-prof-1",
+  "id_turma": null,
+  "quantidade": 1,
+  "entidade_alvo": "Roteiro",
+  "id_alvo": "r-1",
+  "lida": false,
+  "lida_em": null,
+  "emitida_em": "2026-09-26 10:00:00",
+  "expira_em": null,
+  "contem_conteudo_protegido": false
+}

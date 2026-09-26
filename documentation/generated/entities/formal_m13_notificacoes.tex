@@ -1,0 +1,55 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{M13\_Notificacao\_Unificada --- formalização executável M13}
+Shapes estruturais da entidade única Notificacao (caixa, leitura, marcação, Limpar tudo, alvo, expiração, emissão idempotente e operação) com enums fechados de tipo/papel/alvo, nulabilidade, condicionais (lida/lida\_em, id\_turma acadêmico vs operacional, payload mínimo, expiração nula em ESCASSEZ\_ESTOQUE) e limites. CUE verifica estrutura, enums e condicionais; caixa única por UID, papel visual, marcação e Limpar tudo paginado/reentrante com corte estável, expiração, alvo/deep link com revalidação corrente, privacidade e deduplicação são verificados em Alloy; a canonicalização determinística da identidade de emissão por Rust. CUE não prova concorrência, autorização nem a implementação Firebase.
+\begin{description}
+\item[uid] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+UID do caminho do documento; coincide com id\_destinatario.
+\item[id] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+docId server-owned; não duplicar como contador relacional.
+\item[id\_destinatario] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Destinatário autenticado; igual ao uid do caminho.
+\item[papel\_destinatario] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: Aluno, Professor, Bolsista, Gestor\_Bens\_Patrimoniais, Gestor\_Almoxarifado, Chefe\_Geral.
+Contexto de apresentação; não concede papel.
+\item[tipo] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: ADICIONADO, POST, COMENTARIO, REMOVIDO, TURMA\_ARQUIVADA, TURMA\_DESARQUIVADA, REQUISICAO\_BEM, DATA\_DEVOLUCAO\_REAGENTE, ROTEIRO\_COMPARTILHADO, REQUISICAO\_EDICAO\_BEM, REQUISICAO\_ADICAO\_BEM, BEM\_INSERVIVEL, ENTREGA\_ATRASADA, FRASCOS\_VAZIOS, FRASCOS\_QUEBRADOS, FRASCOS\_VENCIDOS, FRASCOS\_A\_SEREM\_PESADOS, FRASCOS\_EM\_QUARENTENA, ESCASSEZ\_ESTOQUE, AUTO\_ATENDIMENTO\_RETIRADA.
+\item[id\_quem\_fez\_acao] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TEXT.
+\item[id\_turma] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TEXT.
+Obrigatório nos tipos acadêmicos e nulo nos operacionais (RN-M13-07).
+\item[quantidade] Tipo: int. Obrigatório: sim. Aceita nulo: sim.
+SQL: INTEGER.
+\item[entidade\_alvo] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: Turma, Post, Comentario, Roteiro, Almoxarifado, Emprestimo, Usuario, Requisicao\_Bem, Bem\_Patrimonial.
+Rota conhecida; nunca URL arbitrária.
+\item[id\_alvo] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Identificador do recurso; acesso revalidado ao abrir.
+\item[lida] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+\item[lida\_em] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TIMESTAMP.
+\item[emitida\_em] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TIMESTAMP.
+\item[expira\_em] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TIMESTAMP.
+NULL em ESCASSEZ\_ESTOQUE; sem expiração automática.
+\item[contem\_conteudo\_protegido] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
+SQL: BOOLEAN.
+Sempre false: payload mínimo.
+\item[chave\_dedup] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+Identidade M7 ou chave determinística M8 da emissão.
+\item[id\_operacao] Tipo: string. Obrigatório: sim. Aceita nulo: não.
+SQL: TEXT.
+\item[tipo\_operacao] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
+SQL: ENUM.
+Valores: EMITIR\_NOTIFICACAO.
+\end{description}

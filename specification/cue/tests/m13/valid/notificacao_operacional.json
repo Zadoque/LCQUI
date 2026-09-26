@@ -1,0 +1,17 @@
+{
+  "uid": "u-gestor-1",
+  "id": "esc-1",
+  "id_destinatario": "u-gestor-1",
+  "papel_destinatario": "Gestor_Almoxarifado",
+  "tipo": "ESCASSEZ_ESTOQUE",
+  "id_quem_fez_acao": null,
+  "id_turma": null,
+  "quantidade": 3,
+  "entidade_alvo": "Almoxarifado",
+  "id_alvo": "a-1",
+  "lida": true,
+  "lida_em": "2026-09-26 11:00:00",
+  "emitida_em": "2026-09-26 10:00:00",
+  "expira_em": null,
+  "contem_conteudo_protegido": false
+}

@@ -13,6 +13,7 @@ mod validation_m11;
 mod validation_m12;
 mod validation_m12_1;
 mod validation_m12_2;
+mod validation_m13;
 mod validation_m2;
 mod validation_m24;
 mod validation_m3;
@@ -161,6 +162,73 @@ fn m12_2_exemplo_valido(ir: &ir::Ir) -> bool {
     }
 }
 
+/// Invariante concreto de M13: o exemplo do IR deve respeitar a coerência
+/// `lida=false => lida_em=null`, `id_destinatario == uid`, `id_turma` em tipo
+/// acadêmico e payload sem conteúdo protegido. Liga os shapes CUE à
+/// proveniência gerada sem backend.
+fn m13_exemplo_valido(ir: &ir::Ir) -> bool {
+    let Some(entity) = ir
+        .entidades
+        .iter()
+        .find(|e| e.arquivo == "formal_m13_notificacoes")
+    else {
+        return false;
+    };
+    let texto = |k: &str| entity.exemplo.get(k).and_then(|v| v.as_str());
+    let lida = entity.exemplo.get("lida").and_then(|v| v.as_bool());
+    let lida_em = entity.exemplo.get("lida_em");
+    let sem_conteudo = entity
+        .exemplo
+        .get("contem_conteudo_protegido")
+        .and_then(|v| v.as_bool());
+    match (
+        texto("uid"),
+        texto("id_destinatario"),
+        texto("tipo"),
+        texto("id_turma"),
+        texto("entidade_alvo"),
+        lida,
+        lida_em,
+        sem_conteudo,
+    ) {
+        (
+            Some(uid),
+            Some(dest),
+            Some(tipo),
+            Some(turma),
+            Some(alvo),
+            Some(false),
+            Some(serde_json::Value::Null),
+            Some(false),
+        ) => {
+            uid == dest
+                && !turma.is_empty()
+                && matches!(
+                    tipo,
+                    "COMENTARIO"
+                        | "POST"
+                        | "ADICIONADO"
+                        | "REMOVIDO"
+                        | "TURMA_ARQUIVADA"
+                        | "TURMA_DESARQUIVADA"
+                )
+                && matches!(
+                    alvo,
+                    "Turma"
+                        | "Post"
+                        | "Comentario"
+                        | "Roteiro"
+                        | "Almoxarifado"
+                        | "Emprestimo"
+                        | "Usuario"
+                        | "Requisicao_Bem"
+                        | "Bem_Patrimonial"
+                )
+        }
+        _ => false,
+    }
+}
+
 fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let raw = fs::read(root.join("build/spec-ir.json"))?;
     let results = fs::read(root.join("build/formal-validation.json"))?;
@@ -178,6 +246,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let results_m12_1 = fs::read(root.join("build/formal-validation-m12-1.json"))?;
     let results_m12_2 = fs::read(root.join("build/formal-validation-m12-2.json"))?;
     let results_m12 = fs::read(root.join("build/formal-validation-m12.json"))?;
+    let results_m13 = fs::read(root.join("build/formal-validation-m13.json"))?;
     let ir = ir::parse(&raw)?;
     let v: validation::Validation = serde_json::from_slice(&results)?;
     let v2: validation_m2::ValidationM2 = serde_json::from_slice(&results_m2)?;
@@ -194,6 +263,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let v12_1: validation_m12_1::ValidationM12_1 = serde_json::from_slice(&results_m12_1)?;
     let v12_2: validation_m12_2::ValidationM12_2 = serde_json::from_slice(&results_m12_2)?;
     let v12: validation_m12::ValidationM12 = serde_json::from_slice(&results_m12)?;
+    let v13: validation_m13::ValidationM13 = serde_json::from_slice(&results_m13)?;
     let identity = fs::read(root.join("specification/alloy/reagents/bottle_identity.als"))?;
     let state = fs::read(root.join("specification/alloy/reagents/bottle_state.als"))?;
     let withdrawal = fs::read(root.join(validation_m24::ORIGINS[0]))?;
@@ -210,6 +280,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
     let m12_1_model = fs::read(root.join(validation_m12_1::MODEL))?;
     let m12_2_model = fs::read(root.join(validation_m12_2::MODEL))?;
     let m12_model = fs::read(root.join(validation_m12::MODEL))?;
+    let m13_model = fs::read(root.join(validation_m13::MODEL))?;
     let m4_origins = validation_m4::ORIGINS.map(|p| fs::read(root.join(p)).unwrap());
     if !ir.valid()
         || !ir.provenance_ok()
@@ -229,10 +300,22 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
         || !v12_1.check(&raw, &m12_1_model)
         || !v12_2.check(&raw, &m12_2_model)
         || !v12.check(&raw, &m12_model, [&m12_1_model, &m12_2_model])
+        || !v13.check(
+            &raw,
+            &m13_model,
+            [
+                &fs::read(root.join(validation_m13::ORIGINS[0]))?,
+                &fs::read(root.join(validation_m13::ORIGINS[1]))?,
+                &fs::read(root.join(validation_m13::ORIGINS[2]))?,
+                &fs::read(root.join(validation_m13::ORIGINS[3]))?,
+                &fs::read(root.join(validation_m13::ORIGINS[4]))?,
+            ],
+        )
         || !m10_plaqueta_canonica(&ir)
         || !m11_exemplo_valido(&ir)
         || !m12_1_exemplo_valido(&ir)
         || !m12_2_exemplo_valido(&ir)
+        || !m13_exemplo_valido(&ir)
     {
         return Err("IR ou validação inválida/stale; execute alloy-check".into());
     }
@@ -265,6 +348,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
         render::render_m12_2(&v12_2),
     );
     files.insert("invariants/formal_m12.tex".into(), render::render_m12(&v12));
+    files.insert("invariants/formal_m13.tex".into(), render::render_m13(&v13));
     let entries: BTreeMap<_, _> = files
         .iter()
         .map(|(name, text)| (name.clone(), hash(text.as_bytes())))
@@ -287,6 +371,7 @@ fn generated(root: &Path) -> Fallible<BTreeMap<String, String>> {
         "formal_validation_m12_1_sha256": hash(&results_m12_1),
         "formal_validation_m12_2_sha256": hash(&results_m12_2),
         "formal_validation_m12_sha256": hash(&results_m12),
+        "formal_validation_m13_sha256": hash(&results_m13),
         "files": entries,
     });
     files.insert(
@@ -428,6 +513,10 @@ mod tests {
                 "formal_validation_m12_sha256",
                 "build/formal-validation-m12.json",
             ),
+            (
+                "formal_validation_m13_sha256",
+                "build/formal-validation-m13.json",
+            ),
         ] {
             assert_eq!(manifest[key], hash(&fs::read(root.join(path)).unwrap()));
         }
@@ -454,6 +543,7 @@ mod tests {
             "invariants/formal_m12_1.tex",
             "invariants/formal_m12_2.tex",
             "invariants/formal_m12.tex",
+            "invariants/formal_m13.tex",
         ] {
             assert!(outputs.contains_key(name), "saída ausente: {name}");
         }

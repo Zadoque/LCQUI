@@ -1,0 +1,10 @@
+{
+  "id_notificacao": "n1",
+  "uid": "u1",
+  "id_destinatario": "u1",
+  "lida_antes": false,
+  "lida_em_antes": null,
+  "lida_depois": true,
+  "lida_em_depois": "2026-09-26 10:00:00",
+  "usa_delete": false
+}

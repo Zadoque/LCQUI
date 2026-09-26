@@ -1,0 +1,12 @@
+{
+  "id_operacao": "op-1",
+  "uid": "u1",
+  "tipo": "POST",
+  "entidade_alvo": "Post",
+  "id_alvo": "p-1",
+  "chave_dedup": "op-1",
+  "destinatario": "u2",
+  "status": "DUPLICADA",
+  "criou_notificacao": false,
+  "erro_propagado": false
+}

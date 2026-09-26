@@ -1,0 +1,17 @@
+{
+  "uid": "u-aluno-1",
+  "id": "n-1",
+  "id_destinatario": "u-aluno-1",
+  "papel_destinatario": "Aluno",
+  "tipo": "POST",
+  "id_quem_fez_acao": "u-prof-1",
+  "id_turma": "t-1",
+  "quantidade": null,
+  "entidade_alvo": "Post",
+  "id_alvo": "p-1",
+  "lida": true,
+  "lida_em": null,
+  "emitida_em": "2026-09-26 10:00:00",
+  "expira_em": null,
+  "contem_conteudo_protegido": false
+}

@@ -1,0 +1,354 @@
+{
+  "versao": 1,
+  "alloy": "6.2.0",
+  "solver": "sat4j",
+  "spec_ir_sha256": "9f2bf7226eddabd9731a4b14302b78e71667d007466bffbc8f455c27a36fd579",
+  "model": "specification/alloy/operations/notificacoes_m13.als",
+  "model_sha256": "e5d6bd0f95adc711cb391949b7048a981d89039bf527d5e818ffbdfe02078625",
+  "origens": [
+    {
+      "model": "specification/alloy/operations/posts_m12_1.als",
+      "model_sha256": "0bf637944ae109a2f076ba200dc120751bbdf62b017dcb17fbebfa370bd5c1e8"
+    },
+    {
+      "model": "specification/alloy/operations/authorization_m9.als",
+      "model_sha256": "ddd4db6fc9ecfc055cdbca89660fac974b3bb368a4d876311470c998148ac7cb"
+    },
+    {
+      "model": "specification/alloy/operations/idempotency_m7.als",
+      "model_sha256": "9b68d044e48eb5747b09b30f70759c2c877a2a8423875b26129f3f4aa1612dc3"
+    },
+    {
+      "model": "specification/alloy/reagents/stock_cache_scarcity_m8.als",
+      "model_sha256": "1602610494353930990dfbc08c7c2265b754dfa88763f632338e69c434cc1b3c"
+    },
+    {
+      "model": "specification/alloy/operations/roteiros_m12_2.als",
+      "model_sha256": "19ca6ca07d294c3513e6adfd0adf444eb54eb0565121c8641d0ce0e634355436"
+    }
+  ],
+  "resultados": [
+    {
+      "id": "M13-INV-001",
+      "assertion": "TransicoesPreservamCoerencia",
+      "tipo": "check",
+      "scope": "check TransicoesPreservamCoerencia for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-002",
+      "assertion": "NaoLeCaixaAlheia",
+      "tipo": "check",
+      "scope": "check NaoLeCaixaAlheia for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-003",
+      "assertion": "PapelVisualNaoFiltraCaixa",
+      "tipo": "check",
+      "scope": "check PapelVisualNaoFiltraCaixa for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-004",
+      "assertion": "BolsistaVeCaixa",
+      "tipo": "check",
+      "scope": "check BolsistaVeCaixa for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-005",
+      "assertion": "PapelVisualNaoConcedeRecurso",
+      "tipo": "check",
+      "scope": "check PapelVisualNaoConcedeRecurso for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-006",
+      "assertion": "MarcarSoProprias",
+      "tipo": "check",
+      "scope": "check MarcarSoProprias for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-007",
+      "assertion": "MarcaIdempotente",
+      "tipo": "check",
+      "scope": "check MarcaIdempotente for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-008",
+      "assertion": "LoteSoProprias",
+      "tipo": "check",
+      "scope": "check LoteSoProprias for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-009",
+      "assertion": "SemDelete",
+      "tipo": "check",
+      "scope": "check SemDelete for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-010",
+      "assertion": "LimparTudoCorteEstavel",
+      "tipo": "check",
+      "scope": "check LimparTudoCorteEstavel for 5",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-011",
+      "assertion": "MarcaNaoReverte",
+      "tipo": "check",
+      "scope": "check MarcaNaoReverte for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-012",
+      "assertion": "ExpiracaoDistingueNull",
+      "tipo": "check",
+      "scope": "check ExpiracaoDistingueNull for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-013",
+      "assertion": "ExpiradoForaDoAtivo",
+      "tipo": "check",
+      "scope": "check ExpiradoForaDoAtivo for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-014",
+      "assertion": "AlvoInvalidoNaoNavega",
+      "tipo": "check",
+      "scope": "check AlvoInvalidoNaoNavega for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-015",
+      "assertion": "UrlArbitrariaNaoNavega",
+      "tipo": "check",
+      "scope": "check UrlArbitrariaNaoNavega for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-016",
+      "assertion": "AlertaNaoContornaAcl",
+      "tipo": "check",
+      "scope": "check AlertaNaoContornaAcl for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-017",
+      "assertion": "RevogacaoCortaClique",
+      "tipo": "check",
+      "scope": "check RevogacaoCortaClique for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-018",
+      "assertion": "VinculoCanonicoRequerido",
+      "tipo": "check",
+      "scope": "check VinculoCanonicoRequerido for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-019",
+      "assertion": "ObjetoRemovidoNaoNavega",
+      "tipo": "check",
+      "scope": "check ObjetoRemovidoNaoNavega for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-020",
+      "assertion": "ChefeSemEscopoNaoAcessa",
+      "tipo": "check",
+      "scope": "check ChefeSemEscopoNaoAcessa for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-021",
+      "assertion": "NotificacaoNaoExpoeOriginal",
+      "tipo": "check",
+      "scope": "check NotificacaoNaoExpoeOriginal for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-022",
+      "assertion": "EmissaoMesmaIdentidadeNaoDuplica",
+      "tipo": "check",
+      "scope": "check EmissaoMesmaIdentidadeNaoDuplica for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-023",
+      "assertion": "ErroEmissaoNaoViraSucesso",
+      "tipo": "check",
+      "scope": "check ErroEmissaoNaoViraSucesso for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-024",
+      "assertion": "ComposicaoM7RetryNaoDuplica",
+      "tipo": "check",
+      "scope": "check ComposicaoM7RetryNaoDuplica for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-025",
+      "assertion": "IdTurmaAcademicoObrigatorio",
+      "tipo": "check",
+      "scope": "check IdTurmaAcademicoObrigatorio for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-026",
+      "assertion": "IdTurmaOperacionalNulo",
+      "tipo": "check",
+      "scope": "check IdTurmaOperacionalNulo for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-027",
+      "assertion": "PonteM9ExigeAuth",
+      "tipo": "check",
+      "scope": "check PonteM9ExigeAuth for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-INV-028",
+      "assertion": "PonteM12NaoAfrouxaAcl",
+      "tipo": "check",
+      "scope": "check PonteM12NaoAfrouxaAcl for 4",
+      "status": "UNSAT"
+    },
+    {
+      "id": "M13-WIT-029",
+      "assertion": "WitnessCaixaMultiRole",
+      "tipo": "run",
+      "scope": "run WitnessCaixaMultiRole for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-030",
+      "assertion": "WitnessBolsistaVeAlerta",
+      "tipo": "run",
+      "scope": "run WitnessBolsistaVeAlerta for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-031",
+      "assertion": "WitnessMarcarLidaPropria",
+      "tipo": "run",
+      "scope": "run WitnessMarcarLidaPropria for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-032",
+      "assertion": "WitnessMarcacaoIdempotente",
+      "tipo": "run",
+      "scope": "run WitnessMarcacaoIdempotente for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-033",
+      "assertion": "WitnessLimparTudoProprias",
+      "tipo": "run",
+      "scope": "run WitnessLimparTudoProprias for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-034",
+      "assertion": "WitnessLimparTudoRetry",
+      "tipo": "run",
+      "scope": "run WitnessLimparTudoRetry for 5",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-035",
+      "assertion": "WitnessLimparTudoCorteComNovaEmissao",
+      "tipo": "run",
+      "scope": "run WitnessLimparTudoCorteComNovaEmissao for 5",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-036",
+      "assertion": "WitnessExpiraAtivo",
+      "tipo": "run",
+      "scope": "run WitnessExpiraAtivo for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-037",
+      "assertion": "WitnessNullNaoExpira",
+      "tipo": "run",
+      "scope": "run WitnessNullNaoExpira for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-038",
+      "assertion": "WitnessNavegaAlvoValido",
+      "tipo": "run",
+      "scope": "run WitnessNavegaAlvoValido for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-039",
+      "assertion": "WitnessAlvoInvalidoNaoNavega",
+      "tipo": "run",
+      "scope": "run WitnessAlvoInvalidoNaoNavega for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-040",
+      "assertion": "WitnessRevogacaoPreservaFato",
+      "tipo": "run",
+      "scope": "run WitnessRevogacaoPreservaFato for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-041",
+      "assertion": "WitnessEmissaoUnica",
+      "tipo": "run",
+      "scope": "run WitnessEmissaoUnica for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-042",
+      "assertion": "EmissaoChaveDistintaEmite",
+      "tipo": "run",
+      "scope": "run EmissaoChaveDistintaEmite for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-043",
+      "assertion": "WitnessErroNaoEmite",
+      "tipo": "run",
+      "scope": "run WitnessErroNaoEmite for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-044",
+      "assertion": "WitnessChefeComEscopo",
+      "tipo": "run",
+      "scope": "run WitnessChefeComEscopo for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-045",
+      "assertion": "WitnessIdTurmaAcademico",
+      "tipo": "run",
+      "scope": "run WitnessIdTurmaAcademico for 4",
+      "status": "SAT"
+    },
+    {
+      "id": "M13-WIT-046",
+      "assertion": "WitnessIdTurmaOperacional",
+      "tipo": "run",
+      "scope": "run WitnessIdTurmaOperacional for 4",
+      "status": "SAT"
+    }
+  ]
+}

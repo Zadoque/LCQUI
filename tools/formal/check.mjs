@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import {composedModel, composedExpected, origins, checkCompositionTrace} from './composition.mjs';
 import {withdrawalReturnModel, withdrawalReturnOrigins, withdrawalReturnExpected, checkWithdrawalReturnTrace} from './withdrawal_return.mjs';
 import {composedModelM12, composedExpectedM12, originsM12, checkM12CompositionTrace} from './m12_composition.mjs';
+import {m13Model, m13BridgeOrigins, m13Expected, checkM13CompositionTrace} from './m13_composition.mjs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -19,7 +20,7 @@ const hash = data => crypto.createHash('sha256').update(data).digest('hex');
 function write(file, data) { fs.mkdirSync(path.dirname(file), {recursive:true}); fs.writeFileSync(file,data); }
 function specCheck() {
   run('cue',['vet','./...'],cueDir);
-  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/frasco-completo', '#FrascoCompleto'], ['tests/emprestimo', '#EmprestimoReagente'], ['tests/m5', '#M5Operacao'], ['tests/m6', '#M6Metrologia'], ['tests/m7', '#M7Operacao'], ['tests/m8', '#M8Contrato'], ['tests/m9', '#M9Contrato'], ['tests/m10', '#M10Contrato'], ['tests/m11', '#M11Contrato'], ['tests/m12_1', '#M12_1Contrato'], ['tests/m12_2', '#M12_2Contrato']];
+  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/frasco-completo', '#FrascoCompleto'], ['tests/emprestimo', '#EmprestimoReagente'], ['tests/m5', '#M5Operacao'], ['tests/m6', '#M6Metrologia'], ['tests/m7', '#M7Operacao'], ['tests/m8', '#M8Contrato'], ['tests/m9', '#M9Contrato'], ['tests/m10', '#M10Contrato'], ['tests/m11', '#M11Contrato'], ['tests/m12_1', '#M12_1Contrato'], ['tests/m12_2', '#M12_2Contrato'], ['tests/m13', '#M13Contrato']];
   for (const [directory, definition] of groups) for (const kind of ['valid','invalid']) {
     const files = fs.readdirSync(`${cueDir}/${directory}/${kind}`).sort();
     if (!files.length) throw new Error(`Sem fixtures ${kind}`);
@@ -220,7 +221,7 @@ function alloyCheck() {
     const expected = entries.map(([name,type,scope], i) => ({
       id: `${milestone}-${type === 'check' ? 'INV' : 'WIT'}-${String(i + 1).padStart(3, '0')}`,
       name, type, scope,
-      overall: scope.includes('for 8') ? 8 : scope.includes('for 7') ? 7 : scope.includes('for 6') ? 6 : 4,
+      overall: scope.includes('for 8') ? 8 : scope.includes('for 7') ? 7 : scope.includes('for 6') ? 6 : scope.includes('for 5') ? 5 : 4,
     }));
     const result = execAlloy(model, expected);
     write(file, JSON.stringify({versao: 1, alloy: version, solver: result.solver,
@@ -586,6 +587,15 @@ function alloyCheck() {
     model_sha256: hash(m12run.source),
     origens: originsM12.map(model => ({model, model_sha256: hash(fs.readFileSync(model))})),
     resultados: m12run.results}, null, 2) + '\n');
+  // M13: Notificação unificada. Guard de drift dos predicados copiados de M12.1
+  // e receipt com as origens de composição (M7/M8/M9/M12).
+  checkM13CompositionTrace(file => fs.readFileSync(file));
+  const m13run = execAlloy(m13Model, m13Expected);
+  write('build/formal-validation-m13.json', JSON.stringify({versao: 1, alloy: version,
+    solver: m13run.solver, spec_ir_sha256: hash(ir), model: m13Model,
+    model_sha256: hash(m13run.source),
+    origens: m13BridgeOrigins.map(model => ({model, model_sha256: hash(fs.readFileSync(model))})),
+    resultados: m13run.results}, null, 2) + '\n');
 }
 const cmd=process.argv[2];
 if(cmd==='spec-check') specCheck();

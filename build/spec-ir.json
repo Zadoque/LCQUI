@@ -2822,6 +2822,272 @@
                 "revogado_em": null,
                 "removido_da_apresentacao": false
             }
+        },
+        {
+            "arquivo": "formal_m13_notificacoes",
+            "entidade": "M13_Notificacao_Unificada",
+            "etapa": "formalização executável M13",
+            "escopo": "Shapes estruturais da entidade única Notificacao (caixa, leitura, marcação, Limpar tudo, alvo, expiração, emissão idempotente e operação) com enums fechados de tipo/papel/alvo, nulabilidade, condicionais (lida/lida_em, id_turma acadêmico vs operacional, payload mínimo, expiração nula em ESCASSEZ_ESTOQUE) e limites. CUE verifica estrutura, enums e condicionais; caixa única por UID, papel visual, marcação e Limpar tudo paginado/reentrante com corte estável, expiração, alvo/deep link com revalidação corrente, privacidade e deduplicação são verificados em Alloy; a canonicalização determinística da identidade de emissão por Rust. CUE não prova concorrência, autorização nem a implementação Firebase.",
+            "campos": [
+                {
+                    "tipo": "string",
+                    "nome": "uid",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "UID do caminho do documento; coincide com id_destinatario.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "docId server-owned; não duplicar como contador relacional.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_destinatario",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Destinatário autenticado; igual ao uid do caminho.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "papel_destinatario",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "Aluno",
+                        "Professor",
+                        "Bolsista",
+                        "Gestor_Bens_Patrimoniais",
+                        "Gestor_Almoxarifado",
+                        "Chefe_Geral"
+                    ],
+                    "observacao": "Contexto de apresentação; não concede papel.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "tipo",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "ADICIONADO",
+                        "POST",
+                        "COMENTARIO",
+                        "REMOVIDO",
+                        "TURMA_ARQUIVADA",
+                        "TURMA_DESARQUIVADA",
+                        "REQUISICAO_BEM",
+                        "DATA_DEVOLUCAO_REAGENTE",
+                        "ROTEIRO_COMPARTILHADO",
+                        "REQUISICAO_EDICAO_BEM",
+                        "REQUISICAO_ADICAO_BEM",
+                        "BEM_INSERVIVEL",
+                        "ENTREGA_ATRASADA",
+                        "FRASCOS_VAZIOS",
+                        "FRASCOS_QUEBRADOS",
+                        "FRASCOS_VENCIDOS",
+                        "FRASCOS_A_SEREM_PESADOS",
+                        "FRASCOS_EM_QUARENTENA",
+                        "ESCASSEZ_ESTOQUE",
+                        "AUTO_ATENDIMENTO_RETIRADA"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_quem_fez_acao",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_turma",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Obrigatório nos tipos acadêmicos e nulo nos operacionais (RN-M13-07).",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "int",
+                    "nome": "quantidade",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "sql": "INTEGER",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": true
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "entidade_alvo",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "Turma",
+                        "Post",
+                        "Comentario",
+                        "Roteiro",
+                        "Almoxarifado",
+                        "Emprestimo",
+                        "Usuario",
+                        "Requisicao_Bem",
+                        "Bem_Patrimonial"
+                    ],
+                    "observacao": "Rota conhecida; nunca URL arbitrária.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_alvo",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Identificador do recurso; acesso revalidado ao abrir.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "lida",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "lida_em",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "sql": "TIMESTAMP",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "emitida_em",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TIMESTAMP",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "expira_em",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "sql": "TIMESTAMP",
+                    "valores": [],
+                    "observacao": "NULL em ESCASSEZ_ESTOQUE; sem expiração automática.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "bool",
+                    "nome": "contem_conteudo_protegido",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "BOOLEAN",
+                    "valores": [],
+                    "observacao": "Sempre false: payload mínimo.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "chave_dedup",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "Identidade M7 ou chave determinística M8 da emissão.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "id_operacao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "enum",
+                    "nome": "tipo_operacao",
+                    "obrigatorio": true,
+                    "nulo": false,
+                    "sql": "ENUM",
+                    "valores": [
+                        "EMITIR_NOTIFICACAO"
+                    ],
+                    "observacao": "",
+                    "positivo": false,
+                    "nao_negativo": false
+                }
+            ],
+            "exemplo": {
+                "uid": "u-aluno-1",
+                "id": "n-1",
+                "id_destinatario": "u-aluno-1",
+                "papel_destinatario": "Aluno",
+                "tipo": "POST",
+                "id_quem_fez_acao": "u-prof-1",
+                "id_turma": "t-1",
+                "quantidade": null,
+                "entidade_alvo": "Post",
+                "id_alvo": "p-1",
+                "lida": false,
+                "lida_em": null,
+                "emitida_em": "2026-09-26 10:00:00",
+                "expira_em": null,
+                "contem_conteudo_protegido": false,
+                "chave_dedup": "op-1",
+                "id_operacao": "op-1",
+                "tipo_operacao": "EMITIR_NOTIFICACAO"
+            }
         }
     ]
 }

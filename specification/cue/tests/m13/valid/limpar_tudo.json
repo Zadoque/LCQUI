@@ -1,0 +1,9 @@
+{
+  "uid": "u1",
+  "qtd_no_corte": 5,
+  "qtd_marcados": 5,
+  "qtd_posteriores": 1,
+  "usa_delete": false,
+  "corte_estavel": true,
+  "marca_posteriores": false
+}

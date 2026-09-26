@@ -1,0 +1,8 @@
+{
+  "uid": "u1",
+  "id_notificacao": "n1",
+  "id_destinatario": "u2",
+  "via": "ALHEIA",
+  "autorizado": true,
+  "concede_acesso_ao_alvo": false
+}

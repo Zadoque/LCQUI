@@ -1,0 +1,52 @@
+% Gerado por lcqui-spec-doc; não editar.
+\subsection*{Evidência formal M13 --- Notificação unificada}
+CUE verifica os shapes de Notificação unificada (caixa, leitura, marcação, Limpar tudo, alvo, expiração, emissão idempotente e operação), com enums fechados de tipo/papel/alvo, condicionais (lida/lida\_em, id\_turma acadêmico vs operacional, payload mínimo, expiração nula em ESCASSEZ\_ESTOQUE) e limites. Alloy compõe a caixa única por UID (um único sino que reúne todos os papéis, sem o papel visual filtrar nem conceder privilégio), a leitura restrita ao destinatário, a marcação individual e o Limpar tudo paginado/reentrante com corte estável e sem DELETE, a expiração (NULL não expira; expirado sai do ativo sem apagar), o alvo/deep link com revalidação corrente (vínculo canônico M11, remoção, compartilhamento de Roteiro, escopo Q13 do Chefe) e a privacidade do payload; reproduz os predicados de autorização de M12.1/M9 e prova por ponte (`PonteM9ExigeAuth`, `PonteM12NaoAfrouxaAcl`) que nenhuma notificação concede acesso. A emissão/deduplicação reutiliza a identidade M7 e a chave determinística M8 (mesma identidade não duplica; chaves distintas podem emitir; erro não vira sucesso). Rust valida proveniência, ordem exata do receipt e as origens de composição. A evidência não certifica Firebase, Firestore/Storage, Rules, Auth, relógio real, paginação/concorrência real nem a aplicação.
+\begin{description}
+\item[M13-INV-001] TransicoesPreservamCoerencia: UNSAT.\newline Escopo: \texttt{check TransicoesPreservamCoerencia for 4}.
+\item[M13-INV-002] NaoLeCaixaAlheia: UNSAT.\newline Escopo: \texttt{check NaoLeCaixaAlheia for 4}.
+\item[M13-INV-003] PapelVisualNaoFiltraCaixa: UNSAT.\newline Escopo: \texttt{check PapelVisualNaoFiltraCaixa for 4}.
+\item[M13-INV-004] BolsistaVeCaixa: UNSAT.\newline Escopo: \texttt{check BolsistaVeCaixa for 4}.
+\item[M13-INV-005] PapelVisualNaoConcedeRecurso: UNSAT.\newline Escopo: \texttt{check PapelVisualNaoConcedeRecurso for 4}.
+\item[M13-INV-006] MarcarSoProprias: UNSAT.\newline Escopo: \texttt{check MarcarSoProprias for 4}.
+\item[M13-INV-007] MarcaIdempotente: UNSAT.\newline Escopo: \texttt{check MarcaIdempotente for 4}.
+\item[M13-INV-008] LoteSoProprias: UNSAT.\newline Escopo: \texttt{check LoteSoProprias for 4}.
+\item[M13-INV-009] SemDelete: UNSAT.\newline Escopo: \texttt{check SemDelete for 4}.
+\item[M13-INV-010] LimparTudoCorteEstavel: UNSAT.\newline Escopo: \texttt{check LimparTudoCorteEstavel for 5}.
+\item[M13-INV-011] MarcaNaoReverte: UNSAT.\newline Escopo: \texttt{check MarcaNaoReverte for 4}.
+\item[M13-INV-012] ExpiracaoDistingueNull: UNSAT.\newline Escopo: \texttt{check ExpiracaoDistingueNull for 4}.
+\item[M13-INV-013] ExpiradoForaDoAtivo: UNSAT.\newline Escopo: \texttt{check ExpiradoForaDoAtivo for 4}.
+\item[M13-INV-014] AlvoInvalidoNaoNavega: UNSAT.\newline Escopo: \texttt{check AlvoInvalidoNaoNavega for 4}.
+\item[M13-INV-015] UrlArbitrariaNaoNavega: UNSAT.\newline Escopo: \texttt{check UrlArbitrariaNaoNavega for 4}.
+\item[M13-INV-016] AlertaNaoContornaAcl: UNSAT.\newline Escopo: \texttt{check AlertaNaoContornaAcl for 4}.
+\item[M13-INV-017] RevogacaoCortaClique: UNSAT.\newline Escopo: \texttt{check RevogacaoCortaClique for 4}.
+\item[M13-INV-018] VinculoCanonicoRequerido: UNSAT.\newline Escopo: \texttt{check VinculoCanonicoRequerido for 4}.
+\item[M13-INV-019] ObjetoRemovidoNaoNavega: UNSAT.\newline Escopo: \texttt{check ObjetoRemovidoNaoNavega for 4}.
+\item[M13-INV-020] ChefeSemEscopoNaoAcessa: UNSAT.\newline Escopo: \texttt{check ChefeSemEscopoNaoAcessa for 4}.
+\item[M13-INV-021] NotificacaoNaoExpoeOriginal: UNSAT.\newline Escopo: \texttt{check NotificacaoNaoExpoeOriginal for 4}.
+\item[M13-INV-022] EmissaoMesmaIdentidadeNaoDuplica: UNSAT.\newline Escopo: \texttt{check EmissaoMesmaIdentidadeNaoDuplica for 4}.
+\item[M13-INV-023] ErroEmissaoNaoViraSucesso: UNSAT.\newline Escopo: \texttt{check ErroEmissaoNaoViraSucesso for 4}.
+\item[M13-INV-024] ComposicaoM7RetryNaoDuplica: UNSAT.\newline Escopo: \texttt{check ComposicaoM7RetryNaoDuplica for 4}.
+\item[M13-INV-025] IdTurmaAcademicoObrigatorio: UNSAT.\newline Escopo: \texttt{check IdTurmaAcademicoObrigatorio for 4}.
+\item[M13-INV-026] IdTurmaOperacionalNulo: UNSAT.\newline Escopo: \texttt{check IdTurmaOperacionalNulo for 4}.
+\item[M13-INV-027] PonteM9ExigeAuth: UNSAT.\newline Escopo: \texttt{check PonteM9ExigeAuth for 4}.
+\item[M13-INV-028] PonteM12NaoAfrouxaAcl: UNSAT.\newline Escopo: \texttt{check PonteM12NaoAfrouxaAcl for 4}.
+\item[M13-WIT-029] WitnessCaixaMultiRole: SAT.\newline Escopo: \texttt{run WitnessCaixaMultiRole for 4}.
+\item[M13-WIT-030] WitnessBolsistaVeAlerta: SAT.\newline Escopo: \texttt{run WitnessBolsistaVeAlerta for 4}.
+\item[M13-WIT-031] WitnessMarcarLidaPropria: SAT.\newline Escopo: \texttt{run WitnessMarcarLidaPropria for 4}.
+\item[M13-WIT-032] WitnessMarcacaoIdempotente: SAT.\newline Escopo: \texttt{run WitnessMarcacaoIdempotente for 4}.
+\item[M13-WIT-033] WitnessLimparTudoProprias: SAT.\newline Escopo: \texttt{run WitnessLimparTudoProprias for 4}.
+\item[M13-WIT-034] WitnessLimparTudoRetry: SAT.\newline Escopo: \texttt{run WitnessLimparTudoRetry for 5}.
+\item[M13-WIT-035] WitnessLimparTudoCorteComNovaEmissao: SAT.\newline Escopo: \texttt{run WitnessLimparTudoCorteComNovaEmissao for 5}.
+\item[M13-WIT-036] WitnessExpiraAtivo: SAT.\newline Escopo: \texttt{run WitnessExpiraAtivo for 4}.
+\item[M13-WIT-037] WitnessNullNaoExpira: SAT.\newline Escopo: \texttt{run WitnessNullNaoExpira for 4}.
+\item[M13-WIT-038] WitnessNavegaAlvoValido: SAT.\newline Escopo: \texttt{run WitnessNavegaAlvoValido for 4}.
+\item[M13-WIT-039] WitnessAlvoInvalidoNaoNavega: SAT.\newline Escopo: \texttt{run WitnessAlvoInvalidoNaoNavega for 4}.
+\item[M13-WIT-040] WitnessRevogacaoPreservaFato: SAT.\newline Escopo: \texttt{run WitnessRevogacaoPreservaFato for 4}.
+\item[M13-WIT-041] WitnessEmissaoUnica: SAT.\newline Escopo: \texttt{run WitnessEmissaoUnica for 4}.
+\item[M13-WIT-042] EmissaoChaveDistintaEmite: SAT.\newline Escopo: \texttt{run EmissaoChaveDistintaEmite for 4}.
+\item[M13-WIT-043] WitnessErroNaoEmite: SAT.\newline Escopo: \texttt{run WitnessErroNaoEmite for 4}.
+\item[M13-WIT-044] WitnessChefeComEscopo: SAT.\newline Escopo: \texttt{run WitnessChefeComEscopo for 4}.
+\item[M13-WIT-045] WitnessIdTurmaAcademico: SAT.\newline Escopo: \texttt{run WitnessIdTurmaAcademico for 4}.
+\item[M13-WIT-046] WitnessIdTurmaOperacional: SAT.\newline Escopo: \texttt{run WitnessIdTurmaOperacional for 4}.
+\end{description}
+UNSAT para check indica ausência de contraexemplo no escopo declarado; SAT para run indica testemunha encontrada. A evidência não certifica a implementação Firebase/backend.

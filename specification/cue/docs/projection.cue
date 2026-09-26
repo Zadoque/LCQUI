@@ -303,5 +303,13 @@ ir: {
 			campos:   domain.#CamposM12_2
 			exemplo: {id_roteiro: "rot-1", id_professor_upload: "prof-1", nome: "Prática de titulação", storage_path: "gs://lcqui/roteiros/rot-1.pdf", content_type: "application/pdf", tamanho_bytes: 1048576, owner_uid: "prof-1", geracao: "1700000000000000", status_roteiro: "PUBLICAVEL", nome_arquivo: "Pratica_Titulacao.pdf", id_operacao: "op-1", tipo_operacao: "COMPARTILHAR_ROTEIRO", via: "COMPARTILHADO", validade_url: "ATIVA", revogado_em: null, removido_da_apresentacao: false}
 		},
+		{
+			arquivo:  "formal_m13_notificacoes"
+			entidade: "M13_Notificacao_Unificada"
+			etapa:    "formalização executável M13"
+			escopo:   "Shapes estruturais da entidade única Notificacao (caixa, leitura, marcação, Limpar tudo, alvo, expiração, emissão idempotente e operação) com enums fechados de tipo/papel/alvo, nulabilidade, condicionais (lida/lida_em, id_turma acadêmico vs operacional, payload mínimo, expiração nula em ESCASSEZ_ESTOQUE) e limites. CUE verifica estrutura, enums e condicionais; caixa única por UID, papel visual, marcação e Limpar tudo paginado/reentrante com corte estável, expiração, alvo/deep link com revalidação corrente, privacidade e deduplicação são verificados em Alloy; a canonicalização determinística da identidade de emissão por Rust. CUE não prova concorrência, autorização nem a implementação Firebase."
+			campos:   domain.#CamposM13
+			exemplo: {uid: "u-aluno-1", id: "n-1", id_destinatario: "u-aluno-1", papel_destinatario: "Aluno", tipo: "POST", id_quem_fez_acao: "u-prof-1", id_turma: "t-1", quantidade: null, entidade_alvo: "Post", id_alvo: "p-1", lida: false, lida_em: null, emitida_em: "2026-09-26 10:00:00", expira_em: null, contem_conteudo_protegido: false, chave_dedup: "op-1", id_operacao: "op-1", tipo_operacao: "EMITIR_NOTIFICACAO"}
+		},
 	]
 }

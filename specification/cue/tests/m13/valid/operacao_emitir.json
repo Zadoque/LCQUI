@@ -1,0 +1,7 @@
+{
+  "id_operacao": "op-1",
+  "uid": "u1",
+  "tipo_operacao": "EMITIR_NOTIFICACAO",
+  "payload_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "status": "CONCLUIDA"
+}
