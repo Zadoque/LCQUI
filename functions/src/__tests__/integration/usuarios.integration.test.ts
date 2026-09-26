@@ -5,7 +5,8 @@ process.env.FUNCTIONS_EMULATOR = "true";
 
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
-import { convidarUsuario } from "../../usuarios";
+import { CallableRequest } from "firebase-functions/v2/https";
+import { convidarUsuario, revogarUsuarioPapel } from "../../usuarios";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -62,6 +63,7 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
     });
 
     const req = mockRequest({
+      idOperacao: "op-multi-professor-1",
       email: userEmail,
       nome: "Aluno Teste Multi",
       papel: "Professor",
@@ -107,6 +109,7 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
     });
 
     const req = mockRequest({
+      idOperacao: "op-revogar-aluno-1",
       email: userEmail,
       papel: "Aluno",
       motivo: "Fim do curso"
@@ -126,5 +129,97 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
     const usuarioCentralDoc = await db.collection("Usuarios").doc(userRecord.uid).get();
     expect(usuarioCentralDoc.exists).toBe(true);
     expect(usuarioCentralDoc.data()?.ativo).toBe(false);
+  });
+});
+
+describe("Integração: M7 em mutações de papel", () => {
+  let db: admin.firestore.Firestore;
+
+  beforeAll(() => {
+    if (!admin.apps.length) {
+      admin.initializeApp({ projectId: "lcqui-dev" });
+    }
+    db = admin.firestore();
+  });
+
+  afterAll(async () => {
+    testEnv.cleanup();
+  });
+
+  beforeEach(async () => {
+    await db.collection("Usuarios").doc("chefe123").set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Chefe_Geral").doc("chefe123").set({ id_usuario: "chefe123" });
+  });
+
+  const mockRequest = (data: unknown, uid: string, roles: string[] = ["Chefe_Geral"]): CallableRequest =>
+    ({
+      data,
+      auth: { uid, token: { roles, versao_permissoes: 1 } },
+      rawRequest: {}
+    }) as unknown as CallableRequest;
+
+  async function criarAlvo(email: string): Promise<string> {
+    let user;
+    try {
+      user = await admin.auth().getUserByEmail(email);
+    } catch {
+      user = await admin.auth().createUser({ email, displayName: "Alvo M7" });
+    }
+    await db.collection("Aluno").doc(user.uid).set({ nome: "Alvo M7", email });
+    await db.collection("Usuarios").doc(user.uid).set({ nome: "Alvo M7", email, ativo: true, versao_permissoes: 0 });
+    return user.uid;
+  }
+
+  it("TEST-INT-ROLE-M7-001 — idOperacao ausente é rejeitado (invalid-argument)", async () => {
+    const wrapped = testEnv.wrap(revogarUsuarioPapel);
+    const email = "m7_sem_id@example.com";
+    await criarAlvo(email);
+    const req = mockRequest({ email, papel: "Aluno", motivo: "Sem id" }, "chefe123");
+    await expect(wrapped(req)).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("TEST-INT-ROLE-M7-002 — receipt canônico gravado em Operacoes/{idOperacao}", async () => {
+    const wrapped = testEnv.wrap(revogarUsuarioPapel);
+    const email = "m7_receipt@example.com";
+    const alvo = await criarAlvo(email);
+    const id = "op-m7-receipt-1";
+    await wrapped(mockRequest({ idOperacao: id, email, papel: "Aluno", motivo: "Receipt" }, "chefe123"));
+    const receipt = await db.collection("Operacoes").doc(id).get();
+    expect(receipt.exists).toBe(true);
+    expect(receipt.data()).toMatchObject({
+      uid: "chefe123",
+      tipo_operacao: "REVOGAR_PAPEL",
+      status: "CONCLUIDA",
+    });
+    expect(receipt.data()?.payload_hash).toMatch(/^[0-9a-f]{64}$/);
+    const aluno = await db.collection("Aluno").doc(alvo).get();
+    expect(aluno.exists).toBe(false);
+  });
+
+  it("TEST-INT-ROLE-M7-003 — replay devolve o mesmo resultado e não reaplica efeito", async () => {
+    const wrapped = testEnv.wrap(revogarUsuarioPapel);
+    const email = "m7_replay@example.com";
+    const alvo = await criarAlvo(email);
+    const id = "op-m7-replay-1";
+    const dados = { idOperacao: id, email, papel: "Aluno", motivo: "Replay" };
+    const primeira = await wrapped(mockRequest(dados, "chefe123"));
+    const receipt1 = await db.collection("Operacoes").doc(id).get();
+    const segunda = await wrapped(mockRequest(dados, "chefe123"));
+    const receipt2 = await db.collection("Operacoes").doc(id).get();
+    expect(segunda).toEqual(primeira);
+    expect(receipt1.data()?.criado_em.toMillis()).toBe(receipt2.data()?.criado_em.toMillis());
+    const auditorias = await db.collection("Registro_de_Auditoria").where("id_do_objeto_da_entidade", "==", alvo).get();
+    expect(auditorias.size).toBe(1);
+  });
+
+  it("TEST-INT-ROLE-M7-004 — mesmo idOperacao com payload diferente é rejeitado", async () => {
+    const wrapped = testEnv.wrap(revogarUsuarioPapel);
+    const email = "m7_conflito@example.com";
+    await criarAlvo(email);
+    const id = "op-m7-conflito-1";
+    await wrapped(mockRequest({ idOperacao: id, email, papel: "Aluno", motivo: "Motivo A" }, "chefe123"));
+    await expect(
+      wrapped(mockRequest({ idOperacao: id, email, papel: "Aluno", motivo: "Motivo B" }, "chefe123"))
+    ).rejects.toMatchObject({ code: "already-exists" });
   });
 });

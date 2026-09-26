@@ -371,7 +371,7 @@ describe("TEST-INT-M9-AUTH-OP — operação real protegida (revogarUsuarioPapel
     const req = mockRequest(
       ator,
       { roles: ["Chefe_Geral"], versao_permissoes: 11 },
-      { email: `${ator}@example.com`, papel: "Aluno", motivo: "Fim do vínculo" }
+      { idOperacao: `op-${ator}`, email: `${ator}@example.com`, papel: "Aluno", motivo: "Fim do vínculo" }
     );
     const resultado = await wrapped(req);
     expect(resultado.uid).toBe(alvo.uid);
@@ -392,7 +392,7 @@ describe("TEST-INT-M9-AUTH-OP — operação real protegida (revogarUsuarioPapel
     const req = mockRequest(
       ator,
       { roles: ["Chefe_Geral"], versao_permissoes: 19 },
-      { email: `${ator}@example.com`, papel: "Aluno", motivo: "Tentativa com token velho" }
+      { idOperacao: `op-${ator}`, email: `${ator}@example.com`, papel: "Aluno", motivo: "Tentativa com token velho" }
     );
     await expect(wrapped(req)).rejects.toMatchObject({ code: "permission-denied" });
 
@@ -413,7 +413,7 @@ describe("TEST-INT-M9-AUTH-OP — operação real protegida (revogarUsuarioPapel
     const req = mockRequest(
       ator,
       { roles: ["Chefe_Geral"], versao_permissoes: 2 },
-      { email: `${ator}@example.com`, papel: "Aluno", motivo: "Tentativa inativa" }
+      { idOperacao: `op-${ator}`, email: `${ator}@example.com`, papel: "Aluno", motivo: "Tentativa inativa" }
     );
     await expect(wrapped(req)).rejects.toMatchObject({ code: "permission-denied" });
 
@@ -431,7 +431,7 @@ describe("TEST-INT-M9-AUTH-OP — operação real protegida (revogarUsuarioPapel
     const req = mockRequest(
       ator,
       { roles: ["Chefe_Geral"], versao_permissoes: 3 },
-      { email: `${ator}@example.com`, papel: "Aluno", motivo: "Sem concessão persistida" }
+      { idOperacao: `op-${ator}`, email: `${ator}@example.com`, papel: "Aluno", motivo: "Sem concessão persistida" }
     );
     await expect(wrapped(req)).rejects.toMatchObject({ code: "permission-denied" });
 
