@@ -168,4 +168,24 @@ describe("IMP-RULES-001 — autoridade persistida M9", () => {
     await assertFails(db.collection("Controle_Papeis").doc("singleton").get());
     await assertFails(db.collection("Controle_Papeis").doc("singleton").update({versao: 2}));
   });
+
+  // CUE #M9Usuario: a versão persistida é um inteiro não negativo.
+  it("TEST-RULES-M9-013 nega versão persistida estruturalmente inválida", async () => {
+    await seedUser("versao-invalida", {versaoPermissoes: -1, roles: ["Aluno"]});
+    const db = dbFor("versao-invalida", ["Aluno"], -1);
+    await assertFails(catalogRef(db).get());
+  });
+
+  // Seção 5 e Seção 7/M9: o documento de papel precisa afirmar o mesmo UID.
+  it("TEST-RULES-M9-014 nega documento de papel com id_usuario incompatível", async () => {
+    await seedUser("papel-incompativel", {roles: ["Aluno"]});
+    await testEnv.withSecurityRulesDisabled(async context => {
+      await context.firestore().collection("Aluno").doc("papel-incompativel").set({
+        id_usuario: "outro-uid",
+        ativo: true,
+      });
+    });
+    const db = dbFor("papel-incompativel", ["Aluno"]);
+    await assertFails(catalogRef(db).get());
+  });
 });
