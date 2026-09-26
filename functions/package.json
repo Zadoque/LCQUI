@@ -2,7 +2,7 @@
   "name": "functions",
   "scripts": {
     "lint": "eslint \"src/**/*\"",
-    "build": "tsc && cp -r assets lib/assets || true",
+    "build": "tsc && node -e \"const fs=require('fs'); if(fs.existsSync('assets')) fs.cpSync('assets','lib/assets',{recursive:true})\"",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
@@ -10,6 +10,14 @@
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
     "test": "jest",
+    "test:unit": "jest --runInBand --testPathPattern=\"src/__tests__/(auth\\.test\\.ts|domain/)\"",
+    "test:rules:suite": "jest --runInBand --testPathPattern=\"src/__tests__/security/\"",
+    "test:integration:suite": "jest --runInBand --testPathPattern=\"src/__tests__/(integration/|notificacoes\\.test\\.ts|patrimonio\\.test\\.ts|reagentes\\.test\\.ts|relatorios\\.test\\.ts|roteiros\\.test\\.ts|turmas\\.test\\.ts)\"",
+    "test:emulator:suite": "npm run test:rules:suite && npm run test:integration:suite",
+    "test:rules": "firebase emulators:exec --config ../firebase.json --project lcqui-dev --only firestore,storage \"npm run test:rules:suite\"",
+    "test:integration": "firebase emulators:exec --config ../firebase.json --project lcqui-dev --only auth,firestore,storage \"npm run test:integration:suite\"",
+    "test:emulator": "firebase emulators:exec --config ../firebase.json --project lcqui-dev --only auth,firestore,storage \"npm run test:emulator:suite\"",
+    "test:feature": "jest --runInBand",
     "test:watch": "jest --watch"
   },
   "engines": {
@@ -29,12 +37,35 @@
     "@types/bwip-js": "^3.2.3",
     "@types/jest": "^29.5.12",
     "@types/pdfkit": "^0.13.9",
+    "@typescript-eslint/eslint-plugin": "6.21.0",
+    "@typescript-eslint/parser": "6.21.0",
+    "eslint": "8.57.1",
     "firebase-functions-test": "^3.1.0",
     "firebase-tools": "^15.29.0",
     "jest": "^29.7.0",
     "ts-jest": "^29.1.2",
     "tsx": "^4.23.13",
     "typescript": "^5.3.3"
+  },
+  "eslintConfig": {
+    "root": true,
+    "env": {
+      "es2022": true,
+      "node": true,
+      "jest": true
+    },
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+      "project": "./tsconfig.json",
+      "sourceType": "module"
+    },
+    "plugins": [
+      "@typescript-eslint"
+    ],
+    "extends": [
+      "eslint:recommended",
+      "plugin:@typescript-eslint/recommended"
+    ]
   },
   "private": true
 }

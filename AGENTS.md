@@ -106,3 +106,28 @@ diagnosticar a camada
 ```
 
 Não altere várias camadas simultaneamente antes de localizar a causa.
+
+## Comandos canônicos de verificação
+
+Execute a partir da raiz, usando somente dependências locais:
+
+```bash
+cd functions && npm run test:unit
+cd functions && npm run test:integration
+cd functions && npm run test:rules
+cd functions && npm run test:emulator
+cd functions && npm run build
+cd functions && npm run lint
+cd frontend && npx --no-install tsc --noEmit
+cd frontend && npm run lint
+```
+
+`test:integration` e `test:rules` sobem e encerram somente os Emulators necessários; `test:emulator` executa ambas as suites e preserva o exit code. Os scripts terminados em `:suite` são internos e pressupõem Emulators já ativos.
+
+Compile apenas o documento de verificação com:
+
+```bash
+nix shell nixpkgs#texliveFull -c \
+  latexmk -cd -pdf -interaction=nonstopmode -halt-on-error \
+  -outdir=/tmp/lcqui-testes-tex documentation/testes/main.tex
+```
