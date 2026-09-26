@@ -85,8 +85,7 @@ service cloud.firestore {
       }
       match /Notificacoes/{notifId} {
         allow read: if isOwner(uid);
-        allow update, delete: if isOwner(uid); 
-        allow create: if false; // Backend quem cria
+        allow write: if false; // marcação server-owned (marcarNotificacaoComoLida)
       }
     }
 

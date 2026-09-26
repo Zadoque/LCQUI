@@ -4,6 +4,11 @@ import { CriarNotificacao } from "./schemas/notificacoes.schema";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { validatePayload } from "./utils/validation";
 import { z } from "zod";
+import {
+  PAPEIS_CONHECIDOS,
+  extrairClaimsAutoridade,
+  resolverAutoridadePersistidaTx,
+} from "./auth";
 
 /**
  * Adiciona uma notificação de forma transacional.
@@ -45,9 +50,7 @@ export function adicionarNotificacaoTx(
 
 // Endpoint para marcar notificação como lida
 export const marcarNotificacaoComoLida = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "Usuário não autenticado.");
-  }
+  const claims = extrairClaimsAutoridade(request);
 
   const { idNotificacao } = validatePayload(
     z.object({ idNotificacao: z.string().min(1) }),
@@ -57,16 +60,21 @@ export const marcarNotificacaoComoLida = onCall(async (request) => {
   const notificacaoRef = admin
     .firestore()
     .collection("Usuarios")
-    .doc(request.auth.uid)
+    .doc(claims.uid)
     .collection("Notificacoes")
     .doc(idNotificacao);
 
   return admin.firestore().runTransaction(async (tx) => {
+    // M9: autoridade persistida (usuário ativo + versão corrente) relida na mesma
+    // transação do efeito. A notificação é acessível somente ao próprio UID.
+    await resolverAutoridadePersistidaTx(tx, claims, PAPEIS_CONHECIDOS);
+
     const snap = await tx.get(notificacaoRef);
     if (!snap.exists) {
       throw new HttpsError("not-found", "Notificação não encontrada.");
     }
 
+    // Idempotente: repetir a marcação preserva o instante original.
     if (snap.data()?.lida) {
       return { success: true };
     }
