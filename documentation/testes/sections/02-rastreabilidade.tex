@@ -83,6 +83,22 @@ implementação canônica, a unidade ficou em 18/18 e a integração em 12/12 so
 Node 20.19.6. A feature \texttt{IMP-IDEM-001} permanece \texttt{DIVERGENTE}
 porque nenhuma mutação de produto foi migrada.
 
+\subsection{Quinta cadeia executada}
+
+\begin{center}
+Seção 7/RN-ROLE e M7, Seção 5/Operações
+$\rightarrow$ \texttt{IMP-ROLE-001}/\texttt{IMP-ROLE-002} (M7 + M9)
+$\rightarrow$ \texttt{TEST-INT-ROLE-M7-001--004}
+$\rightarrow$ \nolinkurl{functions/src/usuarios.ts}
+$\rightarrow$ PASS Node 20
+\end{center}
+
+As mutações de papel passaram a usar \texttt{idOperacao} obrigatório e receipt
+canônico M7, mantendo a autoridade persistida M9 dentro da transação. O RED foi
+executado contra a implementação anterior (id derivado e \texttt{hash\_entrada});
+os quatro casos foram corrigidos sob Node 20.19.6. As features permanecem
+\texttt{DIVERGENTE} por causa do efeito externo pré-commit e do aceite de convite.
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara

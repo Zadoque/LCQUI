@@ -1,0 +1,78 @@
+\section{Evidência de convergência de papéis (IMP-ROLE-001/002, M7 + M9)}
+
+\textbf{Fatias:} \texttt{IMP-ROLE-001} (matriz multi-role e concessão) e
+\texttt{IMP-ROLE-002} (revogação e proteção dos últimos responsáveis), com
+progresso em \texttt{IMP-IDEM-001}.
+
+\textbf{Estado:} ambas permanecem \texttt{DIVERGENTE}; a evidência abaixo cobre
+a migração das mutações de papel para M7 canônico e M9 transacional.
+
+\subsection{Contrato}
+
+Fontes: Seção~7 \texttt{sec:regras-role} (RN-ROLE-01--16), Seção~7/M7
+(identidade, canonicalização, receipt, retry) e Seção~5/Operações. Concessão e
+revogação compartilham \texttt{Controle\_Papeis/singleton}; a autoridade é a
+chefia persistida relida na transação; \texttt{idOperacao} é obrigatório e opaco;
+o receipt usa \texttt{Operacoes/\{idOperacao\}} com identidade
+\texttt{(uid, tipo\_operacao, payload\_hash)}.
+
+\subsection{Mudança}
+
+\path{functions/src/usuarios.ts}:
+
+\begin{itemize}
+  \item \texttt{alterarPapel} deixou de derivar o id do receipt por
+  \texttt{sha256([ator, idOperacao])} e de comparar \texttt{hash\_entrada}: passou
+  a usar \texttt{construirIdentidade}/\texttt{resolverOperacaoTx}/
+  \texttt{registrarOperacaoConcluidaTx} da fundação
+  \path{functions/src/idempotencia.ts}; replay devolve o resultado persistido e
+  reuso incompatível falha com \texttt{already-exists};
+  \item \texttt{convidarUsuario}/\texttt{revogarUsuarioPapel} passam a exigir
+  \texttt{idOperacao} (sem fallback \texttt{randomUUID});
+  \item \texttt{reconciliarClaimsUsuario} revoga refresh tokens após o commit,
+  sem reabrir a autorização persistida se a etapa externa falhar.
+\end{itemize}
+
+\path{functions/src/schemas/usuarios.schema.ts}: \texttt{idOperacao} obrigatório
+com formato \texttt{[A-Za-z0-9\_-]\{1,128\}}.
+
+Firestore Rules não mudaram: \texttt{Operacoes}, \texttt{Controle\_Papeis} e
+\texttt{Usuarios} já eram server-owned (deny-all ao cliente).
+
+\subsection{TDD}
+
+Novos casos em \path{functions/src/__tests__/integration/usuarios.integration.test.ts}:
+
+\small
+\begin{longtable}{@{}p{0.24\textwidth}p{0.58\textwidth}@{}}
+\toprule
+ID & Resultado \\
+\midrule
+\endhead
+TEST-INT-ROLE-M7-001 & \texttt{idOperacao} ausente → \texttt{invalid-argument} \\
+TEST-INT-ROLE-M7-002 & receipt canônico em \texttt{Operacoes/\{idOperacao\}} \\
+TEST-INT-ROLE-M7-003 & replay devolve resultado e preserva \texttt{criado\_em}, sem duplicar auditoria \\
+TEST-INT-ROLE-M7-004 & mesmo \texttt{idOperacao} com payload diferente → \texttt{already-exists} \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+RED: os quatro casos falharam contra a implementação anterior (id gerado por
+\texttt{randomUUID}, receipt com id derivado e \texttt{hash\_entrada}). GREEN sob
+Node 20.19.6. As suítes direcionadas (usuários + M7 + M9) passaram com 43/43.
+
+\subsection{Regressão}
+
+Sob Node 20.19.6: \texttt{build} PASS; \texttt{test:unit} PASS (71/71);
+integração completa 112 passam / 14 falham. As 14 falhas permanecem em
+\texttt{reagentes} (10), \texttt{patrimonio} (2) e \texttt{roteiros} (2), sem
+relação com esta fatia.
+
+\subsection{Pendências}
+
+As mutações de papel continuam com efeito externo de Auth antes do commit em
+\texttt{convidarUsuario}; a reconciliação e a revogação de refresh tokens
+ocorrem depois. A migração para outbox \texttt{PENDENTE}$\rightarrow$\texttt{CONCLUIDA}
+e o aceite de convite/autoatendimento ficam para rodada própria. Por isso
+\texttt{IMP-ROLE-001}, \texttt{IMP-ROLE-002} e \texttt{IMP-ROLE-003} seguem
+\texttt{DIVERGENTE}.
