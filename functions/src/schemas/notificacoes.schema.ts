@@ -19,6 +19,7 @@ export const TipoNotificacaoSchema = z.enum([
   "ENTREGA_ATRASADA", "FRASCOS_VAZIOS", "FRASCOS_QUEBRADOS",
   "FRASCOS_VENCIDOS", "FRASCOS_A_SEREM_PESADOS",
   "FRASCOS_EM_QUARENTENA", "ESCASSEZ_ESTOQUE",
+  "CONVITE_PARA_TURMA",
   "REQUISICAO_APROVADA", "REQUISICAO_REJEITADA" // legado: alinhar com #M13Tipo em IMP-NOTIF-005
 ]);
 
@@ -32,7 +33,8 @@ export const EntidadeAlvoSchema = z.enum([
   "Emprestimo",
   "Usuario",
   "Requisicao_Bem",
-  "Bem_Patrimonial"
+  "Bem_Patrimonial",
+  "Convite_Aluno"
 ]);
 
 export const CriarNotificacaoSchema = z.object({
