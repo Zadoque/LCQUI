@@ -1,13 +1,16 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { collection, onSnapshot, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { X } from "lucide-react";
 import {
-  IntencaoOperacao,
   assinaturaIntencaoTurma,
   resolverIdOperacao,
+  lerIntencao,
+  gravarIntencao,
+  limparIntencao,
+  CHAVE_INTENCAO_CRIAR_TURMA,
 } from "@/lib/intencaoOperacao";
 
 interface NovaTurmaModalProps {
@@ -24,14 +27,9 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // M7: intenção lógica de criação; o idOperacao sobrevive a retries da mesma
-  // assinatura e é descartado ao fechar o modal (resultado conclusivo ou cancelar).
-  const intencaoRef = useRef<IntencaoOperacao | null>(null);
-
-  useEffect(() => {
-    if (!isOpen) intencaoRef.current = null;
-  }, [isOpen]);
-
+  // M7: a intenção lógica de criação é persistida na sessão (sessionStorage),
+  // sobrevivendo a remount/timeout/resposta desconhecida enquanto o mesmo
+  // rascunho existir. Um novo id só nasce para campos semânticos diferentes.
   const isChefeGeral = roles.includes("Chefe_Geral");
   
   // Data states
@@ -149,10 +147,10 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
       });
       // Reutiliza o idOperacao em retry da mesma intenção; payload alterado gera
       // nova intenção (novo id), nunca um id antigo com conteúdo diferente.
-      const intencao = resolverIdOperacao(intencaoRef.current, assinatura, () =>
-        crypto.randomUUID()
-      );
-      intencaoRef.current = intencao;
+      const storage = typeof window !== "undefined" ? window.sessionStorage : null;
+      const atual = storage ? lerIntencao(storage, CHAVE_INTENCAO_CRIAR_TURMA) : null;
+      const intencao = resolverIdOperacao(atual, assinatura, () => crypto.randomUUID());
+      if (storage) gravarIntencao(storage, CHAVE_INTENCAO_CRIAR_TURMA, intencao);
 
       const payload: any = {
         idOperacao: intencao.idOperacao,
@@ -170,7 +168,7 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
       await criarTurmaFn(payload);
 
       // Resultado conclusivo: a intenção foi consumida.
-      intencaoRef.current = null;
+      if (storage) limparIntencao(storage, CHAVE_INTENCAO_CRIAR_TURMA);
       onClose();
     } catch (err: any) {
       setError(err.message || "Erro ao criar turma.");
@@ -274,7 +272,6 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
               required
               type="number" 
               min="1"
-              max="200"
               value={capacidade}
               onChange={(e) => setCapacidade(Number(e.target.value))}
               className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary"

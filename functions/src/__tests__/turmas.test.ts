@@ -422,4 +422,80 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
       capacidade: 5, idProfessor: alvo
     }, chefe, ["Chefe_Geral"]))).rejects.toMatchObject({ code: "failed-precondition" });
   });
+
+  it("TEST-INT-TURMA-Q13-008 — Professor alvo com id_usuario inconsistente é negado", async () => {
+    const chefe = "chefe_alvo_inconsistente";
+    const alvo = "prof_alvo_inconsistente";
+    await db.collection("Usuarios").doc(chefe).set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Chefe_Geral").doc(chefe).set({ id_usuario: chefe, ativo: true });
+    await db.collection("Usuarios").doc(alvo).set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Professor").doc(alvo).set({ id_usuario: "outro_uid", ativo: true });
+    await semearMateria("mat_q13_incons", "Q13 inconsistente");
+    const wrapped = testEnv.wrap(criarTurma);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(), idMateria: "mat_q13_incons", nomeTurma: "T", ano: 2026, semestre: 1,
+      capacidade: 5, idProfessor: alvo
+    }, chefe, ["Chefe_Geral"]))).rejects.toMatchObject({ code: "failed-precondition" });
+  });
+
+  it("TEST-INT-TURMA-ANO-001 — ano=1 é permitido pelo contrato (inteiro >= 1)", async () => {
+    const turma = await criarTurmaOk("prof_ano1", {
+      idMateria: "mat_ano1", nomeTurma: "Turma Ano 1", ano: 1, capacidade: 5
+    });
+    const doc = await db.collection("Turma").doc(turma.id).get();
+    expect(doc.data()?.ano).toBe(1);
+  });
+
+  it("TEST-INT-TURMA-ANO-002 — ano=0 é rejeitado", async () => {
+    await semearProfessor("prof_ano0");
+    await semearMateria("mat_ano0", "Ano 0");
+    const wrapped = testEnv.wrap(criarTurma);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(), idMateria: "mat_ano0", nomeTurma: "T", ano: 0, semestre: 1, capacidade: 5
+    }, "prof_ano0"))).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("TEST-INT-TURMA-ANO-003 — ano=-1 é rejeitado", async () => {
+    await semearProfessor("prof_ano_neg");
+    await semearMateria("mat_ano_neg", "Ano negativo");
+    const wrapped = testEnv.wrap(criarTurma);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(), idMateria: "mat_ano_neg", nomeTurma: "T", ano: -1, semestre: 1, capacidade: 5
+    }, "prof_ano_neg"))).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("TEST-INT-TURMA-ANO-004 — ano fracionário é rejeitado", async () => {
+    await semearProfessor("prof_ano_frac");
+    await semearMateria("mat_ano_frac", "Ano fracionário");
+    const wrapped = testEnv.wrap(criarTurma);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(), idMateria: "mat_ano_frac", nomeTurma: "T", ano: 2026.5, semestre: 1, capacidade: 5
+    }, "prof_ano_frac"))).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("TEST-INT-TURMA-CAP-001 — capacidade=201 não é limitada por teto inventado", async () => {
+    const turma = await criarTurmaOk("prof_cap201", {
+      idMateria: "mat_cap201", nomeTurma: "Turma 201", capacidade: 201
+    });
+    const doc = await db.collection("Turma").doc(turma.id).get();
+    expect(doc.data()?.capacidade).toBe(201);
+  });
+
+  it("TEST-INT-TURMA-CAP-002 — capacidade=0 é rejeitada", async () => {
+    await semearProfessor("prof_cap0");
+    await semearMateria("mat_cap0", "Cap 0");
+    const wrapped = testEnv.wrap(criarTurma);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(), idMateria: "mat_cap0", nomeTurma: "T", ano: 2026, semestre: 1, capacidade: 0
+    }, "prof_cap0"))).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("TEST-INT-TURMA-CAP-003 — capacidade fracionária é rejeitada", async () => {
+    await semearProfessor("prof_cap_frac");
+    await semearMateria("mat_cap_frac", "Cap fracionária");
+    const wrapped = testEnv.wrap(criarTurma);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(), idMateria: "mat_cap_frac", nomeTurma: "T", ano: 2026, semestre: 1, capacidade: 1.5
+    }, "prof_cap_frac"))).rejects.toMatchObject({ code: "invalid-argument" });
+  });
 });

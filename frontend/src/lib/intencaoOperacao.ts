@@ -1,11 +1,12 @@
 /**
  * M7 no frontend: o `idOperacao` pertence à intenção lógica do usuário, não à
- * tentativa HTTP. Ele é criado antes da primeira tentativa mutável e reutilizado
- * em timeout, perda de conexão, resposta desconhecida e retry da MESMA
- * intenção. Um novo `idOperacao` só nasce quando o usuário inicia
- * deliberadamente outra intenção (campos semânticos diferentes) ou descarta a
- * atual. Reutilizar um `idOperacao` antigo com payload alterado é rejeitado
- * pelo backend (M7); por isso a assinatura faz parte da intenção.
+ * tentativa HTTP. Ele é criado antes da primeira tentativa mutável e
+ * persistido junto da intenção local (sessão/rascunho), sendo reutilizado em
+ * timeout, perda de conexão, resposta desconhecida e retry da MESMA intenção.
+ * Um novo `idOperacao` só nasce quando o usuário inicia deliberadamente outra
+ * intenção (campos semânticos diferentes) ou descarta a atual. Reutilizar um
+ * `idOperacao` antigo com payload alterado é rejeitado pelo backend (M7); por
+ * isso a assinatura faz parte da intenção.
  */
 
 export interface IntencaoOperacao {
@@ -20,6 +21,16 @@ export interface CamposIntencaoTurma {
   semestre: number;
   capacidade: number;
   idProfessor?: string;
+}
+
+/** Chave de sessão da intenção de criação de turma. */
+export const CHAVE_INTENCAO_CRIAR_TURMA = "lcqui.intencao.criarTurma";
+
+/** Subconjunto de `Storage` suficiente e testável (sessionStorage). */
+export interface ArmazenamentoIntencao {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
 }
 
 /** Assinatura canônica e determinística dos campos semânticos da intenção. */
@@ -53,7 +64,35 @@ export function resolverIdOperacao(
   return { idOperacao: gerarId(), assinatura };
 }
 
-/** Descarta a intenção corrente (resultado conclusivo, cancelamento ou nova sessão). */
-export function descartarIntencao(): null {
+/** Lê a intenção persistida na sessão; dado corrompido é tratado como ausente. */
+export function lerIntencao(
+  storage: ArmazenamentoIntencao,
+  chave: string
+): IntencaoOperacao | null {
+  const bruto = storage.getItem(chave);
+  if (bruto === null) return null;
+  try {
+    const analisado: unknown = JSON.parse(bruto);
+    if (analisado !== null && typeof analisado === "object") {
+      const obj = analisado as Record<string, unknown>;
+      if (typeof obj.idOperacao === "string" && typeof obj.assinatura === "string") {
+        return { idOperacao: obj.idOperacao, assinatura: obj.assinatura };
+      }
+    }
+  } catch {
+    // Intenção corrompida é descartada; uma nova será criada no próximo envio.
+  }
   return null;
+}
+
+export function gravarIntencao(
+  storage: ArmazenamentoIntencao,
+  chave: string,
+  intencao: IntencaoOperacao
+): void {
+  storage.setItem(chave, JSON.stringify(intencao));
+}
+
+export function limparIntencao(storage: ArmazenamentoIntencao, chave: string): void {
+  storage.removeItem(chave);
 }

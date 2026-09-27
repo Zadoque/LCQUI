@@ -225,6 +225,22 @@ O enum alinhou \texttt{ESCASSEZ\_ESTOQUE}, \texttt{Bolsista} e
 \texttt{Chefe\_Geral}. Integração de notificações 30/30 e Rules 11/11;
 integração completa 160 passam / 14 falham (legadas).
 
+\subsection{Décima quarta cadeia executada (reconciliação de contrato acadêmico)}
+
+\begin{center}
+Seção 7 M11, UI-10, CUE \texttt{\#M11Turma}, M7 e M9
+$\rightarrow$ \texttt{IMP-ACAD-001}
+$\rightarrow$ \texttt{TEST-INT-TURMA-ANO-001--004}, \texttt{-CAP-001--003}, \texttt{-Q13-008}
+$\rightarrow$ \nolinkurl{functions/src/schemas/turmas.schema.ts}, \nolinkurl{functions/src/turmas.ts} e \nolinkurl{frontend/src/lib/intencaoOperacao.ts}
+$\rightarrow$ PASS Node 20
+\end{center}
+
+\texttt{ano} passou a inteiro $\ge 1$ (sem o \texttt{min(2000)} inventado e sem
+fracionários); o teto \texttt{max=200} da capacidade foi removido; o professor
+alvo exige \texttt{Professor/\{alvo\}.id\_usuario == alvo}; e o rascunho M7 do
+modal passou de \texttt{useRef} para \texttt{sessionStorage}. \texttt{turmas}
+36/36 e \texttt{tsc --noEmit} PASS.
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara

@@ -14,7 +14,7 @@ export const CriarTurmaSchema = z.object({
   idOperacao: IdOperacaoTurmaSchema,
   idMateria: z.string().min(1, "ID da matéria é obrigatório."),
   nomeTurma: z.string().min(1, "Nome da turma é obrigatório.").max(100, "Nome da turma excede 100 caracteres."),
-  ano: z.coerce.number().min(2000, "O ano deve ser válido e maior ou igual a 2000."),
+  ano: z.coerce.number().int("O ano deve ser um inteiro.").min(1, "O ano deve ser um inteiro positivo."),
   semestre: z.coerce.number().refine(val => val === 1 || val === 2, "O semestre deve ser 1 ou 2."),
   capacidade: z.coerce.number().int().positive("A capacidade deve ser um número inteiro positivo."),
   idProfessor: z.string().optional()

@@ -162,8 +162,15 @@ export const criarTurma = onCall(async (request) => {
         db.collection("Usuarios").doc(idProfessorEfetivo),
         db.collection("Professor").doc(idProfessorEfetivo)
       );
-      if (!usuarioAlvo.exists || usuarioAlvo.data()?.ativo !== true || !papelAlvo.exists) {
-        throw new HttpsError("failed-precondition", "Professor alvo inexistente ou inativo.");
+      // M9: o documento de papel precisa representar o próprio UID
+      // (`id_usuario == alvo`), como exigido em `resolverAutoridadePersistidaTx`.
+      if (
+        !usuarioAlvo.exists ||
+        usuarioAlvo.data()?.ativo !== true ||
+        !papelAlvo.exists ||
+        papelAlvo.data()?.id_usuario !== idProfessorEfetivo
+      ) {
+        throw new HttpsError("failed-precondition", "Professor alvo inexistente, inativo ou inconsistente.");
       }
     }
 

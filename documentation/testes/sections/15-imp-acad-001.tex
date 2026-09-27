@@ -99,3 +99,47 @@ anterior (criavam a turma). GREEN sob Node 20.19.6: \texttt{turmas.test.ts}
 \textbf{Estado final:} \texttt{IMP-ACAD-001} permanece \texttt{DIVERGENTE}
 apenas pelo E2E UI-10; backend, Rules e comportamento funcional do modal estão
 convergidos.
+
+\subsection{Reconciliação de contrato (\texttt{ano}, capacidade, Q13 e rascunho M7)}
+
+Auditoria independente apontou resíduos:
+
+\paragraph{A. \texttt{ano}.} O schema impunha \texttt{min(2000)} sem base
+normativa e aceitava fracionários. O contrato (Seção~7 M11; CUE
+\texttt{\#M11Turma}) exige \texttt{int \& >= 1}. Corrigido para
+\texttt{number().int().min(1)}. UI-10 e CUE também não impõem teto de
+capacidade: removido o \texttt{max="200"} artificial do modal; o backend
+continua exigindo inteiro positivo.
+
+\paragraph{B. Q13 do professor alvo.} Além de existir e estar ativo, o documento
+\texttt{Professor/\{alvo\}} precisa representar o próprio UID
+(\texttt{id\_usuario == alvo}), como em \texttt{resolverAutoridadePersistidaTx}.
+Documento inconsistente falha fechado.
+
+\paragraph{C. Rascunho M7.} M7 exige \texttt{idOperacao} ``persistida junto da
+intenção local (sessão/rascunho)''. A intenção passou de \texttt{useRef} para
+\texttt{sessionStorage}, com leitura/escrita/limpeza puras e testáveis; o id
+sobrevive a remount/timeout/resposta desconhecida do mesmo rascunho e é
+descartado apenas em resultado conclusivo; campos diferentes geram novo id.
+
+\small
+\begin{longtable}{@{}p{0.30\textwidth}p{0.52\textwidth}@{}}
+\toprule
+ID & Resultado \\
+\midrule
+\endhead
+TEST-INT-TURMA-ANO-001 & \texttt{ano=1} é permitido (inteiro $\ge$ 1) \\
+TEST-INT-TURMA-ANO-002 & \texttt{ano=0} é rejeitado \\
+TEST-INT-TURMA-ANO-003 & \texttt{ano=-1} é rejeitado \\
+TEST-INT-TURMA-ANO-004 & \texttt{ano} fracionário é rejeitado \\
+TEST-INT-TURMA-CAP-001 & \texttt{capacidade=201} não é limitada por teto inventado \\
+TEST-INT-TURMA-CAP-002 & \texttt{capacidade=0} é rejeitada \\
+TEST-INT-TURMA-CAP-003 & \texttt{capacidade} fracionária é rejeitada \\
+TEST-INT-TURMA-Q13-008 & \texttt{Professor} alvo com \texttt{id\_usuario} inconsistente é negado \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+GREEN sob Node 20.19.6: \texttt{turmas.test.ts} 36/36; \texttt{tsc --noEmit} do
+frontend PASS. \texttt{IMP-ACAD-001} segue \texttt{DIVERGENTE} somente pelo E2E
+UI-10.
