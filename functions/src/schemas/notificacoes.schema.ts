@@ -1,10 +1,12 @@
 import { z } from "zod";
 
 export const PapelDestinatarioSchema = z.enum([
-  "Aluno", 
-  "Professor", 
+  "Aluno",
+  "Professor",
+  "Bolsista",
   "Gestor_Bens_Patrimoniais",
-  "Gestor_Almoxarifado"
+  "Gestor_Almoxarifado",
+  "Chefe_Geral"
 ]);
 
 export const TipoNotificacaoSchema = z.enum([
@@ -16,8 +18,8 @@ export const TipoNotificacaoSchema = z.enum([
   "BEM_INSERVIVEL",
   "ENTREGA_ATRASADA", "FRASCOS_VAZIOS", "FRASCOS_QUEBRADOS",
   "FRASCOS_VENCIDOS", "FRASCOS_A_SEREM_PESADOS",
-  "FRASCOS_EM_QUARENTENA", "REAGENTE_ESCASSO",
-  "REQUISICAO_APROVADA", "REQUISICAO_REJEITADA" // Adding for Requisicao feedback
+  "FRASCOS_EM_QUARENTENA", "ESCASSEZ_ESTOQUE",
+  "REQUISICAO_APROVADA", "REQUISICAO_REJEITADA" // legado: alinhar com #M13Tipo em IMP-NOTIF-005
 ]);
 
 export const CriarNotificacaoSchema = z.object({
@@ -29,6 +31,8 @@ export const CriarNotificacaoSchema = z.object({
   quantidade: z.number().optional().nullable(),
   entidade_alvo: z.string().min(1),
   id_alvo: z.string().min(1),
+  // RN-M13-03: só prazos determinados na fonte; sem prazo, `expira_em = null`.
+  expira_em: z.date().nullable().optional(),
   mensagem_customizada: z.string().optional().nullable() // Useful for justificativa
 });
 

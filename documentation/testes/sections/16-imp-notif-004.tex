@@ -1,0 +1,60 @@
+\section{Evidência de IMP-NOTIF-004 (expiração determinada na emissão)}
+
+\textbf{Feature:} \texttt{IMP-NOTIF-004} --- expiração e conjunto ativo.
+
+\textbf{Estado anterior:} \texttt{DIVERGENTE}. \texttt{adicionarNotificacaoTx}
+aplicava 30 dias a \emph{todos} os tipos, contrariando RN-M13-03 (``não se
+atribui duração arbitrária aos demais tipos'' e \texttt{ESCASSEZ\_ESTOQUE} não
+expira). O enum do schema também divergia (\texttt{REAGENTE\_ESCASSO}; sem
+\texttt{Bolsista}/\texttt{Chefe\_Geral}; sem \texttt{expira\_em}).
+
+\textbf{Estado depois:} backend de emissão convergido; a feature permanece
+\texttt{DIVERGENTE} pelo filtro de conjunto ativo na leitura da caixa
+(\texttt{IMP-NOTIF-001}/UI-12) e pelo enum legado residual.
+
+\subsection{Contrato}
+
+Fontes: RN-M13-03; CUE \texttt{\#M13Tipo} (inclui \texttt{ESCASSEZ\_ESTOQUE}),
+\texttt{\#M13PapelDestinatario} e \texttt{\#M13Expiracao}
+(\texttt{expira\_em = null} $\Rightarrow$ ativo; \texttt{ESCASSEZ\_ESTOQUE}
+$\Rightarrow$ null).
+
+Propriedades: sem prazo determinado na fonte, \texttt{expira\_em = null};
+prazo explícito da fonte é preservado; \texttt{ESCASSEZ\_ESTOQUE} grava
+\texttt{null} e rejeita prazo.
+
+\subsection{Mudança}
+
+\begin{itemize}
+  \item \path{functions/src/notificacoes.ts}: \texttt{adicionarNotificacaoTx}
+  deixou de impor 30 dias; grava \texttt{dados.expira\_em ?? null} e força
+  \texttt{null} para \texttt{ESCASSEZ\_ESTOQUE} (rejeitando prazo com
+  \texttt{invalid-argument});
+  \item \path{functions/src/schemas/notificacoes.schema.ts}: novo
+  \texttt{expira\_em}; \texttt{REAGENTE\_ESCASSO} $\rightarrow$
+  \texttt{ESCASSEZ\_ESTOQUE}; adicionados \texttt{Bolsista} e
+  \texttt{Chefe\_Geral} ao papel destinatário.
+\end{itemize}
+
+\subsection{Testes}
+
+\small
+\begin{longtable}{@{}p{0.30\textwidth}p{0.52\textwidth}@{}}
+\toprule
+ID & Resultado \\
+\midrule
+\endhead
+TEST-INT-NOTIF-M13-027 & Sem prazo de fonte grava \texttt{expira\_em=null} \\
+TEST-INT-NOTIF-M13-028 & Prazo determinado da fonte é preservado \\
+TEST-INT-NOTIF-M13-029 & \texttt{ESCASSEZ\_ESTOQUE} grava \texttt{expira\_em=null} \\
+TEST-INT-NOTIF-M13-030 & \texttt{ESCASSEZ\_ESTOQUE} com prazo é rejeitada \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+RED: os quatro casos falharam contra a emissão anterior (30 dias universal).
+GREEN sob Node 20.19.6: notificações 41/41 (integração 30/30 e Rules 11/11);
+unit 71/71; Rules 77/77; integração completa 160 passam / 14 falham (legadas).
+
+\textbf{Estado final:} \texttt{IMP-NOTIF-004} = \texttt{DIVERGENTE} apenas pelo
+filtro de ativo na caixa UI-12 e pelo enum legado residual; emissão convergida.

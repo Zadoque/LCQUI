@@ -27,9 +27,12 @@ export function adicionarNotificacaoTx(
     .collection("Notificacoes")
     .doc();
 
-  // Expira em 30 dias por padrão
-  const agora = new Date();
-  const expiraEm = new Date(agora.getTime() + 30 * 24 * 60 * 60 * 1000);
+  // RN-M13-03: sem prazo determinado na fonte, `expira_em = null` (sem expiração
+  // automática). `ESCASSEZ_ESTOQUE` nunca expira e não admite prazo arbitrário.
+  if (dados.tipo === "ESCASSEZ_ESTOQUE" && dados.expira_em != null) {
+    throw new HttpsError("invalid-argument", "ESCASSEZ_ESTOQUE não admite expiração.");
+  }
+  const expiraEm = dados.tipo === "ESCASSEZ_ESTOQUE" ? null : dados.expira_em ?? null;
 
   tx.set(notificacoesRef, {
     id_destinatario: dados.id_destinatario,

@@ -6,7 +6,8 @@ process.env.FUNCTIONS_EMULATOR = "true";
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { CallableRequest } from "firebase-functions/v2/https";
-import { marcarNotificacaoComoLida, limparTudoNotificacoes } from "../notificacoes";
+import { marcarNotificacaoComoLida, limparTudoNotificacoes, adicionarNotificacaoTx } from "../notificacoes";
+import { CriarNotificacao } from "../schemas/notificacoes.schema";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -506,6 +507,51 @@ describe("Módulo de Notificações (M9 + server-owned)", () => {
       await expect(wrapped(mockRequest({ corte, cursor: "lixo" }, uid))).rejects.toMatchObject({
         code: "invalid-argument",
       });
+    });
+  });
+
+  describe("Emissão e expiração (RN-M13-03)", () => {
+    async function emitir(destinatario: string, dados: Partial<CriarNotificacao> = {}): Promise<admin.firestore.QuerySnapshot> {
+      const completo: CriarNotificacao = {
+        id_destinatario: destinatario,
+        papel_destinatario: "Aluno",
+        tipo: "FRASCOS_VAZIOS",
+        entidade_alvo: "Almoxarifado",
+        id_alvo: "alvo_1",
+        ...dados,
+      };
+      await db.runTransaction(async (tx) => {
+        adicionarNotificacaoTx(tx, db, completo);
+      });
+      return db.collection("Usuarios").doc(destinatario).collection("Notificacoes").get();
+    }
+
+    it("TEST-INT-NOTIF-M13-027 — emissão sem prazo de fonte grava expira_em=null", async () => {
+      const uid = uidUnico("notif_emissao_nula");
+      const snap = await emitir(uid);
+      expect(snap.size).toBe(1);
+      expect(snap.docs[0].data().expira_em).toBeNull();
+    });
+
+    it("TEST-INT-NOTIF-M13-028 — prazo determinado da fonte é preservado", async () => {
+      const uid = uidUnico("notif_emissao_prazo");
+      const expira = new Date(Date.now() + 3600_000);
+      const snap = await emitir(uid, { tipo: "DATA_DEVOLUCAO_REAGENTE", expira_em: expira });
+      const gravado = snap.docs[0].data().expira_em.toDate();
+      expect(gravado.getTime()).toBe(expira.getTime());
+    });
+
+    it("TEST-INT-NOTIF-M13-029 — ESCASSEZ_ESTOQUE grava expira_em=null", async () => {
+      const uid = uidUnico("notif_emissao_escassez");
+      const snap = await emitir(uid, { tipo: "ESCASSEZ_ESTOQUE" });
+      expect(snap.docs[0].data().expira_em).toBeNull();
+    });
+
+    it("TEST-INT-NOTIF-M13-030 — ESCASSEZ_ESTOQUE com prazo é rejeitada", async () => {
+      const uid = uidUnico("notif_emissao_escassez_prazo");
+      await expect(
+        emitir(uid, { tipo: "ESCASSEZ_ESTOQUE", expira_em: new Date(Date.now() + 3600_000) })
+      ).rejects.toMatchObject({ code: "invalid-argument" });
     });
   });
 });

@@ -209,6 +209,22 @@ auditado. No modal, o \texttt{idOperacao} passou a pertencer à intenção lógi
 (reutilizado em retry, renovado quando o payload muda). \texttt{turmas.test.ts}
 28/28; integração completa 156 passam / 14 falham (legadas).
 
+\subsection{Décima terceira cadeia executada (expiração na emissão)}
+
+\begin{center}
+Seção 7 RN-M13-03, CUE \texttt{\#M13Tipo}/\texttt{\#M13Expiracao}
+$\rightarrow$ \texttt{IMP-NOTIF-004}
+$\rightarrow$ \texttt{TEST-INT-NOTIF-M13-027--030}
+$\rightarrow$ \nolinkurl{functions/src/notificacoes.ts} e \nolinkurl{functions/src/schemas/notificacoes.schema.ts}
+$\rightarrow$ PASS Node 20
+\end{center}
+
+A emissão deixou de impor 30 dias universal: sem prazo determinado na fonte o
+aviso grava \texttt{expira\_em=null} e \texttt{ESCASSEZ\_ESTOQUE} nunca expira.
+O enum alinhou \texttt{ESCASSEZ\_ESTOQUE}, \texttt{Bolsista} e
+\texttt{Chefe\_Geral}. Integração de notificações 30/30 e Rules 11/11;
+integração completa 160 passam / 14 falham (legadas).
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara
