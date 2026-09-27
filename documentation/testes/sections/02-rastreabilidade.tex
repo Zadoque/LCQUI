@@ -335,6 +335,23 @@ duplica matrícula/notificação nem decrementa o contador duas vezes), usar
 \texttt{status}. \texttt{turmas} 50/50; integração completa 203 passam / 14
 falham (legadas).
 
+\subsection{Vigésima primeira cadeia executada (reconciliação pós-auditoria)}
+
+\begin{center}
+Seção 8 UI-10, Seção 11, Seção 5, CUE M11, M7/M9 e backfill de \texttt{Chaves\_Unicas}
+$\rightarrow$ \texttt{IMP-ACAD-002}, \texttt{IMP-BASE-001}, \texttt{IMP-INDEX-001}
+$\rightarrow$ \texttt{ING-005--008}, \texttt{ADM-006/007}, \texttt{ALMOX-013--015}, \texttt{MANUT-VINC/CHAVE}
+$\rightarrow$ \nolinkurl{functions/src/turmas.ts}, \nolinkurl{functions/src/chaves.ts}, \nolinkurl{functions/src/manutencao/*}, \nolinkurl{firestore.rules}
+$\rightarrow$ PASS Node 20
+\end{center}
+
+O ingresso passou a distinguir membro existente de novo ingresso, com vínculo
+canônico saneado (sem e-mail/matrícula) e Rules de membros restritas; a
+identidade M7 do almoxarifado cobre \texttt{ativo} e o conjunto ordenado de
+gestores; a derivação de \texttt{Chaves\_Unicas} foi unificada e o backfill
+idempotente foi testado no Emulator (sem execução em produção). Integração
+completa 219 passam / 14 falham (legadas).
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara

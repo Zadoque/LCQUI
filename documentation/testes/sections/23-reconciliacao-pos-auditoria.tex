@@ -1,0 +1,78 @@
+\section{Reconciliação pós-auditoria independente}
+
+Esta seção registra as correções de uma rodada corretiva sobre a
+\texttt{dev}, sem novas features.
+
+\subsection{IMP-ACAD-002 --- contrato de matrícula}
+
+Fontes: Seção~8 UI-10 (``aluno já matriculado recebe acesso à turma sem duplicar
+contagem''); Seção~11 (leitura de membros por self/colega/professor); Seção~5
+(\texttt{Historico\_Alunos\_Turma}, espelho e vínculo canônico); CUE
+\texttt{\#M11VinculoCanonico}/\texttt{\#M11EspelhoAlunoTurma}/\texttt{\#M11EventoHistorico}.
+
+\begin{itemize}
+  \item \emph{Membro já existente}: recebe acesso sem criar vínculo nem
+  incrementar contador/evento, mesmo em turma cheia ou arquivada; registra
+  apenas o receipt da nova intenção.
+  \item \emph{Fail-closed} do contador/capacidade persistidos
+  (\texttt{qtd\_alunos} inteiro $\ge 0$, \texttt{capacidade} inteiro $\ge 1$).
+  \item Vínculo canônico \texttt{\{id\_aluno, id\_turma, nome, ingressou\_em\}},
+  sem e-mail/matrícula; espelho com \texttt{id\_materia}/\texttt{status};
+  evento \texttt{modo\_ingresso=CODIGO}.
+  \item Rules: \texttt{Turma/\{id\}/Alunos} legível por self, membro, professor
+  dono ou Chefe (Q13); aluno de turma alheia é negado.
+  \item Reconciliação idempotente de vínculos legados
+  (\path{functions/src/manutencao/vinculos.ts} +
+  \path{functions/scripts/reconcile-vinculos.ts}), dry-run por padrão e
+  \texttt{--apply} explícito.
+\end{itemize}
+
+\subsection{IMP-BASE-001 --- identidade M7 de \texttt{CRIAR\_ALMOXARIFADO}}
+
+O \texttt{payload\_hash} passou a cobrir o \texttt{ativo} efetivo e usa o
+conjunto de gestores normalizado (dedup + ordenação determinística), pois a
+ordem não é semântica. Assim, o mesmo \texttt{idOperacao} com \texttt{ativo}
+diferente é \texttt{already-exists}, e reordenar gestores é replay.
+
+\subsection{Chaves\_Unicas --- derivação única e backfill}
+
+A Seção~5 exige backfill populando \texttt{Chaves\_Unicas} antes de ativar a
+verificação transacional. Foi criada derivação única em
+\path{functions/src/chaves.ts} (usada pelo runtime e pelo backfill), alinhando a
+chave de turma a \texttt{Chaves\_Unicas/Turma\_\_\{codigo\}}. O backfill
+(\path{functions/src/manutencao/chavesUnicas.ts} +
+\path{functions/scripts/backfill-chaves-unicas.ts}) cobre Materia, Local e
+Turma, é idempotente, tem dry-run por padrão, \texttt{--apply} explícito e
+fail-closed em duplicidade na origem ou chave existente divergente. Os CLIs
+recusam execução fora do emulador sem \texttt{--allow-remote}.
+
+\begin{longtable}{@{}p{0.34\textwidth}p{0.54\textwidth}@{}}
+\toprule
+ID & Resultado \\
+\midrule
+\endhead
+TEST-INT-TURMA-ING-005 & Membro em turma cheia recebe acesso sem duplicar \\
+TEST-INT-TURMA-ING-006 & Shape canônico vínculo/espelho/histórico (CODIGO) \\
+TEST-INT-TURMA-ING-007 & Contador persistido inválido falha fechado \\
+TEST-INT-TURMA-ING-008 & Nome de \texttt{Usuarios}; vínculo sem e-mail/matrícula \\
+TEST-INT-TURMA-ADM-006 & Shape canônico da inclusão pelo professor \\
+TEST-INT-TURMA-ADM-007 & Evento de exclusão com \texttt{id\_turma} e sem invenção \\
+TEST-RULES (membros) & Self/colega/professor/Q13 leem; turma alheia negada \\
+TEST-INT-ALMOX-013 & Mesmo \texttt{idOperacao} com \texttt{ativo} diferente é \texttt{already-exists} \\
+TEST-INT-ALMOX-014 & Gestores reordenados são replay \\
+TEST-INT-ALMOX-015 & Conjunto de gestores diferente é \texttt{already-exists} \\
+TEST-INT-MANUT-VINC-001/002 & Reconciliação de vínculos dry-run/apply/idempotente/conflito \\
+TEST-INT-MANUT-CHAVE-001--005 & Backfill de chaves: no-op, dry-run/apply, idempotência, conflitos \\
+\bottomrule
+\end{longtable}
+
+\subsection{Pré-condição operacional}
+
+O código de backfill foi \emph{versionado e testado no Emulator}. Nenhuma
+migração foi executada contra produção. A execução no ambiente alvo é
+pré-condição de ativação da unicidade transacional; a evidência ``backend
+convergido'' de matéria/local/turma refere-se ao mecanismo runtime.
+
+Regressão sob Node 20.19.6: unit 71/71; Rules 80/80; integração completa 219
+passam / 14 falham (legadas em reagentes/patrimônio/roteiros); \texttt{build}
+PASS; \texttt{tsc --noEmit} do frontend PASS.
