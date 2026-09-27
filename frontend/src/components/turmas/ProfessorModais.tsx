@@ -240,7 +240,10 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
       return;
     }
 
-    if (idTurma && excederCapacidade && !justificativaExcecao.trim()) {
+    const podeExceder = Boolean(idTurma && !isGestorGeral && excederCapacidade);
+    const justificativaFinal = podeExceder ? justificativaExcecao.trim() : undefined;
+
+    if (idTurma && !isGestorGeral && excederCapacidade && !justificativaExcecao.trim()) {
       setToast({
         type: "error",
         msg: "Justificativa é obrigatória quando 'Exceder capacidade' for marcado.",
@@ -258,8 +261,8 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
         email: em,
         idTurma: idTurma || null,
         matricula: matricula.trim() || null,
-        excederCapacidade: Boolean(idTurma && excederCapacidade),
-        justificativaExcecao: idTurma && excederCapacidade ? justificativaExcecao.trim() : null,
+        excederCapacidade: podeExceder,
+        justificativaExcecao: justificativaFinal ?? null,
       });
 
       const intencao = session
@@ -268,19 +271,24 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
 
       try {
         const convidar = httpsCallable(functions, "convidarAluno");
-        await convidar({
+        const res = await convidar({
           idOperacao: intencao.idOperacao,
           email: em,
           idTurma: idTurma || null,
           matricula: matricula.trim() || undefined,
-          excederCapacidade: Boolean(idTurma && excederCapacidade),
-          justificativaExcecao: idTurma && excederCapacidade ? justificativaExcecao.trim() : undefined,
+          excederCapacidade: podeExceder,
+          justificativaExcecao: justificativaFinal,
         });
 
         if (session) limparIntencao(session, chave);
 
+        const canal = (res.data as { canal_entrega?: string })?.canal_entrega;
+        const msgCanal = canal === "notificacao_interna"
+          ? "Convite registrado via notificação interna do aluno."
+          : "Convite registrado; fluxo de acesso enviado via Firebase Auth.";
+
         const idx = novosResultados.findIndex((r) => r.email === em);
-        const item = { email: em, status: "sucesso" as const, msg: "Convite registrado." };
+        const item = { email: em, status: "sucesso" as const, msg: msgCanal };
         if (idx >= 0) novosResultados[idx] = item;
         else novosResultados.push(item);
       } catch (error: unknown) {
@@ -342,7 +350,9 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
           >
             <option value="">Selecione uma turma...</option>
             {turmas.map(t => (
-              <option key={t.id} value={t.id}>{t.nome_turma} ({t.codigo_turma})</option>
+              <option key={t.id} value={t.id}>
+                {t.nome_turma} ({t.codigo_turma}){isGestorGeral && (t.nome_professor || t.id_professor) ? ` — Prof. ${t.nome_professor || t.id_professor}` : ""}
+              </option>
             ))}
           </select>
         </div>
@@ -471,7 +481,7 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
                 </div>
               )}
 
-              {idTurma && (
+              {idTurma && !isGestorGeral && (
                 <div className="p-3 bg-foreground/5 border border-foreground/10 rounded-xl space-y-3">
                   <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold">
                     <input
