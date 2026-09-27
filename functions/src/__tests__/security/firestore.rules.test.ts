@@ -208,6 +208,13 @@ describe("Firestore Security Rules", () => {
       // Gestor não pode mais criar frasco diretamente via client, apenas Cloud Function
       await assertFails(dbGestor.collection("Frasco_Reagente").add({ nome: "NaCl" }));
     });
+
+    it("não permite que nenhum cliente escreva Almoxarifado ou vínculo diretamente", async () => {
+      const dbChefe = authedDb("boss", ["Chefe_Geral"]);
+      const dbGestor = authedDb("gestorAlm", ["Gestor_Almoxarifado"]);
+      await assertFails(dbChefe.collection("Almoxarifado").add({ nome: "Central", id_local: "l1" }));
+      await assertFails(dbGestor.collection("Gestor_Almoxarifado_x_Almoxarifado").add({ id_gestor_almoxarifado: "gestorAlm", id_almoxarifado: "a1" }));
+    });
   });
 
   describe("Auditoria", () => {

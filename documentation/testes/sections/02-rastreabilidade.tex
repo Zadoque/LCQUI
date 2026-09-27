@@ -288,6 +288,21 @@ $\rightarrow$ PASS Node 20
 para escrita cliente. \texttt{locais} 9/9, Rules 78/78 e integração completa 182
 passam / 14 falham (legadas).
 
+\subsection{Décima oitava cadeia executada (almoxarifado server-owned)}
+
+\begin{center}
+Seção 5 Almoxarifado, Seção 8 UI-03, Seção 9 CHE-03, M7 e M9
+$\rightarrow$ \texttt{IMP-BASE-001}
+$\rightarrow$ \texttt{TEST-INT-ALMOX-001--012} e \texttt{TEST-RULES-Almoxarifado}
+$\rightarrow$ \nolinkurl{functions/src/almoxarifados.ts}, \nolinkurl{firestore.rules}
+$\rightarrow$ PASS Node 20
+\end{center}
+
+\texttt{gerenciarAlmoxarifado} cria/edita/ativa/desativa com Local verificado,
+gestores validados, contador derivado e M9/M7; as Rules fecham Almoxarifado e o
+vínculo para escrita cliente. \texttt{almoxarifados} 12/12, Rules 79/79 e
+integração completa 194 passam / 14 falham (legadas).
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara

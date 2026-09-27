@@ -198,12 +198,13 @@ service cloud.firestore {
 
     match /Almoxarifado/{almId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      // Criação/status/gestores server-owned (gerenciarAlmoxarifado).
+      allow write: if false;
     }
 
     match /Gestor_Almoxarifado_x_Almoxarifado/{junctionId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow write: if false;
     }
 
     match /Especificacao_Reagente/{reagenteId} {

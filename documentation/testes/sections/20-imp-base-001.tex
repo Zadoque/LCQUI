@@ -1,0 +1,69 @@
+\section{Evidência de IMP-BASE-001 (almoxarifado: criar, ativar e gestores)}
+
+\textbf{Feature:} \texttt{IMP-BASE-001} --- criar, ativar e vincular gestores de
+almoxarifado.
+
+\textbf{Estado anterior:} \texttt{NÃO IMPLEMENTADO}. Não havia callable; as
+Rules permitiam \texttt{write} de admin ao cliente e nenhum fluxo impunha Local
+existente, vínculo válido e ao menos um gestor para ativação.
+
+\textbf{Estado depois:} backend e Rules convergidos; permanece
+\texttt{DIVERGENTE} pela UI de gestão (UI-03) e E2E.
+
+\subsection{Contrato}
+
+Fontes: Seção~5 (Almoxarifado: \texttt{id\_local}, \texttt{nome} $\le$ 100,
+\texttt{descricao} $\le$ 500, \texttt{ativo}; contador derivado dos vínculos);
+Seção~8 UI-03 (novo almoxarifado exige Local existente e ao menos um gestor para
+ativação; pode ser salvo inativo sem gestor); Seção~9 CHE-03; M9 (Chefe
+persistido) e M7.
+
+\subsection{Mudança}
+
+\begin{itemize}
+  \item novo \path{functions/src/almoxarifados.ts}: \texttt{gerenciarAlmoxarifado(\{idOperacao, acao, idAlmoxarifado?, idLocal, nome, descricao, gestores?, ativo?\})};
+  \item \texttt{CRIAR}: Local verificado, gestores validados (usuário ativo com
+  papel \texttt{Gestor\_Almoxarifado} consistente), ativação só com ao menos um
+  gestor; grava vínculos e \texttt{qtd\_gestores\_ativos};
+  \item \texttt{EDITAR}: reconcilia o conjunto de vínculos (adiciona/remove) e o
+  contador; almoxarifado ativo não pode ficar sem gestor;
+  \item \texttt{ATIVAR}/\texttt{DESATIVAR}: ativação revalida os vínculos
+  correntes e desativação preserva vínculos;
+  \item M9 (Chefe\_Geral persistido) e M7 (replay/reuso incompatível) em todas as
+  ações; \path{firestore.rules}: \texttt{Almoxarifado} e o vínculo passam a
+  \texttt{write: if false}.
+\end{itemize}
+
+\subsection{Testes}
+
+\small
+\begin{longtable}{@{}p{0.30\textwidth}p{0.52\textwidth}@{}}
+\toprule
+ID & Resultado \\
+\midrule
+\endhead
+TEST-INT-ALMOX-001 & Cria ativo com gestor, vínculo e contador \\
+TEST-INT-ALMOX-002 & Criação ativa sem gestor é \texttt{failed-precondition} \\
+TEST-INT-ALMOX-003 & Local inexistente é \texttt{failed-precondition} \\
+TEST-INT-ALMOX-004 & Criação inativa sem gestor é permitida \\
+TEST-INT-ALMOX-005 & Ativar exige e considera vínculo válido \\
+TEST-INT-ALMOX-006 & Desativar mantém vínculos \\
+TEST-INT-ALMOX-007 & Editar reconcilia o conjunto de gestores \\
+TEST-INT-ALMOX-008 & Editar ativo para zero gestores é negado \\
+TEST-INT-ALMOX-009 & Replay do mesmo \texttt{idOperacao} não duplica \\
+TEST-INT-ALMOX-010 & Sem Chefe\_Geral é \texttt{permission-denied} (M9) \\
+TEST-INT-ALMOX-011 & Gestor inexistente/sem papel é \texttt{failed-precondition} \\
+TEST-INT-ALMOX-012 & Limites de nome/descrição são aplicados \\
+TEST-RULES-Almoxarifado & Nenhum cliente escreve Almoxarifado/vínculo diretamente \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+GREEN sob Node 20.19.6: \texttt{almoxarifados.test.ts} 12/12; Rules 79/79;
+unit 71/71; integração completa 194 passam / 14 falham (legadas); \texttt{build}
+PASS.
+
+\textbf{Estado final:} \texttt{IMP-BASE-001} = \texttt{DIVERGENTE} apenas pela
+UI-03/E2E; backend e Rules convergidos. Observação: o contador
+\texttt{qtd\_gestores\_ativos} é mantido por esta callable; a revogação global do
+papel deve reconciliá-lo (permanece sob \texttt{IMP-ROLE-002}).
