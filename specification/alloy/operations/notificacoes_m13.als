@@ -82,7 +82,8 @@ abstract sig Tipo {}
 one sig TAdicionado, TPost, TComentario, TRemovido, TArquivada, TDesarquivada,
 	TRequisicaoBem, TDataDevolucao, TRoteiroCompartilhado, TRequisicaoEdicaoBem,
 	TRequisicaoAdicaoBem, TBemInservivel, TEntregaAtrasada, TVazios, TQuebrados,
-	TVencidos, TASeremPesados, TEmQuarentena, TEscassez, TAutoAtendimento
+	TVencidos, TASeremPesados, TEmQuarentena, TEscassez, TAutoAtendimento,
+	TConviteParaTurma
 	extends Tipo {}
 
 // Operação idempotente M7: identidade `(opUid, opTipo, opChave)`.
@@ -193,9 +194,9 @@ pred podeEmitirUrl[s: EstadoM13, u: Usuario, r: Roteiro] {
 
 // ---- Classificação de tipos e alvo ------------------------------------------
 
-// Seis tipos acadêmicos (RN-M13-07); correspondência exata com CUE/IR/LaTeX.
+// Sete tipos acadêmicos (RN-M13-07); correspondência exata com CUE/IR/LaTeX.
 pred academico[t: Tipo] {
-	t in TComentario + TPost + TAdicionado + TRemovido + TArquivada + TDesarquivada
+	t in TComentario + TPost + TAdicionado + TRemovido + TArquivada + TDesarquivada + TConviteParaTurma
 }
 
 pred temAlvoValido[s: EstadoM13, n: Notificacao] {

@@ -16,7 +16,7 @@ import "strings"
 
 #M13Tipo:
 	"ADICIONADO" | "POST" | "COMENTARIO" | "REMOVIDO" |
-	"TURMA_ARQUIVADA" | "TURMA_DESARQUIVADA" |
+	"TURMA_ARQUIVADA" | "TURMA_DESARQUIVADA" | "CONVITE_PARA_TURMA" |
 	"REQUISICAO_BEM" | "DATA_DEVOLUCAO_REAGENTE" |
 	"ROTEIRO_COMPARTILHADO" | "REQUISICAO_EDICAO_BEM" |
 	"REQUISICAO_ADICAO_BEM" | "BEM_INSERVIVEL" |
@@ -28,7 +28,7 @@ import "strings"
 // Tipos acadêmicos exigem `id_turma` (RN-M13-07); os demais o mantêm nulo.
 #M13TipoAcademico:
 	"COMENTARIO" | "POST" | "ADICIONADO" | "REMOVIDO" |
-	"TURMA_ARQUIVADA" | "TURMA_DESARQUIVADA"
+	"TURMA_ARQUIVADA" | "TURMA_DESARQUIVADA" | "CONVITE_PARA_TURMA"
 
 #M13PapelDestinatario:
 	"Aluno" | "Professor" | "Bolsista" | "Gestor_Bens_Patrimoniais" |
@@ -37,7 +37,8 @@ import "strings"
 // Rotas conhecidas de `entidade_alvo`; URL arbitrária não pertence ao enum.
 #M13EntidadeAlvo:
 	"Turma" | "Post" | "Comentario" | "Roteiro" | "Almoxarifado" |
-	"Emprestimo" | "Usuario" | "Requisicao_Bem" | "Bem_Patrimonial"
+	"Emprestimo" | "Usuario" | "Requisicao_Bem" | "Bem_Patrimonial" |
+	"Convite_Aluno"
 
 #M13StatusEmissao:  "CONCLUIDA" | "DUPLICADA" | "FALHOU"
 #M13StatusOperacao: "CONCLUIDA"
@@ -66,13 +67,21 @@ import "strings"
 	if lida {lida_em: string & strings.MinRunes(1)}
 	if tipo == "COMENTARIO" || tipo == "POST" || tipo == "ADICIONADO" ||
 		tipo == "REMOVIDO" || tipo == "TURMA_ARQUIVADA" ||
-		tipo == "TURMA_DESARQUIVADA" {
+		tipo == "TURMA_DESARQUIVADA" ||
+		tipo == "CONVITE_PARA_TURMA" {
 		id_turma: string & strings.MinRunes(1)
 	}
 	if tipo != "COMENTARIO" && tipo != "POST" && tipo != "ADICIONADO" &&
 		tipo != "REMOVIDO" && tipo != "TURMA_ARQUIVADA" &&
-		tipo != "TURMA_DESARQUIVADA" {
+		tipo != "TURMA_DESARQUIVADA" &&
+		tipo != "CONVITE_PARA_TURMA" {
 		id_turma: null
+	}
+	if tipo == "CONVITE_PARA_TURMA" {
+		papel_destinatario: "Aluno"
+		id_quem_fez_acao:   string & strings.MinRunes(1)
+		entidade_alvo:      "Convite_Aluno"
+		expira_em:          string & strings.MinRunes(1)
 	}
 	if tipo == "ESCASSEZ_ESTOQUE" {expira_em: null}
 }
@@ -185,11 +194,11 @@ import "strings"
 	#CampoFrasco & {nome: "id", sql: "TEXT", observacao: "docId server-owned; não duplicar como contador relacional."},
 	#CampoFrasco & {nome: "id_destinatario", sql: "TEXT", observacao: "Destinatário autenticado; igual ao uid do caminho."},
 	#CampoFrasco & {nome: "papel_destinatario", sql: "ENUM", valores: ["Aluno", "Professor", "Bolsista", "Gestor_Bens_Patrimoniais", "Gestor_Almoxarifado", "Chefe_Geral"], observacao: "Contexto de apresentação; não concede papel."},
-	#CampoFrasco & {nome: "tipo", sql: "ENUM", valores: ["ADICIONADO", "POST", "COMENTARIO", "REMOVIDO", "TURMA_ARQUIVADA", "TURMA_DESARQUIVADA", "REQUISICAO_BEM", "DATA_DEVOLUCAO_REAGENTE", "ROTEIRO_COMPARTILHADO", "REQUISICAO_EDICAO_BEM", "REQUISICAO_ADICAO_BEM", "BEM_INSERVIVEL", "ENTREGA_ATRASADA", "FRASCOS_VAZIOS", "FRASCOS_QUEBRADOS", "FRASCOS_VENCIDOS", "FRASCOS_A_SEREM_PESADOS", "FRASCOS_EM_QUARENTENA", "ESCASSEZ_ESTOQUE", "AUTO_ATENDIMENTO_RETIRADA"]},
+	#CampoFrasco & {nome: "tipo", sql: "ENUM", valores: ["ADICIONADO", "POST", "COMENTARIO", "REMOVIDO", "TURMA_ARQUIVADA", "TURMA_DESARQUIVADA", "CONVITE_PARA_TURMA", "REQUISICAO_BEM", "DATA_DEVOLUCAO_REAGENTE", "ROTEIRO_COMPARTILHADO", "REQUISICAO_EDICAO_BEM", "REQUISICAO_ADICAO_BEM", "BEM_INSERVIVEL", "ENTREGA_ATRASADA", "FRASCOS_VAZIOS", "FRASCOS_QUEBRADOS", "FRASCOS_VENCIDOS", "FRASCOS_A_SEREM_PESADOS", "FRASCOS_EM_QUARENTENA", "ESCASSEZ_ESTOQUE", "AUTO_ATENDIMENTO_RETIRADA"]},
 	#CampoFrasco & {nome: "id_quem_fez_acao", sql: "TEXT", nulo: true},
 	#CampoFrasco & {nome: "id_turma", sql: "TEXT", nulo: true, observacao: "Obrigatório nos tipos acadêmicos e nulo nos operacionais (RN-M13-07)."},
 	#CampoFrasco & {nome: "quantidade", sql: "INTEGER", nulo: true, nao_negativo: true},
-	#CampoFrasco & {nome: "entidade_alvo", sql: "ENUM", valores: ["Turma", "Post", "Comentario", "Roteiro", "Almoxarifado", "Emprestimo", "Usuario", "Requisicao_Bem", "Bem_Patrimonial"], observacao: "Rota conhecida; nunca URL arbitrária."},
+	#CampoFrasco & {nome: "entidade_alvo", sql: "ENUM", valores: ["Turma", "Post", "Comentario", "Roteiro", "Almoxarifado", "Emprestimo", "Usuario", "Requisicao_Bem", "Bem_Patrimonial", "Convite_Aluno"], observacao: "Rota conhecida; nunca URL arbitrária."},
 	#CampoFrasco & {nome: "id_alvo", sql: "TEXT", observacao: "Identificador do recurso; acesso revalidado ao abrir."},
 	#CampoFrasco & {nome: "lida", sql: "BOOLEAN"},
 	#CampoFrasco & {nome: "lida_em", sql: "TIMESTAMP", nulo: true},

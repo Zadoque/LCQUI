@@ -25,3 +25,19 @@ test('M9 preserva autoridade única e separação entre autorização e domínio
   assert.match(alloy, /assert ClaimObsoletaNaoRestauraAutorizacao/);
   assert.match(alloy, /assert RevogadoAntesDoCommitNaoPodeCommitar/);
 });
+
+test('M9 formaliza ConvidarAlunoTurma com autoridade administrativa do Chefe e ownership do Professor', () => {
+  assert.match(cue, /"CONVIDAR_ALUNO_TURMA"/);
+  assert.match(alloy, /\bConvidarAlunoTurma\b/);
+  assert.match(alloy, /assert ProfessorDonoPodeConvidarAlunoTurma/);
+  assert.match(alloy, /assert ProfessorTerceiroNaoPodeConvidarAlunoTurma/);
+  assert.match(alloy, /assert ChefePodeConvidarAlunoTurmaSemOwnership/);
+  assert.match(alloy, /assert ChefeConvidarNaoTransfereOwnership/);
+  assert.match(alloy, /assert ChefeNaoGanhaOperarRecursoProprio/);
+  assert.match(alloy, /assert AlunoNaoPodeConvidarAlunoTurma/);
+  assert.match(alloy, /assert GestoresNaoPodemConvidarAlunoTurma/);
+  assert.match(alloy, /assert UsuarioInativoNaoPodeConvidarAlunoTurma/);
+  assert.match(alloy, /assert ClaimObsoletaNaoAutorizaConvite/);
+  assert.match(alloy, /pred WitnessChefeConvidarSemOwnership/);
+});
+

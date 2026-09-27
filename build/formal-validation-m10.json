@@ -2,7 +2,7 @@
   "versao": 1,
   "alloy": "6.2.0",
   "solver": "sat4j",
-  "spec_ir_sha256": "9f2bf7226eddabd9731a4b14302b78e71667d007466bffbc8f455c27a36fd579",
+  "spec_ir_sha256": "78a2adf6b5f311e1ad90f9ad9f779958d8fe5fb2ceb5ebd48b65f830c615ef41",
   "model": "specification/alloy/operations/patrimony_m10.als",
   "model_sha256": "8d5b793f1a474c13d734e4b7d741e02395f8b8ca234c379d7c934771d177725d",
   "resultados": [

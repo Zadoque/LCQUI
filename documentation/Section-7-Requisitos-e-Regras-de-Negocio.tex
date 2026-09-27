@@ -85,7 +85,12 @@ selecionado na UI ou claim antiga cria autorização.
   \texttt{Turma/id/Alunos/uid}; o espelho em
   \texttt{Usuarios/uid/Turmas/id} é somente consulta. Roteiro pertence ao
   professor que o enviou; compartilhamento persistido autoriza apenas o uso
-  previsto, não redistribuição.
+  previsto, não redistribuição. A operação específica \texttt{CONVIDAR\_ALUNO\_TURMA}
+  autoriza o Professor dono da turma e, por autoridade administrativa explícita sem
+  atribuição de ownership, o Chefe\_Geral (estritamente para convite ordinário em
+  turma Ativa, vedada a exceção de capacidade e vedada a operação genérica como
+  professor); \texttt{OPERAR\_RECURSO\_PROPRIO} permanece exigindo estritamente
+  ownership (\texttt{dono = uid}).
   \item A decisão de domínio continua separada: RBAC não torna válida
   transição M5 proibida, não corrige fato metrológico M6, não substitui
   idempotência M7 e não contorna cache/estoque/notificação M8.
@@ -105,10 +110,12 @@ Ator/papel & Operação/recurso & Escopo ou ownership & Decisão/origem & Result
 \midrule
 Chefe\_Geral & gerir usuário, papel, vínculo e almoxarifado & global; RN-ROLE & backend, Tx & permite ou nega invariantes \\
 Chefe\_Geral & operar domínios existentes & global, sem dispensar domínio & backend, Tx em mutação & permite somente matriz \\
+Chefe\_Geral & convidar aluno para turma ativa (\texttt{CONVIDAR\_ALUNO\_TURMA}) & global acadêmico; sem ownership & backend, Tx em mutação & permite convite ordinário; nega exceder capacidade; não transfere ownership \\
 Gestor\_Almoxarifado & cadastro, retirada, devolução, M5/M6, relatório e etiqueta & vínculo atual com almox do recurso & backend, Tx & nega outro almox \\
 Gestor\_Almoxarifado & catálogo global de reagentes & papel atual; sem escopo de almox & backend & permite ações de catálogo V1 \\
 Gestor\_Bens\_Patrimoniais & bem, resposta, baixa e relatório patrimonial & domínio patrimonial global & backend, Tx em mutação & permite; professor não substitui gestor \\
-Professor & turma, post, roteiro e requisição próprios & professor dono; roteiro próprio/compartilhado & backend, Tx em mutação & nega recurso alheio \\
+Professor & convidar aluno para turma ativa (\texttt{CONVIDAR\_ALUNO\_TURMA}) & professor dono (\texttt{dono = uid}) & backend, Tx em mutação & permite convite ordinário ou com exceção justificada; nega turma alheia \\
+Professor & turma, post, roteiro e requisição próprios (\texttt{OPERAR\_RECURSO\_PROPRIO}) & professor dono; roteiro próprio/compartilhado & backend, Tx em mutação & nega recurso alheio \\
 Aluno & ingresso, leitura/comentário acadêmico & matrícula atual ou convite válido & backend/Rules & nega turma, post ou roteiro alheio \\
 Bolsista & direitos de Aluno e consulta/recebimento de empréstimo & matrícula e próprio empréstimo & backend/Rules & não opera balcão/administração \\
 Destinatário & notificação própria & UID do caminho = destinatário & Rules/backend & lê; marcar lida só servidor \\
@@ -160,13 +167,19 @@ objeto validado.
 \paragraph{Casos de regressão M9.}
 Cobrir: não autenticado; sem papel; papel desconhecido; Usuário inativo;
 gestor no almoxarifado correto e em outro; vínculo removido; claim antiga após
-revogação; troca de papel; Professor em recurso próprio e alheio; Aluno em
-turma permitida e em ação administrativa; Chefe nos limites da matriz; escrita
-direta server-owned; Admin SDK sem validação; operação iniciada antes e commit
-depois de revogação; retry M7 após mudança autorizativa; cache hit M8 sem
-autorização; notificação de terceiro e alteração cliente-side; e tentativas de
-contornar quarentena M5 ou pendência metrológica M6. Cada caso resulta em
-negação ou no efeito específico da matriz, sem autorização implícita.
+revogação; troca de papel; Professor em recurso próprio e alheio; Professor dono
+convidando para própria turma (PASS) e Professor terceiro convidando para turma
+alheia (DENY); Chefe Geral emitindo convite ordinário para turma de Professor sem
+adquirir ownership (PASS) e sem ganhar permissão para \texttt{OPERAR\_RECURSO\_PROPRIO}
+(DENY); Chefe Geral tentando emitir convite com \texttt{exceder\_capacidade = true} (DENY);
+Aluno, Bolsista e Gestores tentando convidar para turma (DENY); Usuário inativo ou
+claim obsoleta tentando convidar (DENY); Aluno em turma permitida e em ação
+administrativa; Chefe nos limites da matriz; escrita direta server-owned;
+Admin SDK sem validação; operação iniciada antes e commit depois de revogação;
+retry M7 após mudança autorizativa; cache hit M8 sem autorização; notificação de
+terceiro e alteração cliente-side; e tentativas de contornar quarentena M5 ou
+pendência metrológica M6. Cada caso resulta em negação ou no efeito específico da
+matriz, sem autorização implícita.
 \subsection{Patrimônio (M10)}
 \label{sec:regras-patrimonio-m10}
 
@@ -344,15 +357,23 @@ turma pode ter \texttt{qtd\_alunos > capacidade} sem ser inválida.
 canônicos.
 \end{regra}
 
-\begin{regra}[Convites: token, unicidade e fronteira externa]
+\begin{regra}[Convites: token, autoridade, unicidade e canais de entrega]
 O mapeamento físico da identidade histórica do convite e da pendência ativa no Firestore é definido na Seção~5.
 \texttt{Convite\_Aluno/\{id\}} é coleção raiz; \texttt{id\_turma} \texttt{NULL}
 identifica convite global. O e-mail é armazenado normalizado; o token aleatório
 de 32 bytes (CSPRNG) é guardado apenas como hash SHA-256, comparado em tempo
-constante, com expiração de sete dias, status \texttt{pendente}, \texttt{aceitado}
-ou \texttt{expirado}, \texttt{convidado\_por}, \texttt{convidado\_em},
+constante, com expiração de sete dias, status \texttt{pendente}, \texttt{aceitado},
+\texttt{rejeitado} ou \texttt{expirado}, \texttt{convidado\_por}, \texttt{convidado\_em},
 \texttt{numero\_matricula} opcional, \texttt{exceder\_capacidade} e
-\texttt{justificativa\_excecao}, \texttt{aceitado\_por} e \texttt{aceitado\_em}.
+\texttt{justificativa\_excecao}, \texttt{aceitado\_por}, \texttt{aceitado\_em},
+\texttt{rejeitado\_por} e \texttt{rejeitado\_em}.
+
+Autoridade de emissão:
+\begin{itemize}
+  \item O \textbf{Professor dono} da Turma Ativa pode emitir convite ordinário ou com exceção nominal de capacidade (\texttt{exceder\_capacidade = true}, com \texttt{justificativa\_excecao} obrigatória).
+  \item O \textbf{Chefe\_Geral} pode emitir convite ordinário para Turma Ativa de qualquer professor, sem assumir ownership da turma, sem poder conceder exceção de capacidade (\texttt{exceder\_capacidade = true} é terminantemente negado) e com registro obrigatório de auditoria institucional.
+\end{itemize}
+
 O ID do convite (\texttt{Convite\_Aluno/\{id\}}) é imutável e gerado pelo servidor,
 identificando o fato histórico preservado da emissão daquele convite; \texttt{convidado\_em}
 e \texttt{convidado\_por} originais não sofrem alteração no reenvio. A chave de
@@ -365,7 +386,7 @@ Unicidade: no máximo um convite \texttt{pendente} por
 (\texttt{email} normalizado, \texttt{id\_turma}); para convite global, no
 máximo um pendente por e-mail normalizado com \texttt{id\_turma} \texttt{NULL}.
 A chave determinística em \texttt{Chaves\_Unicas} distingue as duas situações e
-é validada na transação. Convite aceito ou expirado não ocupa a pendência.
+é validada na transação. Convite aceito, rejeitado ou expirado não ocupa a pendência.
 Reenvio de convite pendente substitui hash e expiração no mesmo documento, atualiza
 \texttt{ultimo\_reenvio\_por} e invalida o link anterior, sem reter histórico de tokens
 anteriores. Convite de turma e convite global são distintos: aceitar convite de
@@ -374,66 +395,47 @@ matrícula nem contador, apenas garante \texttt{Usuarios} e o papel Aluno, e o
 aluno ingressa depois por código ou por outro convite. Matrícula é obrigatória
 e única na identidade final \texttt{Aluno}, opcional e não única no convite.
 
-Identidade e histórico: o ID do convite é imutável e distinto da chave de
-pendência. A chave determinística em \texttt{Chaves\_Unicas} por HMAC identifica exclusivamente a \emph{pendência}
-ativa: enquanto há convite pendente, ela é a chave de unicidade; aceitação ou expiração
-liberam transacionalmente a pendência. Um novo convite para o mesmo contexto e e-mail após
-a terminalidade é um \textbf{novo documento}, com novo ID, token e hash, e não sobrescreve
-nem reutiliza o convite anterior, preservando permanentemente \texttt{aceitado\_por},
-\texttt{aceitado\_em}, \texttt{status} e os registros de auditoria.
+Canais de entrega e detecção de conta Auth (fronteira emissão $\times$ aceitação):
+Na emissão, o backend normaliza o e-mail e consulta o Firebase Authentication (\texttt{getUserByEmail}) \textbf{fora da transação Firestore}.
+\begin{itemize}
+  \item \textbf{Destinatário com conta Firebase Auth ativa (Caso A)}: NÃO se envia e-mail externo. Na mesma transação Firestore em que o convite é persistido/reenviado, o sistema cria/atualiza a notificação server-owned \texttt{Usuarios/\{uid\}/Notificacoes/\{idConvite\}} com \texttt{tipo = CONVITE\_PARA\_TURMA}, \texttt{papel\_destinatario = Aluno}, \texttt{id\_destinatario = uid}, \texttt{id\_quem\_fez\_acao = convidado\_por}, \texttt{id\_turma = convite.id\_turma}, \texttt{entidade\_alvo = Convite\_Aluno}, \texttt{id\_alvo = idConvite} e \texttt{expira\_em = convite.expira\_em}. A notificação é única por \texttt{idConvite}, não contém token nem hash e não concede matrícula por si só. Reenvio atualiza a notificação canônica existente.
+  \item \textbf{Destinatário sem conta Firebase Auth (Caso B)}: A transação Firestore cria o registro \texttt{Convite\_Aluno} e a chave em \texttt{Chaves\_Unicas}. Em etapa pós-commit recuperável, o sistema provisiona a conta no Firebase Authentication (sem senha conhecida pelo LCQUI) e dispara o mecanismo oficial do Firebase Authentication de envio de e-mail para definição de senha com retorno seguro ao fluxo LCQUI. É \textbf{terminantemente proibido} o uso de provedores externos de e-mail (SMTP, SendGrid, Resend, SES, Nodemailer) e o armazenamento/geração de senhas temporárias conhecidas pelo sistema.
+  \item \textbf{Destinatário com conta desabilitada (Caso C)}: O backend falha fechado (\textit{fail-closed}); convite não é bypass de bloqueio administrativo.
+\end{itemize}
+
+Terminalidade e rejeição:
+O ciclo de vida de \textit{Convite\_Aluno} parte de \texttt{pendente} para exatamente um dos três estados terminais: \texttt{aceitado}, \texttt{rejeitado} ou \texttt{expirado}.
+A rejeição é formalmente estado terminal: exige \texttt{rejeitado\_por} e \texttt{rejeitado\_em} não-nulos; preserva o documento histórico \texttt{Convite\_Aluno/\{id\}}; libera transacionalmente a pendência HMAC em \texttt{Chaves\_Unicas}; não cria Aluno, papel, vínculo nem espelho; não altera \texttt{qtd\_alunos}; registra receipt M7 e registro de auditoria. Um novo convite posterior para a mesma pessoa gerará um novo registro com novo ID de convite.
 Invariância contra exclusão: o documento \texttt{Convite\_Aluno} não é apagado como consequência
-de aceite, expiração, reenvio, liberação da chave de pendência ou posterior criação de novo
-convite para o mesmo contexto/e-mail; o fato terminal permanece preservado.
-Reenvio de convite ainda pendente substitui hash e expiração no mesmo documento; criação
-nova após terminalidade gera outro documento; retry da mesma operação devolve o resultado
-persistido. O hash de token e o e-mail em claro nunca são expostos pela chave.
+de aceite, rejeição, expiração, reenvio, liberação da chave de pendência ou posterior criação de novo
+convite; o fato terminal permanece preservado.
 
 Expiração operacional: \texttt{expira\_em} vencido torna o convite inaceitável
 e ele deixa de contar como pendente para a unicidade; job ou reconciliação
 idempotente materializa \texttt{expirado}. Toda pendência termina por aceitação,
-expiração ou reenvio, nunca fica eterna.
-
-Fronteira Auth, Firestore e e-mail: a aceitação é executada por um solicitante
-já autenticado (\texttt{request.auth.uid} presente) com e-mail verificado
-correspondente ao convite; nesse fluxo a conta Firebase Auth do solicitante
-\textbf{já existe} (cadastro ou login prévio). A criação condicional pertence ao
-Firestore, não ao Auth: \texttt{Usuarios}, \texttt{Aluno}, papel e vínculo e o
-consumo do convite ocorrem na mesma transação Firestore. O envio de e-mail do
-convite e a eventual sincronização de Custom Claims são etapas externas,
-pós-commit, recuperáveis e idempotentes; nenhuma chamada externa ocorre dentro da
-transação. Um provisionamento Auth fora do fluxo de aceitação (por exemplo,
-convite de outro papel criado pela chefia) é operação distinta do solicitante e
-não é pressuposto desta aceitação. Falha parcial não pode criar conta, papel,
-vínculo ou espelho divergente nem consumir o convite sem os efeitos
-correspondentes. Criar o registro do convite não é enviar o e-mail.
+rejeição, expiração ou reenvio, nunca fica eterna.
 \end{regra}
 
-\begin{regra}[Aceitação, reingresso e composição M7/M9]
-Aceitar convite valida, na mesma transação: convite pendente não expirado,
-e-mail verificado, identidade, status Ativo da turma, vaga ou exceção válida e
-ausência de vínculo ativo. A aceitação é única e idempotente (M7): retry do
-mesmo ator, com o mesmo token e a mesma operação devolve o receipt persistido,
-sem recriar vínculo nem incrementar \texttt{qtd\_alunos}; tentativa distinta, de
-outro ator, com token diferente ou sobre convite já consumido é negação
-específica e recuperável, não replay. Convite expirado, de e-mail divergente ou
-de turma arquivada também é negado com erro específico. Aluno removido
-anteriormente só reingressa por convite explícito, nunca pelo código; o fato de
-remoção é lido do histórico canônico \texttt{Historico\_Alunos\_Turma}
-(\texttt{exclusao\_aluno}) na própria transação, jamais de espelho
-possivelmente obsoleto.
+\begin{regra}[Aceitação, rejeição e composição M7/M9]
+Duas portas de entrada convergem para a mesma primitiva transacional de aceitação (\texttt{aceitarConviteCoreTx}):
+\begin{enumerate}
+  \item \textbf{Via Externa}: Usuário acessa pelo link da jornada Firebase Auth, autentica-se, comprova \texttt{emailVerified = true} e fornece \texttt{idConvite} + \texttt{token}. O backend valida o hash SHA-256 em tempo constante.
+  \item \textbf{Via Interna}: Usuário autenticado (\texttt{request.auth.uid}), com \texttt{emailVerified = true}, consulta sua notificação própria \texttt{CONVITE\_PARA\_TURMA} e fornece \texttt{idConvite}. Na via interna, o token \textbf{não viaja no payload cliente}; a autorização deriva da posse da notificação própria e correspondência estrita do e-mail autenticado com o convite.
+\end{enumerate}
+Ambas as vias executam na transação as validações canônicas de domínio: convite pendente e não expirado, correspondência exata de e-mail normalizado, integridade da chave HMAC em \texttt{Chaves\_Unicas}, status Ativo da turma, vaga disponível ou exceção nominal válida do professor dono, ausência de vínculo ativo prévio, criação do vínculo canônico \texttt{Turma/\{id\}/Alunos/\{uid\}}, criação do espelho \texttt{Usuarios/\{uid\}/Turmas/\{id\}}, incremento de \texttt{qtd\_alunos}, transição para \texttt{status = aceitado}, gravação de \texttt{aceitado\_por} e \texttt{aceitado\_em}, liberação da pendência em \texttt{Chaves\_Unicas}, receipt M7 e auditoria.
 
-Toda mutação M11 lê autorização e recurso na mesma transação (M9): professor
-dono, conta ativa e versão de permissões, com TOCTOU coberto pela reexecução da
-transação; operação iniciada antes de revogação não grava depois dela. UI-10 e
-a Seção~\ref{sec:fluxos-completos} são UX: botões, código e navegação não
-autorizam. O frontend não afirma envio de e-mail quando apenas o registro foi
-criado e distingue carregamento, sucesso, vazio, erro e negação.
+Operação de Rejeição (\texttt{rejeitarConviteAluno}):
+O aluno autenticado com \texttt{emailVerified = true}, destinatário de notificação própria \texttt{CONVITE\_PARA\_TURMA} de convite pendente, pode rejeitar o convite. Na transação: valida o convite pendente e a posse da notificação; transiciona para \texttt{status = rejeitado}, gravando \texttt{rejeitado\_por = uid} e \texttt{rejeitado\_em = serverTimestamp()}; remove a chave HMAC em \texttt{Chaves\_Unicas}; emite receipt M7 e registro de auditoria. Nenhum vínculo, papel ou matrícula é gerado.
+
+A aceitação e a rejeição são únicas e idempotentes (M7): retry do mesmo ator com os mesmos parâmetros devolve o receipt persistido; nova tentativa sobre convite já terminal é negação específica e recuperável. Aluno removido anteriormente só reingressa por convite explícito, lido de \texttt{Historico\_Alunos\_Turma}.
+
+Toda mutação M11 lê autorização e recurso na mesma transação (M9): professor dono ou Chefe Geral (para convite ordinário), conta ativa e versão de permissões, com TOCTOU coberto pela reexecução da transação. UI-10 e a Seção~\ref{sec:fluxos-completos} são UX: botões e navegação não autorizam.
 \end{regra}
 
 \paragraph{Casos de regressão M11.}
 Cobrir: corrida pela última vaga; dois convites simultâneos para o mesmo
 (e-mail, turma) e para o global; replay de aceite pelo mesmo ator e tentativa
-distinta de outro ator/token; remoção concorrente e dupla; arquivamento com
+distinta de outro ator/token; rejeição de convite pendente com liberação de lock em \texttt{Chaves\_Unicas} e preservação do documento histórico; tentativa de aceitar convite rejeitado (negada); tentativa de rejeitar convite aceito ou expirado (negada); novo convite após rejeitado gerando novo ID e novo token; Chefe Geral emitindo convite ordinário (permitido) e tentando convite com \texttt{exceder\_capacidade = true} (negado); remoção concorrente e dupla; arquivamento com
 ocupação, desarquivamento e escrita em turma arquivada; convite global sem
 matrícula; ingresso de removido por código (negado) e por convite (válido);
 exceção de capacidade com e sem justificativa; \texttt{qtd\_alunos > capacidade}
@@ -1439,7 +1441,7 @@ alertas permanecem como definidos. Retry da mesma identidade não cria aviso
 extra; a deduplicação é \textbf{por destinatário}, de modo que a mesma operação
 pode ter fan-out para destinatários distintos sem notificar o mesmo UID duas
 vezes. \textbf{Não} existe fórmula universal de docId nem obrigação de emissão
-automática para todos os 20 valores do enum: apenas os tipos com emissão V1
+automática para todos os 21 valores do enum: apenas os tipos com emissão V1
 efetivamente especificada devem ser emitidos. Somente a duplicidade esperada
 (\texttt{ALREADY\_EXISTS}/``code 6'') é no-op; \textbf{erros de outra natureza
 não são engolidos} e devem propagar.
@@ -1448,10 +1450,10 @@ não são engolidos} e devem propagar.
 \begin{regra}[Condições específicas de contexto (RN-M13-07)]
 \texttt{id\_turma} é \textbf{obrigatório} para os tipos acadêmicos
 (\texttt{COMENTARIO}, \texttt{POST}, \texttt{ADICIONADO}, \texttt{REMOVIDO},
-\texttt{TURMA\_ARQUIVADA}, \texttt{TURMA\_DESARQUIVADA}) e \textbf{nulo} para os
+\texttt{TURMA\_ARQUIVADA}, \texttt{TURMA\_DESARQUIVADA}, \texttt{CONVITE\_PARA\_TURMA}) e \textbf{nulo} para os
 avisos operacionais de almoxarifado/patrimônio. O contexto de Roteiro é
-preservado sem lhe atribuir \texttt{id\_turma} apenas por existir. O enum 3FN
-(Seção~4) e o dicionário Firestore (Seção~5) coincidem nos 20 valores, sem
+preservado sem lhe atribuir \texttt{id\_turma} apenas por existir. Para \texttt{tipo = CONVITE\_PARA\_TURMA}, \texttt{papel\_destinatario} é \texttt{Aluno}, \texttt{id\_quem\_fez\_acao} é obrigatório (emissor do convite), \texttt{entidade\_alvo} é \texttt{Convite\_Aluno}, \texttt{id\_alvo} é o \texttt{idConvite}, e \texttt{expira\_em} é obrigatório, coincidindo com a expiração do convite. O enum 3FN
+(Seção~4) e o dicionário Firestore (Seção~5) coincidem nos 21 valores, sem
 renomear por conveniência.
 \end{regra}
 
@@ -1474,7 +1476,7 @@ antigos.
 \end{regra}
 
 \paragraph{Obrigações V1 de emissão por tipo.}
-Os 20 valores do enum não implicam obrigação automática de emissão, mas várias
+Os 21 valores do enum não implicam obrigação automática de emissão, mas várias
 fontes exigem emissões na V1. A tabela de reconciliação completa (fonte de
 obrigação, evento/destinatário, cobertura estrutural M13, prova de emissão
 existente e fronteira ainda não provada) está no worklog
@@ -1483,6 +1485,7 @@ obrigatórias na V1, ainda que sua prova de emissão não esteja formalizada:
 \begin{itemize}
   \item \texttt{POST} e \texttt{COMENTARIO}: efeitos M12.1 vinculados ao \texttt{idOperacao};
   \item \texttt{ROTEIRO\_COMPARTILHADO}: efeito M12.2;
+  \item \texttt{CONVITE\_PARA\_TURMA}: notificação server-owned ao aluno gerada quando o destinatário de convite já possui conta ativa no Firebase Authentication (Seção~7/M11);
   \item \texttt{ESCASSEZ\_ESTOQUE}: job M8, docId diário, \texttt{expira\_em = NULL};
   \item \texttt{FRASCOS\_VENCIDOS}: job de vencimento (Seção~10.7), gestores vinculados;
   \item \texttt{DATA\_DEVOLUCAO\_REAGENTE}: job preventivo, docId \texttt{\{id\_emprestimo\}--\{janela\}};

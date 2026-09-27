@@ -24,5 +24,15 @@ CUE verifica shapes de usuário, papel fechado, versão de permissões, claim, v
 \item[M9-WIT-020] WitnessNegacaoPorEscopo: SAT.\newline Escopo: \texttt{run WitnessNegacaoPorEscopo for 8 but exactly 2 Escopo}.
 \item[M9-WIT-021] WitnessNegacaoPorOwnership: SAT.\newline Escopo: \texttt{run WitnessNegacaoPorOwnership for 8 but exactly 2 Escopo}.
 \item[M9-WIT-022] WitnessChefeDominioInvalidoNaoComita: SAT.\newline Escopo: \texttt{run WitnessChefeDominioInvalidoNaoComita for 8 but exactly 2 Escopo}.
+\item[M9-INV-023] ProfessorDonoPodeConvidarAlunoTurma: UNSAT.\newline Escopo: \texttt{check ProfessorDonoPodeConvidarAlunoTurma for 8 but exactly 2 Escopo}.
+\item[M9-INV-024] ProfessorTerceiroNaoPodeConvidarAlunoTurma: UNSAT.\newline Escopo: \texttt{check ProfessorTerceiroNaoPodeConvidarAlunoTurma for 8 but exactly 2 Escopo}.
+\item[M9-INV-025] ChefePodeConvidarAlunoTurmaSemOwnership: UNSAT.\newline Escopo: \texttt{check ChefePodeConvidarAlunoTurmaSemOwnership for 8 but exactly 2 Escopo}.
+\item[M9-INV-026] ChefeConvidarNaoTransfereOwnership: UNSAT.\newline Escopo: \texttt{check ChefeConvidarNaoTransfereOwnership for 8 but exactly 2 Escopo}.
+\item[M9-INV-027] ChefeNaoGanhaOperarRecursoProprio: UNSAT.\newline Escopo: \texttt{check ChefeNaoGanhaOperarRecursoProprio for 8 but exactly 2 Escopo}.
+\item[M9-INV-028] AlunoNaoPodeConvidarAlunoTurma: UNSAT.\newline Escopo: \texttt{check AlunoNaoPodeConvidarAlunoTurma for 8 but exactly 2 Escopo}.
+\item[M9-INV-029] GestoresNaoPodemConvidarAlunoTurma: UNSAT.\newline Escopo: \texttt{check GestoresNaoPodemConvidarAlunoTurma for 8 but exactly 2 Escopo}.
+\item[M9-INV-030] UsuarioInativoNaoPodeConvidarAlunoTurma: UNSAT.\newline Escopo: \texttt{check UsuarioInativoNaoPodeConvidarAlunoTurma for 8 but exactly 2 Escopo}.
+\item[M9-INV-031] ClaimObsoletaNaoAutorizaConvite: UNSAT.\newline Escopo: \texttt{check ClaimObsoletaNaoAutorizaConvite for 8 but exactly 2 Escopo}.
+\item[M9-WIT-032] WitnessChefeConvidarSemOwnership: SAT.\newline Escopo: \texttt{run WitnessChefeConvidarSemOwnership for 8 but exactly 2 Escopo}.
 \end{description}
 UNSAT para check indica ausência de contraexemplo no escopo declarado; SAT para run indica testemunha encontrada. A evidência não certifica a implementação Firebase/backend.

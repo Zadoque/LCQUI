@@ -337,6 +337,16 @@ function alloyCheck() {
     ['WitnessNegacaoPorEscopo','run','run WitnessNegacaoPorEscopo for 8 but exactly 2 Escopo'],
     ['WitnessNegacaoPorOwnership','run','run WitnessNegacaoPorOwnership for 8 but exactly 2 Escopo'],
     ['WitnessChefeDominioInvalidoNaoComita','run','run WitnessChefeDominioInvalidoNaoComita for 8 but exactly 2 Escopo'],
+    ['ProfessorDonoPodeConvidarAlunoTurma','check','check ProfessorDonoPodeConvidarAlunoTurma for 8 but exactly 2 Escopo'],
+    ['ProfessorTerceiroNaoPodeConvidarAlunoTurma','check','check ProfessorTerceiroNaoPodeConvidarAlunoTurma for 8 but exactly 2 Escopo'],
+    ['ChefePodeConvidarAlunoTurmaSemOwnership','check','check ChefePodeConvidarAlunoTurmaSemOwnership for 8 but exactly 2 Escopo'],
+    ['ChefeConvidarNaoTransfereOwnership','check','check ChefeConvidarNaoTransfereOwnership for 8 but exactly 2 Escopo'],
+    ['ChefeNaoGanhaOperarRecursoProprio','check','check ChefeNaoGanhaOperarRecursoProprio for 8 but exactly 2 Escopo'],
+    ['AlunoNaoPodeConvidarAlunoTurma','check','check AlunoNaoPodeConvidarAlunoTurma for 8 but exactly 2 Escopo'],
+    ['GestoresNaoPodemConvidarAlunoTurma','check','check GestoresNaoPodemConvidarAlunoTurma for 8 but exactly 2 Escopo'],
+    ['UsuarioInativoNaoPodeConvidarAlunoTurma','check','check UsuarioInativoNaoPodeConvidarAlunoTurma for 8 but exactly 2 Escopo'],
+    ['ClaimObsoletaNaoAutorizaConvite','check','check ClaimObsoletaNaoAutorizaConvite for 8 but exactly 2 Escopo'],
+    ['WitnessChefeConvidarSemOwnership','run','run WitnessChefeConvidarSemOwnership for 8 but exactly 2 Escopo'],
   ], 'build/formal-validation-m9.json', 'M9');
   runMilestone('specification/alloy/operations/patrimony_m10.als', [
     ['PlaquetaUnicaPorBem','check','check PlaquetaUnicaPorBem for 6'],

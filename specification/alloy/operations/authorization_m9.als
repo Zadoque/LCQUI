@@ -10,7 +10,7 @@ one sig ChefeGeral, GestorAlmoxarifado, GestorBensPatrimoniais,
 
 abstract sig Operacao {}
 one sig GerirUsuarios, OperarAlmoxarifado, OperarPatrimonio,
-  OperarRecursoProprio, LerRecursoAcademico, EscreverServerOwned extends Operacao {}
+  OperarRecursoProprio, ConvidarAlunoTurma, LerRecursoAcademico, EscreverServerOwned extends Operacao {}
 
 abstract sig TipoRecurso {}
 one sig RecursoAlmoxarifado, RecursoPatrimonio, RecursoAcademico,
@@ -53,9 +53,10 @@ pred versaoAtual[s: Estado, u: Usuario] {
 
 pred papelPermite[s: Estado, u: Usuario, o: Operacao, r: Recurso] {
   (ChefeGeral in s.papeis[u] and o in GerirUsuarios + OperarAlmoxarifado + OperarPatrimonio and r.tipo != RecursoInterno)
+  or (ChefeGeral in s.papeis[u] and o = ConvidarAlunoTurma and r.tipo = RecursoAcademico)
   or (GestorAlmoxarifado in s.papeis[u] and o = OperarAlmoxarifado and r.tipo = RecursoAlmoxarifado)
   or (GestorBensPatrimoniais in s.papeis[u] and o = OperarPatrimonio and r.tipo = RecursoPatrimonio)
-  or (Professor in s.papeis[u] and o = OperarRecursoProprio and r.tipo = RecursoAcademico)
+  or (Professor in s.papeis[u] and o in OperarRecursoProprio + ConvidarAlunoTurma and r.tipo = RecursoAcademico)
   or (Aluno in s.papeis[u] and o = LerRecursoAcademico and r.tipo = RecursoAcademico)
   or (Bolsista in s.papeis[u] and o = LerRecursoAcademico and r.tipo = RecursoAcademico)
 }
@@ -66,6 +67,7 @@ pred escopoAtual[s: Estado, u: Usuario, r: Recurso] {
 
 pred ownershipAtual[s: Estado, u: Usuario, o: Operacao, r: Recurso] {
   (o = OperarRecursoProprio implies r.dono = u)
+  (o = ConvidarAlunoTurma and ChefeGeral not in s.papeis[u] implies r.dono = u)
   (o = LerRecursoAcademico implies r in s.matriculas[u] or r.dono = u)
 }
 
@@ -184,6 +186,53 @@ assert RevalidacaoNoCommitPermiteSomenteAtual {
   all s: Estado, u: Usuario, o: Operacao, r: Recurso |
     podeCommitar[s,u,o,r] implies podeExecutar[s,u,o,r] and r.dominioValido = SIM
 }
+assert ProfessorDonoPodeConvidarAlunoTurma {
+  all s: Estado, u: Usuario, r: Recurso |
+    (u in s.autenticados and u in s.ativos and versaoAtual[s,u] and Professor in s.papeis[u]
+     and r.tipo = RecursoAcademico and r.dono = u and r.serverOwned = NAO)
+      implies podeExecutar[s,u,ConvidarAlunoTurma,r]
+}
+assert ProfessorTerceiroNaoPodeConvidarAlunoTurma {
+  all s: Estado, u: Usuario, r: Recurso |
+    (Professor in s.papeis[u] and ChefeGeral not in s.papeis[u] and r.tipo = RecursoAcademico and r.dono != u)
+      implies not podeExecutar[s,u,ConvidarAlunoTurma,r]
+}
+assert ChefePodeConvidarAlunoTurmaSemOwnership {
+  all s: Estado, u: Usuario, r: Recurso |
+    (u in s.autenticados and u in s.ativos and versaoAtual[s,u] and ChefeGeral in s.papeis[u]
+     and r.tipo = RecursoAcademico and r.serverOwned = NAO)
+      implies podeExecutar[s,u,ConvidarAlunoTurma,r]
+}
+assert ChefeConvidarNaoTransfereOwnership {
+  all s: Estado, u: Usuario, r: Recurso |
+    (ChefeGeral in s.papeis[u] and r.tipo = RecursoAcademico and r.dono != u
+     and podeExecutar[s,u,ConvidarAlunoTurma,r])
+      implies not podeExecutar[s,u,OperarRecursoProprio,r]
+}
+assert ChefeNaoGanhaOperarRecursoProprio {
+  all s: Estado, u: Usuario, r: Recurso |
+    (ChefeGeral in s.papeis[u] and Professor not in s.papeis[u])
+      implies not podeExecutar[s,u,OperarRecursoProprio,r]
+}
+assert AlunoNaoPodeConvidarAlunoTurma {
+  all s: Estado, u: Usuario, r: Recurso |
+    (Aluno in s.papeis[u] and Professor not in s.papeis[u] and ChefeGeral not in s.papeis[u])
+      implies not podeExecutar[s,u,ConvidarAlunoTurma,r]
+}
+assert GestoresNaoPodemConvidarAlunoTurma {
+  all s: Estado, u: Usuario, r: Recurso |
+    (s.papeis[u] in GestorAlmoxarifado + GestorBensPatrimoniais
+     and Professor not in s.papeis[u] and ChefeGeral not in s.papeis[u])
+      implies not podeExecutar[s,u,ConvidarAlunoTurma,r]
+}
+assert UsuarioInativoNaoPodeConvidarAlunoTurma {
+  all s: Estado, u: Usuario, r: Recurso |
+    u not in s.ativos implies not podeExecutar[s,u,ConvidarAlunoTurma,r]
+}
+assert ClaimObsoletaNaoAutorizaConvite {
+  all s: Estado, u: Usuario, r: Recurso |
+    s.claimVersao[u] != s.versaoPermissoes[u] implies not podeExecutar[s,u,ConvidarAlunoTurma,r]
+}
 
 pred WitnessChefeGerenciaUsuario {
   some s: Estado, u: Usuario, r: Recurso |
@@ -245,6 +294,18 @@ pred WitnessChefeDominioInvalidoNaoComita {
     and r.tipo = RecursoPatrimonio and r.serverOwned = NAO and r.dominioValido = NAO
     and podeExecutar[s,u,OperarPatrimonio,r] and not podeCommitar[s,u,OperarPatrimonio,r]
 }
+pred WitnessChefeConvidarSemOwnership {
+  some s: Estado, disj chefe, professorDono: Usuario, r: Recurso |
+    chefe in s.autenticados + s.ativos
+    and ChefeGeral in s.papeis[chefe]
+    and Professor in s.papeis[professorDono]
+    and s.claimVersao[chefe] = s.versaoPermissoes[chefe]
+    and r.tipo = RecursoAcademico
+    and r.dono = professorDono
+    and r.serverOwned = NAO
+    and r.dominioValido = SIM
+    and podeCommitar[s, chefe, ConvidarAlunoTurma, r]
+}
 
 check UsuarioInativoNuncaAutorizado for 8 but exactly 2 Escopo
 check PapelNaoPermitidoNaoAutoriza for 8 but exactly 2 Escopo
@@ -268,3 +329,13 @@ run WitnessCommitPermitidoSemRevogacao for 8 but exactly 2 Escopo
 run WitnessNegacaoPorEscopo for 8 but exactly 2 Escopo
 run WitnessNegacaoPorOwnership for 8 but exactly 2 Escopo
 run WitnessChefeDominioInvalidoNaoComita for 8 but exactly 2 Escopo
+check ProfessorDonoPodeConvidarAlunoTurma for 8 but exactly 2 Escopo
+check ProfessorTerceiroNaoPodeConvidarAlunoTurma for 8 but exactly 2 Escopo
+check ChefePodeConvidarAlunoTurmaSemOwnership for 8 but exactly 2 Escopo
+check ChefeConvidarNaoTransfereOwnership for 8 but exactly 2 Escopo
+check ChefeNaoGanhaOperarRecursoProprio for 8 but exactly 2 Escopo
+check AlunoNaoPodeConvidarAlunoTurma for 8 but exactly 2 Escopo
+check GestoresNaoPodemConvidarAlunoTurma for 8 but exactly 2 Escopo
+check UsuarioInativoNaoPodeConvidarAlunoTurma for 8 but exactly 2 Escopo
+check ClaimObsoletaNaoAutorizaConvite for 8 but exactly 2 Escopo
+run WitnessChefeConvidarSemOwnership for 8 but exactly 2 Escopo

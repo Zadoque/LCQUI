@@ -23,14 +23,14 @@ test('M13 trace accepts original composition and rejects independent drift', () 
 	}
 });
 
-test('M13 academic-type guard accepts all six and rejects an omitted type per layer', () => {
+test('M13 academic-type guard accepts all seven and rejects an omitted type per layer', () => {
 	checkM13AcademicTypes(read);
 	for (const [file, before, after] of [
-		[CUE, ' ||\n\t\ttipo == "TURMA_DESARQUIVADA"', ''],
-		[m13Model, 'TArquivada + TDesarquivada', 'TDesarquivada'],
-		[DOC, '\\texttt{TURMA\\_ARQUIVADA}, \\texttt{TURMA\\_DESARQUIVADA}) e \\textbf{nulo} para os',
+		[CUE, ' ||\n\t\ttipo == "CONVITE_PARA_TURMA"', ''],
+		[m13Model, '+ TConviteParaTurma', ''],
+		[DOC, '\\texttt{TURMA\\_DESARQUIVADA}, \\texttt{CONVITE\\_PARA\\_TURMA}) e \\textbf{nulo} para os',
 			'\\texttt{TURMA\\_DESARQUIVADA}) e \\textbf{nulo} para os'],
-		[TEX, '\\texttt{TURMA\\_ARQUIVADA} e \\texttt{TURMA\\_DESARQUIVADA}, e',
+		[TEX, '\\texttt{TURMA\\_DESARQUIVADA} e\n\\texttt{CONVITE\\_PARA\\_TURMA}, e',
 			'\\texttt{TURMA\\_DESARQUIVADA}, e'],
 	]) {
 		const modified = read(file).replace(before, after);
@@ -38,5 +38,5 @@ test('M13 academic-type guard accepts all six and rejects an omitted type per la
 		assert.throws(() => checkM13AcademicTypes(p => p === file ? modified : read(p)),
 			/tipo acadêmico ausente/);
 	}
-	assert.equal(m13AcademicTypes.length, 6);
+	assert.equal(m13AcademicTypes.length, 7);
 });

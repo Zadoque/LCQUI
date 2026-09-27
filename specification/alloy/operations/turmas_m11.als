@@ -31,7 +31,7 @@ abstract sig ModoIngresso {}
 one sig PorCodigo, PorConvite extends ModoIngresso {}
 
 abstract sig StatusConvite {}
-one sig Pendente, Aceitado, Expirado extends StatusConvite {}
+one sig Pendente, Aceitado, Rejeitado, Expirado extends StatusConvite {}
 
 abstract sig SimNao {}
 one sig Sim, Nao extends SimNao {}
@@ -362,6 +362,22 @@ pred expirarConvite[a, b: Estado, c: Convite] {
 	frameM7[a, b]
 	coerente[b]
 }
+pred rejeitarConvite[a, b: Estado, c: Convite, u: Usuario] {
+	coerente[a]
+	authOk[a, u]
+	c in a.convites and a.statusC[c] = Pendente
+	c.cAluno = u
+	b.convites = a.convites
+	b.statusC = a.statusC ++ (c -> Rejeitado)
+	b.pendencias = a.pendencias - {p: a.pendencias | p.pConvite = c}
+	b.turmas = a.turmas and b.statusT = a.statusT and b.donoT = a.donoT
+	b.materiaT = a.materiaT and b.capacidadeT = a.capacidadeT and b.qtdT = a.qtdT
+	b.codigoT = a.codigoT and b.reservasCodigo = a.reservasCodigo and b.versaoT = a.versaoT
+	b.vinculos = a.vinculos and b.espelhos = a.espelhos and b.eventos = a.eventos
+	frameAuth[a, b]
+	frameM7[a, b]
+	coerente[b]
+}
 pred reenviarConvite[a, b: Estado, c: Convite] {
 	coerente[a]
 	c in a.convites and a.statusC[c] = Pendente
@@ -370,7 +386,7 @@ pred reenviarConvite[a, b: Estado, c: Convite] {
 pred criarNovoConviteAposTerminalidade[a, b: Estado, antigo: Convite,
 		novo: Convite, p: Pendencia] {
 	coerente[a]
-	antigo in a.convites and a.statusC[antigo] in Aceitado + Expirado
+	antigo in a.convites and a.statusC[antigo] in Aceitado + Rejeitado + Expirado
 	novo not in a.convites
 	novo.cEmail = antigo.cEmail and novo.cTurma = antigo.cTurma
 	novo.cExcede = Nao
@@ -480,6 +496,7 @@ assert TransicoesPreservamContador {
 			or removerAluno[a, b, t, w, al, v, e, ev]
 			or aceitarConviteTurma[a, b, c, u, t, v, e, ev]
 			or aceitarConviteGlobal[a, b, c, u] or expirarConvite[a, b, c]
+			or rejeitarConvite[a, b, c, u]
 			or reenviarConvite[a, b, c]
 			or criarNovoConviteAposTerminalidade[a, b, antigo, novo, p]
 			or revogarAcesso[a, b, u] or retryM7[a, b])
@@ -539,7 +556,7 @@ assert NovoConvitePreservaHistorico {
 	all a, b: Estado, antigo: Convite, novo: Convite, p: Pendencia |
 		criarNovoConviteAposTerminalidade[a, b, antigo, novo, p] implies
 			(antigo in b.convites and b.statusC[antigo] = a.statusC[antigo]
-				and a.statusC[antigo] in Aceitado + Expirado)
+				and a.statusC[antigo] in Aceitado + Rejeitado + Expirado)
 }
 assert ReenvioMantemDocumento {
 	all a, b: Estado, c: Convite |
@@ -589,6 +606,7 @@ assert TransicoesPreservamCoerencia {
 			or removerAluno[a, b, t, w, al, v, e, ev]
 			or aceitarConviteTurma[a, b, c, u, t, v, e, ev]
 			or aceitarConviteGlobal[a, b, c, u] or expirarConvite[a, b, c]
+			or rejeitarConvite[a, b, c, u]
 			or reenviarConvite[a, b, c]
 			or criarNovoConviteAposTerminalidade[a, b, antigo, novo, p]
 			or revogarAcesso[a, b, u] or retryM7[a, b])

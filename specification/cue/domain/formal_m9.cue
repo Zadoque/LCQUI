@@ -34,7 +34,7 @@ import "list"
 
 #M9Decisao: {
 	uid:             string & !=""
-	operacao:        "GERIR_USUARIOS" | "OPERAR_ALMOXARIFADO" | "OPERAR_PATRIMONIO" | "OPERAR_RECURSO_PROPRIO" | "LER_RECURSO_ACADEMICO" | "ESCREVER_SERVER_OWNED"
+	operacao:        "GERIR_USUARIOS" | "OPERAR_ALMOXARIFADO" | "OPERAR_PATRIMONIO" | "OPERAR_RECURSO_PROPRIO" | "CONVIDAR_ALUNO_TURMA" | "LER_RECURSO_ACADEMICO" | "ESCREVER_SERVER_OWNED"
 	recurso:         "Almoxarifado" | "Patrimonio" | "Academico" | "Interno"
 	exige_vinculo:   bool
 	exige_ownership: bool
@@ -54,7 +54,7 @@ import "list"
 	#CampoFrasco & {nome: "id_almoxarifado", sql: "TEXT"},
 	#CampoFrasco & {nome: "id_recurso", sql: "TEXT"},
 	#CampoFrasco & {nome: "tipo_recurso", sql: "ENUM", valores: ["Turma", "Post", "Roteiro", "Requisicao"]},
-	#CampoFrasco & {nome: "operacao", sql: "ENUM", valores: ["GERIR_USUARIOS", "OPERAR_ALMOXARIFADO", "OPERAR_PATRIMONIO", "OPERAR_RECURSO_PROPRIO", "LER_RECURSO_ACADEMICO", "ESCREVER_SERVER_OWNED"]},
+	#CampoFrasco & {nome: "operacao", sql: "ENUM", valores: ["GERIR_USUARIOS", "OPERAR_ALMOXARIFADO", "OPERAR_PATRIMONIO", "OPERAR_RECURSO_PROPRIO", "CONVIDAR_ALUNO_TURMA", "LER_RECURSO_ACADEMICO", "ESCREVER_SERVER_OWNED"]},
 	#CampoFrasco & {nome: "recurso", sql: "ENUM", valores: ["Almoxarifado", "Patrimonio", "Academico", "Interno"]},
 	#CampoFrasco & {nome: "exige_vinculo", sql: "BOOLEAN"},
 	#CampoFrasco & {nome: "exige_ownership", sql: "BOOLEAN"},

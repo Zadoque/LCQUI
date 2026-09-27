@@ -2,9 +2,9 @@
   "versao": 1,
   "alloy": "6.2.0",
   "solver": "sat4j",
-  "spec_ir_sha256": "9f2bf7226eddabd9731a4b14302b78e71667d007466bffbc8f455c27a36fd579",
+  "spec_ir_sha256": "78a2adf6b5f311e1ad90f9ad9f779958d8fe5fb2ceb5ebd48b65f830c615ef41",
   "model": "specification/alloy/operations/notificacoes_m13.als",
-  "model_sha256": "bd407107463a8a9cb32991546257e21b716b9460cb3a8dc6321ec264f292b14c",
+  "model_sha256": "de829362d946e0e0f1afb3250c296f197865787f3522a621db565aa29b032307",
   "origens": [
     {
       "model": "specification/alloy/operations/composition_m12.als",
@@ -20,7 +20,7 @@
     },
     {
       "model": "specification/alloy/operations/authorization_m9.als",
-      "model_sha256": "ddd4db6fc9ecfc055cdbca89660fac974b3bb368a4d876311470c998148ac7cb"
+      "model_sha256": "e5ef3e535aeef727249b194535a2746ed996ce49e6a9a9a87a27ead170f6eea6"
     },
     {
       "model": "specification/alloy/operations/idempotency_m7.als",

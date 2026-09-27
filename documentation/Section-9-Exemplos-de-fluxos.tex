@@ -432,6 +432,9 @@ M7 concluído apenas retorna o resultado já persistido ao mesmo UID.
 \subsubsection{CHE-05 --- Chefe: Operar catálogo, patrimônio, matéria, etiquetas e relatórios}
 \textbf{Contrato:} UI-03 a UI-09 e UI-12. Usar as mesmas entradas dos fluxos ALM/PAT/MAT abaixo com escopo global. Poder administrativo não dispensa campos, comprovante de baixa, destino de vencidos ou auditoria. Gestão de turmas/roteiros de terceiros requer Q13; não simular propriedade.
 
+\subsubsection{CHE-06 --- Chefe: Convidar aluno para turma ativa de professor}
+\textbf{Contrato:} UI-02, UI-10. Turmas > selecionar turma ativa de Professor > Convidar Aluno > e-mail normalizado e matrícula opcional > Enviar. O Chefe Geral emite convite ordinário sem assumir ownership da turma; não pode conceder exceção de capacidade (\texttt{exceder\_capacidade = true} é negado pelo servidor) e a operação é auditada institucionalmente. O aluno recebe o convite (via notificação interna se já tiver conta Auth, ou e-mail de definição de senha do Firebase Auth se não tiver) e visualiza no detalhe que foi convidado pelo Chefe Geral para a turma do respectivo Professor.
+
 \subsubsection{MAT-01 --- Professor/Chefe: Cadastrar e editar matéria}
 \textbf{Contrato:} UI-03. Mais > Nova Matéria ou detalhe > Editar > nome/código > confirmar. Reservar código único e persistir Materia; atualizar projeções e manter vínculos por ID. Código em uso retorna erro no campo.
 
@@ -442,7 +445,10 @@ M7 concluído apenas retorna o resultado já persistido ao mesmo UID.
 \textbf{Contrato:} UI-10. Turma própria > Arquivar > confirmar; ou Turmas Arquivadas > selecionar > Desarquivar. Alterar status mantendo posts/membros; propagar espelhos e notificações. Q08: turmas arquivadas ficam somente em leitura.
 
 \subsubsection{PRO-03 --- Professor: Convidar aluno com ou sem turma}
-\textbf{Contrato:} UI-10. Mais/Novo Aluno > e-mails e matrícula opcional > turma opcional > confirmar ausência de turma ou justificar exceção de capacidade > Enviar. Persistir convites sem conceder papel diferente de Aluno; resultado por destinatário. Aceitação é ALU-01.
+\textbf{Contrato:} UI-10. Mais/Novo Aluno > e-mails e matrícula opcional > turma opcional > confirmar ausência de turma ou justificar exceção de capacidade > Enviar. O backend normaliza o e-mail e consulta o Firebase Auth fora da transação:
+(1) \textbf{Destinatário com conta Auth existente}: na mesma transação grava o convite e emite a notificação interna \texttt{CONVITE\_PARA\_TURMA} para a caixa do aluno (\texttt{Usuarios/\{uid\}/Notificacoes}); nenhum e-mail externo é disparado.
+(2) \textbf{Destinatário sem conta Auth}: na transação grava o convite e, em etapa pós-commit recuperável, provisiona a conta no Firebase Authentication e dispara o mecanismo oficial do Firebase Authentication para envio de e-mail de definição de senha com retorno seguro ao LCQUI. É terminantemente proibido o uso de provedores externos de e-mail (SMTP, SendGrid, Resend, SES).
+O feedback individual informa o canal de entrega correspondente. Aceitação e rejeição seguem ALU-01.
 
 \subsubsection{PRO-04 --- Professor: Gerenciar membros e remover aluno}
 \textbf{Contrato:} UI-10. Turma própria > Membros > selecionar > Remover > confirmar. O servidor remove o vínculo principal (\texttt{Turma/\{id\}/Alunos}) e também propaga a exclusão no espelho inverso (\texttt{Usuarios/\{uid\}/Turmas}) na mesma transação (N-20), atualiza contador e grava histórico/auditoria; comentários permanecem. Nova entrada por código bloqueada, retorno exige convite.
@@ -465,8 +471,15 @@ M7 concluído apenas retorna o resultado já persistido ao mesmo UID.
 \subsubsection{PRO-10 --- Professor: Pesquisar patrimônio e requisitar adição/edição}
 \textbf{Contrato:} UI-04 e UI-09. Bens > filtros/número > detalhe > Solicitar Edição, ou Mais > Pedido de Adição. Preencher proposta/motivo, criar Local se ausente, enviar. Lock e requisição são atômicos; Minhas Requisições acompanha resposta PAT-03.
 
-\subsubsection{ALU-01 --- Aluno: Aceitar convite ou ingressar por código}
-\textbf{Contrato:} UI-10. Convite > autenticar e verificar e-mail > completar nome/matrícula > Aceitar; ou painel > código > Entrar. Servidor verifica validade, combinações, turma e capacidade/exceção; cria vínculo/espelho/histórico uma vez. Convite inválido ou lotação não cria matrícula parcial.
+\subsubsection{ALU-01 --- Aluno: Aceitar ou rejeitar convite e ingressar por código}
+\textbf{Contrato:} UI-10, UI-12.
+\paragraph{ALU-01a --- Via interna (destinatário com conta Auth):} O aluno autenticado com e-mail verificado abre o sino > notificação \texttt{CONVITE\_PARA\_TURMA} > o card/detalhe seguro exibe quem convidou, a turma, o professor responsável (quando convidado por Chefe Geral) e o prazo de expiração. Enquanto pendente:
+(a) Clicar em [Aceitar] aciona \texttt{aceitarConviteAluno} internamente sem exigir token no cliente; o servidor valida a notificação própria e e-mail coincidente, matricula na turma e atualiza o contador.
+(b) Clicar em [Rejeitar] aciona \texttt{rejeitarConviteAluno}; o servidor marca o convite como rejeitado, grava \texttt{rejeitado\_por/em} e libera a chave de pendência em \texttt{Chaves\_Unicas}, sem gerar matrícula nem vínculo.
+
+\paragraph{ALU-01b --- Via externa (destinatário sem conta prévia):} O usuário recebe o e-mail oficial de definição de senha do Firebase Authentication > define sua senha > autentica-se e comprova e-mail verificado > acessa a página do convite com token seguro > aceita ou rejeita; o servidor consome o token e executa a mesma transação de domínio.
+
+\paragraph{ALU-01c --- Ingresso por código:} Painel Aluno > inserir código da turma > Entrar. Servidor verifica turma ativa, vaga e ausência de remoção prévia; matricula e atualiza contador.
 
 \subsubsection{ALU-02 --- Aluno: Visualizar turmas, colegas, posts e baixar roteiro}
 \textbf{Contrato:} UI-10 e UI-11. Minhas Turmas > turma > Feed/Membros > post > PDF. Ler somente turma com vínculo atual, colegas com dados mínimos e roteiro vinculado. Remoção invalida consultas e acesso ao arquivo; não confiar em espelho/cache antigo.

@@ -21,12 +21,12 @@ export const m13BridgeOrigins = [
 	'specification/alloy/reagents/stock_cache_scarcity_m8.als',
 ];
 
-// Seis tipos acadêmicos (RN-M13-07) e seu mapeamento exato entre camadas.
+// Sete tipos acadêmicos (RN-M13-07) e seu mapeamento exato entre camadas.
 export const m13AcademicTypes = [
-	'COMENTARIO', 'POST', 'ADICIONADO', 'REMOVIDO', 'TURMA_ARQUIVADA', 'TURMA_DESARQUIVADA',
+	'COMENTARIO', 'POST', 'ADICIONADO', 'REMOVIDO', 'TURMA_ARQUIVADA', 'TURMA_DESARQUIVADA', 'CONVITE_PARA_TURMA',
 ];
 const m13AcademicAlloy = [
-	'TComentario', 'TPost', 'TAdicionado', 'TRemovido', 'TArquivada', 'TDesarquivada',
+	'TComentario', 'TPost', 'TAdicionado', 'TRemovido', 'TArquivada', 'TDesarquivada', 'TConviteParaTurma',
 ];
 
 export const m13Expected = [

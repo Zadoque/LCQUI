@@ -1831,6 +1831,7 @@
                         "OPERAR_ALMOXARIFADO",
                         "OPERAR_PATRIMONIO",
                         "OPERAR_RECURSO_PROPRIO",
+                        "CONVIDAR_ALUNO_TURMA",
                         "LER_RECURSO_ACADEMICO",
                         "ESCREVER_SERVER_OWNED"
                     ],
@@ -2296,6 +2297,7 @@
                     "valores": [
                         "pendente",
                         "aceitado",
+                        "rejeitado",
                         "expirado"
                     ],
                     "observacao": "",
@@ -2349,6 +2351,17 @@
                     "sql": "TEXT",
                     "valores": [],
                     "observacao": "UID do aluno que aceitou; preservado no histórico.",
+                    "positivo": false,
+                    "nao_negativo": false
+                },
+                {
+                    "tipo": "string",
+                    "nome": "rejeitado_por",
+                    "obrigatorio": true,
+                    "nulo": true,
+                    "sql": "TEXT",
+                    "valores": [],
+                    "observacao": "UID do aluno que rejeitou; preservado no histórico.",
                     "positivo": false,
                     "nao_negativo": false
                 }
@@ -2893,6 +2906,7 @@
                         "REMOVIDO",
                         "TURMA_ARQUIVADA",
                         "TURMA_DESARQUIVADA",
+                        "CONVITE_PARA_TURMA",
                         "REQUISICAO_BEM",
                         "DATA_DEVOLUCAO_REAGENTE",
                         "ROTEIRO_COMPARTILHADO",
@@ -2960,7 +2974,8 @@
                         "Emprestimo",
                         "Usuario",
                         "Requisicao_Bem",
-                        "Bem_Patrimonial"
+                        "Bem_Patrimonial",
+                        "Convite_Aluno"
                     ],
                     "observacao": "Rota conhecida; nunca URL arbitrária.",
                     "positivo": false,

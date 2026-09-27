@@ -15,7 +15,7 @@ import "strings"
 #M11StatusTurma:     "Ativo" | "Arquivada"
 #M11ModoIngresso:    "CODIGO" | "CONVITE"
 #M11TipoEvento:      "inclusao_aluno" | "exclusao_aluno"
-#M11StatusConvite:   "pendente" | "aceitado" | "expirado"
+#M11StatusConvite:   "pendente" | "aceitado" | "rejeitado" | "expirado"
 #M11ContextoConvite: "TURMA" | "GLOBAL"
 
 #M11Turma: {
@@ -87,6 +87,8 @@ import "strings"
 	justificativa_excecao: null | (string & strings.MinRunes(1))
 	aceitado_por:          null | (string & strings.MinRunes(1))
 	aceitado_em:           null | (string & strings.MinRunes(1))
+	rejeitado_por:         null | (string & strings.MinRunes(1))
+	rejeitado_em:          null | (string & strings.MinRunes(1))
 	// Justificativa obrigatória exatamente quando a exceção é declarada.
 	if exceder_capacidade {
 		justificativa_excecao: string & strings.MinRunes(1)
@@ -103,6 +105,16 @@ import "strings"
 	if status != "aceitado" {
 		aceitado_por: null
 		aceitado_em:  null
+	}
+
+	// Estado rejeitado exige autoria e instante; estados não rejeitados não os têm.
+	if status == "rejeitado" {
+		rejeitado_por: string & strings.MinRunes(1)
+		rejeitado_em:  string & strings.MinRunes(1)
+	}
+	if status != "rejeitado" {
+		rejeitado_por: null
+		rejeitado_em:  null
 	}
 }
 
@@ -151,9 +163,10 @@ import "strings"
 	#CampoFrasco & {nome: "id_turma", sql: "TEXT", nulo: true, observacao: "Turma do vínculo/convite; nulo identifica convite global."},
 	#CampoFrasco & {nome: "email", sql: "TEXT", observacao: "E-mail normalizado do convite; no máximo 150 caracteres."},
 	#CampoFrasco & {nome: "token_hash", sql: "TEXT", observacao: "SHA-256 do token aleatório de 32 bytes; nunca em claro."},
-	#CampoFrasco & {nome: "status_convite", sql: "ENUM", valores: ["pendente", "aceitado", "expirado"]},
+	#CampoFrasco & {nome: "status_convite", sql: "ENUM", valores: ["pendente", "aceitado", "rejeitado", "expirado"]},
 	#CampoFrasco & {nome: "exceder_capacidade", sql: "BOOLEAN", observacao: "Exceção nominal do professor dono; justificativa obrigatória."},
 	#CampoFrasco & {nome: "modo_ingresso", sql: "ENUM", nulo: true, valores: ["CODIGO", "CONVITE"]},
 	#CampoFrasco & {nome: "tipo_evento", sql: "ENUM", valores: ["inclusao_aluno", "exclusao_aluno"]},
 	#CampoFrasco & {nome: "aceitado_por", sql: "TEXT", nulo: true, observacao: "UID do aluno que aceitou; preservado no histórico."},
+	#CampoFrasco & {nome: "rejeitado_por", sql: "TEXT", nulo: true, observacao: "UID do aluno que rejeitou; preservado no histórico."},
 ]

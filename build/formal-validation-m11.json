@@ -2,9 +2,9 @@
   "versao": 1,
   "alloy": "6.2.0",
   "solver": "sat4j",
-  "spec_ir_sha256": "9f2bf7226eddabd9731a4b14302b78e71667d007466bffbc8f455c27a36fd579",
+  "spec_ir_sha256": "78a2adf6b5f311e1ad90f9ad9f779958d8fe5fb2ceb5ebd48b65f830c615ef41",
   "model": "specification/alloy/operations/turmas_m11.als",
-  "model_sha256": "5837bcfd083ae1cec28047b5b5a64e0948e54da6c287807283c49dcda7f45783",
+  "model_sha256": "aadc9fa5995860b262fd776fe98701fb331d381cbc9593933fd5259d58552149",
   "resultados": [
     {
       "id": "M11-INV-001",

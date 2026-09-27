@@ -17,7 +17,7 @@ Valores: Aluno, Professor, Bolsista, Gestor\_Bens\_Patrimoniais, Gestor\_Almoxar
 Contexto de apresentação; não concede papel.
 \item[tipo] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
 SQL: ENUM.
-Valores: ADICIONADO, POST, COMENTARIO, REMOVIDO, TURMA\_ARQUIVADA, TURMA\_DESARQUIVADA, REQUISICAO\_BEM, DATA\_DEVOLUCAO\_REAGENTE, ROTEIRO\_COMPARTILHADO, REQUISICAO\_EDICAO\_BEM, REQUISICAO\_ADICAO\_BEM, BEM\_INSERVIVEL, ENTREGA\_ATRASADA, FRASCOS\_VAZIOS, FRASCOS\_QUEBRADOS, FRASCOS\_VENCIDOS, FRASCOS\_A\_SEREM\_PESADOS, FRASCOS\_EM\_QUARENTENA, ESCASSEZ\_ESTOQUE, AUTO\_ATENDIMENTO\_RETIRADA.
+Valores: ADICIONADO, POST, COMENTARIO, REMOVIDO, TURMA\_ARQUIVADA, TURMA\_DESARQUIVADA, CONVITE\_PARA\_TURMA, REQUISICAO\_BEM, DATA\_DEVOLUCAO\_REAGENTE, ROTEIRO\_COMPARTILHADO, REQUISICAO\_EDICAO\_BEM, REQUISICAO\_ADICAO\_BEM, BEM\_INSERVIVEL, ENTREGA\_ATRASADA, FRASCOS\_VAZIOS, FRASCOS\_QUEBRADOS, FRASCOS\_VENCIDOS, FRASCOS\_A\_SEREM\_PESADOS, FRASCOS\_EM\_QUARENTENA, ESCASSEZ\_ESTOQUE, AUTO\_ATENDIMENTO\_RETIRADA.
 \item[id\_quem\_fez\_acao] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
 SQL: TEXT.
 \item[id\_turma] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
@@ -27,7 +27,7 @@ Obrigatório nos tipos acadêmicos e nulo nos operacionais (RN-M13-07).
 SQL: INTEGER.
 \item[entidade\_alvo] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
 SQL: ENUM.
-Valores: Turma, Post, Comentario, Roteiro, Almoxarifado, Emprestimo, Usuario, Requisicao\_Bem, Bem\_Patrimonial.
+Valores: Turma, Post, Comentario, Roteiro, Almoxarifado, Emprestimo, Usuario, Requisicao\_Bem, Bem\_Patrimonial, Convite\_Aluno.
 Rota conhecida; nunca URL arbitrária.
 \item[id\_alvo] Tipo: string. Obrigatório: sim. Aceita nulo: não.
 SQL: TEXT.

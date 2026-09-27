@@ -46,7 +46,7 @@ SQL: TEXT.
 SHA-256 do token aleatório de 32 bytes; nunca em claro.
 \item[status\_convite] Tipo: enum. Obrigatório: sim. Aceita nulo: não.
 SQL: ENUM.
-Valores: pendente, aceitado, expirado.
+Valores: pendente, aceitado, rejeitado, expirado.
 \item[exceder\_capacidade] Tipo: bool. Obrigatório: sim. Aceita nulo: não.
 SQL: BOOLEAN.
 Exceção nominal do professor dono; justificativa obrigatória.
@@ -59,4 +59,7 @@ Valores: inclusao\_aluno, exclusao\_aluno.
 \item[aceitado\_por] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
 SQL: TEXT.
 UID do aluno que aceitou; preservado no histórico.
+\item[rejeitado\_por] Tipo: string. Obrigatório: sim. Aceita nulo: sim.
+SQL: TEXT.
+UID do aluno que rejeitou; preservado no histórico.
 \end{description}

@@ -23,10 +23,10 @@ test('M11 mantém o enum de status da turma entre documentação, CUE e Alloy', 
 });
 
 test('M11 mantém os enums de convite e evento entre CUE e Alloy', () => {
-  for (const value of ['pendente', 'aceitado', 'expirado']) {
+  for (const value of ['pendente', 'aceitado', 'rejeitado', 'expirado']) {
     assert.match(cue, new RegExp(`"${value}"`), `status convite CUE ausente: ${value}`);
   }
-  for (const value of ['Pendente', 'Aceitado', 'Expirado']) {
+  for (const value of ['Pendente', 'Aceitado', 'Rejeitado', 'Expirado']) {
     assert.match(alloy, new RegExp(`\\b${value}\\b`), `status convite Alloy ausente: ${value}`);
   }
   for (const value of ['CODIGO', 'CONVITE']) {
@@ -52,6 +52,8 @@ test('M11 preserva os nomes canônicos do contrato nas fontes', () => {
     'justificativa_excecao',
     'aceitado_por',
     'aceitado_em',
+    'rejeitado_por',
+    'rejeitado_em',
     'token_hash',
     'modo_ingresso',
   ]) {
@@ -68,6 +70,7 @@ test('M11 preserva os predicados e assertions centrais do Alloy', () => {
     'pred ingressarOrdinario',
     'pred aceitarConviteTurma',
     'pred aceitarConviteGlobal',
+    'pred rejeitarConvite',
     'pred revogarAcesso',
     'pred retryM7',
     'pred criarNovoConviteAposTerminalidade',
