@@ -84,3 +84,45 @@ inalteradas).
 \textbf{Estado final:} \texttt{IMP-NOTIF-003} = \texttt{NÃO DIVERGENTE} no
 escopo backend auditado; UI de disparo permanece sob \texttt{IMP-NOTIF-001} e
 \texttt{IMP-UI-004}.
+
+\subsection{Hardening do conjunto ativo (RN-M13-03)}
+
+Auditoria independente reabriu \texttt{IMP-NOTIF-003}: ``Limpar tudo'' marcava
+qualquer notificação \texttt{lida=false} do corte, sem considerar
+\texttt{expira\_em}. Uma notificação já expirada não pertence ao conjunto ativo
+(RN-M13-03; Alloy \texttt{ativo = notExpira != EVencido},
+\texttt{ExpiradoForaDoAtivo}) e não pode ser tratada como elegível.
+
+\paragraph{Correção.} A consulta continua com corte estável
+(\texttt{emitida\_em <= corte}) e passa a ignorar, na rodada, a notificação cujo
+\texttt{expira\_em} já foi alcançado (avaliado no instante de processamento);
+o fato permanece persistido. Como itens ignorados não são mutados, o avanço usa
+o cursor estável \texttt{(emitida\_em, docId)} — que também preserva empates do
+\texttt{serverTimestamp} e evita re-scan infinito —, devolvido em
+\texttt{proximo\_cursor}. \texttt{expira\_em=null} (ex.: \texttt{ESCASSEZ\_ESTOQUE})
+permanece sempre elegível. Nenhum índice novo é necessário: o índice
+\texttt{Notificacoes(id\_destinatario, lida, emitida\_em)} já cobre a consulta.
+
+\small
+\begin{longtable}{@{}p{0.30\textwidth}p{0.52\textwidth}@{}}
+\toprule
+ID & Resultado \\
+\midrule
+\endhead
+TEST-INT-NOTIF-M13-021 & Notificação expirada não é marcada e permanece persistida \\
+TEST-INT-NOTIF-M13-022 & Expiração futura é elegível \\
+TEST-INT-NOTIF-M13-023 & \texttt{expira\_em=null} permanece elegível \\
+TEST-INT-NOTIF-M13-024 & Paginação com expiradas intercaladas não perde ativos (cursor) \\
+TEST-INT-NOTIF-M13-025 & Retry com mesmo cursor preserva \texttt{lida\_em} e não duplica \\
+TEST-INT-NOTIF-M13-026 & Cursor inválido é \texttt{invalid-argument} \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+RED: os casos 021, 024, 025 e 026 falharam contra a implementação anterior
+(marcava expirada, não tinha cursor). GREEN sob Node 20.19.6: notificações
+37/37 (integração 26/26 e Rules 11/11); unit 71/71; Rules 77/77; integração
+completa 151 passam / 14 falham (legadas em reagentes/patrimônio/roteiros).
+
+\textbf{Estado final:} \texttt{IMP-NOTIF-003} = \texttt{NÃO DIVERGENTE} no
+escopo backend auditado.

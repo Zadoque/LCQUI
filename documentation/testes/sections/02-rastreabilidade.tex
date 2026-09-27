@@ -178,6 +178,21 @@ reservar \texttt{codigo\_turma} em \texttt{Chaves\_Unicas}. A suíte de turmas
 foi a 23/23; integração completa 145 passam / 14 falham (legadas). A feature
 permanece \texttt{DIVERGENTE} apenas pelo E2E UI-10.
 
+\subsection{Décima primeira cadeia executada (hardening de conjunto ativo)}
+
+\begin{center}
+Seção 7 RN-M13-03, CUE \texttt{\#M13Expiracao}, Alloy \texttt{ExpiracaoDistingueNull}/\texttt{ExpiradoForaDoAtivo}
+$\rightarrow$ \texttt{IMP-NOTIF-003}
+$\rightarrow$ \texttt{TEST-INT-NOTIF-M13-021--026}
+$\rightarrow$ \nolinkurl{functions/src/notificacoes.ts}
+$\rightarrow$ PASS Node 20
+\end{center}
+
+``Limpar tudo'' passou a ignorar notificação com \texttt{expira\_em} alcançado
+(permanece no histórico), com cursor estável \texttt{(emitida\_em, docId)} para
+não perder ativos nem repetir itens. Integração de notificações 26/26 e Rules
+de notificações 11/11; integração completa 151 passam / 14 falham (legadas).
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara

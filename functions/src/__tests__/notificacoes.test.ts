@@ -374,5 +374,138 @@ describe("Módulo de Notificações (M9 + server-owned)", () => {
         code: "invalid-argument",
       });
     });
+
+    it("TEST-INT-NOTIF-M13-021 — notificação expirada não é marcada e permanece persistida", async () => {
+      const uid = uidUnico("notif_limpar_expirada");
+      await semear(uid);
+      const expirada = await semearNotificacao(uid, "expirada", {
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora - 3000),
+        expira_em: new Date(agora - 1000),
+      });
+
+      const wrapped = testEnv.wrap(limparTudoNotificacoes);
+      const resultado = await wrapped(mockRequest({ corte }, uid));
+
+      expect(resultado.marcadas).toBe(0);
+      const snap = await expirada.get();
+      expect(snap.exists).toBe(true);
+      expect(snap.data()?.lida).toBe(false);
+      expect(snap.data()?.lida_em).toBeNull();
+    });
+
+    it("TEST-INT-NOTIF-M13-022 — notificação com expiração futura é elegível", async () => {
+      const uid = uidUnico("notif_limpar_futura");
+      await semear(uid);
+      const futura = await semearNotificacao(uid, "futura", {
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora - 1000),
+        expira_em: new Date(agora + 60000),
+      });
+
+      const wrapped = testEnv.wrap(limparTudoNotificacoes);
+      const resultado = await wrapped(mockRequest({ corte }, uid));
+
+      expect(resultado.marcadas).toBe(1);
+      const dados = (await futura.get()).data();
+      expect(dados?.lida).toBe(true);
+      expect(dados?.lida_em).not.toBeNull();
+    });
+
+    it("TEST-INT-NOTIF-M13-023 — expira_em=null permanece elegível (ESCASSEZ_ESTOQUE)", async () => {
+      const uid = uidUnico("notif_limpar_sem_expiracao");
+      await semear(uid);
+      const escassez = await semearNotificacao(uid, "escassez", {
+        tipo: "ESCASSEZ_ESTOQUE",
+        emitida_em: new Date(agora - 1000),
+        expira_em: null,
+      });
+
+      const wrapped = testEnv.wrap(limparTudoNotificacoes);
+      const resultado = await wrapped(mockRequest({ corte }, uid));
+
+      expect(resultado.marcadas).toBe(1);
+      expect((await escassez.get()).data()?.lida).toBe(true);
+    });
+
+    it("TEST-INT-NOTIF-M13-024 — paginação com expiradas intercaladas não perde ativos", async () => {
+      const uid = uidUnico("notif_limpar_pag_exp");
+      await semear(uid);
+      const e1 = await semearNotificacao(uid, "e1", {
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora - 5000),
+        expira_em: new Date(agora - 4000),
+      });
+      const a1 = await semearNotificacao(uid, "a1", {
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora - 4000),
+        expira_em: null,
+      });
+      const e2 = await semearNotificacao(uid, "e2", {
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora - 3000),
+        expira_em: new Date(agora - 2000),
+      });
+      const a2 = await semearNotificacao(uid, "a2", {
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora - 2000),
+        expira_em: null,
+      });
+
+      const wrapped = testEnv.wrap(limparTudoNotificacoes);
+      const primeira = await wrapped(mockRequest({ corte, limite: 3 }, uid));
+      expect(primeira.marcadas).toBe(1);
+      expect(primeira.continuar).toBe(true);
+      expect(primeira.proximo_cursor).toBeTruthy();
+      expect((await a1.get()).data()?.lida).toBe(true);
+      expect((await a2.get()).data()?.lida).toBe(false);
+
+      const segunda = await wrapped(
+        mockRequest({ corte, limite: 3, cursor: primeira.proximo_cursor }, uid)
+      );
+      expect(segunda.marcadas).toBe(1);
+      expect(segunda.continuar).toBe(false);
+      expect((await a2.get()).data()?.lida).toBe(true);
+
+      expect((await e1.get()).data()?.lida).toBe(false);
+      expect((await e2.get()).data()?.lida).toBe(false);
+    });
+
+    it("TEST-INT-NOTIF-M13-025 — retry com mesmo cursor preserva lida_em e não duplica", async () => {
+      const uid = uidUnico("notif_limpar_retry_exp");
+      await semear(uid);
+      await semearNotificacao(uid, "e1", {
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora - 2000),
+        expira_em: new Date(agora - 1000),
+      });
+      const a1 = await semearNotificacao(uid, "a1", {
+        tipo: "FRASCOS_VAZIOS",
+        emitida_em: new Date(agora - 1000),
+        expira_em: null,
+      });
+
+      const wrapped = testEnv.wrap(limparTudoNotificacoes);
+      const primeira = await wrapped(mockRequest({ corte, limite: 2 }, uid));
+      expect(primeira.marcadas).toBe(1);
+      const primeiro = (await a1.get()).data()?.lida_em.toMillis();
+
+      const segunda = await wrapped(
+        mockRequest({ corte, limite: 2, cursor: primeira.proximo_cursor }, uid)
+      );
+      expect(segunda.marcadas).toBe(0);
+      expect(segunda.continuar).toBe(false);
+      const segundo = (await a1.get()).data()?.lida_em.toMillis();
+      expect(segundo).toBe(primeiro);
+    });
+
+    it("TEST-INT-NOTIF-M13-026 — cursor inválido é invalid-argument", async () => {
+      const uid = uidUnico("notif_limpar_cursor_invalido");
+      await semear(uid);
+      const wrapped = testEnv.wrap(limparTudoNotificacoes);
+      await expect(wrapped(mockRequest({ corte, cursor: "lixo" }, uid))).rejects.toMatchObject({
+        code: "invalid-argument",
+      });
+    });
   });
 });

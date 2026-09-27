@@ -1,5 +1,5 @@
 import * as admin from "firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { CriarNotificacao } from "./schemas/notificacoes.schema";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { validatePayload } from "./utils/validation";
@@ -117,17 +117,49 @@ export const LIMPAR_TUDO_LIMITE_PADRAO = 100;
 export const LIMPAR_TUDO_LIMITE_MAXIMO = 200;
 /** Tolerância de relógio aceita para um corte vindo de uma rodada anterior. */
 const LIMPAR_TUDO_TOLERANCIA_CORTE_MS = 60_000;
+const LIMPAR_TUDO_CURSOR_SEP = "|";
+
+interface CursorLimparTudo {
+  emitidaEm: Timestamp;
+  id: string;
+}
+
+/** Cursor estável `(emitida_em, docId)`: preserva empates do serverTimestamp. */
+function serializarCursor(cursor: CursorLimparTudo): string {
+  return `${cursor.emitidaEm.seconds}.${cursor.emitidaEm.nanoseconds}${LIMPAR_TUDO_CURSOR_SEP}${cursor.id}`;
+}
+
+function interpretarCursor(raw: string): CursorLimparTudo {
+  const indice = raw.indexOf(LIMPAR_TUDO_CURSOR_SEP);
+  if (indice <= 0) throw new HttpsError("invalid-argument", "Cursor inválido.");
+  const partes = raw.slice(0, indice).split(".");
+  const id = raw.slice(indice + 1);
+  if (partes.length !== 2 || id.length === 0) {
+    throw new HttpsError("invalid-argument", "Cursor inválido.");
+  }
+  const segundos = Number(partes[0]);
+  const nanos = Number(partes[1]);
+  if (!Number.isInteger(segundos) || !Number.isInteger(nanos) || nanos < 0 || nanos >= 1e9) {
+    throw new HttpsError("invalid-argument", "Cursor inválido.");
+  }
+  return { emitidaEm: new Timestamp(segundos, nanos), id };
+}
 
 // Endpoint "Limpar tudo": marca como lida, por rodadas paginadas e reentrantes,
-// todas as notificações ativas do próprio UID, sem DELETE e preservando o
+// todas as notificações ATIVAS do próprio UID, sem DELETE e preservando o
 // histórico. O `corte` (instante do início da primeira rodada) é estável entre
 // rodadas: avisos emitidos depois dele ficam para uma nova invocação.
+// RN-M13-03: notificação com `expira_em` alcançado já não pertence ao conjunto
+// ativo e é ignorada (permanece no histórico). Como itens ignorados não são
+// mutados, o avanço usa o cursor `(emitida_em, docId)`, que também sobrevive a
+// empates de `serverTimestamp`.
 export const limparTudoNotificacoes = onCall(async (request) => {
   const claims = extrairClaimsAutoridade(request);
 
-  const { corte, limite } = validatePayload(
+  const { corte, cursor, limite } = validatePayload(
     z.object({
       corte: z.string().min(1).optional(),
+      cursor: z.string().min(1).optional(),
       limite: z.number().int().min(1).max(LIMPAR_TUDO_LIMITE_MAXIMO).optional(),
     }),
     request.data ?? {}
@@ -141,9 +173,14 @@ export const limparTudoNotificacoes = onCall(async (request) => {
   if (corteEfetivo.getTime() > Date.now() + LIMPAR_TUDO_TOLERANCIA_CORTE_MS) {
     throw new HttpsError("invalid-argument", "Corte inválido.");
   }
+  if (cursor !== undefined && corte === undefined) {
+    throw new HttpsError("invalid-argument", "Cursor exige corte.");
+  }
+  const cursorEfetivo = cursor === undefined ? null : interpretarCursor(cursor);
 
   const db = admin.firestore();
   const colecao = db.collection("Usuarios").doc(claims.uid).collection("Notificacoes");
+  const agora = new Date();
 
   return db.runTransaction(async (tx) => {
     // M9: autoridade persistida relida na mesma transação do efeito.
@@ -151,15 +188,21 @@ export const limparTudoNotificacoes = onCall(async (request) => {
 
     // RN-M13-01: só notificações endereçadas ao próprio UID entram no lote.
     // O corte limita a itens existentes no início (`emitida_em <= corte`).
-    const consulta = colecao
+    let consulta = colecao
       .where("id_destinatario", "==", claims.uid)
       .where("lida", "==", false)
       .where("emitida_em", "<=", corteEfetivo)
       .orderBy("emitida_em", "asc")
+      .orderBy(admin.firestore.FieldPath.documentId(), "asc")
       .limit(limiteEfetivo);
+    if (cursorEfetivo) {
+      consulta = consulta.startAfter(cursorEfetivo.emitidaEm, colecao.doc(cursorEfetivo.id));
+    }
 
     const snap = await tx.get(consulta);
 
+    let marcadas = 0;
+    let ultimo: CursorLimparTudo | null = null;
     for (const doc of snap.docs) {
       const dados = doc.data();
       // `lida=false => lida_em=null` (#M13Notificacao). Estado incoerente não é
@@ -171,15 +214,30 @@ export const limparTudoNotificacoes = onCall(async (request) => {
           "Notificação com estado de leitura incoerente."
         );
       }
+      const emitida = dados.emitida_em;
+      if (!emitida || typeof emitida.toMillis !== "function") {
+        throw new HttpsError("failed-precondition", "Notificação sem instante de emissão.");
+      }
+      ultimo = { emitidaEm: emitida, id: doc.id };
+
+      // RN-M13-03: expirado sai do conjunto ativo sem apagar o fato.
+      const expiraEm = dados.expira_em;
+      if (expiraEm !== null && expiraEm !== undefined) {
+        if (typeof expiraEm.toMillis !== "function") {
+          throw new HttpsError("failed-precondition", "Notificação com expiração incoerente.");
+        }
+        if (expiraEm.toMillis() <= agora.getTime()) continue;
+      }
+
       tx.update(doc.ref, { lida: true, lida_em: FieldValue.serverTimestamp() });
+      marcadas += 1;
     }
 
-    // Avisos já marcados saem da consulta (`lida == false`), então repetir com o
-    // mesmo corte retoma do ponto sem marcar item novo por engano.
     return {
       corte: corteEfetivo.toISOString(),
-      marcadas: snap.size,
+      marcadas,
       continuar: snap.size === limiteEfetivo,
+      proximo_cursor: snap.size > 0 && ultimo ? serializarCursor(ultimo) : null,
     };
   });
 });
