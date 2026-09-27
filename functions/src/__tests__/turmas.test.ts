@@ -6,7 +6,8 @@ process.env.CONVITE_HMAC_SECRET = "segredo-de-teste-32-bytes-seguro!!";
 
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
-import { criarTurma, ingressarEmTurmaPorCodigo, removerAlunoTurma, alterarStatusTurma, adicionarAlunoExistenteTurma, convidarAluno } from "../turmas";
+import { criarTurma, ingressarEmTurmaPorCodigo, removerAlunoTurma, alterarStatusTurma, adicionarAlunoExistenteTurma, convidarAluno, aceitarConviteAluno, rejeitarConviteAluno, obterDetalhesConviteAluno } from "../turmas";
+import { executarConvidarAluno } from "../convites";
 import { chaveTurmaCodigo } from "../chaves";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
@@ -25,14 +26,35 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     testEnv.cleanup();
   });
 
-  const mockRequest = (data: any, uid: string, roles: string[] = ["Professor"]): any => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mockRequest = (data: any, uid: string, roles: string[] = ["Professor"], versao_permissoes = 1): any => ({
     data,
     auth: {
       uid,
-      token: { roles, versao_permissoes: 1 }
+      token: { roles, versao_permissoes }
     },
     rawRequest: {}
   });
+
+  async function semearChefeGeral(uid: string, ativo = true, versao = 1): Promise<void> {
+    await db.collection("Usuarios").doc(uid).set({ ativo, versao_permissoes: versao });
+    await db.collection("Chefe_Geral").doc(uid).set({ id_usuario: uid, ativo });
+  }
+
+  async function semearBolsista(uid: string): Promise<void> {
+    await db.collection("Usuarios").doc(uid).set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Bolsista").doc(uid).set({ id_usuario: uid, ativo: true });
+  }
+
+  async function semearGestorAlmoxarifado(uid: string): Promise<void> {
+    await db.collection("Usuarios").doc(uid).set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Gestor_Almoxarifado").doc(uid).set({ id_usuario: uid, ativo: true });
+  }
+
+  async function semearGestorPatrimonial(uid: string): Promise<void> {
+    await db.collection("Usuarios").doc(uid).set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Gestor_Patrimonial").doc(uid).set({ id_usuario: uid, ativo: true });
+  }
 
   let opSeq = 0;
   const novaOperacao = (): string => `op_turma_${Date.now()}_${++opSeq}`;
@@ -42,9 +64,9 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     await db.collection("Professor").doc(uid).set({ id_usuario: uid, ativo: true });
   }
 
-  async function semearAluno(uid: string): Promise<void> {
+  async function semearAluno(uid: string, matricula = `MAT_${uid}`): Promise<void> {
     await db.collection("Usuarios").doc(uid).set({ ativo: true, versao_permissoes: 1 });
-    await db.collection("Aluno").doc(uid).set({ id_usuario: uid, ativo: true });
+    await db.collection("Aluno").doc(uid).set({ id_usuario: uid, ativo: true, numero_matricula: matricula });
   }
 
   async function ingressar(uid: string, codigoTurma: string): Promise<{ idTurma: string; nomeTurma: string }> {
@@ -1024,5 +1046,357 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
       mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_fc11a" }, "prof_fc11")
     );
     expect((await db.collection("Turma").doc(turma.id).get()).data()?.qtd_alunos).toBe(1);
+  });
+
+  describe("Reconciliação M9, M11 e M13 — Canais de Convite, Rejeição e Autoridade do Chefe Geral", () => {
+    let profTurmaId: string;
+    const profId = "prof_autoridade_m9";
+    const chefeId = "chefe_autoridade_m9";
+
+    beforeAll(async () => {
+      await semearProfessor(profId);
+      await semearChefeGeral(chefeId);
+      await semearMateria("mat_convites", "Laboratório Reconciliado");
+      const t = await criarTurmaOk(profId, {
+        idMateria: "mat_convites",
+        nomeTurma: "Turma Convites M9-M11-M13",
+        capacidade: 20,
+        ano: 2026,
+        semestre: 1,
+      });
+      profTurmaId = t.id;
+    });
+
+    it("TEST-INT-CONV-M9-001 — Professor dono convida para própria turma Ativo -> PASS", async () => {
+      const wrapped = testEnv.wrap(convidarAluno);
+      const email = `aluno_dono_${Date.now()}@ufsc.br`;
+      const res = await wrapped(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: profTurmaId,
+        email,
+      }, profId, ["Professor"]));
+
+      expect(res.registrado).toBe(true);
+      expect(res.id).toBeDefined();
+
+      const conviteDoc = await db.collection("Convite_Aluno").doc(res.id).get();
+      expect(conviteDoc.exists).toBe(true);
+      expect(conviteDoc.data()?.convidado_por).toBe(profId);
+      expect(conviteDoc.data()?.status).toBe("pendente");
+    });
+
+    it("TEST-INT-CONV-M9-002 — Professor terceiro convida para turma de outro professor -> DENY", async () => {
+      await semearProfessor("prof_terceiro");
+      const wrapped = testEnv.wrap(convidarAluno);
+      const email = `aluno_terceiro_${Date.now()}@ufsc.br`;
+      await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: profTurmaId,
+        email,
+      }, "prof_terceiro", ["Professor"]))).rejects.toMatchObject({ code: "permission-denied" });
+    });
+
+    it("TEST-INT-CONV-M9-003 — Chefe_Geral convida para turma de Professor -> PASS ordinário sem alterar ownership", async () => {
+      const wrapped = testEnv.wrap(convidarAluno);
+      const email = `aluno_chefe_ord_${Date.now()}@ufsc.br`;
+      const res = await wrapped(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: profTurmaId,
+        email,
+        excederCapacidade: false,
+      }, chefeId, ["Chefe_Geral"]));
+
+      expect(res.registrado).toBe(true);
+      const conviteDoc = await db.collection("Convite_Aluno").doc(res.id).get();
+      expect(conviteDoc.data()?.convidado_por).toBe(chefeId); // Chefe registrou
+
+      // Verificar que a turma não mudou de dono
+      const turmaDoc = await db.collection("Turma").doc(profTurmaId).get();
+      expect(turmaDoc.data()?.id_professor).toBe(profId);
+    });
+
+    it("TEST-INT-CONV-M9-004 — Chefe_Geral convida para turma Arquivada -> DENY", async () => {
+      await semearProfessor("prof_arq");
+      await semearMateria("mat_arq", "Materia Arq");
+      const turmaArq = await criarTurmaOk("prof_arq", {
+        idMateria: "mat_arq",
+        nomeTurma: "Turma Arquivada",
+        capacidade: 5,
+      });
+      await testEnv.wrap(alterarStatusTurma)(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: turmaArq.id,
+        status: "Arquivada",
+      }, "prof_arq", ["Professor"]));
+
+      const wrapped = testEnv.wrap(convidarAluno);
+      await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: turmaArq.id,
+        email: `aluno_arq_${Date.now()}@ufsc.br`,
+      }, chefeId, ["Chefe_Geral"]))).rejects.toMatchObject({ code: "failed-precondition" });
+    });
+
+    it("TEST-INT-CONV-M9-005 — Chefe_Geral com excederCapacidade=true -> DENY", async () => {
+      const wrapped = testEnv.wrap(convidarAluno);
+      await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: profTurmaId,
+        email: `aluno_exceder_${Date.now()}@ufsc.br`,
+        excederCapacidade: true,
+        justificativaExcecao: "Justificativa de teste do chefe",
+      }, chefeId, ["Chefe_Geral"]))).rejects.toMatchObject({ code: "permission-denied" });
+    });
+
+    it("TEST-INT-CONV-M9-006 — Chefe não consegue usar operação genérica de Professor (ex: criar turma para si)", async () => {
+      const wrappedCriar = testEnv.wrap(criarTurma);
+      await expect(wrappedCriar(mockRequest({
+        idOperacao: novaOperacao(),
+        idMateria: "mat_convites",
+        nomeTurma: "Turma Chefe Proibida",
+        ano: 2026,
+        semestre: 1,
+        capacidade: 10,
+      }, chefeId, ["Chefe_Geral"]))).rejects.toMatchObject({ code: "permission-denied" });
+    });
+
+    it("TEST-INT-CONV-M9-007 — Aluno, Bolsista, Gestores não podem convidar", async () => {
+      await semearAluno("aluno_tentativa");
+      await semearBolsista("bolsista_tentativa");
+      await semearGestorAlmoxarifado("almox_tentativa");
+      await semearGestorPatrimonial("patrimonio_tentativa");
+
+      const wrapped = testEnv.wrap(convidarAluno);
+      const email = `aluno_bloqueado_${Date.now()}@ufsc.br`;
+
+      await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(), idTurma: profTurmaId, email
+      }, "aluno_tentativa", ["Aluno"]))).rejects.toMatchObject({ code: "permission-denied" });
+
+      await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(), idTurma: profTurmaId, email
+      }, "bolsista_tentativa", ["Bolsista"]))).rejects.toMatchObject({ code: "permission-denied" });
+
+      await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(), idTurma: profTurmaId, email
+      }, "almox_tentativa", ["Gestor_Almoxarifado"]))).rejects.toMatchObject({ code: "permission-denied" });
+
+      await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(), idTurma: profTurmaId, email
+      }, "patrimonio_tentativa", ["Gestor_Patrimonial"]))).rejects.toMatchObject({ code: "permission-denied" });
+    });
+
+    it("TEST-INT-CONV-M9-008 — Chefe revogado/inativo -> DENY", async () => {
+      await semearChefeGeral("chefe_inativo", false, 1);
+      const wrapped = testEnv.wrap(convidarAluno);
+      await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: profTurmaId,
+        email: `aluno_rev_${Date.now()}@ufsc.br`,
+      }, "chefe_inativo", ["Chefe_Geral"]))).rejects.toMatchObject({ code: "permission-denied" });
+    });
+
+    it("TEST-INT-CONV-M9-009 — Claim antiga de Chefe após revogação de versão -> DENY", async () => {
+      await semearChefeGeral("chefe_versao_antiga", true, 2); // Banco tem versão 2
+      const wrapped = testEnv.wrap(convidarAluno);
+      // Token tem versão 1 (obsoleta)
+      await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: profTurmaId,
+        email: `aluno_obsoleto_${Date.now()}@ufsc.br`,
+      }, "chefe_versao_antiga", ["Chefe_Geral"], 1))).rejects.toMatchObject({ code: "permission-denied" });
+    });
+
+    it("TEST-INT-CONV-M13-001 — Destinatário com conta Auth recebe notificação interna CONVITE_PARA_TURMA", async () => {
+      const emailAuth = `aluno_com_auth_${Date.now()}@ufsc.br`;
+      const authUser = await admin.auth().createUser({ email: emailAuth, emailVerified: true });
+      await semearAluno(authUser.uid);
+
+      const wrapped = testEnv.wrap(convidarAluno);
+      const res = await wrapped(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: profTurmaId,
+        email: emailAuth,
+      }, profId, ["Professor"]));
+
+      expect(res.canal_entrega).toBe("notificacao_interna");
+
+      // Verificar que a notificação interna foi gravada no path do usuário
+      const notifDoc = await db.collection("Usuarios").doc(authUser.uid).collection("Notificacoes").doc(res.id).get();
+      expect(notifDoc.exists).toBe(true);
+      const notifData = notifDoc.data();
+      expect(notifData?.tipo).toBe("CONVITE_PARA_TURMA");
+      expect(notifData?.papel_destinatario).toBe("Aluno");
+      expect(notifData?.entidade_alvo).toBe("Convite_Aluno");
+      expect(notifData?.id_alvo).toBe(res.id);
+      expect(notifData?.lida).toBe(false);
+      // Garantir que nenhum token em texto claro foi salvo na notificação
+      expect(notifData?.metadata?.token).toBeUndefined();
+      expect(notifData?.metadata?.tokenConvite).toBeUndefined();
+      expect(notifData?.metadata?.token_hash).toBeUndefined();
+    });
+
+    it("TEST-INT-CONV-M13-002 — Destinatário sem conta Auth provisiona Auth", async () => {
+      const emailSemAuth = `aluno_novo_sem_auth_${Date.now()}@ufsc.br`;
+      const wrapped = testEnv.wrap(convidarAluno);
+      const res = await wrapped(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: profTurmaId,
+        email: emailSemAuth,
+      }, profId, ["Professor"]));
+
+      expect(res.canal_entrega).toBe("firebase_auth");
+      // Verificar que agora existe no Auth
+      const provUser = await admin.auth().getUserByEmail(emailSemAuth);
+      expect(provUser.uid).toBeDefined();
+    });
+
+    it("TEST-INT-CONV-M13-003 — Destinatário desativado no Auth falha fechado (failed-precondition)", async () => {
+      const emailDesativado = `aluno_desativado_${Date.now()}@ufsc.br`;
+      await admin.auth().createUser({ email: emailDesativado, disabled: true });
+
+      const wrapped = testEnv.wrap(convidarAluno);
+      await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: profTurmaId,
+        email: emailDesativado,
+      }, profId, ["Professor"]))).rejects.toMatchObject({ code: "failed-precondition" });
+    });
+
+    it("TEST-INT-CONV-M11-001 — Aceite via externa com token -> matriculado e M7", async () => {
+      const emailExt = `aluno_aceite_ext_${Date.now()}@ufsc.br`;
+      const authUser = await admin.auth().createUser({ email: emailExt, emailVerified: true });
+      await semearAluno(authUser.uid);
+
+      const reqConvidar = mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: profTurmaId,
+        email: emailExt,
+      }, profId, ["Professor"]);
+      const resConvidar = await executarConvidarAluno(reqConvidar.data, reqConvidar);
+
+      const tokenEfemero = resConvidar.tokenEfemero;
+      expect(tokenEfemero).toBeDefined();
+
+      const wrappedAceitar = testEnv.wrap(aceitarConviteAluno);
+      const opAceite = novaOperacao();
+      const resAceite = await wrappedAceitar(mockRequest({
+        idOperacao: opAceite,
+        idConvite: resConvidar.id,
+        tokenConvite: tokenEfemero,
+      }, authUser.uid, ["Aluno"]));
+
+      expect(resAceite.criouMatricula).toBe(true);
+
+      // Verificar status aceito
+      const conviteDoc = await db.collection("Convite_Aluno").doc(resConvidar.id).get();
+      expect(conviteDoc.data()?.status).toBe("aceitado");
+      expect(conviteDoc.data()?.aceitado_em).toBeDefined();
+
+      // Verificar matrícula no subcollection Alunos
+      const alunoNaTurma = await db.collection("Turma").doc(profTurmaId).collection("Alunos").doc(authUser.uid).get();
+      expect(alunoNaTurma.exists).toBe(true);
+
+      // Replay M7 do aceite é idempotente
+      const replayAceite = await wrappedAceitar(mockRequest({
+        idOperacao: opAceite,
+        idConvite: resConvidar.id,
+        tokenConvite: tokenEfemero,
+      }, authUser.uid, ["Aluno"]));
+      expect(replayAceite.criouMatricula).toBe(true);
+    });
+
+    it("TEST-INT-CONV-M11-002 — Aceite via notificação interna (sem token) -> PASS", async () => {
+      const emailInt = `aluno_aceite_int_${Date.now()}@ufsc.br`;
+      const authUser = await admin.auth().createUser({ email: emailInt, emailVerified: true });
+      await semearAluno(authUser.uid);
+
+      const wrappedConvidar = testEnv.wrap(convidarAluno);
+      const resConvidar = await wrappedConvidar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: profTurmaId,
+        email: emailInt,
+      }, profId, ["Professor"]));
+
+      const wrappedAceitar = testEnv.wrap(aceitarConviteAluno);
+      const resAceite = await wrappedAceitar(mockRequest({
+        idOperacao: novaOperacao(),
+        idConvite: resConvidar.id,
+        viaNotificacao: true,
+      }, authUser.uid, ["Aluno"]));
+
+      expect(resAceite.criouMatricula).toBe(true);
+
+      // Notificação interna deve ter sido marcada como lida
+      const notifDoc = await db.collection("Usuarios").doc(authUser.uid).collection("Notificacoes").doc(resConvidar.id).get();
+      expect(notifDoc.data()?.lida).toBe(true);
+    });
+
+    it("TEST-INT-CONV-M11-003 — Rejeição terminal (rejeitarConviteAluno) -> status rejeitado e libera chave única", async () => {
+      const emailRej = `aluno_rejeicao_${Date.now()}@ufsc.br`;
+      const authUser = await admin.auth().createUser({ email: emailRej, emailVerified: true });
+      await semearAluno(authUser.uid);
+
+      const wrappedConvidar = testEnv.wrap(convidarAluno);
+      const resConvidar = await wrappedConvidar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: profTurmaId,
+        email: emailRej,
+      }, profId, ["Professor"]));
+
+      const wrappedRejeitar = testEnv.wrap(rejeitarConviteAluno);
+      const opRejeicao = novaOperacao();
+      const resRejeitar = await wrappedRejeitar(mockRequest({
+        idOperacao: opRejeicao,
+        idConvite: resConvidar.id,
+      }, authUser.uid, ["Aluno"]));
+
+      expect(resRejeitar.status).toBe("rejeitado");
+
+      const conviteDoc = await db.collection("Convite_Aluno").doc(resConvidar.id).get();
+      expect(conviteDoc.data()?.status).toBe("rejeitado");
+      expect(conviteDoc.data()?.rejeitado_por).toBe(authUser.uid);
+      expect(conviteDoc.data()?.rejeitado_em).toBeDefined();
+
+      // Lock em Chaves_Unicas foi liberado
+      const chaveLock = await db.collection("Chaves_Unicas").doc(`chave_unica_convite_pendente_${profTurmaId}_${emailRej}`).get();
+      expect(chaveLock.exists).toBe(false);
+
+      // Replay M7 da rejeição
+      const replayRejeicao = await wrappedRejeitar(mockRequest({
+        idOperacao: opRejeicao,
+        idConvite: resConvidar.id,
+      }, authUser.uid, ["Aluno"]));
+      expect(replayRejeicao.status).toBe("rejeitado");
+
+      // Tentar aceitar convite rejeitado falha
+      const wrappedAceitar = testEnv.wrap(aceitarConviteAluno);
+      await expect(wrappedAceitar(mockRequest({
+        idOperacao: novaOperacao(),
+        idConvite: resConvidar.id,
+        viaNotificacao: true,
+      }, authUser.uid, ["Aluno"]))).rejects.toMatchObject({ code: "failed-precondition" });
+    });
+
+    it("TEST-INT-CONV-M11-004 — Obter detalhes do convite projeta nomes e não vaza token_hash", async () => {
+      const emailDet = `aluno_detalhes_${Date.now()}@ufsc.br`;
+      const wrappedConvidar = testEnv.wrap(convidarAluno);
+      const resConvidar = await wrappedConvidar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: profTurmaId,
+        email: emailDet,
+      }, chefeId, ["Chefe_Geral"]));
+
+      const wrappedDetalhes = testEnv.wrap(obterDetalhesConviteAluno);
+      const detalhes = await wrappedDetalhes(mockRequest({
+        idConvite: resConvidar.id,
+      }, chefeId, ["Chefe_Geral"]));
+
+      expect(detalhes.id).toBe(resConvidar.id);
+      expect(detalhes.email).toBe(emailDet);
+      expect(detalhes.nome_turma).toBe("Turma Convites M9-M11-M13");
+      expect(detalhes.convidado_por_papel).toBe("Chefe_Geral");
+      expect("token_hash" in detalhes).toBe(false);
+    });
   });
 });
