@@ -1,0 +1,60 @@
+\section{Evidência de IMP-ACAD-003 (inclusão/remoção pelo professor, M9 + M7)}
+
+\textbf{Feature:} \texttt{IMP-ACAD-003} --- inclusão e remoção de aluno pelo
+professor.
+
+\textbf{Estado anterior:} \texttt{DIVERGENTE}. As callables usavam
+\texttt{validarPermissao} (JWT-only), a capacidade era contada pela subcoleção
+(O(N), fora da autoridade \texttt{qtd\_alunos}) e não havia contrato idempotente;
+a remoção podia decrementar o contador abaixo de zero em corrida.
+
+\textbf{Estado depois:} M9 e M7 convergidos, contador \texttt{qtd\_alunos} como
+autoridade; permanece \texttt{DIVERGENTE} pela projeção mínima do vínculo e E2E.
+
+\subsection{Contrato}
+
+Fontes: Seção~7 M11 e ``Matrícula canônica, espelho e contador'' (a autoridade
+de vaga na V1 é \texttt{qtd\_alunos}, lido/escrito na mesma transação; inclusão
+não incrementa \texttt{versao}; vínculo e espelho atualizados juntos); Seção~8
+UI-10; Seção~9 PRO-04; M7/M9. M13 na emissão \texttt{ADICIONADO}.
+
+\subsection{Mudança}
+
+\begin{itemize}
+  \item \path{functions/src/turmas.ts}: \texttt{adicionarAlunoExistenteTurma} e
+  \texttt{removerAlunoTurma} passaram a reler a autoridade M9 persistida na
+  transação e a aplicar M7 (\texttt{idOperacao}, replay, reuso incompatível);
+  \item a vaga usa \texttt{qtd\_alunos} (não a contagem da subcoleção); a
+  remoção usa \texttt{max(0, qtd-1)} e não altera \texttt{versao}; o espelho
+  recebe \texttt{status};
+  \item \path{functions/src/schemas/turmas.schema.ts}: \texttt{idOperacao}
+  obrigatório nas duas operações;
+  \item \path{frontend/src/components/turmas/ProfessorModais.tsx} e
+  \path{frontend/src/app/alunos/page.tsx}: intenção M7 persistida em
+  \texttt{sessionStorage} (chave por turma/aluno/ação).
+\end{itemize}
+
+\subsection{Testes}
+
+\small
+\begin{longtable}{@{}p{0.30\textwidth}p{0.52\textwidth}@{}}
+\toprule
+ID & Resultado \\
+\midrule
+\endhead
+TEST-INT-TURMA-ADM-001 & Inclusão sem papel persistido é negada (M9) \\
+TEST-INT-TURMA-ADM-002 & Replay da inclusão não duplica matrícula/notificação/contador \\
+TEST-INT-TURMA-ADM-003 & Professor não dono não inclui aluno \\
+TEST-INT-TURMA-ADM-004 & Replay da remoção não decrementa o contador duas vezes \\
+TEST-INT-TURMA-ADM-005 & Remover aluno não matriculado é \texttt{not-found} \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+GREEN sob Node 20.19.6: \texttt{turmas.test.ts} 50/50; Rules 79/79; unit 71/71;
+integração completa 203 passam / 14 falham (legadas); \texttt{tsc --noEmit} do
+frontend PASS.
+
+\textbf{Estado final:} \texttt{IMP-ACAD-003} = \texttt{DIVERGENTE} pela projeção
+mínima do vínculo (e-mail/matrícula ainda copiados para caminho lido por
+colegas) e E2E; autoridade M9, idempotência M7 e contador convergidos.

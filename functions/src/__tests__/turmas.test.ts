@@ -181,7 +181,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     await ingressar("aluno_rem", turma.codigoTurma);
 
     const wrappedRemover = testEnv.wrap(removerAlunoTurma);
-    await wrappedRemover(mockRequest({ idTurma: turma.id, idAluno: "aluno_rem" }, "prof_rem"));
+    await wrappedRemover(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_rem" }, "prof_rem"));
 
     const historicoSnap = await db.collection("Turma").doc(turma.id).collection("HistoricoAlunos")
       .where("tipo", "==", "exclusao_aluno").get();
@@ -198,7 +198,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     await ingressar("aluno_rem2", turma.codigoTurma);
 
     const wrappedRemover = testEnv.wrap(removerAlunoTurma);
-    await wrappedRemover(mockRequest({ idTurma: turma.id, idAluno: "aluno_rem2" }, "prof_rem2"));
+    await wrappedRemover(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_rem2" }, "prof_rem2"));
 
     const auditSnap = await db.collection("Registro_de_Auditoria")
       .where("id_do_objeto_da_entidade", "==", "aluno_rem2")
@@ -234,7 +234,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     });
 
     const wrappedAdd = testEnv.wrap(adicionarAlunoExistenteTurma);
-    await wrappedAdd(mockRequest({ idTurma: turma.id, idAluno: "aluno_add" }, "prof_add"));
+    await wrappedAdd(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_add" }, "prof_add"));
 
     const matriculaSnap = await db.collection("Turma").doc(turma.id).collection("Alunos").doc("aluno_add").get();
     expect(matriculaSnap.exists).toBe(true);
@@ -261,9 +261,9 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     await db.collection("Aluno").doc("aluno_f2").set({ nome: "A2", email: "a2@ufsc.br" });
 
     const wrappedAdd = testEnv.wrap(adicionarAlunoExistenteTurma);
-    await wrappedAdd(mockRequest({ idTurma: turma.id, idAluno: "aluno_f1" }, "prof_full"));
+    await wrappedAdd(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_f1" }, "prof_full"));
 
-    await expect(wrappedAdd(mockRequest({ idTurma: turma.id, idAluno: "aluno_f2" }, "prof_full"))).rejects.toThrow(/atingiu a capacidade/);
+    await expect(wrappedAdd(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_f2" }, "prof_full"))).rejects.toThrow(/atingiu a capacidade/);
   });
 
   it("deve criar um convite na colecao Convite_Aluno com validade ao usar convidarAluno", async () => {
@@ -652,11 +652,80 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     });
     await ingressar("aluno_ing4", turma.codigoTurma);
     await testEnv.wrap(removerAlunoTurma)(
-      mockRequest({ idTurma: turma.id, idAluno: "aluno_ing4" }, "prof_ing4")
+      mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_ing4" }, "prof_ing4")
     );
     const wrapped = testEnv.wrap(ingressarEmTurmaPorCodigo);
     await expect(
       wrapped(mockRequest({ idOperacao: novaOperacao(), codigoTurma: turma.codigoTurma }, "aluno_ing4", ["Aluno"]))
     ).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("TEST-INT-TURMA-ADM-001 — inclusão sem papel persistido é negada (M9)", async () => {
+    const turma = await criarTurmaOk("prof_adm1", {
+      idMateria: "mat_adm1", nomeTurma: "Turma Adm1", capacidade: 5, nomeMateria: "Adm1"
+    });
+    await db.collection("Aluno").doc("aluno_adm1").set({ nome: "A", email: "a@x", numero_matricula: "1" });
+    const wrapped = testEnv.wrap(adicionarAlunoExistenteTurma);
+    await expect(
+      wrapped(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_adm1" }, "sem_papel_adm"))
+    ).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("TEST-INT-TURMA-ADM-002 — replay da inclusão não duplica matrícula/notificação/contador", async () => {
+    const turma = await criarTurmaOk("prof_adm2", {
+      idMateria: "mat_adm2", nomeTurma: "Turma Adm2", capacidade: 5, nomeMateria: "Adm2"
+    });
+    await db.collection("Aluno").doc("aluno_adm2").set({ nome: "B", email: "b@x", numero_matricula: "2" });
+    const op = novaOperacao();
+    const body = { idOperacao: op, idTurma: turma.id, idAluno: "aluno_adm2" };
+    const wrapped = testEnv.wrap(adicionarAlunoExistenteTurma);
+    const primeiro = await wrapped(mockRequest(body, "prof_adm2"));
+    const segundo = await wrapped(mockRequest(body, "prof_adm2"));
+    expect(segundo).toEqual(primeiro);
+
+    const alunos = await db.collection("Turma").doc(turma.id).collection("Alunos").get();
+    expect(alunos.size).toBe(1);
+    expect((await db.collection("Turma").doc(turma.id).get()).data()?.qtd_alunos).toBe(1);
+    const notif = await db.collection("Usuarios").doc("aluno_adm2").collection("Notificacoes")
+      .where("tipo", "==", "ADICIONADO").get();
+    expect(notif.size).toBe(1);
+  });
+
+  it("TEST-INT-TURMA-ADM-003 — professor não dono não inclui aluno", async () => {
+    const turma = await criarTurmaOk("prof_adm3", {
+      idMateria: "mat_adm3", nomeTurma: "Turma Adm3", capacidade: 5, nomeMateria: "Adm3"
+    });
+    await db.collection("Aluno").doc("aluno_adm3").set({ nome: "C", email: "c@x", numero_matricula: "3" });
+    await semearProfessor("prof_outro_adm3");
+    const wrapped = testEnv.wrap(adicionarAlunoExistenteTurma);
+    await expect(
+      wrapped(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_adm3" }, "prof_outro_adm3"))
+    ).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("TEST-INT-TURMA-ADM-004 — replay da remoção não decrementa o contador duas vezes", async () => {
+    const turma = await criarTurmaOk("prof_adm4", {
+      idMateria: "mat_adm4", nomeTurma: "Turma Adm4", capacidade: 5, nomeMateria: "Adm4"
+    });
+    await ingressar("aluno_adm4", turma.codigoTurma);
+    const op = novaOperacao();
+    const body = { idOperacao: op, idTurma: turma.id, idAluno: "aluno_adm4" };
+    const wrapped = testEnv.wrap(removerAlunoTurma);
+    await wrapped(mockRequest(body, "prof_adm4"));
+    const primeiro = (await db.collection("Turma").doc(turma.id).get()).data()?.qtd_alunos;
+    await wrapped(mockRequest(body, "prof_adm4"));
+    const segundo = (await db.collection("Turma").doc(turma.id).get()).data()?.qtd_alunos;
+    expect(primeiro).toBe(0);
+    expect(segundo).toBe(0);
+  });
+
+  it("TEST-INT-TURMA-ADM-005 — remover aluno não matriculado é not-found", async () => {
+    const turma = await criarTurmaOk("prof_adm5", {
+      idMateria: "mat_adm5", nomeTurma: "Turma Adm5", capacidade: 5, nomeMateria: "Adm5"
+    });
+    const wrapped = testEnv.wrap(removerAlunoTurma);
+    await expect(
+      wrapped(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_ausente" }, "prof_adm5"))
+    ).rejects.toMatchObject({ code: "not-found" });
   });
 });

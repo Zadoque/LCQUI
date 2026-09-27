@@ -22,6 +22,7 @@ export const CriarTurmaSchema = z.object({
 });
 
 export const RemoverAlunoTurmaSchema = z.object({
+  idOperacao: IdOperacaoTurmaSchema,
   idTurma: z.string().min(1, "ID da turma é obrigatório."),
   idAluno: z.string().min(1, "ID do aluno é obrigatório.")
 });
@@ -40,6 +41,7 @@ export const ConvidarAlunoSchema = z.object({
 });
 
 export const AdicionarAlunoExistenteTurmaSchema = z.object({
+  idOperacao: IdOperacaoTurmaSchema,
   idTurma: z.string().min(1, "ID da turma é obrigatório."),
   idAluno: z.string().min(1, "ID do aluno é obrigatório.")
 });

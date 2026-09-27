@@ -13,6 +13,9 @@ import {
   limparIntencao,
   chaveIntencaoStatusTurma,
   assinaturaStatusTurma,
+  obterIntencaoPersistida,
+  chaveIntencaoMembro,
+  assinaturaMembro,
 } from "@/lib/intencaoOperacao";
 
 interface ModalProps {
@@ -181,8 +184,15 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
     setLoadingAdicao(idAluno);
     setToast(null);
     try {
+      const session = typeof window !== "undefined" ? window.sessionStorage : null;
+      const chave = chaveIntencaoMembro(idTurma, idAluno, "ADICIONAR");
+      const assinatura = assinaturaMembro(idTurma, idAluno, "ADICIONAR");
+      const intencao = session
+        ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
+        : { idOperacao: crypto.randomUUID(), assinatura };
       const adicionar = httpsCallable(functions, "adicionarAlunoExistenteTurma");
-      await adicionar({ idTurma, idAluno });
+      await adicionar({ idOperacao: intencao.idOperacao, idTurma, idAluno });
+      if (session) limparIntencao(session, chave);
       setToast({ type: "success", msg: "Aluno adicionado com sucesso!" });
     } catch (error: any) {
       console.error("Erro ao adicionar aluno:", error);

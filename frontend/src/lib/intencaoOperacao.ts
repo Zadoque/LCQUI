@@ -114,3 +114,36 @@ export function chaveIntencaoIngressar(codigo: string): string {
 export function assinaturaIngressar(codigo: string): string {
   return JSON.stringify(["INGRESSAR_TURMA", codigo]);
 }
+
+/** Chave/assinatura da intenção de incluir/remover membro de turma (M7). */
+export function chaveIntencaoMembro(
+  idTurma: string,
+  idAluno: string,
+  acao: "ADICIONAR" | "REMOVER"
+): string {
+  return `lcqui.intencao.membro.${acao}.${idTurma}.${idAluno}`;
+}
+
+export function assinaturaMembro(
+  idTurma: string,
+  idAluno: string,
+  acao: "ADICIONAR" | "REMOVER"
+): string {
+  return JSON.stringify([
+    acao === "ADICIONAR" ? "ADICIONAR_ALUNO_TURMA" : "REMOVER_ALUNO_TURMA",
+    idTurma,
+    idAluno,
+  ]);
+}
+
+/** Lê/resolve/grava a intenção em uma etapa (reutiliza o id em retry). */
+export function obterIntencaoPersistida(
+  storage: ArmazenamentoIntencao,
+  chave: string,
+  assinatura: string,
+  gerarId: () => string
+): IntencaoOperacao {
+  const intencao = resolverIdOperacao(lerIntencao(storage, chave), assinatura, gerarId);
+  gravarIntencao(storage, chave, intencao);
+  return intencao;
+}

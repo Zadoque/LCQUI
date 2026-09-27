@@ -319,6 +319,22 @@ caracteres; o modal envia \texttt{idOperacao} persistido. \texttt{turmas} 45/45;
 integração completa 198 passam / 14 falham (legadas). A projeção mínima do
 vínculo permanece pendente.
 
+\subsection{Vigésima cadeia executada (inclusão/remoção M9/M7)}
+
+\begin{center}
+Seção 7 M11 (matrícula canônica/espelho/contador), Seção 8 UI-10, Seção 9 PRO-04, M7 e M9
+$\rightarrow$ \texttt{IMP-ACAD-003}
+$\rightarrow$ \texttt{TEST-INT-TURMA-ADM-001--005}
+$\rightarrow$ \nolinkurl{functions/src/turmas.ts} e modais
+$\rightarrow$ PASS Node 20
+\end{center}
+
+Inclusão e remoção passaram a reler M9 na transação, aplicar M7 (replay não
+duplica matrícula/notificação nem decrementa o contador duas vezes), usar
+\texttt{qtd\_alunos} como autoridade de vaga e gravar o espelho com
+\texttt{status}. \texttt{turmas} 50/50; integração completa 203 passam / 14
+falham (legadas).
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara

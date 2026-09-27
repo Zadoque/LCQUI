@@ -8,6 +8,12 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { NovoAlunoModal } from "@/components/turmas/ProfessorModais";
 import { HistoricoAlunoTurmaModal } from "@/components/turmas/HistoricoAlunoTurmaModal";
+import {
+  obterIntencaoPersistida,
+  chaveIntencaoMembro,
+  assinaturaMembro,
+  limparIntencao,
+} from "@/lib/intencaoOperacao";
 
 interface Aluno {
   id: string;
@@ -107,8 +113,15 @@ export default function AlunosDashboard() {
     if (!confirm("Deseja realmente remover este aluno da turma?")) return;
     setLoadingAcao(idAluno);
     try {
+      const session = typeof window !== "undefined" ? window.sessionStorage : null;
+      const chave = chaveIntencaoMembro(selectedTurma, idAluno, "REMOVER");
+      const assinatura = assinaturaMembro(selectedTurma, idAluno, "REMOVER");
+      const intencao = session
+        ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
+        : { idOperacao: crypto.randomUUID(), assinatura };
       const removerAlunoTurma = httpsCallable(functions, "removerAlunoTurma");
-      await removerAlunoTurma({ idTurma: selectedTurma, idAluno });
+      await removerAlunoTurma({ idOperacao: intencao.idOperacao, idTurma: selectedTurma, idAluno });
+      if (session) limparIntencao(session, chave);
       alert("Aluno removido com sucesso!");
     } catch (error: any) {
       console.error("Erro ao remover aluno:", error);

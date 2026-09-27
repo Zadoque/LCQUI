@@ -245,22 +245,30 @@ export const criarTurma = onCall(async (request) => {
 });
 
 export const removerAlunoTurma = onCall(async (request) => {
-  validarPermissao(request, ["Professor", "Chefe_Geral"]);
-  
-  const { idTurma, idAluno } = validatePayload(RemoverAlunoTurmaSchema, request.data);
+  const claims = extrairClaimsAutoridade(request);
+  const { idOperacao, idTurma, idAluno } = validatePayload(RemoverAlunoTurmaSchema, request.data);
 
   const db = admin.firestore();
   const turmaRef = db.collection("Turma").doc(idTurma);
 
   return db.runTransaction(async (tx) => {
+    // M9: autoridade persistida relida na transação.
+    const autoridade = await resolverAutoridadePersistidaTx(tx, claims, ["Professor", "Chefe_Geral"]);
+    const ehChefe = autoridade.papelAutorizado === "Chefe_Geral";
+
+    const identidade = construirIdentidade(claims.uid, "REMOVER_ALUNO_TURMA", { idTurma, idAluno });
+    const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+    if (decisao.estado === "REPLAY") return decisao.resultado as { success: boolean };
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError("failed-precondition", "Operação de remoção não concluída.");
+    }
+
     const turmaDoc = await tx.get(turmaRef);
     if (!turmaDoc.exists) throw new HttpsError("not-found", "Turma não encontrada.");
-    
-    if (turmaDoc.data()!.id_professor !== request.auth!.uid) {
-      const papeis = request.auth!.token["roles"] as string[];
-      if (!papeis.includes("Chefe_Geral")) {
-        throw new HttpsError("permission-denied", "Você não é o dono desta turma.");
-      }
+    const turma = turmaDoc.data()!;
+
+    if (turma.id_professor !== claims.uid && !ehChefe) {
+      throw new HttpsError("permission-denied", "Você não é o dono desta turma.");
     }
 
     const alunoTurmaRef = turmaRef.collection("Alunos").doc(idAluno);
@@ -270,23 +278,21 @@ export const removerAlunoTurma = onCall(async (request) => {
     }
 
     tx.delete(alunoTurmaRef);
-    
-    const alunoTurmaMirrorRef = db.collection("Usuarios").doc(idAluno).collection("Turmas").doc(idTurma);
-    tx.delete(alunoTurmaMirrorRef);
+    tx.delete(db.collection("Usuarios").doc(idAluno).collection("Turmas").doc(idTurma));
 
     tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
       id_aluno: idAluno,
       tipo: "exclusao_aluno",
+      removido_por: claims.uid,
       timestamp: FieldValue.serverTimestamp()
     });
 
-    tx.update(turmaRef, {
-      qtd_alunos: FieldValue.increment(-1)
-    });
+    // Contador transacional, nunca abaixo de zero (não incrementa `versao`).
+    const qtdAtual = typeof turma.qtd_alunos === "number" ? turma.qtd_alunos : 0;
+    tx.update(turmaRef, { qtd_alunos: Math.max(0, qtdAtual - 1) });
 
-    const auditRef = db.collection("Registro_de_Auditoria").doc();
-    tx.set(auditRef, {
-      id_usuario: request.auth!.uid,
+    tx.set(db.collection("Registro_de_Auditoria").doc(`remover_aluno_${idOperacao}`), {
+      id_usuario: claims.uid,
       acao: "Remover Aluno da Turma",
       tipo_entidade_sofre_acao: "ALUNO",
       id_do_objeto_da_entidade: idAluno,
@@ -294,7 +300,9 @@ export const removerAlunoTurma = onCall(async (request) => {
       metadata: { idTurma }
     });
 
-    return { success: true };
+    const resultado = { success: true };
+    registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+    return resultado;
   });
 });
 
@@ -425,23 +433,32 @@ export const convidarAluno = onCall(async (request) => {
 });
 
 export const adicionarAlunoExistenteTurma = onCall(async (request) => {
-  const papeis = validarPermissao(request, ["Chefe_Geral", "Professor"]);
-  const { idTurma, idAluno } = validatePayload(AdicionarAlunoExistenteTurmaSchema, request.data);
+  const claims = extrairClaimsAutoridade(request);
+  const { idOperacao, idTurma, idAluno } = validatePayload(AdicionarAlunoExistenteTurmaSchema, request.data);
 
   const db = admin.firestore();
   const turmaRef = db.collection("Turma").doc(idTurma);
-  const alunoRef = db.collection("Aluno").doc(idAluno); // NOTE: we fetch from Usuarios to get name/email
+  const alunoRef = db.collection("Aluno").doc(idAluno);
 
   return db.runTransaction(async (tx) => {
-    // 1. Valida existência da turma
+    // M9: autoridade persistida relida na transação.
+    const autoridade = await resolverAutoridadePersistidaTx(tx, claims, ["Professor", "Chefe_Geral"]);
+    const ehChefe = autoridade.papelAutorizado === "Chefe_Geral";
+
+    const identidade = construirIdentidade(claims.uid, "ADICIONAR_ALUNO_TURMA", { idTurma, idAluno });
+    const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+    if (decisao.estado === "REPLAY") return decisao.resultado as { sucesso: boolean; idAluno: string; idTurma: string };
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError("failed-precondition", "Operação de inclusão não concluída.");
+    }
+
     const turmaSnap = await tx.get(turmaRef);
     if (!turmaSnap.exists) {
       throw new HttpsError("not-found", "Turma não encontrada.");
     }
     const turma = turmaSnap.data()!;
 
-    // 2. Valida se o professor é o dono da turma (ou Chefe Geral)
-    if (!papeis.includes("Chefe_Geral") && turma.id_professor !== request.auth!.uid) {
+    if (turma.id_professor !== claims.uid && !ehChefe) {
       throw new HttpsError("permission-denied", "Você não é o professor responsável por esta disciplina.");
     }
 
@@ -449,30 +466,26 @@ export const adicionarAlunoExistenteTurma = onCall(async (request) => {
       throw new HttpsError("failed-precondition", "Não é possível adicionar alunos em turmas arquivadas.");
     }
 
-    // 3. Valida existência do aluno
     const alunoSnap = await tx.get(alunoRef);
     if (!alunoSnap.exists) {
       throw new HttpsError("not-found", "Aluno não encontrado no sistema.");
     }
     const alunoData = alunoSnap.data()!;
 
-    // 4. Checa se o aluno já está matriculado
     const matriculaRef = turmaRef.collection("Alunos").doc(idAluno);
     const matriculaSnap = await tx.get(matriculaRef);
     if (matriculaSnap.exists) {
       throw new HttpsError("already-exists", "Este aluno já faz parte desta turma.");
     }
 
-    // 5. Checa capacidade da turma (RN-TUR-01)
-    const alunosAtuaisSnap = await tx.get(turmaRef.collection("Alunos"));
-    if (alunosAtuaisSnap.size >= turma.capacidade) {
+    // Vagas: na V1 a autoridade é `qtd_alunos`, lida/escrita na mesma transação.
+    const qtdAtual = typeof turma.qtd_alunos === "number" ? turma.qtd_alunos : 0;
+    if (qtdAtual >= turma.capacidade) {
       throw new HttpsError("failed-precondition", `A turma atingiu a capacidade máxima de ${turma.capacidade} alunos.`);
     }
 
     const agora = FieldValue.serverTimestamp();
 
-    // 6. Persistência atômica nos 3 pontos de dados:
-    // A) Visão da Turma
     tx.set(matriculaRef, {
       id_aluno: idAluno,
       nome: alunoData.nome || "Sem nome",
@@ -482,43 +495,38 @@ export const adicionarAlunoExistenteTurma = onCall(async (request) => {
       adicionado_por_professor: true,
     });
 
-    // B) Visão do Aluno (Espelho para busca em tempo real)
-    const alunoTurmaRef = db.collection("Usuarios").doc(idAluno).collection("Turmas").doc(idTurma);
-    tx.set(alunoTurmaRef, {
+    tx.set(db.collection("Usuarios").doc(idAluno).collection("Turmas").doc(idTurma), {
       id_turma: idTurma,
       nome_turma: turma.nome_turma,
       nome_materia: turma.nome_materia,
       ano: turma.ano,
       semestre: turma.semestre,
       id_professor: turma.id_professor,
+      status: turma.status,
       ingressou_em: agora,
     });
 
-    // C) Histórico da Turma
-    const histRef = turmaRef.collection("HistoricoAlunos").doc();
-    tx.set(histRef, {
+    tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
       id_aluno: idAluno,
       tipo: "inclusao_aluno",
-      responsavel_uid: request.auth!.uid,
+      responsavel_uid: claims.uid,
       timestamp: agora,
     });
 
-    // D) Notificação para o Aluno (M13, primitiva canônica)
     adicionarNotificacaoTx(tx, db, {
       id_destinatario: idAluno,
       papel_destinatario: "Aluno",
       tipo: "ADICIONADO",
-      id_quem_fez_acao: request.auth!.uid,
+      id_quem_fez_acao: claims.uid,
       id_turma: idTurma,
       entidade_alvo: "Turma",
       id_alvo: idTurma,
     });
 
-    // Atualiza contagem na turma
-    tx.update(turmaRef, {
-      qtd_alunos: FieldValue.increment(1)
-    });
+    tx.update(turmaRef, { qtd_alunos: qtdAtual + 1 });
 
-    return { sucesso: true, idAluno, idTurma };
+    const resultado = { sucesso: true, idAluno, idTurma };
+    registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+    return resultado;
   });
 });
