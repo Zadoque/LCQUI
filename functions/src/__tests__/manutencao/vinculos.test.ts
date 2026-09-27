@@ -80,4 +80,43 @@ describe("Reconciliação de vínculos legados (dry-run/apply)", () => {
     const doc = (await db.collection("Turma").doc("t2").collection("Alunos").doc("a2").get()).data()!;
     expect(doc.id_turma).toBe("outra_turma");
   });
+
+  it("TEST-INT-MANUT-VINC-003 — vínculo sem ingressou_em → conflito REQUER_RECONCILIACAO_HUMANA, campos proibidos ainda removidos", async () => {
+    await db.collection("Turma").doc("t3").set({ nome: "T3", id_professor: "prof1", status: "Ativo" });
+    await db.collection("Turma").doc("t3").collection("Alunos").doc("a3").set({
+      id_aluno: "a3",
+      id_turma: "t3",
+      email: "legado@x.com",
+      // ingressou_em ausente
+    });
+
+    const dry = await reconciliarVinculos(db, { apply: false });
+    // Deve reportar conflito sobre ingressou_em ausente
+    expect(dry.conflitos.some((c) => c.includes("REQUER_RECONCILIACAO_HUMANA"))).toBe(true);
+    // Ainda planeja remoção do email
+    expect(dry.alteracoes.some((a) => a.camposRemovidos.includes("email"))).toBe(true);
+
+    const apply = await reconciliarVinculos(db, { apply: true });
+    expect(apply.conflitos.some((c) => c.includes("REQUER_RECONCILIACAO_HUMANA"))).toBe(true);
+    // email ainda é removido
+    const depois = (await db.collection("Turma").doc("t3").collection("Alunos").doc("a3").get()).data()!;
+    expect(depois.email).toBeUndefined();
+    // ingressou_em NÃO foi inventado
+    expect(depois.ingressou_em).toBeUndefined();
+  });
+
+  it("TEST-INT-MANUT-VINC-004 — vínculo canônico completo não precisa de reconciliação", async () => {
+    await db.collection("Turma").doc("t4").set({ nome: "T4", id_professor: "prof1", status: "Ativo" });
+    await db.collection("Turma").doc("t4").collection("Alunos").doc("a4").set({
+      id_aluno: "a4",
+      id_turma: "t4",
+      nome: "A4",
+      ingressou_em: new Date(),
+    });
+
+    const result = await reconciliarVinculos(db, { apply: true });
+    expect(result.examinados).toBe(1);
+    expect(result.corrigidos).toBe(0);
+    expect(result.conflitos).toEqual([]);
+  });
 });
