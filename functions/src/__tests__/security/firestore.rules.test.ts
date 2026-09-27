@@ -165,7 +165,8 @@ describe("Firestore Security Rules", () => {
       const dbAluno1 = authedDb("aluno1");
       await assertSucceeds(dbAluno1.collection("Turma").doc("t1").collection("Alunos").doc("aluno1").get());
       await assertSucceeds(dbAluno1.collection("Turma").doc("t1").collection("Alunos").doc("aluno2").get());
-      await assertSucceeds(dbAluno1.collection("Turma").doc("t1").collection("Alunos").get());
+      // Consulta direta da subcoleção por alunos é negada (fail-closed para evitar vazamento de PII)
+      await assertFails(dbAluno1.collection("Turma").doc("t1").collection("Alunos").get());
 
       const dbFora = authedDb("aluno_fora");
       await assertFails(dbFora.collection("Turma").doc("t1").collection("Alunos").doc("aluno1").get());
@@ -173,12 +174,15 @@ describe("Firestore Security Rules", () => {
 
       const dbProfDono = authedDb("prof1");
       await assertSucceeds(dbProfDono.collection("Turma").doc("t1").collection("Alunos").doc("aluno1").get());
+      await assertSucceeds(dbProfDono.collection("Turma").doc("t1").collection("Alunos").get());
 
       const dbProfOutro = authedDb("prof2");
       await assertFails(dbProfOutro.collection("Turma").doc("t1").collection("Alunos").doc("aluno1").get());
+      await assertFails(dbProfOutro.collection("Turma").doc("t1").collection("Alunos").get());
 
       const dbChefe = authedDb("boss");
       await assertSucceeds(dbChefe.collection("Turma").doc("t1").collection("Alunos").doc("aluno1").get());
+      await assertSucceeds(dbChefe.collection("Turma").doc("t1").collection("Alunos").get());
 
       await assertFails(dbAluno1.collection("Turma").doc("t1").collection("Alunos").doc("novo").set({ id_aluno: "novo" }));
     });
@@ -359,6 +363,55 @@ describe("Firestore Security Rules", () => {
       });
       const dbAluno1 = authedDb("aluno1");
       await assertFails(dbAluno1.collection("Turma").doc("t_migr6").collection("Alunos").doc("aluno1").set({ id_aluno: "aluno1", id_turma: "t_migr6" }));
+    });
+
+    it("TEST-RULES-M11-MIGR-007 — membro canônico tenta fazer LIST/QUERY quando houver vínculo legado sensível → DENY (não expõe PII)", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Turma").doc("t_migr7").set({ nome: "T7", id_professor: "prof1", status: "Ativo" });
+        await db.collection("Turma").doc("t_migr7").collection("Alunos").doc("aluno1")
+          .set({ id_aluno: "aluno1", id_turma: "t_migr7", nome: "A1" });
+        await db.collection("Turma").doc("t_migr7").collection("Alunos").doc("aluno_legado")
+          .set({ id_aluno: "aluno_legado", id_turma: "t_migr7", nome: "L", email: "legado@x.com", numero_matricula: "20109999" });
+      });
+      const dbAluno1 = authedDb("aluno1");
+      // LIST/QUERY direto negado a aluno para proteger PII (fail-closed)
+      await assertFails(dbAluno1.collection("Turma").doc("t_migr7").collection("Alunos").get());
+    });
+
+    it("TEST-RULES-M11-MIGR-008 — professor dono faz LIST/QUERY na subcoleção Alunos → PASS", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Turma").doc("t_migr8").set({ nome: "T8", id_professor: "prof1", status: "Ativo" });
+        await db.collection("Turma").doc("t_migr8").collection("Alunos").doc("aluno1")
+          .set({ id_aluno: "aluno1", id_turma: "t_migr8", nome: "A1" });
+        await db.collection("Turma").doc("t_migr8").collection("Alunos").doc("aluno_legado")
+          .set({ id_aluno: "aluno_legado", id_turma: "t_migr8", nome: "L", email: "l@x.com" });
+      });
+      const dbProf = authedDb("prof1");
+      await assertSucceeds(dbProf.collection("Turma").doc("t_migr8").collection("Alunos").get());
+    });
+
+    it("TEST-RULES-M11-MIGR-009 — Chefe_Geral faz LIST/QUERY na subcoleção Alunos → PASS", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Turma").doc("t_migr9").set({ nome: "T9", id_professor: "prof1", status: "Ativo" });
+        await db.collection("Turma").doc("t_migr9").collection("Alunos").doc("aluno1")
+          .set({ id_aluno: "aluno1", id_turma: "t_migr9", nome: "A1" });
+      });
+      const dbChefe = authedDb("boss");
+      await assertSucceeds(dbChefe.collection("Turma").doc("t_migr9").collection("Alunos").get());
+    });
+
+    it("TEST-RULES-M11-MIGR-010 — Chefe_Geral lê vínculo legado com email/matrícula → PASS", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Turma").doc("t_migr10").set({ nome: "T10", id_professor: "prof1", status: "Ativo" });
+        await db.collection("Turma").doc("t_migr10").collection("Alunos").doc("aluno_legado")
+          .set({ id_aluno: "aluno_legado", id_turma: "t_migr10", nome: "L", email: "chefe_le@x.com", numero_matricula: "20108888" });
+      });
+      const dbChefe = authedDb("boss");
+      await assertSucceeds(dbChefe.collection("Turma").doc("t_migr10").collection("Alunos").doc("aluno_legado").get());
     });
   });
 
