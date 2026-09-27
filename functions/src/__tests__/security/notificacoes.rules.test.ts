@@ -31,9 +31,9 @@ async function seedUser(
 async function seedNotificacao(
   uid: string,
   id: string,
-  options: { idDestinatario?: string; lida?: boolean; lidaEm?: unknown } = {}
+  options: { idDestinatario?: string; lida?: boolean; lidaEm?: unknown; tipo?: string } = {}
 ): Promise<void> {
-  const { idDestinatario = uid, lida = false, lidaEm = null } = options;
+  const { idDestinatario = uid, lida = false, lidaEm = null, tipo = "POST" } = options;
   await testEnv.withSecurityRulesDisabled(async context => {
     await context
       .firestore()
@@ -41,7 +41,7 @@ async function seedNotificacao(
       .doc(uid)
       .collection("Notificacoes")
       .doc(id)
-      .set({ id_destinatario: idDestinatario, lida, lida_em: lidaEm, tipo: "POST" });
+      .set({ id_destinatario: idDestinatario, lida, lida_em: lidaEm, tipo });
   });
 }
 
@@ -174,3 +174,105 @@ describe("IMP-NOTIF-002 — notificações server-owned", () => {
     );
   });
 });
+
+describe("IMP-RULES-003 — bootstrap seguro de leitura de CONVITE_PARA_TURMA", () => {
+  it("TEST-RULES-CONVITE-001 — usuário autenticado sem papel Aluno lê a própria notificação CONVITE_PARA_TURMA", async () => {
+    // Setup via admin SDK / withSecurityRulesDisabled (sem documento em Aluno nem roles no token)
+    await seedNotificacao("user_bootstrap", "convite_bootstrap", {
+      idDestinatario: "user_bootstrap",
+      tipo: "CONVITE_PARA_TURMA",
+    });
+
+    // Firestore CLIENT SDK autenticado sem claims de papel ou documento de Aluno
+    const db = testEnv.authenticatedContext("user_bootstrap").firestore();
+    await assertSucceeds(
+      db
+        .collection("Usuarios")
+        .doc("user_bootstrap")
+        .collection("Notificacoes")
+        .doc("convite_bootstrap")
+        .get()
+    );
+  });
+
+  it("TEST-RULES-CONVITE-002 — outro UID não lê notificação CONVITE_PARA_TURMA alheia", async () => {
+    await seedNotificacao("user_bootstrap", "convite_bootstrap", {
+      idDestinatario: "user_bootstrap",
+      tipo: "CONVITE_PARA_TURMA",
+    });
+
+    const db = testEnv.authenticatedContext("outro_uid").firestore();
+    await assertFails(
+      db
+        .collection("Usuarios")
+        .doc("user_bootstrap")
+        .collection("Notificacoes")
+        .doc("convite_bootstrap")
+        .get()
+    );
+  });
+
+  it("TEST-RULES-CONVITE-003 — usuário autenticado não lê documento com id_destinatario divergente do path", async () => {
+    await seedNotificacao("user_bootstrap", "convite_divergente", {
+      idDestinatario: "outro_uid",
+      tipo: "CONVITE_PARA_TURMA",
+    });
+
+    const db = testEnv.authenticatedContext("user_bootstrap").firestore();
+    await assertFails(
+      db
+        .collection("Usuarios")
+        .doc("user_bootstrap")
+        .collection("Notificacoes")
+        .doc("convite_divergente")
+        .get()
+    );
+  });
+
+  it("TEST-RULES-CONVITE-004 — cliente tentando create/update/delete em CONVITE_PARA_TURMA é negado", async () => {
+    await seedNotificacao("user_bootstrap", "convite_bootstrap", {
+      idDestinatario: "user_bootstrap",
+      tipo: "CONVITE_PARA_TURMA",
+    });
+
+    const db = testEnv.authenticatedContext("user_bootstrap").firestore();
+    const docRef = db
+      .collection("Usuarios")
+      .doc("user_bootstrap")
+      .collection("Notificacoes")
+      .doc("convite_bootstrap");
+
+    await assertFails(docRef.update({ lida: true }));
+    await assertFails(docRef.delete());
+    await assertFails(
+      db
+        .collection("Usuarios")
+        .doc("user_bootstrap")
+        .collection("Notificacoes")
+        .doc("novo_convite")
+        .set({
+          tipo: "CONVITE_PARA_TURMA",
+          id_destinatario: "user_bootstrap",
+          lida: false,
+        })
+    );
+  });
+
+  it("TEST-RULES-CONVITE-005 — usuário sem papel Aluno não pode ler outro tipo de notificação", async () => {
+    await seedNotificacao("user_bootstrap", "notif_post", {
+      idDestinatario: "user_bootstrap",
+      tipo: "POST",
+    });
+
+    const db = testEnv.authenticatedContext("user_bootstrap").firestore();
+    await assertFails(
+      db
+        .collection("Usuarios")
+        .doc("user_bootstrap")
+        .collection("Notificacoes")
+        .doc("notif_post")
+        .get()
+    );
+  });
+});
+
