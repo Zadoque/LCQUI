@@ -7,6 +7,7 @@ import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { CallableRequest } from "firebase-functions/v2/https";
 import { gerenciarMateria } from "../../materias";
+import { chaveMateria, normalizarCodigoMateria } from "../../chaves";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -55,7 +56,7 @@ describe("Integração: Matérias (M9 + unicidade transacional + projeção)", (
     expect(resultado).toMatchObject({ nome: "Química Analítica", codigoMateria: "QMC101" });
     const materia = await db.collection("Materia").doc(resultado.id).get();
     expect(materia.data()).toMatchObject({ nome: "Química Analítica", codigo_materia: "QMC101", criado_por: uid });
-    const chave = await db.collection("Chaves_Unicas").doc("Materia__QMC101").get();
+    const chave = await db.collection("Chaves_Unicas").doc(chaveMateria(normalizarCodigoMateria("QMC101"))).get();
     expect(chave.exists).toBe(true);
     expect(chave.data()?.id_recurso).toBe(resultado.id);
   });
@@ -112,8 +113,8 @@ describe("Integração: Matérias (M9 + unicidade transacional + projeção)", (
     const criada = await wrapped(mockRequest({ acao: "CRIAR", nome: "Estatística", codigoMateria: "EST1" }, uid));
     await wrapped(mockRequest({ acao: "EDITAR", idMateria: criada.id, nome: "Estatística", codigoMateria: "EST2" }, uid));
 
-    expect((await db.collection("Chaves_Unicas").doc("Materia__EST1").get()).exists).toBe(false);
-    const nova = await db.collection("Chaves_Unicas").doc("Materia__EST2").get();
+    expect((await db.collection("Chaves_Unicas").doc(chaveMateria(normalizarCodigoMateria("EST1"))).get()).exists).toBe(false);
+    const nova = await db.collection("Chaves_Unicas").doc(chaveMateria(normalizarCodigoMateria("EST2"))).get();
     expect(nova.exists).toBe(true);
     expect(nova.data()?.id_recurso).toBe(criada.id);
     const materia = await db.collection("Materia").doc(criada.id).get();
