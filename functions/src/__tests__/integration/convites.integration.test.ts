@@ -188,14 +188,30 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
       });
     });
 
-    it("TEST-INT-CONVITE-004 — Chefe_Geral não pode simular ownership de turma de outro professor", async () => {
+    it("TEST-INT-CONVITE-004 — Chefe_Geral pode emitir convite ordinário sem alterar ownership, mas não pode exceder capacidade", async () => {
       const dono = "prof_dono_4";
       const chefe = "chefe_4";
       const turmaId = await criarTurmaHelper(dono, "mat_4", 5);
       await semearChefe(chefe);
 
-      const req = mockRequest({ idOperacao: novaOp(), email: "aluno4@ufsc.br", idTurma: turmaId }, chefe, ["Chefe_Geral"]);
-      await expect(executarConvidarAluno(req.data, req, SECRET_TEST)).rejects.toMatchObject({
+      // Convite ordinário pelo Chefe -> PASS
+      const req = mockRequest({ idOperacao: novaOp(), email: "aluno4@ufsc.br", idTurma: turmaId, excederCapacidade: false }, chefe, ["Chefe_Geral"]);
+      const res = await executarConvidarAluno(req.data, req, SECRET_TEST);
+      expect(res.registrado).toBe(true);
+
+      // Ownership de professor permanece intocado
+      const snapTurma = await db.collection("Turma").doc(turmaId).get();
+      expect(snapTurma.data()?.id_professor).toBe(dono);
+
+      // Chefe tentando exceder capacidade -> DENY
+      const reqExceder = mockRequest({
+        idOperacao: novaOp(),
+        email: "aluno4_excesso@ufsc.br",
+        idTurma: turmaId,
+        excederCapacidade: true,
+        justificativaExcecao: "Tentativa de excesso pelo chefe",
+      }, chefe, ["Chefe_Geral"]);
+      await expect(executarConvidarAluno(reqExceder.data, reqExceder, SECRET_TEST)).rejects.toMatchObject({
         code: "permission-denied",
       });
     });
