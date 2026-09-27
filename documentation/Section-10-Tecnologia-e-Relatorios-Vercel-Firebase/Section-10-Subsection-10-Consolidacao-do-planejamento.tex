@@ -205,6 +205,9 @@ export const aceitarConviteAluno = onCall(async (request) => {
       aceitado_por: uid,
       aceitado_em: agora
     });
+    // Liberar chave de pendencia transacionalmente em Chaves_Unicas
+    const chavePendenciaDoc = admin.firestore().collection("Chaves_Unicas").doc(chavePendenciaHmac);
+    tx.delete(chavePendenciaDoc);
 
     // Vincular a turma (se aplicavel e se nao estiver matriculado ainda)
     if (convite.id_turma && turmaSnap && !jaMatriculado) {
@@ -245,14 +248,14 @@ export const aceitarConviteAluno = onCall(async (request) => {
 
 \paragraph{Contrato M11 (turmas, matrícula e convites).}
 O pseudocódigo N-12 é ilustrativo. O contrato normativo é a
-Seção~\ref{sec:regras-turmas-m11}: o vínculo canônico é
+Seção~\ref{sec:regras-turmas-m11} (com materialização física no Firestore pela Seção~5): o vínculo canônico é
 \texttt{Turma/\{id\}/Alunos/\{uid\}} e o espelho
 \texttt{Usuarios/\{uid\}/Turmas/\{id\}} é projeção; \texttt{qtd\_alunos} é lido
 e escrito na transação, nunca recontado fora dela; a chave de pendência do convite é
-determinística por HMAC do contexto e do e-mail normalizado, com unicidade em
-\texttt{Chaves\_Unicas}; o ID do convite (\texttt{Convite\_Aluno/\{id\}}) é imutável e distinto da chave de
+determinística por HMAC no servidor sobre serialização canônica e inequívoca do contexto e do e-mail normalizado, com unicidade em
+\texttt{Chaves\_Unicas}; o ID do convite (\texttt{Convite\_Aluno/\{id\}}) identifica o fato histórico preservado, com ID imutável e distinto da chave de
 pendência, de modo que um novo convite após terminalidade não sobrescreve o
-aceito/expirado nem apaga \texttt{aceitado\_por}/\texttt{aceitado\_em}; a
+aceito/expirado nem apaga \texttt{aceitado\_por}/\texttt{aceitado\_em}; reenvio de convite ainda pendente substitui hash e expiração no mesmo documento, sem reter histórico de tokens anteriores; a
 aceitação exige e-mail verificado correspondente e é idempotente por (ator,
 token, operação) M7, distinguindo retry de tentativa distinta; convite global
 não cria matrícula; a criação condicional de \texttt{Usuarios}/\texttt{Aluno} é
