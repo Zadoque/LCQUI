@@ -383,7 +383,7 @@ foi alterado. Registro durável em
   código nunca é exceção. Redução abaixo da ocupação: fail-closed na V1 e
   **HQ-M11-001** aberta.
 - **Convites:** e-mail normalizado, token CSPRNG guardado só como hash,
-  docId determinístico por HMAC, expiração de 7 dias, unicidade transacional de
+  chave de pendência determinística por HMAC em `Chaves_Unicas` (distinta do ID imutável do convite), expiração de 7 dias, unicidade transacional de
   pendente por (e-mail, `id_turma`) inclusive a chave global com `NULL`;
   convite global não cria matrícula; aceitação única e idempotente; Auth e
   envio de e-mail são etapas externas pós-commit; criar registro ≠ enviar
