@@ -1,21 +1,23 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { auth } from "@/lib/firebase/config";
 import { signOut } from "firebase/auth";
 import { useTheme } from "@/components/ThemeProvider";
 import { Moon, Sun } from "lucide-react";
+import { NotificacoesDropdown } from "./NotificacoesDropdown";
+
+const subscribe = () => () => {};
+const getSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 export default function Header() {
   const { user, roles } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const { theme, setTheme, systemTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   if (!user) return null;
 
@@ -48,28 +50,30 @@ export default function Header() {
 
       <nav className="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
         {(roles.includes("Chefe_Geral") || roles.includes("Gestor_Almoxarifado") || roles.includes("Professor") || roles.includes("Bolsista")) && (
-          <a href="/reagentes" className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors">
+          <Link href="/reagentes" className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors">
             Reagentes
-          </a>
+          </Link>
         )}
         {(roles.includes("Chefe_Geral") || roles.includes("Gestor_Bens_Patrimoniais") || roles.includes("Professor") || roles.includes("Bolsista")) && (
-          <a href="/patrimonio" className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors">
+          <Link href="/patrimonio" className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors">
             Patrimônio
-          </a>
+          </Link>
         )}
         {(roles.includes("Chefe_Geral") || roles.includes("Professor") || roles.includes("Bolsista")) && (
-          <a href="/turmas" className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors">
+          <Link href="/turmas" className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors">
             Turmas
-          </a>
+          </Link>
         )}
         {(roles.includes("Chefe_Geral") || roles.includes("Professor")) && (
-          <a href="/alunos" className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors">
+          <Link href="/alunos" className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors">
             Alunos
-          </a>
+          </Link>
         )}
       </nav>
 
       <div className="flex items-center gap-4 relative">
+        <NotificacoesDropdown />
+
         {mounted && (
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
