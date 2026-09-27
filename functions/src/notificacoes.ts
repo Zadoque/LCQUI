@@ -19,13 +19,14 @@ import {
 export function adicionarNotificacaoTx(
   tx: admin.firestore.Transaction,
   db: admin.firestore.Firestore,
-  dados: CriarNotificacao
-): void {
-  const notificacoesRef = db
+  dados: CriarNotificacao,
+  docId?: string
+): admin.firestore.DocumentReference {
+  const colecaoRef = db
     .collection("Usuarios")
     .doc(dados.id_destinatario)
-    .collection("Notificacoes")
-    .doc();
+    .collection("Notificacoes");
+  const notificacoesRef = docId ? colecaoRef.doc(docId) : colecaoRef.doc();
 
   // RN-M13-03: sem prazo determinado na fonte, `expira_em = null` (sem expiração
   // automática). `ESCASSEZ_ESTOQUE` nunca expira e não admite prazo arbitrário.
@@ -51,6 +52,8 @@ export function adicionarNotificacaoTx(
     // RN-M13-05: payload mínimo, nunca conteúdo protegido.
     contem_conteudo_protegido: false,
   });
+
+  return notificacoesRef;
 }
 
 // Endpoint para marcar notificação como lida
