@@ -34,11 +34,7 @@ export const AlterarStatusTurmaSchema = z.object({
   status: z.enum(["Ativo", "Arquivada"])
 });
 
-export const ConvidarAlunoSchema = z.object({
-  email: z.string().email("Formato de e-mail inválido."),
-  idTurma: z.string().optional(),
-  matricula: z.string().optional()
-});
+export { ConvidarAlunoSchema } from "./convites.schema";
 
 export const AdicionarAlunoExistenteTurmaSchema = z.object({
   idOperacao: IdOperacaoTurmaSchema,

@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
-import { FieldValue, Timestamp } from "firebase-admin/firestore";
-import { validarPermissao, extrairClaimsAutoridade, resolverAutoridadePersistidaTx } from "./auth";
+import { FieldValue } from "firebase-admin/firestore";
+import { extrairClaimsAutoridade, resolverAutoridadePersistidaTx } from "./auth";
 import { construirIdentidade, registrarOperacaoConcluidaTx, resolverOperacaoTx } from "./idempotencia";
 import { adicionarNotificacaoTx } from "./notificacoes";
 import { chaveTurmaCodigo } from "./chaves";
@@ -11,7 +11,6 @@ import {
   CriarTurmaSchema, 
   RemoverAlunoTurmaSchema, 
   AlterarStatusTurmaSchema,
-  ConvidarAlunoSchema, 
   AdicionarAlunoExistenteTurmaSchema 
 } from "./schemas/turmas.schema";
 
@@ -447,58 +446,8 @@ export const alterarStatusTurma = onCall(async (request) => {
     return resultado;
   });
 });
+export { convidarAluno, aceitarConviteAluno } from "./convites";
 
-export const convidarAluno = onCall(async (request) => {
-  validarPermissao(request, ["Professor", "Chefe_Geral"]);
-
-  const { email, idTurma, matricula } = validatePayload(ConvidarAlunoSchema, request.data);
-  const emailNormalizado = email.toLowerCase().trim();
-  const db = admin.firestore();
-
-  return db.runTransaction(async (tx) => {
-    let queryRef = db.collection("Convite_Aluno")
-      .where("email", "==", emailNormalizado)
-      .where("status", "==", "pendente");
-      
-    if (idTurma) {
-      queryRef = queryRef.where("id_turma", "==", idTurma);
-    } else {
-      queryRef = queryRef.where("id_turma", "==", null);
-    }
-
-    const snap = await tx.get(queryRef.limit(1));
-    if (!snap.empty) {
-      throw new HttpsError("already-exists", "Já existe um convite pendente para este email e turma.");
-    }
-
-    if (matricula) {
-      const convitesMat = await tx.get(db.collection("Convite_Aluno").where("numero_matricula", "==", matricula).limit(1));
-      if (!convitesMat.empty) {
-        throw new HttpsError("already-exists", "Esta matrícula já possui um convite pendente.");
-      }
-      const usuariosMat = await tx.get(db.collection("Aluno").where("numero_matricula", "==", matricula).limit(1));
-      if (!usuariosMat.empty) {
-        throw new HttpsError("already-exists", "Esta matrícula já está cadastrada no sistema.");
-      }
-    }
-
-    const docRef = db.collection("Convite_Aluno").doc();
-    const expiraEm = new Date();
-    expiraEm.setDate(expiraEm.getDate() + 7);
-
-    tx.set(docRef, {
-      id_turma: idTurma || null,
-      email: emailNormalizado,
-      convidado_em: FieldValue.serverTimestamp(),
-      status: "pendente",
-      expira_em: Timestamp.fromDate(expiraEm),
-      convidado_por: request.auth!.uid,
-      numero_matricula: matricula || null
-    });
-
-    return { id: docRef.id };
-  });
-});
 
 export const adicionarAlunoExistenteTurma = onCall(async (request) => {
   const claims = extrairClaimsAutoridade(request);
