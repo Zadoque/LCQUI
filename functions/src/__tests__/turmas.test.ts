@@ -5,7 +5,7 @@ process.env.FUNCTIONS_EMULATOR = "true";
 
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
-import { criarTurma, ingressarEmTurmaPorCodigo, removerAlunoTurma, arquivarTurma, adicionarAlunoExistenteTurma, convidarAluno } from "../turmas";
+import { criarTurma, ingressarEmTurmaPorCodigo, removerAlunoTurma, alterarStatusTurma, adicionarAlunoExistenteTurma, convidarAluno } from "../turmas";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -152,8 +152,8 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
       idMateria: "mat_a", nomeTurma: "Turma Arq", capacidade: 5, nomeMateria: "Arq"
     });
 
-    const wrappedArquivar = testEnv.wrap(arquivarTurma);
-    await wrappedArquivar(mockRequest({ idTurma: turma.id }, "prof_arq"));
+    const wrappedArquivar = testEnv.wrap(alterarStatusTurma);
+    await wrappedArquivar(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, status: "Arquivada" }, "prof_arq"));
 
     const wrappedIngressar = testEnv.wrap(ingressarEmTurmaPorCodigo);
     const reqAluno = mockRequest({ codigoTurma: turma.codigoTurma }, "aluno_arq", ["Aluno"]);
@@ -202,8 +202,8 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
       idMateria: "mat_a2", nomeTurma: "Turma Arq2", capacidade: 5, nomeMateria: "Arq2"
     });
 
-    const wrappedArquivar = testEnv.wrap(arquivarTurma);
-    await wrappedArquivar(mockRequest({ idTurma: turma.id }, "prof_arq2"));
+    const wrappedArquivar = testEnv.wrap(alterarStatusTurma);
+    await wrappedArquivar(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, status: "Arquivada" }, "prof_arq2"));
 
     const auditSnap = await db.collection("Registro_de_Auditoria")
       .where("id_do_objeto_da_entidade", "==", turma.id)
@@ -506,5 +506,99 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     await expect(wrapped(mockRequest({
       idOperacao: novaOperacao(), idMateria: "mat_cap_frac", nomeTurma: "T", ano: 2026, semestre: 1, capacidade: 1.5
     }, "prof_cap_frac"))).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("TEST-INT-TURMA-ARQ-001 — arquivar incrementa versao, preserva dados e notifica membros", async () => {
+    const turma = await criarTurmaOk("prof_arq3", {
+      idMateria: "mat_arq3", nomeTurma: "Turma Arq3", capacidade: 5, nomeMateria: "Arq3"
+    });
+    await testEnv.wrap(ingressarEmTurmaPorCodigo)(
+      mockRequest({ codigoTurma: turma.codigoTurma }, "aluno_arq3", ["Aluno"])
+    );
+
+    const antes = (await db.collection("Turma").doc(turma.id).get()).data()!;
+    const wrapped = testEnv.wrap(alterarStatusTurma);
+    await wrapped(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, status: "Arquivada" }, "prof_arq3"));
+
+    const depois = (await db.collection("Turma").doc(turma.id).get()).data()!;
+    expect(depois.status).toBe("Arquivada");
+    expect(depois.versao).toBe((antes.versao ?? 0) + 1);
+    expect(depois.codigo_turma).toBe(antes.codigo_turma);
+    expect(depois.qtd_alunos).toBe(antes.qtd_alunos);
+    expect((await db.collection("Turma").doc(turma.id).collection("Alunos").doc("aluno_arq3").get()).exists).toBe(true);
+
+    const notif = await db.collection("Usuarios").doc("aluno_arq3").collection("Notificacoes")
+      .where("tipo", "==", "TURMA_ARQUIVADA").get();
+    expect(notif.empty).toBe(false);
+    expect(notif.docs[0].data().entidade_alvo).toBe("Turma");
+    expect(notif.docs[0].data().id_turma).toBe(turma.id);
+
+    const mirror = await db.collection("Usuarios").doc("aluno_arq3").collection("Turmas").doc(turma.id).get();
+    expect(mirror.data()?.status).toBe("Arquivada");
+  });
+
+  it("TEST-INT-TURMA-ARQ-002 — desarquivar volta a Ativo, incrementa versao e notifica", async () => {
+    const turma = await criarTurmaOk("prof_arq4", {
+      idMateria: "mat_arq4", nomeTurma: "Turma Arq4", capacidade: 5, nomeMateria: "Arq4"
+    });
+    await testEnv.wrap(ingressarEmTurmaPorCodigo)(
+      mockRequest({ codigoTurma: turma.codigoTurma }, "aluno_arq4", ["Aluno"])
+    );
+    const wrapped = testEnv.wrap(alterarStatusTurma);
+    await wrapped(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, status: "Arquivada" }, "prof_arq4"));
+    const versaoArquivada = (await db.collection("Turma").doc(turma.id).get()).data()!.versao;
+
+    await wrapped(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, status: "Ativo" }, "prof_arq4"));
+
+    const depois = (await db.collection("Turma").doc(turma.id).get()).data()!;
+    expect(depois.status).toBe("Ativo");
+    expect(depois.versao).toBe(versaoArquivada + 1);
+    const notif = await db.collection("Usuarios").doc("aluno_arq4").collection("Notificacoes")
+      .where("tipo", "==", "TURMA_DESARQUIVADA").get();
+    expect(notif.empty).toBe(false);
+    const mirror = await db.collection("Usuarios").doc("aluno_arq4").collection("Turmas").doc(turma.id).get();
+    expect(mirror.data()?.status).toBe("Ativo");
+  });
+
+  it("TEST-INT-TURMA-ARQ-003 — professor não dono não altera status", async () => {
+    const turma = await criarTurmaOk("prof_dono4", {
+      idMateria: "mat_arq5", nomeTurma: "Turma Arq5", capacidade: 5, nomeMateria: "Arq5"
+    });
+    await semearProfessor("prof_outro4");
+    const wrapped = testEnv.wrap(alterarStatusTurma);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(), idTurma: turma.id, status: "Arquivada"
+    }, "prof_outro4"))).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("TEST-INT-TURMA-ARQ-004 — arquivar turma já arquivada é failed-precondition", async () => {
+    const turma = await criarTurmaOk("prof_arq5", {
+      idMateria: "mat_arq6", nomeTurma: "Turma Arq6", capacidade: 5, nomeMateria: "Arq6"
+    });
+    const wrapped = testEnv.wrap(alterarStatusTurma);
+    await wrapped(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, status: "Arquivada" }, "prof_arq5"));
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(), idTurma: turma.id, status: "Arquivada"
+    }, "prof_arq5"))).rejects.toMatchObject({ code: "failed-precondition" });
+  });
+
+  it("TEST-INT-TURMA-ARQ-005 — replay do mesmo idOperacao não duplica notificação nem versão", async () => {
+    const turma = await criarTurmaOk("prof_arq6", {
+      idMateria: "mat_arq7", nomeTurma: "Turma Arq7", capacidade: 5, nomeMateria: "Arq7"
+    });
+    await testEnv.wrap(ingressarEmTurmaPorCodigo)(
+      mockRequest({ codigoTurma: turma.codigoTurma }, "aluno_arq7", ["Aluno"])
+    );
+    const op = novaOperacao();
+    const body = { idOperacao: op, idTurma: turma.id, status: "Arquivada" };
+    const wrapped = testEnv.wrap(alterarStatusTurma);
+    await wrapped(mockRequest(body, "prof_arq6"));
+    const versao1 = (await db.collection("Turma").doc(turma.id).get()).data()!.versao;
+    await wrapped(mockRequest(body, "prof_arq6"));
+    const versao2 = (await db.collection("Turma").doc(turma.id).get()).data()!.versao;
+    expect(versao2).toBe(versao1);
+    const notif = await db.collection("Usuarios").doc("aluno_arq7").collection("Notificacoes")
+      .where("tipo", "==", "TURMA_ARQUIVADA").get();
+    expect(notif.size).toBe(1);
   });
 });

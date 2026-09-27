@@ -125,9 +125,8 @@ service cloud.firestore {
 
     match /Turma/{turmaId} {
       allow read: if isAuthenticated();
-      // Professor só atualiza a própria turma, criação via Cloud Function
-      allow update: if isAdmin() || (hasRole('Professor') && resource.data.id_professor == request.auth.uid);
-      allow create: if false;
+      // Criação e status/metadados são server-owned (criarTurma/alterarStatusTurma).
+      allow write: if false;
 
       match /Alunos/{alunoId} {
         allow read: if isAuthenticated();

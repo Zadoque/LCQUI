@@ -126,7 +126,7 @@ describe("Firestore Security Rules", () => {
       await assertFails(db.collection("Turma").add({ nome: "Turma do Prof", id_professor: "prof1" }));
     });
 
-    it("deve permitir que um professor altere apenas sua própria turma", async () => {
+    it("não permite que nenhum cliente altere a turma diretamente (server-owned)", async () => {
       // Setup da turma burlando as regras (já que a criação normal seria por Cloud Function)
       await testEnv.withSecurityRulesDisabled(async (context) => {
         const dbAdmin = context.firestore();
@@ -136,11 +136,10 @@ describe("Firestore Security Rules", () => {
       const dbProf1 = authedDb("prof1", ["Professor"]);
       const dbProf2 = authedDb("prof2", ["Professor"]);
 
-      // Prof 1 atualiza sua própria turma (deve passar)
-      await assertSucceeds(dbProf1.collection("Turma").doc("turmaProf1").update({ nome: "Novo Nome" }));
-
-      // Prof 2 tenta atualizar a turma do Prof 1 (deve falhar)
+      // Criação/status/metadados são server-owned (criarTurma/alterarStatusTurma).
+      await assertFails(dbProf1.collection("Turma").doc("turmaProf1").update({ nome: "Novo Nome" }));
       await assertFails(dbProf2.collection("Turma").doc("turmaProf1").update({ nome: "Hacked" }));
+      await assertFails(dbProf1.collection("Turma").doc("turmaProf1").update({ status: "Arquivada" }));
     });
 
     it("não deve permitir que um aluno se inscreva diretamente em uma turma", async () => {

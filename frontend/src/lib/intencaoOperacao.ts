@@ -96,3 +96,12 @@ export function gravarIntencao(
 export function limparIntencao(storage: ArmazenamentoIntencao, chave: string): void {
   storage.removeItem(chave);
 }
+
+/** Chave/assinatura da intenção de alterar o status de uma turma (Q08/PRO-02). */
+export function chaveIntencaoStatusTurma(idTurma: string, status: string): string {
+  return `lcqui.intencao.turmaStatus.${idTurma}.${status}`;
+}
+
+export function assinaturaStatusTurma(idTurma: string, status: string): string {
+  return JSON.stringify(["ALTERAR_STATUS_TURMA", idTurma, status]);
+}

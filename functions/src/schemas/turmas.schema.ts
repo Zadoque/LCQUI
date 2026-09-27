@@ -25,8 +25,11 @@ export const RemoverAlunoTurmaSchema = z.object({
   idAluno: z.string().min(1, "ID do aluno é obrigatório.")
 });
 
-export const ArquivarTurmaSchema = z.object({
-  idTurma: z.string().min(1, "ID da turma é obrigatório.")
+// Q08/PRO-02: arquivar e desarquivar preservam dados e alteram o status.
+export const AlterarStatusTurmaSchema = z.object({
+  idOperacao: IdOperacaoTurmaSchema,
+  idTurma: z.string().min(1, "ID da turma é obrigatório."),
+  status: z.enum(["Ativo", "Arquivada"])
 });
 
 export const ConvidarAlunoSchema = z.object({

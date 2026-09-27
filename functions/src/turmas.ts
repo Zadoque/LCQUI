@@ -9,7 +9,7 @@ import {
   IngressarTurmaPorCodigoSchema, 
   CriarTurmaSchema, 
   RemoverAlunoTurmaSchema, 
-  ArquivarTurmaSchema, 
+  AlterarStatusTurmaSchema,
   ConvidarAlunoSchema, 
   AdicionarAlunoExistenteTurmaSchema 
 } from "./schemas/turmas.schema";
@@ -290,39 +290,77 @@ export const removerAlunoTurma = onCall(async (request) => {
   });
 });
 
-export const arquivarTurma = onCall(async (request) => {
-  validarPermissao(request, ["Professor", "Chefe_Geral"]);
-  const { idTurma } = validatePayload(ArquivarTurmaSchema, request.data);
+// PRO-02/UI-10: arquivar e desarquivar alteram o status e incrementam `versao`,
+// preservando id, membros, posts, histórico, qtd_alunos e codigo_turma. M9
+// (autoridade persistida), M7 (receipt) e M13 (fan-out de notificação).
+export const alterarStatusTurma = onCall(async (request) => {
+  const claims = extrairClaimsAutoridade(request);
+  const { idOperacao, idTurma, status } = validatePayload(AlterarStatusTurmaSchema, request.data);
 
   const db = admin.firestore();
   const turmaRef = db.collection("Turma").doc(idTurma);
 
   return db.runTransaction(async (tx) => {
-    const turmaDoc = await tx.get(turmaRef);
-    if (!turmaDoc.exists) throw new HttpsError("not-found", "Turma não encontrada.");
-    
-    if (turmaDoc.data()!.id_professor !== request.auth!.uid) {
-      const papeis = request.auth!.token["roles"] as string[];
-      if (!papeis.includes("Chefe_Geral")) {
-        throw new HttpsError("permission-denied", "Você não é o dono desta turma.");
-      }
+    const tipoOperacao = status === "Arquivada" ? "ARQUIVAR_TURMA" : "DESARQUIVAR_TURMA";
+    const identidade = construirIdentidade(claims.uid, tipoOperacao, { idTurma, status });
+    const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+    if (decisao.estado === "REPLAY") {
+      return decisao.resultado as { idTurma: string; status: string };
+    }
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError("failed-precondition", "Operação de status de turma não concluída.");
     }
 
-    tx.update(turmaRef, {
-      status: "Arquivada"
-    });
+    const autoridade = await resolverAutoridadePersistidaTx(tx, claims, ["Professor", "Chefe_Geral"]);
+    const ehChefe = autoridade.papelAutorizado === "Chefe_Geral";
 
-    const auditRef = db.collection("Registro_de_Auditoria").doc();
-    tx.set(auditRef, {
-      id_usuario: request.auth!.uid,
-      acao: "Arquivar Turma",
+    const turmaSnap = await tx.get(turmaRef);
+    if (!turmaSnap.exists) throw new HttpsError("not-found", "Turma não encontrada.");
+    const turma = turmaSnap.data()!;
+    if (turma.id_professor !== claims.uid && !ehChefe) {
+      throw new HttpsError("permission-denied", "Você não é o dono desta turma.");
+    }
+    if (turma.status === status) {
+      throw new HttpsError("failed-precondition", `A turma já está ${status}.`);
+    }
+
+    // Leituras antes das escritas: membros e espelhos.
+    const alunosSnap = await tx.get(turmaRef.collection("Alunos"));
+    const membros = alunosSnap.docs.map((d) => d.id);
+    const mirrorRefs = membros.map((id) =>
+      db.collection("Usuarios").doc(id).collection("Turmas").doc(idTurma)
+    );
+    const mirrors = mirrorRefs.length ? await tx.getAll(...mirrorRefs) : [];
+
+    // Escritas: status + versão, espelhos e fan-out.
+    tx.update(turmaRef, { status, versao: FieldValue.increment(1) });
+    mirrors.forEach((mirror, i) => {
+      if (mirror.exists) tx.update(mirrorRefs[i], { status });
+    });
+    const tipoNotif = status === "Arquivada" ? "TURMA_ARQUIVADA" : "TURMA_DESARQUIVADA";
+    for (const membro of membros) {
+      adicionarNotificacaoTx(tx, db, {
+        id_destinatario: membro,
+        papel_destinatario: "Aluno",
+        tipo: tipoNotif,
+        id_quem_fez_acao: claims.uid,
+        id_turma: idTurma,
+        entidade_alvo: "Turma",
+        id_alvo: idTurma,
+      });
+    }
+
+    const resultado = { idTurma, status, membros_notificados: membros.length };
+    tx.set(db.collection("Registro_de_Auditoria").doc(`status_turma_${idOperacao}`), {
+      id_usuario: claims.uid,
+      acao: status === "Arquivada" ? "Arquivar Turma" : "Desarquivar Turma",
       tipo_entidade_sofre_acao: "TURMA",
       id_do_objeto_da_entidade: idTurma,
       acao_feita_em: FieldValue.serverTimestamp(),
-      metadata: {}
+      metadata: { status },
     });
-
-    return { success: true };
+    registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+    return resultado;
   });
 });
 

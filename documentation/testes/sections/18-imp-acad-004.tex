@@ -1,0 +1,63 @@
+\section{Evidência de IMP-ACAD-004 (arquivar e desarquivar turma)}
+
+\textbf{Feature:} \texttt{IMP-ACAD-004} --- arquivar e desarquivar turma.
+
+\textbf{Estado anterior:} \texttt{DIVERGENTE}. Só existia \texttt{arquivarTurma},
+com autorização JWT-only, sem incremento de \texttt{versao}, sem fan-out de
+notificação e sem desarquivar; a UI desarquivava com \texttt{updateDoc} direto e
+as Rules permitiam \texttt{update} do professor.
+
+\textbf{Estado depois:} backend, Rules e caminho de UI convergidos; permanece
+\texttt{DIVERGENTE} pelo E2E UI-10 e pela ausência de UI de arquivamento.
+
+\subsection{Contrato}
+
+Fontes: Seção~7 M11 (ciclo de vida da Turma; Q08); Seção~8 UI-10; Seção~9
+PRO-02; CUE \texttt{\#M11Turma}; Alloy \texttt{arquivar}/\texttt{desarquivar}
+(exigem estado de origem correto, incrementam \texttt{versaoT} e preservam
+dono/matéria/capacidade/qtd/código/vínculos/espelhos). M9 (autoridade
+persistida), M7 (receipt) e M13 (fan-out \texttt{TURMA\_ARQUIVADA}/
+\texttt{TURMA\_DESARQUIVADA}).
+
+\subsection{Mudança}
+
+\begin{itemize}
+  \item \path{functions/src/turmas.ts}: \texttt{arquivarTurma} foi substituída
+  por \texttt{alterarStatusTurma(\{idOperacao, idTurma, status\})}, com M9
+  persistido, M7 (replay/reuso incompatível), incremento de \texttt{versao},
+  preservação de membros/código/contador, sincronização de espelhos e fan-out
+  por membro via primitiva M13 canônica; auditoria com id derivado de
+  \texttt{idOperacao}; estado de origem inválido falha fechado;
+  \item \path{firestore.rules}: \texttt{Turma} passa a \texttt{allow write: if false}
+  (criação e status server-owned);
+  \item \path{frontend/src/components/turmas/ProfessorModais.tsx}: o
+  \texttt{updateDoc} direto de desarquivar foi trocado pela callable, com
+  intenção M7 persistida em \texttt{sessionStorage};
+  \item \path{frontend/src/lib/intencaoOperacao.ts}: chave/assinatura da
+  intenção de status de turma.
+\end{itemize}
+
+\subsection{Testes}
+
+\small
+\begin{longtable}{@{}p{0.30\textwidth}p{0.52\textwidth}@{}}
+\toprule
+ID & Resultado \\
+\midrule
+\endhead
+TEST-INT-TURMA-ARQ-001 & Arquivar incrementa versão, preserva dados e notifica membros \\
+TEST-INT-TURMA-ARQ-002 & Desarquivar volta a Ativo, incrementa versão e notifica \\
+TEST-INT-TURMA-ARQ-003 & Professor não dono não altera status \\
+TEST-INT-TURMA-ARQ-004 & Arquivar turma já arquivada é \texttt{failed-precondition} \\
+TEST-INT-TURMA-ARQ-005 & Replay do mesmo \texttt{idOperacao} não duplica notificação nem versão \\
+TEST-RULES-Turma & Nenhum cliente altera a Turma diretamente (server-owned) \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+GREEN sob Node 20.19.6: \texttt{turmas.test.ts} 41/41; Rules 77/77; unit
+71/71; integração completa 173 passam / 14 falham (legadas); \texttt{build}
+PASS; \texttt{tsc --noEmit} do frontend PASS.
+
+\textbf{Estado final:} \texttt{IMP-ACAD-004} = \texttt{DIVERGENTE} apenas por
+E2E UI-10/UI de arquivamento; backend e Rules convergidos.

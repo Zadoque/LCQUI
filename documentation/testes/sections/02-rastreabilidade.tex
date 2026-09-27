@@ -257,6 +257,22 @@ dias, com \texttt{lida\_em} e \texttt{contem\_conteudo\_protegido}); o
 \texttt{Roteiro\_Experimento} e \texttt{Requisicao\_*\_Bem\_Patrimonial}.
 Integração completa 168 passam / 14 falham (legadas).
 
+\subsection{Décima sexta cadeia executada (arquivar/desarquivar turma)}
+
+\begin{center}
+Seção 7 M11/Q08, Seção 8 UI-10, Seção 9 PRO-02, CUE \texttt{\#M11Turma}, Alloy \texttt{arquivar}/\texttt{desarquivar}, M7/M9/M13
+$\rightarrow$ \texttt{IMP-ACAD-004}
+$\rightarrow$ \texttt{TEST-INT-TURMA-ARQ-001--005}
+$\rightarrow$ \nolinkurl{functions/src/turmas.ts}, \nolinkurl{firestore.rules}
+$\rightarrow$ PASS Node 20
+\end{center}
+
+\texttt{alterarStatusTurma} cobre as duas direções com M9/M7, incremento de
+versão, preservação de membros/código/contador, sincronização de espelhos e
+fan-out de notificação; as Rules fecham a Turma para escrita cliente e a UI
+migrou o desarquivar direto para a callable. \texttt{turmas} 41/41 e a
+integração completa 173 passam / 14 falham (legadas).
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara

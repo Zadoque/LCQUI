@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot, doc, updateDoc, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, getDocs, limit } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase/config";
 import { useAuth } from "@/contexts/AuthContext";
 import { X } from "lucide-react";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { addDoc, serverTimestamp } from "firebase/firestore";
+import {
+  resolverIdOperacao,
+  lerIntencao,
+  gravarIntencao,
+  limparIntencao,
+  chaveIntencaoStatusTurma,
+  assinaturaStatusTurma,
+} from "@/lib/intencaoOperacao";
 
 interface ModalProps {
   isOpen: boolean;
@@ -36,9 +44,17 @@ export function TurmasArquivadasModal({ isOpen, onClose }: ModalProps) {
   const handleDesarquivar = async (idTurma: string) => {
     try {
       setLoading(true);
-      await updateDoc(doc(db, "Turma", idTurma), {
-        status: "Ativo"
-      });
+      const status = "Ativo";
+      const session = typeof window !== "undefined" ? window.sessionStorage : null;
+      const chave = chaveIntencaoStatusTurma(idTurma, status);
+      const assinatura = assinaturaStatusTurma(idTurma, status);
+      const atual = session ? lerIntencao(session, chave) : null;
+      const intencao = resolverIdOperacao(atual, assinatura, () => crypto.randomUUID());
+      if (session) gravarIntencao(session, chave, intencao);
+
+      const alterarStatusFn = httpsCallable(getFunctions(), "alterarStatusTurma");
+      await alterarStatusFn({ idOperacao: intencao.idOperacao, idTurma, status });
+      if (session) limparIntencao(session, chave);
     } catch (error) {
       console.error("Erro ao desarquivar turma:", error);
       alert("Erro ao desarquivar turma.");
