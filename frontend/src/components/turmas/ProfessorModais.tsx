@@ -16,6 +16,8 @@ import {
   obterIntencaoPersistida,
   chaveIntencaoMembro,
   assinaturaMembro,
+  chaveIntencaoConvite,
+  assinaturaIntencaoConvite,
 } from "@/lib/intencaoOperacao";
 
 interface ModalProps {
@@ -117,10 +119,18 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
   const [activeTab, setActiveTab] = useState<"buscar" | "convidar">("buscar");
   const [matriculados, setMatriculados] = useState<Set<string>>(new Set());
 
-  // Convidar form state
-  const [email, setEmail] = useState("");
+  // Convidar form state (UI-10)
+  const [emailsTexto, setEmailsTexto] = useState("");
   const [matricula, setMatricula] = useState("");
+  const [confirmarGlobal, setConfirmarGlobal] = useState(false);
+  const [excederCapacidade, setExcederCapacidade] = useState(false);
+  const [justificativaExcecao, setJustificativaExcecao] = useState("");
   const [loadingConvite, setLoadingConvite] = useState(false);
+  const [resultadosConvite, setResultadosConvite] = useState<Array<{
+    email: string;
+    status: "sucesso" | "erro";
+    msg: string;
+  }> | null>(null);
 
   // Buscar state
   const [letraInicial, setLetraInicial] = useState("A");
@@ -165,7 +175,6 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
   const handleBuscar = async () => {
     setLoadingBusca(true);
     try {
-      // Removemos o limit baixo para permitir que todos os alunos com aquela letra sejam buscados
       const q = query(collection(db, "Aluno"), where("letra_inicial", "==", letraInicial), limit(1000));
       const snap = await getDocs(q);
       setAlunosEncontrados(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -202,24 +211,107 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
     }
   };
 
-  const handleConvidar = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleConvidar = async (e?: React.FormEvent, emailsAlvo?: string[]) => {
+    if (e) e.preventDefault();
     setLoadingConvite(true);
     setToast(null);
-    try {
-      const convidarAluno = httpsCallable(functions, "convidarAluno");
-      await convidarAluno({ email, idTurma: idTurma || undefined, matricula });
-      setToast({ type: "success", msg: "Convite enviado com sucesso!" });
-      setTimeout(() => {
-        setEmail("");
-        setMatricula("");
-        setToast(null);
-      }, 2000);
-    } catch (error: any) {
-      console.error("Erro ao convidar aluno:", error);
-      setToast({ type: "error", msg: error.message || "Erro ao enviar convite." });
-    } finally {
+
+    const listaEmails = emailsAlvo ?? Array.from(
+      new Set(
+        emailsTexto
+          .split(/[\n,; ]+/)
+          .map((em) => em.trim().toLowerCase())
+          .filter((em) => em.length > 0)
+      )
+    );
+
+    if (listaEmails.length === 0) {
+      setToast({ type: "error", msg: "Informe ao menos um e-mail válido." });
       setLoadingConvite(false);
+      return;
+    }
+
+    if (!idTurma && !confirmarGlobal) {
+      setToast({
+        type: "error",
+        msg: "Para emitir convite sem turma selecionada, confirme explicitamente o convite GLOBAL.",
+      });
+      setLoadingConvite(false);
+      return;
+    }
+
+    if (idTurma && excederCapacidade && !justificativaExcecao.trim()) {
+      setToast({
+        type: "error",
+        msg: "Justificativa é obrigatória quando 'Exceder capacidade' for marcado.",
+      });
+      setLoadingConvite(false);
+      return;
+    }
+
+    const session = typeof window !== "undefined" ? window.sessionStorage : null;
+    const novosResultados = [...(resultadosConvite || [])];
+
+    for (const em of listaEmails) {
+      const chave = chaveIntencaoConvite(em, idTurma || null);
+      const assinatura = assinaturaIntencaoConvite({
+        email: em,
+        idTurma: idTurma || null,
+        matricula: matricula.trim() || null,
+        excederCapacidade: Boolean(idTurma && excederCapacidade),
+        justificativaExcecao: idTurma && excederCapacidade ? justificativaExcecao.trim() : null,
+      });
+
+      const intencao = session
+        ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
+        : { idOperacao: crypto.randomUUID(), assinatura };
+
+      try {
+        const convidar = httpsCallable(functions, "convidarAluno");
+        await convidar({
+          idOperacao: intencao.idOperacao,
+          email: em,
+          idTurma: idTurma || null,
+          matricula: matricula.trim() || undefined,
+          excederCapacidade: Boolean(idTurma && excederCapacidade),
+          justificativaExcecao: idTurma && excederCapacidade ? justificativaExcecao.trim() : undefined,
+        });
+
+        if (session) limparIntencao(session, chave);
+
+        const idx = novosResultados.findIndex((r) => r.email === em);
+        const item = { email: em, status: "sucesso" as const, msg: "Convite registrado." };
+        if (idx >= 0) novosResultados[idx] = item;
+        else novosResultados.push(item);
+      } catch (error: unknown) {
+        console.error(`Erro ao registrar convite para ${em}:`, error);
+        const idx = novosResultados.findIndex((r) => r.email === em);
+        const msg = error instanceof Error ? error.message : "Erro ao registrar convite.";
+        const item = {
+          email: em,
+          status: "erro" as const,
+          msg,
+        };
+        if (idx >= 0) novosResultados[idx] = item;
+        else novosResultados.push(item);
+      }
+    }
+
+    setResultadosConvite(novosResultados);
+    setLoadingConvite(false);
+
+    const falhas = novosResultados.filter((r) => r.status === "erro");
+    if (falhas.length === 0) {
+      setToast({ type: "success", msg: "Convite(s) registrado(s) com sucesso." });
+      setEmailsTexto("");
+      setMatricula("");
+      setJustificativaExcecao("");
+      setExcederCapacidade(false);
+    } else {
+      setToast({
+        type: "error",
+        msg: `${falhas.length} convite(s) falharam. Verifique os detalhes e tente novamente.`,
+      });
     }
   };
 
@@ -334,29 +426,126 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
           {activeTab === "convidar" && (
             <form onSubmit={handleConvidar} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold mb-1">Email do Aluno</label>
-                <input
-                  type="email"
+                <label className="block text-sm font-semibold mb-1">
+                  E-mail(s) do(s) Aluno(s)
+                </label>
+                <textarea
                   required
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="aluno@ufsc.br"
+                  rows={3}
+                  value={emailsTexto}
+                  onChange={(e) => setEmailsTexto(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                  placeholder="aluno1@ufsc.br, aluno2@ufsc.br (um ou mais e-mails separados por vírgula, espaço ou linha)"
                 />
+                <p className="text-[11px] text-foreground/50 mt-1">
+                  Os e-mails serão automaticamente normalizados (trim e minúsculas) e deduplicados.
+                </p>
               </div>
+
               <div>
-                <label className="block text-sm font-semibold mb-1">Matrícula (opcional)</label>
+                <label className="block text-sm font-semibold mb-1">
+                  Matrícula Institucional (opcional)
+                </label>
                 <input
                   type="text"
                   value={matricula}
-                  onChange={e => setMatricula(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary"
+                  onChange={(e) => setMatricula(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary text-sm"
                   placeholder="Ex: 21100000"
                 />
               </div>
+
+              {!idTurma && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-2">
+                  <label className="flex items-start gap-2 cursor-pointer text-xs font-medium text-amber-900 dark:text-amber-200">
+                    <input
+                      type="checkbox"
+                      checked={confirmarGlobal}
+                      onChange={(e) => setConfirmarGlobal(e.target.checked)}
+                      className="mt-0.5 rounded text-primary focus:ring-primary"
+                    />
+                    <span>
+                      Confirmo a emissão de convite <strong>GLOBAL</strong> (o aluno será cadastrado no sistema sem vínculo inicial a uma turma).
+                    </span>
+                  </label>
+                </div>
+              )}
+
+              {idTurma && (
+                <div className="p-3 bg-foreground/5 border border-foreground/10 rounded-xl space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={excederCapacidade}
+                      onChange={(e) => setExcederCapacidade(e.target.checked)}
+                      className="rounded text-primary focus:ring-primary"
+                    />
+                    <span>Exceder capacidade da turma (vaga extraordinária nominal)</span>
+                  </label>
+                  {excederCapacidade && (
+                    <div>
+                      <label className="block text-xs font-semibold mb-1">
+                        Justificativa da Exceção (obrigatória)
+                      </label>
+                      <textarea
+                        required
+                        rows={2}
+                        value={justificativaExcecao}
+                        onChange={(e) => setJustificativaExcecao(e.target.value)}
+                        placeholder="Informe a justificativa acadêmica para a concessão da vaga além da capacidade..."
+                        className="w-full px-3 py-2 rounded-lg bg-background border border-foreground/20 text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {resultadosConvite && resultadosConvite.length > 0 && (
+                <div className="space-y-2 border-t border-foreground/10 pt-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-foreground/70">
+                    Resultado dos Convites Registrados
+                  </h4>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                    {resultadosConvite.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-2 rounded-lg text-xs flex justify-between items-center ${
+                          item.status === "sucesso"
+                            ? "bg-green-500/10 text-green-700 dark:text-green-300"
+                            : "bg-red-500/10 text-red-700 dark:text-red-300"
+                        }`}
+                      >
+                        <span className="font-mono text-[11px] truncate max-w-[200px]">{item.email}</span>
+                        <span className="font-semibold">{item.msg}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {resultadosConvite.some((r) => r.status === "erro") && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleConvidar(
+                          undefined,
+                          resultadosConvite.filter((r) => r.status === "erro").map((r) => r.email)
+                        )
+                      }
+                      disabled={loadingConvite}
+                      className="w-full mt-2 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                    >
+                      {loadingConvite ? "Retentando..." : "Tentar novamente (apenas falhas)"}
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="pt-4 flex justify-end gap-3">
-                <button type="submit" disabled={loadingConvite || !email || (!isGestorGeral && !idTurma)} className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 disabled:opacity-50">
-                  {loadingConvite ? "Enviando..." : "Convidar Aluno"}
+                <button
+                  type="submit"
+                  disabled={loadingConvite || !emailsTexto.trim() || (!idTurma && !confirmarGlobal)}
+                  className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 disabled:opacity-50 text-sm transition-all"
+                >
+                  {loadingConvite ? "Registrando..." : "Registrar Convite(s)"}
                 </button>
               </div>
             </form>

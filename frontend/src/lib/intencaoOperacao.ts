@@ -147,3 +147,40 @@ export function obterIntencaoPersistida(
   gravarIntencao(storage, chave, intencao);
   return intencao;
 }
+
+export interface CamposIntencaoConvite {
+  email: string;
+  idTurma?: string | null;
+  matricula?: string | null;
+  excederCapacidade?: boolean;
+  justificativaExcecao?: string | null;
+}
+
+/** Chave de sessão da intenção de convite por destinatário e contexto. */
+export function chaveIntencaoConvite(email: string, idTurma?: string | null): string {
+  const normEmail = email.trim().toLowerCase();
+  const turmaKey = idTurma && idTurma.trim().length > 0 ? idTurma.trim() : "GLOBAL";
+  return `lcqui.intencao.convite.${turmaKey}.${normEmail}`;
+}
+
+/** Assinatura canônica dos campos semânticos do convite. */
+export function assinaturaIntencaoConvite(campos: CamposIntencaoConvite): string {
+  return JSON.stringify([
+    "CONVIDAR_ALUNO",
+    campos.email.trim().toLowerCase(),
+    campos.idTurma ? campos.idTurma.trim() : null,
+    campos.matricula ? campos.matricula.trim() : null,
+    Boolean(campos.excederCapacidade),
+    campos.justificativaExcecao ? campos.justificativaExcecao.trim() : null,
+  ]);
+}
+
+/** Chave de sessão da intenção de aceite de convite. */
+export function chaveIntencaoAceite(idConvite: string): string {
+  return `lcqui.intencao.aceite.${idConvite.trim()}`;
+}
+
+/** Assinatura canônica do aceite. */
+export function assinaturaIntencaoAceite(idConvite: string, token: string): string {
+  return JSON.stringify(["ACEITAR_CONVITE", idConvite.trim(), token.trim()]);
+}
