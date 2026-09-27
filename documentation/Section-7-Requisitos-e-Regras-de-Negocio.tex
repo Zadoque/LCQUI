@@ -345,6 +345,7 @@ canônicos.
 \end{regra}
 
 \begin{regra}[Convites: token, unicidade e fronteira externa]
+O mapeamento físico da identidade histórica do convite e da pendência ativa no Firestore é definido na Seção~5.
 \texttt{Convite\_Aluno/\{id\}} é coleção raiz; \texttt{id\_turma} \texttt{NULL}
 identifica convite global. O e-mail é armazenado normalizado; o token aleatório
 de 32 bytes (CSPRNG) é guardado apenas como hash SHA-256, comparado em tempo
@@ -352,35 +353,40 @@ constante, com expiração de sete dias, status \texttt{pendente}, \texttt{aceit
 ou \texttt{expirado}, \texttt{convidado\_por}, \texttt{convidado\_em},
 \texttt{numero\_matricula} opcional, \texttt{exceder\_capacidade} e
 \texttt{justificativa\_excecao}, \texttt{aceitado\_por} e \texttt{aceitado\_em}.
-O ID do convite (\texttt{Convite\_Aluno/\{id\}}) é imutável e gerado pelo servidor
-para registro histórico. A chave de pendência em \texttt{Chaves\_Unicas} é
-determinística, derivada no servidor por HMAC-SHA-256 do contexto (turma ou global)
-e do e-mail normalizado com segredo do servidor; nunca se usa hash simples e previsível
-de e-mail como chave nem se expõe o e-mail em claro.
+O ID do convite (\texttt{Convite\_Aluno/\{id\}}) é imutável e gerado pelo servidor,
+identificando o fato histórico preservado da emissão daquele convite; \texttt{convidado\_em}
+e \texttt{convidado\_por} originais não sofrem alteração no reenvio. A chave de
+pendência em \texttt{Chaves\_Unicas} é determinística, derivada no servidor por HMAC-SHA-256
+com segredo do servidor sobre serialização canônica e inequívoca do contexto (distinguindo
+semanticamente convite \texttt{GLOBAL} de \texttt{TURMA} + \texttt{id\_turma}) e do e-mail
+normalizado; nunca se usa hash simples ou previsível de e-mail como chave nem se expõe o e-mail em claro.
 
 Unicidade: no máximo um convite \texttt{pendente} por
 (\texttt{email} normalizado, \texttt{id\_turma}); para convite global, no
 máximo um pendente por e-mail normalizado com \texttt{id\_turma} \texttt{NULL}.
 A chave determinística em \texttt{Chaves\_Unicas} distingue as duas situações e
 é validada na transação. Convite aceito ou expirado não ocupa a pendência.
-Reenvio substitui hash e expiração no mesmo documento e invalida o link
-anterior. Convite de turma e convite global são distintos: aceitar convite de
+Reenvio de convite pendente substitui hash e expiração no mesmo documento, atualiza
+\texttt{ultimo\_reenvio\_por} e invalida o link anterior, sem reter histórico de tokens
+anteriores. Convite de turma e convite global são distintos: aceitar convite de
 turma cria vínculo, espelho e contador; aceitar convite global não cria
 matrícula nem contador, apenas garante \texttt{Usuarios} e o papel Aluno, e o
 aluno ingressa depois por código ou por outro convite. Matrícula é obrigatória
 e única na identidade final \texttt{Aluno}, opcional e não única no convite.
 
 Identidade e histórico: o ID do convite é imutável e distinto da chave de
-pendência. A chave determinística em \texttt{Chaves\_Unicas} por HMAC identifica a \emph{pendência}
-(e-mail normalizado, turma|GLOBAL): enquanto há convite pendente, ela é a chave
-de unicidade; aceitação ou expiração liberam a pendência. Um novo convite para a
-mesma dupla após a terminalidade é um \textbf{novo documento}, com novo ID,
-token e hash, e não sobrescreve nem apaga o convite aceito/expirado, preservando
-\texttt{aceitado\_por}, \texttt{aceitado\_em}, \texttt{status} e a auditoria
-histórica. Reenvio de convite ainda pendente substitui hash e expiração no mesmo
-documento; criação nova após terminalidade gera outro documento; retry da mesma
-operação devolve o resultado persistido. O hash de token e o e-mail em claro
-nunca são expostos pela chave.
+pendência. A chave determinística em \texttt{Chaves\_Unicas} por HMAC identifica exclusivamente a \emph{pendência}
+ativa: enquanto há convite pendente, ela é a chave de unicidade; aceitação ou expiração
+liberam transacionalmente a pendência. Um novo convite para o mesmo contexto e e-mail após
+a terminalidade é um \textbf{novo documento}, com novo ID, token e hash, e não sobrescreve
+nem reutiliza o convite anterior, preservando permanentemente \texttt{aceitado\_por},
+\texttt{aceitado\_em}, \texttt{status} e os registros de auditoria.
+Invariância contra exclusão: o documento \texttt{Convite\_Aluno} não é apagado como consequência
+de aceite, expiração, reenvio, liberação da chave de pendência ou posterior criação de novo
+convite para o mesmo contexto/e-mail; o fato terminal permanece preservado.
+Reenvio de convite ainda pendente substitui hash e expiração no mesmo documento; criação
+nova após terminalidade gera outro documento; retry da mesma operação devolve o resultado
+persistido. O hash de token e o e-mail em claro nunca são expostos pela chave.
 
 Expiração operacional: \texttt{expira\_em} vencido torna o convite inaceitável
 e ele deixa de contar como pendente para a unicidade; job ou reconciliação
