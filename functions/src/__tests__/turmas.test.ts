@@ -6,6 +6,7 @@ process.env.FUNCTIONS_EMULATOR = "true";
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { criarTurma, ingressarEmTurmaPorCodigo, removerAlunoTurma, alterarStatusTurma, adicionarAlunoExistenteTurma, convidarAluno } from "../turmas";
+import { chaveTurmaCodigo } from "../chaves";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -117,7 +118,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     expect(doc.exists).toBe(true);
     expect(doc.data()?.qtd_alunos).toBe(0);
     expect(doc.data()?.status).toBe("Ativo");
-    const chave = await db.collection("Chaves_Unicas").doc(`Turma__${result.codigoTurma}`).get();
+    const chave = await db.collection("Chaves_Unicas").doc(chaveTurmaCodigo(result.codigoTurma)).get();
     expect(chave.exists).toBe(true);
     expect(chave.data()?.id_recurso).toBe(result.id);
   });
@@ -844,5 +845,171 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     expect(evento.modo_ingresso).toBeNull();
     expect(evento.justificativa).toBeNull();
     expect(evento.removido_por).toBe("prof_adm7");
+  });
+
+  // ── Testes fail-closed M11 (vínculo canônico e contador de remoção) ──────
+
+  it("TEST-INT-TURMA-M11-FC-001 — membro com id_aluno divergente do docId → fail-closed", async () => {
+    const turma = await criarTurmaOk("prof_fc1", {
+      idMateria: "mat_fc1", nomeTurma: "Turma FC1", capacidade: 5, nomeMateria: "FC1"
+    });
+    await semearAluno("aluno_fc1");
+    // Grava vínculo com id_aluno divergente do docId
+    await db.collection("Turma").doc(turma.id).collection("Alunos").doc("aluno_fc1").set({
+      id_aluno: "outro_uid", // errado
+      id_turma: turma.id,
+      ingressou_em: new Date(),
+    });
+    const wrapped = testEnv.wrap(ingressarEmTurmaPorCodigo);
+    await expect(
+      wrapped(mockRequest({ idOperacao: novaOperacao(), codigoTurma: turma.codigoTurma }, "aluno_fc1", ["Aluno"]))
+    ).rejects.toMatchObject({ code: "failed-precondition" });
+  });
+
+  it("TEST-INT-TURMA-M11-FC-002 — membro com id_turma divergente do path → fail-closed", async () => {
+    const turma = await criarTurmaOk("prof_fc2", {
+      idMateria: "mat_fc2", nomeTurma: "Turma FC2", capacidade: 5, nomeMateria: "FC2"
+    });
+    await semearAluno("aluno_fc2");
+    await db.collection("Turma").doc(turma.id).collection("Alunos").doc("aluno_fc2").set({
+      id_aluno: "aluno_fc2",
+      id_turma: "outra_turma_id", // errado
+      ingressou_em: new Date(),
+    });
+    const wrapped = testEnv.wrap(ingressarEmTurmaPorCodigo);
+    await expect(
+      wrapped(mockRequest({ idOperacao: novaOperacao(), codigoTurma: turma.codigoTurma }, "aluno_fc2", ["Aluno"]))
+    ).rejects.toMatchObject({ code: "failed-precondition" });
+  });
+
+  it("TEST-INT-TURMA-M11-FC-003 — membro sem ingressou_em → fail-closed", async () => {
+    const turma = await criarTurmaOk("prof_fc3", {
+      idMateria: "mat_fc3", nomeTurma: "Turma FC3", capacidade: 5, nomeMateria: "FC3"
+    });
+    await semearAluno("aluno_fc3");
+    await db.collection("Turma").doc(turma.id).collection("Alunos").doc("aluno_fc3").set({
+      id_aluno: "aluno_fc3",
+      id_turma: turma.id,
+      // ingressou_em ausente
+    });
+    const wrapped = testEnv.wrap(ingressarEmTurmaPorCodigo);
+    await expect(
+      wrapped(mockRequest({ idOperacao: novaOperacao(), codigoTurma: turma.codigoTurma }, "aluno_fc3", ["Aluno"]))
+    ).rejects.toMatchObject({ code: "failed-precondition" });
+  });
+
+  it("TEST-INT-TURMA-M11-FC-004 — turma com status desconhecido + vínculo existente → fail-closed", async () => {
+    const turma = await criarTurmaOk("prof_fc4", {
+      idMateria: "mat_fc4", nomeTurma: "Turma FC4", capacidade: 5, nomeMateria: "FC4"
+    });
+    await semearAluno("aluno_fc4");
+    await db.collection("Turma").doc(turma.id).collection("Alunos").doc("aluno_fc4").set({
+      id_aluno: "aluno_fc4",
+      id_turma: turma.id,
+      ingressou_em: new Date(),
+    });
+    // Forçar status inválido
+    await db.collection("Turma").doc(turma.id).update({ status: "StatusInvalido" });
+    const wrapped = testEnv.wrap(ingressarEmTurmaPorCodigo);
+    await expect(
+      wrapped(mockRequest({ idOperacao: novaOperacao(), codigoTurma: turma.codigoTurma }, "aluno_fc4", ["Aluno"]))
+    ).rejects.toMatchObject({ code: "failed-precondition" });
+  });
+
+  it("TEST-INT-TURMA-M11-FC-005 — membro correto em turma cheia → sucesso sem incremento", async () => {
+    const turma = await criarTurmaOk("prof_fc5", {
+      idMateria: "mat_fc5", nomeTurma: "Turma FC5", capacidade: 1, nomeMateria: "FC5"
+    });
+    await ingressar("aluno_fc5", turma.codigoTurma);
+    const qtdAntes = (await db.collection("Turma").doc(turma.id).get()).data()?.qtd_alunos;
+
+    const wrapped = testEnv.wrap(ingressarEmTurmaPorCodigo);
+    const res = await wrapped(
+      mockRequest({ idOperacao: novaOperacao(), codigoTurma: turma.codigoTurma }, "aluno_fc5", ["Aluno"])
+    );
+
+    expect(res.idTurma).toBe(turma.id);
+    const qtdDepois = (await db.collection("Turma").doc(turma.id).get()).data()?.qtd_alunos;
+    expect(qtdDepois).toBe(qtdAntes);
+  });
+
+  it("TEST-INT-TURMA-M11-FC-006 — remoção com qtd_alunos=0 → fail-closed, vínculo permanece", async () => {
+    const turma = await criarTurmaOk("prof_fc6", {
+      idMateria: "mat_fc6", nomeTurma: "Turma FC6", capacidade: 5, nomeMateria: "FC6"
+    });
+    await ingressar("aluno_fc6", turma.codigoTurma);
+    // Forçar contador corrompido
+    await db.collection("Turma").doc(turma.id).update({ qtd_alunos: 0 });
+    const wrapped = testEnv.wrap(removerAlunoTurma);
+    await expect(
+      wrapped(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_fc6" }, "prof_fc6"))
+    ).rejects.toMatchObject({ code: "failed-precondition" });
+    // Vínculo deve permanecer
+    const vinculo = await db.collection("Turma").doc(turma.id).collection("Alunos").doc("aluno_fc6").get();
+    expect(vinculo.exists).toBe(true);
+  });
+
+  it("TEST-INT-TURMA-M11-FC-007 — remoção com qtd_alunos ausente → fail-closed", async () => {
+    const turma = await criarTurmaOk("prof_fc7", {
+      idMateria: "mat_fc7", nomeTurma: "Turma FC7", capacidade: 5, nomeMateria: "FC7"
+    });
+    await ingressar("aluno_fc7", turma.codigoTurma);
+    // Remover o campo contador
+    await db.collection("Turma").doc(turma.id).update({
+      qtd_alunos: admin.firestore.FieldValue.delete()
+    });
+    const wrapped = testEnv.wrap(removerAlunoTurma);
+    await expect(
+      wrapped(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_fc7" }, "prof_fc7"))
+    ).rejects.toMatchObject({ code: "failed-precondition" });
+  });
+
+  it("TEST-INT-TURMA-M11-FC-008 — remoção com qtd_alunos string → fail-closed", async () => {
+    const turma = await criarTurmaOk("prof_fc8", {
+      idMateria: "mat_fc8", nomeTurma: "Turma FC8", capacidade: 5, nomeMateria: "FC8"
+    });
+    await ingressar("aluno_fc8", turma.codigoTurma);
+    await db.collection("Turma").doc(turma.id).update({ qtd_alunos: "invalido" });
+    const wrapped = testEnv.wrap(removerAlunoTurma);
+    await expect(
+      wrapped(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_fc8" }, "prof_fc8"))
+    ).rejects.toMatchObject({ code: "failed-precondition" });
+  });
+
+  it("TEST-INT-TURMA-M11-FC-009 — remoção com qtd fracionário → fail-closed", async () => {
+    const turma = await criarTurmaOk("prof_fc9", {
+      idMateria: "mat_fc9", nomeTurma: "Turma FC9", capacidade: 5, nomeMateria: "FC9"
+    });
+    await ingressar("aluno_fc9", turma.codigoTurma);
+    await db.collection("Turma").doc(turma.id).update({ qtd_alunos: 1.5 });
+    const wrapped = testEnv.wrap(removerAlunoTurma);
+    await expect(
+      wrapped(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_fc9" }, "prof_fc9"))
+    ).rejects.toMatchObject({ code: "failed-precondition" });
+  });
+
+  it("TEST-INT-TURMA-M11-FC-010 — remoção + qtd=1 → remove e qtd=0", async () => {
+    const turma = await criarTurmaOk("prof_fc10", {
+      idMateria: "mat_fc10", nomeTurma: "Turma FC10", capacidade: 5, nomeMateria: "FC10"
+    });
+    await ingressar("aluno_fc10", turma.codigoTurma);
+    expect((await db.collection("Turma").doc(turma.id).get()).data()?.qtd_alunos).toBe(1);
+    await testEnv.wrap(removerAlunoTurma)(
+      mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_fc10" }, "prof_fc10")
+    );
+    expect((await db.collection("Turma").doc(turma.id).get()).data()?.qtd_alunos).toBe(0);
+  });
+
+  it("TEST-INT-TURMA-M11-FC-011 — remoção + qtd=2 → qtd=1", async () => {
+    const turma = await criarTurmaOk("prof_fc11", {
+      idMateria: "mat_fc11", nomeTurma: "Turma FC11", capacidade: 5, nomeMateria: "FC11"
+    });
+    await ingressar("aluno_fc11a", turma.codigoTurma);
+    await ingressar("aluno_fc11b", turma.codigoTurma);
+    expect((await db.collection("Turma").doc(turma.id).get()).data()?.qtd_alunos).toBe(2);
+    await testEnv.wrap(removerAlunoTurma)(
+      mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_fc11a" }, "prof_fc11")
+    );
+    expect((await db.collection("Turma").doc(turma.id).get()).data()?.qtd_alunos).toBe(1);
   });
 });
