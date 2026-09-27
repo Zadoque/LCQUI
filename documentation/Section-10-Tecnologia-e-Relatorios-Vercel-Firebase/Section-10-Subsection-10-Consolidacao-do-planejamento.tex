@@ -98,7 +98,7 @@ export const aceitarConviteAluno = onCall(async (request) => {
   const { tokenConvite, matriculaInformada } = request.data as { tokenConvite: string; matriculaInformada?: string };
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Usuario nao autenticado.");
 
-  // 1. Calcular hash SHA-256 para busca do convite pelo token_hash (o HMAC e usado apenas como ID deterministico do documento)
+  // 1. Calcular hash SHA-256 para busca do convite pelo token_hash (o HMAC e usado apenas na chave de pendencia em Chaves_Unicas; o convite possui docId imutavel)
   const { createHash } = require("crypto");
   const hashToken = createHash("sha256").update(tokenConvite).digest("hex");
 
@@ -248,9 +248,9 @@ O pseudocódigo N-12 é ilustrativo. O contrato normativo é a
 Seção~\ref{sec:regras-turmas-m11}: o vínculo canônico é
 \texttt{Turma/\{id\}/Alunos/\{uid\}} e o espelho
 \texttt{Usuarios/\{uid\}/Turmas/\{id\}} é projeção; \texttt{qtd\_alunos} é lido
-e escrito na transação, nunca recontado fora dela; o docId do convite é
-determinístico por HMAC do contexto e do e-mail normalizado, com unicidade em
-\texttt{Chaves\_Unicas}; o ID do convite é imutável e distinto da chave de
+e escrito na transação, nunca recontado fora dela; a chave de pendência do convite é
+determinística por HMAC do contexto e do e-mail normalizado, com unicidade em
+\texttt{Chaves\_Unicas}; o ID do convite (\texttt{Convite\_Aluno/\{id\}}) é imutável e distinto da chave de
 pendência, de modo que um novo convite após terminalidade não sobrescreve o
 aceito/expirado nem apaga \texttt{aceitado\_por}/\texttt{aceitado\_em}; a
 aceitação exige e-mail verificado correspondente e é idempotente por (ator,
