@@ -221,4 +221,55 @@ describe("Cadastros base — Almoxarifado (M9 + M7)", () => {
       wrapped(mockRequest(corpo({ idLocal: "local_limite", descricao: "D".repeat(501) }), chefe))
     ).rejects.toMatchObject({ code: "invalid-argument" });
   });
+
+  it("TEST-INT-ALMOX-013 — mesmo idOperacao com ativo diferente é already-exists", async () => {
+    const chefe = uidUnico("chefe_almox_ativo_id");
+    const gestor = uidUnico("gestor_almox_ativo_id");
+    await semearChefe(chefe);
+    await semearGestorAlmox(gestor);
+    await semearLocal("local_ativo_id");
+    const op = novaOperacao();
+    const wrapped = testEnv.wrap(gerenciarAlmoxarifado);
+    await wrapped(mockRequest(corpo({ idOperacao: op, idLocal: "local_ativo_id", gestores: [gestor], ativo: false }), chefe));
+    await expect(
+      wrapped(mockRequest(corpo({ idOperacao: op, idLocal: "local_ativo_id", gestores: [gestor], ativo: true }), chefe))
+    ).rejects.toMatchObject({ code: "already-exists" });
+  });
+
+  it("TEST-INT-ALMOX-014 — mesma intenção com gestores em ordem diferente é replay", async () => {
+    const chefe = uidUnico("chefe_almox_ordem");
+    const g1 = uidUnico("gestor_ordem1");
+    const g2 = uidUnico("gestor_ordem2");
+    await semearChefe(chefe);
+    await semearGestorAlmox(g1);
+    await semearGestorAlmox(g2);
+    await semearLocal("local_ordem");
+    const op = novaOperacao();
+    const wrapped = testEnv.wrap(gerenciarAlmoxarifado);
+    const primeiro = await wrapped(
+      mockRequest(corpo({ idOperacao: op, idLocal: "local_ordem", gestores: [g1, g2] }), chefe)
+    );
+    const segundo = await wrapped(
+      mockRequest(corpo({ idOperacao: op, idLocal: "local_ordem", gestores: [g2, g1] }), chefe)
+    );
+    expect(segundo).toEqual(primeiro);
+    const almoox = await db.collection("Almoxarifado").where("id_local", "==", "local_ordem").get();
+    expect(almoox.size).toBe(1);
+  });
+
+  it("TEST-INT-ALMOX-015 — conjunto de gestores semanticamente diferente é already-exists", async () => {
+    const chefe = uidUnico("chefe_almox_conj");
+    const g1 = uidUnico("gestor_conj1");
+    const g2 = uidUnico("gestor_conj2");
+    await semearChefe(chefe);
+    await semearGestorAlmox(g1);
+    await semearGestorAlmox(g2);
+    await semearLocal("local_conj");
+    const op = novaOperacao();
+    const wrapped = testEnv.wrap(gerenciarAlmoxarifado);
+    await wrapped(mockRequest(corpo({ idOperacao: op, idLocal: "local_conj", gestores: [g1] }), chefe));
+    await expect(
+      wrapped(mockRequest(corpo({ idOperacao: op, idLocal: "local_conj", gestores: [g1, g2] }), chefe))
+    ).rejects.toMatchObject({ code: "already-exists" });
+  });
 });

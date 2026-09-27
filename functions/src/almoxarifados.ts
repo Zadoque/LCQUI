@@ -67,14 +67,18 @@ export const gerenciarAlmoxarifado = onCall(async (request) => {
 
   return db.runTransaction(async (tx) => {
     await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral"]);
-    const gestoresDesejados = dados.gestores ? [...new Set(dados.gestores)] : undefined;
+    // Vínculos são um conjunto: normaliza (dedup + ordem determinística) antes
+    // do hash e do efeito, para que a MESMA intenção não dependa da ordem.
+    const gestoresOrdenados = dados.gestores ? [...new Set(dados.gestores)].sort() : undefined;
+    const ativoEfetivo = dados.ativo === true;
 
     if (dados.acao === "CRIAR") {
       const identidade = construirIdentidade(claims.uid, "CRIAR_ALMOXARIFADO", {
         idLocal: dados.idLocal,
         nome,
         descricao,
-        gestores: gestoresDesejados ?? [],
+        gestores: gestoresOrdenados ?? [],
+        ativo: ativoEfetivo,
       });
       const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
       if (decisao.estado === "REPLAY") return decisao.resultado as { id: string };
@@ -84,9 +88,8 @@ export const gerenciarAlmoxarifado = onCall(async (request) => {
 
       const local = await tx.get(db.collection("Local").doc(dados.idLocal));
       if (!local.exists) throw new HttpsError("failed-precondition", "Local inexistente.");
-      const gestores = await validarGestoresTx(tx, db, gestoresDesejados ?? []);
-      const ativo = dados.ativo === true;
-      if (ativo && gestores.length === 0) {
+      const gestores = await validarGestoresTx(tx, db, gestoresOrdenados ?? []);
+      if (ativoEfetivo && gestores.length === 0) {
         throw new HttpsError("failed-precondition", "Ativação exige ao menos um gestor ativo.");
       }
 
@@ -95,7 +98,7 @@ export const gerenciarAlmoxarifado = onCall(async (request) => {
         id_local: dados.idLocal,
         nome,
         descricao,
-        ativo,
+        ativo: ativoEfetivo,
         qtd_gestores_ativos: gestores.length,
       });
       for (const gestor of gestores) {
@@ -120,7 +123,7 @@ export const gerenciarAlmoxarifado = onCall(async (request) => {
         idLocal: dados.idLocal,
         nome,
         descricao,
-        gestores: gestoresDesejados ?? null,
+        gestores: gestoresOrdenados ?? null,
       });
       const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
       if (decisao.estado === "REPLAY") return decisao.resultado as { id: string };
@@ -134,8 +137,8 @@ export const gerenciarAlmoxarifado = onCall(async (request) => {
       if (!local.exists) throw new HttpsError("failed-precondition", "Local inexistente.");
 
       let qtd: number | null = null;
-      if (gestoresDesejados) {
-        const gestores = await validarGestoresTx(tx, db, gestoresDesejados);
+      if (gestoresOrdenados) {
+        const gestores = await validarGestoresTx(tx, db, gestoresOrdenados);
         if (almox.ativo === true && gestores.length === 0) {
           throw new HttpsError("failed-precondition", "Almoxarifado ativo exige ao menos um gestor ativo.");
         }
