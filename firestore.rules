@@ -86,7 +86,12 @@ service cloud.firestore {
       match /Notificacoes/{notifId} {
         // RN-M13-01: caixa única por UID; só o destinatário autenticado lê, e o
         // documento precisa ser endereçado a ele (uid do caminho == id_destinatario).
-        allow read: if isOwner(uid) && resource.data.id_destinatario == uid;
+        // Bootstrap M11/M13: CONVITE_PARA_TURMA pode ser lida pelo usuário autenticado dono da caixa
+        // mesmo antes da atribuição de papel persistido (Aluno). Demais tipos exigem autoridade completa isOwner(uid).
+        allow read: if request.auth != null
+          && request.auth.uid == uid
+          && resource.data.id_destinatario == uid
+          && (resource.data.tipo == 'CONVITE_PARA_TURMA' || isOwner(uid));
         allow write: if false; // marcação server-owned (marcarNotificacaoComoLida)
       }
     }
