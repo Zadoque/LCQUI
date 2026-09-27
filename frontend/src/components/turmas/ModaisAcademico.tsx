@@ -10,6 +10,8 @@ import {
   lerIntencao,
   gravarIntencao,
   limparIntencao,
+  chaveIntencaoIngressar,
+  assinaturaIngressar,
   CHAVE_INTENCAO_CRIAR_TURMA,
 } from "@/lib/intencaoOperacao";
 
@@ -318,8 +320,16 @@ export function IngressarTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
     try {
       const functions = getFunctions();
       const ingressarFn = httpsCallable(functions, "ingressarEmTurmaPorCodigo");
-      
-      await ingressarFn({ codigoTurma: codigo });
+
+      const session = typeof window !== "undefined" ? window.sessionStorage : null;
+      const chave = chaveIntencaoIngressar(codigo);
+      const assinatura = assinaturaIngressar(codigo);
+      const atual = session ? lerIntencao(session, chave) : null;
+      const intencao = resolverIdOperacao(atual, assinatura, () => crypto.randomUUID());
+      if (session) gravarIntencao(session, chave, intencao);
+
+      await ingressarFn({ idOperacao: intencao.idOperacao, codigoTurma: codigo });
+      if (session) limparIntencao(session, chave);
       onClose();
     } catch (err: any) {
       setError(err.message || "Erro ao ingressar na turma.");

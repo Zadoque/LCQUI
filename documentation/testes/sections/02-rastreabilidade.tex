@@ -303,6 +303,22 @@ gestores validados, contador derivado e M9/M7; as Rules fecham Almoxarifado e o
 vínculo para escrita cliente. \texttt{almoxarifados} 12/12, Rules 79/79 e
 integração completa 194 passam / 14 falham (legadas).
 
+\subsection{Décima nona cadeia executada (ingresso por código M9/M7)}
+
+\begin{center}
+Seção 7 M11/RN-TUR-01, Seção 9 ALU-01, CUE \texttt{\#M11Turma}, M7 e M9
+$\rightarrow$ \texttt{IMP-ACAD-002}
+$\rightarrow$ \texttt{TEST-INT-TURMA-ING-001--004}
+$\rightarrow$ \nolinkurl{functions/src/turmas.ts} e \nolinkurl{frontend/src/components/turmas/ModaisAcademico.tsx}
+$\rightarrow$ PASS Node 20
+\end{center}
+
+O ingresso passou a reler M9 na transação, aplicar M7 (replay não duplica
+matrícula/contador), buscar a turma dentro da transação e aceitar código até 20
+caracteres; o modal envia \texttt{idOperacao} persistido. \texttt{turmas} 45/45;
+integração completa 198 passam / 14 falham (legadas). A projeção mínima do
+vínculo permanece pendente.
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara

@@ -19,23 +19,28 @@ import {
  * O ingresso exige que a quantidade de alunos seja estritamente menor que a capacidade.
  */
 export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
-  validarPermissao(request, ["Aluno", "Bolsista"]);
-  
-  const { codigoTurma } = validatePayload(IngressarTurmaPorCodigoSchema, request.data);
+  const claims = extrairClaimsAutoridade(request);
+  const { idOperacao, codigoTurma } = validatePayload(IngressarTurmaPorCodigoSchema, request.data);
 
   const db = admin.firestore();
-
-  const turmaSnap = await db.collection("Turma")
-    .where("codigo_turma", "==", codigoTurma)
-    .limit(1).get();
-  
-  if (turmaSnap.empty) throw new HttpsError("not-found", "Turma não encontrada.");
-  const turmaRef = turmaSnap.docs[0].ref;
+  const consultaTurma = db.collection("Turma").where("codigo_turma", "==", codigoTurma).limit(1);
 
   return db.runTransaction(async (tx) => {
-    const turmaDoc = await tx.get(turmaRef);
-    if (!turmaDoc.exists) throw new HttpsError("not-found", "Turma sumiu.");
-    const turma = turmaDoc.data()!;
+    // M9: autoridade persistida (Aluno ou Bolsista) relida na transação.
+    await resolverAutoridadePersistidaTx(tx, claims, ["Aluno", "Bolsista"]);
+
+    // M7: identidade canônica; replay devolve o receipt sem reaplicar efeito.
+    const identidade = construirIdentidade(claims.uid, "INGRESSAR_TURMA", { codigoTurma });
+    const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+    if (decisao.estado === "REPLAY") return decisao.resultado as { idTurma: string; nomeTurma: string };
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError("failed-precondition", "Operação de ingresso não concluída.");
+    }
+
+    const turmaSnap = await tx.get(consultaTurma);
+    if (turmaSnap.empty) throw new HttpsError("not-found", "Turma não encontrada.");
+    const turmaDoc = turmaSnap.docs[0];
+    const turma = turmaDoc.data();
 
     if (turma.status === "Arquivada") {
       throw new HttpsError("failed-precondition", "A turma está arquivada e não aceita novos alunos.");
@@ -46,15 +51,15 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
       throw new HttpsError("failed-precondition", "A capacidade máxima da turma foi atingida.");
     }
 
-    const alunoTurmaRef = turmaRef.collection("Alunos").doc(request.auth!.uid);
+    const alunoTurmaRef = turmaDoc.ref.collection("Alunos").doc(claims.uid);
     const alunoTurmaDoc = await tx.get(alunoTurmaRef);
     if (alunoTurmaDoc.exists) {
       throw new HttpsError("already-exists", "Você já está matriculado nesta turma.");
     }
 
     const historicoSnap = await tx.get(
-      turmaRef.collection("HistoricoAlunos")
-        .where("id_aluno", "==", request.auth!.uid)
+      turmaDoc.ref.collection("HistoricoAlunos")
+        .where("id_aluno", "==", claims.uid)
         .where("tipo", "==", "exclusao_aluno")
         .limit(1)
     );
@@ -62,19 +67,19 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
       throw new HttpsError("permission-denied", "Você foi removido pelo professor e não pode retornar pelo código.");
     }
 
-    const userRef = db.collection("Aluno").doc(request.auth!.uid);
+    const userRef = db.collection("Aluno").doc(claims.uid);
     const userDoc = await tx.get(userRef);
     const userData = userDoc.exists ? userDoc.data()! : {};
 
     tx.set(alunoTurmaRef, {
-      id_aluno: request.auth!.uid,
+      id_aluno: claims.uid,
       nome: userData.nome || "Sem nome",
       email: userData.email || "",
       numero_matricula: userData.numero_matricula || "",
       ingressou_em: FieldValue.serverTimestamp()
     });
 
-    const alunoTurmaMirrorRef = db.collection("Usuarios").doc(request.auth!.uid).collection("Turmas").doc(turmaDoc.id);
+    const alunoTurmaMirrorRef = db.collection("Usuarios").doc(claims.uid).collection("Turmas").doc(turmaDoc.id);
     tx.set(alunoTurmaMirrorRef, {
       id_turma: turmaDoc.id,
       nome_turma: turma.nome_turma,
@@ -82,20 +87,23 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
       ano: turma.ano,
       semestre: turma.semestre,
       id_professor: turma.id_professor,
+      status: turma.status,
       ingressou_em: FieldValue.serverTimestamp()
     });
 
-    tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
-      id_aluno: request.auth!.uid,
+    tx.set(turmaDoc.ref.collection("HistoricoAlunos").doc(), {
+      id_aluno: claims.uid,
       tipo: "inclusao_aluno",
       timestamp: FieldValue.serverTimestamp()
     });
 
-    tx.update(turmaRef, {
+    tx.update(turmaDoc.ref, {
       qtd_alunos: FieldValue.increment(1)
     });
 
-    return { idTurma: turmaDoc.id, nomeTurma: turma.nome_turma };
+    const resultado = { idTurma: turmaDoc.id, nomeTurma: turma.nome_turma };
+    registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+    return resultado;
   });
 });
 

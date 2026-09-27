@@ -7,7 +7,8 @@ export const IdOperacaoTurmaSchema = z
   .regex(/^[A-Za-z0-9_-]{1,128}$/, "idOperacao inválido (use [A-Za-z0-9_-]{1,128}).");
 
 export const IngressarTurmaPorCodigoSchema = z.object({
-  codigoTurma: z.string().min(1, "O código da turma é obrigatório.").max(10, "Código de turma inválido.")
+  idOperacao: IdOperacaoTurmaSchema,
+  codigoTurma: z.string().min(1, "O código da turma é obrigatório.").max(20, "Código de turma inválido.")
 });
 
 export const CriarTurmaSchema = z.object({

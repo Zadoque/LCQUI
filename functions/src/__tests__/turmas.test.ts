@@ -40,6 +40,17 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     await db.collection("Professor").doc(uid).set({ id_usuario: uid, ativo: true });
   }
 
+  async function semearAluno(uid: string): Promise<void> {
+    await db.collection("Usuarios").doc(uid).set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Aluno").doc(uid).set({ id_usuario: uid, ativo: true });
+  }
+
+  async function ingressar(uid: string, codigoTurma: string): Promise<{ idTurma: string; nomeTurma: string }> {
+    await semearAluno(uid);
+    const wrapped = testEnv.wrap(ingressarEmTurmaPorCodigo);
+    return wrapped(mockRequest({ idOperacao: novaOperacao(), codigoTurma }, uid, ["Aluno"]));
+  }
+
   async function semearMateria(id: string, nome: string): Promise<void> {
     await db.collection("Materia").doc(id).set({ nome, codigo_materia: id.toUpperCase() });
   }
@@ -116,13 +127,13 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
       idMateria: "mat_c", nomeTurma: "Turma Cheia", capacidade: 1, nomeMateria: "Cheia"
     });
 
-    const wrappedIngressar = testEnv.wrap(ingressarEmTurmaPorCodigo);
-    
-    const reqAluno1 = mockRequest({ codigoTurma: turma.codigoTurma }, "aluno1", ["Aluno"]);
-    await wrappedIngressar(reqAluno1);
+    await ingressar("aluno1", turma.codigoTurma);
+    await semearAluno("aluno2");
 
-    const reqAluno2 = mockRequest({ codigoTurma: turma.codigoTurma }, "aluno2", ["Aluno"]);
-    await expect(wrappedIngressar(reqAluno2)).rejects.toThrow(/A capacidade máxima da turma foi atingida/);
+    const wrappedIngressar = testEnv.wrap(ingressarEmTurmaPorCodigo);
+    await expect(
+      wrappedIngressar(mockRequest({ idOperacao: novaOperacao(), codigoTurma: turma.codigoTurma }, "aluno2", ["Aluno"]))
+    ).rejects.toThrow(/A capacidade máxima da turma foi atingida/);
   });
 
   it("deve garantir que o ingresso de aluno registre o evento no Historico_Alunos_Turma como inclusao_aluno", async () => {
@@ -130,9 +141,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
       idMateria: "mat_h", nomeTurma: "Turma Historico", capacidade: 5, nomeMateria: "Historico"
     });
 
-    const wrappedIngressar = testEnv.wrap(ingressarEmTurmaPorCodigo);
-    const reqAluno = mockRequest({ codigoTurma: turma.codigoTurma }, "aluno_h", ["Aluno"]);
-    await wrappedIngressar(reqAluno);
+    await ingressar("aluno_h", turma.codigoTurma);
 
     const historicoSnap = await db.collection("Turma").doc(turma.id).collection("HistoricoAlunos")
       .where("id_aluno", "==", "aluno_h").get();
@@ -142,9 +151,11 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
   });
 
   it("deve rejeitar tentativa de ingresso se o codigo da turma for inexistente", async () => {
+    await semearAluno("aluno_err");
     const wrappedIngressar = testEnv.wrap(ingressarEmTurmaPorCodigo);
-    const reqAluno = mockRequest({ codigoTurma: "INVALD" }, "aluno_err", ["Aluno"]);
-    await expect(wrappedIngressar(reqAluno)).rejects.toThrow(/Turma não encontrada/);
+    await expect(
+      wrappedIngressar(mockRequest({ idOperacao: novaOperacao(), codigoTurma: "INVALD" }, "aluno_err", ["Aluno"]))
+    ).rejects.toThrow(/Turma não encontrada/);
   });
 
   it("deve rejeitar o ingresso por código se a turma estiver com status Arquivada", async () => {
@@ -155,9 +166,11 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     const wrappedArquivar = testEnv.wrap(alterarStatusTurma);
     await wrappedArquivar(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, status: "Arquivada" }, "prof_arq"));
 
+    await semearAluno("aluno_arq");
     const wrappedIngressar = testEnv.wrap(ingressarEmTurmaPorCodigo);
-    const reqAluno = mockRequest({ codigoTurma: turma.codigoTurma }, "aluno_arq", ["Aluno"]);
-    await expect(wrappedIngressar(reqAluno)).rejects.toThrow(/turma está arquivada/);
+    await expect(
+      wrappedIngressar(mockRequest({ idOperacao: novaOperacao(), codigoTurma: turma.codigoTurma }, "aluno_arq", ["Aluno"]))
+    ).rejects.toThrow(/turma está arquivada/);
   });
 
   it("deve registrar o evento de exclusao_aluno no Historico_Alunos_Turma quando professor remover", async () => {
@@ -165,8 +178,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
       idMateria: "mat_r", nomeTurma: "Turma Rem", capacidade: 5, nomeMateria: "Rem"
     });
 
-    const wrappedIngressar = testEnv.wrap(ingressarEmTurmaPorCodigo);
-    await wrappedIngressar(mockRequest({ codigoTurma: turma.codigoTurma }, "aluno_rem", ["Aluno"]));
+    await ingressar("aluno_rem", turma.codigoTurma);
 
     const wrappedRemover = testEnv.wrap(removerAlunoTurma);
     await wrappedRemover(mockRequest({ idTurma: turma.id, idAluno: "aluno_rem" }, "prof_rem"));
@@ -183,8 +195,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
       idMateria: "mat_r2", nomeTurma: "Turma Rem2", capacidade: 5, nomeMateria: "Rem2"
     });
 
-    const wrappedIngressar = testEnv.wrap(ingressarEmTurmaPorCodigo);
-    await wrappedIngressar(mockRequest({ codigoTurma: turma.codigoTurma }, "aluno_rem2", ["Aluno"]));
+    await ingressar("aluno_rem2", turma.codigoTurma);
 
     const wrappedRemover = testEnv.wrap(removerAlunoTurma);
     await wrappedRemover(mockRequest({ idTurma: turma.id, idAluno: "aluno_rem2" }, "prof_rem2"));
@@ -512,9 +523,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     const turma = await criarTurmaOk("prof_arq3", {
       idMateria: "mat_arq3", nomeTurma: "Turma Arq3", capacidade: 5, nomeMateria: "Arq3"
     });
-    await testEnv.wrap(ingressarEmTurmaPorCodigo)(
-      mockRequest({ codigoTurma: turma.codigoTurma }, "aluno_arq3", ["Aluno"])
-    );
+    await ingressar("aluno_arq3", turma.codigoTurma);
 
     const antes = (await db.collection("Turma").doc(turma.id).get()).data()!;
     const wrapped = testEnv.wrap(alterarStatusTurma);
@@ -541,9 +550,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     const turma = await criarTurmaOk("prof_arq4", {
       idMateria: "mat_arq4", nomeTurma: "Turma Arq4", capacidade: 5, nomeMateria: "Arq4"
     });
-    await testEnv.wrap(ingressarEmTurmaPorCodigo)(
-      mockRequest({ codigoTurma: turma.codigoTurma }, "aluno_arq4", ["Aluno"])
-    );
+    await ingressar("aluno_arq4", turma.codigoTurma);
     const wrapped = testEnv.wrap(alterarStatusTurma);
     await wrapped(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, status: "Arquivada" }, "prof_arq4"));
     const versaoArquivada = (await db.collection("Turma").doc(turma.id).get()).data()!.versao;
@@ -586,9 +593,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     const turma = await criarTurmaOk("prof_arq6", {
       idMateria: "mat_arq7", nomeTurma: "Turma Arq7", capacidade: 5, nomeMateria: "Arq7"
     });
-    await testEnv.wrap(ingressarEmTurmaPorCodigo)(
-      mockRequest({ codigoTurma: turma.codigoTurma }, "aluno_arq7", ["Aluno"])
-    );
+    await ingressar("aluno_arq7", turma.codigoTurma);
     const op = novaOperacao();
     const body = { idOperacao: op, idTurma: turma.id, status: "Arquivada" };
     const wrapped = testEnv.wrap(alterarStatusTurma);
@@ -600,5 +605,58 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     const notif = await db.collection("Usuarios").doc("aluno_arq7").collection("Notificacoes")
       .where("tipo", "==", "TURMA_ARQUIVADA").get();
     expect(notif.size).toBe(1);
+  });
+
+  it("TEST-INT-TURMA-ING-001 — ingresso sem papel persistido é negado (M9)", async () => {
+    const turma = await criarTurmaOk("prof_ing1", {
+      idMateria: "mat_ing1", nomeTurma: "Turma Ing1", capacidade: 5, nomeMateria: "Ing1"
+    });
+    const wrapped = testEnv.wrap(ingressarEmTurmaPorCodigo);
+    await expect(
+      wrapped(mockRequest({ idOperacao: novaOperacao(), codigoTurma: turma.codigoTurma }, "aluno_sem_papel", ["Aluno"]))
+    ).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("TEST-INT-TURMA-ING-002 — replay do mesmo idOperacao não duplica matrícula nem contador", async () => {
+    const turma = await criarTurmaOk("prof_ing2", {
+      idMateria: "mat_ing2", nomeTurma: "Turma Ing2", capacidade: 5, nomeMateria: "Ing2"
+    });
+    await semearAluno("aluno_ing2");
+    const op = novaOperacao();
+    const body = { idOperacao: op, codigoTurma: turma.codigoTurma };
+    const wrapped = testEnv.wrap(ingressarEmTurmaPorCodigo);
+    const primeiro = await wrapped(mockRequest(body, "aluno_ing2", ["Aluno"]));
+    const segundo = await wrapped(mockRequest(body, "aluno_ing2", ["Aluno"]));
+    expect(segundo).toEqual(primeiro);
+
+    const alunos = await db.collection("Turma").doc(turma.id).collection("Alunos").get();
+    expect(alunos.size).toBe(1);
+    const doc = await db.collection("Turma").doc(turma.id).get();
+    expect(doc.data()?.qtd_alunos).toBe(1);
+    const hist = await db.collection("Turma").doc(turma.id).collection("HistoricoAlunos")
+      .where("id_aluno", "==", "aluno_ing2").get();
+    expect(hist.size).toBe(1);
+  });
+
+  it("TEST-INT-TURMA-ING-003 — código acima de 20 caracteres é invalid-argument", async () => {
+    await semearAluno("aluno_ing3");
+    const wrapped = testEnv.wrap(ingressarEmTurmaPorCodigo);
+    await expect(
+      wrapped(mockRequest({ idOperacao: novaOperacao(), codigoTurma: "X".repeat(21) }, "aluno_ing3", ["Aluno"]))
+    ).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("TEST-INT-TURMA-ING-004 — aluno removido não retorna pelo código", async () => {
+    const turma = await criarTurmaOk("prof_ing4", {
+      idMateria: "mat_ing4", nomeTurma: "Turma Ing4", capacidade: 5, nomeMateria: "Ing4"
+    });
+    await ingressar("aluno_ing4", turma.codigoTurma);
+    await testEnv.wrap(removerAlunoTurma)(
+      mockRequest({ idTurma: turma.id, idAluno: "aluno_ing4" }, "prof_ing4")
+    );
+    const wrapped = testEnv.wrap(ingressarEmTurmaPorCodigo);
+    await expect(
+      wrapped(mockRequest({ idOperacao: novaOperacao(), codigoTurma: turma.codigoTurma }, "aluno_ing4", ["Aluno"]))
+    ).rejects.toMatchObject({ code: "permission-denied" });
   });
 });

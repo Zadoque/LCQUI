@@ -1,0 +1,54 @@
+\section{Evidência de IMP-ACAD-002 (ingresso por código, M9 + M7)}
+
+\textbf{Feature:} \texttt{IMP-ACAD-002} --- ingresso de aluno por código.
+
+\textbf{Estado anterior:} \texttt{DIVERGENTE}. \texttt{ingressarEmTurmaPorCodigo}
+usava \texttt{validarPermissao} (JWT-only), consultava a turma fora da transação
+e não era idempotente; o limite de código era 10 (norma: até 20).
+
+\textbf{Estado depois:} M9 e M7 convergidos; permanece \texttt{DIVERGENTE} pela
+projeção mínima do vínculo e E2E.
+
+\subsection{Contrato}
+
+Fontes: RF18; Seção~7 M11/RN-TUR-01; Seção~9 ALU-01; CUE \texttt{\#M11Turma}/
+\texttt{\#M11VinculoCanonico}/\texttt{\#M11EspelhoAlunoTurma}. Turma ativa, vaga
+disponível, sem remoção impeditiva; ingresso idempotente (M7) sob autoridade M9
+persistida; contador transacional.
+
+\subsection{Mudança}
+
+\begin{itemize}
+  \item \path{functions/src/turmas.ts}: \texttt{ingressarEmTurmaPorCodigo}
+  passou a reexecutar \texttt{resolverAutoridadePersistidaTx} (Aluno/Bolsista) e
+  \texttt{resolverOperacaoTx} na transação; a busca da turma ocorre na
+  transação; grava receipt M7; o espelho recebe \texttt{status};
+  \item \path{functions/src/schemas/turmas.schema.ts}: \texttt{idOperacao}
+  obrigatório e código até 20 caracteres (norma), não 10;
+  \item \path{frontend/src/components/turmas/ModaisAcademico.tsx}: o modal gera
+  \texttt{idOperacao} persistido em \texttt{sessionStorage} por código.
+\end{itemize}
+
+\subsection{Testes}
+
+\small
+\begin{longtable}{@{}p{0.30\textwidth}p{0.52\textwidth}@{}}
+\toprule
+ID & Resultado \\
+\midrule
+\endhead
+TEST-INT-TURMA-ING-001 & Ingresso sem papel persistido é negado (M9) \\
+TEST-INT-TURMA-ING-002 & Replay do mesmo \texttt{idOperacao} não duplica matrícula/contador \\
+TEST-INT-TURMA-ING-003 & Código acima de 20 caracteres é \texttt{invalid-argument} \\
+TEST-INT-TURMA-ING-004 & Aluno removido não retorna pelo código \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+GREEN sob Node 20.19.6: \texttt{turmas.test.ts} 45/45; Rules 79/79; unit 71/71;
+integração completa 198 passam / 14 falham (legadas); \texttt{tsc --noEmit} do
+frontend PASS.
+
+\textbf{Estado final:} \texttt{IMP-ACAD-002} = \texttt{DIVERGENTE} pela projeção
+mínima do vínculo (e-mail/matrícula ainda persistidos no caminho lido por
+colegas) e E2E; autoridade M9 e idempotência M7 convergidas.

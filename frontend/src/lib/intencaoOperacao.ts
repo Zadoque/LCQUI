@@ -105,3 +105,12 @@ export function chaveIntencaoStatusTurma(idTurma: string, status: string): strin
 export function assinaturaStatusTurma(idTurma: string, status: string): string {
   return JSON.stringify(["ALTERAR_STATUS_TURMA", idTurma, status]);
 }
+
+/** Chave/assinatura da intenção de ingresso em turma por código. */
+export function chaveIntencaoIngressar(codigo: string): string {
+  return `lcqui.intencao.ingressarTurma.${codigo}`;
+}
+
+export function assinaturaIngressar(codigo: string): string {
+  return JSON.stringify(["INGRESSAR_TURMA", codigo]);
+}
