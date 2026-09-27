@@ -273,6 +273,21 @@ fan-out de notificação; as Rules fecham a Turma para escrita cliente e a UI
 migrou o desarquivar direto para a callable. \texttt{turmas} 41/41 e a
 integração completa 173 passam / 14 falham (legadas).
 
+\subsection{Décima sétima cadeia executada (Locais server-owned)}
+
+\begin{center}
+Seção 5 Local, Seção 8 UI-03, M7 e M9
+$\rightarrow$ \texttt{IMP-BASE-002}
+$\rightarrow$ \texttt{TEST-INT-LOCAL-001--009} e \texttt{TEST-RULES-Local}
+$\rightarrow$ \nolinkurl{functions/src/patrimonio.ts}, \nolinkurl{functions/src/schemas/patrimonio.schema.ts}, \nolinkurl{firestore.rules}
+$\rightarrow$ PASS Node 20
+\end{center}
+
+\texttt{gerenciarLocal} cria/edita com unicidade em \texttt{Chaves\_Unicas}
+(prédio/andar/sala), autoria, M9 persistido e M7; as Rules fecham o \texttt{Local}
+para escrita cliente. \texttt{locais} 9/9, Rules 78/78 e integração completa 182
+passam / 14 falham (legadas).
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara

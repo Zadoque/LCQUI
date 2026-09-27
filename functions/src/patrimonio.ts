@@ -3,9 +3,10 @@ import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { validarPermissao } from "./auth";
+import { validarPermissao, extrairClaimsAutoridade, resolverAutoridadePersistidaTx } from "./auth";
+import { construirIdentidade, registrarOperacaoConcluidaTx, resolverOperacaoTx } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
-import { CriarRequisicaoEdicaoBemSchema, ResponderRequisicaoBemSchema, CriarRequisicaoAdicaoBemSchema } from "./schemas/patrimonio.schema";
+import { CriarRequisicaoEdicaoBemSchema, ResponderRequisicaoBemSchema, CriarRequisicaoAdicaoBemSchema, GerenciarLocalSchema } from "./schemas/patrimonio.schema";
 import { adicionarNotificacaoTx } from "./notificacoes";
 
 export const criarRequisicaoEdicaoBem = onCall(async (request) => {
@@ -280,6 +281,100 @@ export const onResumoBemPatrimonialNomeAtualizado = onDocumentUpdated(
     }
   }
 );
+
+/** N(s) para unicidade de Local: apenas trim (sem inventar case-folding). */
+function chaveLocal(predio: string, andar: string, sala: string) {
+  return admin.firestore().collection("Chaves_Unicas").doc(`Local__${predio}__${andar}__${sala}`);
+}
+
+// UI-03: criação/edição server-owned de Local com unicidade (prédio, andar, sala),
+// M9 persistido e M7. A propagação para Bem_Patrimonial é feita pelo trigger
+// `onLocalAtualizado` na alteração de endereço.
+export const gerenciarLocal = onCall(async (request) => {
+  const claims = extrairClaimsAutoridade(request);
+  const dados = validatePayload(GerenciarLocalSchema, request.data);
+  const predio = dados.predio.trim();
+  const andar = dados.andar.trim();
+  const sala = dados.sala.trim();
+
+  const db = admin.firestore();
+  const novaChaveRef = chaveLocal(predio, andar, sala);
+
+  return db.runTransaction(async (tx) => {
+    // M9: autoridade persistida relida na transação.
+    await resolverAutoridadePersistidaTx(tx, claims, ["Gestor_Bens_Patrimoniais", "Chefe_Geral"]);
+
+    if (dados.acao === "CRIAR") {
+      const identidade = construirIdentidade(claims.uid, "CRIAR_LOCAL", { predio, andar, sala });
+      const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+      if (decisao.estado === "REPLAY") return decisao.resultado as { id: string };
+      if (decisao.estado !== "NOVA") {
+        throw new HttpsError("failed-precondition", "Operação de criação de local não concluída.");
+      }
+      const chave = await tx.get(novaChaveRef);
+      if (chave.exists) {
+        throw new HttpsError("already-exists", "Já existe um local com este prédio, andar e sala.");
+      }
+      const localRef = db.collection("Local").doc();
+      tx.set(localRef, {
+        predio,
+        andar,
+        sala,
+        criado_por: claims.uid,
+        criado_em: FieldValue.serverTimestamp(),
+      });
+      tx.set(novaChaveRef, {
+        tipo: "Local",
+        id_recurso: localRef.id,
+        criado_em: FieldValue.serverTimestamp(),
+      });
+      const resultado = { id: localRef.id };
+      registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+      return resultado;
+    }
+
+    if (!dados.idLocal) {
+      throw new HttpsError("invalid-argument", "idLocal é obrigatório para editar.");
+    }
+    const identidade = construirIdentidade(claims.uid, "EDITAR_LOCAL", {
+      idLocal: dados.idLocal,
+      predio,
+      andar,
+      sala,
+    });
+    const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+    if (decisao.estado === "REPLAY") return decisao.resultado as { id: string };
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError("failed-precondition", "Operação de edição de local não concluída.");
+    }
+    const localRef = db.collection("Local").doc(dados.idLocal);
+    const localSnap = await tx.get(localRef);
+    if (!localSnap.exists) throw new HttpsError("not-found", "Local não encontrado.");
+    const atual = localSnap.data()!;
+    const predioAtual = (atual.predio as string) ?? "";
+    const andarAtual = (atual.andar as string) ?? "";
+    const salaAtual = (atual.sala as string) ?? "";
+    const trocouEndereco = predio !== predioAtual || andar !== andarAtual || sala !== salaAtual;
+    if (trocouEndereco) {
+      const chave = await tx.get(novaChaveRef);
+      if (chave.exists) {
+        throw new HttpsError("already-exists", "Já existe um local com este prédio, andar e sala.");
+      }
+    }
+    if (trocouEndereco) {
+      tx.delete(chaveLocal(predioAtual, andarAtual, salaAtual));
+      tx.set(novaChaveRef, {
+        tipo: "Local",
+        id_recurso: dados.idLocal,
+        criado_em: FieldValue.serverTimestamp(),
+      });
+    }
+    tx.update(localRef, { predio, andar, sala });
+    const resultado = { id: dados.idLocal };
+    registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+    return resultado;
+  });
+});
 
 export const onLocalAtualizado = onDocumentUpdated(
   "Local/{localId}",

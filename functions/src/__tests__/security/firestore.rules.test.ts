@@ -176,6 +176,13 @@ describe("Firestore Security Rules", () => {
       await assertFails(db.collection("Bem_Patrimonial").add({ nome: "Microscópio" }));
     });
 
+    it("não permite que nenhum cliente escreva Local diretamente (server-owned)", async () => {
+      const dbGestor = authedDb("gestor1", ["Gestor_Bens_Patrimoniais"]);
+      const dbProf = authedDb("prof1", ["Professor"]);
+      await assertFails(dbGestor.collection("Local").add({ predio: "A", andar: "1", sala: "2" }));
+      await assertFails(dbProf.collection("Local").doc("l1").set({ predio: "A", andar: "1", sala: "2" }));
+    });
+
     it("deve permitir que um gestor de patrimônio crie patrimônio", async () => {
       const db = authedDb("gestor1", ["Gestor_Bens_Patrimoniais"]);
       await assertSucceeds(db.collection("Bem_Patrimonial").add({ nome: "Microscópio" }));

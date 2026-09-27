@@ -160,7 +160,8 @@ service cloud.firestore {
 
     match /Local/{itemId} {
       allow read: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais') || hasRole('Professor');
-      allow write: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais');
+      // Criação/edição server-owned (gerenciarLocal); propagação por trigger.
+      allow write: if false;
     }
 
     match /Requisicao_Adicao_Bem_Patrimonial/{reqId} {

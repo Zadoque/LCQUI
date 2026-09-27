@@ -1,0 +1,63 @@
+\section{Evidência de IMP-BASE-002 (Locais server-owned com unicidade)}
+
+\textbf{Feature:} \texttt{IMP-BASE-002} --- cadastro de Locais e propagação.
+
+\textbf{Estado anterior:} \texttt{DIVERGENTE}. Não havia criação/edição
+server-owned com unicidade, autoria e validação; as Rules permitiam escrita
+cliente a papéis e o trigger \texttt{onLocalAtualizado} era o único efeito de
+propagação.
+
+\textbf{Estado depois:} backend e Rules convergidos; permanece
+\texttt{DIVERGENTE} pela UI de gestão (S8 UI-03) e E2E.
+
+\subsection{Contrato}
+
+Fontes: Seção~5 (Local: \texttt{predio} $\le$ 30, \texttt{andar} $\le$ 10,
+\texttt{sala} $\le$ 30; \texttt{sala} única no contexto prédio/andar;
+\texttt{criado\_por}/\texttt{criado\_em}); Seção~8 UI-03; \texttt{onLocalAtualizado}
+(propaga \texttt{predio}/\texttt{andar}/\texttt{sala} para \texttt{Bem\_Patrimonial}).
+M9 (autoridade persistida) e M7 (identidade/receipt).
+
+\subsection{Mudança}
+
+\begin{itemize}
+  \item \path{functions/src/patrimonio.ts}: nova callable
+  \texttt{gerenciarLocal(\{idOperacao, acao, idLocal?, predio, andar, sala\})}.
+  \texttt{CRIAR} reserva \texttt{Chaves\_Unicas/Local\_\_\{prédio\}\_\_\{andar\}\_\_\{sala\}}
+  e grava autoria; \texttt{EDITAR} mantém o id, atualiza o endereço e migra a
+  chave; M9 persistido e M7 com replay/reuso incompatível;
+  \item \path{functions/src/schemas/patrimonio.schema.ts}: \texttt{GerenciarLocalSchema}
+  com limites e \texttt{idOperacao};
+  \item \path{firestore.rules}: \texttt{Local} passa a \texttt{allow write: if false}
+  (server-owned); leitura mantida.
+\end{itemize}
+
+\subsection{Testes}
+
+\small
+\begin{longtable}{@{}p{0.30\textwidth}p{0.52\textwidth}@{}}
+\toprule
+ID & Resultado \\
+\midrule
+\endhead
+TEST-INT-LOCAL-001 & Cria local com chave única e autoria \\
+TEST-INT-LOCAL-002 & Endereço duplicado é \texttt{already-exists} \\
+TEST-INT-LOCAL-003 & \texttt{trim} normaliza o endereço \\
+TEST-INT-LOCAL-004 & Limites de campo são aplicados \\
+TEST-INT-LOCAL-005 & Usuário sem papel autorizado é negado (M9) \\
+TEST-INT-LOCAL-006 & Replay do mesmo \texttt{idOperacao} não duplica \\
+TEST-INT-LOCAL-007 & Reuso incompatível do \texttt{idOperacao} é \texttt{already-exists} \\
+TEST-INT-LOCAL-008 & Edição troca endereço, migra chave e mantém o id \\
+TEST-INT-LOCAL-009 & Edição para endereço existente é \texttt{already-exists} \\
+TEST-RULES-Local & Nenhum cliente escreve Local diretamente \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+GREEN sob Node 20.19.6: \texttt{locais.test.ts} 9/9; Rules 78/78; unit 71/71;
+integração completa 182 passam / 14 falham (legadas); \texttt{build} PASS. Lint
+dos arquivos alterados limpo (erros restantes em \texttt{patrimonio.ts} são
+pré-existentes e não relacionados).
+
+\textbf{Estado final:} \texttt{IMP-BASE-002} = \texttt{DIVERGENTE} apenas pela
+UI de gestão/E2E; backend e Rules convergidos.

@@ -12,7 +12,7 @@
     "test": "jest",
     "test:unit": "jest --runInBand --testPathPattern=\"src/__tests__/(auth\\.test\\.ts|domain/)\"",
     "test:rules:suite": "jest --runInBand --testPathPattern=\"src/__tests__/security/\"",
-    "test:integration:suite": "jest --runInBand --testPathPattern=\"src/__tests__/(integration/|notificacoes\\.test\\.ts|patrimonio\\.test\\.ts|reagentes\\.test\\.ts|relatorios\\.test\\.ts|roteiros\\.test\\.ts|turmas\\.test\\.ts)\"",
+    "test:integration:suite": "jest --runInBand --testPathPattern=\"src/__tests__/(integration/|locais\\.test\\.ts|notificacoes\\.test\\.ts|patrimonio\\.test\\.ts|reagentes\\.test\\.ts|relatorios\\.test\\.ts|roteiros\\.test\\.ts|turmas\\.test\\.ts)\"",
     "test:emulator:suite": "npm run test:rules:suite && npm run test:integration:suite",
     "test:rules": "firebase emulators:exec --config ../firebase.json --project lcqui-dev --only firestore,storage \"npm run test:rules:suite\"",
     "test:integration": "firebase emulators:exec --config ../firebase.json --project lcqui-dev --only auth,firestore,storage \"npm run test:integration:suite\"",
