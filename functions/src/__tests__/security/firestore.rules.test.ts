@@ -112,23 +112,102 @@ describe("Firestore Security Rules", () => {
   });
 
   describe("Turmas", () => {
-    it("deve permitir que qualquer usuário logado liste turmas", async () => {
+    it("não autenticado GET Turma -> DENY; não autenticado LIST Turma -> DENY", async () => {
+      const db = unauthedDb();
+      await assertFails(db.collection("Turma").doc("turma1").get());
+      await assertFails(db.collection("Turma").get());
+    });
+
+    it("usuário autenticado sem vínculo GET -> DENY; LIST -> DENY", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const dbAdmin = context.firestore();
+        await dbAdmin.collection("Turma").doc("t_alheia").set({ nome: "T Alheia", id_professor: "prof1", status: "Ativo" });
+      });
       const db = authedDb("aluno1", ["Aluno"]);
-      await assertSucceeds(db.collection("Turma").get());
+      await assertFails(db.collection("Turma").doc("t_alheia").get());
+      await assertFails(db.collection("Turma").get());
     });
 
-    it("não deve permitir que um aluno crie uma turma", async () => {
-      const db = authedDb("aluno1", ["Aluno"]);
-      await assertFails(db.collection("Turma").add({ nome: "Nova Turma" }));
+    it("aluno membro canônico GET -> PASS; aluno membro canônico LIST raiz Turma -> DENY", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const dbAdmin = context.firestore();
+        await dbAdmin.collection("Turma").doc("t_aluno").set({ nome: "T Aluno", id_professor: "prof1", status: "Ativo" });
+        await dbAdmin.collection("Turma").doc("t_aluno").collection("Alunos").doc("aluno1").set({
+          id_aluno: "aluno1",
+          id_turma: "t_aluno",
+          nome: "Aluno 1",
+        });
+      });
+      const dbAluno = authedDb("aluno1", ["Aluno"]);
+      await assertSucceeds(dbAluno.collection("Turma").doc("t_aluno").get());
+      await assertFails(dbAluno.collection("Turma").get());
     });
 
-    it("não deve permitir que um professor crie uma turma diretamente", async () => {
-      const db = authedDb("prof1", ["Professor"]);
-      // Criação deve ser via Cloud Function
-      await assertFails(db.collection("Turma").add({ nome: "Turma do Prof", id_professor: "prof1" }));
+    it("aluno removido GET -> DENY; aluno com apenas espelho antigo GET -> DENY", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const dbAdmin = context.firestore();
+        await dbAdmin.collection("Turma").doc("t_removido").set({ nome: "T Removido", id_professor: "prof1", status: "Ativo" });
+        // Espelho existe em Usuarios/aluno1/Turmas/t_removido, mas o vínculo canônico Turma/t_removido/Alunos/aluno1 NÃO existe (removido)
+        await dbAdmin.collection("Usuarios").doc("aluno1").collection("Turmas").doc("t_removido").set({
+          id_turma: "t_removido",
+          nome: "T Removido",
+          status: "removido",
+        });
+      });
+      const dbAluno = authedDb("aluno1", ["Aluno"]);
+      await assertFails(dbAluno.collection("Turma").doc("t_removido").get());
     });
 
-    it("não permite que nenhum cliente altere a turma diretamente (server-owned)", async () => {
+    it("professor dono GET -> PASS; professor dono query id_professor==uid -> PASS; professor não dono GET turma alheia -> DENY", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const dbAdmin = context.firestore();
+        await dbAdmin.collection("Turma").doc("t_prof1").set({ nome: "T Prof 1", id_professor: "prof1", status: "Ativo" });
+        await dbAdmin.collection("Turma").doc("t_prof2").set({ nome: "T Prof 2", id_professor: "prof2", status: "Ativo" });
+      });
+      const dbProf1 = authedDb("prof1", ["Professor"]);
+      // Dono GET -> PASS
+      await assertSucceeds(dbProf1.collection("Turma").doc("t_prof1").get());
+      // Dono query id_professor == uid -> PASS
+      await assertSucceeds(dbProf1.collection("Turma").where("id_professor", "==", "prof1").get());
+      // Dono LIST sem filtro -> DENY
+      await assertFails(dbProf1.collection("Turma").get());
+      // Não dono GET turma alheia -> DENY
+      await assertFails(dbProf1.collection("Turma").doc("t_prof2").get());
+    });
+
+    it("Chefe_Geral GET -> PASS; Chefe_Geral LIST -> PASS", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const dbAdmin = context.firestore();
+        await dbAdmin.collection("Turma").doc("t_chefe").set({ nome: "T Chefe", id_professor: "prof1", status: "Ativo" });
+      });
+      const dbChefe = authedDb("boss", ["Chefe_Geral"]);
+      await assertSucceeds(dbChefe.collection("Turma").doc("t_chefe").get());
+      await assertSucceeds(dbChefe.collection("Turma").get());
+    });
+
+    it("turma Arquivada: membro canônico atual pode ler mas cliente não pode escrever", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const dbAdmin = context.firestore();
+        await dbAdmin.collection("Turma").doc("t_arq").set({ nome: "T Arquivada", id_professor: "prof1", status: "Arquivada" });
+        await dbAdmin.collection("Turma").doc("t_arq").collection("Alunos").doc("aluno1").set({
+          id_aluno: "aluno1",
+          id_turma: "t_arq",
+          nome: "Aluno 1",
+        });
+      });
+      const dbAluno = authedDb("aluno1", ["Aluno"]);
+      const dbProf = authedDb("prof1", ["Professor"]);
+
+      // Leitura permitida para membro canônico e professor dono
+      await assertSucceeds(dbAluno.collection("Turma").doc("t_arq").get());
+      await assertSucceeds(dbProf.collection("Turma").doc("t_arq").get());
+
+      // Escrita negada a qualquer cliente
+      await assertFails(dbAluno.collection("Turma").doc("t_arq").update({ nome: "Hack" }));
+      await assertFails(dbProf.collection("Turma").doc("t_arq").update({ nome: "Hack" }));
+    });
+
+    it("não permite que nenhum cliente crie, altere ou delete a turma diretamente (server-owned)", async () => {
       // Setup da turma burlando as regras (já que a criação normal seria por Cloud Function)
       await testEnv.withSecurityRulesDisabled(async (context) => {
         const dbAdmin = context.firestore();
@@ -137,11 +216,18 @@ describe("Firestore Security Rules", () => {
 
       const dbProf1 = authedDb("prof1", ["Professor"]);
       const dbProf2 = authedDb("prof2", ["Professor"]);
+      const dbChefe = authedDb("boss", ["Chefe_Geral"]);
 
-      // Criação/status/metadados são server-owned (criarTurma/alterarStatusTurma).
+      // CREATE direto negado
+      await assertFails(dbProf1.collection("Turma").add({ nome: "Nova Turma", id_professor: "prof1" }));
+      // UPDATE direto negado (criarTurma/alterarStatusTurma são server-owned)
       await assertFails(dbProf1.collection("Turma").doc("turmaProf1").update({ nome: "Novo Nome" }));
       await assertFails(dbProf2.collection("Turma").doc("turmaProf1").update({ nome: "Hacked" }));
       await assertFails(dbProf1.collection("Turma").doc("turmaProf1").update({ status: "Arquivada" }));
+      await assertFails(dbChefe.collection("Turma").doc("turmaProf1").update({ status: "Arquivada" }));
+      // DELETE direto negado
+      await assertFails(dbProf1.collection("Turma").doc("turmaProf1").delete());
+      await assertFails(dbChefe.collection("Turma").doc("turmaProf1").delete());
     });
 
     it("não deve permitir que um aluno se inscreva diretamente em uma turma", async () => {
@@ -415,10 +501,42 @@ describe("Firestore Security Rules", () => {
     });
   });
 
+  describe("Convite_Aluno (M11 / C.16)", () => {
+    it("nega get, list e write direto a qualquer cliente (aluno, professor, chefe)", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const dbAdmin = context.firestore();
+        await dbAdmin.collection("Convite_Aluno").doc("c1").set({
+          email: "convidado@exemplo.com",
+          status: "pendente",
+          token_hash: "hash123",
+        });
+      });
+
+      const dbAluno = authedDb("aluno1", ["Aluno"]);
+      const dbProf = authedDb("prof1", ["Professor"]);
+      const dbChefe = authedDb("boss", ["Chefe_Geral"]);
+
+      // Aluno DENY
+      await assertFails(dbAluno.collection("Convite_Aluno").doc("c1").get());
+      await assertFails(dbAluno.collection("Convite_Aluno").get());
+      await assertFails(dbAluno.collection("Convite_Aluno").doc("c1").set({ status: "aceitado" }));
+
+      // Professor DENY
+      await assertFails(dbProf.collection("Convite_Aluno").doc("c1").get());
+      await assertFails(dbProf.collection("Convite_Aluno").get());
+      await assertFails(dbProf.collection("Convite_Aluno").doc("c2").set({ email: "novo@exemplo.com" }));
+
+      // Chefe DENY
+      await assertFails(dbChefe.collection("Convite_Aluno").doc("c1").get());
+      await assertFails(dbChefe.collection("Convite_Aluno").get());
+      await assertFails(dbChefe.collection("Convite_Aluno").doc("c1").delete());
+    });
+  });
+
 });
 
 // AUD-35/36: usar documentos existentes para provar negativa por Rules, não ausência.
-describe.each(["Controle_Papeis", "Operacoes", "Chaves_Unicas"])("Coleção interna %s", colecao => {
+describe.each(["Controle_Papeis", "Operacoes", "Chaves_Unicas", "Convite_Aluno"])("Coleção interna %s", colecao => {
   it.each<KnownRole[]>([[], ["Aluno"], ["Professor"], ["Gestor_Almoxarifado"], ["Chefe_Geral"]])("nega cliente com roles %j", async (...roles) => {
     await testEnv.withSecurityRulesDisabled(async ctx => {
       await ctx.firestore().collection(colecao).doc("singleton").set({ versao: 1 });
