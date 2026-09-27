@@ -2,6 +2,7 @@ process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
 process.env.FUNCTIONS_EMULATOR = "true";
+process.env.CONVITE_HMAC_SECRET = "segredo-de-teste-32-bytes-seguro!!";
 
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
@@ -268,22 +269,34 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
   });
 
   it("deve criar um convite na colecao Convite_Aluno com validade ao usar convidarAluno", async () => {
+    await semearProfessor("prof_c1");
+    await semearMateria("mat_c1", "Química");
+    const turma = await criarTurmaOk("prof_c1", { idMateria: "mat_c1", nomeTurma: "Turma C1", capacidade: 10 });
+
     const wrappedConvidar = testEnv.wrap(convidarAluno);
-    const reqConvidar = mockRequest({ email: "convite@ufsc.br", idTurma: "turma_c1", matricula: "123" }, "prof_c1");
+    const op1 = novaOperacao();
+    const reqConvidar = mockRequest({ idOperacao: op1, email: "convite@ufsc.br", idTurma: turma.id, matricula: "123" }, "prof_c1");
     
     const result = await wrappedConvidar(reqConvidar);
+    expect(result.registrado).toBe(true);
+    expect(result.reenvio).toBe(false);
     
     const conviteDoc = await db.collection("Convite_Aluno").doc(result.id).get();
     expect(conviteDoc.exists).toBe(true);
     expect(conviteDoc.data()?.email).toBe("convite@ufsc.br");
     expect(conviteDoc.data()?.status).toBe("pendente");
-  });
+    expect(conviteDoc.data()?.token_hash).toBeDefined();
 
-  it("nao deve permitir convite duplicado para a mesma turma", async () => {
-    const wrappedConvidar = testEnv.wrap(convidarAluno);
-    await wrappedConvidar(mockRequest({ email: "dup@ufsc.br", idTurma: "turma_dup" }, "prof_dup"));
-    
-    await expect(wrappedConvidar(mockRequest({ email: "dup@ufsc.br", idTurma: "turma_dup" }, "prof_dup"))).rejects.toThrow(/pendente para este email e turma/);
+    // Replay M7 da mesma operação
+    const replay = await wrappedConvidar(reqConvidar);
+    expect(replay.id).toBe(result.id);
+
+    // Nova operação para o mesmo e-mail e turma funciona como reenvio canônico
+    const op2 = novaOperacao();
+    const reqReenvio = mockRequest({ idOperacao: op2, email: "convite@ufsc.br", idTurma: turma.id }, "prof_c1");
+    const resultReenvio = await wrappedConvidar(reqReenvio);
+    expect(resultReenvio.id).toBe(result.id);
+    expect(resultReenvio.reenvio).toBe(true);
   });
 
   it("TEST-INT-TURMA-M9-001 — professor sem papel persistido é negado (M9)", async () => {
