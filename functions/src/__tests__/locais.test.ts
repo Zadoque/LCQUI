@@ -6,6 +6,7 @@ process.env.FUNCTIONS_EMULATOR = "true";
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { gerenciarLocal } from "../patrimonio";
+import { chaveLocal } from "../chaves";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -66,7 +67,7 @@ describe("Cadastros base — Local (M9 + M7 + unicidade)", () => {
     expect(doc.data()?.andar).toBe("1");
     expect(doc.data()?.sala).toBe("101");
     expect(doc.data()?.criado_por).toBe(gestor);
-    const chave = await db.collection("Chaves_Unicas").doc("Local__Bloco A__1__101").get();
+    const chave = await db.collection("Chaves_Unicas").doc(chaveLocal("Bloco A", "1", "101")).get();
     expect(chave.exists).toBe(true);
     expect(chave.data()?.id_recurso).toBe(res.id);
   });
@@ -149,8 +150,8 @@ describe("Cadastros base — Local (M9 + M7 + unicidade)", () => {
     const doc = await db.collection("Local").doc(criado.id).get();
     expect(doc.data()?.andar).toBe("2");
     expect(doc.data()?.sala).toBe("E2");
-    expect((await db.collection("Chaves_Unicas").doc("Local__Bloco E__2__E2").get()).exists).toBe(true);
-    expect((await db.collection("Chaves_Unicas").doc("Local__Bloco E__1__E1").get()).exists).toBe(false);
+    expect((await db.collection("Chaves_Unicas").doc(chaveLocal("Bloco E", "2", "E2")).get()).exists).toBe(true);
+    expect((await db.collection("Chaves_Unicas").doc(chaveLocal("Bloco E", "1", "E1")).get()).exists).toBe(false);
   });
 
   it("TEST-INT-LOCAL-009 — editar para endereço existente é already-exists", async () => {
