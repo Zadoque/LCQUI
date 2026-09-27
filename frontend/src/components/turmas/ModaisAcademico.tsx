@@ -1,9 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { collection, onSnapshot, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { X } from "lucide-react";
+import {
+  IntencaoOperacao,
+  assinaturaIntencaoTurma,
+  resolverIdOperacao,
+} from "@/lib/intencaoOperacao";
 
 interface NovaTurmaModalProps {
   isOpen: boolean;
@@ -18,6 +23,14 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
   const [capacidade, setCapacidade] = useState(40);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // M7: intenção lógica de criação; o idOperacao sobrevive a retries da mesma
+  // assinatura e é descartado ao fechar o modal (resultado conclusivo ou cancelar).
+  const intencaoRef = useRef<IntencaoOperacao | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) intencaoRef.current = null;
+  }, [isOpen]);
 
   const isChefeGeral = roles.includes("Chefe_Geral");
   
@@ -124,25 +137,40 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
     try {
       const functions = getFunctions();
       const criarTurmaFn = httpsCallable(functions, "criarTurma");
-      
-      const materiaObj = materiasDb.find(m => m.id === idMateria);
-      
-      const payload: any = {
-        idOperacao: crypto.randomUUID(),
+
+      const idProfessorAlvo = isChefeGeral ? selectedProfId : undefined;
+      const assinatura = assinaturaIntencaoTurma({
         idMateria,
-        nomeMateria: materiaObj ? materiaObj.nome : "Desconhecida",
         nomeTurma: nome,
         ano,
         semestre,
-        capacidade
+        capacidade,
+        idProfessor: idProfessorAlvo,
+      });
+      // Reutiliza o idOperacao em retry da mesma intenção; payload alterado gera
+      // nova intenção (novo id), nunca um id antigo com conteúdo diferente.
+      const intencao = resolverIdOperacao(intencaoRef.current, assinatura, () =>
+        crypto.randomUUID()
+      );
+      intencaoRef.current = intencao;
+
+      const payload: any = {
+        idOperacao: intencao.idOperacao,
+        idMateria,
+        nomeTurma: nome,
+        ano,
+        semestre,
+        capacidade,
       };
 
       if (isChefeGeral) {
         payload.idProfessor = selectedProfId;
       }
-      
+
       await criarTurmaFn(payload);
-      
+
+      // Resultado conclusivo: a intenção foi consumida.
+      intencaoRef.current = null;
       onClose();
     } catch (err: any) {
       setError(err.message || "Erro ao criar turma.");

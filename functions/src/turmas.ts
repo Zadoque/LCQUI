@@ -108,16 +108,24 @@ export const criarTurma = onCall(async (request) => {
   return db.runTransaction(async (tx) => {
     // M9: autoridade persistida relida na mesma transação do efeito.
     const autoridade = await resolverAutoridadePersistidaTx(tx, claims, ["Professor", "Chefe_Geral"]);
-    const autorizadoComoChefe = autoridade.papelAutorizado === "Chefe_Geral";
+    const ehProfessor = autoridade.papeis.includes("Professor");
+    const ehChefe = autoridade.papelAutorizado === "Chefe_Geral";
 
-    // Criação ordinária é do professor para si; criar em nome de outro professor
-    // é intervenção excepcional M9/Q13, auditada.
-    let idProfessorEfetivo = claims.uid;
-    if (idProfessor && idProfessor !== claims.uid) {
-      if (!autorizadoComoChefe) {
+    // RN-M11: a criação ordinária é do professor autenticado para si
+    // (`id_professor = UID`). Criar em nome de outro professor é intervenção
+    // excepcional Q13 do Chefe. Um Chefe sem papel Professor não cria turma
+    // para si: só em nome de um Professor válido e ativo.
+    let idProfessorEfetivo: string;
+    if (idProfessor !== undefined && idProfessor !== claims.uid) {
+      if (!ehChefe) {
         throw new HttpsError("permission-denied", "Somente Chefe_Geral pode criar turma em nome de outro professor.");
       }
       idProfessorEfetivo = idProfessor;
+    } else {
+      if (!ehProfessor) {
+        throw new HttpsError("permission-denied", "Criar turma para si exige papel Professor.");
+      }
+      idProfessorEfetivo = claims.uid;
     }
 
     // M7: identidade canônica (uid, tipo_operacao, payload_hash); replay devolve o

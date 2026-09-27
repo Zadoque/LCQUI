@@ -193,6 +193,22 @@ $\rightarrow$ PASS Node 20
 não perder ativos nem repetir itens. Integração de notificações 26/26 e Rules
 de notificações 11/11; integração completa 151 passam / 14 falham (legadas).
 
+\subsection{Décima segunda cadeia executada (Q13 e intenção M7)}
+
+\begin{center}
+Seção 7 M11 (ownership da Turma), M7 e M9
+$\rightarrow$ \texttt{IMP-ACAD-001}
+$\rightarrow$ \texttt{TEST-INT-TURMA-Q13-003--007} e \path{intencaoOperacao.ts}
+$\rightarrow$ \nolinkurl{functions/src/turmas.ts} e \nolinkurl{frontend/src/components/turmas/ModaisAcademico.tsx}
+$\rightarrow$ PASS Node 20
+\end{center}
+
+Chefe sem professor alvo deixou de criar turma para si; criar para si exige
+papel Professor e criar em nome de outro só por Chefe sobre Professor ativo,
+auditado. No modal, o \texttt{idOperacao} passou a pertencer à intenção lógica
+(reutilizado em retry, renovado quando o payload muda). \texttt{turmas.test.ts}
+28/28; integração completa 156 passam / 14 falham (legadas).
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara

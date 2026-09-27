@@ -348,4 +348,78 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     expect(audit.exists).toBe(true);
     expect(audit.data()?.id_usuario).toBe(chefe);
   });
+
+  it("TEST-INT-TURMA-Q13-003 — Chefe sem idProfessor não cria turma para si", async () => {
+    const chefe = "chefe_sem_alvo";
+    await db.collection("Usuarios").doc(chefe).set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Chefe_Geral").doc(chefe).set({ id_usuario: chefe, ativo: true });
+    await semearMateria("mat_q13_sem", "Q13 sem alvo");
+    const op = novaOperacao();
+    const wrapped = testEnv.wrap(criarTurma);
+    await expect(wrapped(mockRequest({
+      idOperacao: op, idMateria: "mat_q13_sem", nomeTurma: "T", ano: 2026, semestre: 1, capacidade: 5
+    }, chefe, ["Chefe_Geral"]))).rejects.toMatchObject({ code: "permission-denied" });
+
+    const turmas = await db.collection("Turma").where("id_materia", "==", "mat_q13_sem").get();
+    expect(turmas.size).toBe(0);
+    expect((await db.collection("Operacoes").doc(op).get()).exists).toBe(false);
+    const chaves = await db.collection("Chaves_Unicas").where("tipo", "==", "Turma").get();
+    expect(chaves.docs.some(d => d.data().id_recurso && turmas.docs.some(t => t.id === d.data().id_recurso))).toBe(false);
+  });
+
+  it("TEST-INT-TURMA-Q13-004 — Chefe não usa o próprio UID como professor alvo", async () => {
+    const chefe = "chefe_self";
+    await db.collection("Usuarios").doc(chefe).set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Chefe_Geral").doc(chefe).set({ id_usuario: chefe, ativo: true });
+    await semearMateria("mat_q13_self", "Q13 self");
+    const op = novaOperacao();
+    const wrapped = testEnv.wrap(criarTurma);
+    await expect(wrapped(mockRequest({
+      idOperacao: op, idMateria: "mat_q13_self", nomeTurma: "T", ano: 2026, semestre: 1,
+      capacidade: 5, idProfessor: chefe
+    }, chefe, ["Chefe_Geral"]))).rejects.toMatchObject({ code: "permission-denied" });
+    expect((await db.collection("Turma").where("id_materia", "==", "mat_q13_self").get()).size).toBe(0);
+  });
+
+  it("TEST-INT-TURMA-Q13-005 — Chefe com alvo inexistente é negado", async () => {
+    const chefe = "chefe_alvo_ausente";
+    await db.collection("Usuarios").doc(chefe).set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Chefe_Geral").doc(chefe).set({ id_usuario: chefe, ativo: true });
+    await semearMateria("mat_q13_ausente", "Q13 ausente");
+    const wrapped = testEnv.wrap(criarTurma);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(), idMateria: "mat_q13_ausente", nomeTurma: "T", ano: 2026, semestre: 1,
+      capacidade: 5, idProfessor: "nao_existe_prof"
+    }, chefe, ["Chefe_Geral"]))).rejects.toMatchObject({ code: "failed-precondition" });
+  });
+
+  it("TEST-INT-TURMA-Q13-006 — Chefe com alvo sem papel Professor é negado", async () => {
+    const chefe = "chefe_alvo_sem_papel";
+    const alvo = "usuario_sem_professor";
+    await db.collection("Usuarios").doc(chefe).set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Chefe_Geral").doc(chefe).set({ id_usuario: chefe, ativo: true });
+    await db.collection("Usuarios").doc(alvo).set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Aluno").doc(alvo).set({ id_usuario: alvo, ativo: true });
+    await semearMateria("mat_q13_sem_papel", "Q13 sem papel");
+    const wrapped = testEnv.wrap(criarTurma);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(), idMateria: "mat_q13_sem_papel", nomeTurma: "T", ano: 2026, semestre: 1,
+      capacidade: 5, idProfessor: alvo
+    }, chefe, ["Chefe_Geral"]))).rejects.toMatchObject({ code: "failed-precondition" });
+  });
+
+  it("TEST-INT-TURMA-Q13-007 — Chefe com professor alvo inativo é negado", async () => {
+    const chefe = "chefe_alvo_inativo";
+    const alvo = "prof_inativo_q13";
+    await db.collection("Usuarios").doc(chefe).set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Chefe_Geral").doc(chefe).set({ id_usuario: chefe, ativo: true });
+    await db.collection("Usuarios").doc(alvo).set({ ativo: false, versao_permissoes: 1 });
+    await db.collection("Professor").doc(alvo).set({ id_usuario: alvo, ativo: true });
+    await semearMateria("mat_q13_inativo", "Q13 inativo");
+    const wrapped = testEnv.wrap(criarTurma);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(), idMateria: "mat_q13_inativo", nomeTurma: "T", ano: 2026, semestre: 1,
+      capacidade: 5, idProfessor: alvo
+    }, chefe, ["Chefe_Geral"]))).rejects.toMatchObject({ code: "failed-precondition" });
+  });
 });

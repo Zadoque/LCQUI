@@ -20,9 +20,9 @@
 | Total de features | 70 |
 | Auditadas | 70 |
 | Não auditadas | 0 |
-| DIVERGENTE | 51 |
-| NÃO DIVERGENTE | 2 |
-| NÃO IMPLEMENTADO | 17 |
+| DIVERGENTE | 52 |
+| NÃO DIVERGENTE | 3 |
+| NÃO IMPLEMENTADO | 15 |
 
 <!-- MATRIX_COUNTS_END -->
 
@@ -85,7 +85,7 @@ Abreviações: `S5`–`S11` = seções normativas; `UI-n` = contrato de tela; `C
 
 | ID | Domínio | Feature | Fonte normativa | Milestone(s) | Implementação encontrada | Auditado | Estado | Divergência / evidência | Testes existentes relacionados | Teste futuro necessário |
 |---|---|---|---|---|---|---|---|---|---|---|
-| IMP-ACAD-001 | Turmas | Criar turma e código único | RF17; S7 M11; S8 UI-10; S9 PRO-01 | M7, M9, M11 | `turmas.ts: criarTurma` (M9 + M7 + `Chaves_Unicas`); modal | SIM | DIVERGENTE | Backend convergido: M9 persistido relido na transação, `idOperacao` M7 com replay/reuso incompatível, código de 6 caracteres reservado em `Chaves_Unicas/Turma_codigo__N` (sem corrida), `id_materia` verificado no servidor e `nome_materia` projetado do documento persistido, `versao=1`; criação em nome de outro professor só por Chefe e auditada. Permanece divergente porque o E2E UI-10 ainda não foi executado. | `turmas.test.ts` (`TEST-INT-TURMA-M9-001`, `TEST-INT-TURMA-MAT-001`, `TEST-INT-TURMA-NAME-001`, `TEST-INT-TURMA-M7-001/002`, `TEST-INT-TURMA-Q13-001/002`) | E2E UI-10; colisão concorrente real |
+| IMP-ACAD-001 | Turmas | Criar turma e código único | RF17; S7 M11; S8 UI-10; S9 PRO-01 | M7, M9, M11 | `turmas.ts: criarTurma` (M9 + M7 + `Chaves_Unicas`); `frontend/src/lib/intencaoOperacao.ts`; modal | SIM | DIVERGENTE | Backend convergido: M9 persistido relido na transação, `idOperacao` M7 com replay/reuso incompatível e intenção estável no modal (retry reutiliza o id; payload alterado gera nova intenção), código de 6 caracteres reservado em `Chaves_Unicas/Turma_codigo__N` (sem corrida), `id_materia` verificado no servidor e `nome_materia` projetado do documento persistido, `versao=1`; criar para si exige papel Professor e criar em nome de outro só por Chefe, sobre Professor ativo, auditado. Permanece divergente porque o E2E UI-10 ainda não foi executado. | `turmas.test.ts` (`TEST-INT-TURMA-M9-001`, `-MAT-001`, `-NAME-001`, `-M7-001/002`, `-Q13-001–007`) | E2E UI-10; colisão concorrente real |
 | IMP-ACAD-002 | Matrícula | Ingresso por código e capacidade | RF18; RN-TUR-01; S9 ALU-01 | M7, M9, M11 | `ingressarEmTurmaPorCodigo` | SIM | DIVERGENTE | Transação protege contador, porém usa claim antiga, grava e-mail/matrícula no vínculo lido por colegas, não implementa exceção nominal e não é idempotente. | `turmas.test.ts` | Última vaga, replay, projeção mínima e remoção prévia |
 | IMP-ACAD-003 | Matrícula | Inclusão e remoção pelo professor | S7 M11; S8 UI-10; S9 PRO-04 | M7, M9, M11 | `adicionarAlunoExistenteTurma`; `removerAlunoTurma` | SIM | DIVERGENTE | Espelho/histórico existem, mas dados sensíveis são copiados; falta contrato idempotente e revalidação persistida; operações concorrentes podem divergir contador/espelho. | `turmas.test.ts` | Inclusão/remoção concorrente e replay |
 | IMP-ACAD-004 | Turmas | Arquivar e desarquivar | S7 M11/Q08; S8 UI-10; S9 PRO-02 | M7, M11, M13 | `arquivarTurma` | SIM | DIVERGENTE | Só arquiva; não desarquiva, não emite fan-out obrigatório e Rules ainda permitem update direto do professor. | `turmas.test.ts` | Duas direções, turma read-only e notificações |
@@ -129,14 +129,14 @@ Abreviações: `S5`–`S11` = seções normativas; `UI-n` = contrato de tela; `C
 
 ### Segurança e autorização
 
-- Muitas callables ainda autorizam pelo JWT antes da transação; M9 exige conta, versão, papel persistido, escopo/ownership e estado relidos na unidade de commit. As mutações de papel e a marcação de notificação já usam a primitiva persistida transacional; os demais domínios ainda não.
+- Muitas callables ainda autorizam pelo JWT antes da transação; M9 exige conta, versão, papel persistido, escopo/ownership e estado relidos na unidade de commit. As mutações de papel, a marcação/limpeza de notificação e a criação de turma já usam a primitiva persistida transacional; os demais domínios ainda não.
 - `firestore.rules` e `storage.rules` ainda carregam a política anterior em parte do domínio: há leituras amplas e escritas diretas em patrimônio, turma, posts e comentários que contradizem a Seção 11 e permitem contornar os backends server-owned. Notificações já foram fechadas (leitura por dono com coerência `id_destinatario`, `write: false`).
 - Diretórios de pessoas e vínculos acadêmicos expõem e-mail/matrícula onde a norma exige projeção mínima.
 
 ### Integridade, concorrência e dados
 
-- A fundação M7 canônica (`idempotencia.ts`: canonicalização, `payload_hash`, receipt e replay) existe e já foi aplicada às mutações de papel; ainda não cobre reagentes, patrimônio, turmas, posts, roteiros, notificações, relatórios e etiquetas, que não possuem receipt.
-- Plaquetas, códigos de turma, lotes e locks não possuem todas as reservas/chaves canônicas exigidas; `Locks_Requisicao_Patrimonio` também é limpo por idade embora pendências não expirem por idade.
+- A fundação M7 canônica (`idempotencia.ts`: canonicalização, `payload_hash`, receipt e replay) existe e já foi aplicada às mutações de papel e à criação de turma; ainda não cobre reagentes, patrimônio, demais mutações de turma, posts, roteiros, relatórios e etiquetas, que não possuem receipt.
+- Plaquetas, lotes e locks ainda não possuem todas as reservas/chaves canônicas exigidas (códigos de turma já são reservados em `Chaves_Unicas`); `Locks_Requisicao_Patrimonio` também é limpo por idade embora pendências não expirem por idade.
 - Caminhos de Especificação e Histórico variam entre raiz e subcoleção, produzindo referências incompatíveis entre cadastro, devolução, relatório e Rules.
 - Cadastro já aberto e devolução divergem materialmente do modelo metrológico fechado em M6.
 

@@ -39,11 +39,12 @@ idempotência por \texttt{idOperacao}.
   grava \texttt{Registro\_de\_Auditoria};
   \item \path{functions/src/schemas/turmas.schema.ts}: \texttt{idOperacao}
   obrigatório; \texttt{nomeTurma} limitada a 100; \texttt{nomeMateria} removido;
-  \item \path{frontend/src/components/turmas/ModaisAcademico.tsx}: o modal gera
-  \texttt{idOperacao} (\texttt{crypto.randomUUID()}).
+  \item \path{frontend/src/components/turmas/ModaisAcademico.tsx}: o modal
+  resolve \texttt{idOperacao} por intenção lógica (ver hardening abaixo) e não
+  envia mais \texttt{nomeMateria}.
 \end{itemize}
 
-\subsection{TDD}
+\subsection{Testes}
 
 \small
 \begin{longtable}{@{}p{0.30\textwidth}p{0.52\textwidth}@{}}
@@ -58,14 +59,43 @@ TEST-INT-TURMA-M7-001 & Replay do mesmo \texttt{idOperacao} não duplica \\
 TEST-INT-TURMA-M7-002 & Reuso incompatível é \texttt{already-exists} \\
 TEST-INT-TURMA-Q13-001 & Professor não cria turma em nome de outro \\
 TEST-INT-TURMA-Q13-002 & Chefe cria em nome de ativo e audita \\
+TEST-INT-TURMA-Q13-003 & Chefe sem \texttt{idProfessor} não cria para si \\
+TEST-INT-TURMA-Q13-004 & Chefe não usa o próprio UID como professor alvo \\
+TEST-INT-TURMA-Q13-005 & Chefe com alvo inexistente é negado \\
+TEST-INT-TURMA-Q13-006 & Chefe com alvo sem papel Professor é negado \\
+TEST-INT-TURMA-Q13-007 & Chefe com professor alvo inativo é negado \\
 \bottomrule
 \end{longtable}
 \normalsize
 
-Regressão (Node 20.19.6): \texttt{turmas.test.ts} 23/23; \texttt{build} PASS;
-unit 71/71; Rules 77/77; integração completa 145 passam / 14 falham (falhas
-legadas em reagentes/patrimônio/roteiros). \texttt{tsc --noEmit} do frontend
-PASS.
+\subsection{Hardening de Q13 e ciclo de \texttt{idOperacao}}
+
+Auditoria independente apontou dois gaps:
+
+\paragraph{A. Chefe sem professor alvo.} A implementação inicial iniciava
+\texttt{idProfessorEfetivo = claims.uid} e só o substituía quando
+\texttt{idProfessor} diferisse do chamador. Um Chefe (que pela matriz M9 nunca é
+Professor) podia criar turma para si. Corrigido: criar para si exige papel
+\texttt{Professor} persistido; um Chefe só cria em nome de um \texttt{Professor}
+válido e ativo, com auditoria. Chefe sem alvo, ou apontando para o próprio UID,
+é negado por \texttt{permission-denied}.
+
+\paragraph{B. \texttt{idOperacao} recriado a cada submit.} O modal gerava
+\texttt{crypto.randomUUID()} dentro de \texttt{handleSubmit}, anulando M7 em
+retry de resposta desconhecida. Corrigido em
+\path{frontend/src/lib/intencaoOperacao.ts}: a intenção guarda
+\texttt{(idOperacao, assinatura)}; retry com a mesma assinatura reutiliza o id;
+payload alterado gera nova intenção/id; resultado conclusivo ou fechamento do
+modal descarta a intenção. A função é pura (gerador de id injetado) e coberta
+por \texttt{tsc --noEmit}; \texttt{crypto.randomUUID()} deixou de ser executado
+diretamente a cada tentativa. Também foi removido o \texttt{nomeMateria}
+obsoleto do payload.
+
+RED: \texttt{Q13-003} e \texttt{Q13-004} falharam contra a implementação
+anterior (criavam a turma). GREEN sob Node 20.19.6: \texttt{turmas.test.ts}
+28/28; unit 71/71; Rules 77/77; integração completa 156 passam / 14 falham
+(legadas); \texttt{tsc --noEmit} do frontend PASS.
 
 \textbf{Estado final:} \texttt{IMP-ACAD-001} permanece \texttt{DIVERGENTE}
-apenas pelo E2E UI-10; backend, Rules e modal estão convergidos.
+apenas pelo E2E UI-10; backend, Rules e comportamento funcional do modal estão
+convergidos.
