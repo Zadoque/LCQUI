@@ -4,6 +4,7 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { validarPermissao, extrairClaimsAutoridade, resolverAutoridadePersistidaTx } from "./auth";
 import { construirIdentidade, registrarOperacaoConcluidaTx, resolverOperacaoTx } from "./idempotencia";
 import { adicionarNotificacaoTx } from "./notificacoes";
+import { chaveTurmaCodigo } from "./chaves";
 import { validatePayload } from "./utils/validation";
 import { 
   IngressarTurmaPorCodigoSchema, 
@@ -219,10 +220,11 @@ export const criarTurma = onCall(async (request) => {
     let codigo = "";
     let chaveRef: admin.firestore.DocumentReference | null = null;
     for (let tentativa = 0; tentativa < 8 && chaveRef === null; tentativa++) {
-      const ref = db.collection("Chaves_Unicas").doc(`Turma_codigo__${sortear()}`);
+      const candidato = sortear();
+      const ref = db.collection("Chaves_Unicas").doc(chaveTurmaCodigo(candidato));
       const snap = await tx.get(ref);
       if (!snap.exists) {
-        codigo = ref.id.slice("Turma_codigo__".length);
+        codigo = candidato;
         chaveRef = ref;
       }
     }

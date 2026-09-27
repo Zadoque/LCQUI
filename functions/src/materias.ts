@@ -4,14 +4,15 @@ import { FieldValue } from "firebase-admin/firestore";
 import { validatePayload } from "./utils/validation";
 import { GerenciarMateriaSchema, GerenciarMateria } from "./schemas/materias.schema";
 import { extrairClaimsAutoridade, resolverAutoridadePersistidaTx } from "./auth";
+import { chaveMateria as derivarChaveMateria, normalizarCodigoMateria } from "./chaves";
 
 /** N(s) = s.trim().toUpperCase(): canonicalização única do código de matéria. */
 function normalizarCodigo(codigo: string): string {
-  return codigo.trim().toUpperCase();
+  return normalizarCodigoMateria(codigo);
 }
 
 function chaveMateria(codigoNormalizado: string) {
-  return admin.firestore().collection("Chaves_Unicas").doc(`Materia__${codigoNormalizado}`);
+  return admin.firestore().collection("Chaves_Unicas").doc(derivarChaveMateria(codigoNormalizado));
 }
 
 /**

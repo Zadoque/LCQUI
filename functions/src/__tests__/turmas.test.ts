@@ -117,7 +117,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     expect(doc.exists).toBe(true);
     expect(doc.data()?.qtd_alunos).toBe(0);
     expect(doc.data()?.status).toBe("Ativo");
-    const chave = await db.collection("Chaves_Unicas").doc(`Turma_codigo__${result.codigoTurma}`).get();
+    const chave = await db.collection("Chaves_Unicas").doc(`Turma__${result.codigoTurma}`).get();
     expect(chave.exists).toBe(true);
     expect(chave.data()?.id_recurso).toBe(result.id);
   });

@@ -8,6 +8,7 @@ import { construirIdentidade, registrarOperacaoConcluidaTx, resolverOperacaoTx }
 import { validatePayload } from "./utils/validation";
 import { CriarRequisicaoEdicaoBemSchema, ResponderRequisicaoBemSchema, CriarRequisicaoAdicaoBemSchema, GerenciarLocalSchema } from "./schemas/patrimonio.schema";
 import { adicionarNotificacaoTx } from "./notificacoes";
+import { chaveLocal as derivarChaveLocal } from "./chaves";
 
 export const criarRequisicaoEdicaoBem = onCall(async (request) => {
   validarPermissao(request, ["Professor"]);
@@ -284,7 +285,7 @@ export const onResumoBemPatrimonialNomeAtualizado = onDocumentUpdated(
 
 /** N(s) para unicidade de Local: apenas trim (sem inventar case-folding). */
 function chaveLocal(predio: string, andar: string, sala: string) {
-  return admin.firestore().collection("Chaves_Unicas").doc(`Local__${predio}__${andar}__${sala}`);
+  return admin.firestore().collection("Chaves_Unicas").doc(derivarChaveLocal(predio, andar, sala));
 }
 
 // UI-03: criação/edição server-owned de Local com unicidade (prédio, andar, sala),
