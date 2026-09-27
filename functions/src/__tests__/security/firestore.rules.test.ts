@@ -148,6 +148,39 @@ describe("Firestore Security Rules", () => {
       await assertFails(dbAluno.collection("Turma").doc("turmaProf1").collection("Alunos").doc("aluno1").set({ matricula: "123" }));
     });
 
+    it("leitura de membros: self e colega da turma podem, aluno de turma alheia é negado", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Turma").doc("t1").set({ nome: "T1", id_professor: "prof1", status: "Ativo" });
+        await db.collection("Turma").doc("t1").collection("Alunos").doc("aluno1")
+          .set({ id_aluno: "aluno1", id_turma: "t1", nome: "A1" });
+        await db.collection("Turma").doc("t1").collection("Alunos").doc("aluno2")
+          .set({ id_aluno: "aluno2", id_turma: "t1", nome: "A2" });
+        await db.collection("Usuarios").doc("aluno_fora").set({ ativo: true, versao_permissoes: AUTHORITY_VERSION });
+        await db.collection("Aluno").doc("aluno_fora").set({ id_usuario: "aluno_fora", ativo: true });
+      });
+
+      const dbAluno1 = authedDb("aluno1");
+      await assertSucceeds(dbAluno1.collection("Turma").doc("t1").collection("Alunos").doc("aluno1").get());
+      await assertSucceeds(dbAluno1.collection("Turma").doc("t1").collection("Alunos").doc("aluno2").get());
+      await assertSucceeds(dbAluno1.collection("Turma").doc("t1").collection("Alunos").get());
+
+      const dbFora = authedDb("aluno_fora");
+      await assertFails(dbFora.collection("Turma").doc("t1").collection("Alunos").doc("aluno1").get());
+      await assertFails(dbFora.collection("Turma").doc("t1").collection("Alunos").get());
+
+      const dbProfDono = authedDb("prof1");
+      await assertSucceeds(dbProfDono.collection("Turma").doc("t1").collection("Alunos").doc("aluno1").get());
+
+      const dbProfOutro = authedDb("prof2");
+      await assertFails(dbProfOutro.collection("Turma").doc("t1").collection("Alunos").doc("aluno1").get());
+
+      const dbChefe = authedDb("boss");
+      await assertSucceeds(dbChefe.collection("Turma").doc("t1").collection("Alunos").doc("aluno1").get());
+
+      await assertFails(dbAluno1.collection("Turma").doc("t1").collection("Alunos").doc("novo").set({ id_aluno: "novo" }));
+    });
+
     describe("Posts e Comentários", () => {
       it("nenhum usuário pode criar post diretamente via client (apenas via Cloud Function)", async () => {
         const dbProf1 = authedDb("prof1", ["Professor"]);
