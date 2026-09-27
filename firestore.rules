@@ -133,7 +133,15 @@ service cloud.firestore {
     }
 
     match /Turma/{turmaId} {
-      allow read: if isAuthenticated();
+      allow get: if isAuthenticated() && (
+        resource.data.id_professor == request.auth.uid
+        || isCanonicalCurrentMember(turmaId, request.auth.uid)
+        || isAdmin()
+      );
+      allow list: if isAuthenticated() && (
+        isAdmin()
+        || (hasRole('Professor') && resource.data.id_professor == request.auth.uid)
+      );
       // Criação e status/metadados são server-owned (criarTurma/alterarStatusTurma).
       allow write: if false;
 
@@ -175,6 +183,12 @@ service cloud.firestore {
           allow write: if false;
         }
       }
+    }
+
+    // --- Convites de Alunos (M11 / Seção 11) ---
+    match /Convite_Aluno/{conviteId} {
+      // Exclusivo de Cloud Functions: token e hash nunca são lidos pelo cliente
+      allow read, write: if false;
     }
 
     // --- Patrimonio ---
