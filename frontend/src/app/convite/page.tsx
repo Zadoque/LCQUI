@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState } from "react";
+import React, { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { getFunctions, httpsCallable } from "firebase/functions";
@@ -9,9 +9,25 @@ import Link from "next/link";
 import {
   chaveIntencaoAceite,
   assinaturaIntencaoAceite,
+  chaveIntencaoRejeicao,
+  assinaturaIntencaoRejeicao,
   obterIntencaoPersistida,
   limparIntencao,
 } from "@/lib/intencaoOperacao";
+
+interface DetalhesConvite {
+  id: string;
+  email: string;
+  status: string;
+  expira_em: string;
+  id_turma: string | null;
+  nome_turma: string | null;
+  codigo_turma: string | null;
+  nome_professor: string | null;
+  convidado_por_nome: string | null;
+  convidado_por_papel: string | null;
+  exceder_capacidade: boolean;
+}
 
 function ConviteConteudo() {
   const searchParams = useSearchParams();
@@ -29,7 +45,37 @@ function ConviteConteudo() {
     criouMatricula: boolean;
     idTurma: string | null;
   } | null>(null);
+  const [rejeitado, setRejeitado] = useState(false);
+  const [detalhes, setDetalhes] = useState<DetalhesConvite | null>(null);
   const [emailVerificacaoEnviado, setEmailVerificacaoEnviado] = useState(false);
+
+  useEffect(() => {
+    if (!idConvite) return;
+    let cancelado = false;
+    async function carregarDetalhes() {
+      try {
+        const functions = getFunctions();
+        const obter = httpsCallable(functions, "obterDetalhesConviteAluno");
+        const res = await obter({
+          idConvite,
+          tokenConvite: tokenConvite || undefined,
+        });
+        if (!cancelado) {
+          const d = res.data as DetalhesConvite;
+          setDetalhes(d);
+          if (d.status === "rejeitado") {
+            setRejeitado(true);
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao obter detalhes do convite:", err);
+      }
+    }
+    carregarDetalhes();
+    return () => {
+      cancelado = true;
+    };
+  }, [idConvite, tokenConvite, user]);
 
   if (isLoading) {
     return (
@@ -39,7 +85,8 @@ function ConviteConteudo() {
     );
   }
 
-  if (!idConvite || !tokenConvite) {
+  // Se não há id do convite, ou se não há token e não há usuário autenticado
+  if (!idConvite || (!tokenConvite && !user)) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="max-w-md w-full p-8 bg-card border border-border rounded-2xl shadow-xl text-center space-y-4">
@@ -48,7 +95,7 @@ function ConviteConteudo() {
           </div>
           <h1 className="text-xl font-bold">Link de Convite Inválido</h1>
           <p className="text-sm text-foreground/60">
-            Este link não possui os identificadores necessários de convite e token.
+            Este link não possui os identificadores necessários de convite.
           </p>
           <Link
             href="/"
@@ -62,7 +109,7 @@ function ConviteConteudo() {
   }
 
   if (!user) {
-    const redirectUrl = `/convite?id=${encodeURIComponent(idConvite)}&token=${encodeURIComponent(tokenConvite)}`;
+    const redirectUrl = `/convite?id=${encodeURIComponent(idConvite)}${tokenConvite ? `&token=${encodeURIComponent(tokenConvite)}` : ""}`;
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="max-w-md w-full p-8 bg-card border border-border rounded-2xl shadow-xl text-center space-y-4">
@@ -141,7 +188,7 @@ function ConviteConteudo() {
     try {
       const session = typeof window !== "undefined" ? window.sessionStorage : null;
       const chave = chaveIntencaoAceite(idConvite);
-      const assinatura = assinaturaIntencaoAceite(idConvite, tokenConvite);
+      const assinatura = assinaturaIntencaoAceite(idConvite, tokenConvite || null);
       const intencao = session
         ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
         : { idOperacao: crypto.randomUUID(), assinatura };
@@ -152,7 +199,8 @@ function ConviteConteudo() {
       const res = await aceitar({
         idOperacao: intencao.idOperacao,
         idConvite,
-        tokenConvite,
+        tokenConvite: tokenConvite || undefined,
+        viaNotificacao: !tokenConvite ? true : undefined,
         nomeInformado: nomeInformado.trim() || undefined,
         matriculaInformada: matriculaInformada.trim() || undefined,
       });
@@ -172,6 +220,62 @@ function ConviteConteudo() {
       setLoading(false);
     }
   };
+
+  const handleRejeitar = async () => {
+    if (!confirm("Tem certeza que deseja recusar este convite? Esta ação é definitiva e liberará a vaga na turma.")) return;
+    setLoading(true);
+    setErro(null);
+
+    try {
+      const session = typeof window !== "undefined" ? window.sessionStorage : null;
+      const chave = chaveIntencaoRejeicao(idConvite);
+      const assinatura = assinaturaIntencaoRejeicao(idConvite);
+      const intencao = session
+        ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
+        : { idOperacao: crypto.randomUUID(), assinatura };
+
+      const functions = getFunctions();
+      const rejeitar = httpsCallable(functions, "rejeitarConviteAluno");
+
+      await rejeitar({
+        idOperacao: intencao.idOperacao,
+        idConvite,
+      });
+
+      if (session) limparIntencao(session, chave);
+      setRejeitado(true);
+    } catch (err: unknown) {
+      console.error("Erro ao recusar convite:", err);
+      const msg = err instanceof Error ? err.message : "Não foi possível recusar o convite.";
+      setErro(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (rejeitado) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="max-w-md w-full p-8 bg-card border border-border rounded-2xl shadow-xl text-center space-y-4 animate-in fade-in">
+          <div className="w-12 h-12 rounded-full bg-foreground/10 text-foreground/70 flex items-center justify-center mx-auto text-xl font-bold">
+            ✕
+          </div>
+          <h1 className="text-2xl font-bold">Convite Recusado</h1>
+          <p className="text-sm text-foreground/60">
+            Você recusou este convite institucional. A vaga correspondente foi liberada.
+          </p>
+          <div className="pt-2">
+            <Link
+              href="/"
+              className="inline-block w-full py-3 bg-foreground/10 text-foreground font-bold rounded-xl hover:bg-foreground/20 transition-colors"
+            >
+              Voltar ao Início
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (sucesso) {
     return (
@@ -203,11 +307,34 @@ function ConviteConteudo() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="max-w-md w-full p-8 bg-card border border-border rounded-2xl shadow-xl space-y-6">
         <div className="text-center space-y-2">
-          <h1 className="text-2xl font-bold">Aceitar Convite de Aluno</h1>
+          <h1 className="text-2xl font-bold">Convite de Aluno</h1>
           <p className="text-xs text-foreground/60">
             Conectado como <strong>{user.email}</strong> (verificado)
           </p>
         </div>
+
+        {detalhes && (
+          <div className="p-4 bg-foreground/5 border border-foreground/10 rounded-xl space-y-2 text-sm">
+            {detalhes.convidado_por_papel === "Chefe_Geral" ? (
+              <p className="text-foreground/90">
+                O <strong>Chefe Geral {detalhes.convidado_por_nome || ""}</strong> convidou você para a turma{" "}
+                <strong>{detalhes.nome_turma || "da disciplina"}</strong>
+                {detalhes.nome_professor ? ` do Professor ${detalhes.nome_professor}` : ""}.
+              </p>
+            ) : detalhes.nome_turma ? (
+              <p className="text-foreground/90">
+                O <strong>Professor {detalhes.nome_professor || detalhes.convidado_por_nome || "responsável"}</strong> convidou você para a turma{" "}
+                <strong>{detalhes.nome_turma}</strong>
+                {detalhes.codigo_turma ? ` (${detalhes.codigo_turma})` : ""}.
+              </p>
+            ) : (
+              <p className="text-foreground/90">
+                Você recebeu um convite para ingressar no sistema LCQUI emitido por{" "}
+                <strong>{detalhes.convidado_por_nome || "um responsável institucional"}</strong>.
+              </p>
+            )}
+          </div>
+        )}
 
         {erro && (
           <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 rounded-xl text-xs font-medium">
@@ -245,13 +372,23 @@ function ConviteConteudo() {
             </p>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
-            {loading ? "Processando aceite..." : "Confirmar e Ingressar"}
-          </button>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleRejeitar}
+              disabled={loading}
+              className="w-1/3 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 font-bold rounded-xl transition-colors disabled:opacity-50 text-sm"
+            >
+              {loading ? "..." : "Recusar"}
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 py-3 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm"
+            >
+              {loading ? "Processando..." : "Confirmar e Ingressar"}
+            </button>
+          </div>
         </form>
       </div>
     </div>
