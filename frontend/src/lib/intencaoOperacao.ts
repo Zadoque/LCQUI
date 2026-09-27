@@ -181,6 +181,16 @@ export function chaveIntencaoAceite(idConvite: string): string {
 }
 
 /** Assinatura canônica do aceite. */
-export function assinaturaIntencaoAceite(idConvite: string, token: string): string {
-  return JSON.stringify(["ACEITAR_CONVITE", idConvite.trim(), token.trim()]);
+export function assinaturaIntencaoAceite(idConvite: string, token?: string | null): string {
+  return JSON.stringify(["ACEITAR_CONVITE", idConvite.trim(), (token ?? "").trim()]);
+}
+
+/** Chave de sessão da intenção de rejeição de convite. */
+export function chaveIntencaoRejeicao(idConvite: string): string {
+  return `lcqui.intencao.rejeicao.${idConvite.trim()}`;
+}
+
+/** Assinatura canônica da rejeição. */
+export function assinaturaIntencaoRejeicao(idConvite: string): string {
+  return JSON.stringify(["REJEITAR_CONVITE", idConvite.trim()]);
 }
