@@ -159,7 +159,6 @@ service cloud.firestore {
         allow list: if isAuthenticated() && (
           get(/databases/$(database)/documents/Turma/$(turmaId)).data.id_professor == request.auth.uid
           || isAdmin()
-          || isCanonicalCurrentMember(turmaId, request.auth.uid)
         );
         // A inscrição é gerenciada por Cloud Function (transação)
         allow write: if false;
