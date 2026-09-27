@@ -446,7 +446,7 @@ export const alterarStatusTurma = onCall(async (request) => {
     return resultado;
   });
 });
-export { convidarAluno, aceitarConviteAluno } from "./convites";
+export { convidarAluno, aceitarConviteAluno, rejeitarConviteAluno, obterDetalhesConviteAluno } from "./convites";
 
 
 export const adicionarAlunoExistenteTurma = onCall(async (request) => {
