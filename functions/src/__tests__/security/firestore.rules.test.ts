@@ -44,6 +44,8 @@ async function seedAuthority(uid: string, roles: KnownRole[]): Promise<void> {
   });
 }
 
+jest.setTimeout(30000);
+
 beforeAll(async () => {
   // Inicializa o ambiente de teste apontando para o emulador
   testEnv = await initializeTestEnvironment({
@@ -54,14 +56,14 @@ beforeAll(async () => {
       port: 8080,
     },
   });
-});
+}, 30000);
 
 beforeEach(async () => {
   await testEnv.clearFirestore();
   for (const [uid, roles] of Object.entries(LEGACY_AUTHORITIES)) {
     await seedAuthority(uid, roles);
   }
-});
+}, 30000);
 
 afterAll(async () => {
   await testEnv.cleanup();
@@ -276,6 +278,87 @@ describe("Firestore Security Rules", () => {
 
       // Prof 2 tenta deletar o roteiro do Prof 1
       await assertFails(dbProf2.collection("Roteiro_Experimento").doc("rot1").delete());
+    });
+  });
+
+  describe("Rules M11 — janela de migração e vínculo canônico", () => {
+    it("TEST-RULES-M11-MIGR-001 — colega lê vínculo sanitizado (sem email/matricula) → PASS", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Turma").doc("t_migr1").set({ nome: "T1", id_professor: "prof1", status: "Ativo" });
+        // Vínculo canônico sanitizado do requerente
+        await db.collection("Turma").doc("t_migr1").collection("Alunos").doc("aluno1")
+          .set({ id_aluno: "aluno1", id_turma: "t_migr1", nome: "A1" });
+        // Vínculo canonicamente sanitizado do alvo
+        await db.collection("Turma").doc("t_migr1").collection("Alunos").doc("aluno2")
+          .set({ id_aluno: "aluno2", id_turma: "t_migr1", nome: "A2" });
+      });
+
+      const dbAluno1 = authedDb("aluno1");
+      await assertSucceeds(dbAluno1.collection("Turma").doc("t_migr1").collection("Alunos").doc("aluno2").get());
+    });
+
+    it("TEST-RULES-M11-MIGR-002 — colega tenta ler vínculo legado com email → DENY", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Turma").doc("t_migr2").set({ nome: "T2", id_professor: "prof1", status: "Ativo" });
+        await db.collection("Turma").doc("t_migr2").collection("Alunos").doc("aluno1")
+          .set({ id_aluno: "aluno1", id_turma: "t_migr2", nome: "A1" });
+        // Vínculo legado com campo proibido
+        await db.collection("Turma").doc("t_migr2").collection("Alunos").doc("aluno_legado")
+          .set({ id_aluno: "aluno_legado", id_turma: "t_migr2", nome: "Legado", email: "legado@x.com" });
+      });
+
+      const dbAluno1 = authedDb("aluno1");
+      // Colega não pode ler vínculo legado com email
+      await assertFails(dbAluno1.collection("Turma").doc("t_migr2").collection("Alunos").doc("aluno_legado").get());
+    });
+
+    it("TEST-RULES-M11-MIGR-003 — colega tenta ler vínculo legado com numero_matricula → DENY", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Turma").doc("t_migr3").set({ nome: "T3", id_professor: "prof1", status: "Ativo" });
+        await db.collection("Turma").doc("t_migr3").collection("Alunos").doc("aluno1")
+          .set({ id_aluno: "aluno1", id_turma: "t_migr3", nome: "A1" });
+        await db.collection("Turma").doc("t_migr3").collection("Alunos").doc("aluno_mat")
+          .set({ id_aluno: "aluno_mat", id_turma: "t_migr3", nome: "Mat", numero_matricula: "20100001" });
+      });
+
+      const dbAluno1 = authedDb("aluno1");
+      await assertFails(dbAluno1.collection("Turma").doc("t_migr3").collection("Alunos").doc("aluno_mat").get());
+    });
+
+    it("TEST-RULES-M11-MIGR-004 — professor dono lê qualquer vínculo → PASS", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Turma").doc("t_migr4").set({ nome: "T4", id_professor: "prof1", status: "Ativo" });
+        await db.collection("Turma").doc("t_migr4").collection("Alunos").doc("aluno_legado2")
+          .set({ id_aluno: "aluno_legado2", id_turma: "t_migr4", nome: "L", email: "l@x.com" });
+      });
+      const dbProf = authedDb("prof1");
+      await assertSucceeds(dbProf.collection("Turma").doc("t_migr4").collection("Alunos").doc("aluno_legado2").get());
+    });
+
+    it("TEST-RULES-M11-MIGR-005 — aluno de turma alheia → DENY", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Turma").doc("t_migr5").set({ nome: "T5", id_professor: "prof1", status: "Ativo" });
+        await db.collection("Turma").doc("t_migr5").collection("Alunos").doc("aluno_fora")
+          .set({ id_aluno: "aluno_fora", id_turma: "t_migr5", nome: "Fora" });
+        await db.collection("Usuarios").doc("aluno_externo").set({ ativo: true, versao_permissoes: AUTHORITY_VERSION });
+        await db.collection("Aluno").doc("aluno_externo").set({ id_usuario: "aluno_externo", ativo: true });
+      });
+      const dbExt = authedDb("aluno_externo", ["Aluno"]);
+      await assertFails(dbExt.collection("Turma").doc("t_migr5").collection("Alunos").doc("aluno_fora").get());
+    });
+
+    it("TEST-RULES-M11-MIGR-006 — write cliente em Alunos → DENY", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Turma").doc("t_migr6").set({ nome: "T6", id_professor: "prof1", status: "Ativo" });
+      });
+      const dbAluno1 = authedDb("aluno1");
+      await assertFails(dbAluno1.collection("Turma").doc("t_migr6").collection("Alunos").doc("aluno1").set({ id_aluno: "aluno1", id_turma: "t_migr6" }));
     });
   });
 
