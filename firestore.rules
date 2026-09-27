@@ -129,7 +129,15 @@ service cloud.firestore {
       allow write: if false;
 
       match /Alunos/{alunoId} {
-        allow read: if isAuthenticated();
+        // S11: próprio aluno, membro com vínculo canônico atual (projeção
+        // mínima) ou professor dono; aluno de turma alheia não enumera membros.
+        allow read: if isAuthenticated() && (
+          request.auth.uid == alunoId
+          || request.auth.uid == resource.data.id_aluno
+          || exists(/databases/$(database)/documents/Turma/$(turmaId)/Alunos/$(request.auth.uid))
+          || get(/databases/$(database)/documents/Turma/$(turmaId)).data.id_professor == request.auth.uid
+          || isAdmin()
+        );
         // A inscrição é gerenciada por Cloud Function (transação)
         allow write: if false;
       }

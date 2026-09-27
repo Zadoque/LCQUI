@@ -728,4 +728,121 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
       wrapped(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_ausente" }, "prof_adm5"))
     ).rejects.toMatchObject({ code: "not-found" });
   });
+
+  it("TEST-INT-TURMA-ING-005 — aluno já matriculado em turma cheia recebe acesso sem duplicar", async () => {
+    const turma = await criarTurmaOk("prof_ing5", {
+      idMateria: "mat_ing5", nomeTurma: "Turma Ing5", capacidade: 1, nomeMateria: "Ing5"
+    });
+    await ingressar("aluno_ing5", turma.codigoTurma);
+
+    const wrapped = testEnv.wrap(ingressarEmTurmaPorCodigo);
+    const res = await wrapped(
+      mockRequest({ idOperacao: novaOperacao(), codigoTurma: turma.codigoTurma }, "aluno_ing5", ["Aluno"])
+    );
+
+    expect(res.idTurma).toBe(turma.id);
+    expect((await db.collection("Turma").doc(turma.id).get()).data()?.qtd_alunos).toBe(1);
+    expect((await db.collection("Turma").doc(turma.id).collection("Alunos").get()).size).toBe(1);
+    const hist = await db.collection("Turma").doc(turma.id).collection("HistoricoAlunos")
+      .where("id_aluno", "==", "aluno_ing5").get();
+    expect(hist.size).toBe(1);
+  });
+
+  it("TEST-INT-TURMA-ING-006 — shape canônico do vínculo, espelho e histórico (CODIGO)", async () => {
+    const turma = await criarTurmaOk("prof_ing6", {
+      idMateria: "mat_ing6", nomeTurma: "Turma Ing6", capacidade: 5, nomeMateria: "Ing6"
+    });
+    await ingressar("aluno_ing6", turma.codigoTurma);
+
+    const vinculo = (await db.collection("Turma").doc(turma.id).collection("Alunos").doc("aluno_ing6").get()).data()!;
+    expect(vinculo.id_aluno).toBe("aluno_ing6");
+    expect(vinculo.id_turma).toBe(turma.id);
+    expect(vinculo.ingressou_em).toBeDefined();
+    expect(vinculo.email).toBeUndefined();
+    expect(vinculo.numero_matricula).toBeUndefined();
+
+    const espelho = (await db.collection("Usuarios").doc("aluno_ing6").collection("Turmas").doc(turma.id).get()).data()!;
+    expect(espelho.id_materia).toBe("mat_ing6");
+    expect(espelho.id_professor).toBe("prof_ing6");
+    expect(espelho.status).toBe("Ativo");
+
+    const evento = (await db.collection("Turma").doc(turma.id).collection("HistoricoAlunos")
+      .where("id_aluno", "==", "aluno_ing6").get()).docs[0].data();
+    expect(evento.id_turma).toBe(turma.id);
+    expect(evento.tipo).toBe("inclusao_aluno");
+    expect(evento.modo_ingresso).toBe("CODIGO");
+    expect(evento.justificativa).toBeNull();
+    expect(evento.removido_por).toBeNull();
+  });
+
+  it("TEST-INT-TURMA-ING-007 — contador persistido inválido falha fechado", async () => {
+    const turma = await criarTurmaOk("prof_ing7", {
+      idMateria: "mat_ing7", nomeTurma: "Turma Ing7", capacidade: 5, nomeMateria: "Ing7"
+    });
+    await db.collection("Turma").doc(turma.id).update({ qtd_alunos: "invalido" });
+    await semearAluno("aluno_ing7");
+    const wrapped = testEnv.wrap(ingressarEmTurmaPorCodigo);
+    await expect(
+      wrapped(mockRequest({ idOperacao: novaOperacao(), codigoTurma: turma.codigoTurma }, "aluno_ing7", ["Aluno"]))
+    ).rejects.toMatchObject({ code: "failed-precondition" });
+  });
+
+  it("TEST-INT-TURMA-ING-008 — nome vem de Usuarios e o vínculo não tem e-mail/matrícula", async () => {
+    const turma = await criarTurmaOk("prof_ing8", {
+      idMateria: "mat_ing8", nomeTurma: "Turma Ing8", capacidade: 5, nomeMateria: "Ing8"
+    });
+    await db.collection("Usuarios").doc("aluno_ing8").set({ ativo: true, versao_permissoes: 1, nome: "Nome Real" });
+    await db.collection("Aluno").doc("aluno_ing8").set({
+      id_usuario: "aluno_ing8", ativo: true, nome: "Papel", email: "p@x", numero_matricula: "999"
+    });
+    const wrapped = testEnv.wrap(ingressarEmTurmaPorCodigo);
+    await wrapped(mockRequest({ idOperacao: novaOperacao(), codigoTurma: turma.codigoTurma }, "aluno_ing8", ["Aluno"]));
+
+    const vinculo = (await db.collection("Turma").doc(turma.id).collection("Alunos").doc("aluno_ing8").get()).data()!;
+    expect(vinculo.nome).toBe("Nome Real");
+    expect(vinculo.email).toBeUndefined();
+    expect(vinculo.numero_matricula).toBeUndefined();
+  });
+
+  it("TEST-INT-TURMA-ADM-006 — shape canônico da inclusão pelo professor", async () => {
+    const turma = await criarTurmaOk("prof_adm6", {
+      idMateria: "mat_adm6", nomeTurma: "Turma Adm6", capacidade: 5, nomeMateria: "Adm6"
+    });
+    await db.collection("Aluno").doc("aluno_adm6").set({ id_usuario: "aluno_adm6", numero_matricula: "1" });
+    await db.collection("Usuarios").doc("aluno_adm6").set({ ativo: true, versao_permissoes: 1, nome: "Aluno Seis" });
+    const wrapped = testEnv.wrap(adicionarAlunoExistenteTurma);
+    await wrapped(mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_adm6" }, "prof_adm6"));
+
+    const vinculo = (await db.collection("Turma").doc(turma.id).collection("Alunos").doc("aluno_adm6").get()).data()!;
+    expect(vinculo.id_turma).toBe(turma.id);
+    expect(vinculo.nome).toBe("Aluno Seis");
+    expect(vinculo.email).toBeUndefined();
+    expect(vinculo.numero_matricula).toBeUndefined();
+
+    const espelho = (await db.collection("Usuarios").doc("aluno_adm6").collection("Turmas").doc(turma.id).get()).data()!;
+    expect(espelho.id_materia).toBe("mat_adm6");
+
+    const evento = (await db.collection("Turma").doc(turma.id).collection("HistoricoAlunos")
+      .where("id_aluno", "==", "aluno_adm6").get()).docs[0].data();
+    expect(evento.id_turma).toBe(turma.id);
+    expect(evento.modo_ingresso).toBe("CONVITE");
+    expect(evento.justificativa).toBeNull();
+    expect(evento.removido_por).toBeNull();
+  });
+
+  it("TEST-INT-TURMA-ADM-007 — evento de exclusão tem id_turma e não inventa modo", async () => {
+    const turma = await criarTurmaOk("prof_adm7", {
+      idMateria: "mat_adm7", nomeTurma: "Turma Adm7", capacidade: 5, nomeMateria: "Adm7"
+    });
+    await ingressar("aluno_adm7", turma.codigoTurma);
+    await testEnv.wrap(removerAlunoTurma)(
+      mockRequest({ idOperacao: novaOperacao(), idTurma: turma.id, idAluno: "aluno_adm7" }, "prof_adm7")
+    );
+    const evento = (await db.collection("Turma").doc(turma.id).collection("HistoricoAlunos")
+      .where("tipo", "==", "exclusao_aluno").get()).docs[0].data();
+    expect(evento.id_turma).toBe(turma.id);
+    expect(evento.modo_ingresso).toBeNull();
+    expect(evento.justificativa).toBeNull();
+    expect(evento.removido_por).toBe("prof_adm7");
+  });
 });

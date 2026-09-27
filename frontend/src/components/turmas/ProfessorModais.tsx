@@ -316,7 +316,6 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
                     <div key={a.id} className="flex justify-between items-center p-3 bg-foreground/5 rounded-xl">
                       <div>
                         <p className="font-bold text-sm">{a.nome || "Sem nome"}</p>
-                        <p className="text-xs text-foreground/60">{a.numero_matricula || "Sem matrícula"} • {a.email}</p>
                       </div>
                       <button
                         onClick={() => handleAdicionarExistente(a.id)}

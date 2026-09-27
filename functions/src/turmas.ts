@@ -42,19 +42,37 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
     const turmaDoc = turmaSnap.docs[0];
     const turma = turmaDoc.data();
 
+    const alunoTurmaRef = turmaDoc.ref.collection("Alunos").doc(claims.uid);
+    const alunoTurmaDoc = await tx.get(alunoTurmaRef);
+
+    // Membro já existente: recebe acesso à turma sem criar vínculo novo,
+    // incrementar contagem ou gerar novo evento — inclusive em turma cheia ou
+    // arquivada (UI-10: "aluno já matriculado recebe acesso à turma sem duplicar
+    // contagem"). Só registra o receipt da nova intenção.
+    if (alunoTurmaDoc.exists) {
+      const resultado = { idTurma: turmaDoc.id, nomeTurma: turma.nome_turma };
+      registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+      return resultado;
+    }
+
     if (turma.status === "Arquivada") {
       throw new HttpsError("failed-precondition", "A turma está arquivada e não aceita novos alunos.");
     }
-
-    const qtdAtual = turma.qtd_alunos || 0;
-    if (qtdAtual >= turma.capacidade) {
-      throw new HttpsError("failed-precondition", "A capacidade máxima da turma foi atingida.");
+    if (turma.status !== "Ativo") {
+      throw new HttpsError("failed-precondition", "Estado de turma persistido inválido (fail-closed).");
     }
 
-    const alunoTurmaRef = turmaDoc.ref.collection("Alunos").doc(claims.uid);
-    const alunoTurmaDoc = await tx.get(alunoTurmaRef);
-    if (alunoTurmaDoc.exists) {
-      throw new HttpsError("already-exists", "Você já está matriculado nesta turma.");
+    // Fail-closed do contador/capacidade (M11: inteiro >= 0 e capacidade >= 1).
+    const qtdAtual = turma.qtd_alunos;
+    const capacidade = turma.capacidade;
+    if (typeof qtdAtual !== "number" || !Number.isInteger(qtdAtual) || qtdAtual < 0) {
+      throw new HttpsError("failed-precondition", "Contador de alunos inválido (fail-closed).");
+    }
+    if (typeof capacidade !== "number" || !Number.isInteger(capacidade) || capacidade < 1) {
+      throw new HttpsError("failed-precondition", "Capacidade da turma inválida (fail-closed).");
+    }
+    if (qtdAtual >= capacidade) {
+      throw new HttpsError("failed-precondition", "A capacidade máxima da turma foi atingida.");
     }
 
     const historicoSnap = await tx.get(
@@ -67,39 +85,45 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
       throw new HttpsError("permission-denied", "Você foi removido pelo professor e não pode retornar pelo código.");
     }
 
-    const userRef = db.collection("Aluno").doc(claims.uid);
-    const userDoc = await tx.get(userRef);
-    const userData = userDoc.exists ? userDoc.data()! : {};
+    // Projeção mínima: nome vem do cadastro de identidade (Usuarios), nunca do
+    // documento de papel nem do e-mail/matrícula.
+    const identidadeSnap = await tx.get(db.collection("Usuarios").doc(claims.uid));
+    const nomeBruto = identidadeSnap.data()?.nome;
+    const nome = typeof nomeBruto === "string" && nomeBruto.trim().length > 0 ? nomeBruto.trim() : "Sem nome";
 
+    // Vínculo canônico (#M11VinculoCanonico + projeção mínima de nome).
     tx.set(alunoTurmaRef, {
       id_aluno: claims.uid,
-      nome: userData.nome || "Sem nome",
-      email: userData.email || "",
-      numero_matricula: userData.numero_matricula || "",
+      id_turma: turmaDoc.id,
+      nome,
       ingressou_em: FieldValue.serverTimestamp()
     });
 
-    const alunoTurmaMirrorRef = db.collection("Usuarios").doc(claims.uid).collection("Turmas").doc(turmaDoc.id);
-    tx.set(alunoTurmaMirrorRef, {
+    // Espelho #M11EspelhoAlunoTurma.
+    tx.set(db.collection("Usuarios").doc(claims.uid).collection("Turmas").doc(turmaDoc.id), {
       id_turma: turmaDoc.id,
+      id_professor: turma.id_professor,
+      id_materia: turma.id_materia,
       nome_turma: turma.nome_turma,
       nome_materia: turma.nome_materia,
       ano: turma.ano,
       semestre: turma.semestre,
-      id_professor: turma.id_professor,
       status: turma.status,
       ingressou_em: FieldValue.serverTimestamp()
     });
 
+    // Evento histórico de inclusão (#M11EventoHistorico).
     tx.set(turmaDoc.ref.collection("HistoricoAlunos").doc(), {
+      id_turma: turmaDoc.id,
       id_aluno: claims.uid,
       tipo: "inclusao_aluno",
+      modo_ingresso: "CODIGO",
+      justificativa: null,
+      removido_por: null,
       timestamp: FieldValue.serverTimestamp()
     });
 
-    tx.update(turmaDoc.ref, {
-      qtd_alunos: FieldValue.increment(1)
-    });
+    tx.update(turmaDoc.ref, { qtd_alunos: qtdAtual + 1 });
 
     const resultado = { idTurma: turmaDoc.id, nomeTurma: turma.nome_turma };
     registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
@@ -281,8 +305,11 @@ export const removerAlunoTurma = onCall(async (request) => {
     tx.delete(db.collection("Usuarios").doc(idAluno).collection("Turmas").doc(idTurma));
 
     tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
+      id_turma: idTurma,
       id_aluno: idAluno,
       tipo: "exclusao_aluno",
+      modo_ingresso: null,
+      justificativa: null,
       removido_por: claims.uid,
       timestamp: FieldValue.serverTimestamp()
     });
@@ -470,7 +497,7 @@ export const adicionarAlunoExistenteTurma = onCall(async (request) => {
     if (!alunoSnap.exists) {
       throw new HttpsError("not-found", "Aluno não encontrado no sistema.");
     }
-    const alunoData = alunoSnap.data()!;
+    const identidadeAlunoSnap = await tx.get(db.collection("Usuarios").doc(idAluno));
 
     const matriculaRef = turmaRef.collection("Alunos").doc(idAluno);
     const matriculaSnap = await tx.get(matriculaRef);
@@ -479,37 +506,51 @@ export const adicionarAlunoExistenteTurma = onCall(async (request) => {
     }
 
     // Vagas: na V1 a autoridade é `qtd_alunos`, lida/escrita na mesma transação.
-    const qtdAtual = typeof turma.qtd_alunos === "number" ? turma.qtd_alunos : 0;
-    if (qtdAtual >= turma.capacidade) {
-      throw new HttpsError("failed-precondition", `A turma atingiu a capacidade máxima de ${turma.capacidade} alunos.`);
+    const qtdAtual = turma.qtd_alunos;
+    const capacidade = turma.capacidade;
+    if (typeof qtdAtual !== "number" || !Number.isInteger(qtdAtual) || qtdAtual < 0) {
+      throw new HttpsError("failed-precondition", "Contador de alunos inválido (fail-closed).");
+    }
+    if (typeof capacidade !== "number" || !Number.isInteger(capacidade) || capacidade < 1) {
+      throw new HttpsError("failed-precondition", "Capacidade da turma inválida (fail-closed).");
+    }
+    if (qtdAtual >= capacidade) {
+      throw new HttpsError("failed-precondition", `A turma atingiu a capacidade máxima de ${capacidade} alunos.`);
     }
 
     const agora = FieldValue.serverTimestamp();
+    const nomeBruto = identidadeAlunoSnap.data()?.nome;
+    const nome = typeof nomeBruto === "string" && nomeBruto.trim().length > 0 ? nomeBruto.trim() : "Sem nome";
 
+    // Vínculo canônico: projeção mínima (sem e-mail/matrícula).
     tx.set(matriculaRef, {
       id_aluno: idAluno,
-      nome: alunoData.nome || "Sem nome",
-      email: alunoData.email || "",
-      numero_matricula: alunoData.numero_matricula || "",
+      id_turma: idTurma,
+      nome,
       ingressou_em: agora,
-      adicionado_por_professor: true,
     });
 
+    // Espelho #M11EspelhoAlunoTurma.
     tx.set(db.collection("Usuarios").doc(idAluno).collection("Turmas").doc(idTurma), {
       id_turma: idTurma,
+      id_professor: turma.id_professor,
+      id_materia: turma.id_materia,
       nome_turma: turma.nome_turma,
       nome_materia: turma.nome_materia,
       ano: turma.ano,
       semestre: turma.semestre,
-      id_professor: turma.id_professor,
       status: turma.status,
       ingressou_em: agora,
     });
 
+    // Evento histórico de inclusão pelo professor (sem código).
     tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
+      id_turma: idTurma,
       id_aluno: idAluno,
       tipo: "inclusao_aluno",
-      responsavel_uid: claims.uid,
+      modo_ingresso: "CONVITE",
+      justificativa: null,
+      removido_por: null,
       timestamp: agora,
     });
 
