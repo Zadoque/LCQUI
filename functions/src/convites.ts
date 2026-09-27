@@ -15,7 +15,12 @@ import {
   registrarOperacaoConcluidaTx,
 } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
-import { ConvidarAlunoSchema, AceitarConviteAlunoSchema } from "./schemas/convites.schema";
+import {
+  ConvidarAlunoSchema,
+  AceitarConviteAlunoSchema,
+  RejeitarConviteAlunoSchema,
+  ObterDetalhesConviteAlunoSchema,
+} from "./schemas/convites.schema";
 import {
   normalizarEmailConvite,
   normalizarMatriculaConvite,
@@ -35,6 +40,8 @@ import {
 import { reconciliarClaimsUsuario } from "./usuarios";
 
 export const conviteHmacSecret = defineSecret("CONVITE_HMAC_SECRET");
+
+export type CanalEntregaConvite = "notificacao_interna" | "firebase_auth";
 
 /**
  * Obtém o segredo do servidor para HMAC de pendência de convite.
@@ -58,9 +65,11 @@ export function obterSegredoHmac(): string {
 
 /**
  * Reconciliação transacional idempotente de expiração de convite.
+ * Segue estritamente a ordenação N-12: READS FIRST -> VALIDATIONS -> WRITES.
  * Se o convite estiver pendente com prazo vencido:
+ * - lê a pendência em Chaves_Unicas;
  * - atualiza status para 'expirado';
- * - remove/libera a chave determinística em Chaves_Unicas se ainda apontar para ele;
+ * - remove/libera a chave determinística em Chaves_Unicas se ainda apontar para ele.
  * Retorna true se uma expiração foi materializada, false caso contrário.
  */
 export async function reconciliarConviteExpiradoTx(
@@ -68,6 +77,7 @@ export async function reconciliarConviteExpiradoTx(
   conviteRef: admin.firestore.DocumentReference,
   secret: string
 ): Promise<boolean> {
+  // READS FIRST
   const conviteSnap = await tx.get(conviteRef);
   if (!conviteSnap.exists) return false;
   const convite = conviteSnap.data()!;
@@ -78,13 +88,14 @@ export async function reconciliarConviteExpiradoTx(
   const contexto: ContextoConvite = convite.id_turma ? "TURMA" : "GLOBAL";
   const chaveHmac = derivarChavePendenciaConvite(secret, contexto, convite.id_turma ?? null, convite.email);
   const pendenciaRef = admin.firestore().collection("Chaves_Unicas").doc(chaveConvitePendente(chaveHmac));
+  const pendSnap = await tx.get(pendenciaRef);
 
+  // WRITES
   tx.update(conviteRef, {
     status: "expirado",
     atualizado_em: FieldValue.serverTimestamp(),
   });
 
-  const pendSnap = await tx.get(pendenciaRef);
   if (pendSnap.exists && pendSnap.data()?.id_recurso === conviteRef.id) {
     tx.delete(pendenciaRef);
   }
@@ -94,8 +105,12 @@ export async function reconciliarConviteExpiradoTx(
 
 /**
  * Execução lógica de emissão/reenvio de convite (ACAD-005).
- * Primitiva server-side que retorna também o token efêmero gerado em memória
- * para viabilizar testes sem persistir ou retornar token na callable pública.
+ * - Identifica o canal de entrega com base na existência de conta no Firebase Auth fora da transação.
+ * - Se possui conta Auth ativa: emite notificação interna CONVITE_PARA_TURMA.
+ * - Se não possui conta Auth: provisiona conta Auth no pós-commit e dispara fluxo de definição de senha.
+ * - Se conta está desativada no Auth: fail-closed imediato.
+ * - Professor dono convida para sua turma (com ou sem exceção de capacidade justificada).
+ * - Chefe Geral pode emitir convite ordinário para turma ativa de qualquer professor (sem assumir ownership e sem exceção de capacidade).
  */
 export async function executarConvidarAluno(
   dados: {
@@ -112,6 +127,7 @@ export async function executarConvidarAluno(
   id: string;
   registrado: boolean;
   reenvio: boolean;
+  canal_entrega: CanalEntregaConvite;
   tokenEfemero?: string;
 }> {
   const claims = extrairClaimsAutoridade(request);
@@ -131,6 +147,24 @@ export async function executarConvidarAluno(
     throw new HttpsError("invalid-argument", "Exceção de capacidade só é aplicável a convites de turma.");
   }
 
+  // Consulta do canal de entrega no Firebase Authentication fora da transação Firestore
+  let authUser: admin.auth.UserRecord | null = null;
+  try {
+    authUser = await admin.auth().getUserByEmail(emailNormalizado);
+  } catch (err: unknown) {
+    const authErr = err as { code?: string; message?: string };
+    if (authErr.code !== "auth/user-not-found") {
+      throw new HttpsError("internal", `Erro ao consultar Firebase Authentication: ${authErr.message || String(err)}`);
+    }
+  }
+
+  // Falha fechada se a conta de destino existir mas estiver desabilitada
+  if (authUser && authUser.disabled) {
+    throw new HttpsError("failed-precondition", "A conta associada a este e-mail está desativada no Firebase Authentication.");
+  }
+
+  const canalEntrega: CanalEntregaConvite = authUser ? "notificacao_interna" : "firebase_auth";
+
   const db = admin.firestore();
   const identidade = construirIdentidade(claims.uid, "CONVIDAR_ALUNO", {
     email: emailNormalizado,
@@ -140,11 +174,11 @@ export async function executarConvidarAluno(
     justificativaExcecao,
   });
 
-  return await db.runTransaction(async (tx) => {
+  const resultadoTx = await db.runTransaction(async (tx) => {
     // M7: Resolução de idempotência antes de efeitos
     const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
     if (decisao.estado === "REPLAY") {
-      return decisao.resultado as { id: string; registrado: boolean; reenvio: boolean };
+      return decisao.resultado as { id: string; registrado: boolean; reenvio: boolean; tokenEfemero?: string };
     }
     if (decisao.estado !== "NOVA") {
       throw new HttpsError("failed-precondition", "Operação de convite não concluída.");
@@ -165,9 +199,19 @@ export async function executarConvidarAluno(
         throw new HttpsError("failed-precondition", "Turma arquivada ou inativa.");
       }
 
-      // Professor só pode convidar para a própria turma; Chefe não simula ownership
-      if (turma.id_professor !== claims.uid) {
-        throw new HttpsError("permission-denied", "Apenas o professor dono da turma pode emitir convites para ela.");
+      // Regra M9 reconciliada:
+      // - Professor: exige ownership da turma (turma.id_professor == claims.uid).
+      // - Chefe_Geral: autoridade administrativa para convite ordinário, vedada exceção de capacidade e sem alterar id_professor.
+      if (autoridade.papelAutorizado === "Professor") {
+        if (turma.id_professor !== claims.uid) {
+          throw new HttpsError("permission-denied", "Apenas o professor dono da turma pode emitir convites para ela.");
+        }
+      } else if (autoridade.papelAutorizado === "Chefe_Geral") {
+        if (excederCapacidade) {
+          throw new HttpsError("permission-denied", "Chefe Geral não possui autorização para conceder exceção de capacidade.");
+        }
+      } else {
+        throw new HttpsError("permission-denied", "Papel não autorizado a convidar alunos.");
       }
 
       // Validação fail-closed dos contadores
@@ -185,7 +229,6 @@ export async function executarConvidarAluno(
           throw new HttpsError("failed-precondition", `A turma atingiu a capacidade máxima de ${capacidade} alunos.`);
         }
       } else {
-        // Exceção nominal
         if (!justificativaExcecao || justificativaExcecao.length === 0) {
           throw new HttpsError("failed-precondition", "Justificativa de exceção é obrigatória.");
         }
@@ -252,6 +295,8 @@ export async function executarConvidarAluno(
           justificativa_excecao: excederCapacidade ? justificativaExcecao : null,
           aceitado_por: null,
           aceitado_em: null,
+          rejeitado_por: null,
+          rejeitado_em: null,
         });
 
         tx.set(pendenciaRef, {
@@ -259,6 +304,25 @@ export async function executarConvidarAluno(
           id_recurso: novoDocRef.id,
           criado_em: agora,
         });
+
+        // Se destinatário possui conta Auth: emite notificação interna M13
+        if (authUser) {
+          const notifRef = db.collection("Usuarios").doc(authUser.uid).collection("Notificacoes").doc(novoDocRef.id);
+          tx.set(notifRef, {
+            id: novoDocRef.id,
+            id_usuario: authUser.uid,
+            tipo: "CONVITE_PARA_TURMA",
+            papel_destinatario: "Aluno",
+            entidade_alvo: "Convite_Aluno",
+            id_alvo: novoDocRef.id,
+            id_turma: idTurmaFinal,
+            id_quem_fez_acao: claims.uid,
+            expira_em: Timestamp.fromDate(expiraEm),
+            criado_em: agora,
+            lida: false,
+            resumo: "Convite para ingresso em turma",
+          });
+        }
 
         const resultado = {
           id: novoDocRef.id,
@@ -277,6 +341,7 @@ export async function executarConvidarAluno(
             id_turma: idTurmaFinal,
             email: emailNormalizado,
             convite_anterior_expirado: idConviteExistente,
+            canal_entrega: canalEntrega,
           },
         });
 
@@ -291,6 +356,28 @@ export async function executarConvidarAluno(
         ultimo_reenvio_por: claims.uid,
         atualizado_em: agora,
       });
+
+      if (authUser) {
+        const notifRef = db.collection("Usuarios").doc(authUser.uid).collection("Notificacoes").doc(idConviteExistente);
+        tx.set(
+          notifRef,
+          {
+            id: idConviteExistente,
+            id_usuario: authUser.uid,
+            tipo: "CONVITE_PARA_TURMA",
+            papel_destinatario: "Aluno",
+            entidade_alvo: "Convite_Aluno",
+            id_alvo: idConviteExistente,
+            id_turma: idTurmaFinal,
+            id_quem_fez_acao: claims.uid,
+            expira_em: Timestamp.fromDate(expiraEm),
+            criado_em: agora,
+            lida: false,
+            resumo: "Convite para ingresso em turma",
+          },
+          { merge: true }
+        );
+      }
 
       const resultado = {
         id: idConviteExistente,
@@ -308,6 +395,7 @@ export async function executarConvidarAluno(
         metadata: {
           id_turma: idTurmaFinal,
           email: emailNormalizado,
+          canal_entrega: canalEntrega,
         },
       });
 
@@ -332,6 +420,8 @@ export async function executarConvidarAluno(
       justificativa_excecao: excederCapacidade ? justificativaExcecao : null,
       aceitado_por: null,
       aceitado_em: null,
+      rejeitado_por: null,
+      rejeitado_em: null,
     });
 
     tx.set(pendenciaRef, {
@@ -339,6 +429,24 @@ export async function executarConvidarAluno(
       id_recurso: novoDocRef.id,
       criado_em: agora,
     });
+
+    if (authUser) {
+      const notifRef = db.collection("Usuarios").doc(authUser.uid).collection("Notificacoes").doc(novoDocRef.id);
+      tx.set(notifRef, {
+        id: novoDocRef.id,
+        id_usuario: authUser.uid,
+        tipo: "CONVITE_PARA_TURMA",
+        papel_destinatario: "Aluno",
+        entidade_alvo: "Convite_Aluno",
+        id_alvo: novoDocRef.id,
+        id_turma: idTurmaFinal,
+        id_quem_fez_acao: claims.uid,
+        expira_em: Timestamp.fromDate(expiraEm),
+        criado_em: agora,
+        lida: false,
+        resumo: "Convite para ingresso em turma",
+      });
+    }
 
     const resultado = {
       id: novoDocRef.id,
@@ -356,36 +464,64 @@ export async function executarConvidarAluno(
       metadata: {
         id_turma: idTurmaFinal,
         email: emailNormalizado,
+        canal_entrega: canalEntrega,
       },
     });
 
     return { ...resultado, tokenEfemero: token };
   });
+
+  // Pós-commit: se o usuário não possuía conta no Auth, provisiona e gera fluxo oficial de definição de senha
+  if (!authUser) {
+    try {
+      await admin.auth().createUser({ email: emailNormalizado });
+    } catch (err: unknown) {
+      const createErr = err as { code?: string };
+      if (createErr.code !== "auth/email-already-exists") {
+        console.error("Erro ao provisionar usuário no Firebase Auth:", err);
+      }
+    }
+    try {
+      const continueUrl = `${process.env.APP_BASE_URL || "http://localhost:3000"}/login`;
+      await admin.auth().generatePasswordResetLink(emailNormalizado, { url: continueUrl });
+    } catch (err: unknown) {
+      console.error("Erro ao disparar link de definição de senha no Firebase Auth:", err);
+    }
+  }
+
+  return {
+    ...resultadoTx,
+    canal_entrega: canalEntrega,
+  };
 }
 
 /**
  * Callable pública para convidar/reenviar aluno (ACAD-005).
- * Jamais retorna o token ao professor.
+ * Jamais retorna o token efêmero ao cliente.
  */
 export const convidarAluno = onCall({ secrets: [conviteHmacSecret] }, async (request) => {
   const dados = validatePayload(ConvidarAlunoSchema, request.data);
   const resultado = await executarConvidarAluno(dados, request);
-  // O token efêmero de memória NUNCA é retornado na resposta da callable
   return {
     id: resultado.id,
     registrado: resultado.registrado,
     reenvio: resultado.reenvio,
+    canal_entrega: resultado.canal_entrega,
   };
 });
 
 /**
  * Execução lógica de aceite de convite por aluno (ACAD-006).
+ * Suporta duas portas de entrada convergentes:
+ * 1. Via Externa: exige token fornecido pelo cliente (`tokenConvite`).
+ * 2. Via Interna: usuário autenticado com e-mail verificado correspondente e notificação própria CONVITE_PARA_TURMA (`viaNotificacao = true`).
  */
 export async function executarAceitarConviteAluno(
   dados: {
     idOperacao: string;
     idConvite: string;
-    tokenConvite: string;
+    tokenConvite?: string;
+    viaNotificacao?: boolean;
     nomeInformado?: string;
     matriculaInformada?: string;
   },
@@ -420,7 +556,8 @@ export async function executarAceitarConviteAluno(
   // M7: Identidade semântica do comando de aceite
   const identidade = construirIdentidade(authUser.uid, "ACEITAR_CONVITE", {
     idConvite: dados.idConvite,
-    tokenHash: hashTokenConvite(dados.tokenConvite),
+    modo: dados.viaNotificacao ? "NOTIFICACAO_INTERNA" : "TOKEN_EXTERNO",
+    tokenHash: dados.tokenConvite ? hashTokenConvite(dados.tokenConvite) : "via_notificacao",
   });
 
   type TransacaoResultado =
@@ -464,7 +601,11 @@ export async function executarAceitarConviteAluno(
     const pendenciaRef = db.collection("Chaves_Unicas").doc(chaveConvitePendente(chaveHmac));
     const pendSnap = await tx.get(pendenciaRef);
 
-    // Se o convite está expirado, podemos materializar a expiração imediatamente (já lemos pendSnap!)
+    // 4. Leitura da notificação interna (se aplicável ou se existir)
+    const notifRef = db.collection("Usuarios").doc(authUser.uid).collection("Notificacoes").doc(dados.idConvite);
+    const notifSnap = await tx.get(notifRef);
+
+    // Se o convite está expirado, podemos materializar a expiração imediatamente
     if (convite.status === "expirado" || isConviteExpirado(convite.expira_em)) {
       tx.update(conviteRef, {
         status: "expirado",
@@ -476,14 +617,14 @@ export async function executarAceitarConviteAluno(
       return { tipo: "EXPIRADO_RECONCILIADO" };
     }
 
-    // 4. Leitura do Usuário e Papéis M9
+    // 5. Leitura do Usuário e Papéis M9
     const usuarioRef = db.collection("Usuarios").doc(authUser.uid);
     const usuarioSnap = await tx.get(usuarioRef);
     const perfisSnaps = await tx.getAll(...PAPEIS_CONHECIDOS.map((p) => db.collection(p).doc(authUser.uid)));
     const papeisAtuais = PAPEIS_CONHECIDOS.filter((_, i) => perfisSnaps[i].exists);
     const jaTemAluno = papeisAtuais.includes("Aluno");
 
-    // 5. Leitura da chave de matrícula em Chaves_Unicas (se for cadastrar perfil Aluno novo)
+    // 6. Leitura da chave de matrícula em Chaves_Unicas (se for cadastrar perfil Aluno novo)
     const matDesejada = normalizarMatriculaConvite(dados.matriculaInformada || convite.numero_matricula);
     let chaveMatriculaRef: FirebaseFirestore.DocumentReference | null = null;
     let chaveMatriculaSnap: FirebaseFirestore.DocumentSnapshot | null = null;
@@ -492,7 +633,7 @@ export async function executarAceitarConviteAluno(
       chaveMatriculaSnap = await tx.get(chaveMatriculaRef);
     }
 
-    // 6. Leitura da Turma e Vínculo de Aluno (se for contexto TURMA)
+    // 7. Leitura da Turma e Vínculo de Aluno (se for contexto TURMA)
     let turmaRef: FirebaseFirestore.DocumentReference | null = null;
     let turmaSnap: FirebaseFirestore.DocumentSnapshot | null = null;
     let vinculoRef: FirebaseFirestore.DocumentReference | null = null;
@@ -509,10 +650,23 @@ export async function executarAceitarConviteAluno(
     // FASE 2: VALIDAÇÕES DE NEGÓCIO
     // ==========================================
 
-    // Comparação do token em tempo constante
-    const tokenValido = compararTokenConstantTime(dados.tokenConvite, convite.token_hash);
-    if (!tokenValido) {
-      throw new HttpsError("permission-denied", "Token de convite inválido.");
+    // Validação da porta de entrada
+    if (dados.viaNotificacao) {
+      if (!notifSnap.exists) {
+        throw new HttpsError("permission-denied", "Notificação de convite não encontrada para este usuário.");
+      }
+      const notifData = notifSnap.data()!;
+      if (notifData.tipo !== "CONVITE_PARA_TURMA" || notifData.id_alvo !== dados.idConvite) {
+        throw new HttpsError("permission-denied", "Notificação não corresponde ao convite indicado.");
+      }
+    } else {
+      if (!dados.tokenConvite) {
+        throw new HttpsError("invalid-argument", "Token de convite é obrigatório para aceite externo.");
+      }
+      const tokenValido = compararTokenConstantTime(dados.tokenConvite, convite.token_hash);
+      if (!tokenValido) {
+        throw new HttpsError("permission-denied", "Token de convite inválido.");
+      }
     }
 
     // Validação de e-mail verificado correspondente
@@ -522,6 +676,9 @@ export async function executarAceitarConviteAluno(
 
     if (convite.status === "aceitado") {
       throw new HttpsError("failed-precondition", "Este convite já foi aceito anteriormente.");
+    }
+    if (convite.status === "rejeitado") {
+      throw new HttpsError("failed-precondition", "Este convite foi rejeitado.");
     }
 
     // Validação de pendência ativa
@@ -568,7 +725,6 @@ export async function executarAceitarConviteAluno(
         throw new HttpsError("failed-precondition", "Matrícula informada diverge da matrícula já cadastrada do aluno.");
       }
     } else {
-      // Validar matriz de papéis antes e depois de adicionar Aluno
       validarMatrizPapeis([...papeisAtuais]);
       const posteriores = [...new Set([...papeisAtuais, "Aluno" as PapelConhecido])];
       validarMatrizPapeis(posteriores);
@@ -669,7 +825,6 @@ export async function executarAceitarConviteAluno(
       const idTurma = convite.id_turma;
       const turma = turmaSnap!.data()!;
 
-      // Vínculo canônico sanitizado (sem e-mail nem matrícula)
       tx.set(vinculoRef!, {
         id_aluno: authUser.uid,
         id_turma: idTurma,
@@ -677,7 +832,6 @@ export async function executarAceitarConviteAluno(
         ingressou_em: agora,
       });
 
-      // Espelho de consulta M11
       tx.set(db.collection("Usuarios").doc(authUser.uid).collection("Turmas").doc(idTurma), {
         id_turma: idTurma,
         id_professor: turma.id_professor,
@@ -690,7 +844,6 @@ export async function executarAceitarConviteAluno(
         ingressou_em: agora,
       });
 
-      // Evento histórico de inclusão
       tx.set(turmaRef!.collection("HistoricoAlunos").doc(), {
         id_turma: idTurma,
         id_aluno: authUser.uid,
@@ -708,7 +861,7 @@ export async function executarAceitarConviteAluno(
       criouMatricula = true;
     }
 
-    // Finalizar convite, excluir pendência e registrar receipt M7
+    // Finalizar convite, excluir pendência e marcar notificação lida se existir
     tx.update(conviteRef, {
       status: "aceitado",
       aceitado_por: authUser.uid,
@@ -717,6 +870,13 @@ export async function executarAceitarConviteAluno(
     });
 
     tx.delete(pendenciaRef);
+
+    if (notifSnap.exists) {
+      tx.update(notifRef, {
+        lida: true,
+        atualizado_em: agora,
+      });
+    }
 
     const resultadoAceite = {
       idConvite: dados.idConvite,
@@ -738,6 +898,7 @@ export async function executarAceitarConviteAluno(
         id_turma: convite.id_turma ?? null,
         email: emailAuthNormalizado,
         criouMatricula,
+        modo: dados.viaNotificacao ? "NOTIFICACAO_INTERNA" : "TOKEN_EXTERNO",
       },
     });
 
@@ -764,7 +925,6 @@ export async function executarAceitarConviteAluno(
     throw new HttpsError("failed-precondition", "O convite expirou e não pode ser mais aceito.");
   }
 
-  // Pós-commit: sincronização recuperável de Custom Claims se papel Aluno foi criado
   if (txRes.precisaSyncClaims) {
     try {
       await reconciliarClaimsUsuario(authUser.uid);
@@ -782,4 +942,268 @@ export async function executarAceitarConviteAluno(
 export const aceitarConviteAluno = onCall({ secrets: [conviteHmacSecret] }, async (request) => {
   const dados = validatePayload(AceitarConviteAlunoSchema, request.data);
   return await executarAceitarConviteAluno(dados, request);
+});
+
+/**
+ * Execução lógica de rejeição de convite por aluno.
+ * - Estado terminal definitivo: não gera vínculo, não altera contadores, libera o lock de pendência HMAC em Chaves_Unicas.
+ * - Registra auditoria e receipt M7.
+ * - Marca notificação interna própria como lida se existir.
+ */
+export async function executarRejeitarConviteAluno(
+  dados: {
+    idOperacao: string;
+    idConvite: string;
+  },
+  request: CallableRequest,
+  segredoInjetado?: string
+): Promise<{
+  idConvite: string;
+  status: "rejeitado";
+}> {
+  if (!request.auth?.uid) {
+    throw new HttpsError("unauthenticated", "Usuário não autenticado.");
+  }
+
+  const secret = segredoInjetado ?? obterSegredoHmac();
+
+  const authUser = await admin.auth().getUser(request.auth.uid);
+  if (!authUser.emailVerified) {
+    throw new HttpsError("failed-precondition", "E-mail da conta não verificado.");
+  }
+  if (!authUser.email) {
+    throw new HttpsError("failed-precondition", "E-mail ausente na conta de autenticação.");
+  }
+  const emailAuthNormalizado = normalizarEmailConvite(authUser.email);
+
+  const db = admin.firestore();
+  const conviteRef = db.collection("Convite_Aluno").doc(dados.idConvite);
+
+  const identidade = construirIdentidade(authUser.uid, "REJEITAR_CONVITE", {
+    idConvite: dados.idConvite,
+  });
+
+  return await db.runTransaction(async (tx) => {
+    // FASE 1: READS FIRST
+    const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+    if (decisao.estado === "REPLAY") {
+      return decisao.resultado as { idConvite: string; status: "rejeitado" };
+    }
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError("failed-precondition", "Operação de rejeição não concluída.");
+    }
+
+    const conviteSnap = await tx.get(conviteRef);
+    if (!conviteSnap.exists) {
+      throw new HttpsError("not-found", "Convite não encontrado.");
+    }
+    const convite = conviteSnap.data()!;
+
+    const contexto: ContextoConvite = convite.id_turma ? "TURMA" : "GLOBAL";
+    const chaveHmac = derivarChavePendenciaConvite(secret, contexto, convite.id_turma ?? null, convite.email);
+    const pendenciaRef = db.collection("Chaves_Unicas").doc(chaveConvitePendente(chaveHmac));
+    const pendSnap = await tx.get(pendenciaRef);
+
+    const notifRef = db.collection("Usuarios").doc(authUser.uid).collection("Notificacoes").doc(dados.idConvite);
+    const notifSnap = await tx.get(notifRef);
+
+    // FASE 2: VALIDAÇÕES
+    if (convite.email !== emailAuthNormalizado) {
+      throw new HttpsError("permission-denied", "O e-mail da conta autenticada não corresponde ao convite.");
+    }
+
+    if (convite.status === "rejeitado") {
+      throw new HttpsError("failed-precondition", "Este convite já foi rejeitado anteriormente.");
+    }
+    if (convite.status === "aceitado") {
+      throw new HttpsError("failed-precondition", "Este convite já foi aceito e não pode ser rejeitado.");
+    }
+    if (convite.status === "expirado" || isConviteExpirado(convite.expira_em)) {
+      tx.update(conviteRef, {
+        status: "expirado",
+        atualizado_em: FieldValue.serverTimestamp(),
+      });
+      if (pendSnap.exists && pendSnap.data()?.id_recurso === dados.idConvite) {
+        tx.delete(pendenciaRef);
+      }
+      throw new HttpsError("failed-precondition", "O convite expirou e não pode ser rejeitado.");
+    }
+
+    // FASE 3: WRITES
+    const agora = FieldValue.serverTimestamp();
+    tx.update(conviteRef, {
+      status: "rejeitado",
+      rejeitado_por: authUser.uid,
+      rejeitado_em: agora,
+      atualizado_em: agora,
+    });
+
+    if (pendSnap.exists && pendSnap.data()?.id_recurso === dados.idConvite) {
+      tx.delete(pendenciaRef);
+    }
+
+    if (notifSnap.exists) {
+      tx.update(notifRef, {
+        lida: true,
+        atualizado_em: agora,
+      });
+    }
+
+    const resultadoRejeicao = {
+      idConvite: dados.idConvite,
+      status: "rejeitado" as const,
+    };
+
+    registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultadoRejeicao);
+
+    tx.set(db.collection("Registro_de_Auditoria").doc(`rejeicao_${dados.idOperacao}`), {
+      id_usuario: authUser.uid,
+      acao: "REJEICAO_CONVITE",
+      tipo_entidade_sofre_acao: "CONVITE_ALUNO",
+      id_do_objeto_da_entidade: dados.idConvite,
+      acao_feita_em: agora,
+      metadata: {
+        id_turma: convite.id_turma ?? null,
+        email: emailAuthNormalizado,
+      },
+    });
+
+    return resultadoRejeicao;
+  });
+}
+
+/**
+ * Callable pública para rejeitar convite de aluno.
+ */
+export const rejeitarConviteAluno = onCall({ secrets: [conviteHmacSecret] }, async (request) => {
+  const dados = validatePayload(RejeitarConviteAlunoSchema, request.data);
+  return await executarRejeitarConviteAluno(dados, request);
+});
+
+/**
+ * Endpoint seguro para obtenção de detalhes do convite de aluno.
+ * Não vaza token_hash nem dados sensíveis.
+ * Projeta quem convidou, nome da turma e professor responsável.
+ */
+export async function executarObterDetalhesConviteAluno(
+  dados: {
+    idConvite: string;
+    tokenConvite?: string;
+  },
+  request: CallableRequest
+): Promise<{
+  id: string;
+  email: string;
+  status: string;
+  expira_em: unknown;
+  id_turma: string | null;
+  nome_turma: string | null;
+  codigo_turma: string | null;
+  nome_professor: string | null;
+  convidado_por_nome: string | null;
+  convidado_por_papel: string | null;
+  exceder_capacidade: boolean;
+}> {
+  const db = admin.firestore();
+  const conviteSnap = await db.collection("Convite_Aluno").doc(dados.idConvite).get();
+  if (!conviteSnap.exists) {
+    throw new HttpsError("not-found", "Convite não encontrado.");
+  }
+  const convite = conviteSnap.data()!;
+
+  let autorizado = false;
+  if (request.auth?.uid) {
+    try {
+      const claims = extrairClaimsAutoridade(request);
+      if (
+        claims.uid === convite.convidado_por ||
+        claims.uid === convite.id_professor ||
+        claims.papeis.includes("Chefe_Geral")
+      ) {
+        autorizado = true;
+      }
+    } catch {
+      // Ignora erro de claims
+    }
+
+    if (!autorizado) {
+      try {
+        const authUser = await admin.auth().getUser(request.auth.uid);
+        if (authUser.email && normalizarEmailConvite(authUser.email) === convite.email) {
+          autorizado = true;
+        }
+      } catch {
+        // Ignora erro de auth
+      }
+    }
+  }
+  if (!autorizado && dados.tokenConvite) {
+    autorizado = compararTokenConstantTime(dados.tokenConvite, convite.token_hash);
+  }
+
+  if (!autorizado) {
+    throw new HttpsError("permission-denied", "Não autorizado a visualizar os detalhes deste convite.");
+  }
+
+  const expirado = convite.status === "pendente" && isConviteExpirado(convite.expira_em);
+  const statusFinal = expirado ? "expirado" : convite.status;
+
+  let nomeTurma: string | null = null;
+  let codigoTurma: string | null = null;
+  let nomeProfessor: string | null = null;
+
+  if (convite.id_turma) {
+    const turmaSnap = await db.collection("Turma").doc(convite.id_turma).get();
+    if (turmaSnap.exists) {
+      const t = turmaSnap.data()!;
+      nomeTurma = t.nome_turma ?? null;
+      codigoTurma = t.codigo_turma ?? null;
+      if (t.id_professor) {
+        const profSnap = await db.collection("Usuarios").doc(t.id_professor).get();
+        if (profSnap.exists) {
+          nomeProfessor = profSnap.data()?.nome ?? null;
+        }
+      }
+    }
+  }
+
+  let convidadoPorNome: string | null = null;
+  let convidadoPorPapel: string | null = null;
+  if (convite.convidado_por) {
+    const quemSnap = await db.collection("Usuarios").doc(convite.convidado_por).get();
+    if (quemSnap.exists) {
+      convidadoPorNome = quemSnap.data()?.nome ?? null;
+    }
+    const chefeSnap = await db.collection("Chefe_Geral").doc(convite.convidado_por).get();
+    if (chefeSnap.exists && chefeSnap.data()?.ativo) {
+      convidadoPorPapel = "Chefe_Geral";
+    } else {
+      const profSnap = await db.collection("Professor").doc(convite.convidado_por).get();
+      if (profSnap.exists && profSnap.data()?.ativo) {
+        convidadoPorPapel = "Professor";
+      }
+    }
+  }
+
+  return {
+    id: conviteSnap.id,
+    email: convite.email,
+    status: statusFinal,
+    expira_em: convite.expira_em?.toDate ? convite.expira_em.toDate().toISOString() : convite.expira_em,
+    id_turma: convite.id_turma ?? null,
+    nome_turma: nomeTurma,
+    codigo_turma: codigoTurma,
+    nome_professor: nomeProfessor,
+    convidado_por_nome: convidadoPorNome,
+    convidado_por_papel: convidadoPorPapel,
+    exceder_capacidade: Boolean(convite.exceder_capacidade),
+  };
+}
+
+/**
+ * Callable pública para obter detalhes de convite.
+ */
+export const obterDetalhesConviteAluno = onCall(async (request) => {
+  const dados = validatePayload(ObterDetalhesConviteAlunoSchema, request.data);
+  return await executarObterDetalhesConviteAluno(dados, request);
 });
