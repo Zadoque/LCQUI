@@ -85,164 +85,107 @@ async function gerarCodigoTurmaTx(
 \end{lstlisting}
 
 
-\begin{lstlisting}[language=TypeScript, title={N-12: aceitarConviteAluno com autenticação prévia e criação condicional Firestore}]
-// N-12: quem aceita o convite já está autenticado em Firebase Auth
-// (request.auth.uid presente) e com e-mail verificado; a conta Auth do
-// solicitante já existe (cadastro/login prévio). Criação condicional refere-se
-// apenas a Usuarios/Aluno no Firestore, reutilizando o UID existente pelo
-// e-mail para evitar identidade duplicada. O papel Aluno e o vínculo são
-// verificados/criados na mesma transação Firestore; nenhuma chamada externa
-// (Auth/e-mail) ocorre dentro da transação. O retry idempotente do mesmo ator
-// devolve o receipt; criação de outra conta Auth não faz parte deste fluxo.
+\begin{lstlisting}[language=TypeScript, title={N-12: aceitarConviteAluno esquemático com M7, M9 e validação canônica}]
+// N-12: Pseudocódigo esquemático e ilustrativo de aceitarConviteAluno.
+// O contrato normativo é a Seção 7/M11 com materialização física na Seção 5.
 export const aceitarConviteAluno = onCall(async (request) => {
-  const { tokenConvite, matriculaInformada } = request.data as { tokenConvite: string; matriculaInformada?: string };
+  const { idOperacao, idConvite, tokenConvite, matriculaInformada, nomeInformado } = request.data ?? {};
+  if (!idOperacao || typeof idOperacao !== "string") throw new HttpsError("invalid-argument", "idOperacao obrigatorio.");
+  if (!idConvite || typeof idConvite !== "string") throw new HttpsError("invalid-argument", "idConvite obrigatorio.");
+  if (!tokenConvite || typeof tokenConvite !== "string") throw new HttpsError("invalid-argument", "tokenConvite obrigatorio.");
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Usuario nao autenticado.");
 
-  // 1. Calcular hash SHA-256 para busca do convite pelo token_hash (o HMAC e usado apenas na chave de pendencia em Chaves_Unicas; o convite possui docId imutavel)
-  const { createHash } = require("crypto");
-  const hashToken = createHash("sha256").update(tokenConvite).digest("hex");
-
-  // 2. Verificar e-mail do usuario autenticado no provedor
+  // Fronteira externa Auth: conta preexistente com e-mail verificado (fora da transacao)
   const authUser = await admin.auth().getUser(request.auth.uid);
-  const emailNorm = authUser.email?.toLowerCase();
+  if (!authUser.emailVerified || !authUser.email) throw new HttpsError("failed-precondition", "E-mail nao verificado.");
+  const emailNorm = authUser.email.trim().toLowerCase();
 
-  // 3. Transacao: revalidar convite e criar Aluno e vinculos se nao existirem
-  return admin.firestore().runTransaction(async (tx) => {
-    // PASSO A: Todas as leituras
-    const conviteQuery = await tx.get(admin.firestore().collection("Convite_Aluno")
-      .where("token_hash", "==", hashToken).limit(1));
-    if (conviteQuery.empty) throw new HttpsError("not-found", "Convite invalido.");
+  // Transacao Firestore atomica (M7 + M9 + M11)
+  const resultado = await admin.firestore().runTransaction(async (tx) => {
+    // 1. Idempotencia M7: resolver operacao antes de qualquer efeito
+    const op = await resolverOperacaoTx(tx, { uid: request.auth.uid, idOperacao, tipo: "ACEITAR_CONVITE", payload: { idConvite, tokenConvite } });
+    if (op.status === "CONCLUIDA") return op.resultado; // REPLAY: devolve receipt persistido
 
-    const conviteDoc = conviteQuery.docs[0];
-    const convite = conviteDoc.data();
+    // 2. Leitura direta do convite por ID e comparacao timing-safe do hash do token
+    const conviteRef = admin.firestore().collection("Convite_Aluno").doc(idConvite);
+    const conviteSnap = await tx.get(conviteRef);
+    if (!conviteSnap.exists) throw new HttpsError("not-found", "Convite nao encontrado.");
+    const convite = conviteSnap.data()!;
+    if (!compararTokenHashTimingSafe(tokenConvite, convite.token_hash)) throw new HttpsError("permission-denied", "Token invalido.");
+    if (emailNorm !== convite.email) throw new HttpsError("permission-denied", "E-mail nao corresponde ao convite.");
 
-    if (convite.status !== "pendente")
-      throw new HttpsError("failed-precondition", "Convite ja aceito ou expirado.");
-    if (new Date() > convite.expira_em.toDate())
-      throw new HttpsError("failed-precondition", "Convite expirado.");
-    if (emailNorm !== convite.email)
-      throw new HttpsError("permission-denied", "E-mail da conta nao corresponde ao convite.");
+    // Derivar chave deterministica de pendencia via HMAC server-side sobre serializacao canonica
+    const chavePendencia = derivarChavePendenciaCanonica({ contexto: convite.id_turma ? "TURMA" : "GLOBAL", idTurma: convite.id_turma, email: convite.email });
+    const pendenciaRef = admin.firestore().collection("Chaves_Unicas").doc(chavePendencia);
 
-    const uid = request.auth!.uid;
-    const alunoRef = admin.firestore().collection("Aluno").doc(uid);
-    const usuarioRef = admin.firestore().collection("Usuarios").doc(uid);
+    // 3. Reconciliacao atomica de expiracao: persiste status=expirado, libera pendencia e commita
+    if (convite.status === "expirado" || new Date() > convite.expira_em.toDate()) {
+      if (convite.status === "pendente") {
+        tx.update(conviteRef, { status: "expirado" });
+        tx.delete(pendenciaRef);
+      }
+      return { expirado: true };
+    }
+    if (convite.status !== "pendente") throw new HttpsError("failed-precondition", "Convite ja consumido.");
 
-    const alunoSnap = await tx.get(alunoRef);
-    const usuarioSnap = await tx.get(usuarioRef);
+    // Validar pendencia ativa em Chaves_Unicas apontando para este convite
+    const pendenciaSnap = await tx.get(pendenciaRef);
+    if (!pendenciaSnap.exists || pendenciaSnap.data()?.id_recurso !== idConvite) {
+      throw new HttpsError("failed-precondition", "Inconsistencia na pendencia do convite.");
+    }
 
-    let turmaSnap = null;
-    let turma = null;
-    let jaMatriculado = false;
-    let alunosSnap = null;
+    // 4. Usuario, papel Aluno e matricula via primitivas M9/RN-ROLE (sem sobrescrever identidade)
+    const { matriculaFinal } = await garantirAlunoM9Tx(tx, { uid: request.auth.uid, emailNorm, matriculaInformada: matriculaInformada ?? convite.numero_matricula, nomeInformado });
 
+    // 5. Se convite de turma: validar capacidade/excecao e criar vinculos canonicos
+    let vinculado = false;
     if (convite.id_turma) {
       const turmaRef = admin.firestore().collection("Turma").doc(convite.id_turma);
-      turmaSnap = await tx.get(turmaRef);
+      const turmaSnap = await tx.get(turmaRef);
       if (!turmaSnap.exists) throw new HttpsError("not-found", "Turma nao encontrada.");
-      turma = turmaSnap.data()!;
+      const turma = turmaSnap.data()!;
       if (turma.status !== "Ativo") throw new HttpsError("failed-precondition", "Turma inativa.");
 
-      const alunoNaTurmaSnap = await tx.get(turmaRef.collection("Alunos").doc(uid));
-      jaMatriculado = alunoNaTurmaSnap.exists;
+      // Validacao estrita e fail-closed de contadores (proibido fallback || 0)
+      const qtdAtual = validarInteiroNaoNegativo(turma.qtd_alunos, "qtd_alunos");
+      const capAtual = validarInteiroPositivo(turma.capacidade, "capacidade");
 
-      // Validacao de capacidade transacional (PDF-008: evita leitura O(N))
-      if (!jaMatriculado && !convite.exceder_capacidade) {
-        const qtdAlunosAtual = turma.qtd_alunos || 0;
-        if (qtdAlunosAtual >= turma.capacidade) {
-          throw new HttpsError("failed-precondition", "Turma lotada.");
+      // Membro ativo existente impede nova aceitacao (somente replay M7 retornaria antes)
+      const vinculoRef = turmaRef.collection("Alunos").doc(request.auth.uid);
+      if ((await tx.get(vinculoRef)).exists) throw new HttpsError("already-exists", "Aluno ja matriculado na turma.");
+
+      // Capacidade e excecao nominal (somente professor dono pode conceder)
+      if (convite.exceder_capacidade) {
+        if (!convite.justificativa_excecao?.trim() || convite.convidado_por !== turma.id_professor) {
+          throw new HttpsError("failed-precondition", "Excecao de capacidade nominal invalida.");
         }
-      }
-    }
-
-    // PDF-003: Validar matricula e unicidade se for criar um novo Aluno
-    let lockRefMatricula: FirebaseFirestore.DocumentReference | null = null;
-    let matriculaFinal: string | null = null;
-    if (!alunoSnap.exists) {
-      const matriculaBruta = convite.numero_matricula ?? matriculaInformada;
-      if (typeof matriculaBruta !== "string") {
-        throw new HttpsError("invalid-argument", "Matrícula é obrigatória e deve ser texto.");
+      } else if (qtdAtual >= capAtual) {
+        throw new HttpsError("failed-precondition", "Turma lotada.");
       }
 
-      matriculaFinal = matriculaBruta.trim(); // Canonicalização documental
-
-      if (!matriculaFinal) {
-        throw new HttpsError("invalid-argument", "Matrícula não pode ser vazia ou conter apenas espaços.");
-      }
-      if (matriculaFinal.length > 20) {
-        throw new HttpsError("invalid-argument", "Matrícula inválida: excede o limite de 20 caracteres.");
-      }
-
-      lockRefMatricula = admin.firestore().collection("Chaves_Unicas").doc(`Aluno__${matriculaFinal}`);
-      const lockSnap = await tx.get(lockRefMatricula);
-      if (lockSnap.exists) throw new HttpsError("already-exists", "A matrícula informada já está em uso por outro aluno.");
-    }
-
-    // PASSO B: Escritas (idempotentes para repeticao concorrente)
-    if (!usuarioSnap.exists) {
-      tx.set(usuarioRef, {
-        nome: authUser.displayName ?? emailNorm,
-        email: emailNorm,
-        ativo: true,
-        profile_url_photo: authUser.photoURL ?? null,
-      });
-    }
-    if (!alunoSnap.exists && matriculaFinal && lockRefMatricula) {
-      tx.set(alunoRef, {
-        id_usuario: uid,
-        numero_matricula: matriculaFinal,
-      });
-      tx.set(lockRefMatricula, {
-        tipo: "Aluno",
-        id_recurso: uid,
-        criado_em: admin.firestore.FieldValue.serverTimestamp()
-      });
-    }
-
-    // Expirar convite e reconciliar com Secao 5 (aceitado_por, aceitado_em)
-    const agora = admin.firestore.FieldValue.serverTimestamp();
-    tx.update(conviteDoc.ref, {
-      status: "aceitado",
-      aceitado_por: uid,
-      aceitado_em: agora
-    });
-    // Liberar chave de pendencia transacionalmente em Chaves_Unicas
-    const chavePendenciaDoc = admin.firestore().collection("Chaves_Unicas").doc(chavePendenciaHmac);
-    tx.delete(chavePendenciaDoc);
-
-    // Vincular a turma (se aplicavel e se nao estiver matriculado ainda)
-    if (convite.id_turma && turmaSnap && !jaMatriculado) {
-      const turmaRef = turmaSnap.ref;
-      const vincRef = turmaRef.collection("Alunos").doc(uid);
-      const vincRef2 = usuarioRef.collection("Turmas").doc(convite.id_turma);
-
-      // 1o Espelho: colecao Alunos na Turma
-      tx.set(vincRef, { id_aluno: uid, ingressou_em: agora });
-      // 2o Espelho: colecao Turmas no Usuario
-      tx.set(vincRef2, {
-        id_turma: convite.id_turma,
-        id_professor: turma.id_professor,
-        id_materia: turma.id_materia,
-        nome_turma: turma.nome_turma,
-        nome_materia: turma.nome_materia,
-        ano: turma.ano,
-        semestre: turma.semestre,
-        status: turma.status,
-        ingressou_em: agora
-      });
-      // Registro no historico: preserva regras de reingresso sem duplicacao
-      tx.set(turmaRef.collection("HistoricoAlunos").doc(), {
-        id_aluno: uid,
-        tipo: "inclusao_aluno",
-        modo_ingresso: "CONVITE",
-        justificativa: convite.justificativa_excecao || null,
-        timestamp: agora
-      });
+      // Efeitos canonicos de turma: vinculo sem PII, espelho, historico e contador
+      const agora = admin.firestore.FieldValue.serverTimestamp();
+      tx.set(vinculoRef, { id_aluno: request.auth.uid, id_turma: convite.id_turma, ingressou_em: agora });
+      tx.set(admin.firestore().doc(`Usuarios/${request.auth.uid}/Turmas/${convite.id_turma}`), projetarEspelhoTurma(turma, agora));
+      tx.set(turmaRef.collection("HistoricoAlunos").doc(), { id_aluno: request.auth.uid, tipo: "inclusao_aluno", modo_ingresso: "CONVITE", justificativa: convite.justificativa_excecao || null, timestamp: agora });
       tx.update(turmaRef, { qtd_alunos: admin.firestore.FieldValue.increment(1) });
+      vinculado = true;
     }
 
-    return { vinculado: !!convite.id_turma, ja_matriculado: jaMatriculado };
+    // 6. Aceite do convite, liberacao transacional da pendencia e receipt M7
+    const agora = admin.firestore.FieldValue.serverTimestamp();
+    tx.update(conviteRef, { status: "aceitado", aceitado_por: request.auth.uid, aceitado_em: agora });
+    tx.delete(pendenciaRef);
+
+    const res = { vinculado, idConvite, status: "aceitado" };
+    await registrarReceiptM7Tx(tx, op, res);
+    return res;
   });
-  // Apos commit: atualizarCustomClaims(request.auth!.uid) -- recuperavel e idempotente
+
+  if (resultado.expirado) throw new HttpsError("failed-precondition", "Convite expirado.");
+  // Apos commit: sincronizacao externa de Claims M9 (recuperavel e idempotente)
+  await sincronizarClaimsM9(request.auth.uid);
+  return resultado;
 });
 \end{lstlisting}
 
