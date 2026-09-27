@@ -382,9 +382,10 @@ foi alterado. Registro durável em
   `justificativa_excecao`, revalidado na aceitação, ultrapassa a capacidade;
   código nunca é exceção. Redução abaixo da ocupação: fail-closed na V1 e
   **HQ-M11-001** aberta.
-- **Convites:** e-mail normalizado, token CSPRNG guardado só como hash,
-  chave de pendência determinística por HMAC em `Chaves_Unicas` (distinta do ID imutável do convite), expiração de 7 dias, unicidade transacional de
-  pendente por (e-mail, `id_turma`) inclusive a chave global com `NULL`;
+- **Convites:** e-mail normalizado, token CSPRNG guardado só como hash SHA-256,
+  identidade histórica do convite preservada em `Convite_Aluno/{idConvite}` com ID imutável (sem exclusão por ciclo de vida; reenvio pendente substitui hash/expiração/operador sem histórico de tokens),
+  chave de pendência determinística derivada no servidor por HMAC em `Chaves_Unicas` sobre serialização canônica de contexto e e-mail (distinta do ID imutável do convite), expiração de 7 dias, unicidade transacional de
+  pendente por contexto (turma ou global), com liberação transacional da pendência no aceite ou expiração;
   convite global não cria matrícula; aceitação única e idempotente; Auth e
   envio de e-mail são etapas externas pós-commit; criar registro ≠ enviar
   e-mail.
