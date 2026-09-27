@@ -7,6 +7,11 @@ import * as admin from "firebase-admin";
  *   quando ausentes.
  *
  * Nunca inventa `nome` nem fabrica fatos históricos. Dry-run por padrão.
+ *
+ * Sobre `ingressou_em`: campo obrigatório no vínculo canônico M11.
+ * Se ausente e não derivável de fonte histórica inequívoca:
+ * → registra REQUER_RECONCILIACAO_HUMANA e NÃO usa serverTimestamp().
+ * O vínculo ainda recebe sanitização dos campos proibidos se necessário.
  */
 
 export interface AlteracaoVinculo {
@@ -67,6 +72,18 @@ export async function reconciliarVinculos(
         );
         continue;
       }
+
+      // ingressou_em é campo obrigatório no vínculo canônico M11 (#M11VinculoCanonico).
+      // Se ausente: NÃO inventar serverTimestamp() nem qualquer data artificial.
+      // Registrar conflito para auditoria humana.
+      if (dados.ingressou_em == null || dados.ingressou_em === undefined) {
+        resultado.conflitos.push(
+          `${caminho}: ingressou_em ausente — REQUER_RECONCILIACAO_HUMANA. Data não inventada.`
+        );
+        // A sanitização dos campos proibidos ainda é aplicada (remoção de email/matricula
+        // é independente da questão de ingressou_em), mas o conflito é registrado.
+      }
+
       for (const campo of camposRemovidos) {
         patch[campo] = admin.firestore.FieldValue.delete();
       }
