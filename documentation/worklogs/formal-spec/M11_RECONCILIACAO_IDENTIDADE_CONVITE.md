@@ -110,7 +110,7 @@ Chaves_Unicas/<chaveDeterministicaPendencia>
   - Grava atomicamente em `Chaves_Unicas` a chave determinística de pendência apontando para `id_recurso = novoId`.
 
 - **REENVIO DE CONVITE PENDENTE**:
-  - Localiza o convite pendente existente através da chave em `Chaves_Unicas` (ou consulta correspondente).
+  - Localiza o convite pendente exclusivamente pela chave determinística em `Chaves_Unicas` e valida que `id_recurso` aponta para o `Convite_Aluno` esperado, ainda pendente e coerente com o contexto.
   - Mantém o **mesmo** documento `Convite_Aluno/{idConvite}`, preservando a identidade, `idConvite`, `convidado_em` e `convidado_por` originais.
   - Mantém a mesma identidade de pendência em `Chaves_Unicas`.
   - Substitui `token_hash = SHA-256(novoTokenCSPRNG)`, renova `expira_em = now() + 7 dias` e atualiza `ultimo_reenvio_por = request.auth.uid`.
@@ -118,19 +118,19 @@ Chaves_Unicas/<chaveDeterministicaPendencia>
 
 - **ACEITE DE CONVITE (`aceitarConviteAluno`)**:
   - Executado em transação atômica no Firestore.
-  - Revalida que o convite está `pendente`, não expirado e que o e-mail da conta autenticada corresponde ao convite.
+  - Revalida que a conta Firebase Auth está autenticada, possui `emailVerified == true`, que o convite está `pendente`, não expirado e que o e-mail normalizado corresponde ao `Convite_Aluno`.
   - O documento `Convite_Aluno/{idConvite}` é preservado e atualizado para `status: "aceitado"`, gravando `aceitado_por = request.auth.uid` e `aceitado_em = serverTimestamp()`.
   - A chave determinística de pendência correspondente em `Chaves_Unicas` é **liberada/excluída** na mesma transação.
-  - Cria ou valida registros acadêmicos (`Usuarios`, `Aluno`, `Turma/{id}/Alunos`, espelho `Usuarios/{uid}/Turmas` e incrementa `qtd_alunos`, conforme aplicável).
+  - As demais precondições e consequências acadêmicas do aceite seguem integralmente a Seção~7/M11 e a formalização executável. PRE11-03 não as redefine.
 
 - **EXPIRAÇÃO OPERACIONAL**:
   - Convite cujo `expira_em < now()` torna-se inaceitável.
   - A rotina/transação de expiração atualiza idempotentemente o documento `Convite_Aluno/{idConvite}` para `status: "expirado"`.
   - A chave de pendência em `Chaves_Unicas` é **liberada/excluída**.
-  - O documento `Convite_Aluno` histórico permanece preservado intacto.
+  - O documento `Convite_Aluno` histórico permanece preservado após a transição para expirado, não é excluído e não é reutilizado para nova emissão.
 
 - **NOVO CONVITE APÓS TERMINALIDADE**:
-  - Estando a chave de pendência liberada após aceite ou expiração, uma nova emissão para o mesmo e-mail e contexto é plenamente permitida.
+  - Estando a chave de pendência liberada após aceite ou expiração, um convite terminal anterior não impede nova emissão para o mesmo e-mail/contexto, desde que todas as demais precondições normativas da nova emissão sejam satisfeitas.
   - Cria um **novo** documento `Convite_Aluno/{novoId}` com novo `idConvite`, novo token e novo `token_hash`.
   - Cria uma nova pendência em `Chaves_Unicas` utilizando a mesma identidade determinística daquele contexto e e-mail.
-  - O documento terminal anterior (aceitado ou expirado) permanece intocado no Firestore com todos os seus metadados de histórico e auditoria preservados.
+  - O documento terminal anterior (aceitado ou expirado) permanece preservado no Firestore com todos os seus metadados de histórico e auditoria intactos.
