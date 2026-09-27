@@ -48,6 +48,8 @@ export function adicionarNotificacaoTx(
     lida_em: null,
     emitida_em: FieldValue.serverTimestamp(),
     expira_em: expiraEm,
+    // RN-M13-05: payload mínimo, nunca conteúdo protegido.
+    contem_conteudo_protegido: false,
   });
 }
 

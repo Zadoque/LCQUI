@@ -22,6 +22,19 @@ export const TipoNotificacaoSchema = z.enum([
   "REQUISICAO_APROVADA", "REQUISICAO_REJEITADA" // legado: alinhar com #M13Tipo em IMP-NOTIF-005
 ]);
 
+// Rotas conhecidas de `entidade_alvo`; URL arbitrária não pertence ao enum.
+export const EntidadeAlvoSchema = z.enum([
+  "Turma",
+  "Post",
+  "Comentario",
+  "Roteiro",
+  "Almoxarifado",
+  "Emprestimo",
+  "Usuario",
+  "Requisicao_Bem",
+  "Bem_Patrimonial"
+]);
+
 export const CriarNotificacaoSchema = z.object({
   id_destinatario: z.string().min(1),
   papel_destinatario: PapelDestinatarioSchema,
@@ -29,7 +42,7 @@ export const CriarNotificacaoSchema = z.object({
   id_quem_fez_acao: z.string().optional().nullable(),
   id_turma: z.string().optional().nullable(),
   quantidade: z.number().optional().nullable(),
-  entidade_alvo: z.string().min(1),
+  entidade_alvo: EntidadeAlvoSchema,
   id_alvo: z.string().min(1),
   // RN-M13-03: só prazos determinados na fonte; sem prazo, `expira_em = null`.
   expira_em: z.date().nullable().optional(),

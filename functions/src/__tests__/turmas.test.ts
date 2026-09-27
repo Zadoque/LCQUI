@@ -230,6 +230,15 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
 
     const notifSnap = await db.collection("Usuarios").doc("aluno_add").collection("Notificacoes").where("tipo", "==", "ADICIONADO").get();
     expect(notifSnap.empty).toBe(false);
+    const notif = notifSnap.docs[0].data();
+    expect(notif.id_destinatario).toBe("aluno_add");
+    expect(notif.papel_destinatario).toBe("Aluno");
+    expect(notif.entidade_alvo).toBe("Turma");
+    expect(notif.id_alvo).toBe(turma.id);
+    expect(notif.lida).toBe(false);
+    expect(notif.lida_em).toBeNull();
+    expect(notif.expira_em).toBeNull();
+    expect(notif.contem_conteudo_protegido).toBe(false);
   });
 
   it("deve falhar ao adicionar aluno se a turma ja estiver cheia", async () => {

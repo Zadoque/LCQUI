@@ -241,6 +241,22 @@ alvo exige \texttt{Professor/\{alvo\}.id\_usuario == alvo}; e o rascunho M7 do
 modal passou de \texttt{useRef} para \texttt{sessionStorage}. \texttt{turmas}
 36/36 e \texttt{tsc --noEmit} PASS.
 
+\subsection{Décima quinta cadeia executada (reconciliação de emissores M13)}
+
+\begin{center}
+CUE \texttt{\#M13EntidadeAlvo}/\texttt{\#M13Notificacao}; RN-M13-05
+$\rightarrow$ \texttt{IMP-NOTIF-004/005}
+$\rightarrow$ shape canônico em \texttt{turmas.test.ts}
+$\rightarrow$ \nolinkurl{functions/src/notificacoes.ts}, \nolinkurl{functions/src/turmas.ts}, \nolinkurl{functions/src/roteiros.ts}, \nolinkurl{functions/src/patrimonio.ts}
+$\rightarrow$ PASS Node 20
+\end{center}
+
+A matrícula passou a usar a primitiva M13 (sem docId aleatório manual, sem 30
+dias, com \texttt{lida\_em} e \texttt{contem\_conteudo\_protegido}); o
+\texttt{entidade\_alvo} tornou-se enum formal, corrigindo
+\texttt{Roteiro\_Experimento} e \texttt{Requisicao\_*\_Bem\_Patrimonial}.
+Integração completa 168 passam / 14 falham (legadas).
+
 \subsection{Exemplo não executado}
 
 O encadeamento abaixo é somente um exemplo de identificação futura; não declara

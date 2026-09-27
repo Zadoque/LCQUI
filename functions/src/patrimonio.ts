@@ -81,7 +81,7 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
       papel_destinatario: "Professor",
       tipo: aprovar ? "REQUISICAO_APROVADA" : "REQUISICAO_REJEITADA",
       id_quem_fez_acao: request.auth!.uid,
-      entidade_alvo: "Requisicao_Edicao_Bem_Patrimonial",
+      entidade_alvo: "Requisicao_Bem",
       id_alvo: idRequisicao,
       mensagem_customizada: justificativa,
     });
@@ -153,7 +153,7 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
         papel_destinatario: "Gestor_Bens_Patrimoniais",
         tipo: "REQUISICAO_ADICAO_BEM",
         id_quem_fez_acao: request.auth!.uid,
-        entidade_alvo: "Requisicao_Adicao_Bem_Patrimonial",
+        entidade_alvo: "Requisicao_Bem",
         id_alvo: reqRef.id,
       });
     });
@@ -249,7 +249,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
       papel_destinatario: "Professor",
       tipo: aprovar ? "REQUISICAO_APROVADA" : "REQUISICAO_REJEITADA",
       id_quem_fez_acao: request.auth!.uid,
-      entidade_alvo: "Requisicao_Adicao_Bem_Patrimonial",
+      entidade_alvo: "Requisicao_Bem",
       id_alvo: idRequisicao,
       mensagem_customizada: justificativa,
     });

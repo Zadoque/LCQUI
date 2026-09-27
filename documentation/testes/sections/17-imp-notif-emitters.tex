@@ -1,0 +1,56 @@
+\section{Evidência da reconciliação de emissores M13}
+
+\textbf{Escopo:} resíduos de emissão fora da primitiva M13, apontados por
+auditoria independente. Relaciona-se a \texttt{IMP-NOTIF-004} e
+\texttt{IMP-NOTIF-005}.
+
+\textbf{Estado anterior:} \texttt{adicionarAlunoExistenteTurma} gravava
+diretamente em \texttt{Usuarios/\{uid\}/Notificacoes} com
+\texttt{entidade\_alvo: "TURMA"} (fora do enum), \texttt{expira\_em} de 30 dias
+e sem \texttt{lida\_em}; \texttt{roteiros.ts} e \texttt{patrimonio.ts} usavam
+\texttt{entidade\_alvo} fora do enum formal
+(\texttt{Roteiro\_Experimento}, \texttt{Requisicao\_*\_Bem\_Patrimonial}).
+
+\subsection{Contrato}
+
+Fontes: CUE \texttt{\#M13EntidadeAlvo}, \texttt{\#M13Notificacao},
+\texttt{\#M13Tipo}; RN-M13-01/03/05. Nenhum emissor pode gravar shape inválido;
+\texttt{entidade\_alvo} pertence ao enum fechado de rotas conhecidas e a
+expiração segue \texttt{IMP-NOTIF-004}. Um job com docId determinístico pode
+escrever diretamente; a semântica M13 é única.
+
+\subsection{Mudança}
+
+\begin{itemize}
+  \item \path{functions/src/notificacoes.ts}: a primitiva grava
+  \texttt{contem\_conteudo\_protegido: false} (RN-M13-05);
+  \item \path{functions/src/schemas/notificacoes.schema.ts}: \texttt{entidade\_alvo}
+  passou de string livre para \texttt{EntidadeAlvoSchema} (enum formal), dando
+  enforcement em tempo de compilação para todos os emissores;
+  \item \path{functions/src/turmas.ts}: matrícula em turma usa
+  \texttt{adicionarNotificacaoTx} (\texttt{entidade\_alvo: "Turma"}, sem 30 dias,
+  com \texttt{lida\_em=null});
+  \item \path{functions/src/roteiros.ts}: \texttt{"Roteiro\_Experimento"} $\rightarrow$
+  \texttt{"Roteiro"};
+  \item \path{functions/src/patrimonio.ts}: \texttt{"Requisicao\_*\_Bem\_Patrimonial"}
+  $\rightarrow$ \texttt{"Requisicao\_Bem"}.
+\end{itemize}
+
+\subsection{Testes}
+
+O teste de matrícula em \texttt{turmas.test.ts} passou a exigir o shape
+canônico: \texttt{id\_destinatario}, \texttt{papel\_destinatario: Aluno},
+\texttt{entidade\_alvo: Turma}, \texttt{lida=false}, \texttt{lida\_em=null},
+\texttt{expira\_em=null}, \texttt{contem\_conteudo\_protegido=false}. As
+asserções de \texttt{patrimonio.test.ts} foram alinhadas ao enum formal.
+
+Regressão (Node 20.19.6): \texttt{turmas.test.ts} 36/36; unit 71/71; Rules
+77/77; integração completa 168 passam / 14 falham (legadas em
+reagentes/patrimônio/roteiros). \texttt{build} PASS; lint dos arquivos
+alterados limpo (erros restantes pré-existentes).
+
+\textbf{Estado final:} todos os emissores conhecidos usam a primitiva canônica
+com enum de alvo formal. \texttt{IMP-NOTIF-004} e \texttt{IMP-NOTIF-005}
+seguem \texttt{DIVERGENTE} por obrigações não relacionadas (filtro de ativo na
+caixa, dedup/fan-out determinístico, emissores V1 e enum de \texttt{tipo}
+legado).

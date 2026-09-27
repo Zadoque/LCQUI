@@ -64,7 +64,7 @@ export const compartilharRoteiro = onCall(async (request) => {
         papel_destinatario: "Professor",
         tipo: "ROTEIRO_COMPARTILHADO",
         id_quem_fez_acao: request.auth!.uid,
-        entidade_alvo: "Roteiro_Experimento",
+        entidade_alvo: "Roteiro",
         id_alvo: idRoteiro
       });
     }

@@ -3,6 +3,7 @@ import * as admin from "firebase-admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { validarPermissao, extrairClaimsAutoridade, resolverAutoridadePersistidaTx } from "./auth";
 import { construirIdentidade, registrarOperacaoConcluidaTx, resolverOperacaoTx } from "./idempotencia";
+import { adicionarNotificacaoTx } from "./notificacoes";
 import { validatePayload } from "./utils/validation";
 import { 
   IngressarTurmaPorCodigoSchema, 
@@ -456,19 +457,15 @@ export const adicionarAlunoExistenteTurma = onCall(async (request) => {
       timestamp: agora,
     });
 
-    // D) Notificação para o Aluno (Seção 4.36)
-    const notifRef = db.collection("Usuarios").doc(idAluno).collection("Notificacoes").doc();
-    tx.set(notifRef, {
+    // D) Notificação para o Aluno (M13, primitiva canônica)
+    adicionarNotificacaoTx(tx, db, {
       id_destinatario: idAluno,
       papel_destinatario: "Aluno",
       tipo: "ADICIONADO",
       id_quem_fez_acao: request.auth!.uid,
       id_turma: idTurma,
-      entidade_alvo: "TURMA",
+      entidade_alvo: "Turma",
       id_alvo: idTurma,
-      lida: false,
-      emitida_em: agora,
-      expira_em: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), // 30 dias
     });
 
     // Atualiza contagem na turma
