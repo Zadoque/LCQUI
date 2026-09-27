@@ -282,13 +282,24 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
 
         if (session) limparIntencao(session, chave);
 
-        const canal = (res.data as { canal_entrega?: string })?.canal_entrega;
-        const msgCanal = canal === "notificacao_interna"
-          ? "Convite registrado via notificação interna do aluno."
-          : "Convite registrado; fluxo de acesso enviado via Firebase Auth.";
+        const dataRet = res.data as { canal_entrega?: string; status_entrega?: string };
+        const canal = dataRet?.canal_entrega;
+        const statusEntrega = dataRet?.status_entrega;
+
+        let msgCanal = "";
+        let statusItem: "sucesso" | "erro" = "sucesso";
+
+        if (statusEntrega === "FALHOU") {
+          statusItem = "erro";
+          msgCanal = "Convite registrado, mas houve falha no envio das instruções pelo Firebase Auth. Reenvie o convite.";
+        } else if (canal === "notificacao_interna") {
+          msgCanal = "Convite registrado via notificação interna do aluno.";
+        } else {
+          msgCanal = "Convite registrado; fluxo de acesso enviado via Firebase Auth.";
+        }
 
         const idx = novosResultados.findIndex((r) => r.email === em);
-        const item = { email: em, status: "sucesso" as const, msg: msgCanal };
+        const item = { email: em, status: statusItem, msg: msgCanal };
         if (idx >= 0) novosResultados[idx] = item;
         else novosResultados.push(item);
       } catch (error: unknown) {

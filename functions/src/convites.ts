@@ -1,5 +1,5 @@
 import { onCall, HttpsError, CallableRequest } from "firebase-functions/v2/https";
-import { defineSecret } from "firebase-functions/params";
+import { defineSecret, defineString } from "firebase-functions/params";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import * as admin from "firebase-admin";
 import {
@@ -38,10 +38,64 @@ import {
   TIPO_CHAVE_CONVITE_PENDENTE,
 } from "./chaves";
 import { reconciliarClaimsUsuario } from "./usuarios";
+import { adicionarNotificacaoTx } from "./notificacoes";
 
 export const conviteHmacSecret = defineSecret("CONVITE_HMAC_SECRET");
+export const firebaseWebApiKey = defineString("FIREBASE_WEB_API_KEY", { default: "demo-api-key" });
 
 export type CanalEntregaConvite = "notificacao_interna" | "firebase_auth";
+export type StatusEntregaConvite = "ENVIADO" | "FALHOU";
+
+export function obterFirebaseWebApiKey(): string {
+  if (process.env.FIREBASE_WEB_API_KEY) return process.env.FIREBASE_WEB_API_KEY;
+  if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY) return process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  try {
+    const val = firebaseWebApiKey.value();
+    if (val) return val;
+  } catch {
+    // Fora do runtime de Functions v2 (ex: testes)
+  }
+  return "demo-api-key";
+}
+
+/**
+ * Dispara envio real de e-mail de definição/redefinição de senha via Firebase Auth (Identity Toolkit).
+ * Não utiliza provedores externos (SMTP, SendGrid, etc.).
+ * No emulador, emite OOB code inspecionável na API do emulador.
+ */
+export async function dispararPasswordResetFirebaseAuth(
+  email: string,
+  continueUrl: string,
+  apiKeyParam?: string
+): Promise<{ ok: boolean; oobLink?: string; error?: string }> {
+  const apiKey = apiKeyParam || obterFirebaseWebApiKey();
+  const emulatorHost = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+  const url = emulatorHost
+    ? `http://${emulatorHost}/identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${encodeURIComponent(apiKey)}`
+    : `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${encodeURIComponent(apiKey)}`;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestType: "PASSWORD_RESET",
+        email,
+        continueUrl,
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text();
+      return { ok: false, error: errBody };
+    }
+
+    const data = (await res.json()) as { oobLink?: string; email?: string };
+    return { ok: true, oobLink: data.oobLink };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
 
 /**
  * Obtém o segredo do servidor para HMAC de pendência de convite.
@@ -128,6 +182,7 @@ export async function executarConvidarAluno(
   registrado: boolean;
   reenvio: boolean;
   canal_entrega: CanalEntregaConvite;
+  status_entrega: StatusEntregaConvite;
   tokenEfemero?: string;
 }> {
   const claims = extrairClaimsAutoridade(request);
@@ -270,6 +325,11 @@ export async function executarConvidarAluno(
         throw new HttpsError("internal", "Lock de pendência aponta para convite não pendente.");
       }
 
+      const notifRefReenvio = (authUser && contexto === "TURMA" && idTurmaFinal)
+        ? db.collection("Usuarios").doc(authUser.uid).collection("Notificacoes").doc(idConviteExistente)
+        : null;
+      const notifSnapReenvio = notifRefReenvio ? await tx.get(notifRefReenvio) : null;
+
       // Verifica expiração do convite pendente existente
       if (isConviteExpirado(conviteData.expira_em)) {
         // Reconciliação atômica: marca o antigo como expirado e cria um novo documento
@@ -305,23 +365,23 @@ export async function executarConvidarAluno(
           criado_em: agora,
         });
 
-        // Se destinatário possui conta Auth: emite notificação interna M13
-        if (authUser) {
-          const notifRef = db.collection("Usuarios").doc(authUser.uid).collection("Notificacoes").doc(novoDocRef.id);
-          tx.set(notifRef, {
-            id: novoDocRef.id,
-            id_usuario: authUser.uid,
-            tipo: "CONVITE_PARA_TURMA",
-            papel_destinatario: "Aluno",
-            entidade_alvo: "Convite_Aluno",
-            id_alvo: novoDocRef.id,
-            id_turma: idTurmaFinal,
-            id_quem_fez_acao: claims.uid,
-            expira_em: Timestamp.fromDate(expiraEm),
-            criado_em: agora,
-            lida: false,
-            resumo: "Convite para ingresso em turma",
-          });
+        // Se destinatário possui conta Auth e convite é de turma: emite notificação interna M13 canônica
+        if (authUser && contexto === "TURMA" && idTurmaFinal) {
+          adicionarNotificacaoTx(
+            tx,
+            db,
+            {
+              id_destinatario: authUser.uid,
+              papel_destinatario: "Aluno",
+              tipo: "CONVITE_PARA_TURMA",
+              id_quem_fez_acao: claims.uid,
+              id_turma: idTurmaFinal,
+              entidade_alvo: "Convite_Aluno",
+              id_alvo: novoDocRef.id,
+              expira_em: expiraEm,
+            },
+            novoDocRef.id
+          );
         }
 
         const resultado = {
@@ -357,26 +417,30 @@ export async function executarConvidarAluno(
         atualizado_em: agora,
       });
 
-      if (authUser) {
-        const notifRef = db.collection("Usuarios").doc(authUser.uid).collection("Notificacoes").doc(idConviteExistente);
-        tx.set(
-          notifRef,
-          {
-            id: idConviteExistente,
-            id_usuario: authUser.uid,
-            tipo: "CONVITE_PARA_TURMA",
-            papel_destinatario: "Aluno",
-            entidade_alvo: "Convite_Aluno",
-            id_alvo: idConviteExistente,
-            id_turma: idTurmaFinal,
-            id_quem_fez_acao: claims.uid,
+      if (authUser && contexto === "TURMA" && idTurmaFinal && notifRefReenvio) {
+        if (notifSnapReenvio && notifSnapReenvio.exists) {
+          // Preserva par coerente lida e lida_em original (#M13Notificacao), atualizando apenas expiração
+          tx.update(notifRefReenvio, {
             expira_em: Timestamp.fromDate(expiraEm),
-            criado_em: agora,
-            lida: false,
-            resumo: "Convite para ingresso em turma",
-          },
-          { merge: true }
-        );
+            atualizado_em: agora,
+          });
+        } else {
+          adicionarNotificacaoTx(
+            tx,
+            db,
+            {
+              id_destinatario: authUser.uid,
+              papel_destinatario: "Aluno",
+              tipo: "CONVITE_PARA_TURMA",
+              id_quem_fez_acao: claims.uid,
+              id_turma: idTurmaFinal,
+              entidade_alvo: "Convite_Aluno",
+              id_alvo: idConviteExistente,
+              expira_em: expiraEm,
+            },
+            idConviteExistente
+          );
+        }
       }
 
       const resultado = {
@@ -430,22 +494,22 @@ export async function executarConvidarAluno(
       criado_em: agora,
     });
 
-    if (authUser) {
-      const notifRef = db.collection("Usuarios").doc(authUser.uid).collection("Notificacoes").doc(novoDocRef.id);
-      tx.set(notifRef, {
-        id: novoDocRef.id,
-        id_usuario: authUser.uid,
-        tipo: "CONVITE_PARA_TURMA",
-        papel_destinatario: "Aluno",
-        entidade_alvo: "Convite_Aluno",
-        id_alvo: novoDocRef.id,
-        id_turma: idTurmaFinal,
-        id_quem_fez_acao: claims.uid,
-        expira_em: Timestamp.fromDate(expiraEm),
-        criado_em: agora,
-        lida: false,
-        resumo: "Convite para ingresso em turma",
-      });
+    if (authUser && contexto === "TURMA" && idTurmaFinal) {
+      adicionarNotificacaoTx(
+        tx,
+        db,
+        {
+          id_destinatario: authUser.uid,
+          papel_destinatario: "Aluno",
+          tipo: "CONVITE_PARA_TURMA",
+          id_quem_fez_acao: claims.uid,
+          id_turma: idTurmaFinal,
+          entidade_alvo: "Convite_Aluno",
+          id_alvo: novoDocRef.id,
+          expira_em: expiraEm,
+        },
+        novoDocRef.id
+      );
     }
 
     const resultado = {
@@ -471,27 +535,48 @@ export async function executarConvidarAluno(
     return { ...resultado, tokenEfemero: token };
   });
 
-  // Pós-commit: se o usuário não possuía conta no Auth, provisiona e gera fluxo oficial de definição de senha
+  // Pós-commit: se o usuário não possuía conta no Auth, provisiona e dispara envio real de OOB
+  let statusEntrega: StatusEntregaConvite = "ENVIADO";
   if (!authUser) {
+    let userCreated = false;
     try {
       await admin.auth().createUser({ email: emailNormalizado });
+      userCreated = true;
     } catch (err: unknown) {
       const createErr = err as { code?: string };
-      if (createErr.code !== "auth/email-already-exists") {
+      if (createErr.code === "auth/email-already-exists") {
+        // T2: Corrida entre getUserByEmail e createUser: reler conta, validar disabled
+        try {
+          const userRecon = await admin.auth().getUserByEmail(emailNormalizado);
+          if (userRecon.disabled) {
+            statusEntrega = "FALHOU";
+          } else {
+            userCreated = true;
+          }
+        } catch {
+          statusEntrega = "FALHOU";
+        }
+      } else {
         console.error("Erro ao provisionar usuário no Firebase Auth:", err);
+        statusEntrega = "FALHOU";
       }
     }
-    try {
-      const continueUrl = `${process.env.APP_BASE_URL || "http://localhost:3000"}/login`;
-      await admin.auth().generatePasswordResetLink(emailNormalizado, { url: continueUrl });
-    } catch (err: unknown) {
-      console.error("Erro ao disparar link de definição de senha no Firebase Auth:", err);
+
+    if (userCreated && statusEntrega !== "FALHOU") {
+      const baseUrl = process.env.APP_BASE_URL || "http://localhost:3000";
+      const continueUrl = `${baseUrl}/convite?id=${encodeURIComponent(resultadoTx.id)}${resultadoTx.tokenEfemero ? `&token=${encodeURIComponent(resultadoTx.tokenEfemero)}` : ""}`;
+      const envioRes = await dispararPasswordResetFirebaseAuth(emailNormalizado, continueUrl);
+      if (!envioRes.ok) {
+        console.error("Erro ao emitir OOB de definição de senha no Firebase Auth:", envioRes.error);
+        statusEntrega = "FALHOU";
+      }
     }
   }
 
   return {
     ...resultadoTx,
     canal_entrega: canalEntrega,
+    status_entrega: statusEntrega,
   };
 }
 
@@ -507,6 +592,7 @@ export const convidarAluno = onCall({ secrets: [conviteHmacSecret] }, async (req
     registrado: resultado.registrado,
     reenvio: resultado.reenvio,
     canal_entrega: resultado.canal_entrega,
+    status_entrega: resultado.status_entrega,
   };
 });
 
@@ -872,10 +958,14 @@ export async function executarAceitarConviteAluno(
     tx.delete(pendenciaRef);
 
     if (notifSnap.exists) {
-      tx.update(notifRef, {
-        lida: true,
-        atualizado_em: agora,
-      });
+      const notifData = notifSnap.data()!;
+      if (!notifData.lida) {
+        tx.update(notifRef, {
+          lida: true,
+          lida_em: agora,
+          atualizado_em: agora,
+        });
+      }
     }
 
     const resultadoAceite = {
@@ -948,12 +1038,15 @@ export const aceitarConviteAluno = onCall({ secrets: [conviteHmacSecret] }, asyn
  * Execução lógica de rejeição de convite por aluno.
  * - Estado terminal definitivo: não gera vínculo, não altera contadores, libera o lock de pendência HMAC em Chaves_Unicas.
  * - Registra auditoria e receipt M7.
- * - Marca notificação interna própria como lida se existir.
+ * - Marca notificação interna própria como lida se existir (preservando lida_em se já lida).
+ * - Exige lock canônico em Chaves_Unicas (fail-closed).
+ * - Se convite expirado, comita a expiração e liberação de lock antes de responder erro (sem rollback).
  */
 export async function executarRejeitarConviteAluno(
   dados: {
     idOperacao: string;
     idConvite: string;
+    tokenConvite?: string;
   },
   request: CallableRequest,
   segredoInjetado?: string
@@ -983,11 +1076,14 @@ export async function executarRejeitarConviteAluno(
     idConvite: dados.idConvite,
   });
 
-  return await db.runTransaction(async (tx) => {
+  const txRes = await db.runTransaction(async (tx) => {
     // FASE 1: READS FIRST
     const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
     if (decisao.estado === "REPLAY") {
-      return decisao.resultado as { idConvite: string; status: "rejeitado" };
+      return {
+        tipo: "REPLAY" as const,
+        resultado: decisao.resultado as { idConvite: string; status: "rejeitado" },
+      };
     }
     if (decisao.estado !== "NOVA") {
       throw new HttpsError("failed-precondition", "Operação de rejeição não concluída.");
@@ -1018,6 +1114,8 @@ export async function executarRejeitarConviteAluno(
     if (convite.status === "aceitado") {
       throw new HttpsError("failed-precondition", "Este convite já foi aceito e não pode ser rejeitado.");
     }
+
+    // Se expirado: reconciliação atômica comitada antes do erro ao cliente (sem rollback)
     if (convite.status === "expirado" || isConviteExpirado(convite.expira_em)) {
       tx.update(conviteRef, {
         status: "expirado",
@@ -1026,7 +1124,28 @@ export async function executarRejeitarConviteAluno(
       if (pendSnap.exists && pendSnap.data()?.id_recurso === dados.idConvite) {
         tx.delete(pendenciaRef);
       }
-      throw new HttpsError("failed-precondition", "O convite expirou e não pode ser rejeitado.");
+      return { tipo: "EXPIRADO_RECONCILIADO" as const };
+    }
+
+    // Lock de pendência canônico obrigatório em Chaves_Unicas
+    if (!pendSnap.exists || pendSnap.data()?.id_recurso !== dados.idConvite) {
+      throw new HttpsError("failed-precondition", "Lock de pendência do convite ausente ou inconsistente (fail-closed).");
+    }
+
+    // Autorização por canal (via externa com token ou via interna com notificação própria)
+    if (dados.tokenConvite) {
+      if (!compararTokenConstantTime(dados.tokenConvite, convite.token_hash)) {
+        throw new HttpsError("permission-denied", "Token de convite inválido para rejeição.");
+      }
+    } else {
+      if (
+        !notifSnap.exists ||
+        notifSnap.data()?.tipo !== "CONVITE_PARA_TURMA" ||
+        notifSnap.data()?.id_alvo !== dados.idConvite ||
+        notifSnap.data()?.id_destinatario !== authUser.uid
+      ) {
+        throw new HttpsError("permission-denied", "Notificação de convite não encontrada para este usuário.");
+      }
     }
 
     // FASE 3: WRITES
@@ -1038,15 +1157,17 @@ export async function executarRejeitarConviteAluno(
       atualizado_em: agora,
     });
 
-    if (pendSnap.exists && pendSnap.data()?.id_recurso === dados.idConvite) {
-      tx.delete(pendenciaRef);
-    }
+    tx.delete(pendenciaRef);
 
     if (notifSnap.exists) {
-      tx.update(notifRef, {
-        lida: true,
-        atualizado_em: agora,
-      });
+      const notifData = notifSnap.data()!;
+      if (!notifData.lida) {
+        tx.update(notifRef, {
+          lida: true,
+          lida_em: agora,
+          atualizado_em: agora,
+        });
+      }
     }
 
     const resultadoRejeicao = {
@@ -1068,8 +1189,21 @@ export async function executarRejeitarConviteAluno(
       },
     });
 
-    return resultadoRejeicao;
+    return {
+      tipo: "SUCESSO" as const,
+      resultado: resultadoRejeicao,
+    };
   });
+
+  if (txRes.tipo === "REPLAY") {
+    return txRes.resultado;
+  }
+
+  if (txRes.tipo === "EXPIRADO_RECONCILIADO") {
+    throw new HttpsError("failed-precondition", "O convite expirou e não pode ser rejeitado.");
+  }
+
+  return txRes.resultado;
 }
 
 /**
@@ -1081,9 +1215,10 @@ export const rejeitarConviteAluno = onCall({ secrets: [conviteHmacSecret] }, asy
 });
 
 /**
- * Endpoint seguro para obtenção de detalhes do convite de aluno.
- * Não vaza token_hash nem dados sensíveis.
- * Projeta quem convidou, nome da turma e professor responsável.
+ * Endpoint seguro para obtenção de detalhes do convite de aluno (fail-closed).
+ * - Sessão autenticada e e-mail verificado obrigatórios.
+ * - Projeção mínima: não vaza e-mail, matrícula, código da turma nem token_hash.
+ * - Papel do convidador inferido historicamente pelo vínculo da turma (M9).
  */
 export async function executarObterDetalhesConviteAluno(
   dados: {
@@ -1092,18 +1227,25 @@ export async function executarObterDetalhesConviteAluno(
   },
   request: CallableRequest
 ): Promise<{
-  id: string;
-  email: string;
+  idConvite: string;
   status: string;
   expira_em: unknown;
   id_turma: string | null;
   nome_turma: string | null;
-  codigo_turma: string | null;
   nome_professor: string | null;
   convidado_por_nome: string | null;
-  convidado_por_papel: string | null;
+  contexto_convidador: "Professor" | "Chefe_Geral";
   exceder_capacidade: boolean;
 }> {
+  if (!request.auth?.uid) {
+    throw new HttpsError("unauthenticated", "Sessão autenticada é obrigatória para consultar detalhes do convite.");
+  }
+
+  const authUser = await admin.auth().getUser(request.auth.uid);
+  if (!authUser.emailVerified) {
+    throw new HttpsError("failed-precondition", "E-mail da conta autenticada não verificado.");
+  }
+
   const db = admin.firestore();
   const conviteSnap = await db.collection("Convite_Aluno").doc(dados.idConvite).get();
   if (!conviteSnap.exists) {
@@ -1111,34 +1253,52 @@ export async function executarObterDetalhesConviteAluno(
   }
   const convite = conviteSnap.data()!;
 
+  let turmaData: admin.firestore.DocumentData | null = null;
+  if (convite.id_turma) {
+    const turmaSnap = await db.collection("Turma").doc(convite.id_turma).get();
+    if (turmaSnap.exists) {
+      turmaData = turmaSnap.data()!;
+    }
+  }
+
   let autorizado = false;
-  if (request.auth?.uid) {
-    try {
-      const claims = extrairClaimsAutoridade(request);
+  try {
+    const claims = extrairClaimsAutoridade(request);
+    if (
+      claims.uid === convite.convidado_por ||
+      claims.papeis.includes("Chefe_Geral") ||
+      (turmaData && turmaData.id_professor === claims.uid)
+    ) {
+      autorizado = true;
+    }
+  } catch {
+    // Não possui claims de staff
+  }
+
+  if (!autorizado) {
+    const emailAuthNormalizado = normalizarEmailConvite(authUser.email || "");
+    if (emailAuthNormalizado !== convite.email) {
+      throw new HttpsError("permission-denied", "Convite não endereçado ao usuário autenticado.");
+    }
+
+    if (dados.tokenConvite) {
+      autorizado = compararTokenConstantTime(dados.tokenConvite, convite.token_hash);
+    } else {
+      const notifSnap = await db
+        .collection("Usuarios")
+        .doc(authUser.uid)
+        .collection("Notificacoes")
+        .doc(dados.idConvite)
+        .get();
       if (
-        claims.uid === convite.convidado_por ||
-        claims.uid === convite.id_professor ||
-        claims.papeis.includes("Chefe_Geral")
+        notifSnap.exists &&
+        notifSnap.data()?.tipo === "CONVITE_PARA_TURMA" &&
+        notifSnap.data()?.id_alvo === dados.idConvite &&
+        notifSnap.data()?.id_destinatario === authUser.uid
       ) {
         autorizado = true;
       }
-    } catch {
-      // Ignora erro de claims
     }
-
-    if (!autorizado) {
-      try {
-        const authUser = await admin.auth().getUser(request.auth.uid);
-        if (authUser.email && normalizarEmailConvite(authUser.email) === convite.email) {
-          autorizado = true;
-        }
-      } catch {
-        // Ignora erro de auth
-      }
-    }
-  }
-  if (!autorizado && dados.tokenConvite) {
-    autorizado = compararTokenConstantTime(dados.tokenConvite, convite.token_hash);
   }
 
   if (!autorizado) {
@@ -1149,53 +1309,39 @@ export async function executarObterDetalhesConviteAluno(
   const statusFinal = expirado ? "expirado" : convite.status;
 
   let nomeTurma: string | null = null;
-  let codigoTurma: string | null = null;
   let nomeProfessor: string | null = null;
+  let contextoConvidador: "Professor" | "Chefe_Geral" = "Professor";
 
-  if (convite.id_turma) {
-    const turmaSnap = await db.collection("Turma").doc(convite.id_turma).get();
-    if (turmaSnap.exists) {
-      const t = turmaSnap.data()!;
-      nomeTurma = t.nome_turma ?? null;
-      codigoTurma = t.codigo_turma ?? null;
-      if (t.id_professor) {
-        const profSnap = await db.collection("Usuarios").doc(t.id_professor).get();
-        if (profSnap.exists) {
-          nomeProfessor = profSnap.data()?.nome ?? null;
-        }
+  if (turmaData) {
+    nomeTurma = turmaData.nome_turma ?? null;
+    contextoConvidador = convite.convidado_por === turmaData.id_professor ? "Professor" : "Chefe_Geral";
+    if (turmaData.id_professor) {
+      const profSnap = await db.collection("Usuarios").doc(turmaData.id_professor).get();
+      if (profSnap.exists) {
+        nomeProfessor = profSnap.data()?.nome ?? null;
       }
     }
+  } else {
+    contextoConvidador = "Chefe_Geral";
   }
 
   let convidadoPorNome: string | null = null;
-  let convidadoPorPapel: string | null = null;
   if (convite.convidado_por) {
     const quemSnap = await db.collection("Usuarios").doc(convite.convidado_por).get();
     if (quemSnap.exists) {
       convidadoPorNome = quemSnap.data()?.nome ?? null;
     }
-    const chefeSnap = await db.collection("Chefe_Geral").doc(convite.convidado_por).get();
-    if (chefeSnap.exists && chefeSnap.data()?.ativo) {
-      convidadoPorPapel = "Chefe_Geral";
-    } else {
-      const profSnap = await db.collection("Professor").doc(convite.convidado_por).get();
-      if (profSnap.exists && profSnap.data()?.ativo) {
-        convidadoPorPapel = "Professor";
-      }
-    }
   }
 
   return {
-    id: conviteSnap.id,
-    email: convite.email,
+    idConvite: conviteSnap.id,
     status: statusFinal,
     expira_em: convite.expira_em?.toDate ? convite.expira_em.toDate().toISOString() : convite.expira_em,
     id_turma: convite.id_turma ?? null,
     nome_turma: nomeTurma,
-    codigo_turma: codigoTurma,
     nome_professor: nomeProfessor,
     convidado_por_nome: convidadoPorNome,
-    convidado_por_papel: convidadoPorPapel,
+    contexto_convidador: contextoConvidador,
     exceder_capacidade: Boolean(convite.exceder_capacidade),
   };
 }

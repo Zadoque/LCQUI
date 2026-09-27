@@ -16,16 +16,14 @@ import {
 } from "@/lib/intencaoOperacao";
 
 interface DetalhesConvite {
-  id: string;
-  email: string;
+  idConvite: string;
   status: string;
   expira_em: string;
   id_turma: string | null;
   nome_turma: string | null;
-  codigo_turma: string | null;
   nome_professor: string | null;
   convidado_por_nome: string | null;
-  convidado_por_papel: string | null;
+  contexto_convidador: "Professor" | "Chefe_Geral";
   exceder_capacidade: boolean;
 }
 
@@ -315,7 +313,7 @@ function ConviteConteudo() {
 
         {detalhes && (
           <div className="p-4 bg-foreground/5 border border-foreground/10 rounded-xl space-y-2 text-sm">
-            {detalhes.convidado_por_papel === "Chefe_Geral" ? (
+            {detalhes.contexto_convidador === "Chefe_Geral" ? (
               <p className="text-foreground/90">
                 O <strong>Chefe Geral {detalhes.convidado_por_nome || ""}</strong> convidou você para a turma{" "}
                 <strong>{detalhes.nome_turma || "da disciplina"}</strong>
@@ -324,8 +322,7 @@ function ConviteConteudo() {
             ) : detalhes.nome_turma ? (
               <p className="text-foreground/90">
                 O <strong>Professor {detalhes.nome_professor || detalhes.convidado_por_nome || "responsável"}</strong> convidou você para a turma{" "}
-                <strong>{detalhes.nome_turma}</strong>
-                {detalhes.codigo_turma ? ` (${detalhes.codigo_turma})` : ""}.
+                <strong>{detalhes.nome_turma}</strong>.
               </p>
             ) : (
               <p className="text-foreground/90">

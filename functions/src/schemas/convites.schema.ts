@@ -52,6 +52,7 @@ export const AceitarConviteAlunoSchema = z
 export const RejeitarConviteAlunoSchema = z.object({
   idOperacao: IdOperacaoConviteSchema,
   idConvite: z.string().trim().min(1, "idConvite é obrigatório."),
+  tokenConvite: z.string().trim().optional(),
 });
 
 export const ObterDetalhesConviteAlunoSchema = z.object({
