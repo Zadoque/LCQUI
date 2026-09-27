@@ -352,9 +352,11 @@ constante, com expiração de sete dias, status \texttt{pendente}, \texttt{aceit
 ou \texttt{expirado}, \texttt{convidado\_por}, \texttt{convidado\_em},
 \texttt{numero\_matricula} opcional, \texttt{exceder\_capacidade} e
 \texttt{justificativa\_excecao}, \texttt{aceitado\_por} e \texttt{aceitado\_em}.
-O docId é determinístico, derivado no servidor por HMAC-SHA-256 do contexto
-(turma ou global) e do e-mail normalizado com segredo do servidor; nunca se usa
-hash simples e previsível de e-mail como chave nem se expõe o e-mail em claro.
+O ID do convite (\texttt{Convite\_Aluno/\{id\}}) é imutável e gerado pelo servidor
+para registro histórico. A chave de pendência em \texttt{Chaves\_Unicas} é
+determinística, derivada no servidor por HMAC-SHA-256 do contexto (turma ou global)
+e do e-mail normalizado com segredo do servidor; nunca se usa hash simples e previsível
+de e-mail como chave nem se expõe o e-mail em claro.
 
 Unicidade: no máximo um convite \texttt{pendente} por
 (\texttt{email} normalizado, \texttt{id\_turma}); para convite global, no
@@ -369,8 +371,8 @@ aluno ingressa depois por código ou por outro convite. Matrícula é obrigatór
 e única na identidade final \texttt{Aluno}, opcional e não única no convite.
 
 Identidade e histórico: o ID do convite é imutável e distinto da chave de
-pendência. O docId determinístico por HMAC identifica a \emph{pendência}
-(e-mail normalizado, turma|GLOBAL): enquanto há convite pendente, ele é a chave
+pendência. A chave determinística em \texttt{Chaves\_Unicas} por HMAC identifica a \emph{pendência}
+(e-mail normalizado, turma|GLOBAL): enquanto há convite pendente, ela é a chave
 de unicidade; aceitação ou expiração liberam a pendência. Um novo convite para a
 mesma dupla após a terminalidade é um \textbf{novo documento}, com novo ID,
 token e hash, e não sobrescreve nem apaga o convite aceito/expirado, preservando
