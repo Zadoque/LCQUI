@@ -156,7 +156,7 @@ Comentario & Sub-coleção \nolinkurl{Turma/\{id\}/Posts/\{postId\}/Comentarios}
 Historico\_Posts\_Turma & Sub-coleção \nolinkurl{Turma/\{id\}/Posts/\{postId\}/HistoricoPosts} & Auditoria de edição sempre a partir do post.\\
 Historico\_Comentario & Sub-coleção \nolinkurl{Turma/\{id\}/Posts/\{postId\}/Comentarios/\{id\}/HistoricoComentarios} & Auditoria de edição sempre a partir do comentário.\\
 Roteiro\_Experimento & Coleção raiz & Compartilhamento cross-professor exige acesso sem partir de uma turma.\\
-Convite\_Aluno & Coleção raiz & Unicidade transacional de convite \texttt{pendente} por (e-mail normalizado, \texttt{id\_turma}), inclusive a chave global com \texttt{id\_turma} NULL, validada em \texttt{Chaves\_Unicas}; docId determinístico por HMAC, sem e-mail em claro.\\
+Convite\_Aluno & Coleção raiz & Fato histórico imutável do convite (\texttt{Convite\_Aluno/\{idConvite\}}). Unicidade transacional de convite \texttt{pendente} por (e-mail normalizado, \texttt{id\_turma}), inclusive a chave global com \texttt{id\_turma} NULL, validada em \texttt{Chaves\_Unicas} por chave HMAC distinta do docId, sem e-mail em claro; terminalidade (aceite ou expiração) libera a chave de pendência preservando o documento do convite.\\
 Notificacao & Sub-coleção \nolinkurl{Usuarios/\{uid\}/Notificacoes} & Query natural por usuário; funciona automaticamente para usuários multi-role sem necessidade de multiple reads.\\
 Registro\_de\_Auditoria & Coleção raiz & Log global queryável por tipo de entidade e período.\\
 Lote\_Materializado & Coleção raiz (docId = id do lote) & Atualizada por trigger \texttt{onFrascoCriado}/\texttt{onFrascoRemovido}.\\
@@ -623,7 +623,7 @@ Caminho: \texttt{Bolsista/\{id\}}.
 \paragraph{Convite\_Aluno}\mbox{}\par
 Caminho: \texttt{Convite\_Aluno/\{id\}}.
 \begin{description}
-\item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
+\item[\texttt{id}] docId string; O. Chave imutável do documento de histórico de convite, gerada pelo servidor; distinta da chave de pendência em \texttt{Chaves\_Unicas}.
 \item[\texttt{id\_turma}] string; N. Identificador da entidade turma, cuja existência e escopo são verificados no servidor.
 \item[\texttt{email}] string; O. Endereço normalizado para identidade/convite; não divulgar em catálogo público interno. Máximo 150 caracteres.
 \item[\texttt{convidado\_em}] Timestamp; O. Data/instante de convidado em, com ordem temporal validada e autoria do relógio do servidor para eventos.
@@ -632,7 +632,7 @@ Caminho: \texttt{Convite\_Aluno/\{id\}}.
 \item[\texttt{convidado\_por}] string; O. Valor de convidado por, validado pelo formulário e pelo servidor conforme regras do domínio.
 \item[\texttt{numero\_matricula}] string; N. Matrícula institucional textual, com zeros iniciais; obrigatória e única em Aluno, opcional e não única em Convite. Máximo 20 caracteres.
 \item[\texttt{token\_hash}] string; O. SHA-256 do token aleatório de 32 bytes (CSPRNG); nunca token em claro. Reenvio substitui hash e expiração atomicamente; comparação constante e aceitação única no servidor.
-\item[\texttt{ultimo\_reenvio\_por}] string; N. UID servidor do operador do último reenvio. DocId derivado por HMAC-SHA-256 de contexto e e-mail normalizado com segredo servidor; não usar hash simples público de e-mail.
+\item[\texttt{ultimo\_reenvio\_por}] string; N. UID servidor do operador do último reenvio. A chave de pendência em \texttt{Chaves\_Unicas} é derivada por HMAC-SHA-256 de contexto e e-mail normalizado com segredo servidor (distinta do docId imutável do convite); não usar hash simples público de e-mail.
 \item[\texttt{exceder\_capacidade}] boolean; O, padrão false. Indicador de exceção nominal de capacidade autorizada pelo docente.
 \item[\texttt{justificativa\_excecao}] string; C quando exceder\_capacidade for true.
 \item[\texttt{aceitado\_por}] string; N. UID do aluno que aceitou o convite.
