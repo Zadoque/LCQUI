@@ -46,12 +46,38 @@ export const ingressarEmTurmaPorCodigo = onCall(async (request) => {
     const alunoTurmaRef = turmaDoc.ref.collection("Alunos").doc(claims.uid);
     const alunoTurmaDoc = await tx.get(alunoTurmaRef);
 
-    // Membro já existente: recebe acesso à turma sem criar vínculo novo,
-    // incrementar contagem ou gerar novo evento — inclusive em turma cheia ou
-    // arquivada (UI-10: "aluno já matriculado recebe acesso à turma sem duplicar
-    // contagem"). Só registra o receipt da nova intenção.
+    // Membro já existente: valida os invariantes canônicos do vínculo antes
+    // de aprovar o acesso (fail-closed se o documento estiver corrompido).
+    // Invariantes M11: id_aluno == docId, id_turma == path, ingressou_em presente,
+    // status da Turma ∈ {Ativo, Arquivada}.
     if (alunoTurmaDoc.exists) {
-      const resultado = { idTurma: turmaDoc.id, nomeTurma: turma.nome_turma };
+      const vinculoData = alunoTurmaDoc.data()!;
+      if (vinculoData.id_aluno !== claims.uid) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Vínculo canônico corrompido: id_aluno diverge do docId (fail-closed)."
+        );
+      }
+      if (vinculoData.id_turma !== turmaDoc.id) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Vínculo canônico corrompido: id_turma diverge do path (fail-closed)."
+        );
+      }
+      if (vinculoData.ingressou_em == null || vinculoData.ingressou_em === undefined) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Vínculo canônico corrompido: ingressou_em ausente (fail-closed)."
+        );
+      }
+      // status da Turma deve ser Ativo ou Arquivada para um vínculo existente.
+      if (turma.status !== "Ativo" && turma.status !== "Arquivada") {
+        throw new HttpsError(
+          "failed-precondition",
+          "Estado de turma persistido inválido para vínculo existente (fail-closed)."
+        );
+      }
+      const resultado = { idTurma: turmaDoc.id, nomeTurma: turma.nome_turma as string };
       registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
       return resultado;
     }
@@ -316,9 +342,22 @@ export const removerAlunoTurma = onCall(async (request) => {
       timestamp: FieldValue.serverTimestamp()
     });
 
-    // Contador transacional, nunca abaixo de zero (não incrementa `versao`).
-    const qtdAtual = typeof turma.qtd_alunos === "number" ? turma.qtd_alunos : 0;
-    tx.update(turmaRef, { qtd_alunos: Math.max(0, qtdAtual - 1) });
+    // Contador transacional fail-closed: qtd_alunos deve ser inteiro >= 1
+    // para uma remoção coerente. Se não for, a corrupção é exposta, não mascarada.
+    const qtdAtual = turma.qtd_alunos;
+    if (typeof qtdAtual !== "number" || !Number.isInteger(qtdAtual)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Contador qtd_alunos inválido ou não-inteiro (fail-closed)."
+      );
+    }
+    if (qtdAtual < 1) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Contador qtd_alunos é 0 com vínculo existente — inconsistência detectada (fail-closed)."
+      );
+    }
+    tx.update(turmaRef, { qtd_alunos: qtdAtual - 1 });
 
     tx.set(db.collection("Registro_de_Auditoria").doc(`remover_aluno_${idOperacao}`), {
       id_usuario: claims.uid,
