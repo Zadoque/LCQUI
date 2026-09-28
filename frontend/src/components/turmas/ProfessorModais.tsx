@@ -19,6 +19,7 @@ import {
   chaveIntencaoConvite,
   assinaturaIntencaoConvite,
 } from "@/lib/intencaoOperacao";
+import { construirPayloadConvidarAluno } from "@/lib/convitesPayload.mjs";
 
 interface ModalProps {
   isOpen: boolean;
@@ -271,14 +272,14 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
 
       try {
         const convidar = httpsCallable(functions, "convidarAluno");
-        const res = await convidar({
+        const res = await convidar(construirPayloadConvidarAluno({
           idOperacao: intencao.idOperacao,
           email: em,
-          idTurma: idTurma || null,
-          matricula: matricula.trim() || undefined,
+          idTurma,
+          matricula,
           excederCapacidade: podeExceder,
-          justificativaExcecao: justificativaFinal,
-        });
+          justificativaExcecao: justificativaFinal ?? "",
+        }));
 
         if (session) limparIntencao(session, chave);
 

@@ -14,6 +14,11 @@ import {
   obterIntencaoPersistida,
   limparIntencao,
 } from "@/lib/intencaoOperacao";
+import {
+  construirPayloadAceitarConvite,
+  construirPayloadAcessoConvite,
+  construirPayloadRejeitarConvite,
+} from "@/lib/convitesPayload.mjs";
 
 interface DetalhesConvite {
   idConvite: string;
@@ -54,10 +59,7 @@ function ConviteConteudo() {
       try {
         const functions = getFunctions();
         const obter = httpsCallable(functions, "obterDetalhesConviteAluno");
-        const res = await obter({
-          idConvite,
-          tokenConvite: tokenConvite || undefined,
-        });
+        const res = await obter(construirPayloadAcessoConvite(idConvite, tokenConvite));
         if (!cancelado) {
           const d = res.data as DetalhesConvite;
           setDetalhes(d);
@@ -194,14 +196,13 @@ function ConviteConteudo() {
       const functions = getFunctions();
       const aceitar = httpsCallable(functions, "aceitarConviteAluno");
 
-      const res = await aceitar({
+      const res = await aceitar(construirPayloadAceitarConvite({
         idOperacao: intencao.idOperacao,
         idConvite,
-        tokenConvite: tokenConvite || undefined,
-        viaNotificacao: !tokenConvite ? true : undefined,
-        nomeInformado: nomeInformado.trim() || undefined,
-        matriculaInformada: matriculaInformada.trim() || undefined,
-      });
+        tokenConvite,
+        nomeInformado,
+        matriculaInformada,
+      }));
 
       if (session) limparIntencao(session, chave);
 
@@ -235,10 +236,11 @@ function ConviteConteudo() {
       const functions = getFunctions();
       const rejeitar = httpsCallable(functions, "rejeitarConviteAluno");
 
-      await rejeitar({
-        idOperacao: intencao.idOperacao,
+      await rejeitar(construirPayloadRejeitarConvite(
+        intencao.idOperacao,
         idConvite,
-      });
+        tokenConvite
+      ));
 
       if (session) limparIntencao(session, chave);
       setRejeitado(true);
