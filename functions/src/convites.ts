@@ -41,13 +41,16 @@ import { reconciliarClaimsUsuario } from "./usuarios";
 import { adicionarNotificacaoTx } from "./notificacoes";
 
 export const conviteHmacSecret = defineSecret("CONVITE_HMAC_SECRET");
-export const firebaseWebApiKey = defineString("FIREBASE_WEB_API_KEY", { default: "demo-api-key" });
+// `FIREBASE_*` é prefixo reservado pelo firebase-tools para variáveis internas.
+// O nome do parâmetro precisa permanecer fora desse namespace, inclusive no
+// Emulator Suite.
+export const firebaseWebApiKey = defineString("LCQUI_WEB_API_KEY", { default: "demo-api-key" });
 
 export type CanalEntregaConvite = "notificacao_interna" | "firebase_auth";
 export type StatusEntregaConvite = "ENVIADO" | "FALHOU";
 
 export function obterFirebaseWebApiKey(): string {
-  if (process.env.FIREBASE_WEB_API_KEY) return process.env.FIREBASE_WEB_API_KEY;
+  if (process.env.LCQUI_WEB_API_KEY) return process.env.LCQUI_WEB_API_KEY;
   if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY) return process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   try {
     const val = firebaseWebApiKey.value();
@@ -1217,7 +1220,8 @@ export const rejeitarConviteAluno = onCall({ secrets: [conviteHmacSecret] }, asy
 /**
  * Endpoint seguro para obtenção de detalhes do convite de aluno (fail-closed).
  * - Sessão autenticada e e-mail verificado obrigatórios.
- * - Projeção mínima: não vaza e-mail, matrícula, código da turma nem token_hash.
+ * - Projeção mínima: não vaza e-mail, matrícula, código da turma nem token_hash;
+ *   informa apenas se a matrícula ainda precisa ser fornecida no aceite.
  * - Papel do convidador inferido historicamente pelo vínculo da turma (M9).
  */
 export async function executarObterDetalhesConviteAluno(
@@ -1236,6 +1240,7 @@ export async function executarObterDetalhesConviteAluno(
   convidado_por_nome: string | null;
   contexto_convidador: "Professor" | "Chefe_Geral";
   exceder_capacidade: boolean;
+  matricula_necessaria: boolean;
 }> {
   if (!request.auth?.uid) {
     throw new HttpsError("unauthenticated", "Sessão autenticada é obrigatória para consultar detalhes do convite.");
@@ -1333,6 +1338,21 @@ export async function executarObterDetalhesConviteAluno(
     }
   }
 
+  let destinatarioPossuiAluno = false;
+  try {
+    const destinatarioAuth = await admin.auth().getUserByEmail(convite.email);
+    const alunoSnap = await db.collection("Aluno").doc(destinatarioAuth.uid).get();
+    destinatarioPossuiAluno = alunoSnap.exists;
+  } catch (error: unknown) {
+    const codigo = typeof error === "object" && error !== null && "code" in error
+      ? String(error.code)
+      : "";
+    if (codigo !== "auth/user-not-found") throw error;
+  }
+
+  const convitePossuiMatricula =
+    typeof convite.numero_matricula === "string" && convite.numero_matricula.trim().length > 0;
+
   return {
     idConvite: conviteSnap.id,
     status: statusFinal,
@@ -1343,6 +1363,7 @@ export async function executarObterDetalhesConviteAluno(
     convidado_por_nome: convidadoPorNome,
     contexto_convidador: contextoConvidador,
     exceder_capacidade: Boolean(convite.exceder_capacidade),
+    matricula_necessaria: !destinatarioPossuiAluno && !convitePossuiMatricula,
   };
 }
 
