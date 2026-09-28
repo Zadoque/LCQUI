@@ -30,12 +30,13 @@ interface DetalhesConvite {
   convidado_por_nome: string | null;
   contexto_convidador: "Professor" | "Chefe_Geral";
   exceder_capacidade: boolean;
+  matricula_necessaria: boolean;
 }
 
 function ConviteConteudo() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, refreshSession } = useAuth();
 
   const idConvite = searchParams.get("id")?.trim() || "";
   const tokenConvite = searchParams.get("token")?.trim() || "";
@@ -47,6 +48,7 @@ function ConviteConteudo() {
   const [sucesso, setSucesso] = useState<{
     criouMatricula: boolean;
     idTurma: string | null;
+    sessaoPronta: boolean;
   } | null>(null);
   const [rejeitado, setRejeitado] = useState(false);
   const [detalhes, setDetalhes] = useState<DetalhesConvite | null>(null);
@@ -208,14 +210,40 @@ function ConviteConteudo() {
       if (session) limparIntencao(session, chave);
 
       const dados = res.data as { criouMatricula: boolean; idTurma: string | null };
+      let sessaoPronta = false;
+      try {
+        const estado = await refreshSession();
+        sessaoPronta = estado.ativo && estado.roles.includes("Aluno");
+      } catch (refreshError: unknown) {
+        console.error("Convite aceito, mas não foi possível renovar as permissões:", refreshError);
+      }
       setSucesso({
         criouMatricula: Boolean(dados.criouMatricula),
         idTurma: dados.idTurma ?? null,
+        sessaoPronta,
       });
     } catch (err: unknown) {
       console.error("Erro ao aceitar convite:", err);
       const msg = err instanceof Error ? err.message : "Não foi possível aceitar o convite. Verifique se o convite não expirou.";
       setErro(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAtualizarPermissoes = async () => {
+    setLoading(true);
+    setErro(null);
+    try {
+      const estado = await refreshSession();
+      if (!estado.ativo || !estado.roles.includes("Aluno")) {
+        setErro("O cadastro foi concluído, mas o papel Aluno ainda não chegou ao novo token. Tente atualizar novamente.");
+        return;
+      }
+      setSucesso((atual) => atual ? { ...atual, sessaoPronta: true } : atual);
+    } catch (err: unknown) {
+      console.error("Erro ao renovar permissões após o aceite:", err);
+      setErro("O cadastro foi concluído, mas não foi possível atualizar o acesso agora. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -291,13 +319,32 @@ function ConviteConteudo() {
               ? "Você foi matriculado na turma com sucesso e seu perfil de aluno foi habilitado."
               : "Seu cadastro foi habilitado com sucesso no sistema LCQUI."}
           </p>
+          {!sucesso.sessaoPronta && (
+            <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 p-3 rounded-lg">
+              O cadastro foi concluído, mas as permissões da sessão ainda precisam ser renovadas.
+            </p>
+          )}
+          {erro && (
+            <p className="text-xs text-red-600 bg-red-500/10 p-3 rounded-lg">{erro}</p>
+          )}
           <div className="pt-2">
-            <Link
-              href={sucesso.criouMatricula ? "/turmas" : "/alunos"}
-              className="inline-block w-full py-3 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/90 transition-colors"
-            >
-              {sucesso.criouMatricula ? "Acessar Minhas Turmas" : "Ir para o Painel"}
-            </Link>
+            {sucesso.sessaoPronta ? (
+              <Link
+                href={sucesso.criouMatricula ? "/turmas" : "/alunos"}
+                className="inline-block w-full py-3 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/90 transition-colors"
+              >
+                {sucesso.criouMatricula ? "Acessar Minhas Turmas" : "Ir para o Painel"}
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={handleAtualizarPermissoes}
+                disabled={loading}
+                className="w-full py-3 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {loading ? "Atualizando acesso..." : "Atualizar acesso"}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -356,21 +403,26 @@ function ConviteConteudo() {
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold mb-1">
-              Número de Matrícula (se solicitado pelo convite)
-            </label>
-            <input
-              type="text"
-              value={matriculaInformada}
-              onChange={(e) => setMatriculaInformada(e.target.value)}
-              placeholder="Ex: 0020261234"
-              className="w-full px-3 py-2 rounded-xl bg-background border border-foreground/20 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <p className="text-[11px] text-foreground/50 mt-1">
-              Preserva zeros iniciais e formatação textual institucional.
-            </p>
-          </div>
+          {detalhes?.matricula_necessaria && (
+            <div>
+              <label className="block text-xs font-semibold mb-1" htmlFor="matricula-convite">
+                Número de Matrícula
+              </label>
+              <input
+                id="matricula-convite"
+                type="text"
+                required
+                maxLength={20}
+                value={matriculaInformada}
+                onChange={(e) => setMatriculaInformada(e.target.value)}
+                placeholder="Ex: 0020261234"
+                className="w-full px-3 py-2 rounded-xl bg-background border border-foreground/20 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <p className="text-[11px] text-foreground/50 mt-1">
+                Obrigatória para concluir o perfil de Aluno. Zeros iniciais serão preservados.
+              </p>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button
@@ -383,7 +435,7 @@ function ConviteConteudo() {
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !detalhes}
               className="flex-1 py-3 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm"
             >
               {loading ? "Processando..." : "Confirmar e Ingressar"}
