@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase/config";
-import { collection, onSnapshot, Timestamp } from "firebase/firestore";
+import { collection, onSnapshot, query, Timestamp, where } from "firebase/firestore";
 import { Bell, Clock, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
@@ -62,8 +62,11 @@ export function NotificacoesDropdown() {
     }
 
     const colRef = collection(db, "Usuarios", user.uid, "Notificacoes");
+    // A Rule de M13 exige que listagens provem a coerência entre o caminho da
+    // caixa e `id_destinatario`; sem este filtro o Firestore nega a query.
+    const notificacoesQuery = query(colRef, where("id_destinatario", "==", user.uid));
     const unsubscribe = onSnapshot(
-      colRef,
+      notificacoesQuery,
       (snapshot) => {
         const itens: NotificacaoItem[] = [];
         snapshot.forEach((doc) => {
