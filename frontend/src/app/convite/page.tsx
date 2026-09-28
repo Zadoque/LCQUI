@@ -391,10 +391,11 @@ function ConviteConteudo() {
 
         <form onSubmit={handleAceitar} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold mb-1">
+            <label htmlFor="nome-convite" className="block text-xs font-semibold mb-1">
               Nome Completo (caso ainda não cadastrado)
             </label>
             <input
+              id="nome-convite"
               type="text"
               value={nomeInformado}
               onChange={(e) => setNomeInformado(e.target.value)}

@@ -9,7 +9,8 @@
     "lint": "eslint",
     "pw": "playwright cli",
     "test:e2e": "playwright test",
-    "test:e2e:list": "playwright test --list"
+    "test:e2e:list": "playwright test --list",
+    "test:e2e:emulators": "node e2e/orchestrator.mjs"
   },
   "dependencies": {
     "firebase": "^12.18.0",

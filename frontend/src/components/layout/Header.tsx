@@ -90,6 +90,8 @@ export default function Header() {
 
         <button
           onClick={() => setShowDropdown(!showDropdown)}
+          aria-label="Menu do usuário"
+          data-testid="header-user-menu"
           className="w-10 h-10 rounded-full border-2 border-primary/20 overflow-hidden hover:border-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
         >
           {user.photoURL ? (
@@ -118,6 +120,7 @@ export default function Header() {
                 </button>
                 <button
                   onClick={handleLogout}
+                  data-testid="logout-button"
                   className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 rounded-lg transition-colors mt-1 font-medium"
                 >
                   Sair

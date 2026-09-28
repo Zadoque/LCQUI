@@ -348,14 +348,15 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
       <div className="bg-background rounded-2xl border border-foreground/10 shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95">
         <div className="p-6 border-b border-foreground/10 flex justify-between items-center">
           <h2 className="text-xl font-bold">Novo Aluno</h2>
-          <button onClick={onClose} className="text-foreground/50 hover:text-foreground">
+          <button onClick={onClose} aria-label="Fechar" className="text-foreground/50 hover:text-foreground">
             <X className="w-6 h-6" />
           </button>
         </div>
 
         <div className="px-6 pt-4">
-          <label className="block text-sm font-semibold mb-1">Turma {isGestorGeral && "(Opcional para Convite)"}</label>
+          <label htmlFor="convite-turma" className="block text-sm font-semibold mb-1">Turma {isGestorGeral && "(Opcional para Convite)"}</label>
           <select
+            id="convite-turma"
             value={idTurma}
             onChange={e => setIdTurma(e.target.value)}
             className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary"
@@ -448,10 +449,11 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
           {activeTab === "convidar" && (
             <form onSubmit={handleConvidar} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold mb-1">
+                <label htmlFor="convite-emails" className="block text-sm font-semibold mb-1">
                   E-mail(s) do(s) Aluno(s)
                 </label>
                 <textarea
+                  id="convite-emails"
                   required
                   rows={3}
                   value={emailsTexto}
@@ -465,10 +467,11 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-1">
+                <label htmlFor="convite-matricula" className="block text-sm font-semibold mb-1">
                   Matrícula Institucional (opcional)
                 </label>
                 <input
+                  id="convite-matricula"
                   type="text"
                   value={matricula}
                   onChange={(e) => setMatricula(e.target.value)}
@@ -506,10 +509,11 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
                   </label>
                   {excederCapacidade && (
                     <div>
-                      <label className="block text-xs font-semibold mb-1">
+                      <label htmlFor="convite-justificativa" className="block text-xs font-semibold mb-1">
                         Justificativa da Exceção (obrigatória)
                       </label>
                       <textarea
+                        id="convite-justificativa"
                         required
                         rows={2}
                         value={justificativaExcecao}
