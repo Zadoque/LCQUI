@@ -1436,7 +1436,23 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
       expect("codigo_turma" in detalhes).toBe(false);
       expect(detalhes.nome_turma).toBe("Turma Convites M9-M11-M13");
       expect(detalhes.contexto_convidador).toBe("Chefe_Geral");
+      expect(detalhes.matricula_necessaria).toBe(true);
       expect("token_hash" in detalhes).toBe(false);
+      expect("numero_matricula" in detalhes).toBe(false);
+
+      const emailComMatricula = `aluno_detalhes_mat_${Date.now()}@ufsc.br`;
+      const conviteComMatricula = await wrappedConvidar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: profTurmaId,
+        email: emailComMatricula,
+        matricula: "0020261234",
+      }, chefeId, ["Chefe_Geral"]));
+      const detalhesComMatricula = await wrappedDetalhes(mockRequest({
+        idConvite: conviteComMatricula.id,
+      }, chefeId, ["Chefe_Geral"]));
+
+      expect(detalhesComMatricula.matricula_necessaria).toBe(false);
+      expect("numero_matricula" in detalhesComMatricula).toBe(false);
     });
 
     it("TEST-INT-CONV-OOB-001 — Destinatário sem conta Auth provisiona usuário e emite OOB PASSWORD_RESET real com continueUrl segura", async () => {
@@ -1714,6 +1730,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
       expect(detalhes.id_turma).toBe(profTurmaId);
       expect(detalhes.nome_turma).toBe("Turma Convites M9-M11-M13");
       expect(detalhes.contexto_convidador).toBe("Professor");
+      expect(detalhes.matricula_necessaria).toBe(false);
 
       // Projeção mínima não vaza dados
       expect("email" in detalhes).toBe(false);
