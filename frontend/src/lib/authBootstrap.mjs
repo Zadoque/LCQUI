@@ -33,6 +33,19 @@ export function construirEstadoAutenticacao(rolesClaim) {
 }
 
 /**
+ * Força um novo ID token depois de uma mutação que conceda ou revogue papéis.
+ * O Firebase não substitui imediatamente o token já mantido pelo cliente quando
+ * o Admin SDK altera custom claims no servidor.
+ *
+ * @param {{ getIdTokenResult: (forceRefresh?: boolean) => Promise<{ claims: Record<string, unknown> }> }} user
+ * @returns {Promise<{ roles: string[], ativo: boolean }>}
+ */
+export async function renovarEstadoAutenticacao(user) {
+  const tokenResult = await user.getIdTokenResult(true);
+  return construirEstadoAutenticacao(tokenResult.claims.roles);
+}
+
+/**
  * Aceita somente caminhos locais absolutos para impedir open redirect.
  *
  * @param {string} search
