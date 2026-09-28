@@ -5,6 +5,7 @@ import {
   construirEstadoAutenticacao,
   destinoSeguroAposLogin,
   extrairPapeisClaims,
+  renovarEstadoAutenticacao,
 } from "../lib/authBootstrap.mjs";
 
 test("sessão Auth sem papel é preservada para bootstrap de convite", () => {
@@ -19,6 +20,19 @@ test("claims aceitam somente papéis conhecidos e removem duplicatas", () => {
     extrairPapeisClaims(["Aluno", "Aluno", "papel_inventado", 42]),
     ["Aluno"]
   );
+});
+
+test("renova o ID token antes de publicar papéis concedidos", async () => {
+  const chamadas = [];
+  const estado = await renovarEstadoAutenticacao({
+    async getIdTokenResult(forceRefresh) {
+      chamadas.push(forceRefresh);
+      return { claims: { roles: ["Aluno"] } };
+    },
+  });
+
+  assert.deepEqual(chamadas, [true]);
+  assert.deepEqual(estado, { roles: ["Aluno"], ativo: true });
 });
 
 test("login preserva redirect local para o convite", () => {
