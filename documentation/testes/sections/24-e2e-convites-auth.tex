@@ -1,0 +1,121 @@
+\section{E2E convites, autenticação e notificações}
+\label{sec:e2e-convites-auth}
+
+Esta seção registra a primeira suíte E2E permanente com Playwright Test,
+derivada da Seção~9 (fluxos), da Seção~8 (UI e estados) e da Seção~7
+(resultados e regras). O objetivo não é cobertura numérica, mas provar a
+vertical que recentemente revelou bugs que testes isolados não detectaram:
+autenticação, emissão de convite, callable, Auth/Firestore, notificação interna
+ou OOB, acesso a \texttt{/convite}, aceite/rejeição, matrícula, atualização de
+custom claims e autorização real após o aceite.
+
+\subsection{Infraestrutura}
+
+\begin{itemize}
+  \item \texttt{frontend/playwright.config.ts} --- \texttt{testDir} em
+    \texttt{./e2e/specs}, \texttt{workers: 1}, \texttt{webServer} para o Next.js
+    em modo \texttt{dev} (obrigatório para a conexão aos emuladores) e
+    \texttt{globalSetup} que reinicia e semeia o estado canônico.
+  \item \texttt{frontend/e2e/} --- \texttt{fixtures.ts} (guarda de console/page),
+    \texttt{global-setup.ts}, \texttt{orchestrator.mjs}, \texttt{helpers/} e
+    \texttt{specs/}.
+  \item \texttt{frontend/e2e/helpers/browsers.ts} --- resolve a store path
+    \texttt{*-playwright-browsers} quando \texttt{PLAYWRIGHT\_BROWSERS\_PATH} não
+    está definido; nenhum browser é instalado.
+  \item \texttt{frontend/e2e/global-setup.ts} --- aborta com mensagem clara se
+    Auth (9099), Firestore (8080) ou Functions (5001) não estiverem disponíveis.
+    Sem fallback para Firebase real.
+\end{itemize}
+
+Comandos:
+
+\begin{verbatim}
+cd frontend
+npm run test:e2e:list        # lista cenários
+npm run test:e2e             # exige emuladores já ativos; reseta+semeia via globalSetup
+npm run test:e2e:emulators   # sobe emuladores, roda a suíte e derruba tudo
+\end{verbatim}
+
+O seed usado é exclusivamente o canônico \texttt{functions/scripts/seed.ts}
+(\texttt{--reset}). Nenhum segundo universo de fixtures foi criado.
+
+\subsection{Cenários}
+
+\begin{longtable}{@{}p{0.13\textwidth}p{0.44\textwidth}p{0.35\textwidth}@{}}
+\toprule
+ID & Cenário & Camadas \\
+\midrule
+\endhead
+E2E-001 & Login por e-mail/senha, claims de papel no header e roteamento de
+  rota protegida & Auth Emulator, SDK, AuthContext, ProtectedRoute \\
+E2E-002 & Professor convida aluno existente pela UI sem campos opcionais &
+  UI, callable \texttt{convidarAluno}, Firestore \\
+E2E-003 & Inbox do destinatário mostra o convite; terceiro não vê nada e não há
+  \texttt{permission-denied} & Firestore Rules, NotificacoesDropdown \\
+E2E-004/E2E-008 & Aluno existente aceita via notificação, sem campo de
+  matrícula & UI, callable \texttt{aceitarConviteAluno}, vínculo, notificação \\
+E2E-005 & Convite externo provisiona Auth e preserva \texttt{continueUrl}/\texttt{token}
+  do OOB real & Identity Toolkit \texttt{sendOobCode}, OOB, \texttt{/convite} \\
+E2E-007 & Matrícula obrigatória quando ausente, com preservação de zeros &
+  projeção \texttt{matricula\_necessaria}, callable, Firestore \\
+E2E-006 & E-mail não verificado não aceita o convite & barreira \texttt{emailVerified}, UI \\
+E2E-009 & Usuário sem papel aceita e a sessão publica \texttt{Aluno} sem
+  relogin & \texttt{reconciliarClaimsUsuario}, \texttt{getIdTokenResult(true)},
+  AuthContext \\
+E2E-010 & Recusa via notificação libera a pendência e marca como lida &
+  callable \texttt{rejeitarConviteAluno}, \texttt{Chaves\_Unicas} \\
+E2E-CAP-1/2 & Turma cheia sem exceção falha; com exceção justificada registra &
+  validação de capacidade, payload real do navegador \\
+\bottomrule
+\end{longtable}
+
+\subsection{Regressões recentes cobertas}
+
+\begin{itemize}
+  \item \texttt{228aae5} (inbox restrita ao destinatário) $\rightarrow$ E2E-003.
+  \item \texttt{e23ede1}, \texttt{ef4f577}, \texttt{feca32a} (refresh forçado de
+    sessão/claims) $\rightarrow$ E2E-009.
+  \item \texttt{df6b3da} (teste de refresh forçado) $\rightarrow$ E2E-009.
+  \item \texttt{96c25bc}, \texttt{977ee75} (projeção segura de matrícula
+    necessária) $\rightarrow$ E2E-007/E2E-008.
+  \item \texttt{80a991c} e \texttt{98b4f21} são infraestrutura (escopo de build
+    e \texttt{.gitignore}); não exigem E2E.
+\end{itemize}
+
+Os testes também observam o \emph{payload real} enviado pelo SDK
+(\texttt{postData}) para provar que campos opcionais ausentes não são
+serializados como \texttt{null}: \texttt{justificativaExcecao},
+\texttt{viaNotificacao} e \texttt{matriculaInformada}. Esse foi o defeito que
+originou a rodada.
+
+\subsection{Observabilidade e isolamento}
+
+A guarda de console falha em \texttt{console.error} e \texttt{pageerror} não
+esperados. Testes negativos declaram padrões permitidos; a única exceção global
+é o aviso de reconexão do SDK Firestore em cold start, que é transporte e não
+viola regra. Testes que preferem a via externa recuperam o OOB do Auth Emulator
+como transporte do e-mail, nunca fabricam \texttt{tokenConvite}.
+
+\subsection{Divergência de produto registrada}
+
+\textbf{Sintoma.} Uma conta autenticada com e-mail verificado e \emph{nenhum}
+papel persistido (fixture \texttt{aluno.authOnly}) recebe a notificação interna
+\texttt{CONVITE\_PARA\_TURMA} do backend, mas é redirecionada para
+\texttt{/desativado} por \texttt{ProtectedRoute}, de modo que o sino (UI-12) não
+é montado e a notificação fica inalcançável pela interface.
+
+\textbf{Fonte normativa.} Seção~8 UI-12 (caixa única por UID, consultada pelo
+destinatário autenticado) e Seção~9 ALU-01a (via interna pelo sino), com a
+leitura de bootstrap já autorizada pela Rule de M13 (IMP-RULES-003).
+
+\textbf{Causa localizada.} \texttt{frontend/src/components/auth/ProtectedRoute.tsx}
+trata \texttt{roles.length === 0} como bloqueio total, impedindo o bootstrap de
+convite na UI embora o backend e as Rules já o suportem.
+
+\textbf{Impacto na suíte.} E2E-009 exercita o aceite real
+(\texttt{viaNotificacao}) lendo o deep link do próprio documento de notificação
+persistido, uma vez que a superfície de UI correspondente não existe para contas
+sem papel. O aceite e o refresh de claims são provados; a descoberta da
+notificação pela UI permanece não conforme. A correção do gate de navegação
+exige decisão de UX (shell autenticado sem papéis) e não foi aplicada nesta
+rodada.

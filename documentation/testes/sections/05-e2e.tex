@@ -13,6 +13,13 @@ Locators permanentes preferem papel, label e texto semanticamente estável;
 estrutura visual devem ser evitados. Sessões exploratórias independentes não
 compartilham estado sem intenção explícita.
 
-O bootstrap Playwright 1.61.1 com browsers Nix está disponível, mas esta rodada
-não criou configuração de suite nem teste E2E de negócio. Esses artefatos devem
-nascer com o primeiro fluxo real.
+A primeira suíte E2E permanente existe em \texttt{frontend/e2e/}, configurada em
+\texttt{frontend/playwright.config.ts}, com browsers fornecidos pelo Nix. Ela cobre
+a vertical convites/auth/notificações contra o Firebase Emulator Suite real e o
+frontend Next.js real, sem mocks de Firebase. Detalhes e evidências estão na
+Seção~\ref{sec:e2e-convites-auth}.
+
+Nenhum schema, backend ou Rule foi relaxado para satisfazer a UI. Consultas
+diretas ao Firestore/Auth Emulator apenas confirmam efeitos de backend
+(vínculos, matrícula, notificação, OOB); a jornada continua sendo dirigida pela
+interface.
