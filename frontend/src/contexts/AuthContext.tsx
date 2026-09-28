@@ -2,8 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User, onIdTokenChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase/config";
+import { auth } from "@/lib/firebase/config";
+import { construirEstadoAutenticacao } from "@/lib/authBootstrap.mjs";
 
 interface AuthContextType {
   user: User | null;
@@ -36,23 +36,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           // Sempre busca o JWT em memória e extrai os custom claims. 
           // O backend (Cloud Functions) é quem dita essas roles.
           const tokenResult = await currentUser.getIdTokenResult();
-          const userRoles = tokenResult.claims.roles as string[] || [];
+          const estado = construirEstadoAutenticacao(tokenResult.claims.roles);
           
           setUser(currentUser);
-          setRoles(userRoles);
-
-          // Verifica se o usuário tem roles. Se sim, está ativo.
-          // Caso a lista de roles venha vazia, pode significar desativado. Buscamos no Firestore.
-          if (userRoles.length > 0) {
-            setAtivo(true);
-          } else {
-            const userDoc = await getDoc(doc(db, "Usuarios", currentUser.uid));
-            if (userDoc.exists()) {
-              setAtivo(userDoc.data().ativo === true);
-            } else {
-              setAtivo(false);
-            }
-          }
+          setRoles(estado.roles);
+          setAtivo(estado.ativo);
         } catch (error) {
           console.error("Erro ao validar token/claims do Firebase:", error);
           setUser(null);

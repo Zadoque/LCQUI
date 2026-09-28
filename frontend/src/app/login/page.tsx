@@ -10,6 +10,7 @@ import {
 import { auth } from "@/lib/firebase/config";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { destinoSeguroAposLogin } from "@/lib/authBootstrap.mjs";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -24,7 +25,7 @@ export default function LoginPage() {
   
   useEffect(() => {
     if (!isLoading && user) {
-      router.replace("/");
+      router.replace(destinoSeguroAposLogin(window.location.search));
     }
   }, [user, isLoading, router]);
 
@@ -36,8 +37,8 @@ export default function LoginPage() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.push("/");
-    } catch (error: any) {
+      router.push(destinoSeguroAposLogin(window.location.search));
+    } catch {
       setErrorMsg("Credenciais inválidas. Verifique seu e-mail e senha.");
     } finally {
       setIsLoadingForm(false);
@@ -52,8 +53,8 @@ export default function LoginPage() {
     
     try {
       await signInWithPopup(auth, provider);
-      router.push("/");
-    } catch (error: any) {
+      router.push(destinoSeguroAposLogin(window.location.search));
+    } catch {
       setErrorMsg("Falha ao autenticar com o Google. Tente novamente.");
     } finally {
       setIsLoadingForm(false);
@@ -70,7 +71,7 @@ export default function LoginPage() {
     try {
       await sendPasswordResetEmail(auth, email);
       setSuccessMsg("Link de redefinição de senha enviado para o seu e-mail!");
-    } catch (error) {
+    } catch {
       setErrorMsg("Erro ao enviar e-mail de recuperação. Tente novamente.");
     } finally {
       setIsLoadingForm(false);

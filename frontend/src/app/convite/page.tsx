@@ -56,6 +56,7 @@ function ConviteConteudo() {
     if (!idConvite) return;
     let cancelado = false;
     async function carregarDetalhes() {
+      if (isLoading || !user) return;
       try {
         const functions = getFunctions();
         const obter = httpsCallable(functions, "obterDetalhesConviteAluno");
@@ -75,7 +76,7 @@ function ConviteConteudo() {
     return () => {
       cancelado = true;
     };
-  }, [idConvite, tokenConvite, user]);
+  }, [idConvite, tokenConvite, user, isLoading]);
 
   if (isLoading) {
     return (
