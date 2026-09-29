@@ -14,7 +14,11 @@ A turma \texttt{seed-turma-ultima-vaga} (Professor Alpha dono; Aluno
 Matriculado como único membro) sustenta os cenários positivos e multiusuário. O
 Professor Beta (dono de outra turma) e o Chefe Geral são usados nos negativos
 de ownership. O aluno sem vínculo (\texttt{aluno.normal}) é usado no negativo
-de alcance. Cada teste cria seu próprio Post; não há dependência entre testes.
+de alcance. A turma \texttt{seed-turma-colegas} (``Química Geral — T3
+Colegas'', Professor Alpha dono) tem três membros --- o autor
+\texttt{aluno.matriculado} e os colegas \texttt{aluno.colega.a} e
+\texttt{aluno.colega.b} --- e sustenta o cenário de projeção COLEGA. Cada teste
+cria seu próprio Post; não há dependência entre testes.
 
 \subsection{Cenários}
 
@@ -47,6 +51,9 @@ COMMENT-E2E-004 & Professor dono modera comentário; o autor vê o original
   \texttt{listarComentariosPost}, UI \\
 ARQ-POST-E2E-001 & Turma arquivada não oferece superfície de escrita acadêmica;
   só ``Desarquivar'' no modal de arquivadas & UI (painel/modal), Firestore \\
+COMMENT-E2E-005 & Colega de turma (turma de 3 alunos) recebe apenas aviso
+  institucional e nunca o texto original do comentário moderado &
+  3 identidades, callable \texttt{listarComentariosPost}, UI \\
 \bottomrule
 \end{longtable}
 
@@ -98,7 +105,8 @@ POST-E2E-001 (o payload real não contém a propriedade).
   \item \textbf{Remoção lógica:} Post removido preserva documento, anexo e
     histórico, ocultando-se de colegas; motivo e autoria registrados.
   \item \textbf{Moderação:} comentário moderado preserva original, com histórico
-    e projeção mascarada via endpoint autorizado.
+    e projeção mascarada via endpoint autorizado; as três projeções são provadas
+    em E2E (AUTOR/AUDITOR em COMMENT-E2E-004; COLEGA em COMMENT-E2E-005).
   \item \textbf{Security Rules:} leitura de Posts exige escopo acadêmico; Post
     removido só visível a dono/Chefe; Comentários tem leitura direta negada
     (acesso via \texttt{listarComentariosPost}).
