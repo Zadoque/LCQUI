@@ -60,8 +60,9 @@ export const criarPost = onCall(async (request) => {
     validatePayload(CriarPostSchema, request.data);
 
   return db.runTransaction(async (tx) => {
-    // M9: autoridade persistida relida na transação do efeito.
-    const autoridade = await resolverAutoridadePersistidaTx(tx, claims, [
+    // M9: autoridade persistida relida na transação do efeito (efeito de
+    // autorização; o resultado não é usado porque somente o dono cria Post).
+    await resolverAutoridadePersistidaTx(tx, claims, [
       "Professor",
       "Chefe_Geral",
     ]);
@@ -92,20 +93,25 @@ export const criarPost = onCall(async (request) => {
     }
     const turmaData = turmaSnap.data()!;
     
-    // Professor dono ou Chefe_Geral pode criar posts
-    const ehDono = turmaData.id_professor === claims.uid;
-    const ehChefe = autoridade.papelAutorizado === "Chefe_Geral";
-    if (!ehDono && !ehChefe) {
+    // M12.1 (ChefeNaoCriaPost): somente o professor-dono cria Post. O Chefe
+    // intervém apenas por Q13 (moderação/remoção), nunca assume autoria.
+    // O papel "Chefe_Geral" permanece no conjunto M9 para que a rejeição seja
+    // de domínio (ownership), não de papel, produzindo a mensagem normativa.
+    if (turmaData.id_professor !== claims.uid) {
       throw new HttpsError(
         "permission-denied",
-        "Apenas o professor responsável ou a chefia pode criar posts."
+        "Apenas o professor responsável pela turma pode criar posts."
       );
     }
-    
+
     validarTurmaNaoArquivada(turmaData);
 
     // Projeção mínima: nome do Usuarios (identidade), nunca do papel.
     const nomeProfessor = await resolverNomeIdentidadeTx(tx, claims.uid);
+
+    // Pré-leitura dos alunos antes de qualquer escrita (Firestore exige
+    // todas as leituras antes de todas as escritas na transação).
+    const alunosSnap = await tx.get(turmaRef.collection("Alunos"));
 
     // Post structural fields (CUE #M12_1Post).
     const postRef = turmaRef.collection("Posts").doc();
@@ -128,7 +134,6 @@ export const criarPost = onCall(async (request) => {
     // Notificação aos alunos canônicos (M13 / CUE #M12_1NotificacaoEfeito).
     // Efeito externo: fan-out dentro do commit (cada aluno é um doc separado,
     // não depende de callback pós-transação).
-    const alunosSnap = await tx.get(turmaRef.collection("Alunos"));
     for (const alunoDoc of alunosSnap.docs) {
       const alunoData = alunoDoc.data();
       if (alunoData.id_aluno !== alunoDoc.id) continue; // fail-closed canonical
@@ -212,15 +217,26 @@ export const adicionarComentario = onCall(async (request) => {
       );
     }
 
-    // Participação canônica (M11): professor-dono OU vínculo Alunos/{uid}.
+    // Participação canônica (M11/M12.1): podeCriarComent = participa =
+    // ehDono OR temVinculo. O Chefe não participa (não é dono nem membro):
+    // intervém somente por Q13 (moderação), nunca cria comentário.
     const ehDono = turmaData.id_professor === claims.uid;
-    const ehChefe = autoridade.papelAutorizado === "Chefe_Geral";
-    if (!ehDono && !ehChefe) {
+    if (!ehDono) {
+      const ehEstudante =
+        autoridade.papeis.includes("Aluno") ||
+        autoridade.papeis.includes("Bolsista");
+      if (!ehEstudante) {
+        // Professor não-dono ou Chefe_Geral: sem vínculo de autoria.
+        throw new HttpsError(
+          "permission-denied",
+          "Você não é o professor responsável desta turma."
+        );
+      }
       const alunoSnap = await tx.get(turmaRef.collection("Alunos").doc(claims.uid));
       if (!alunoSnap.exists) {
         throw new HttpsError(
           "permission-denied",
-          "Você não tem vínculo canônico com esta turma."
+          "Você não está matriculado nesta turma."
         );
       }
       const alunoData = alunoSnap.data()!;
@@ -340,6 +356,10 @@ export const removerPost = onCall(async (request) => {
       return resultado;
     }
 
+    // Pré-leitura dos alunos antes de qualquer escrita (Firestore exige
+    // todas as leituras antes de todas as escritas na transação).
+    const alunosSnap = await tx.get(turmaRef.collection("Alunos"));
+
     // Remoção lógica (RF25 / M12.1): preserva documento, histórico, anexos.
     tx.update(postRef, {
       removido_da_apresentacao: true,
@@ -360,7 +380,6 @@ export const removerPost = onCall(async (request) => {
     });
 
     // Notificação aos alunos (sem conteúdo protegido — M13 / CUE).
-    const alunosSnap = await tx.get(turmaRef.collection("Alunos"));
     for (const alunoDoc of alunosSnap.docs) {
       const alunoData = alunoDoc.data();
       if (alunoData.id_aluno !== alunoDoc.id) continue;
