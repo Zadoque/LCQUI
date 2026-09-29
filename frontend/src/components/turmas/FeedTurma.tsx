@@ -88,12 +88,15 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
     try {
       const functions = getFunctions();
       const criarPost = httpsCallable(functions, "criarPost");
-      await criarPost({
+      // O SDK serializa `undefined` como `null`; omitir a chave ausente evita
+      // rejeição pelo schema (roteiro é opcional — UI-11 / Seção 9).
+      const payload: Record<string, string> = {
         idTurma: turma.id,
         titulo,
-        descricao,
-        idRoteiroExperimento: idRoteiro || undefined
-      });
+        descricao
+      };
+      if (idRoteiro) payload.idRoteiroExperimento = idRoteiro;
+      await criarPost(payload);
       setTitulo("");
       setDescricao("");
       setIdRoteiro("");
