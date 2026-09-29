@@ -39,6 +39,14 @@ COMMENT-E2E-002 & Professor dono observa o comentário do aluno &
   2 identidades, Firestore Rules \\
 COMMENT-E2E-003 & Chefe Geral sem vínculo tenta comentar e o backend rejeita;
   nada é persistido & UI, callable/autoridade, Firestore \\
+POST-E2E-005 & Professor dono remove Post com motivo; o aluno deixa de vê-lo e o
+  documento permanece com \texttt{removido\_da\_apresentacao=true} &
+  UI, callable \texttt{removerPost}, Firestore Emulator \\
+COMMENT-E2E-004 & Professor dono modera comentário; o autor vê o original
+  marcado e o auditor vê original + motivo & 2 identidades, callable
+  \texttt{listarComentariosPost}, UI \\
+ARQ-POST-E2E-001 & Turma arquivada não oferece superfície de escrita acadêmica;
+  só ``Desarquivar'' no modal de arquivadas & UI (painel/modal), Firestore \\
 \bottomrule
 \end{longtable}
 
@@ -97,6 +105,19 @@ POST-E2E-001 (o payload real não contém a propriedade).
   \item \textbf{Turma arquivada:} toda escrita acadêmica de Posts/Comentários é
     rejeitada sem efeito parcial.
 \end{itemize}
+
+\subsection{Testes de integração backend}
+
+A vertical possui ainda evidência de integração backend em
+\texttt{functions/src/\allowbreak integration/posts.integration.test.ts} (34
+testes), exercitando os callables reais via \texttt{firebase-functions-test}
+contra o Firestore Emulator: replay/reuso M7 (compatível não duplica;
+incompatível é rejeitado), revogação/versão obsoleta M9, turma arquivada
+rejeitando \texttt{criarPost}/\texttt{adicionarComentario}/\texttt{removerPost}/
+\texttt{moderarComentario}, e as três projeções de leitura de Comentário
+(AUTOR/COLEGA/AUDITOR), incluindo \texttt{texto=null} + aviso institucional
+para o colega em comentário moderado. É nessa camada que a projeção COLEGA é
+provada, complementando o E2E, que cobre AUTOR e AUDITOR.
 
 \subsection{Camadas efetivamente exercitadas}
 
