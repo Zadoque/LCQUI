@@ -164,7 +164,7 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {isProfessor && (
+        {isProfessor && turma.status !== "Arquivada" && (
           <form onSubmit={handleCriarPost} className="bg-card border border-border rounded-xl p-4 shadow-sm space-y-3">
             <h3 className="font-semibold flex items-center gap-2">
               <FileText className="w-4 h-4 text-primary" />

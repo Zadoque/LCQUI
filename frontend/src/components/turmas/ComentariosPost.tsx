@@ -117,7 +117,7 @@ export default function ComentariosPost({ turmaId, postId }: ComentariosPostProp
                 <div className="flex justify-between items-start mb-1">
                   <span className="font-semibold">
                     {c.nome_usuario || `Usuário ${c.id_usuario.substring(0, 5)}`}
-                    {c.moderado && visao === "AUTOR" && isOwner && (
+                    {c.moderado && isOwner && (
                       <span className="ml-2 text-xs text-amber-600 font-normal">(moderado)</span>
                     )}
                     {c.editado && !c.moderado && (

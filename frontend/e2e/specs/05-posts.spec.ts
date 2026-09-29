@@ -2,6 +2,7 @@ import { test, expect } from "../fixtures";
 import {
   abrirTurma,
   capturarCallable,
+  cartaoDoPost,
   criarPost,
   login,
   observarConsole,
@@ -22,6 +23,65 @@ const TURMA_ID = "seed-turma-ultima-vaga";
 const PROFESSOR_UID = "seed-professor-alpha";
 
 test.describe("Posts", () => {
+  test("POST-E2E-005 professor dono remove post e aluno não vê mais", async ({
+    page,
+    browser,
+  }) => {
+    const titulo = "Post E2E-005 — Remoção";
+    const descricao = "Post para testar remoção lógica.";
+
+    // 1. Professor dono cria post
+    await login(page, "professor.alpha@lcqui.local");
+    await abrirTurma(page, TURMA);
+    await criarPost(page, titulo, descricao);
+    const postsCriados = await listarColecao(`Turma/${TURMA_ID}/Posts`);
+    const post = postsCriados.find((p) => p.data.titulo === titulo);
+    expect(post).toBeTruthy();
+    const postId = post!.id;
+
+    // 2. Aluno participante vê o post em contexto independente
+    const contextoAluno = await browser.newContext();
+    const paginaAluno = await contextoAluno.newPage();
+   observarConsole(paginaAluno);
+    try {
+      await login(paginaAluno, "aluno.matriculado@lcqui.local");
+      await abrirTurma(paginaAluno, TURMA);
+      await expect(paginaAluno.getByRole("heading", { name: titulo, level: 3 })).toBeVisible();
+    } finally {
+      await contextoAluno.close();
+    }
+
+    // 3. Professor dono remove o post (com motivo).
+    // `prompt()` é síncrono no onclick; registrar o handler ANTES do click evita
+    // deadlock entre a ação de click e o diálogo modal.
+    const card = cartaoDoPost(page, titulo);
+    await card.hover();
+    page.once("dialog", (dialog) => {
+      void dialog.accept("Motivo da remoção E2E-005");
+    });
+    await card.getByRole("button", { name: "Remover Postagem", exact: true }).click();
+
+    // 4. Aluno participante não vê mais o post
+    const contextoAluno2 = await browser.newContext();
+    const paginaAluno2 = await contextoAluno2.newPage();
+    const consoleAluno2 = observarConsole(paginaAluno2);
+    try {
+      await login(paginaAluno2, "aluno.matriculado@lcqui.local");
+      await abrirTurma(paginaAluno2, TURMA);
+      await expect(paginaAluno2.getByRole("heading", { name: titulo, level: 3 })).toHaveCount(0);
+      consoleAluno2.verificar();
+    } finally {
+      await contextoAluno2.close();
+    }
+
+    // 5. Verificar que o documento ainda existe com removido_da_apresentacao=true
+    const postsAposRemocao = await listarColecao(`Turma/${TURMA_ID}/Posts`);
+    const postApos = postsAposRemocao.find((p) => p.id === postId);
+    expect(postApos).toBeTruthy();
+    expect(postApos!.data.removido_da_apresentacao).toBe(true);
+    expect(postApos!.data.motivo_remocao).toBe("Motivo da remoção E2E-005");
+  });
+
   test("POST-E2E-001 professor dono cria post e o estado persistido corresponde ao contrato", async ({
     page,
   }) => {

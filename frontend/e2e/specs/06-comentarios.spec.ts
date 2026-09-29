@@ -29,6 +29,73 @@ async function idDoPost(titulo: string): Promise<string> {
 }
 
 test.describe("Comentários", () => {
+  test("COMMENT-E2E-004 professor dono modera comentário e projeções distintas são observadas", async ({
+    page,
+    browser,
+  }) => {
+    const titulo = "Post C-E2E-004 — Moderação";
+    const texto = "Comentário a ser moderado (COMMENT-E2E-004).";
+    const motivo = "Conteúdo impróprio.";
+
+    // 1. Professor dono cria post
+    await login(page, "professor.alpha@lcqui.local");
+    await abrirTurma(page, TURMA);
+    await criarPost(page, titulo, "Post para testar moderação.");
+    const posts = await listarColecao(`Turma/${TURMA_ID}/Posts`);
+    const postId = posts.find((p) => p.data.titulo === titulo)!.id;
+
+    // 2. Aluno comenta
+    const contextoAluno = await browser.newContext();
+    const paginaAluno = await contextoAluno.newPage();
+    observarConsole(paginaAluno);
+    try {
+      await login(paginaAluno, "aluno.matriculado@lcqui.local");
+      await abrirTurma(paginaAluno, TURMA);
+      await abrirComentarios(paginaAluno, titulo);
+      await comentar(paginaAluno, titulo, texto);
+    } finally {
+      await contextoAluno.close();
+    }
+
+    const comentarios = await listarColecao(`Turma/${TURMA_ID}/Posts/${postId}/Comentarios`);
+    const comentario = comentarios.find((c) => c.data.texto === texto);
+    expect(comentario).toBeTruthy();
+
+    // 3. Professor dono modera o comentário.
+    // `prompt()` é síncrono no onclick; registrar o handler ANTES do click evita
+    // deadlock entre a ação de click e o diálogo modal.
+    await abrirComentarios(page, titulo);
+    const cardComentario = cartaoDoPost(page, titulo);
+    await cardComentario.hover();
+    page.once("dialog", (dialog) => {
+      void dialog.accept(motivo);
+    });
+    await cardComentario.getByRole("button", { name: "Moderar comentário" }).first().click();
+
+    // 4. O AUTOR (aluno que comentou) vê o original marcado como moderado.
+    //    A projeção COLEGA (aviso institucional) é provada na camada de
+    //    integração backend, onde é possível semear um segundo membro.
+    const contextoAluno2 = await browser.newContext();
+    const paginaAluno2 = await contextoAluno2.newPage();
+    const consoleAluno2 = observarConsole(paginaAluno2);
+    try {
+      await login(paginaAluno2, "aluno.matriculado@lcqui.local");
+      await abrirTurma(paginaAluno2, TURMA);
+      await abrirComentarios(paginaAluno2, titulo);
+      await expect(paginaAluno2.getByText(texto)).toBeVisible();
+      await expect(paginaAluno2.getByText("(moderado)")).toBeVisible();
+      consoleAluno2.verificar();
+    } finally {
+      await contextoAluno2.close();
+    }
+
+    // 5. Professor dono (auditor) vê o original e o motivo da moderação.
+    await expect(cartaoDoPost(page, titulo).getByText(texto)).toBeVisible();
+    await expect(
+      cartaoDoPost(page, titulo).getByText(new RegExp(`Motivo:\\s*${motivo}`))
+    ).toBeVisible();
+  });
+
   test("COMMENT-E2E-001 aluno participante comenta no post e o comentário persiste", async ({
     page,
     browser,
