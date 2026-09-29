@@ -99,3 +99,83 @@ export async function idConviteDaNotificacao(uid: string): Promise<string> {
 export async function abrirNotificacoes(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Notificações", exact: true }).click();
 }
+
+/** Abre `/turmas` e seleciona a turma pelo nome no painel lateral. */
+export async function abrirTurma(page: Page, nomeTurma: string): Promise<void> {
+  await page.goto("/turmas");
+  await page.getByRole("button", { name: new RegExp(escaparRegex(nomeTurma)) }).click();
+  await expect(page.getByRole("heading", { name: nomeTurma, level: 1 })).toBeVisible();
+}
+
+/** Publica um Post pela interface do professor dono. */
+export async function criarPost(page: Page, titulo: string, descricao: string): Promise<void> {
+  await page.getByPlaceholder("Título da postagem...").fill(titulo);
+  await page.getByPlaceholder("Escreva as instruções ou recados para a turma...").fill(descricao);
+  await page.getByRole("button", { name: "Postar", exact: true }).click();
+  await expect(page.getByRole("heading", { name: titulo, level: 3 })).toBeVisible();
+}
+
+/**
+ * Cartão do Post identificado pelo título, sem depender de estrutura CSS: sobe
+ * do heading para o contêiner que hospeda o feed e os comentários daquele post.
+ */
+export function cartaoDoPost(page: Page, titulo: string) {
+  return page.getByRole("heading", { name: titulo, level: 3 }).locator("../..");
+}
+
+/** Expande a seção de comentários do Post indicado. */
+export async function abrirComentarios(page: Page, tituloPost: string): Promise<void> {
+  await cartaoDoPost(page, tituloPost)
+    .getByRole("button", { name: /Ver comentários/ })
+    .click();
+}
+
+/** Comenta no Post indicado e confirma a renderização do texto. */
+export async function comentar(page: Page, tituloPost: string, texto: string): Promise<void> {
+  await cartaoDoPost(page, tituloPost)
+    .getByPlaceholder("Escreva um comentário...")
+    .fill(texto);
+  await cartaoDoPost(page, tituloPost)
+    .getByRole("button", { name: "Comentar", exact: true })
+    .click();
+  await expect(cartaoDoPost(page, tituloPost).getByText(texto)).toBeVisible();
+}
+
+export interface ObservadorConsole {
+  permitir: (...padroes: (string | RegExp)[]) => void;
+  verificar: () => void;
+}
+
+/**
+ * Observa `console.error`/`pageerror` de uma página adicional (ex.: segundo
+ * contexto), espelhando a guarda da fixture. A exceção por padrão é o aviso de
+ * reconexão do SDK Firestore em cold start.
+ */
+export function observarConsole(page: Page): ObservadorConsole {
+  const erros: string[] = [];
+  const permitidos: RegExp[] = [
+    /@firebase\/firestore: Firestore \([\d.]+\): Could not reach Cloud Firestore backend/,
+  ];
+  page.on("console", (mensagem) => {
+    if (mensagem.type() === "error") erros.push(mensagem.text());
+  });
+  page.on("pageerror", (erro) => erros.push(erro.message));
+  return {
+    permitir: (...padroes) => {
+      for (const padrao of padroes) {
+        permitidos.push(
+          typeof padrao === "string" ? new RegExp(escaparRegex(padrao)) : padrao
+        );
+      }
+    },
+    verificar: () => {
+      const inesperados = erros.filter(
+        (texto) => !permitidos.some((regex) => regex.test(texto))
+      );
+      expect(
+        inesperados,
+        `Erros de console/page inesperados:\n${inesperados.join("\n")}`
+      ).toEqual([]);
+    },
+  };
+}
