@@ -178,14 +178,29 @@ service cloud.firestore {
       }
 
       match /Posts/{postId} {
-        allow read: if isAuthenticated();
-        // A criação, edição e deleção de posts é feita inteiramente via Cloud Functions (posts.ts)
+        // S11 / M12.1: leitura de Posts exige escopo acadêmico (professor-dono,
+        // membro canônico ou Chefe). Post removido só visível a dono + Chefe.
+        allow get: if isAuthenticated() && (
+          resource.data.id_professor == request.auth.uid
+          || isCanonicalCurrentMember(turmaId, request.auth.uid)
+          || isAdmin()
+        ) && (
+          resource.data.removido_da_apresentacao != true
+          || resource.data.id_professor == request.auth.uid
+          || isAdmin()
+        );
+        allow list: if isAuthenticated() && (
+          get(/databases/$(database)/documents/Turma/$(turmaId)).data.id_professor == request.auth.uid
+          || isAdmin()
+          || isCanonicalCurrentMember(turmaId, request.auth.uid)
+        );
+        // Criação, edição e deleção server-owned (posts.ts).
         allow write: if false;
-        
+
         match /Comentarios/{comentarioId} {
-          allow read: if isAuthenticated();
-          // A criação, edição e deleção de comentários é feita inteiramente via Cloud Functions (posts.ts)
-          allow write: if false;
+          // S11: leitura/escrita direta negada ao cliente.
+          // Acesso via Cloud Function listarComentariosPost (projeção mascarada).
+          allow read, write: if false;
         }
       }
     }

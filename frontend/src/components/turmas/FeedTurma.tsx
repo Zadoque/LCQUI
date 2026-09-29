@@ -24,7 +24,10 @@ interface Post {
   descricao: string;
   criado_em: any;
   id_professor: string;
+  nome_professor?: string;
   id_roteiro_experimento?: string;
+  removido_da_apresentacao?: boolean;
+  editado?: boolean;
 }
 
 export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) {
@@ -52,7 +55,12 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
     );
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const postsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
-      setPosts(postsData);
+      // Seção 11: Post removido só visível ao professor-dono e à chefia.
+      const postsVisiveis = postsData.filter(p => {
+        if (!p.removido_da_apresentacao) return true;
+        return user?.uid === p.id_professor || roles.includes("Chefe_Geral");
+      });
+      setPosts(postsVisiveis);
 
       // Buscar os dados dos roteiros associados a estes posts (se não estiverem já em cache)
       const novosRoteiros: { [key: string]: any } = { ...roteirosPosts };
@@ -90,7 +98,9 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
       const criarPost = httpsCallable(functions, "criarPost");
       // O SDK serializa `undefined` como `null`; omitir a chave ausente evita
       // rejeição pelo schema (roteiro é opcional — UI-11 / Seção 9).
+      const idOp = `criar-${turma.id}-${Date.now()}`;
       const payload: Record<string, string> = {
+        idOperacao: idOp,
         idTurma: turma.id,
         titulo,
         descricao
@@ -110,15 +120,17 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
 
   const handleExcluirPost = async (idPost: string) => {
     if (!turma) return;
-    if (!confirm("Tem certeza que deseja excluir esta postagem?")) return;
+    const motivo = prompt("Motivo da remoção:");
+    if (!motivo?.trim()) return;
     setLoadingExclusao(idPost);
     try {
       const functions = getFunctions();
-      const excluirPost = httpsCallable(functions, "excluirPost");
-      await excluirPost({ idTurma: turma.id, idPost });
+      const removerPost = httpsCallable(functions, "removerPost");
+      const idOp = `remover-${turma.id}-${idPost}-${Date.now()}`;
+      await removerPost({ idOperacao: idOp, idTurma: turma.id, idPost, motivo: motivo.trim() });
     } catch (error: any) {
-      console.error("Erro ao excluir post:", error);
-      alert(error.message || "Erro ao excluir post.");
+      console.error("Erro ao remover post:", error);
+      alert(error.message || "Erro ao remover post.");
     } finally {
       setLoadingExclusao(null);
     }
@@ -217,12 +229,17 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
             
             return (
               <div key={post.id} className="bg-card border border-border rounded-xl p-5 shadow-sm relative group">
-                {isProfessor && isOwner && (
+                {post.removido_da_apresentacao && (
+                  <div className="absolute top-4 right-4 px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">
+                    Removido
+                  </div>
+                )}
+                {((isProfessor && isOwner) || roles.includes("Chefe_Geral")) && !post.removido_da_apresentacao && (
                   <button 
                     onClick={() => handleExcluirPost(post.id)}
                     disabled={loadingExclusao === post.id}
                     className="absolute top-4 right-4 p-2 text-red-500 bg-background border border-border rounded-xl opacity-0 group-hover:opacity-100 hover:bg-red-500/10 transition-all disabled:opacity-50"
-                    title="Excluir Postagem"
+                    title="Remover Postagem"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
