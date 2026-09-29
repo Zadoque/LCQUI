@@ -66,19 +66,36 @@ POST-E2E-001 (o payload real não contém a propriedade).
 \begin{itemize}
   \item Edição de Post (M12.1) não possui callable nem UI (IMP-POST-001): o
     E2E de edição fica adiado até a implementação existir.
-  \item Remoção lógica prevista por RF25/M12.1 versus \texttt{tx.delete}
-    (IMP-POST-002): o E2E de exclusão não foi incluído para não normalizar o
-    comportamento divergente.
-  \item Edição de comentário (Q11) e moderação (IMP-POST-003/IMP-POST-004) não
-    implementadas: E2E adiado.
-  \item Leitura de Posts/Comentários ampla a qualquer autenticado
-    (IMP-RULES-003) permanece; os negativos usam o painel lateral como barreira
-    de alcance e os callables como barreira de escrita, sem forjar uma violação
-    direta de leitura.
+  \item Remoção lógica, moderação de comentários e leitura mascarada de
+    Comentários foram implementadas nesta rodada (callables \texttt{removerPost},
+    \texttt{moderarComentario}, \texttt{listarComentariosPost}), mas ainda carecem
+    de E2E próprio; os negativos POST-E2E-003/COMMENT-E2E-003 agora provam a
+    rejeição normativa de criação por Chefe_Geral, que antes era um falso
+    positivo aceito.
   \item O nome de exibição do autor cai no fallback ``Usuário''/``Professor''
     porque o seed não popula \texttt{nome} nas coleções de papel; a identidade
     correta é provada pela persistência (\texttt{id\_usuario}/
     \texttt{id\_professor}).
+\end{itemize}
+
+\subsection{Convergências desta rodada}
+
+\begin{itemize}
+  \item \textbf{Autorização M12.1:} criação de Post somente pelo professor-dono;
+    criação de Comentário por professor-dono ou membro canônico com vínculo;
+    Chefe_Geral sem vínculo é rejeitado em ambos (Q13 não cria conteúdo).
+  \item \textbf{M7/M9:} todos os callables de Posts/Comentários exigem
+    \texttt{idOperacao}, revalidam autoridade persistida no commit e gravam
+    receipt canônico.
+  \item \textbf{Remoção lógica:} Post removido preserva documento, anexo e
+    histórico, ocultando-se de colegas; motivo e autoria registrados.
+  \item \textbf{Moderação:} comentário moderado preserva original, com histórico
+    e projeção mascarada via endpoint autorizado.
+  \item \textbf{Security Rules:} leitura de Posts exige escopo acadêmico; Post
+    removido só visível a dono/Chefe; Comentários tem leitura direta negada
+    (acesso via \texttt{listarComentariosPost}).
+  \item \textbf{Turma arquivada:} toda escrita acadêmica de Posts/Comentários é
+    rejeitada sem efeito parcial.
 \end{itemize}
 
 \subsection{Camadas efetivamente exercitadas}

@@ -286,6 +286,98 @@ describe("Firestore Security Rules", () => {
         // Aluno 1 tenta comentar via client (deve falhar)
         await assertFails(dbAlunoMatriculado.collection("Turma").doc("turmaProf1").collection("Posts").doc("post1").collection("Comentarios").add({ texto: "Dúvida", id_autor: "aluno1" }));
       });
+
+      it("M12.1: leitura de Post exige escopo acadêmico (dono, membro canônico ou Chefe)", async () => {
+        await testEnv.withSecurityRulesDisabled(async (context) => {
+          const db = context.firestore();
+          await db.collection("Turma").doc("t_posts").set({
+            nome: "Turma M12.1",
+            id_professor: "prof1",
+            status: "Ativo",
+          });
+          await db.collection("Turma").doc("t_posts").collection("Alunos").doc("aluno1").set({
+            id_aluno: "aluno1",
+            id_turma: "t_posts",
+            nome: "Aluno Membro",
+          });
+          await db.collection("Turma").doc("t_posts").collection("Posts").doc("p1").set({
+            id_professor: "prof1",
+            titulo: "Post normal",
+            removido_da_apresentacao: false,
+          });
+        });
+
+        const dbDono = authedDb("prof1", ["Professor"]);
+        const dbMembro = authedDb("aluno1", ["Aluno"]);
+        const dbFora = authedDb("prof2", ["Professor"]);
+        const dbChefe = authedDb("boss", ["Chefe_Geral"]);
+
+        await assertSucceeds(dbDono.collection("Turma").doc("t_posts").collection("Posts").doc("p1").get());
+        await assertSucceeds(dbMembro.collection("Turma").doc("t_posts").collection("Posts").doc("p1").get());
+        await assertSucceeds(dbChefe.collection("Turma").doc("t_posts").collection("Posts").doc("p1").get());
+        await assertFails(dbFora.collection("Turma").doc("t_posts").collection("Posts").doc("p1").get());
+      });
+
+      it("M12.1: Post removido é visível ao dono e ao Chefe, invisível ao colega", async () => {
+        await testEnv.withSecurityRulesDisabled(async (context) => {
+          const db = context.firestore();
+          await db.collection("Turma").doc("t_posts").set({
+            nome: "Turma M12.1",
+            id_professor: "prof1",
+            status: "Ativo",
+          });
+          await db.collection("Turma").doc("t_posts").collection("Alunos").doc("aluno1").set({
+            id_aluno: "aluno1",
+            id_turma: "t_posts",
+            nome: "Aluno Membro",
+          });
+          await db.collection("Turma").doc("t_posts").collection("Posts").doc("p_removed").set({
+            id_professor: "prof1",
+            titulo: "Post removido",
+            removido_da_apresentacao: true,
+          });
+        });
+
+        const dbDono = authedDb("prof1", ["Professor"]);
+        const dbMembro = authedDb("aluno1", ["Aluno"]);
+        const dbChefe = authedDb("boss", ["Chefe_Geral"]);
+
+        await assertSucceeds(dbDono.collection("Turma").doc("t_posts").collection("Posts").doc("p_removed").get());
+        await assertSucceeds(dbChefe.collection("Turma").doc("t_posts").collection("Posts").doc("p_removed").get());
+        await assertFails(dbMembro.collection("Turma").doc("t_posts").collection("Posts").doc("p_removed").get());
+      });
+
+      it("S11: leitura direta de Comentários é negada a todos os atores", async () => {
+        await testEnv.withSecurityRulesDisabled(async (context) => {
+          const db = context.firestore();
+          await db.collection("Turma").doc("t_posts").set({
+            nome: "Turma M12.1",
+            id_professor: "prof1",
+            status: "Ativo",
+          });
+          await db.collection("Turma").doc("t_posts").collection("Posts").doc("p1").set({
+            id_professor: "prof1",
+            titulo: "Post com comentário",
+            removido_da_apresentacao: false,
+          });
+          await db.collection("Turma").doc("t_posts").collection("Posts").doc("p1")
+            .collection("Comentarios").doc("c1").set({
+              id_usuario: "aluno1",
+              texto: "Comentário",
+            });
+        });
+
+        const dbDono = authedDb("prof1", ["Professor"]);
+        const dbChefe = authedDb("boss", ["Chefe_Geral"]);
+        const dbMembro = authedDb("aluno1", ["Aluno"]);
+
+        await assertFails(dbDono.collection("Turma").doc("t_posts").collection("Posts").doc("p1")
+          .collection("Comentarios").doc("c1").get());
+        await assertFails(dbChefe.collection("Turma").doc("t_posts").collection("Posts").doc("p1")
+          .collection("Comentarios").doc("c1").get());
+        await assertFails(dbMembro.collection("Turma").doc("t_posts").collection("Posts").doc("p1")
+          .collection("Comentarios").doc("c1").get());
+      });
     });
   });
 
