@@ -40,6 +40,34 @@ Seção 9 — fluxo
 
 Não invente comportamento a partir do estado atual da interface. Playwright CLI serve à exploração e depuração; Playwright Test (`*.spec.ts`) serve a assertions permanentes e regressão automatizada. Um não substitui o outro.
 
+A suíte E2E do LCQUI utiliza Playwright Test em conjunto com o Firebase Emulator Suite (auth, firestore, functions, storage) e depende do seed canônico em `functions/scripts/seed.ts`. Os testes estão localizados em `frontend/e2e/specs/*.spec.ts` e utilizam helpers específicos em `frontend/e2e/helpers/ui.ts` e `frontend/e2e/helpers/emulator.ts`.
+
+### Execução dos testes E2E
+
+Existem diferentes formas de executar os testes E2E:
+- Emuladores + suíte completa: `cd frontend && npm run test:e2e:emulators` (sobe os emuladores, executa os testes e derruba os emuladores após o término)
+- Com emuladores já ativos: `cd frontend && npm run test:e2e -- e2e/specs/05-posts.spec.ts --grep "POST-E2E-00[1-3]"`
+- Recomendação: Rodar **de 3 em 3 testes** (por exemplo, `--grep "COMMENT-E2E-00[1-3]"`), não a suíte inteira de uma vez. Isso reduz o tempo de execução e ajuda a detectar deadlocks ou travamentos mais rapidamente.
+- Os emuladores usam 1 worker do Playwright por padrão; evite paralelizar suites que compartilham o mesmo banco de dados para evitar conflitos.
+
+### Montagem de roteiro manual a partir de testes que falharam
+
+Quando ocorrem falhas nos testes E2E, siga o processo descrito em `documentation/GUIA_TESTES_E2E_E_ROTEIRO_MANUAL.md` para criar um roteiro manual de testes:
+1. Liste os cenários E2E que não passaram
+2. Para cada cenário, escreva: objetivo; pré-condições; passos numerados com os textos exatos de botões/campos e os logins; resultado esperado na tela; verificação opcional no Firestore Emulator UI
+3. Inclua uma seção "Como reportar" com: o cenário específico, o passo que falhou, o que foi observado, o que era esperado e uma screenshot do problema
+
+### Pitfalls comuns e lições aprendidas
+
+1. **`prompt()`/`alert()` nativos quebram o Playwright.** Sempre prefira UI própria em vez de diálogos nativos do navegador.
+2. **Race condition com callables.** Após operações que envolvem chamadas a funções Firebase, utilize `esperarCallable(page, "<nome>")` para garantir que a operação foi concluída antes de afirmar mudanças na interface.
+3. **`getByText` pode casar com valor de `<textarea>`.** Não derive locators de texto que muda durante a edição. Use `data-testid` estáveis para garantir consistência dos testes.
+4. **Locator derivado de texto mutável quebra.** Ao entrar em edição/moderação inline, o texto do comentário é substituído pelo formulário; `getByText(textoOriginal)` deixa de casar. A solução é escopar ao card do Post (`cartaoDoPost`) ou usar `data-testid` específicos.
+5. **Truncamento do último post no feed.** Garanta que o layout da interface considere o header/barra do professor para que testes com múltiplos posts possam alcançar o último conteúdo.
+6. **Textarea de comentário deve ter altura apropriada.** Utilize `min-h`, `max-h` e `overflow-y-auto` para garantir usabilidade com conteúdos longos.
+
+Prefira usar `data-testid` para elementos que mudam de estado durante a interação, pois esses proporcionam maior estabilidade nos testes frente a mudanças de texto ou conteúdo dinâmico.
+
 ## Playwright local no NixOS
 
 Use somente a instalação local versionada pelo projeto:
