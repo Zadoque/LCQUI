@@ -119,3 +119,24 @@ sem papel. O aceite e o refresh de claims são provados; a descoberta da
 notificação pela UI permanece não conforme. A correção do gate de navegação
 exige decisão de UX (shell autenticado sem papéis) e não foi aplicada nesta
 rodada.
+
+\subsection{Status: fluxo externo de convite adiado por ambiente}
+
+O bootstrap externo de convite (convite $\rightarrow$ identificador/token
+$\rightarrow$ criação/definição de senha $\rightarrow$ Firebase Auth $\rightarrow$
+processamento do convite $\rightarrow$ participação/claims/estado $\rightarrow$
+aplicação) \textbf{não} é declarado validado por E2E local. O caminho observado
+localmente (conta autenticada sem papéis $\rightarrow$ \texttt{/desativado}
+$\rightarrow$ sino não montado) não reproduz necessariamente o bootstrap
+normativo do aluno convidado; o fluxo real já foi exercitado manualmente pelo
+caminho de convite, definição de senha/Auth e ingresso correspondente.
+
+Decisão desta rodada: \texttt{EXTERNAL\_INVITE\_E2E\_STATUS = DEFERRED}
+(\textbf{adiado por ambiente}), não \texttt{VALIDADO\_POR\_E2E} e não bug. A
+validação futura exige ambiente implantado com Firebase real
+(staging/preview). \texttt{ProtectedRoute}, \texttt{Header},
+\texttt{NotificacoesDropdown}, RBAC, claims e o fluxo de convite \textbf{não}
+foram alterados para satisfazer o cenário local, e nenhum backend/Rule foi
+relaxado. A conclusão correta é que o ambiente E2E local não fornece evidência
+suficiente para validar ou invalidar integralmente o bootstrap externo de
+convite.
