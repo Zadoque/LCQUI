@@ -20,6 +20,8 @@ import { listarColecao } from "../helpers/emulator";
 
 const TURMA = "Química Geral — T2 Última Vaga";
 const TURMA_ID = "seed-turma-ultima-vaga";
+const TURMA_COLEGAS = "Química Geral — T3 Colegas";
+const TURMA_COLEGAS_ID = "seed-turma-colegas";
 
 async function idDoPost(titulo: string): Promise<string> {
   const posts = await listarColecao(`Turma/${TURMA_ID}/Posts`);
@@ -206,5 +208,93 @@ test.describe("Comentários", () => {
       false
     );
     expect(comentarios.some((item) => item.data.texto === texto)).toBe(false);
+  });
+
+  test("COMMENT-E2E-005 colega de turma vê aviso institucional, nunca o texto do comentário moderado", async ({
+    page,
+    browser,
+  }) => {
+    const titulo = "Post C-E2E-005 — Projeção Colega";
+    const texto = "Comentário a ser moderado (COMMENT-E2E-005).";
+    const motivo = "Conteúdo impróprio.";
+
+    // 1. Professor dono cria o Post na turma com 3 membros (autor + 2 colegas).
+    await login(page, "professor.alpha@lcqui.local");
+    await abrirTurma(page, TURMA_COLEGAS);
+    await criarPost(page, titulo, "Post para projeção colega.");
+    const posts = await listarColecao(`Turma/${TURMA_COLEGAS_ID}/Posts`);
+    const postId = posts.find((p) => p.data.titulo === titulo)!.id;
+
+    // 2. O autor (aluno matriculado) comenta.
+    const contextoAutor = await browser.newContext();
+    const paginaAutor = await contextoAutor.newPage();
+    observarConsole(paginaAutor);
+    try {
+      await login(paginaAutor, "aluno.matriculado@lcqui.local");
+      await abrirTurma(paginaAutor, TURMA_COLEGAS);
+      await abrirComentarios(paginaAutor, titulo);
+      await comentar(paginaAutor, titulo, texto);
+    } finally {
+      await contextoAutor.close();
+    }
+
+    // 3. O comentário persiste com o texto original no Firestore Emulator.
+    const comentarios = await listarColecao(
+      `Turma/${TURMA_COLEGAS_ID}/Posts/${postId}/Comentarios`
+    );
+    const comentario = comentarios.find((c) => c.data.texto === texto);
+    expect(comentario).toBeTruthy();
+
+    // 4. Professor dono modera o comentário. O handler do dialog é registrado
+    //    ANTES do click para evitar deadlock com o prompt() síncrono.
+    await abrirComentarios(page, titulo);
+    const cardComentario = cartaoDoPost(page, titulo);
+    await cardComentario.hover();
+    page.once("dialog", (dialog) => {
+      void dialog.accept(motivo);
+    });
+    await cardComentario.getByRole("button", { name: "Moderar comentário" }).first().click();
+
+    // Barreira de sincronização: a visão AUDITOR do professor revela o motivo
+    // somente após o reload pós-moderação, garantindo que o commit chegou ao
+    // Firestore antes de abrir os contextos dos colegas.
+    await expect(
+      cardComentario.getByText(new RegExp(`Motivo:\\s*${motivo}`))
+    ).toBeVisible();
+
+    // 5–6. Cada colega (nem autor, nem moderador) recebe a projeção COLEGA:
+    //     texto nulo + aviso institucional — nunca o original.
+    for (const email of ["aluno.colega.a@lcqui.local", "aluno.colega.b@lcqui.local"]) {
+      const contextoColega = await browser.newContext();
+      const paginaColega = await contextoColega.newPage();
+      const consoleColega = observarConsole(paginaColega);
+      try {
+        await login(paginaColega, email);
+        await abrirTurma(paginaColega, TURMA_COLEGAS);
+        await abrirComentarios(paginaColega, titulo);
+        // Ordem intencional: o aviso prova que a listagem retornou; contar o
+        // texto depois evita falso-positivo sobre estado ainda não carregado.
+        await expect(paginaColega.getByText(/moderado pelo professor/i)).toBeVisible();
+        await expect(paginaColega.getByText(texto)).toHaveCount(0);
+        consoleColega.verificar();
+      } finally {
+        await contextoColega.close();
+      }
+    }
+
+    // 7. O moderador (auditor) vê o original preservado e o motivo.
+    await expect(cartaoDoPost(page, titulo).getByText(texto)).toBeVisible();
+    await expect(
+      cartaoDoPost(page, titulo).getByText(new RegExp(`Motivo:\\s*${motivo}`))
+    ).toBeVisible();
+
+    // 8. Persistência: moderação marcada e texto original preservado.
+    const comentariosFinais = await listarColecao(
+      `Turma/${TURMA_COLEGAS_ID}/Posts/${postId}/Comentarios`
+    );
+    const comentarioFinal = comentariosFinais.find((c) => c.data.texto === texto);
+    expect(comentarioFinal).toBeTruthy();
+    expect(comentarioFinal!.data.moderado).toBe(true);
+    expect(comentarioFinal!.data.texto).toBe(texto);
   });
 });

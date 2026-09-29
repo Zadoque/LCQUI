@@ -9,7 +9,7 @@ const ALLOWED_PROJECT_IDS = new Set(["lcqui-uenf", "lcqui-dev"]);
 const PASSWORD = "Test123456!";
 const FIXTURE_TIME = Timestamp.fromDate(new Date("2026-01-15T12:00:00.000Z"));
 type Role = "Chefe_Geral" | "Gestor_Almoxarifado" | "Gestor_Bens_Patrimoniais" | "Professor" | "Aluno" | "Bolsista";
-type FixtureId = "chefe" | "professor.owner" | "professor.outsider" | "gestor.almoxarifado" | "gestor.patrimonial" | "bolsista" | "aluno.normal" | "aluno.authOnly" | "aluno.unverified" | "aluno.disabled" | "aluno.enrolled" | "aluno.removed" | "aluno.noAuth";
+type FixtureId = "chefe" | "professor.owner" | "professor.outsider" | "gestor.almoxarifado" | "gestor.patrimonial" | "bolsista" | "aluno.normal" | "aluno.authOnly" | "aluno.unverified" | "aluno.disabled" | "aluno.enrolled" | "aluno.removed" | "aluno.noAuth" | "aluno.colegaA" | "aluno.colegaB";
 interface FixtureUser { id: FixtureId; uid: string; email: string; name: string; roles: readonly Role[]; emailVerified: boolean; disabled: boolean; activeDocument: boolean; matricula?: string; note: string; }
 
 const users: readonly FixtureUser[] = [
@@ -26,6 +26,8 @@ const users: readonly FixtureUser[] = [
   { id: "aluno.enrolled", uid: "seed-aluno-enrolled", email: "aluno.matriculado@lcqui.local", name: "Aluno Matriculado", roles: ["Aluno"], emailVerified: true, disabled: false, activeDocument: true, matricula: "00020260102", note: "membro preexistente da turma de última vaga" },
   { id: "aluno.removed", uid: "seed-aluno-removed", email: "aluno.removido@lcqui.local", name: "Aluno Removido", roles: ["Aluno"], emailVerified: true, disabled: false, activeDocument: true, matricula: "2026000103", note: "histórico de exclusão, sem vínculo atual" },
   { id: "aluno.noAuth", uid: "seed-no-auth", email: "novo.aluno@seed.local", name: "Sem conta Auth", roles: [], emailVerified: false, disabled: false, activeDocument: false, note: "não criar Auth; fluxo OOB deve ser exercitado pelo convite" },
+  { id: "aluno.colegaA", uid: "seed-aluno-colega-a", email: "aluno.colega.a@lcqui.local", name: "Aluno Colega A", roles: ["Aluno"], emailVerified: true, disabled: false, activeDocument: true, matricula: "2026000201", note: "colega da turma de projeção" },
+  { id: "aluno.colegaB", uid: "seed-aluno-colega-b", email: "aluno.colega.b@lcqui.local", name: "Aluno Colega B", roles: ["Aluno"], emailVerified: true, disabled: false, activeDocument: true, matricula: "2026000202", note: "colega da turma de projeção" },
 ];
 const byId = (id: FixtureId): FixtureUser => { const found = users.find((user) => user.id === id); if (!found) throw new Error(`Fixture ausente: ${id}`); return found; };
 
@@ -85,6 +87,7 @@ async function writeFixture(): Promise<void> {
     { id: "seed-turma-cheia", materia: "materia-quimica-analitica", professor: alpha, status: "Ativo", nome: "Química Analítica — T1 Cheia", ano: 2026, semestre: 1, capacidade: 1, codigo: "QAN201", members: [byId("bolsista")] },
     { id: "seed-turma-arquivada", materia: "materia-quimica-analitica", professor: alpha, status: "Arquivada", nome: "Química Analítica — T2 Arquivada", ano: 2026, semestre: 2, capacidade: 5, codigo: "QAN202", members: [] as FixtureUser[] },
     { id: "seed-turma-beta", materia: "materia-quimica-geral", professor: beta, status: "Ativo", nome: "Química Geral — Beta", ano: 2026, semestre: 1, capacidade: 5, codigo: "QGB103", members: [] as FixtureUser[] },
+    { id: "seed-turma-colegas", materia: "materia-quimica-geral", professor: alpha, status: "Ativo", nome: "Química Geral — T3 Colegas", ano: 2026, semestre: 1, capacidade: 5, codigo: "QGV103", members: [byId("aluno.enrolled"), byId("aluno.colegaA"), byId("aluno.colegaB")] },
   ];
   const names = new Map(materias.map((item) => [item.id, item.nome]));
   for (const turma of turmas) {
@@ -111,7 +114,7 @@ async function verify(): Promise<void> {
   assert.equal((await firestore.collection("Convite_Aluno").get()).empty, true); for (const user of users.filter((item) => item.activeDocument)) assert.equal((await firestore.collection("Usuarios").doc(user.uid).collection("Notificacoes").get()).empty, true); assert.equal((await firestore.collection("Chaves_Unicas").get()).docs.some((doc) => doc.id.startsWith("ConvitePendente__")), false);
   console.log("SEED INVARIANTS OK: M9, papéis/claims/versões, matrículas, Chaves_Unicas, turmas, vínculos, espelhos, histórico, contadores e baseline sem convites/notificações/receipts.");
 }
-function manifest(): void { console.log("\n=== LCQUI MANUAL TEST SEED ===\n[FIXTURES]"); for (const user of users) console.log(`${user.id.padEnd(24)} ${user.email.padEnd(38)} senha=${user.id === "aluno.noAuth" ? "—" : PASSWORD} uid=${user.uid} roles=${user.roles.join(",") || "—"} verified=${user.emailVerified} ativo=${user.activeDocument} | ${user.note}`); console.log("\n[TURMAS]\nTURMA_VAZIA=seed-turma-vazia/QGV101 | TURMA_ULTIMA_VAGA=seed-turma-ultima-vaga/QGV102 | TURMA_CHEIA=seed-turma-cheia/QAN201 | TURMA_ARQUIVADA=seed-turma-arquivada/QAN202 | TURMA_PROF_BETA=seed-turma-beta/QGB103"); console.log("Baseline sem Convite_Aluno pendente, CONVITE_PARA_TURMA, receipt M7 ou segredo/token."); }
+function manifest(): void { console.log("\n=== LCQUI MANUAL TEST SEED ===\n[FIXTURES]"); for (const user of users) console.log(`${user.id.padEnd(24)} ${user.email.padEnd(38)} senha=${user.id === "aluno.noAuth" ? "—" : PASSWORD} uid=${user.uid} roles=${user.roles.join(",") || "—"} verified=${user.emailVerified} ativo=${user.activeDocument} | ${user.note}`); console.log("\n[TURMAS]\nTURMA_VAZIA=seed-turma-vazia/QGV101 | TURMA_ULTIMA_VAGA=seed-turma-ultima-vaga/QGV102 | TURMA_CHEIA=seed-turma-cheia/QAN201 | TURMA_ARQUIVADA=seed-turma-arquivada/QAN202 | TURMA_PROF_BETA=seed-turma-beta/QGB103 | TURMA_COLEGAS=seed-turma-colegas/QGV103"); console.log("Baseline sem Convite_Aluno pendente, CONVITE_PARA_TURMA, receipt M7 ou segredo/token."); }
 
 async function main(): Promise<void> { const args = new Set(process.argv.slice(2)); if ([...args].some((arg) => !["--reset", "--verify-only"].includes(arg)) || (args.has("--reset") && args.has("--verify-only"))) throw new Error("Uso: tsx scripts/seed.ts [--reset|--verify-only]"); const id = projectId(); const { firestoreHost } = assertEmulatorOnly(id); dbApp(id); if (args.has("--verify-only")) { await verify(); manifest(); return; } if (args.has("--reset")) await reset(firestoreHost, id); for (const user of users.filter((item) => item.id !== "aluno.noAuth")) { await ensureAuth(user); if (user.activeDocument) await getAuth().setCustomUserClaims(user.uid, { roles: [...user.roles], versao_permissoes: 1 }); } await writeFixture(); await verify(); manifest(); }
 main().catch((error: unknown) => { console.error("SEED FAILURE", error instanceof Error ? error.message : String(error)); process.exitCode = 1; });
