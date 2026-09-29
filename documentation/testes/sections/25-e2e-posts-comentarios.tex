@@ -70,7 +70,7 @@ POST-E2E-001 (o payload real não contém a propriedade).
     Comentários foram implementadas nesta rodada (callables \texttt{removerPost},
     \texttt{moderarComentario}, \texttt{listarComentariosPost}), mas ainda carecem
     de E2E próprio; os negativos POST-E2E-003/COMMENT-E2E-003 agora provam a
-    rejeição normativa de criação por Chefe_Geral, que antes era um falso
+    rejeição normativa de criação por Chefe\_Geral, que antes era um falso
     positivo aceito.
   \item O nome de exibição do autor cai no fallback ``Usuário''/``Professor''
     porque o seed não popula \texttt{nome} nas coleções de papel; a identidade
@@ -83,7 +83,7 @@ POST-E2E-001 (o payload real não contém a propriedade).
 \begin{itemize}
   \item \textbf{Autorização M12.1:} criação de Post somente pelo professor-dono;
     criação de Comentário por professor-dono ou membro canônico com vínculo;
-    Chefe_Geral sem vínculo é rejeitado em ambos (Q13 não cria conteúdo).
+    Chefe\_Geral sem vínculo é rejeitado em ambos (Q13 não cria conteúdo).
   \item \textbf{M7/M9:} todos os callables de Posts/Comentários exigem
     \texttt{idOperacao}, revalidam autoridade persistida no commit e gravam
     receipt canônico.
