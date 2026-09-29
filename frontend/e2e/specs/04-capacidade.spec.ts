@@ -25,7 +25,11 @@ test.describe.serial("Capacidade da turma", () => {
       emails: "aluno.removido@lcqui.local",
     });
 
-    await expect(page.getByText(/capacidade máxima/)).toBeVisible();
+    // Escopado ao modal da aplicação: o overlay de erro do `next dev` também
+    // ecoa a mensagem de console e causaria strict mode violation se o texto
+    // fosse buscado globalmente.
+    const modal = page.getByRole("heading", { name: "Novo Aluno" }).locator("../..");
+    await expect(modal.getByText(/capacidade máxima/)).toBeVisible();
     await expect(page.getByText("Convite(s) registrado(s) com sucesso.")).toHaveCount(0);
 
     const dados = chamadas[0].payload.data as Record<string, unknown>;
