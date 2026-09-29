@@ -19,7 +19,14 @@ a vertical convites/auth/notificações contra o Firebase Emulator Suite real e 
 frontend Next.js real, sem mocks de Firebase. Detalhes e evidências estão na
 Seção~\ref{sec:e2e-convites-auth}.
 
+A mesma suíte foi estendida para a vertical determinística de posts e
+comentários (\texttt{frontend/e2e/specs/05-posts.spec.ts} e
+\texttt{06-comentarios.spec.ts}), exercitando os callables reais
+\texttt{criarPost} e \texttt{adicionarComentario}, múltiplas identidades e o
+estado entre usuários. Detalhes e evidências estão na
+Seção~\ref{sec:e2e-posts-comentarios}.
+
 Nenhum schema, backend ou Rule foi relaxado para satisfazer a UI. Consultas
 diretas ao Firestore/Auth Emulator apenas confirmam efeitos de backend
-(vínculos, matrícula, notificação, OOB); a jornada continua sendo dirigida pela
-interface.
+(vínculos, matrícula, notificação, OOB, Post, Comentário); a jornada continua
+sendo dirigida pela interface.
