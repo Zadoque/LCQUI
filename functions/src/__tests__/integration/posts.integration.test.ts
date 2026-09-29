@@ -5,7 +5,7 @@ process.env.FUNCTIONS_EMULATOR = "true";
 
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
-import { criarPost, adicionarComentario, removerPost, moderarComentario, listarComentariosPost } from "../../posts";
+import { criarPost, adicionarComentario, removerPost, moderarComentario, listarComentariosPost, editarPost, editarComentario } from "../../posts";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -1304,6 +1304,447 @@ describe("Módulo Acadêmico (Posts e Comentários - Baseado no main.tex)", () =
     }, alunoA, ["Aluno"]));
     
     expect(primeiro).toEqual(segundo);
+  });
+
+  // --- editarPost ---
+
+  it("TEST-INT-EDT-POST-001 — professor-dono edita título e descrição com sucesso", async () => {
+    const professor = "prof";
+    await semearUsuario(professor, ["Professor"]);
+    await semearTurma("turma1", professor);
+    
+    // Criar um post primeiro
+    const wrappedCriar = testEnv.wrap(criarPost);
+    const postResult = await wrappedCriar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      titulo: "Titulo Original",
+      descricao: "Descricao Original"
+    }, professor));
+    
+    const wrapped = testEnv.wrap(editarPost);
+    const result = await wrapped(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      idPost: postResult.id,
+      titulo: "Novo Titulo",
+      descricao: "Nova Descricao"
+    }, professor));
+    
+    expect(result.id).toBe(postResult.id);
+    
+    const postDoc = await db.collection("Turma").doc("turma1").collection("Posts").doc(postResult.id).get();
+    expect(postDoc.exists).toBe(true);
+    const postData = postDoc.data();
+    expect(postData?.titulo).toBe("Novo Titulo");
+    expect(postData?.descricao).toBe("Nova Descricao");
+    expect(postData?.editado).toBe(true);
+    expect(postData?.editado_em).toBeDefined();
+    
+    // Verificar histórico
+    const historicoSnap = await db.collection("Turma").doc("turma1").collection("Posts").doc(postResult.id).collection("Historico_Posts_Turma").get();
+    expect(historicoSnap.size).toBe(1);
+    const historicoData = historicoSnap.docs[0].data();
+    expect(historicoData.tipo).toBe("edicao");
+    expect(historicoData.novo_titulo).toBe("Novo Titulo");
+    expect(historicoData.nova_descricao).toBe("Nova Descricao");
+    expect(historicoData.antigo_titulo).toBe("Titulo Original");
+    expect(historicoData.antiga_descricao).toBe("Descricao Original");
+  });
+
+  it("TEST-INT-EDT-POST-002 — professor não-dono é rejeitado (permission-denied)", async () => {
+    const professor1 = "prof1";
+    const professor2 = "prof2";
+    await semearUsuario(professor1, ["Professor"]);
+    await semearUsuario(professor2, ["Professor"]);
+    await semearTurma("turma1", professor1);
+    
+    // Criar um post primeiro
+    const wrappedCriar = testEnv.wrap(criarPost);
+    const postResult = await wrappedCriar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      titulo: "Titulo Original",
+      descricao: "Descricao Original"
+    }, professor1));
+    
+    const wrapped = testEnv.wrap(editarPost);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      idPost: postResult.id,
+      titulo: "Novo Titulo"
+    }, professor2))).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("TEST-INT-EDT-POST-003 — Chefe_Geral é rejeitado (permission-denied)", async () => {
+    const professor = "prof";
+    const chefe = "chefe";
+    await semearUsuario(professor, ["Professor"]);
+    await semearUsuario(chefe, ["Chefe_Geral"]);
+    await semearTurma("turma1", professor);
+    
+    // Criar um post primeiro
+    const wrappedCriar = testEnv.wrap(criarPost);
+    const postResult = await wrappedCriar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      titulo: "Titulo Original",
+      descricao: "Descricao Original"
+    }, professor));
+    
+    const wrapped = testEnv.wrap(editarPost);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      idPost: postResult.id,
+      titulo: "Novo Titulo"
+    }, chefe, ["Chefe_Geral"]))).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("TEST-INT-EDT-POST-004 — turma arquivada rejeitada (failed-precondition)", async () => {
+    const professor = "prof";
+    await semearUsuario(professor, ["Professor"]);
+    await semearTurma("turma1", professor); // Inicialmente Ativo
+    
+    // Criar um post primeiro
+    const wrappedCriar = testEnv.wrap(criarPost);
+    const postResult = await wrappedCriar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      titulo: "Titulo Original",
+      descricao: "Descricao Original"
+    }, professor));
+    
+    // Arquivar a turma
+    await db.collection("Turma").doc("turma1").update({ status: "Arquivada" });
+    
+    const wrapped = testEnv.wrap(editarPost);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      idPost: postResult.id,
+      titulo: "Novo Titulo"
+    }, professor))).rejects.toMatchObject({ code: "failed-precondition" });
+  });
+
+  it("TEST-INT-EDT-POST-005 — post removido rejeitado (failed-precondition)", async () => {
+    const professor = "prof";
+    await semearUsuario(professor, ["Professor"]);
+    await semearTurma("turma1", professor);
+    
+    // Criar um post primeiro
+    const wrappedCriar = testEnv.wrap(criarPost);
+    const postResult = await wrappedCriar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      titulo: "Titulo Original",
+      descricao: "Descricao Original"
+    }, professor));
+    
+    // Remover o post
+    const wrappedRemover = testEnv.wrap(removerPost);
+    await wrappedRemover(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      idPost: postResult.id,
+      motivo: "Remover post"
+    }, professor));
+    
+    const wrapped = testEnv.wrap(editarPost);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      idPost: postResult.id,
+      titulo: "Novo Titulo"
+    }, professor))).rejects.toMatchObject({ code: "failed-precondition" });
+  });
+
+  it("TEST-INT-EDT-POST-006 — M7 replay com mesmo idOperacao devolve mesmo resultado sem duplicar histórico", async () => {
+    const professor = "prof";
+    await semearUsuario(professor, ["Professor"]);
+    await semearTurma("turma1", professor);
+    
+    // Criar um post primeiro
+    const wrappedCriar = testEnv.wrap(criarPost);
+    const postResult = await wrappedCriar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      titulo: "Titulo Original",
+      descricao: "Descricao Original"
+    }, professor));
+    
+    const op = novaOperacao();
+    const wrapped = testEnv.wrap(editarPost);
+    const primeiro = await wrapped(mockRequest({
+      idOperacao: op,
+      idTurma: "turma1",
+      idPost: postResult.id,
+      titulo: "Novo Titulo"
+    }, professor));
+    
+    const segundo = await wrapped(mockRequest({
+      idOperacao: op,
+      idTurma: "turma1",
+      idPost: postResult.id,
+      titulo: "Novo Titulo"
+    }, professor));
+    
+    expect(segundo).toEqual(primeiro);
+    
+    const postDoc = await db.collection("Turma").doc("turma1").collection("Posts").doc(postResult.id).get();
+    const postData = postDoc.data();
+    expect(postData?.titulo).toBe("Novo Titulo");
+    
+    // Verificar que histórico não foi duplicado
+    const historicoSnap = await db.collection("Turma").doc("turma1").collection("Posts").doc(postResult.id).collection("Historico_Posts_Turma").get();
+    expect(historicoSnap.size).toBe(1);
+  });
+
+  // --- editarComentario ---
+
+  it("TEST-INT-EDT-COM-001 — autor edita comentário com sucesso", async () => {
+    const professor = "prof";
+    const aluno = "aluno1";
+    await semearUsuario(professor, ["Professor"]);
+    await semearUsuario(aluno, ["Aluno"]);
+    await semearTurma("turma1", professor);
+    await semearVinculo("turma1", aluno);
+    
+    // Criar um post primeiro
+    const wrappedCriar = testEnv.wrap(criarPost);
+    const postResult = await wrappedCriar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      titulo: "Titulo Teste",
+      descricao: "Descricao Teste"
+    }, professor));
+    
+    // Adicionar um comentario
+    const wrappedComentar = testEnv.wrap(adicionarComentario);
+    const comentarioResult = await wrappedComentar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      idPost: postResult.id,
+      texto: "Texto original do comentario"
+    }, aluno, ["Aluno"]));
+    
+    const wrapped = testEnv.wrap(editarComentario);
+    const result = await wrapped(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      idPost: postResult.id,
+      idComentario: comentarioResult.id,
+      texto: "Texto editado do comentario"
+    }, aluno, ["Aluno"]));
+    
+    expect(result.id).toBe(comentarioResult.id);
+    
+    const comentarioDoc = await db.collection("Turma").doc("turma1").collection("Posts").doc(postResult.id).collection("Comentarios").doc(comentarioResult.id).get();
+    expect(comentarioDoc.exists).toBe(true);
+    const comentarioData = comentarioDoc.data();
+    expect(comentarioData?.texto).toBe("Texto editado do comentario");
+    expect(comentarioData?.editado).toBe(true);
+    expect(comentarioData?.editado_em).toBeDefined();
+    
+    // Verificar histórico
+    const historicoSnap = await db.collection("Turma").doc("turma1").collection("Posts").doc(postResult.id).collection("Comentarios").doc(comentarioResult.id).collection("Historico_Comentario").get();
+    expect(historicoSnap.size).toBe(1);
+    const historicoData = historicoSnap.docs[0].data();
+    expect(historicoData.tipo).toBe("edicao");
+    expect(historicoData.novo_texto).toBe("Texto editado do comentario");
+    expect(historicoData.texto_antigo).toBe("Texto original do comentario");
+  });
+
+  it("TEST-INT-EDT-COM-002 — terceiro não autor rejeitado (permission-denied)", async () => {
+    const professor = "prof";
+    const aluno1 = "aluno1";
+    const aluno2 = "aluno2";
+    await semearUsuario(professor, ["Professor"]);
+    await semearUsuario(aluno1, ["Aluno"]);
+    await semearUsuario(aluno2, ["Aluno"]);
+    await semearTurma("turma1", professor);
+    await semearVinculo("turma1", aluno1);
+    await semearVinculo("turma1", aluno2);
+    
+    // Criar um post primeiro
+    const wrappedCriar = testEnv.wrap(criarPost);
+    const postResult = await wrappedCriar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      titulo: "Titulo Teste",
+      descricao: "Descricao Teste"
+    }, professor));
+    
+    // Adicionar um comentario
+    const wrappedComentar = testEnv.wrap(adicionarComentario);
+    const comentarioResult = await wrappedComentar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      idPost: postResult.id,
+      texto: "Texto original do comentario"
+    }, aluno1, ["Aluno"]));
+    
+    const wrapped = testEnv.wrap(editarComentario);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      idPost: postResult.id,
+      idComentario: comentarioResult.id,
+      texto: "Texto editado do comentario"
+    }, aluno2, ["Aluno"]))).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("TEST-INT-EDT-COM-003 — turma arquivada rejeitada", async () => {
+    const professor = "prof";
+    const aluno = "aluno1";
+    await semearUsuario(professor, ["Professor"]);
+    await semearUsuario(aluno, ["Aluno"]);
+    await semearTurma("turma1", professor); // Inicialmente Ativo
+    await semearVinculo("turma1", aluno);
+    
+    // Criar um post primeiro
+    const wrappedCriar = testEnv.wrap(criarPost);
+    const postResult = await wrappedCriar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      titulo: "Titulo Teste",
+      descricao: "Descricao Teste"
+    }, professor));
+    
+    // Adicionar um comentario
+    const wrappedComentar = testEnv.wrap(adicionarComentario);
+    const comentarioResult = await wrappedComentar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      idPost: postResult.id,
+      texto: "Texto original do comentario"
+    }, aluno, ["Aluno"]));
+    
+    // Arquivar a turma
+    await db.collection("Turma").doc("turma1").update({ status: "Arquivada" });
+    
+    const wrapped = testEnv.wrap(editarComentario);
+    await expect(wrapped(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      idPost: postResult.id,
+      idComentario: comentarioResult.id,
+      texto: "Texto editado do comentario"
+    }, aluno, ["Aluno"]))).rejects.toMatchObject({ code: "failed-precondition" });
+  });
+
+  it("TEST-INT-EDT-COM-004 — comentário moderado permanece moderado após edição do autor (invariante)", async () => {
+    const professor = "prof";
+    const aluno = "aluno1";
+    await semearUsuario(professor, ["Professor"]);
+    await semearUsuario(aluno, ["Aluno"]);
+    await semearTurma("turma1", professor);
+    await semearVinculo("turma1", aluno);
+    
+    // Criar um post primeiro
+    const wrappedCriar = testEnv.wrap(criarPost);
+    const postResult = await wrappedCriar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      titulo: "Titulo Teste",
+      descricao: "Descricao Teste"
+    }, professor));
+    
+    // Adicionar um comentario
+    const wrappedComentar = testEnv.wrap(adicionarComentario);
+    const comentarioResult = await wrappedComentar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      idPost: postResult.id,
+      texto: "Texto original do comentario"
+    }, aluno, ["Aluno"]));
+    
+    // Moderar o comentario
+    const wrappedModerar = testEnv.wrap(moderarComentario);
+    await wrappedModerar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      idPost: postResult.id,
+      idComentario: comentarioResult.id,
+      motivo: "Motivo da moderação"
+    }, professor));
+    
+    // Verificar que está moderado
+    const comentarioDoc1 = await db.collection("Turma").doc("turma1").collection("Posts").doc(postResult.id).collection("Comentarios").doc(comentarioResult.id).get();
+    const comentarioData1 = comentarioDoc1.data();
+    expect(comentarioData1?.moderado).toBe(true);
+    
+    // Editar o comentario
+    const wrappedEditar = testEnv.wrap(editarComentario);
+    await wrappedEditar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      idPost: postResult.id,
+      idComentario: comentarioResult.id,
+      texto: "Texto editado do comentario"
+    }, aluno, ["Aluno"]));
+    
+    // Verificar que continua moderado
+    const comentarioDoc2 = await db.collection("Turma").doc("turma1").collection("Posts").doc(postResult.id).collection("Comentarios").doc(comentarioResult.id).get();
+    const comentarioData2 = comentarioDoc2.data();
+    expect(comentarioData2?.moderado).toBe(true);
+    expect(comentarioData2?.texto).toBe("Texto editado do comentario");
+  });
+
+  it("TEST-INT-EDT-COM-005 — M7 replay com mesmo idOperacao devolve mesmo resultado sem duplicar histórico", async () => {
+    const professor = "prof";
+    const aluno = "aluno1";
+    await semearUsuario(professor, ["Professor"]);
+    await semearUsuario(aluno, ["Aluno"]);
+    await semearTurma("turma1", professor);
+    await semearVinculo("turma1", aluno);
+    
+    // Criar um post primeiro
+    const wrappedCriar = testEnv.wrap(criarPost);
+    const postResult = await wrappedCriar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      titulo: "Titulo Teste",
+      descricao: "Descricao Teste"
+    }, professor));
+    
+    // Adicionar um comentario
+    const wrappedComentar = testEnv.wrap(adicionarComentario);
+    const comentarioResult = await wrappedComentar(mockRequest({
+      idOperacao: novaOperacao(),
+      idTurma: "turma1",
+      idPost: postResult.id,
+      texto: "Texto original do comentario"
+    }, aluno, ["Aluno"]));
+    
+    const op = novaOperacao();
+    const wrapped = testEnv.wrap(editarComentario);
+    const primeiro = await wrapped(mockRequest({
+      idOperacao: op,
+      idTurma: "turma1",
+      idPost: postResult.id,
+      idComentario: comentarioResult.id,
+      texto: "Texto editado do comentario"
+    }, aluno, ["Aluno"]));
+    
+    const segundo = await wrapped(mockRequest({
+      idOperacao: op,
+      idTurma: "turma1",
+      idPost: postResult.id,
+      idComentario: comentarioResult.id,
+      texto: "Texto editado do comentario"
+    }, aluno, ["Aluno"]));
+    
+    expect(segundo).toEqual(primeiro);
+    
+    const comentarioDoc = await db.collection("Turma").doc("turma1").collection("Posts").doc(postResult.id).collection("Comentarios").doc(comentarioResult.id).get();
+    const comentarioData = comentarioDoc.data();
+    expect(comentarioData?.texto).toBe("Texto editado do comentario");
+    
+    // Verificar que histórico não foi duplicado
+    const historicoSnap = await db.collection("Turma").doc("turma1").collection("Posts").doc(postResult.id).collection("Comentarios").doc(comentarioResult.id).collection("Historico_Comentario").get();
+    expect(historicoSnap.size).toBe(1);
   });
 
   // --- M9 role revocation ---

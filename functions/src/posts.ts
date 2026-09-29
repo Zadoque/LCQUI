@@ -18,6 +18,8 @@ import {
   RemoverPostSchema,
   ModerarComentarioSchema,
   ListarComentariosPostSchema,
+  EditarPostSchema,
+  EditarComentarioSchema,
 } from "./schemas/posts.schema";
 
 
@@ -654,6 +656,265 @@ export const listarComentariosPost = onCall(async (request) => {
     });
 
     const resultado = { comentarios: itens, visao };
+    registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+    return resultado;
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. editarPost
+// ---------------------------------------------------------------------------
+export const editarPost = onCall(async (request) => {
+  const claims = extrairClaimsAutoridade(request);
+  const { idOperacao, idTurma, idPost, titulo, descricao, idRoteiroExperimento } =
+    validatePayload(EditarPostSchema, request.data);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    // M9: autoridade persistida relida na transação do efeito (efeito de
+    // autorização; o resultado não é usado porque somente o dono edita Post).
+    await resolverAutoridadePersistidaTx(tx, claims, [
+      "Professor",
+      "Chefe_Geral",
+    ]);
+
+    // M7: replay compatível devolve o receipt; reuso incompatível falha.
+    const identidade = construirIdentidade(claims.uid, "EDITAR_POST", {
+      idTurma,
+      idPost,
+      titulo,
+      descricao,
+      idRoteiroExperimento: idRoteiroExperimento ?? null,
+    });
+    const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+    if (decisao.estado === "REPLAY") {
+      return decisao.resultado as { id: string };
+    }
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError(
+        "failed-precondition",
+        "Operação de edição de post não concluída."
+      );
+    }
+
+    // Turma: existência, ownership (professor-dono ou chefe) e status.
+    const turmaRef = admin.firestore().collection("Turma").doc(idTurma);
+    const turmaSnap = await tx.get(turmaRef);
+    if (!turmaSnap.exists) {
+      throw new HttpsError("not-found", "Turma não encontrada.");
+    }
+    const turmaData = turmaSnap.data()!;
+    
+    // M12.1 (ChefeNaoEditaPost): somente o professor-dono edita Post. O Chefe
+    // intervém apenas por Q13 (moderação/remoção), nunca assume autoria.
+    // O papel "Chefe_Geral" permanece no conjunto M9 para que a rejeição seja
+    // de domínio (ownership), não de papel, produzindo a mensagem normativa.
+    if (turmaData.id_professor !== claims.uid) {
+      throw new HttpsError(
+        "permission-denied",
+        "Apenas o professor responsável pela turma pode editar posts."
+      );
+    }
+
+    validarTurmaNaoArquivada(turmaData);
+
+    // Post: existência + não removido.
+    const postRef = turmaRef.collection("Posts").doc(idPost);
+    const postSnap = await tx.get(postRef);
+    if (!postSnap.exists) {
+      throw new HttpsError("not-found", "Post não encontrado.");
+    }
+    const postData = postSnap.data()!;
+    if (postData.id_turma !== idTurma) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Post não pertence à turma indicada (fail-closed)."
+      );
+    }
+    if (postData.removido_da_apresentacao === true) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Post removido não pode ser editado."
+      );
+    }
+
+    // Atualizar os campos fornecidos, editado: true, editado_em: FieldValue.serverTimestamp()
+    const atualizacoes: Record<string, unknown> = {
+      editado: true,
+      editado_em: FieldValue.serverTimestamp(),
+    };
+
+    if (titulo !== undefined) {
+      atualizacoes.titulo = titulo;
+    }
+    if (descricao !== undefined) {
+      atualizacoes.descricao = descricao;
+    }
+    if (idRoteiroExperimento !== undefined) {
+      atualizacoes.id_roteiro_experimento = idRoteiroExperimento ?? null;
+    }
+
+    tx.update(postRef, atualizacoes);
+
+    // Criar histórico em postRef.collection("Historico_Posts_Turma")
+    const antigo_titulo = postData.titulo;
+    const antiga_descricao = postData.descricao;
+    const antigo_id_roteiro = postData.id_roteiro_experimento;
+
+    tx.set(postRef.collection("Historico_Posts_Turma").doc(), {
+      id_post: idPost,
+      id_turma: idTurma,
+      tipo: "edicao",
+      editado_por: claims.uid,
+      timestamp: FieldValue.serverTimestamp(),
+      novo_titulo: titulo !== undefined ? titulo : null,
+      nova_descricao: descricao !== undefined ? descricao : null,
+      novo_id_roteiro: idRoteiroExperimento !== undefined ? idRoteiroExperimento : null,
+      antigo_titulo,
+      antiga_descricao,
+      antigo_id_roteiro,
+      motivo: null,
+    });
+
+    const resultado = { id: idPost };
+    registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+    return resultado;
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 8. editarComentario
+// ---------------------------------------------------------------------------
+export const editarComentario = onCall(async (request) => {
+  const claims = extrairClaimsAutoridade(request);
+  const { idOperacao, idTurma, idPost, idComentario, texto } =
+    validatePayload(EditarComentarioSchema, request.data);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const autoridade = await resolverAutoridadePersistidaTx(tx, claims, [
+      "Professor",
+      "Chefe_Geral",
+      "Aluno",
+      "Bolsista",
+    ]);
+
+    const identidade = construirIdentidade(claims.uid, "EDITAR_COMENTARIO", {
+      idTurma,
+      idPost,
+      idComentario,
+      texto,
+    });
+    const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+    if (decisao.estado === "REPLAY") {
+      return decisao.resultado as { id: string };
+    }
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError(
+        "failed-precondition",
+        "Operação de edição de comentário não concluída."
+      );
+    }
+
+    // Turma: existência + status.
+    const turmaRef = admin.firestore().collection("Turma").doc(idTurma);
+    const turmaSnap = await tx.get(turmaRef);
+    if (!turmaSnap.exists) {
+      throw new HttpsError("not-found", "Turma não encontrada.");
+    }
+    const turmaData = turmaSnap.data()!;
+    validarTurmaNaoArquivada(turmaData);
+
+    // Post: existência + não removido.
+    const postRef = turmaRef.collection("Posts").doc(idPost);
+    const postSnap = await tx.get(postRef);
+    if (!postSnap.exists) {
+      throw new HttpsError("not-found", "Post não encontrado.");
+    }
+    const postData = postSnap.data()!;
+    if (postData.id_turma !== idTurma) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Post não pertence à turma indicada (fail-closed)."
+      );
+    }
+    if (postData.removido_da_apresentacao === true) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Post removido não aceita edição de comentários."
+      );
+    }
+
+    // Comentário: existência + pertencimento ao post.
+    const comentarioRef = postRef.collection("Comentarios").doc(idComentario);
+    const comentarioSnap = await tx.get(comentarioRef);
+    if (!comentarioSnap.exists) {
+      throw new HttpsError("not-found", "Comentário não encontrado.");
+    }
+    const comentarioData = comentarioSnap.data()!;
+    if (comentarioData.id_post !== idPost) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Comentário não pertence ao post indicado (fail-closed)."
+      );
+    }
+
+    // Valide que comentarioData.id_usuario === claims.uid
+    if (comentarioData.id_usuario !== claims.uid) {
+      throw new HttpsError(
+        "permission-denied",
+        "Você não é o autor deste comentário."
+      );
+    }
+
+    // Valide participação canônica (dono da turma ou aluno matriculado)
+    const ehDono = turmaData.id_professor === claims.uid;
+    if (!ehDono) {
+      const ehEstudante =
+        autoridade.papeis.includes("Aluno") ||
+        autoridade.papeis.includes("Bolsista");
+      if (!ehEstudante) {
+        // Professor não-dono ou Chefe_Geral: sem vínculo de autoria.
+        throw new HttpsError(
+          "permission-denied",
+          "Você não é o professor responsável desta turma."
+        );
+      }
+      const alunoSnap = await tx.get(turmaRef.collection("Alunos").doc(claims.uid));
+      if (!alunoSnap.exists) {
+        throw new HttpsError(
+          "permission-denied",
+          "Você não está matriculado nesta turma."
+        );
+      }
+      const alunoData = alunoSnap.data()!;
+      if (alunoData.id_aluno !== claims.uid || alunoData.id_turma !== idTurma) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Vínculo canônico corrompido (fail-closed)."
+        );
+      }
+    }
+
+    // Atualize texto, editado: true, editado_em: FieldValue.serverTimestamp(). Não toque nos campos de moderação.
+    tx.update(comentarioRef, {
+      texto,
+      editado: true,
+      editado_em: FieldValue.serverTimestamp(),
+    });
+
+    // Crie histórico em comentarioRef.collection("Historico_Comentario")
+    tx.set(comentarioRef.collection("Historico_Comentario").doc(), {
+      id_comentario: idComentario,
+      id_post: idPost,
+      id_turma: idTurma,
+      tipo: "edicao",
+      editado_por: claims.uid,
+      editado_em: FieldValue.serverTimestamp(),
+      novo_texto: texto,
+      texto_antigo: comentarioData.texto,
+      motivo: null,
+    });
+
+    const resultado = { id: idComentario };
     registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
     return resultado;
   });

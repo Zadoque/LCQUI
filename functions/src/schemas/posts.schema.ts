@@ -33,6 +33,25 @@ export const ModerarComentarioSchema = z.object({
   motivo: z.string().min(1, "O motivo da moderação é obrigatório.")
 });
 
+export const EditarPostSchema = z.object({
+  idOperacao: idOperacaoField,
+  idTurma: z.string().min(1),
+  idPost: z.string().min(1),
+  titulo: z.string().min(1).max(150).optional(),
+  descricao: z.string().min(1).max(10000).optional(),
+  idRoteiroExperimento: z.string().optional()
+}).refine(d => d.titulo !== undefined || d.descricao !== undefined || d.idRoteiroExperimento !== undefined, {
+  message: "Pelo menos um campo editável deve ser fornecido."
+});
+
+export const EditarComentarioSchema = z.object({
+  idOperacao: idOperacaoField,
+  idTurma: z.string().min(1),
+  idPost: z.string().min(1),
+  idComentario: z.string().min(1),
+  texto: z.string().min(1).max(2000)
+});
+
 export const ListarComentariosPostSchema = z.object({
   idOperacao: idOperacaoField,
   idTurma: z.string().min(1, "O ID da turma é obrigatório."),
