@@ -4,6 +4,7 @@ import {
   capturarCallable,
   cartaoDoPost,
   criarPost,
+  editarPost,
   login,
   observarConsole,
 } from "../helpers/ui";
@@ -205,5 +206,56 @@ test.describe("Posts", () => {
     expect(
       posts.some((item) => item.data.id_professor === "seed-professor-beta")
     ).toBe(false);
+  });
+
+  test("POST-E2E-006 professor dono edita post e indicador (editado) aparece", async ({
+    page,
+    browser,
+  }) => {
+    const tituloOriginal = "Post E2E-006 — Original";
+    const descricaoOriginal = "Descrição original do post para edição.";
+    const tituloEditado = "Post E2E-006 — Editado";
+    const descricaoEditada = "Descrição editada do post após modificação.";
+
+    // 1. Professor dono cria post
+    await login(page, "professor.alpha@lcqui.local");
+    await abrirTurma(page, TURMA);
+    await criarPost(page, tituloOriginal, descricaoOriginal);
+    
+    // 2. Verificar que o post foi criado e não tem indicador (editado)
+    await expect(page.getByRole("heading", { name: tituloOriginal, level: 3 })).toBeVisible();
+    const cardOriginal = cartaoDoPost(page, tituloOriginal);
+    await expect(cardOriginal.getByText("(editado)")).toHaveCount(0);
+
+    // 3. Professor dono edita o post
+    await editarPost(page, tituloOriginal, tituloEditado, descricaoEditada);
+
+    // 4. Verificar que o novo título está visível e tem indicador (editado)
+    await expect(page.getByRole("heading", { name: tituloEditado, level: 3 })).toBeVisible();
+    const cardEditado = cartaoDoPost(page, tituloEditado);
+    await expect(cardEditado.getByText("(editado)")).toBeVisible();
+
+    // 5. Aluno participante vê o post editado em contexto independente
+    const contextoAluno = await browser.newContext();
+    const paginaAluno = await contextoAluno.newPage();
+    const consoleAluno = observarConsole(paginaAluno);
+    try {
+      await login(paginaAluno, "aluno.matriculado@lcqui.local");
+      await abrirTurma(paginaAluno, TURMA);
+      await expect(paginaAluno.getByRole("heading", { name: tituloEditado, level: 3 })).toBeVisible();
+      await expect(paginaAluno.getByText(descricaoEditada)).toBeVisible();
+      await expect(paginaAluno.getByText("(editado)")).toBeVisible();
+      consoleAluno.verificar();
+    } finally {
+      await contextoAluno.close();
+    }
+
+    // 6. Verificar persistência no Firestore
+    const posts = await listarColecao(`Turma/${TURMA_ID}/Posts`);
+    const postEditado = posts.find((p) => p.data.titulo === tituloEditado);
+    expect(postEditado).toBeTruthy();
+    expect(postEditado!.data.editado).toBe(true);
+    expect(postEditado!.data.editado_em).toBeTruthy();
+    expect(postEditado!.data.descricao).toBe(descricaoEditada);
   });
 });

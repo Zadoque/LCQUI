@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase/config";
 import { collection, query, orderBy, onSnapshot, where, getDoc, doc } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { Trash2, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { Trash2, FileText, ChevronDown, ChevronUp, Edit } from "lucide-react";
 import ComentariosPost from "./ComentariosPost";
 
 interface Turma {
@@ -40,6 +40,11 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
   const [idRoteiro, setIdRoteiro] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingExclusao, setLoadingExclusao] = useState<string | null>(null);
+  const [loadingEdicao, setLoadingEdicao] = useState<string | null>(null);
+  const [postEditando, setPostEditando] = useState<string | null>(null);
+  const [tituloEditando, setTituloEditando] = useState("");
+  const [descricaoEditando, setDescricaoEditando] = useState("");
+  const [idRoteiroEditando, setIdRoteiroEditando] = useState("");
   const [expandedComments, setExpandedComments] = useState<{ [key: string]: boolean }>({});
   
   // Dicionário para armazenar informações dos roteiros associados aos posts (id -> nome, url)
@@ -136,6 +141,55 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
     }
   };
 
+  const handleIniciarEdicaoPost = (post: Post) => {
+    setPostEditando(post.id);
+    setTituloEditando(post.titulo);
+    setDescricaoEditando(post.descricao);
+    setIdRoteiroEditando(post.id_roteiro_experimento || "");
+  };
+
+  const handleCancelarEdicao = () => {
+    setPostEditando(null);
+    setTituloEditando("");
+    setDescricaoEditando("");
+    setIdRoteiroEditando("");
+  };
+
+  const handleEditarPost = async (idPost: string) => {
+    if (!turma) return;
+    if (!tituloEditando.trim() || !descricaoEditando.trim()) return;
+    
+    setLoadingEdicao(idPost);
+    try {
+      const functions = getFunctions();
+      const editarPost = httpsCallable(functions, "editarPost");
+      const idOp = `editar-${turma.id}-${idPost}-${Date.now()}`;
+      
+      const payload: Record<string, string> = {
+        idOperacao: idOp,
+        idTurma: turma.id,
+        idPost,
+        titulo: tituloEditando,
+        descricao: descricaoEditando
+      };
+      
+      if (idRoteiroEditando) {
+        payload.idRoteiroExperimento = idRoteiroEditando;
+      }
+      
+      await editarPost(payload);
+      setPostEditando(null);
+      setTituloEditando("");
+      setDescricaoEditando("");
+      setIdRoteiroEditando("");
+    } catch (error: any) {
+      console.error("Erro ao editar post:", error);
+      alert(error.message || "Erro ao editar post.");
+    } finally {
+      setLoadingEdicao(null);
+    }
+  };
+
   const toggleComments = (postId: string) => {
     setExpandedComments(prev => ({
       ...prev,
@@ -157,7 +211,7 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
   }
 
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background/50">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-background/50">
       <div className="p-6 border-b border-border bg-card shadow-sm z-10">
         <h1 className="text-2xl font-bold">{turma.nome_turma}</h1>
         <p className="text-sm text-muted-foreground">Código: <span className="font-mono bg-muted px-1.5 py-0.5 rounded">{turma.codigo_turma}</span></p>
@@ -235,22 +289,84 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
                   </div>
                 )}
                 {((isProfessor && isOwner) || roles.includes("Chefe_Geral")) && !post.removido_da_apresentacao && (
-                  <button 
-                    onClick={() => handleExcluirPost(post.id)}
-                    disabled={loadingExclusao === post.id}
-                    className="absolute top-4 right-4 p-2 text-red-500 bg-background border border-border rounded-xl opacity-0 group-hover:opacity-100 hover:bg-red-500/10 transition-all disabled:opacity-50"
-                    title="Remover Postagem"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <button 
+                      onClick={() => handleIniciarEdicaoPost(post)}
+                      className="p-2 text-blue-500 bg-background border border-border rounded-xl hover:bg-blue-500/10 transition-colors"
+                      title="Editar Postagem"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => handleExcluirPost(post.id)}
+                      disabled={loadingExclusao === post.id}
+                      className="p-2 text-red-500 bg-background border border-border rounded-xl hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                      title="Remover Postagem"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 )}
                 <div className="pr-10 mb-2">
-                  <h3 className="text-lg font-bold">{post.titulo}</h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Postado por <span className="font-semibold">{(post as any).nome_professor || "Professor"}</span> em {date.toLocaleDateString()} às {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
+                  {postEditando === post.id ? (
+                    <div className="space-y-3">
+                      <input 
+                        type="text"
+                        required
+                        value={tituloEditando}
+                        onChange={e => setTituloEditando(e.target.value)}
+                        placeholder="Título da postagem..."
+                        data-testid="editar-titulo-post"
+                        className="w-full bg-background border border-input rounded-md px-4 py-2 text-lg font-bold"
+                      />
+                      <textarea 
+                        required
+                        value={descricaoEditando}
+                        onChange={e => setDescricaoEditando(e.target.value)}
+                        placeholder="Escreva as instruções ou recados para a turma..."
+                        data-testid="editar-descricao-post"
+                        className="w-full bg-background border border-input rounded-md px-4 py-2 h-24 resize-none"
+                      />
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={idRoteiroEditando}
+                          onChange={e => setIdRoteiroEditando(e.target.value)}
+                          className="bg-background border border-input rounded-md px-3 py-2 text-sm w-64"
+                        >
+                          <option value="">Sem roteiro anexado</option>
+                          {roteiros.map(r => (
+                            <option key={r.id} value={r.id}>{r.nome}</option>
+                          ))}
+                        </select>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => handleEditarPost(post.id)}
+                            disabled={loadingEdicao === post.id || !tituloEditando.trim() || !descricaoEditando.trim()}
+                            className="px-4 py-2 bg-blue-500 text-white rounded-md font-bold hover:bg-blue-600 transition-colors disabled:opacity-50"
+                          >
+                            {loadingEdicao === post.id ? "Salvando..." : "Salvar"}
+                          </button>
+                          <button 
+                            onClick={handleCancelarEdicao}
+                            disabled={loadingEdicao === post.id}
+                            className="px-4 py-2 bg-background border border-border text-foreground rounded-md font-bold hover:bg-muted transition-colors disabled:opacity-50"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <h3 className="text-lg font-bold">{post.titulo}</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Postado por <span className="font-semibold">{(post as any).nome_professor || "Professor"}</span> em {date.toLocaleDateString()} às {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {post.editado && <span className="ml-2 text-xs text-muted-foreground">(editado)</span>}
+                      </p>
+                    </>
+                  )}
                 </div>
-                <p className="whitespace-pre-wrap text-foreground/90">{post.descricao}</p>
+                {postEditando !== post.id && <p className="whitespace-pre-wrap text-foreground/90">{post.descricao}</p>}
                 
                 {roteiro && (
                   <div className="mt-4 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-between">

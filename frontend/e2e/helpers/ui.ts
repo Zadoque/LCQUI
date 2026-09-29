@@ -125,20 +125,59 @@ export function cartaoDoPost(page: Page, titulo: string) {
 
 /** Expande a seção de comentários do Post indicado. */
 export async function abrirComentarios(page: Page, tituloPost: string): Promise<void> {
-  await cartaoDoPost(page, tituloPost)
-    .getByRole("button", { name: /Ver comentários/ })
-    .click();
+  const card = cartaoDoPost(page, tituloPost);
+  await card.scrollIntoViewIfNeeded();
+  await card.getByRole("button", { name: /Ver comentários/ }).click();
 }
 
 /** Comenta no Post indicado e confirma a renderização do texto. */
 export async function comentar(page: Page, tituloPost: string, texto: string): Promise<void> {
-  await cartaoDoPost(page, tituloPost)
-    .getByPlaceholder("Escreva um comentário...")
-    .fill(texto);
-  await cartaoDoPost(page, tituloPost)
-    .getByRole("button", { name: "Comentar", exact: true })
-    .click();
-  await expect(cartaoDoPost(page, tituloPost).getByText(texto)).toBeVisible();
+  const card = cartaoDoPost(page, tituloPost);
+  await card.scrollIntoViewIfNeeded();
+  await card.getByPlaceholder("Escreva um comentário...").fill(texto);
+  const resposta = esperarCallable(page, "adicionarComentario");
+  await card.getByRole("button", { name: "Comentar", exact: true }).click();
+  await resposta;
+  await expect(card.getByText(texto)).toBeVisible();
+}
+
+/** Edita um Post pela interface do professor dono. */
+export async function editarPost(page: Page, tituloAntigo: string, novoTitulo: string, novaDescricao: string): Promise<void> {
+  const card = cartaoDoPost(page, tituloAntigo);
+  await card.scrollIntoViewIfNeeded();
+  await card.hover();
+  await card.getByRole("button", { name: "Editar Postagem", exact: true }).click();
+  
+  // O formulário de criação usa os mesmos placeholders; os data-testid do modo
+  // de edição desambiguam os campos (o heading antigo é substituído por inputs).
+  const tituloEdicao = page.getByTestId("editar-titulo-post");
+  await expect(tituloEdicao).toBeVisible();
+  
+  // Preenche novos valores
+  await tituloEdicao.fill(novoTitulo);
+  await page.getByTestId("editar-descricao-post").fill(novaDescricao);
+  
+  // Salva
+  const resposta = esperarCallable(page, "editarPost");
+  await page.getByRole("button", { name: "Salvar", exact: true }).click();
+  await resposta;
+  await expect(page.getByRole("heading", { name: novoTitulo, level: 3 })).toBeVisible();
+}
+
+/** Edita um comentário pela interface do autor. */
+export async function editarComentario(page: Page, tituloPost: string, textoAntigo: string, novoTexto: string): Promise<void> {
+  const card = cartaoDoPost(page, tituloPost);
+  await card.scrollIntoViewIfNeeded();
+  const comentario = card.getByTestId("comentario-item").filter({ hasText: textoAntigo });
+  await comentario.hover();
+  await comentario.getByRole("button", { name: "Editar comentário", exact: true }).click({ force: true });
+  const textarea = page.getByTestId("editar-texto-comentario");
+  await expect(textarea).toBeVisible();
+  await textarea.fill(novoTexto);
+  const resposta = esperarCallable(page, "editarComentario");
+  await page.getByTestId("salvar-edicao-comentario").click();
+  await resposta;
+  await expect(card.getByText(novoTexto)).toBeVisible();
 }
 
 export interface ObservadorConsole {

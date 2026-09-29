@@ -5,6 +5,7 @@ import {
   cartaoDoPost,
   comentar,
   criarPost,
+  editarComentario,
   login,
   observarConsole,
 } from "../helpers/ui";
@@ -64,15 +65,12 @@ test.describe("Comentários", () => {
     expect(comentario).toBeTruthy();
 
     // 3. Professor dono modera o comentário.
-    // `prompt()` é síncrono no onclick; registrar o handler ANTES do click evita
-    // deadlock entre a ação de click e o diálogo modal.
     await abrirComentarios(page, titulo);
     const cardComentario = cartaoDoPost(page, titulo);
     await cardComentario.hover();
-    page.once("dialog", (dialog) => {
-      void dialog.accept(motivo);
-    });
     await cardComentario.getByRole("button", { name: "Moderar comentário" }).first().click();
+    await cardComentario.getByPlaceholder("Motivo da moderação...").fill(motivo);
+    await cardComentario.getByRole("button", { name: "Confirmar moderação" }).click();
 
     // 4. O AUTOR (aluno que comentou) vê o original marcado como moderado.
     //    A projeção COLEGA (aviso institucional) é provada na camada de
@@ -92,6 +90,10 @@ test.describe("Comentários", () => {
     }
 
     // 5. Professor dono (auditor) vê o original e o motivo da moderação.
+    // Barreira de sincronização: recarrega a turma e reabre os comentários para
+    // garantir que o estado moderado seja renderizado após o commit no Firestore.
+    await abrirTurma(page, TURMA);
+    await abrirComentarios(page, titulo);
     await expect(cartaoDoPost(page, titulo).getByText(texto)).toBeVisible();
     await expect(
       cartaoDoPost(page, titulo).getByText(new RegExp(`Motivo:\\s*${motivo}`))
@@ -245,15 +247,13 @@ test.describe("Comentários", () => {
     const comentario = comentarios.find((c) => c.data.texto === texto);
     expect(comentario).toBeTruthy();
 
-    // 4. Professor dono modera o comentário. O handler do dialog é registrado
-    //    ANTES do click para evitar deadlock com o prompt() síncrono.
+    // 4. Professor dono modera o comentário.
     await abrirComentarios(page, titulo);
     const cardComentario = cartaoDoPost(page, titulo);
     await cardComentario.hover();
-    page.once("dialog", (dialog) => {
-      void dialog.accept(motivo);
-    });
     await cardComentario.getByRole("button", { name: "Moderar comentário" }).first().click();
+    await cardComentario.getByPlaceholder("Motivo da moderação...").fill(motivo);
+    await cardComentario.getByRole("button", { name: "Confirmar moderação" }).click();
 
     // Barreira de sincronização: a visão AUDITOR do professor revela o motivo
     // somente após o reload pós-moderação, garantindo que o commit chegou ao
@@ -296,5 +296,162 @@ test.describe("Comentários", () => {
     expect(comentarioFinal).toBeTruthy();
     expect(comentarioFinal!.data.moderado).toBe(true);
     expect(comentarioFinal!.data.texto).toBe(texto);
+  });
+
+  test("COMMENT-E2E-006 autor edita seu comentário e indicador (editado) aparece", async ({
+    page,
+    browser,
+  }) => {
+    const titulo = "Post C-E2E-006 — Edição de Comentário";
+    const textoOriginal = "Comentário original do autor (COMMENT-E2E-006).";
+    const textoEditado = "Comentário editado do autor (COMMENT-E2E-006).";
+
+    // 1. Professor dono cria o Post na turma com o autor (aluno.matriculado@lcqui.local).
+    await login(page, "professor.alpha@lcqui.local");
+    await abrirTurma(page, TURMA);
+    await criarPost(page, titulo, "Post para testar edição de comentário.");
+
+    // 2. O autor comenta. O contexto NÃO é fechado: apenas o autor (isOwner na
+    //    UI e autoria validada no callable) enxerga "Editar comentário".
+    const contextoAutor = await browser.newContext();
+    const paginaAutor = await contextoAutor.newPage();
+    const consoleAutor = observarConsole(paginaAutor);
+    try {
+      await login(paginaAutor, "aluno.matriculado@lcqui.local");
+      await abrirTurma(paginaAutor, TURMA);
+      await abrirComentarios(paginaAutor, titulo);
+      await comentar(paginaAutor, titulo, textoOriginal);
+      consoleAutor.verificar();
+
+      // 3. O autor edita o próprio comentário. A seção permanece expandida
+      //    desde `comentar` (o toggle exibe "Ocultar comentários"); recolher
+      //    antes evita clicar no botão "Ver comentários" inexistente.
+      await cartaoDoPost(paginaAutor, titulo)
+        .getByRole("button", { name: /Ocultar comentários/ })
+        .click();
+      await abrirComentarios(paginaAutor, titulo);
+      await editarComentario(paginaAutor, titulo, textoOriginal, textoEditado);
+
+      // 4. O autor vê o texto editado e o indicador (editado).
+      await expect(
+        cartaoDoPost(paginaAutor, titulo).getByText(textoEditado)
+      ).toBeVisible();
+      const comentarioEditado = cartaoDoPost(paginaAutor, titulo)
+        .getByText(textoEditado)
+        .locator("../..");
+      await expect(comentarioEditado.getByText("(editado)")).toBeVisible();
+      consoleAutor.verificar();
+
+      // 5. Persistência: a edição fica registrada no Firestore Emulator.
+      const posts = await listarColecao(`Turma/${TURMA_ID}/Posts`);
+      const postId = posts.find((p) => p.data.titulo === titulo)!.id;
+      const comentarios = await listarColecao(
+        `Turma/${TURMA_ID}/Posts/${postId}/Comentarios`
+      );
+      const comentarioEditadoFirestore = comentarios.find(
+        (c) => c.data.texto === textoEditado
+      );
+      expect(comentarioEditadoFirestore).toBeTruthy();
+      expect(comentarioEditadoFirestore!.data.editado).toBe(true);
+      expect(comentarioEditadoFirestore!.data.editado_em).toBeTruthy();
+    } finally {
+      // 6. Todos os contextos são encerrados somente ao final do teste.
+      await contextoAutor.close();
+    }
+  });
+
+  test("COMMENT-E2E-007 edição do autor não desfaz moderação", async ({
+    page,
+    browser,
+  }) => {
+    const titulo = "Post C-E2E-007 — Edição não desfaz moderação";
+    const textoOriginal = "Comentário original do aluno (COMMENT-E2E-007).";
+    const textoEditado = "Comentário editado pelo autor (COMMENT-E2E-007).";
+    const motivo = "Conteúdo impróprio.";
+
+    // 1. Professor dono cria o Post na turma com o autor e os colegas; a
+    //    projeção COLEGA é verificada no passo 8.
+    await login(page, "professor.alpha@lcqui.local");
+    await abrirTurma(page, TURMA_COLEGAS);
+    await criarPost(page, titulo, "Post para testar edição após moderação.");
+
+    // 2–6. O autor comenta e depois edita o comentário moderado. O contexto
+    // permanece aberto até a edição e as verificações da visão AUTOR.
+    const contextoAluno = await browser.newContext();
+    const paginaAluno = await contextoAluno.newPage();
+    const consoleAluno = observarConsole(paginaAluno);
+    try {
+      await login(paginaAluno, "aluno.colega.a@lcqui.local");
+      await abrirTurma(paginaAluno, TURMA_COLEGAS);
+      await abrirComentarios(paginaAluno, titulo);
+      await comentar(paginaAluno, titulo, textoOriginal);
+      consoleAluno.verificar();
+
+      // 3. Professor dono modera o comentário.
+      await abrirComentarios(page, titulo);
+      const cardPost = cartaoDoPost(page, titulo);
+      await cardPost.hover();
+      await cardPost.getByRole("button", { name: "Moderar comentário" }).first().click();
+      await cardPost.getByPlaceholder("Motivo da moderação...").fill(motivo);
+      await cardPost.getByRole("button", { name: "Confirmar moderação" }).click();
+
+      // Barreira: a visão AUDITOR só revela o motivo após o reload pós-
+      // moderação, garantindo o commit antes de o autor reabrir os comentários.
+      await expect(
+        cardPost.getByText(new RegExp(`Motivo:\\s*${motivo}`))
+      ).toBeVisible();
+
+      // 4. O autor (ainda na página original) recolhe e reabre os comentários
+      //    para ler o estado moderado e edita o próprio comentário.
+      await cartaoDoPost(paginaAluno, titulo)
+        .getByRole("button", { name: /Ocultar comentários/ })
+        .click();
+      await abrirComentarios(paginaAluno, titulo);
+      await editarComentario(paginaAluno, titulo, textoOriginal, textoEditado);
+
+      // 5. Persistência: texto editado com `editado = true` e moderação intacta.
+      const posts = await listarColecao(`Turma/${TURMA_COLEGAS_ID}/Posts`);
+      const postId = posts.find((p) => p.data.titulo === titulo)!.id;
+      const comentariosPost = await listarColecao(
+        `Turma/${TURMA_COLEGAS_ID}/Posts/${postId}/Comentarios`
+      );
+      const comentario = comentariosPost.find((c) => c.data.texto === textoEditado);
+      expect(comentario).toBeTruthy();
+      expect(comentario!.data.editado).toBe(true);
+      expect(comentario!.data.texto).toBe(textoEditado);
+      expect(comentario!.data.moderado).toBe(true);
+
+      // 6. Visão AUTOR: o autor vê o texto editado marcado como moderado.
+      await expect(paginaAluno.getByText(textoEditado)).toBeVisible();
+      await expect(paginaAluno.getByText("(moderado)")).toBeVisible();
+      consoleAluno.verificar();
+    } finally {
+      await contextoAluno.close();
+    }
+
+    // 7. Visão AUDITOR: o professor dono recarrega o feed (comentários não são
+    //    realtime) e vê o texto editado e o motivo da moderação.
+    await abrirTurma(page, TURMA_COLEGAS);
+    await abrirComentarios(page, titulo);
+    await expect(cartaoDoPost(page, titulo).getByText(textoEditado)).toBeVisible();
+    await expect(
+      cartaoDoPost(page, titulo).getByText(new RegExp(`Motivo:\\s*${motivo}`))
+    ).toBeVisible();
+
+    // 8. Visão COLEGA: aviso institucional, nunca o texto (editado ou original).
+    const contextoColegaB = await browser.newContext();
+    const paginaColegaB = await contextoColegaB.newPage();
+    const consoleColegaB = observarConsole(paginaColegaB);
+    try {
+      await login(paginaColegaB, "aluno.colega.b@lcqui.local");
+      await abrirTurma(paginaColegaB, TURMA_COLEGAS);
+      await abrirComentarios(paginaColegaB, titulo);
+      await expect(paginaColegaB.getByText(/moderado pelo professor/i)).toBeVisible();
+      await expect(paginaColegaB.getByText(textoEditado)).toHaveCount(0);
+      await expect(paginaColegaB.getByText(textoOriginal)).toHaveCount(0);
+      consoleColegaB.verificar();
+    } finally {
+      await contextoColegaB.close();
+    }
   });
 });
