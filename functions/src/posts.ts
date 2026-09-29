@@ -20,7 +20,6 @@ import {
   ListarComentariosPostSchema,
 } from "./schemas/posts.schema";
 
-const db = admin.firestore();
 
 // ---------------------------------------------------------------------------
 // Helpers compartilhados
@@ -44,7 +43,7 @@ async function resolverNomeIdentidadeTx(
   tx: admin.firestore.Transaction,
   uid: string
 ): Promise<string> {
-  const snap = await tx.get(db.collection("Usuarios").doc(uid));
+  const snap = await tx.get(admin.firestore().collection("Usuarios").doc(uid));
   const nome = snap.data()?.nome;
   return typeof nome === "string" && nome.trim().length > 0
     ? nome.trim()
@@ -59,7 +58,7 @@ export const criarPost = onCall(async (request) => {
   const { idOperacao, idTurma, titulo, descricao, idRoteiroExperimento } =
     validatePayload(CriarPostSchema, request.data);
 
-  return db.runTransaction(async (tx) => {
+  return admin.firestore().runTransaction(async (tx) => {
     // M9: autoridade persistida relida na transação do efeito (efeito de
     // autorização; o resultado não é usado porque somente o dono cria Post).
     await resolverAutoridadePersistidaTx(tx, claims, [
@@ -86,7 +85,7 @@ export const criarPost = onCall(async (request) => {
     }
 
     // Turma: existência, ownership (professor-dono ou chefe) e status.
-    const turmaRef = db.collection("Turma").doc(idTurma);
+    const turmaRef = admin.firestore().collection("Turma").doc(idTurma);
     const turmaSnap = await tx.get(turmaRef);
     if (!turmaSnap.exists) {
       throw new HttpsError("not-found", "Turma não encontrada.");
@@ -137,7 +136,7 @@ export const criarPost = onCall(async (request) => {
     for (const alunoDoc of alunosSnap.docs) {
       const alunoData = alunoDoc.data();
       if (alunoData.id_aluno !== alunoDoc.id) continue; // fail-closed canonical
-      adicionarNotificacaoTx(tx, db, {
+      adicionarNotificacaoTx(tx, admin.firestore(), {
         id_destinatario: alunoDoc.id,
         papel_destinatario: "Aluno",
         tipo: "POST",
@@ -164,7 +163,7 @@ export const adicionarComentario = onCall(async (request) => {
     request.data
   );
 
-  return db.runTransaction(async (tx) => {
+  return admin.firestore().runTransaction(async (tx) => {
     const autoridade = await resolverAutoridadePersistidaTx(tx, claims, [
       "Professor",
       "Chefe_Geral",
@@ -189,7 +188,7 @@ export const adicionarComentario = onCall(async (request) => {
     }
 
     // Turma: existência + status.
-    const turmaRef = db.collection("Turma").doc(idTurma);
+    const turmaRef = admin.firestore().collection("Turma").doc(idTurma);
     const turmaSnap = await tx.get(turmaRef);
     if (!turmaSnap.exists) {
       throw new HttpsError("not-found", "Turma não encontrada.");
@@ -269,7 +268,7 @@ export const adicionarComentario = onCall(async (request) => {
     // Notificação ao professor-dono da turma (M13).
     const professorUid = turmaData.id_professor as string;
     if (professorUid !== claims.uid) {
-      adicionarNotificacaoTx(tx, db, {
+      adicionarNotificacaoTx(tx, admin.firestore(), {
         id_destinatario: professorUid,
         papel_destinatario: "Professor",
         tipo: "COMENTARIO",
@@ -296,7 +295,7 @@ export const removerPost = onCall(async (request) => {
     request.data
   );
 
-  return db.runTransaction(async (tx) => {
+  return admin.firestore().runTransaction(async (tx) => {
     const autoridade = await resolverAutoridadePersistidaTx(tx, claims, [
       "Professor",
       "Chefe_Geral",
@@ -318,7 +317,7 @@ export const removerPost = onCall(async (request) => {
       );
     }
 
-    const turmaRef = db.collection("Turma").doc(idTurma);
+    const turmaRef = admin.firestore().collection("Turma").doc(idTurma);
     const turmaSnap = await tx.get(turmaRef);
     if (!turmaSnap.exists) {
       throw new HttpsError("not-found", "Turma não encontrada.");
@@ -383,7 +382,7 @@ export const removerPost = onCall(async (request) => {
     for (const alunoDoc of alunosSnap.docs) {
       const alunoData = alunoDoc.data();
       if (alunoData.id_aluno !== alunoDoc.id) continue;
-      adicionarNotificacaoTx(tx, db, {
+      adicionarNotificacaoTx(tx, admin.firestore(), {
         id_destinatario: alunoDoc.id,
         papel_destinatario: "Aluno",
         tipo: "REMOVIDO",
@@ -410,7 +409,7 @@ export const moderarComentario = onCall(async (request) => {
     request.data
   );
 
-  return db.runTransaction(async (tx) => {
+  return admin.firestore().runTransaction(async (tx) => {
     const autoridade = await resolverAutoridadePersistidaTx(tx, claims, [
       "Professor",
       "Chefe_Geral",
@@ -433,7 +432,7 @@ export const moderarComentario = onCall(async (request) => {
       );
     }
 
-    const turmaRef = db.collection("Turma").doc(idTurma);
+    const turmaRef = admin.firestore().collection("Turma").doc(idTurma);
     const turmaSnap = await tx.get(turmaRef);
     if (!turmaSnap.exists) {
       throw new HttpsError("not-found", "Turma não encontrada.");
@@ -510,7 +509,7 @@ export const listarComentariosPost = onCall(async (request) => {
     request.data
   );
 
-  return db.runTransaction(async (tx) => {
+  return admin.firestore().runTransaction(async (tx) => {
     const autoridade = await resolverAutoridadePersistidaTx(tx, claims, [
       "Professor",
       "Chefe_Geral",
@@ -535,7 +534,7 @@ export const listarComentariosPost = onCall(async (request) => {
       );
     }
 
-    const turmaRef = db.collection("Turma").doc(idTurma);
+    const turmaRef = admin.firestore().collection("Turma").doc(idTurma);
     const turmaSnap = await tx.get(turmaRef);
     if (!turmaSnap.exists) {
       throw new HttpsError("not-found", "Turma não encontrada.");
@@ -595,6 +594,7 @@ export const listarComentariosPost = onCall(async (request) => {
       if (ehAutor) {
         return {
           id: doc.id,
+          visao: "AUTOR" as const,
           id_usuario: d.id_usuario,
           nome_usuario: d.nome_usuario,
           texto: d.texto,
@@ -611,6 +611,7 @@ export const listarComentariosPost = onCall(async (request) => {
         if (moderado) {
           return {
             id: doc.id,
+            visao: "COLEGA" as const,
             id_usuario: d.id_usuario,
             nome_usuario: d.nome_usuario,
             texto: null,
@@ -623,6 +624,7 @@ export const listarComentariosPost = onCall(async (request) => {
         }
         return {
           id: doc.id,
+          visao: "COLEGA" as const,
           id_usuario: d.id_usuario,
           nome_usuario: d.nome_usuario,
           texto: d.texto,
@@ -637,6 +639,7 @@ export const listarComentariosPost = onCall(async (request) => {
       // Visão AUDITOR (professor-dono / Chefe): original + histórico.
       return {
         id: doc.id,
+        visao: "AUDITOR" as const,
         id_usuario: d.id_usuario,
         nome_usuario: d.nome_usuario,
         texto: d.texto,
@@ -673,10 +676,10 @@ export const excluirPost = onCall(async (request) => {
     request.data
   );
 
-  return db.runTransaction(async (tx) => {
+  return admin.firestore().runTransaction(async (tx) => {
     await resolverAutoridadePersistidaTx(tx, claims, ["Professor", "Chefe_Geral"]);
 
-    const turmaRef = db.collection("Turma").doc(idTurma);
+    const turmaRef = admin.firestore().collection("Turma").doc(idTurma);
     const turmaSnap = await tx.get(turmaRef);
     if (!turmaSnap.exists) {
       throw new HttpsError("not-found", "Turma não encontrada.");
@@ -717,10 +720,10 @@ export const excluirComentario = onCall(async (request) => {
     request.data
   );
 
-  return db.runTransaction(async (tx) => {
+  return admin.firestore().runTransaction(async (tx) => {
     await resolverAutoridadePersistidaTx(tx, claims, ["Professor", "Chefe_Geral"]);
 
-    const turmaRef = db.collection("Turma").doc(idTurma);
+    const turmaRef = admin.firestore().collection("Turma").doc(idTurma);
     const turmaSnap = await tx.get(turmaRef);
     if (!turmaSnap.exists) {
       throw new HttpsError("not-found", "Turma não encontrada.");
