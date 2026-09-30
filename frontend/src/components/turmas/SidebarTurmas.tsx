@@ -4,12 +4,13 @@ import { db } from "@/lib/firebase/config";
 import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
 import { TurmasArquivadasModal } from "./ProfessorModais";
 
-interface Turma {
+export interface Turma {
   id: string;
   nome_turma: string;
   codigo_turma?: string;
   nome_materia?: string;
   status?: string;
+  id_professor?: string;
 }
 
 interface SidebarTurmasProps {
@@ -74,6 +75,7 @@ export default function SidebarTurmas({
         {isProfessor && (
           <button 
             onClick={onOpenNovaTurma}
+            data-testid="botao-nova-turma"
             className="w-full bg-primary/10 text-primary hover:bg-primary/20 py-2 rounded-lg font-medium transition-colors"
           >
             + Nova Turma
@@ -82,6 +84,7 @@ export default function SidebarTurmas({
         {isAluno && !isProfessor && (
           <button 
             onClick={onOpenIngressar}
+            data-testid="botao-ingressar-turma"
             className="w-full bg-primary/10 text-primary hover:bg-primary/20 py-2 rounded-lg font-medium transition-colors"
           >
             Ingressar em Turma

@@ -39,6 +39,7 @@ export default function AlunosDashboard() {
   const [selectedTurma, setSelectedTurma] = useState<string>("");
   const [historicoModal, setHistoricoModal] = useState<{ isOpen: boolean, idAluno: string, nomeAluno: string, idTurma: string }>({ isOpen: false, idAluno: "", nomeAluno: "", idTurma: "" });
   const [loadingAcao, setLoadingAcao] = useState<string | null>(null);
+  const [confirmarRemocao, setConfirmarRemocao] = useState<{ id: string; nome: string } | null>(null);
 
   const isChefeGeral = roles.includes("Chefe_Geral");
 
@@ -109,9 +110,15 @@ export default function AlunosDashboard() {
     }
   };
 
-  const handleExcluirAluno = async (idAluno: string) => {
-    if (!confirm("Deseja realmente remover este aluno da turma?")) return;
+  const handleIniciarRemocao = (idAluno: string, nomeAluno: string) => {
+    setConfirmarRemocao({ id: idAluno, nome: nomeAluno });
+  };
+
+  const handleConfirmarRemocao = async () => {
+    if (!confirmarRemocao) return;
+    const { id: idAluno } = confirmarRemocao;
     setLoadingAcao(idAluno);
+    setConfirmarRemocao(null);
     try {
       const session = typeof window !== "undefined" ? window.sessionStorage : null;
       const chave = chaveIntencaoMembro(selectedTurma, idAluno, "REMOVER");
@@ -123,9 +130,10 @@ export default function AlunosDashboard() {
       await removerAlunoTurma({ idOperacao: intencao.idOperacao, idTurma: selectedTurma, idAluno });
       if (session) limparIntencao(session, chave);
       alert("Aluno removido com sucesso!");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao remover aluno:", error);
-      alert(error.message || "Erro ao remover aluno.");
+      const message = error instanceof Error ? error.message : "Erro ao remover aluno.";
+      alert(message);
     } finally {
       setLoadingAcao(null);
     }
@@ -160,6 +168,34 @@ export default function AlunosDashboard() {
               Novo Aluno
             </button>
           </header>
+
+          {confirmarRemocao && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+              <div className="bg-background rounded-2xl border border-foreground/10 shadow-2xl w-full max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95">
+                <h3 className="text-lg font-bold">Remover aluno da turma?</h3>
+                <p className="text-sm text-foreground/80">
+                  Tem certeza que deseja remover <strong>{confirmarRemocao.nome}</strong> da turma?
+                  O vínculo será removido, mas comentários e histórico permanecem.
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setConfirmarRemocao(null)}
+                    className="px-4 py-2 rounded-lg font-medium hover:bg-foreground/5 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleConfirmarRemocao}
+                    disabled={loadingAcao === confirmarRemocao.id}
+                    data-testid="confirmar-remover-aluno"
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors disabled:opacity-50"
+                  >
+                    {loadingAcao === confirmarRemocao.id ? "Removendo..." : "Confirmar Remoção"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Filtro Obrigatório de Banco */}
           <div className="bg-background border border-border rounded-2xl p-6 shadow-sm mb-6">
@@ -265,7 +301,7 @@ export default function AlunosDashboard() {
                               Histórico
                             </button>
                             <button
-                              onClick={() => handleExcluirAluno(aluno.id)}
+                              onClick={() => handleIniciarRemocao(aluno.id, aluno.nome)}
                               disabled={loadingAcao === aluno.id}
                               className="px-3 py-1.5 text-xs font-bold bg-red-500/10 text-red-600 hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-50"
                             >

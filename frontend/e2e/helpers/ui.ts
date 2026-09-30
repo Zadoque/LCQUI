@@ -30,6 +30,52 @@ export async function abrirNovoAlunoModal(page: Page, turmaNome: string): Promis
   await expect(page.getByRole("heading", { name: "Novo Aluno" })).toBeVisible();
 }
 
+export interface DadosCriarTurma {
+  idMateria: string;
+  nome: string;
+  ano?: number;
+  semestre?: number;
+  capacidade?: number;
+}
+
+export async function criarTurma(page: Page, opcoes: DadosCriarTurma): Promise<void> {
+  await page.goto("/turmas");
+  await page.getByTestId("botao-nova-turma").click();
+  await expect(page.getByRole("heading", { name: "Nova Turma" })).toBeVisible();
+
+  await page.getByLabel("Matéria").selectOption(opcoes.idMateria);
+  await page.getByLabel("Nome da Turma").fill(opcoes.nome);
+  if (opcoes.ano !== undefined) {
+    await page.getByLabel("Ano").fill(String(opcoes.ano));
+  }
+  if (opcoes.semestre !== undefined) {
+    await page.getByLabel("Semestre").selectOption(String(opcoes.semestre));
+  }
+  if (opcoes.capacidade !== undefined) {
+    await page.getByLabel("Capacidade de Alunos").fill(String(opcoes.capacidade));
+  }
+
+  const resposta = esperarCallable(page, "criarTurma");
+  await page.getByRole("button", { name: "Criar Turma" }).click();
+  await resposta;
+  await expect(page.getByRole("heading", { name: "Nova Turma" })).toHaveCount(0);
+}
+
+export async function ingressarPorCodigo(page: Page, codigo: string): Promise<void> {
+  await page.goto("/turmas");
+  await page.getByTestId("botao-ingressar-turma").click();
+  await page.getByTestId("input-codigo-turma").fill(codigo);
+  const resposta = esperarCallable(page, "ingressarEmTurmaPorCodigo");
+  await page.getByTestId("botao-confirmar-ingressar").click();
+  await resposta;
+}
+
+export async function abrirMembrosTurma(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Ações", exact: true }).click();
+  await page.getByTestId("botao-membros-turma").click();
+  await expect(page.getByRole("heading", { name: "Membros da Turma" })).toBeVisible();
+}
+
 export interface OpcoesConvite {
   turmaId: string;
   emails: string;
@@ -193,6 +239,28 @@ export interface ObservadorConsole {
  * contexto), espelhando a guarda da fixture. A exceção por padrão é o aviso de
  * reconexão do SDK Firestore em cold start.
  */
+export async function adicionarAlunoExistente(page: Page, uidAluno: string): Promise<void> {
+  await expect(page.getByRole("heading", { name: "Novo Aluno" })).toBeVisible();
+  await page.getByTestId("aba-buscar-aluno").click();
+
+  await page.getByRole("button", { name: "Buscar", exact: true }).click();
+
+  const linha = page.getByTestId(`linha-aluno-${uidAluno}`);
+  await expect(linha).toBeVisible();
+
+  const resposta = esperarCallable(page, "adicionarAlunoExistenteTurma");
+  await linha.getByTestId("botao-adicionar-existente").click();
+  await resposta;
+}
+
+export async function removerAluno(page: Page, uidAluno: string): Promise<void> {
+  await expect(page.getByRole("heading", { name: "Membros da Turma" })).toBeVisible();
+  const resposta = esperarCallable(page, "removerAlunoTurma");
+  await page.getByTestId(`remover-aluno-${uidAluno}`).click();
+  await page.getByTestId("confirmar-remover-aluno").click();
+  await resposta;
+}
+
 export function observarConsole(page: Page): ObservadorConsole {
   const erros: string[] = [];
   const permitidos: RegExp[] = [

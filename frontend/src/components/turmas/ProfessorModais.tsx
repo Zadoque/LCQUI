@@ -71,7 +71,7 @@ export function TurmasArquivadasModal({ isOpen, onClose }: ModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true">
       <div className="bg-background rounded-2xl border border-foreground/10 shadow-2xl w-full max-w-lg flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
         <div className="p-6 border-b border-foreground/10 flex justify-between items-center">
           <h2 className="text-xl font-bold flex items-center gap-2">
@@ -87,7 +87,7 @@ export function TurmasArquivadasModal({ isOpen, onClose }: ModalProps) {
           ) : (
             <ul className="space-y-3">
               {arquivadas.map(turma => (
-                <li key={turma.id} className="flex items-center justify-between p-4 bg-muted rounded-xl">
+                <li key={turma.id} data-testid={`linha-turma-arquivada-${turma.id}`} className="flex items-center justify-between p-4 bg-muted rounded-xl">
                   <div>
                     <p className="font-bold">{turma.nome_turma}</p>
                     <p className="text-sm text-muted-foreground">
@@ -97,6 +97,7 @@ export function TurmasArquivadasModal({ isOpen, onClose }: ModalProps) {
                   <button
                     onClick={() => handleDesarquivar(turma.id)}
                     disabled={loading}
+                    data-testid="botao-desarquivar-turma"
                     className="px-4 py-2 bg-primary/10 text-primary font-medium rounded-lg hover:bg-primary/20 transition-colors disabled:opacity-50"
                   >
                     Desarquivar
@@ -370,11 +371,12 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
         </div>
 
         <div className="flex border-b border-foreground/10 px-6 mt-4">
-          <button 
+          <button
             className={`px-4 py-2 font-semibold border-b-2 transition-colors ${activeTab === 'buscar' ? 'border-primary text-primary' : 'border-transparent text-foreground/60 hover:text-foreground'}`}
             onClick={() => setActiveTab('buscar')}
+            data-testid="aba-buscar-aluno"
           >Buscar no Sistema</button>
-          <button 
+          <button
             className={`px-4 py-2 font-semibold border-b-2 transition-colors ${activeTab === 'convidar' ? 'border-primary text-primary' : 'border-transparent text-foreground/60 hover:text-foreground'}`}
             onClick={() => setActiveTab('convidar')}
           >Convidar por E-mail</button>
@@ -391,8 +393,9 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
             <div className="space-y-4">
               <div className="flex gap-2 items-end">
                 <div>
-                  <label className="block text-xs font-semibold mb-1">Letra</label>
+                  <label htmlFor="buscar-letra" className="block text-xs font-semibold mb-1">Letra</label>
                   <select
+                    id="buscar-letra"
                     value={letraInicial}
                     onChange={e => setLetraInicial(e.target.value)}
                     className="w-20 px-2 py-2 rounded-lg bg-background border border-foreground/20 focus:outline-none focus:ring-2"
@@ -401,12 +404,14 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
                   </select>
                 </div>
                 <div className="flex-1">
-                  <label className="block text-xs font-semibold mb-1">Nome ou Matrícula (opcional)</label>
-                  <input 
+                  <label htmlFor="buscar-nome-matricula" className="block text-xs font-semibold mb-1">Nome ou Matrícula (opcional)</label>
+                  <input
+                    id="buscar-nome-matricula"
                     type="text"
                     value={filtroTexto}
                     onChange={e => setFiltroTexto(e.target.value)}
                     placeholder="Filtrar localmente..."
+                    data-testid="input-buscar-aluno"
                     className="w-full px-3 py-2 rounded-lg bg-background border border-foreground/20 focus:outline-none focus:ring-2"
                   />
                 </div>
@@ -427,13 +432,15 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
                   const isMatriculado = matriculados.has(a.id);
                   const isLoading = loadingAdicao === a.id;
                   return (
-                    <div key={a.id} className="flex justify-between items-center p-3 bg-foreground/5 rounded-xl">
+                    <div key={a.id} data-testid={`linha-aluno-${a.id}`} className="flex justify-between items-center p-3 bg-foreground/5 rounded-xl">
                       <div>
                         <p className="font-bold text-sm">{a.nome || "Sem nome"}</p>
                       </div>
                       <button
+                        type="button"
                         onClick={() => handleAdicionarExistente(a.id)}
                         disabled={isMatriculado || isLoading || !idTurma}
+                        data-testid="botao-adicionar-existente"
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isMatriculado ? 'bg-foreground/10 text-foreground/50' : 'bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground'}`}
                       >
                         {isLoading ? "Adicionando..." : isMatriculado ? "[Já matriculado]" : "Adicionar"}

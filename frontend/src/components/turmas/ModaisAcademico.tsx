@@ -217,8 +217,9 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
           )}
 
           <div>
-            <label className="block text-sm font-semibold mb-1">Matéria</label>
+            <label htmlFor="nova-turma-materia" className="block text-sm font-semibold mb-1">Matéria</label>
             <select 
+              id="nova-turma-materia"
               required
               value={idMateria}
               onChange={(e) => setIdMateria(e.target.value)}
@@ -233,8 +234,9 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-1">Nome da Turma</label>
+            <label htmlFor="nova-turma-nome" className="block text-sm font-semibold mb-1">Nome da Turma</label>
             <input 
+              id="nova-turma-nome"
               required
               type="text" 
               value={nome}
@@ -246,8 +248,9 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold mb-1">Ano</label>
+              <label htmlFor="nova-turma-ano" className="block text-sm font-semibold mb-1">Ano</label>
               <input 
+                id="nova-turma-ano"
                 required
                 type="number" 
                 value={ano}
@@ -256,8 +259,9 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-1">Semestre</label>
+              <label htmlFor="nova-turma-semestre" className="block text-sm font-semibold mb-1">Semestre</label>
               <select 
+                id="nova-turma-semestre"
                 value={semestre}
                 onChange={(e) => setSemestre(Number(e.target.value))}
                 className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
@@ -269,8 +273,9 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-1">Capacidade de Alunos</label>
+            <label htmlFor="nova-turma-capacidade" className="block text-sm font-semibold mb-1">Capacidade de Alunos</label>
             <input 
+              id="nova-turma-capacidade"
               required
               type="number" 
               min="1"
@@ -356,12 +361,14 @@ export function IngressarTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
           )}
 
           <div>
-            <label className="block text-sm font-semibold mb-1">Código da Turma</label>
-            <input 
+            <label htmlFor="ingressar-turma-codigo" className="block text-sm font-semibold mb-1">Código da Turma</label>
+            <input
+              id="ingressar-turma-codigo"
               required
-              type="text" 
+              type="text"
               value={codigo}
               onChange={(e) => setCodigo(e.target.value.toUpperCase())}
+              data-testid="input-codigo-turma"
               className="w-full px-4 py-3 text-center text-xl tracking-widest bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary uppercase font-bold"
               placeholder="CÓDIGO"
             />
@@ -378,6 +385,7 @@ export function IngressarTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
             <button
               type="submit"
               disabled={loading || !codigo.trim()}
+              data-testid="botao-confirmar-ingressar"
               className="px-6 py-2 bg-primary text-primary-foreground text-sm font-bold rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               {loading ? "Processando..." : "Ingressar"}

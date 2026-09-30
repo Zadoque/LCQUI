@@ -5,6 +5,14 @@ import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { Trash2, FileText, ChevronDown, ChevronUp, Edit } from "lucide-react";
 import ComentariosPost from "./ComentariosPost";
+import {
+  resolverIdOperacao,
+  lerIntencao,
+  gravarIntencao,
+  limparIntencao,
+  chaveIntencaoStatusTurma,
+  assinaturaStatusTurma,
+} from "@/lib/intencaoOperacao";
 
 interface RoteiroProjecao {
   id: string;
@@ -16,8 +24,9 @@ interface RoteiroProjecao {
 interface Turma {
   id: string;
   nome_turma: string;
-  codigo_turma: string;
-  status: string;
+  codigo_turma?: string;
+  status?: string;
+  id_professor?: string;
 }
 
 interface FeedTurmaProps {
@@ -132,6 +141,8 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
   const [idRoteiroOriginal, setIdRoteiroOriginal] = useState<string | null>(null);
   const [expandedComments, setExpandedComments] = useState<{ [key: string]: boolean }>({});
   const [erro, setErro] = useState<string | null>(null);
+  const [modalArquivar, setModalArquivar] = useState(false);
+  const [arquivando, setArquivando] = useState(false);
 
   const isProfessor = roles.includes("Professor") || roles.includes("Chefe_Geral");
 
@@ -278,6 +289,36 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
     }));
   };
 
+  const podeArquivar = turma &&
+    turma.status === "Ativo" &&
+    (roles.includes("Chefe_Geral") || user?.uid === turma.id_professor);
+
+  const handleArquivar = async () => {
+    if (!turma) return;
+    setArquivando(true);
+    try {
+      const status = "Arquivada";
+      const session = typeof window !== "undefined" ? window.sessionStorage : null;
+      const chave = chaveIntencaoStatusTurma(turma.id, status);
+      const assinatura = assinaturaStatusTurma(turma.id, status);
+      const atual = session ? lerIntencao(session, chave) : null;
+      const intencao = resolverIdOperacao(atual, assinatura, () => crypto.randomUUID());
+      if (session) gravarIntencao(session, chave, intencao);
+
+      const alterarStatusFn = httpsCallable(getFunctions(), "alterarStatusTurma");
+      await alterarStatusFn({ idOperacao: intencao.idOperacao, idTurma: turma.id, status });
+      if (session) limparIntencao(session, chave);
+      setModalArquivar(false);
+    } catch (err) {
+      console.error("Erro ao arquivar turma:", err);
+      const message = err instanceof Error ? err.message : "Erro ao arquivar turma.";
+      setErro(message);
+      setModalArquivar(false);
+    } finally {
+      setArquivando(false);
+    }
+  };
+
   if (!turma) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background/50">
@@ -293,15 +334,54 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-background/50">
-      <div className="p-6 border-b border-border bg-card shadow-sm z-10">
-        <h1 className="text-2xl font-bold">{turma.nome_turma}</h1>
-        <p className="text-sm text-muted-foreground">Código: <span className="font-mono bg-muted px-1.5 py-0.5 rounded">{turma.codigo_turma}</span></p>
+      <div className="p-6 border-b border-border bg-card shadow-sm z-10 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">{turma.nome_turma}</h1>
+          <p className="text-sm text-muted-foreground">Código: <span className="font-mono bg-muted px-1.5 py-0.5 rounded">{turma.codigo_turma}</span></p>
+        </div>
+        {podeArquivar && (
+          <button
+            onClick={() => setModalArquivar(true)}
+            data-testid="botao-arquivar-turma"
+            className="shrink-0 px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-bold hover:bg-amber-700 transition-colors"
+          >
+            Arquivar
+          </button>
+        )}
       </div>
 
       {erro && (
         <div className="mx-6 mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-600 text-sm flex items-center justify-between">
           <span>{erro}</span>
           <button onClick={() => setErro(null)} className="font-bold">×</button>
+        </div>
+      )}
+
+      {modalArquivar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-background rounded-2xl border border-foreground/10 shadow-2xl w-full max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95">
+            <h3 className="text-lg font-bold">Arquivar turma?</h3>
+            <p className="text-sm text-foreground/80">
+              Tem certeza que deseja arquivar <strong>{turma.nome_turma}</strong>?
+              A turma ficará em modo somente leitura e poderá ser desarquivada posteriormente.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setModalArquivar(false)}
+                className="px-4 py-2 rounded-lg font-medium hover:bg-foreground/5 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleArquivar}
+                disabled={arquivando}
+                data-testid="confirmar-arquivar-turma"
+                className="px-4 py-2 bg-amber-600 text-white rounded-lg font-bold hover:bg-amber-700 transition-colors disabled:opacity-50"
+              >
+                {arquivando ? "Arquivando..." : "Confirmar Arquivamento"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

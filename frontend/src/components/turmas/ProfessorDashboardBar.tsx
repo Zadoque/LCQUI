@@ -1,18 +1,23 @@
 import React, { useState } from "react";
-import { Bell, Plus, FileText, ClipboardList, Beaker } from "lucide-react";
+import { Bell, Plus, FileText } from "lucide-react";
+import { Turma } from "./SidebarTurmas";
 
 interface ProfessorDashboardBarProps {
   turmasCount: number;
+  turmaSelecionada: Turma | null;
   onOpenNovoAluno: () => void;
   onOpenNovoRoteiro: () => void;
   onOpenGerenciarRoteiros: () => void;
+  onOpenMembros: () => void;
 }
 
 export default function ProfessorDashboardBar({
   turmasCount,
+  turmaSelecionada,
   onOpenNovoAluno,
   onOpenNovoRoteiro,
   onOpenGerenciarRoteiros,
+  onOpenMembros,
 }: ProfessorDashboardBarProps) {
   const [isPlusOpen, setIsPlusOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -53,14 +58,22 @@ export default function ProfessorDashboardBar({
           </button>
           {isPlusOpen && (
             <div className="absolute top-full left-0 mt-2 w-64 bg-background border border-border rounded-xl shadow-xl overflow-hidden py-1">
-              <button 
+              <button
                 onClick={() => { setIsPlusOpen(false); onOpenNovoAluno(); }}
                 disabled={turmasCount === 0}
                 className="w-full text-left px-4 py-2 text-sm hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 👨‍🎓 Novo Aluno na Turma
               </button>
-              <button 
+              <button
+                onClick={() => { setIsPlusOpen(false); onOpenMembros(); }}
+                disabled={!turmaSelecionada}
+                data-testid="botao-membros-turma"
+                className="w-full text-left px-4 py-2 text-sm hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                👥 Membros da Turma
+              </button>
+              <button
                 onClick={() => { setIsPlusOpen(false); onOpenNovoRoteiro(); }}
                 className="w-full text-left px-4 py-2 text-sm hover:bg-muted transition-colors"
               >
