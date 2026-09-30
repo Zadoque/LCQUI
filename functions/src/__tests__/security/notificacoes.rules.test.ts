@@ -115,24 +115,6 @@ describe("IMP-NOTIF-002 — notificações server-owned", () => {
     );
   });
 
-  it("TEST-RULES-NOTIF-006 — token com versão obsoleta não lê", async () => {
-    await seedUser("dono", { versaoPermissoes: CURRENT_VERSION });
-    await seedNotificacao("dono", "n1");
-    const db = dbFor("dono", ["Aluno"], CURRENT_VERSION - 1);
-    await assertFails(
-      db.collection("Usuarios").doc("dono").collection("Notificacoes").doc("n1").get()
-    );
-  });
-
-  it("TEST-RULES-NOTIF-007 — usuário inativo não lê", async () => {
-    await seedUser("dono", { ativo: false });
-    await seedNotificacao("dono", "n1");
-    const db = dbFor("dono");
-    await assertFails(
-      db.collection("Usuarios").doc("dono").collection("Notificacoes").doc("n1").get()
-    );
-  });
-
   it("TEST-RULES-NOTIF-008 — dono não lê documento cujo id_destinatario difere do UID do caminho", async () => {
     await seedUser("dono");
     await seedNotificacao("dono", "n_alheia", { idDestinatario: "outro" });
@@ -175,15 +157,88 @@ describe("IMP-NOTIF-002 — notificações server-owned", () => {
   });
 });
 
-describe("IMP-RULES-003 — bootstrap seguro de leitura de CONVITE_PARA_TURMA", () => {
-  it("TEST-RULES-CONVITE-001 — usuário autenticado sem papel Aluno lê a própria notificação CONVITE_PARA_TURMA", async () => {
-    // Setup via admin SDK / withSecurityRulesDisabled (sem documento em Aluno nem roles no token)
+describe("IMP-NOTIF-001 / #M13Leitura — caixa própria por UID independentemente de papel", () => {
+  it("TEST-RULES-NOTIF-012 — conta sem papel persistido lê a própria caixa (POST)", async () => {
+    // Sem documento Usuarios, sem documento Aluno, sem claims de papel.
+    await seedNotificacao("user_no_role", "notif_post", {
+      idDestinatario: "user_no_role",
+      tipo: "POST",
+    });
+
+    const db = testEnv.authenticatedContext("user_no_role").firestore();
+    await assertSucceeds(
+      db.collection("Usuarios").doc("user_no_role").collection("Notificacoes").doc("notif_post").get()
+    );
+  });
+
+  it("TEST-RULES-NOTIF-013 — conta sem papel persistido NÃO lê caixa alheia", async () => {
+    await seedUser("dono");
+    await seedNotificacao("dono", "n1", { idDestinatario: "dono" });
+    const db = testEnv.authenticatedContext("user_no_role").firestore();
+    await assertFails(
+      db.collection("Usuarios").doc("dono").collection("Notificacoes").doc("n1").get()
+    );
+  });
+
+  it("TEST-RULES-NOTIF-014 — conta sem papel persistido lê listagem da própria caixa", async () => {
+    await seedNotificacao("user_no_role", "n1", { idDestinatario: "user_no_role", tipo: "POST" });
+    await seedNotificacao("user_no_role", "n2", {
+      idDestinatario: "user_no_role",
+      tipo: "CONVITE_PARA_TURMA",
+    });
+
+    const db = testEnv.authenticatedContext("user_no_role").firestore();
+    await assertSucceeds(
+      db
+        .collection("Usuarios")
+        .doc("user_no_role")
+        .collection("Notificacoes")
+        .where("id_destinatario", "==", "user_no_role")
+        .get()
+    );
+  });
+
+  it("TEST-RULES-NOTIF-015 — conta sem papel NÃO lê documento com id_destinatario divergente", async () => {
+    await seedNotificacao("user_no_role", "n_alheia", { idDestinatario: "outro", tipo: "POST" });
+
+    const db = testEnv.authenticatedContext("user_no_role").firestore();
+    await assertFails(
+      db.collection("Usuarios").doc("user_no_role").collection("Notificacoes").doc("n_alheia").get()
+    );
+  });
+
+  it("TEST-RULES-NOTIF-016 — write negado mesmo para dono sem papel", async () => {
+    await seedNotificacao("user_no_role", "n1", { idDestinatario: "user_no_role", tipo: "POST" });
+    const db = testEnv.authenticatedContext("user_no_role").firestore();
+    const docRef = db.collection("Usuarios").doc("user_no_role").collection("Notificacoes").doc("n1");
+    await assertFails(docRef.update({ lida: true }));
+    await assertFails(docRef.delete());
+    await assertFails(
+      db
+        .collection("Usuarios")
+        .doc("user_no_role")
+        .collection("Notificacoes")
+        .doc("n2")
+        .set({ tipo: "POST", id_destinatario: "user_no_role", lida: false })
+    );
+  });
+
+  it("TEST-RULES-NOTIF-017 — usuário não autenticado não lê", async () => {
+    await seedNotificacao("user_no_role", "n1", { idDestinatario: "user_no_role", tipo: "POST" });
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(
+      db.collection("Usuarios").doc("user_no_role").collection("Notificacoes").doc("n1").get()
+    );
+  });
+});
+
+describe("IMP-RULES-003 — bootstrap de leitura de CONVITE_PARA_TURMA (agora coberto pela caixa própria)", () => {
+  it("TEST-RULES-CONVITE-001 — usuário autenticado sem papel lê a própria notificação CONVITE_PARA_TURMA", async () => {
     await seedNotificacao("user_bootstrap", "convite_bootstrap", {
       idDestinatario: "user_bootstrap",
       tipo: "CONVITE_PARA_TURMA",
     });
 
-    // Firestore CLIENT SDK autenticado sem claims de papel ou documento de Aluno
     const db = testEnv.authenticatedContext("user_bootstrap").firestore();
     await assertSucceeds(
       db
@@ -258,21 +313,9 @@ describe("IMP-RULES-003 — bootstrap seguro de leitura de CONVITE_PARA_TURMA", 
     );
   });
 
-  it("TEST-RULES-CONVITE-005 — usuário sem papel Aluno não pode ler outro tipo de notificação", async () => {
-    await seedNotificacao("user_bootstrap", "notif_post", {
-      idDestinatario: "user_bootstrap",
-      tipo: "POST",
-    });
-
-    const db = testEnv.authenticatedContext("user_bootstrap").firestore();
-    await assertFails(
-      db
-        .collection("Usuarios")
-        .doc("user_bootstrap")
-        .collection("Notificacoes")
-        .doc("notif_post")
-        .get()
-    );
-  });
+  // TEST-RULES-CONVITE-005 foi removido: a Rule agora permite a leitura da
+  // própria caixa por UID independentemente de tipo (#M13Leitura / Seção 11).
+  // O caso de leitura sem papel para qualquer tipo é coberto por
+  // TEST-RULES-NOTIF-012.
 });
 

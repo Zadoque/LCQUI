@@ -24,12 +24,19 @@ export function extrairPapeisClaims(valor) {
  * bootstrap de convite. `ativo` aqui controla apenas navegação; a autorização
  * definitiva continua fail-closed no backend/Rules.
  *
+ * A presença de `versao_permissoes >= 1` nas claims indica que o documento
+ * `Usuarios/{uid}` existe e está ativo, independentemente de o usuário ter
+ * papéis.  Uma conta sem `versao_permissoes` (ou com valor inválido) não
+ * possui identidade autorizativa persistida e é tratada como desativada.
+ *
  * @param {unknown} rolesClaim
+ * @param {unknown} versaoPermissoes
  * @returns {{ roles: string[], ativo: boolean }}
  */
-export function construirEstadoAutenticacao(rolesClaim) {
+export function construirEstadoAutenticacao(rolesClaim, versaoPermissoes) {
   const roles = extrairPapeisClaims(rolesClaim);
-  return { roles, ativo: roles.length > 0 };
+  const ativo = typeof versaoPermissoes === "number" && versaoPermissoes >= 1;
+  return { roles, ativo };
 }
 
 /**
@@ -42,7 +49,7 @@ export function construirEstadoAutenticacao(rolesClaim) {
  */
 export async function renovarEstadoAutenticacao(user) {
   const tokenResult = await user.getIdTokenResult(true);
-  return construirEstadoAutenticacao(tokenResult.claims.roles);
+  return construirEstadoAutenticacao(tokenResult.claims.roles, tokenResult.claims.versao_permissoes);
 }
 
 /**

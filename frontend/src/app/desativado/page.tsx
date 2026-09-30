@@ -18,7 +18,7 @@ export default function DesativadoPage() {
       <div className="max-w-md w-full bg-card shadow-lg rounded-lg p-8 text-center space-y-6">
         <h1 className="text-2xl font-bold text-foreground">Acesso Bloqueado</h1>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Você não possui nenhum papel ativo no sistema. Se você acha que isso é um erro, por favor procure a equipe técnica.
+          Sua conta está desativada no sistema. Se você acha que isso é um erro, por favor procure a equipe técnica.
         </p>
         <button
           onClick={handleLogout}

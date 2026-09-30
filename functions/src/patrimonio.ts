@@ -81,7 +81,7 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
     adicionarNotificacaoTx(tx, admin.firestore(), {
       id_destinatario: req.id_usuario_solicitante,
       papel_destinatario: "Professor",
-      tipo: aprovar ? "REQUISICAO_APROVADA" : "REQUISICAO_REJEITADA",
+      tipo: "REQUISICAO_EDICAO_BEM",
       id_quem_fez_acao: request.auth!.uid,
       entidade_alvo: "Requisicao_Bem",
       id_alvo: idRequisicao,
@@ -249,7 +249,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
     adicionarNotificacaoTx(tx, admin.firestore(), {
       id_destinatario: req.id_usuario_solicitante,
       papel_destinatario: "Professor",
-      tipo: aprovar ? "REQUISICAO_APROVADA" : "REQUISICAO_REJEITADA",
+      tipo: "REQUISICAO_ADICAO_BEM",
       id_quem_fez_acao: request.auth!.uid,
       entidade_alvo: "Requisicao_Bem",
       id_alvo: idRequisicao,

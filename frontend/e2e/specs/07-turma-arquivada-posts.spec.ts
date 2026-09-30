@@ -20,8 +20,6 @@ test.describe("Turma arquivada nega escrita acadêmica de Posts/Comentários", (
     page,
     guardaConsole,
   }) => {
-    guardaConsole.permitir(/Erro ao ouvir notificações/);
-
     await login(page, "professor.alpha@lcqui.local");
     await page.goto("/turmas");
 

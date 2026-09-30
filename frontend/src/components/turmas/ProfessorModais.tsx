@@ -78,7 +78,7 @@ export function TurmasArquivadasModal({ isOpen, onClose }: ModalProps) {
           <h2 className="text-xl font-bold flex items-center gap-2">
             🗃️ Turmas Arquivadas
           </h2>
-          <button onClick={onClose} className="text-foreground/50 hover:text-foreground">
+          <button onClick={onClose} aria-label="Fechar modal de turmas arquivadas" data-testid="botao-fechar-turmas-arquivadas" className="text-foreground/50 hover:text-foreground">
             <X className="w-6 h-6" />
           </button>
         </div>

@@ -134,7 +134,7 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
     // Verificar notificacao para o professor
     const notifSnap = await db.collection("Usuarios").doc("prof2").collection("Notificacoes")
       .where("entidade_alvo", "==", "Requisicao_Bem")
-      .where("tipo", "==", "REQUISICAO_APROVADA")
+      .where("tipo", "==", "REQUISICAO_EDICAO_BEM")
       .get();
       
     expect(notifSnap.empty).toBe(false);
@@ -163,7 +163,7 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
     // Verificar notificacao para o professor
     const notifSnap = await db.collection("Usuarios").doc("prof3").collection("Notificacoes")
       .where("entidade_alvo", "==", "Requisicao_Bem")
-      .where("tipo", "==", "REQUISICAO_REJEITADA")
+      .where("tipo", "==", "REQUISICAO_ADICAO_BEM")
       .get();
       
     expect(notifSnap.empty).toBe(false);

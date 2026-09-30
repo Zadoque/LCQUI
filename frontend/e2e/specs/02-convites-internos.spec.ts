@@ -136,21 +136,23 @@ test.describe.serial("Convites internos", () => {
     await page.goto("/turmas");
     await logout(page);
 
+    // Bootstrap fix: conta autenticada com zero papéis e Usuarios.ativo=true
+    // NÃO é redirecionada para /desativado; o sino (UI-12) é montado.
     await login(page, "aluno.authonly@lcqui.local");
-    await page.waitForURL(/\/desativado/);
+    await expect(page.getByRole("banner")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Notificações", exact: true })).toBeVisible();
 
-    // DIVERGÊNCIA CONHECIDA (registrada em documentation/testes/24-...):
-    // uma conta Auth autenticada sem nenhum papel é redirecionada para
-    // `/desativado` pelo ProtectedRoute, então o sino (UI-12) não é montado e
-    // a notificação interna CONVITE_PARA_TURMA fica inalcançável pela UI,
-    // apesar de a Rule já permitir a leitura de bootstrap. Para exercitar o
-    // aceite real (viaNotificacao) sem inventar token, o deep link é lido do
-    // próprio documento de notificação persistido pelo backend.
-    const idConvite = await idConviteDaNotificacao("seed-aluno-auth-only");
+    // A caixa de notificações deve mostrar o convite
+    await page.goto("/turmas");
+    await abrirNotificacoes(page);
+    await expect(page.getByText("Convite para Turma")).toBeVisible();
+
+    // Clicar em "Acessar Convite" na caixa de notificações
     const detalhesPromise = page.waitForResponse((resposta) =>
       resposta.url().includes("obterDetalhesConviteAluno")
     );
-    await page.goto(`/convite?id=${idConvite}&via=notificacao`);
+    await page.getByRole("link", { name: "Acessar Convite" }).click();
+    await page.waitForURL(/\/convite\?id=/);
     const detalhes = await lerResultadoCallable(await detalhesPromise);
     expect(detalhes.matricula_necessaria).toBe(false);
     await expect(page.getByLabel("Número de Matrícula")).toHaveCount(0);

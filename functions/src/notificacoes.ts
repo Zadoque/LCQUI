@@ -1,5 +1,5 @@
 import * as admin from "firebase-admin";
-import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { FieldPath, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { CriarNotificacao } from "./schemas/notificacoes.schema";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { validatePayload } from "./utils/validation";
@@ -201,7 +201,7 @@ export const limparTudoNotificacoes = onCall(async (request) => {
       .where("lida", "==", false)
       .where("emitida_em", "<=", corteEfetivo)
       .orderBy("emitida_em", "asc")
-      .orderBy(admin.firestore.FieldPath.documentId(), "asc")
+      .orderBy(FieldPath.documentId(), "asc")
       .limit(limiteEfetivo);
     if (cursorEfetivo) {
       consulta = consulta.startAfter(cursorEfetivo.emitidaEm, colecao.doc(cursorEfetivo.id));

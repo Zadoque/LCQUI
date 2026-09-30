@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase/config";
 import { collection, onSnapshot, query, Timestamp, where } from "firebase/firestore";
-import { Bell, Clock, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { Bell, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 export interface NotificacaoItem {
@@ -13,6 +14,7 @@ export interface NotificacaoItem {
   papel_destinatario: string;
   id_destinatario: string;
   id_alvo: string;
+  entidade_alvo?: string | null;
   id_turma?: string | null;
   id_quem_fez_acao?: string | null;
   lida: boolean;
@@ -21,6 +23,43 @@ export interface NotificacaoItem {
   expira_em?: Timestamp | null;
   mensagem_customizada?: string | null;
 }
+
+// Tipos acadêmicos V1 com mensagem contextual (RN-M13-07: exigem id_turma)
+const TIPOS_ACADEMICOS_V1 = new Set([
+  "POST",
+  "COMENTARIO",
+  "ADICIONADO",
+  "REMOVIDO",
+  "TURMA_ARQUIVADA",
+  "TURMA_DESARQUIVADA",
+  "ROTEIRO_COMPARTILHADO",
+  "CONVITE_PARA_TURMA",
+]);
+
+/** Rótulos legíveis para os tipos V1 ativos. */
+const ROTULO_TIPO: Record<string, string> = {
+  POST: "Nova postagem",
+  COMENTARIO: "Novo comentário",
+  ADICIONADO: "Adicionado à turma",
+  REMOVIDO: "Removido da turma",
+  TURMA_ARQUIVADA: "Turma arquivada",
+  TURMA_DESARQUIVADA: "Turma desarquivada",
+  ROTEIRO_COMPARTILHADO: "Roteiro compartilhado",
+  CONVITE_PARA_TURMA: "Convite para turma",
+  REQUISICAO_EDICAO_BEM: "Requisição de edição de bem",
+  REQUISICAO_ADICAO_BEM: "Requisição de adição de bem",
+  REQUISICAO_BEM: "Requisição de bem",
+  BEM_INSERVIVEL: "Bem inservível",
+  DATA_DEVOLUCAO_REAGENTE: "Data de devolução",
+  ENTREGA_ATRASADA: "Entrega atrasada",
+  FRASCOS_VAZIOS: "Frascos vazios",
+  FRASCOS_QUEBRADOS: "Frascos quebrados",
+  FRASCOS_VENCIDOS: "Frascos vencidos",
+  FRASCOS_A_SEREM_PESADOS: "Frascos a serem pesados",
+  FRASCOS_EM_QUARENTENA: "Frascos em quarentena",
+  ESCASSEZ_ESTOQUE: "Escassez no estoque",
+  AUTO_ATENDIMENTO_RETIRADA: "Autoatendimento — retirada",
+};
 
 export function isNotificacaoExpirada(expira_em_ms: number | null | undefined, agora_ms: number): boolean {
   if (!expira_em_ms) return false;
@@ -42,6 +81,34 @@ export function shouldRenderInbox(user: { uid?: string } | null | undefined): bo
   return !!user?.uid;
 }
 
+/**
+ * Gera uma mensagem contextual para notificações V1 ativas usando
+ * `id_turma`/`id_alvo`/`mensagem_customizada` sem expor conteúdo protegido
+ * (RN-M13-05).
+ */
+export function mensagemContextual(notif: NotificacaoItem): string {
+  const rotulo = ROTULO_TIPO[notif.tipo] ?? notif.tipo.replace(/_/g, " ");
+
+  if (TIPOS_ACADEMICOS_V1.has(notif.tipo)) {
+    // Tipos acadêmicos: indicar contexto de turma quando disponível
+    if (notif.tipo === "CONVITE_PARA_TURMA") {
+      return "Você recebeu um convite para ingressar em uma turma acadêmica.";
+    }
+    if (notif.mensagem_customizada) {
+      return notif.mensagem_customizada;
+    }
+    // Sem mensagem customizada: o tipo já é contextual suficiente
+    return `${rotulo} na turma.`;
+  }
+
+  // Tipos operacionais: usar mensagem customizada se existir
+  if (notif.mensagem_customizada) {
+    return notif.mensagem_customizada;
+  }
+
+  return rotulo;
+}
+
 export function NotificacoesDropdown() {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
@@ -51,15 +118,29 @@ export function NotificacoesDropdown() {
   const [agora, setAgora] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // "Limpar tudo" state
+  const [limparConfirmacao, setLimparConfirmacao] = useState(false);
+  const [limparLoading, setLimparLoading] = useState(false);
+
+  // "Marcar como lida" loading por item
+  const [marcandoIds, setMarcandoIds] = useState<Set<string>>(new Set());
+
   const handleToggle = () => {
     setAgora(Date.now());
     setIsOpen((prev) => !prev);
+    // Reset confirmation state when re-opening
+    setLimparConfirmacao(false);
   };
+
+  const permissionDeniedRef = useRef(false);
 
   useEffect(() => {
     if (!user?.uid) {
       return;
     }
+
+    // Reset permission-denied state on user change
+    permissionDeniedRef.current = false;
 
     const colRef = collection(db, "Usuarios", user.uid, "Notificacoes");
     // A Rule de M13 exige que listagens provem a coerência entre o caminho da
@@ -88,7 +169,19 @@ export function NotificacoesDropdown() {
         setLoading(false);
       },
       (error) => {
-        console.error("Erro ao ouvir notificações:", error);
+        // permission-denied em cenários legítimos (conta sem papel
+        // persistido antes da correção da Rule, ou listener órfão) não é
+        // erro fatal — apenas encerra o listener e exibe caixa vazia.
+        // Outros erros continuam registrados normalmente.
+        if (error.code === "permission-denied") {
+          if (!permissionDeniedRef.current) {
+            permissionDeniedRef.current = true;
+            // Registra apenas uma vez; não polui o console em reconexões.
+          }
+        } else {
+          console.error("Erro ao ouvir notificações:", error);
+        }
+        setNotificacoes([]);
         setLoading(false);
       }
     );
@@ -110,6 +203,53 @@ export function NotificacoesDropdown() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isOpen]);
+
+  const marcarComoLida = useCallback(async (notifId: string) => {
+    if (marcandoIds.has(notifId)) return;
+    setMarcandoIds((prev) => new Set(prev).add(notifId));
+    try {
+      const functions = getFunctions();
+      const marcar = httpsCallable<{ idNotificacao: string }, { success: boolean }>(
+        functions,
+        "marcarNotificacaoComoLida"
+      );
+      await marcar({ idNotificacao: notifId });
+    } catch (err) {
+      console.error("Erro ao marcar notificação como lida:", err);
+    } finally {
+      setMarcandoIds((prev) => {
+        const next = new Set(prev);
+        next.delete(notifId);
+        return next;
+      });
+    }
+  }, [marcandoIds]);
+
+  const handleLimparTudo = useCallback(async () => {
+    if (limparLoading) return;
+    setLimparLoading(true);
+    try {
+      const functions = getFunctions();
+      const limpar = httpsCallable<
+        { corte?: string; cursor?: string; limite?: number },
+        { corte: string; marcadas: number; continuar: boolean; proximo_cursor: string | null }
+      >(functions, "limparTudoNotificacoes");
+
+      let resultado = await limpar({});
+      // Paginação automática: continua enquanto houver mais itens
+      while (resultado.data.continuar && resultado.data.proximo_cursor) {
+        resultado = await limpar({
+          corte: resultado.data.corte,
+          cursor: resultado.data.proximo_cursor,
+        });
+      }
+    } catch (err) {
+      console.error("Erro ao limpar notificações:", err);
+    } finally {
+      setLimparLoading(false);
+      setLimparConfirmacao(false);
+    }
+  }, [limparLoading]);
 
   if (!user) return null;
 
@@ -141,7 +281,7 @@ export function NotificacoesDropdown() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-card border border-foreground/10 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in slide-in-from-top-2">
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-popover border border-foreground/10 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in slide-in-from-top-2">
           {/* Cabeçalho */}
           <div className="p-4 border-b border-foreground/10 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -152,6 +292,44 @@ export function NotificacoesDropdown() {
                 </span>
               )}
             </div>
+            {/* Botão "Limpar tudo" — visível quando há não lidas ativas */}
+            {totalNaoLidas > 0 && !limparConfirmacao && (
+              <button
+                onClick={() => setLimparConfirmacao(true)}
+                disabled={limparLoading}
+                className="flex items-center gap-1 text-xs text-foreground/50 hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-foreground/5"
+                aria-label="Limpar todas as notificações"
+                data-testid="botao-limpar-tudo"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Limpar tudo
+              </button>
+            )}
+            {/* Confirmação própria para "Limpar tudo" (sem prompt/confirm nativo) */}
+            {limparConfirmacao && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={handleLimparTudo}
+                  disabled={limparLoading}
+                  className="flex items-center gap-1 text-xs font-semibold text-red-500 hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-500/10"
+                  data-testid="confirmar-limpar-tudo"
+                >
+                  {limparLoading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  )}
+                  Confirmar
+                </button>
+                <button
+                  onClick={() => setLimparConfirmacao(false)}
+                  disabled={limparLoading}
+                  className="text-xs text-foreground/50 hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-foreground/5"
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Abas de filtro */}
@@ -179,7 +357,7 @@ export function NotificacoesDropdown() {
           </div>
 
           {/* Lista de itens */}
-          <div className="max-h-96 overflow-y-auto divide-y divide-foreground/5 p-2 space-y-2">
+          <div className="max-h-96 overflow-y-auto p-2 space-y-2">
             {loading ? (
               <div className="p-6 text-center text-xs text-foreground/50">Carregando notificações...</div>
             ) : itensExibidos.length === 0 ? (
@@ -191,15 +369,17 @@ export function NotificacoesDropdown() {
             ) : (
               itensExibidos.map((notif) => {
                 const expirada = isExpirada(notif);
+                const naoLidaAtiva = !notif.lida && !expirada;
+                const marcando = marcandoIds.has(notif.id);
 
                 if (notif.tipo === "CONVITE_PARA_TURMA") {
                   return (
                     <div
                       key={notif.id}
                       className={`p-3 rounded-xl border transition-all ${
-                        !notif.lida && !expirada
+                        naoLidaAtiva
                           ? "bg-primary/5 border-primary/20"
-                          : "bg-card border-foreground/5 opacity-80"
+                          : "bg-muted/50 border-foreground/5 opacity-80"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -260,13 +440,38 @@ export function NotificacoesDropdown() {
                   );
                 }
 
-                // Notificação genérica
+                // Notificação V1 com mensagem contextual
+                const msg = mensagemContextual(notif);
+                const rotulo = ROTULO_TIPO[notif.tipo] ?? notif.tipo.replace(/_/g, " ");
+
                 return (
-                  <div key={notif.id} className="p-3 rounded-xl border border-foreground/5 text-xs space-y-1">
-                    <p className="font-semibold text-foreground">{notif.tipo.replace(/_/g, " ")}</p>
-                    {notif.mensagem_customizada && (
-                      <p className="text-foreground/70">{notif.mensagem_customizada}</p>
-                    )}
+                  <div
+                    key={notif.id}
+                    className={`p-3 rounded-xl border transition-all text-xs space-y-1 ${
+                      naoLidaAtiva
+                        ? "bg-primary/5 border-primary/20"
+                        : "bg-muted/50 border-foreground/5"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-semibold text-foreground">{rotulo}</p>
+                      {!notif.lida && !expirada && (
+                        <button
+                          onClick={() => marcarComoLida(notif.id)}
+                          disabled={marcando}
+                          className="shrink-0 text-foreground/40 hover:text-primary transition-colors"
+                          aria-label="Marcar como lida"
+                          data-testid={`marcar-lida-${notif.id}`}
+                        >
+                          {marcando ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-foreground/70">{msg}</p>
                   </div>
                 );
               })

@@ -103,3 +103,119 @@ test("TEST-UI-INBOX-005 — Outros tipos de notificação coexistem e não quebr
   assert.strictEqual(ativas[0].tipo, "AVISO_SISTEMA");
   assert.strictEqual(ativas[1].tipo, "CONVITE_PARA_TURMA");
 });
+
+// --- mensagemContextual (UI-12 V1) ---
+
+const TIPOS_ACADEMICOS_V1 = new Set([
+  "POST", "COMENTARIO", "ADICIONADO", "REMOVIDO",
+  "TURMA_ARQUIVADA", "TURMA_DESARQUIVADA",
+  "ROTEIRO_COMPARTILHADO", "CONVITE_PARA_TURMA",
+]);
+
+const ROTULO_TIPO = {
+  POST: "Nova postagem",
+  COMENTARIO: "Novo comentário",
+  ADICIONADO: "Adicionado à turma",
+  REMOVIDO: "Removido da turma",
+  TURMA_ARQUIVADA: "Turma arquivada",
+  TURMA_DESARQUIVADA: "Turma desarquivada",
+  ROTEIRO_COMPARTILHADO: "Roteiro compartilhado",
+  CONVITE_PARA_TURMA: "Convite para turma",
+  REQUISICAO_EDICAO_BEM: "Requisição de edição de bem",
+  REQUISICAO_ADICAO_BEM: "Requisição de adição de bem",
+  ESCASSEZ_ESTOQUE: "Escassez no estoque",
+};
+
+function mensagemContextual(notif) {
+  const rotulo = ROTULO_TIPO[notif.tipo] ?? notif.tipo.replace(/_/g, " ");
+  if (TIPOS_ACADEMICOS_V1.has(notif.tipo)) {
+    if (notif.tipo === "CONVITE_PARA_TURMA") {
+      return "Você recebeu um convite para ingressar em uma turma acadêmica.";
+    }
+    if (notif.mensagem_customizada) {
+      return notif.mensagem_customizada;
+    }
+    return `${rotulo} na turma.`;
+  }
+  if (notif.mensagem_customizada) {
+    return notif.mensagem_customizada;
+  }
+  return rotulo;
+}
+
+test("TEST-UI-INBOX-006 — CONVITE_PARA_TURMA sempre usa mensagem fixa", () => {
+  const msg = mensagemContextual({
+    tipo: "CONVITE_PARA_TURMA",
+    id_alvo: "conv1",
+    mensagem_customizada: "Ignorado",
+  });
+  assert.strictEqual(msg, "Você recebeu um convite para ingressar em uma turma acadêmica.");
+});
+
+test("TEST-UI-INBOX-007 — tipo acadêmico V1 com mensagem_customizada usa ela", () => {
+  const msg = mensagemContextual({
+    tipo: "POST",
+    id_alvo: "post1",
+    mensagem_customizada: "Novo post em Química Geral",
+  });
+  assert.strictEqual(msg, "Novo post em Química Geral");
+});
+
+test("TEST-UI-INBOX-008 — tipo acadêmico V1 sem customizada usa rótulo contextual", () => {
+  const msg = mensagemContextual({
+    tipo: "TURMA_ARQUIVADA",
+    id_alvo: "turma1",
+  });
+  assert.strictEqual(msg, "Turma arquivada na turma.");
+});
+
+test("TEST-UI-INBOX-009 — tipo operacional com customizada usa ela", () => {
+  const msg = mensagemContextual({
+    tipo: "ESCASSEZ_ESTOQUE",
+    id_alvo: "almo1",
+    mensagem_customizada: "Estoque baixo de HCl",
+  });
+  assert.strictEqual(msg, "Estoque baixo de HCl");
+});
+
+test("TEST-UI-INBOX-010 — tipo operacional sem customizada usa rótulo", () => {
+  const msg = mensagemContextual({
+    tipo: "REQUISICAO_EDICAO_BEM",
+    id_alvo: "req1",
+  });
+  assert.strictEqual(msg, "Requisição de edição de bem");
+});
+
+// --- construirEstadoAutenticacao (bootstrap) ---
+
+function extrairPapeisClaims(valor) {
+  if (!Array.isArray(valor)) return [];
+  const PAPEIS = new Set(["Chefe_Geral", "Gestor_Almoxarifado", "Gestor_Bens_Patrimoniais", "Professor", "Aluno", "Bolsista"]);
+  return [...new Set(valor.filter((p) => typeof p === "string" && PAPEIS.has(p)))];
+}
+
+function construirEstadoAutenticacao(rolesClaim, versaoPermissoes) {
+  const roles = extrairPapeisClaims(rolesClaim);
+  const ativo = typeof versaoPermissoes === "number" && versaoPermissoes >= 1;
+  return { roles, ativo };
+}
+
+test("TEST-UI-INBOX-011 — zero papéis com versao_permissoes >= 1 resulta ativo=true", () => {
+  const estado = construirEstadoAutenticacao([], 1);
+  assert.deepStrictEqual(estado, { roles: [], ativo: true });
+});
+
+test("TEST-UI-INBOX-012 — zero papéis sem versao_permissoes resulta ativo=false (desativado)", () => {
+  const estado = construirEstadoAutenticacao([], undefined);
+  assert.deepStrictEqual(estado, { roles: [], ativo: false });
+});
+
+test("TEST-UI-INBOX-013 — com papéis e versao_permissoes resulta ativo=true", () => {
+  const estado = construirEstadoAutenticacao(["Aluno"], 1);
+  assert.deepStrictEqual(estado, { roles: ["Aluno"], ativo: true });
+});
+
+test("TEST-UI-INBOX-014 — versao_permissoes=0 resulta ativo=false", () => {
+  const estado = construirEstadoAutenticacao(["Aluno"], 0);
+  assert.deepStrictEqual(estado, { roles: ["Aluno"], ativo: false });
+});
