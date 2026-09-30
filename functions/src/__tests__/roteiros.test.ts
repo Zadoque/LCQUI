@@ -10,6 +10,8 @@ import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import {
   registrarRoteiro,
+  validarObjetoRoteiro,
+  publicarRoteiro,
   compartilharRoteiro,
   descompartilharRoteiro,
   listarRoteirosProfessor,
@@ -131,14 +133,46 @@ describe("Módulo de Roteiros", () => {
     };
   }
 
+  async function criarRoteiroPublicado(
+    uid: string,
+    nome: string,
+    nomeArquivo: string
+  ): Promise<{ idRoteiro: string; storagePath: string; geracao: string; tamanhoBytes: number }> {
+    const { storagePath, tamanhoBytes } = await criarArquivoRoteiro(uid, nomeArquivo);
+
+    const wrappedReg = testEnv.wrap(registrarRoteiro);
+    const resultReg = await wrappedReg(mockRequest({
+      idOperacao: novaOperacao(),
+      nome,
+      descricao: `Descrição de ${nome}`,
+      storagePath,
+      nomeArquivo,
+    }, uid));
+
+    const wrappedValidar = testEnv.wrap(validarObjetoRoteiro);
+    const resultValidar = await wrappedValidar(mockRequest({
+      idOperacao: novaOperacao(),
+      idRoteiro: resultReg.idRoteiro,
+    }, uid));
+
+    const wrappedPublicar = testEnv.wrap(publicarRoteiro);
+    await wrappedPublicar(mockRequest({
+      idOperacao: novaOperacao(),
+      idRoteiro: resultReg.idRoteiro,
+    }, uid));
+
+    return { idRoteiro: resultReg.idRoteiro, storagePath, geracao: resultValidar.geracao, tamanhoBytes };
+  }
+
   describe("registrarRoteiro", () => {
-    it("deve permitir que um professor registre um roteiro publicável a partir de objeto no Storage", async () => {
+    it("deve permitir que um professor registre um roteiro PROVISORIO a partir de objeto no Storage", async () => {
       const uid = "prof_registrar_1";
       await semearUsuario(uid);
       const { storagePath } = await criarArquivoRoteiro(uid, "roteiro.pdf");
 
       const wrapped = testEnv.wrap(registrarRoteiro);
       const result = await wrapped(mockRequest({
+        idOperacao: novaOperacao(),
         nome: "Roteiro de Titulação",
         descricao: "Titulação ácido-base",
         storagePath,
@@ -152,12 +186,12 @@ describe("Módulo de Roteiros", () => {
       const data = roteiroSnap.data()!;
       expect(data.id_professor_upload).toBe(uid);
       expect(data.nome).toBe("Roteiro de Titulação");
-      expect(data.status).toBe("PUBLICAVEL");
+      expect(data.status).toBe("PROVISORIO");
       expect(data.nome_arquivo).toBe("roteiro.pdf");
       expect(data.professores_compartilhados).toEqual([]);
       expect(data.referencia.storage_path).toBe(storagePath);
-      expect(typeof data.referencia.geracao).toBe("string");
-      expect(data.referencia.tamanho_bytes).toBeGreaterThan(0);
+      expect(data.referencia.owner_uid).toBe(uid);
+      expect(data.referencia.geracao).toBeUndefined();
     });
 
     it("deve rejeitar storagePath fora do namespace do dono (H02)", async () => {
@@ -177,56 +211,12 @@ describe("Módulo de Roteiros", () => {
 
       const wrapped = testEnv.wrap(registrarRoteiro);
       await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(),
         nome: "Roteiro inválido",
         descricao: "Fora do namespace",
         storagePath,
         nomeArquivo: "outro.pdf",
       }, uid))).rejects.toMatchObject({ code: "permission-denied" });
-    });
-
-    it("deve rejeitar objeto inexistente no Storage", async () => {
-      const uid = "prof_registrar_inexistente";
-      await semearUsuario(uid);
-
-      const wrapped = testEnv.wrap(registrarRoteiro);
-      await expect(wrapped(mockRequest({
-        nome: "Roteiro Inexistente",
-        descricao: "Descricao",
-        storagePath: `roteiros/${uid}/nao_existe.pdf`,
-        nomeArquivo: "nao_existe.pdf",
-      }, uid))).rejects.toMatchObject({ code: "failed-precondition" });
-    });
-
-    it("deve rejeitar contentType que não seja application/pdf", async () => {
-      const uid = "prof_registrar_content_type";
-      await semearUsuario(uid);
-      const { storagePath } = await criarArquivoRoteiroCustom(uid, "roteiro.pdf", {
-        contentType: "text/plain",
-      });
-
-      const wrapped = testEnv.wrap(registrarRoteiro);
-      await expect(wrapped(mockRequest({
-        nome: "Roteiro Tipo Errado",
-        descricao: "Descricao",
-        storagePath,
-        nomeArquivo: "roteiro.pdf",
-      }, uid))).rejects.toMatchObject({ code: "failed-precondition" });
-    });
-
-    it("deve rejeitar buffer sem prefixo mágico %PDF-", async () => {
-      const uid = "prof_registrar_magic";
-      await semearUsuario(uid);
-      const { storagePath } = await criarArquivoRoteiroCustom(uid, "roteiro.pdf", {
-        buffer: Buffer.from("Nao é um PDF"),
-      });
-
-      const wrapped = testEnv.wrap(registrarRoteiro);
-      await expect(wrapped(mockRequest({
-        nome: "Roteiro Sem Prefixo",
-        descricao: "Descricao",
-        storagePath,
-        nomeArquivo: "roteiro.pdf",
-      }, uid))).rejects.toMatchObject({ code: "failed-precondition" });
     });
 
     it("deve rejeitar storagePath fora do namespace roteiros/{uid}/", async () => {
@@ -235,6 +225,7 @@ describe("Módulo de Roteiros", () => {
 
       const wrapped = testEnv.wrap(registrarRoteiro);
       await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(),
         nome: "Roteiro Fora do Namespace",
         descricao: "Descricao",
         storagePath: "fotos_perfil/outro.pdf",
@@ -242,8 +233,209 @@ describe("Módulo de Roteiros", () => {
       }, uid))).rejects.toMatchObject({ code: "permission-denied" });
     });
 
+    it("M7 replay com mesmo idOperacao devolve mesmo idRoteiro", async () => {
+      const uid = "prof_registrar_replay";
+      await semearUsuario(uid);
+      const { storagePath } = await criarArquivoRoteiro(uid, "replay.pdf");
+      const op = novaOperacao();
+
+      const wrapped = testEnv.wrap(registrarRoteiro);
+      const primeiro = await wrapped(mockRequest({
+        idOperacao: op,
+        nome: "Roteiro Replay",
+        descricao: "Descricao",
+        storagePath,
+        nomeArquivo: "replay.pdf",
+      }, uid));
+
+      const segundo = await wrapped(mockRequest({
+        idOperacao: op,
+        nome: "Roteiro Replay",
+        descricao: "Descricao",
+        storagePath,
+        nomeArquivo: "replay.pdf",
+      }, uid));
+
+      expect(segundo.idRoteiro).toBe(primeiro.idRoteiro);
+      const docs = await db.collection("Roteiro_Experimento").where("id_professor_upload", "==", uid).get();
+      expect(docs.size).toBe(1);
+    });
+
+    it("M7 reuso incompatível de idOperacao rejeitado", async () => {
+      const uid = "prof_registrar_reuso";
+      await semearUsuario(uid);
+      const { storagePath } = await criarArquivoRoteiro(uid, "reuso.pdf");
+      const op = novaOperacao();
+
+      const wrapped = testEnv.wrap(registrarRoteiro);
+      await wrapped(mockRequest({
+        idOperacao: op,
+        nome: "Roteiro Reuso",
+        descricao: "Descricao",
+        storagePath,
+        nomeArquivo: "reuso.pdf",
+      }, uid));
+
+      await expect(wrapped(mockRequest({
+        idOperacao: op,
+        nome: "Roteiro Reuso Alterado",
+        descricao: "Descricao",
+        storagePath,
+        nomeArquivo: "reuso.pdf",
+      }, uid))).rejects.toMatchObject({ code: "already-exists" });
+    });
+  });
+
+  describe("validarObjetoRoteiro", () => {
+    it("deve inspecionar objeto, fixar geracao e mudar status para VALIDADO", async () => {
+      const uid = "prof_validar_1";
+      await semearUsuario(uid);
+      const { storagePath, geracao } = await criarArquivoRoteiro(uid, "validar.pdf");
+
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const resultReg = await wrappedReg(mockRequest({
+        idOperacao: novaOperacao(),
+        nome: "Roteiro a Validar",
+        descricao: "Descricao",
+        storagePath,
+        nomeArquivo: "validar.pdf",
+      }, uid));
+
+      const wrappedValidar = testEnv.wrap(validarObjetoRoteiro);
+      const result = await wrappedValidar(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro: resultReg.idRoteiro,
+      }, uid));
+
+      expect(result.idRoteiro).toBe(resultReg.idRoteiro);
+      expect(result.geracao).toBe(geracao);
+
+      const roteiroSnap = await db.collection("Roteiro_Experimento").doc(resultReg.idRoteiro).get();
+      const data = roteiroSnap.data()!;
+      expect(data.status).toBe("VALIDADO");
+      expect(data.referencia.geracao).toBe(geracao);
+      expect(data.referencia.content_type).toBe("application/pdf");
+      expect(data.referencia.tamanho_bytes).toBeGreaterThan(0);
+      expect(data.referencia.owner_uid).toBe(uid);
+    });
+
+    it("deve rejeitar validacao por nao-dono", async () => {
+      const uid = "prof_validar_dono";
+      const outro = "prof_validar_outro";
+      await semearUsuario(uid);
+      await semearUsuario(outro);
+      const { storagePath } = await criarArquivoRoteiro(uid, "validar_outro.pdf");
+
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const resultReg = await wrappedReg(mockRequest({
+        idOperacao: novaOperacao(),
+        nome: "Roteiro Outro",
+        descricao: "Descricao",
+        storagePath,
+        nomeArquivo: "validar_outro.pdf",
+      }, uid));
+
+      const wrappedValidar = testEnv.wrap(validarObjetoRoteiro);
+      await expect(wrappedValidar(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro: resultReg.idRoteiro,
+      }, outro))).rejects.toMatchObject({ code: "permission-denied" });
+    });
+
+    it("deve rejeitar validacao de roteiro ja VALIDADO", async () => {
+      const uid = "prof_validar_duplo";
+      await semearUsuario(uid);
+      const { storagePath } = await criarArquivoRoteiro(uid, "validar_duplo.pdf");
+
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const resultReg = await wrappedReg(mockRequest({
+        idOperacao: novaOperacao(),
+        nome: "Roteiro Duplo",
+        descricao: "Descricao",
+        storagePath,
+        nomeArquivo: "validar_duplo.pdf",
+      }, uid));
+
+      const wrappedValidar = testEnv.wrap(validarObjetoRoteiro);
+      await wrappedValidar(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro: resultReg.idRoteiro,
+      }, uid));
+
+      await expect(wrappedValidar(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro: resultReg.idRoteiro,
+      }, uid))).rejects.toMatchObject({ code: "failed-precondition" });
+    });
+
+    it("deve rejeitar objeto inexistente no Storage", async () => {
+      const uid = "prof_validar_inexistente";
+      await semearUsuario(uid);
+
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const resultReg = await wrappedReg(mockRequest({
+        idOperacao: novaOperacao(),
+        nome: "Roteiro Inexistente",
+        descricao: "Descricao",
+        storagePath: `roteiros/${uid}/nao_existe.pdf`,
+        nomeArquivo: "nao_existe.pdf",
+      }, uid));
+
+      const wrappedValidar = testEnv.wrap(validarObjetoRoteiro);
+      await expect(wrappedValidar(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro: resultReg.idRoteiro,
+      }, uid))).rejects.toMatchObject({ code: "failed-precondition" });
+    });
+
+    it("deve rejeitar contentType que não seja application/pdf", async () => {
+      const uid = "prof_validar_content_type";
+      await semearUsuario(uid);
+      const { storagePath } = await criarArquivoRoteiroCustom(uid, "roteiro.pdf", {
+        contentType: "text/plain",
+      });
+
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const resultReg = await wrappedReg(mockRequest({
+        idOperacao: novaOperacao(),
+        nome: "Roteiro Tipo Errado",
+        descricao: "Descricao",
+        storagePath,
+        nomeArquivo: "roteiro.pdf",
+      }, uid));
+
+      const wrappedValidar = testEnv.wrap(validarObjetoRoteiro);
+      await expect(wrappedValidar(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro: resultReg.idRoteiro,
+      }, uid))).rejects.toMatchObject({ code: "failed-precondition" });
+    });
+
+    it("deve rejeitar buffer sem prefixo mágico %PDF-", async () => {
+      const uid = "prof_validar_magic";
+      await semearUsuario(uid);
+      const { storagePath } = await criarArquivoRoteiroCustom(uid, "roteiro.pdf", {
+        buffer: Buffer.from("Nao é um PDF"),
+      });
+
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const resultReg = await wrappedReg(mockRequest({
+        idOperacao: novaOperacao(),
+        nome: "Roteiro Sem Prefixo",
+        descricao: "Descricao",
+        storagePath,
+        nomeArquivo: "roteiro.pdf",
+      }, uid));
+
+      const wrappedValidar = testEnv.wrap(validarObjetoRoteiro);
+      await expect(wrappedValidar(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro: resultReg.idRoteiro,
+      }, uid))).rejects.toMatchObject({ code: "failed-precondition" });
+    });
+
     it("deve rejeitar objeto cujo owner no metadata não coincide com o uid", async () => {
-      const uid = "prof_registrar_owner";
+      const uid = "prof_validar_owner";
       const outro = "outro_owner";
       await semearUsuario(uid);
       await semearUsuario(outro);
@@ -251,30 +443,195 @@ describe("Módulo de Roteiros", () => {
         owner: outro,
       });
 
-      const wrapped = testEnv.wrap(registrarRoteiro);
-      await expect(wrapped(mockRequest({
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const resultReg = await wrappedReg(mockRequest({
+        idOperacao: novaOperacao(),
         nome: "Roteiro Owner Errado",
         descricao: "Descricao",
         storagePath,
         nomeArquivo: "roteiro.pdf",
+      }, uid));
+
+      const wrappedValidar = testEnv.wrap(validarObjetoRoteiro);
+      await expect(wrappedValidar(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro: resultReg.idRoteiro,
       }, uid))).rejects.toMatchObject({ code: "permission-denied" });
     });
 
     it("deve rejeitar arquivo com tamanho igual ou superior a 15 MiB", async () => {
-      const uid = "prof_registrar_tamanho";
+      const uid = "prof_validar_tamanho";
       await semearUsuario(uid);
       const tamanhoLimite = 15 * 1024 * 1024;
       const { storagePath } = await criarArquivoRoteiroCustom(uid, "roteiro.pdf", {
         buffer: Buffer.alloc(tamanhoLimite),
       });
 
-      const wrapped = testEnv.wrap(registrarRoteiro);
-      await expect(wrapped(mockRequest({
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const resultReg = await wrappedReg(mockRequest({
+        idOperacao: novaOperacao(),
         nome: "Roteiro Grande",
         descricao: "Descricao",
         storagePath,
         nomeArquivo: "roteiro.pdf",
+      }, uid));
+
+      const wrappedValidar = testEnv.wrap(validarObjetoRoteiro);
+      await expect(wrappedValidar(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro: resultReg.idRoteiro,
       }, uid))).rejects.toMatchObject({ code: "failed-precondition" });
+    });
+
+    it("M7 replay com mesmo idOperacao devolve mesma geracao", async () => {
+      const uid = "prof_validar_replay";
+      await semearUsuario(uid);
+      const { storagePath } = await criarArquivoRoteiro(uid, "validar_replay.pdf");
+
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const resultReg = await wrappedReg(mockRequest({
+        idOperacao: novaOperacao(),
+        nome: "Roteiro Validar Replay",
+        descricao: "Descricao",
+        storagePath,
+        nomeArquivo: "validar_replay.pdf",
+      }, uid));
+
+      const op = novaOperacao();
+      const wrappedValidar = testEnv.wrap(validarObjetoRoteiro);
+      const primeiro = await wrappedValidar(mockRequest({
+        idOperacao: op,
+        idRoteiro: resultReg.idRoteiro,
+      }, uid));
+
+      const segundo = await wrappedValidar(mockRequest({
+        idOperacao: op,
+        idRoteiro: resultReg.idRoteiro,
+      }, uid));
+
+      expect(segundo).toEqual(primeiro);
+    });
+  });
+
+  describe("publicarRoteiro", () => {
+    it("deve mudar status de VALIDADO para PUBLICAVEL", async () => {
+      const uid = "prof_publicar_1";
+      await semearUsuario(uid);
+      const { storagePath } = await criarArquivoRoteiro(uid, "publicar.pdf");
+
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const resultReg = await wrappedReg(mockRequest({
+        idOperacao: novaOperacao(),
+        nome: "Roteiro a Publicar",
+        descricao: "Descricao",
+        storagePath,
+        nomeArquivo: "publicar.pdf",
+      }, uid));
+
+      const wrappedValidar = testEnv.wrap(validarObjetoRoteiro);
+      await wrappedValidar(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro: resultReg.idRoteiro,
+      }, uid));
+
+      const wrappedPublicar = testEnv.wrap(publicarRoteiro);
+      const result = await wrappedPublicar(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro: resultReg.idRoteiro,
+      }, uid));
+
+      expect(result.idRoteiro).toBe(resultReg.idRoteiro);
+
+      const roteiroSnap = await db.collection("Roteiro_Experimento").doc(resultReg.idRoteiro).get();
+      expect(roteiroSnap.data()?.status).toBe("PUBLICAVEL");
+    });
+
+    it("deve rejeitar publicacao de PROVISORIO", async () => {
+      const uid = "prof_publicar_provisorio";
+      await semearUsuario(uid);
+      const { storagePath } = await criarArquivoRoteiro(uid, "provisorio.pdf");
+
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const resultReg = await wrappedReg(mockRequest({
+        idOperacao: novaOperacao(),
+        nome: "Roteiro Provisorio",
+        descricao: "Descricao",
+        storagePath,
+        nomeArquivo: "provisorio.pdf",
+      }, uid));
+
+      const wrappedPublicar = testEnv.wrap(publicarRoteiro);
+      await expect(wrappedPublicar(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro: resultReg.idRoteiro,
+      }, uid))).rejects.toMatchObject({ code: "failed-precondition" });
+    });
+
+    it("deve rejeitar publicacao de PUBLICAVEL", async () => {
+      const uid = "prof_publicar_publicavel";
+      await semearUsuario(uid);
+      const { storagePath } = await criarArquivoRoteiro(uid, "publicavel.pdf");
+
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const resultReg = await wrappedReg(mockRequest({
+        idOperacao: novaOperacao(),
+        nome: "Roteiro Publicavel",
+        descricao: "Descricao",
+        storagePath,
+        nomeArquivo: "publicavel.pdf",
+      }, uid));
+
+      const wrappedValidar = testEnv.wrap(validarObjetoRoteiro);
+      await wrappedValidar(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro: resultReg.idRoteiro,
+      }, uid));
+
+      const wrappedPublicar = testEnv.wrap(publicarRoteiro);
+      await wrappedPublicar(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro: resultReg.idRoteiro,
+      }, uid));
+
+      await expect(wrappedPublicar(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro: resultReg.idRoteiro,
+      }, uid))).rejects.toMatchObject({ code: "failed-precondition" });
+    });
+
+    it("M7 replay com mesmo idOperacao devolve mesmo resultado", async () => {
+      const uid = "prof_publicar_replay";
+      await semearUsuario(uid);
+      const { storagePath } = await criarArquivoRoteiro(uid, "publicar_replay.pdf");
+
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const resultReg = await wrappedReg(mockRequest({
+        idOperacao: novaOperacao(),
+        nome: "Roteiro Publicar Replay",
+        descricao: "Descricao",
+        storagePath,
+        nomeArquivo: "publicar_replay.pdf",
+      }, uid));
+
+      const wrappedValidar = testEnv.wrap(validarObjetoRoteiro);
+      await wrappedValidar(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro: resultReg.idRoteiro,
+      }, uid));
+
+      const op = novaOperacao();
+      const wrappedPublicar = testEnv.wrap(publicarRoteiro);
+      const primeiro = await wrappedPublicar(mockRequest({
+        idOperacao: op,
+        idRoteiro: resultReg.idRoteiro,
+      }, uid));
+
+      const segundo = await wrappedPublicar(mockRequest({
+        idOperacao: op,
+        idRoteiro: resultReg.idRoteiro,
+      }, uid));
+
+      expect(segundo).toEqual(primeiro);
     });
   });
 
@@ -285,34 +642,56 @@ describe("Módulo de Roteiros", () => {
       await semearUsuario(dono);
       await semearUsuario(alvo);
 
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const { storagePath } = await criarArquivoRoteiro(dono, "roteiro.pdf");
-      const resultReg = await wrappedReg(mockRequest({
-        nome: "Roteiro 2",
-        descricao: "Descrição",
-        storagePath,
-        nomeArquivo: "roteiro.pdf",
-      }, dono));
+      const { idRoteiro } = await criarRoteiroPublicado(dono, "Roteiro 2", "roteiro.pdf");
 
       // Tentativa por não-dono deve falhar
       const wrappedComp = testEnv.wrap(compartilharRoteiro);
       await expect(wrappedComp(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idOperacao: novaOperacao(),
+        idRoteiro,
         uidProfessor: alvo,
       }, alvo))).rejects.toThrow(/Somente o dono/i);
 
       // Compartilhamento correto
       await wrappedComp(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idOperacao: novaOperacao(),
+        idRoteiro,
         uidProfessor: alvo,
       }, dono));
 
-      const roteiroSnap = await db.collection("Roteiro_Experimento").doc(resultReg.idRoteiro).get();
+      const roteiroSnap = await db.collection("Roteiro_Experimento").doc(idRoteiro).get();
       expect(roteiroSnap.data()?.professores_compartilhados).toContain(alvo);
 
       const notifSnap = await db.collection("Usuarios").doc(alvo).collection("Notificacoes")
         .where("tipo", "==", "ROTEIRO_COMPARTILHADO").get();
       expect(notifSnap.empty).toBe(false);
+    });
+
+    it("M7 replay com mesmo idOperacao devolve mesmo resultado sem duplicar compartilhamento", async () => {
+      const dono = "prof_comp_replay";
+      const alvo = "prof_alvo_replay";
+      await semearUsuario(dono);
+      await semearUsuario(alvo);
+
+      const { idRoteiro } = await criarRoteiroPublicado(dono, "Roteiro Replay", "replay.pdf");
+      const op = novaOperacao();
+
+      const wrappedComp = testEnv.wrap(compartilharRoteiro);
+      const primeiro = await wrappedComp(mockRequest({
+        idOperacao: op,
+        idRoteiro,
+        uidProfessor: alvo,
+      }, dono));
+
+      const segundo = await wrappedComp(mockRequest({
+        idOperacao: op,
+        idRoteiro,
+        uidProfessor: alvo,
+      }, dono));
+
+      expect(segundo).toEqual(primeiro);
+      const roteiroSnap = await db.collection("Roteiro_Experimento").doc(idRoteiro).get();
+      expect(roteiroSnap.data()?.professores_compartilhados).toEqual([alvo]);
     });
   });
 
@@ -325,18 +704,12 @@ describe("Módulo de Roteiros", () => {
       await semearUsuario(alvo);
       await semearUsuario(intruso);
 
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const { storagePath } = await criarArquivoRoteiro(dono, "roteiro.pdf");
-      const resultReg = await wrappedReg(mockRequest({
-        nome: "Roteiro Neg",
-        descricao: "Descricao",
-        storagePath,
-        nomeArquivo: "roteiro.pdf",
-      }, dono));
+      const { idRoteiro } = await criarRoteiroPublicado(dono, "Roteiro Neg", "neg.pdf");
 
       const wrappedComp = testEnv.wrap(compartilharRoteiro);
       await expect(wrappedComp(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idOperacao: novaOperacao(),
+        idRoteiro,
         uidProfessor: alvo,
       }, intruso))).rejects.toMatchObject({ code: "permission-denied" });
     });
@@ -345,18 +718,12 @@ describe("Módulo de Roteiros", () => {
       const dono = "prof_comp_dest_inexistente";
       await semearUsuario(dono);
 
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const { storagePath } = await criarArquivoRoteiro(dono, "roteiro.pdf");
-      const resultReg = await wrappedReg(mockRequest({
-        nome: "Roteiro Dest Inexistente",
-        descricao: "Descricao",
-        storagePath,
-        nomeArquivo: "roteiro.pdf",
-      }, dono));
+      const { idRoteiro } = await criarRoteiroPublicado(dono, "Roteiro Dest Inexistente", "dest.pdf");
 
       const wrappedComp = testEnv.wrap(compartilharRoteiro);
       await expect(wrappedComp(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idOperacao: novaOperacao(),
+        idRoteiro,
         uidProfessor: "nao_existe",
       }, dono))).rejects.toMatchObject({ code: "failed-precondition" });
     });
@@ -368,18 +735,12 @@ describe("Módulo de Roteiros", () => {
       await semearUsuario(alvo);
       await db.collection("Usuarios").doc(alvo).update({ ativo: false });
 
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const { storagePath } = await criarArquivoRoteiro(dono, "roteiro.pdf");
-      const resultReg = await wrappedReg(mockRequest({
-        nome: "Roteiro Dest Inativo",
-        descricao: "Descricao",
-        storagePath,
-        nomeArquivo: "roteiro.pdf",
-      }, dono));
+      const { idRoteiro } = await criarRoteiroPublicado(dono, "Roteiro Dest Inativo", "inativo.pdf");
 
       const wrappedComp = testEnv.wrap(compartilharRoteiro);
       await expect(wrappedComp(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idOperacao: novaOperacao(),
+        idRoteiro,
         uidProfessor: alvo,
       }, dono))).rejects.toMatchObject({ code: "failed-precondition" });
     });
@@ -390,18 +751,12 @@ describe("Módulo de Roteiros", () => {
       await semearUsuario(dono);
       await semearUsuario(alvo, ["Aluno"]);
 
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const { storagePath } = await criarArquivoRoteiro(dono, "roteiro.pdf");
-      const resultReg = await wrappedReg(mockRequest({
-        nome: "Roteiro Dest Sem Papel",
-        descricao: "Descricao",
-        storagePath,
-        nomeArquivo: "roteiro.pdf",
-      }, dono));
+      const { idRoteiro } = await criarRoteiroPublicado(dono, "Roteiro Dest Sem Papel", "sempapel.pdf");
 
       const wrappedComp = testEnv.wrap(compartilharRoteiro);
       await expect(wrappedComp(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idOperacao: novaOperacao(),
+        idRoteiro,
         uidProfessor: alvo,
       }, dono))).rejects.toMatchObject({ code: "failed-precondition" });
     });
@@ -412,26 +767,20 @@ describe("Módulo de Roteiros", () => {
       await semearUsuario(dono);
       await semearUsuario(alvo);
 
-      const roteiroRef = db.collection("Roteiro_Experimento").doc();
-      await roteiroRef.set({
-        id_professor_upload: dono,
+      const { storagePath } = await criarArquivoRoteiro(dono, "provisorio.pdf");
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const resultReg = await wrappedReg(mockRequest({
+        idOperacao: novaOperacao(),
         nome: "Roteiro Provisorio",
-        descricao: "...",
-        nome_arquivo: "prov.pdf",
-        referencia: {
-          storage_path: "roteiros/x/prov.pdf",
-          tamanho_bytes: 1035,
-          geracao: "123",
-          owner_uid: dono,
-          content_type: "application/pdf",
-        },
-        status: "PROVISORIO",
-        professores_compartilhados: [],
-      });
+        descricao: "Descricao",
+        storagePath,
+        nomeArquivo: "provisorio.pdf",
+      }, dono));
 
       const wrappedComp = testEnv.wrap(compartilharRoteiro);
       await expect(wrappedComp(mockRequest({
-        idRoteiro: roteiroRef.id,
+        idOperacao: novaOperacao(),
+        idRoteiro: resultReg.idRoteiro,
         uidProfessor: alvo,
       }, dono))).rejects.toMatchObject({ code: "failed-precondition" });
     });
@@ -442,23 +791,18 @@ describe("Módulo de Roteiros", () => {
       await semearUsuario(dono);
       await semearUsuario(alvo);
 
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const { storagePath } = await criarArquivoRoteiro(dono, "roteiro.pdf");
-      const resultReg = await wrappedReg(mockRequest({
-        nome: "Roteiro Dup",
-        descricao: "Descricao",
-        storagePath,
-        nomeArquivo: "roteiro.pdf",
-      }, dono));
+      const { idRoteiro } = await criarRoteiroPublicado(dono, "Roteiro Dup", "dup.pdf");
 
       const wrappedComp = testEnv.wrap(compartilharRoteiro);
       await wrappedComp(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idOperacao: novaOperacao(),
+        idRoteiro,
         uidProfessor: alvo,
       }, dono));
 
       await expect(wrappedComp(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idOperacao: novaOperacao(),
+        idRoteiro,
         uidProfessor: alvo,
       }, dono))).rejects.toMatchObject({ code: "already-exists" });
     });
@@ -471,28 +815,23 @@ describe("Módulo de Roteiros", () => {
       await semearUsuario(dono);
       await semearUsuario(alvo);
 
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const { storagePath } = await criarArquivoRoteiro(dono, "roteiro.pdf");
-      const resultReg = await wrappedReg(mockRequest({
-        nome: "Roteiro 3",
-        descricao: "Descrição",
-        storagePath,
-        nomeArquivo: "roteiro.pdf",
-      }, dono));
+      const { idRoteiro } = await criarRoteiroPublicado(dono, "Roteiro 3", "roteiro.pdf");
 
       const wrappedComp = testEnv.wrap(compartilharRoteiro);
       await wrappedComp(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idOperacao: novaOperacao(),
+        idRoteiro,
         uidProfessor: alvo,
       }, dono));
 
       const wrappedDescomp = testEnv.wrap(descompartilharRoteiro);
       await wrappedDescomp(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idOperacao: novaOperacao(),
+        idRoteiro,
         uidProfessor: alvo,
       }, dono));
 
-      const roteiroSnap = await db.collection("Roteiro_Experimento").doc(resultReg.idRoteiro).get();
+      const roteiroSnap = await db.collection("Roteiro_Experimento").doc(idRoteiro).get();
       expect(roteiroSnap.data()?.professores_compartilhados).not.toContain(alvo);
     });
 
@@ -504,26 +843,53 @@ describe("Módulo de Roteiros", () => {
       await semearUsuario(alvo);
       await semearUsuario(intruso);
 
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const { storagePath } = await criarArquivoRoteiro(dono, "roteiro.pdf");
-      const resultReg = await wrappedReg(mockRequest({
-        nome: "Roteiro Descomp Neg",
-        descricao: "Descricao",
-        storagePath,
-        nomeArquivo: "roteiro.pdf",
-      }, dono));
+      const { idRoteiro } = await criarRoteiroPublicado(dono, "Roteiro Descomp Neg", "descomp.pdf");
 
       const wrappedComp = testEnv.wrap(compartilharRoteiro);
       await wrappedComp(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idOperacao: novaOperacao(),
+        idRoteiro,
         uidProfessor: alvo,
       }, dono));
 
       const wrappedDescomp = testEnv.wrap(descompartilharRoteiro);
       await expect(wrappedDescomp(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idOperacao: novaOperacao(),
+        idRoteiro,
         uidProfessor: alvo,
       }, intruso))).rejects.toMatchObject({ code: "permission-denied" });
+    });
+
+    it("M7 replay com mesmo idOperacao devolve mesmo resultado", async () => {
+      const dono = "prof_descomp_replay";
+      const alvo = "prof_alvo_replay";
+      await semearUsuario(dono);
+      await semearUsuario(alvo);
+
+      const { idRoteiro } = await criarRoteiroPublicado(dono, "Roteiro Descomp Replay", "descomp_replay.pdf");
+
+      const wrappedComp = testEnv.wrap(compartilharRoteiro);
+      await wrappedComp(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro,
+        uidProfessor: alvo,
+      }, dono));
+
+      const op = novaOperacao();
+      const wrappedDescomp = testEnv.wrap(descompartilharRoteiro);
+      const primeiro = await wrappedDescomp(mockRequest({
+        idOperacao: op,
+        idRoteiro,
+        uidProfessor: alvo,
+      }, dono));
+
+      const segundo = await wrappedDescomp(mockRequest({
+        idOperacao: op,
+        idRoteiro,
+        uidProfessor: alvo,
+      }, dono));
+
+      expect(segundo).toEqual(primeiro);
     });
   });
 
@@ -536,33 +902,13 @@ describe("Módulo de Roteiros", () => {
       await semearUsuario(alvo);
       await semearUsuario(terceiro);
 
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const { storagePath: st1 } = await criarArquivoRoteiro(dono, "dono.pdf");
-      const reg1 = await wrappedReg(mockRequest({
-        nome: "Roteiro Dono",
-        descricao: "X",
-        storagePath: st1,
-        nomeArquivo: "dono.pdf",
-      }, dono));
-
-      const { storagePath: st2 } = await criarArquivoRoteiro(dono, "comp.pdf");
-      const reg2 = await wrappedReg(mockRequest({
-        nome: "Roteiro Compartilhado",
-        descricao: "Y",
-        storagePath: st2,
-        nomeArquivo: "comp.pdf",
-      }, dono));
-
-      const { storagePath: st3 } = await criarArquivoRoteiro(terceiro, "terceiro.pdf");
-      const reg3 = await wrappedReg(mockRequest({
-        nome: "Roteiro Terceiro",
-        descricao: "Z",
-        storagePath: st3,
-        nomeArquivo: "terceiro.pdf",
-      }, terceiro));
+      const reg1 = await criarRoteiroPublicado(dono, "Roteiro Dono", "dono.pdf");
+      const reg2 = await criarRoteiroPublicado(dono, "Roteiro Compartilhado", "comp.pdf");
+      const reg3 = await criarRoteiroPublicado(terceiro, "Roteiro Terceiro", "terceiro.pdf");
 
       const wrappedComp = testEnv.wrap(compartilharRoteiro);
       await wrappedComp(mockRequest({
+        idOperacao: novaOperacao(),
         idRoteiro: reg2.idRoteiro,
         uidProfessor: alvo,
       }, dono));
@@ -597,30 +943,46 @@ describe("Módulo de Roteiros", () => {
       await semearUsuario(dono);
       await semearUsuario(outro);
 
-      const { storagePath } = await criarArquivoRoteiro(dono, "remover.pdf");
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const resultReg = await wrappedReg(mockRequest({
-        nome: "Roteiro a Remover",
-        descricao: "Z",
-        storagePath,
-        nomeArquivo: "remover.pdf",
-      }, dono));
+      const { storagePath, idRoteiro } = await criarRoteiroPublicado(dono, "Roteiro a Remover", "remover.pdf");
 
       const wrappedRem = testEnv.wrap(removerRoteiro);
       await expect(wrappedRem(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idOperacao: novaOperacao(),
+        idRoteiro,
       }, outro))).rejects.toThrow(/Somente o dono/i);
 
       const remResult = await wrappedRem(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idOperacao: novaOperacao(),
+        idRoteiro,
       }, dono));
       expect(remResult.success).toBe(true);
 
-      const roteiroSnap = await db.collection("Roteiro_Experimento").doc(resultReg.idRoteiro).get();
+      const roteiroSnap = await db.collection("Roteiro_Experimento").doc(idRoteiro).get();
       expect(roteiroSnap.exists).toBe(false);
 
       const [exists] = await admin.storage().bucket().file(storagePath).exists();
       expect(exists).toBe(false);
+    });
+
+    it("M7 replay com mesmo idOperacao devolve mesmo resultado", async () => {
+      const dono = "prof_remove_replay";
+      await semearUsuario(dono);
+
+      const { idRoteiro } = await criarRoteiroPublicado(dono, "Roteiro Remover Replay", "remove_replay.pdf");
+      const op = novaOperacao();
+
+      const wrappedRem = testEnv.wrap(removerRoteiro);
+      const primeiro = await wrappedRem(mockRequest({
+        idOperacao: op,
+        idRoteiro,
+      }, dono));
+
+      const segundo = await wrappedRem(mockRequest({
+        idOperacao: op,
+        idRoteiro,
+      }, dono));
+
+      expect(segundo).toEqual(primeiro);
     });
   });
 
@@ -629,27 +991,16 @@ describe("Módulo de Roteiros", () => {
       const dono = "prof_download_proprietario";
       await semearUsuario(dono, ["Professor"]);
 
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const { storagePath, geracao } = await criarArquivoRoteiro(dono, "proprietario.pdf");
-      const resultReg = await wrappedReg(mockRequest({
-        nome: "Roteiro Proprietario",
-        descricao: "P",
-        storagePath,
-        nomeArquivo: "proprietario.pdf",
-      }, dono));
-
-      const roteiroSnap = await db.collection("Roteiro_Experimento").doc(resultReg.idRoteiro).get();
-      const roteiroData = roteiroSnap.data()!;
+      const { idRoteiro, storagePath, geracao } = await criarRoteiroPublicado(dono, "Roteiro Proprietario", "proprietario.pdf");
 
       const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
       const result = await wrapped(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idRoteiro,
       }, dono));
 
-      expect(result.id_roteiro).toBe(resultReg.idRoteiro);
+      expect(result.id_roteiro).toBe(idRoteiro);
       expect(result.via).toBe("PROPRIETARIO");
       expect(result.storage_path).toBe(storagePath);
-      expect(result.geracao).toBe(roteiroData.referencia.geracao);
       expect(result.geracao).toBe(geracao);
       expect(typeof result.url).toBe("string");
       expect(result.url.length).toBeGreaterThan(0);
@@ -664,29 +1015,24 @@ describe("Módulo de Roteiros", () => {
       await semearUsuario(dono, ["Professor"]);
       await semearUsuario(alvo, ["Professor"]);
 
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const { storagePath } = await criarArquivoRoteiro(dono, "compartilhado.pdf");
-      const resultReg = await wrappedReg(mockRequest({
-        nome: "Roteiro Compartilhado",
-        descricao: "C",
-        storagePath,
-        nomeArquivo: "compartilhado.pdf",
-      }, dono));
+      const { idRoteiro, storagePath, geracao } = await criarRoteiroPublicado(dono, "Roteiro Compartilhado", "compartilhado.pdf");
 
       const wrappedComp = testEnv.wrap(compartilharRoteiro);
       await wrappedComp(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idOperacao: novaOperacao(),
+        idRoteiro,
         uidProfessor: alvo,
       }, dono));
 
       const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
       const result = await wrapped(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idRoteiro,
       }, alvo));
 
       expect(result.via).toBe("COMPARTILHADO");
-      expect(result.id_roteiro).toBe(resultReg.idRoteiro);
-      expect(result.geracao).toBeDefined();
+      expect(result.id_roteiro).toBe(idRoteiro);
+      expect(result.storage_path).toBe(storagePath);
+      expect(result.geracao).toBe(geracao);
       expect(typeof result.url).toBe("string");
     });
 
@@ -696,18 +1042,11 @@ describe("Módulo de Roteiros", () => {
       await semearUsuario(dono, ["Professor"]);
       await semearUsuario(outro, ["Professor"]);
 
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const { storagePath } = await criarArquivoRoteiro(dono, "negado.pdf");
-      const resultReg = await wrappedReg(mockRequest({
-        nome: "Roteiro Negado",
-        descricao: "N",
-        storagePath,
-        nomeArquivo: "negado.pdf",
-      }, dono));
+      const { idRoteiro } = await criarRoteiroPublicado(dono, "Roteiro Negado", "negado.pdf");
 
       const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
       await expect(wrapped(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idRoteiro,
       }, outro))).rejects.toMatchObject({ code: "permission-denied" });
     });
 
@@ -720,14 +1059,7 @@ describe("Módulo de Roteiros", () => {
       await semearTurma(idTurma, professor);
       await semearVinculo(idTurma, aluno);
 
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const { storagePath } = await criarArquivoRoteiro(professor, "aluno.pdf");
-      const resultReg = await wrappedReg(mockRequest({
-        nome: "Roteiro Aluno",
-        descricao: "A",
-        storagePath,
-        nomeArquivo: "aluno.pdf",
-      }, professor));
+      const { idRoteiro } = await criarRoteiroPublicado(professor, "Roteiro Aluno", "aluno.pdf");
 
       const wrappedCriar = testEnv.wrap(criarPost);
       const postResult = await wrappedCriar(mockRequest({
@@ -735,18 +1067,18 @@ describe("Módulo de Roteiros", () => {
         idTurma,
         titulo: "Post com Roteiro",
         descricao: "Descricao",
-        idRoteiroExperimento: resultReg.idRoteiro,
+        idRoteiroExperimento: idRoteiro,
       }, professor));
 
       const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
       const result = await wrapped(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idRoteiro,
         idTurma,
         idPost: postResult.id,
       }, aluno, ["Aluno"]));
 
       expect(result.via).toBe("ALUNO_POST");
-      expect(result.id_roteiro).toBe(resultReg.idRoteiro);
+      expect(result.id_roteiro).toBe(idRoteiro);
       expect(result.geracao).toBeDefined();
       expect(typeof result.url).toBe("string");
     });
@@ -762,14 +1094,7 @@ describe("Módulo de Roteiros", () => {
       await semearTurma(idTurma, professor);
       await semearVinculo(idTurma, aluno);
 
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const { storagePath } = await criarArquivoRoteiro(professor, "fora.pdf");
-      const resultReg = await wrappedReg(mockRequest({
-        nome: "Roteiro Fora",
-        descricao: "F",
-        storagePath,
-        nomeArquivo: "fora.pdf",
-      }, professor));
+      const { idRoteiro } = await criarRoteiroPublicado(professor, "Roteiro Fora", "fora.pdf");
 
       const wrappedCriar = testEnv.wrap(criarPost);
       const postResult = await wrappedCriar(mockRequest({
@@ -777,12 +1102,12 @@ describe("Módulo de Roteiros", () => {
         idTurma,
         titulo: "Post com Roteiro",
         descricao: "Descricao",
-        idRoteiroExperimento: resultReg.idRoteiro,
+        idRoteiroExperimento: idRoteiro,
       }, professor));
 
       const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
       await expect(wrapped(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idRoteiro,
         idTurma,
         idPost: postResult.id,
       }, outroAluno, ["Aluno"]))).rejects.toMatchObject({ code: "permission-denied" });
@@ -797,14 +1122,7 @@ describe("Módulo de Roteiros", () => {
       await semearTurma(idTurma, professor);
       await semearVinculo(idTurma, aluno);
 
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const { storagePath } = await criarArquivoRoteiro(professor, "removido.pdf");
-      const resultReg = await wrappedReg(mockRequest({
-        nome: "Roteiro Removido",
-        descricao: "R",
-        storagePath,
-        nomeArquivo: "removido.pdf",
-      }, professor));
+      const { idRoteiro } = await criarRoteiroPublicado(professor, "Roteiro Removido", "removido.pdf");
 
       const wrappedCriar = testEnv.wrap(criarPost);
       const postResult = await wrappedCriar(mockRequest({
@@ -812,7 +1130,7 @@ describe("Módulo de Roteiros", () => {
         idTurma,
         titulo: "Post com Roteiro",
         descricao: "Descricao",
-        idRoteiroExperimento: resultReg.idRoteiro,
+        idRoteiroExperimento: idRoteiro,
       }, professor));
 
       const wrappedRemover = testEnv.wrap(removerPost);
@@ -825,7 +1143,7 @@ describe("Módulo de Roteiros", () => {
 
       const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
       await expect(wrapped(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idRoteiro,
         idTurma,
         idPost: postResult.id,
       }, aluno, ["Aluno"]))).rejects.toMatchObject({ code: "failed-precondition" });
@@ -840,14 +1158,7 @@ describe("Módulo de Roteiros", () => {
       await semearTurma(idTurma, professor);
       await semearVinculo(idTurma, aluno);
 
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const { storagePath } = await criarArquivoRoteiro(professor, "divergente.pdf");
-      const resultReg = await wrappedReg(mockRequest({
-        nome: "Roteiro Divergente",
-        descricao: "D",
-        storagePath,
-        nomeArquivo: "divergente.pdf",
-      }, professor));
+      const { idRoteiro } = await criarRoteiroPublicado(professor, "Roteiro Divergente", "divergente.pdf");
 
       const wrappedCriar = testEnv.wrap(criarPost);
       const postResult = await wrappedCriar(mockRequest({
@@ -855,7 +1166,7 @@ describe("Módulo de Roteiros", () => {
         idTurma,
         titulo: "Post com Roteiro",
         descricao: "Descricao",
-        idRoteiroExperimento: resultReg.idRoteiro,
+        idRoteiroExperimento: idRoteiro,
       }, professor));
 
       await db.collection("Turma").doc(idTurma).collection("Posts").doc(postResult.id).update({
@@ -864,7 +1175,7 @@ describe("Módulo de Roteiros", () => {
 
       const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
       await expect(wrapped(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idRoteiro,
         idTurma,
         idPost: postResult.id,
       }, aluno, ["Aluno"]))).rejects.toMatchObject({ code: "failed-precondition" });
@@ -903,18 +1214,11 @@ describe("Módulo de Roteiros", () => {
       await semearUsuario(dono, ["Professor"]);
       await semearUsuario(chefe, ["Chefe_Geral"]);
 
-      const wrappedReg = testEnv.wrap(registrarRoteiro);
-      const { storagePath } = await criarArquivoRoteiro(dono, "b03.pdf");
-      const resultReg = await wrappedReg(mockRequest({
-        nome: "Roteiro B03",
-        descricao: "B",
-        storagePath,
-        nomeArquivo: "b03.pdf",
-      }, dono));
+      const { idRoteiro } = await criarRoteiroPublicado(dono, "Roteiro B03", "b03.pdf");
 
       const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
       await expect(wrapped(mockRequest({
-        idRoteiro: resultReg.idRoteiro,
+        idRoteiro,
       }, chefe, ["Chefe_Geral"]))).rejects.toMatchObject({ code: "permission-denied" });
     });
   });

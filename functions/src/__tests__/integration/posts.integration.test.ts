@@ -9,7 +9,7 @@ process.env.FUNCTIONS_EMULATOR = "true";
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { criarPost, adicionarComentario, removerPost, moderarComentario, listarComentariosPost, editarPost, editarComentario } from "../../posts";
-import { registrarRoteiro, compartilharRoteiro, descompartilharRoteiro } from "../../roteiros";
+import { registrarRoteiro, validarObjetoRoteiro, publicarRoteiro, compartilharRoteiro, descompartilharRoteiro, removerRoteiro } from "../../roteiros";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -98,21 +98,32 @@ async function criarRoteiroPublicavel(
     },
   });
 
-  const wrapped = testEnv.wrap(registrarRoteiro);
-  const result = await wrapped(mockRequest({
+  const wrappedReg = testEnv.wrap(registrarRoteiro);
+  const resultReg = await wrappedReg(mockRequest({
+    idOperacao: novaOperacao(),
     nome,
     descricao: `Descrição de ${nome}`,
     storagePath,
     nomeArquivo,
   }, uid));
 
-  const roteiroSnap = await db.collection("Roteiro_Experimento").doc(result.idRoteiro).get();
-  const data = roteiroSnap.data()!;
+  const wrappedValidar = testEnv.wrap(validarObjetoRoteiro);
+  const resultValidar = await wrappedValidar(mockRequest({
+    idOperacao: novaOperacao(),
+    idRoteiro: resultReg.idRoteiro,
+  }, uid));
+
+  const wrappedPublicar = testEnv.wrap(publicarRoteiro);
+  await wrappedPublicar(mockRequest({
+    idOperacao: novaOperacao(),
+    idRoteiro: resultReg.idRoteiro,
+  }, uid));
+
   return {
-    idRoteiro: result.idRoteiro,
+    idRoteiro: resultReg.idRoteiro,
     storagePath,
-    geracao: data.referencia.geracao,
-    tamanhoBytes: data.referencia.tamanho_bytes,
+    geracao: resultValidar.geracao,
+    tamanhoBytes: buffer.length,
   };
 }
 
@@ -1889,6 +1900,7 @@ describe("Módulo Acadêmico (Posts e Comentários - Baseado no main.tex)", () =
       const roteiro = await criarRoteiroPublicavel(outro, "Roteiro Compartilhado", "comp.pdf");
       const wrappedComp = testEnv.wrap(compartilharRoteiro);
       await wrappedComp(mockRequest({
+        idOperacao: novaOperacao(),
         idRoteiro: roteiro.idRoteiro,
         uidProfessor: professor,
       }, outro));
@@ -1916,6 +1928,7 @@ describe("Módulo Acadêmico (Posts e Comentários - Baseado no main.tex)", () =
       const roteiro = await criarRoteiroPublicavel(outro, "Roteiro a Desvincular", "desvinc.pdf");
       const wrappedComp = testEnv.wrap(compartilharRoteiro);
       await wrappedComp(mockRequest({
+        idOperacao: novaOperacao(),
         idRoteiro: roteiro.idRoteiro,
         uidProfessor: professor,
       }, outro));
@@ -1932,6 +1945,7 @@ describe("Módulo Acadêmico (Posts e Comentários - Baseado no main.tex)", () =
       // Revoga o compartilhamento
       const wrappedDescomp = testEnv.wrap(descompartilharRoteiro);
       await wrappedDescomp(mockRequest({
+        idOperacao: novaOperacao(),
         idRoteiro: roteiro.idRoteiro,
         uidProfessor: professor,
       }, outro));
@@ -1961,6 +1975,7 @@ describe("Módulo Acadêmico (Posts e Comentários - Baseado no main.tex)", () =
       const roteiro = await criarRoteiroPublicavel(outro, "Roteiro a Revogar", "revog.pdf");
       const wrappedComp = testEnv.wrap(compartilharRoteiro);
       await wrappedComp(mockRequest({
+        idOperacao: novaOperacao(),
         idRoteiro: roteiro.idRoteiro,
         uidProfessor: professor,
       }, outro));
@@ -1976,6 +1991,7 @@ describe("Módulo Acadêmico (Posts e Comentários - Baseado no main.tex)", () =
 
       const wrappedDescomp = testEnv.wrap(descompartilharRoteiro);
       await wrappedDescomp(mockRequest({
+        idOperacao: novaOperacao(),
         idRoteiro: roteiro.idRoteiro,
         uidProfessor: professor,
       }, outro));
@@ -2057,7 +2073,7 @@ describe("Módulo Acadêmico (Posts e Comentários - Baseado no main.tex)", () =
       expect(posts.empty).toBe(true);
     });
 
-    it("TEST-INT-RTR-POST-008 — histórico de anexo preserva snapshots e nunca remove o anterior", async () => {
+    it("TEST-INT-RTR-POST-008 — histórico de anexo preserva snapshots de troca e desvínculo", async () => {
       const professor = "prof_rtr_historico";
       await semearUsuario(professor, ["Professor"]);
       await semearTurma("turma_rtr_historico", professor);
@@ -2112,6 +2128,74 @@ describe("Módulo Acadêmico (Posts e Comentários - Baseado no main.tex)", () =
         h.novo_roteiro_anexo?.id_roteiro === roteiroA.idRoteiro
       );
       expect(snapshotAindaPresente).toBe(true);
+    });
+
+    it("TEST-INT-RTR-POST-011 — snapshot do anexo sobrevive à remoção do Roteiro_Experimento", async () => {
+      const professor = "prof_rtr_remove_roteiro";
+      await semearUsuario(professor, ["Professor"]);
+      await semearTurma("turma_rtr_remove_roteiro", professor);
+
+      const roteiroA = await criarRoteiroPublicavel(professor, "Roteiro A Sobrevive", "a.pdf");
+
+      const wrappedCriar = testEnv.wrap(criarPost);
+      const postResult = await wrappedCriar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_remove_roteiro",
+        titulo: "Post com Anexo Sobrevivente",
+        descricao: "Descricao",
+        idRoteiroExperimento: roteiroA.idRoteiro,
+      }, professor));
+
+      // Remover o roteiro (documento Firestore + objeto Storage).
+      const wrappedRemoverRoteiro = testEnv.wrap(removerRoteiro);
+      await wrappedRemoverRoteiro(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro: roteiroA.idRoteiro,
+      }, professor));
+
+      // O documento de Roteiro foi removido.
+      const roteiroSnap = await db.collection("Roteiro_Experimento").doc(roteiroA.idRoteiro).get();
+      expect(roteiroSnap.exists).toBe(false);
+
+      // O Post preserva o snapshot do anexo mesmo sem o documento de Roteiro.
+      const postDoc = await db.collection("Turma").doc("turma_rtr_remove_roteiro").collection("Posts").doc(postResult.id).get();
+      const postData = postDoc.data()!;
+      expect(postData.roteiro_anexo).toBeTruthy();
+      expect(postData.roteiro_anexo.id_roteiro).toBe(roteiroA.idRoteiro);
+      expect(postData.roteiro_anexo.geracao).toBe(roteiroA.geracao);
+    });
+
+    it("TEST-INT-RTR-POST-012 — snapshot do anexo sobrevive à remoção lógica do Post", async () => {
+      const professor = "prof_rtr_remove_post";
+      await semearUsuario(professor, ["Professor"]);
+      await semearTurma("turma_rtr_remove_post", professor);
+
+      const roteiroA = await criarRoteiroPublicavel(professor, "Roteiro A no Post Removido", "a.pdf");
+
+      const wrappedCriar = testEnv.wrap(criarPost);
+      const postResult = await wrappedCriar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_remove_post",
+        titulo: "Post que Será Removido",
+        descricao: "Descricao",
+        idRoteiroExperimento: roteiroA.idRoteiro,
+      }, professor));
+
+      const wrappedRemoverPost = testEnv.wrap(removerPost);
+      await wrappedRemoverPost(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_remove_post",
+        idPost: postResult.id,
+        motivo: "Remoção para teste de histórico",
+      }, professor));
+
+      // O Post foi removido logicamente, mas o documento e o anexo persistem.
+      const postDoc = await db.collection("Turma").doc("turma_rtr_remove_post").collection("Posts").doc(postResult.id).get();
+      const postData = postDoc.data()!;
+      expect(postData.removido_da_apresentacao).toBe(true);
+      expect(postData.roteiro_anexo).toBeTruthy();
+      expect(postData.roteiro_anexo.id_roteiro).toBe(roteiroA.idRoteiro);
+      expect(postData.roteiro_anexo.geracao).toBe(roteiroA.geracao);
     });
 
     it("TEST-INT-RTR-POST-009 — turma arquivada nega criação de Post com roteiro", async () => {

@@ -597,21 +597,55 @@ export function NovoRoteiroModal({ isOpen, onClose }: ModalProps) {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error", msg: string } | null>(null);
 
+  const resolverIdOperacaoEtapa = (
+    chave: string,
+    assinatura: string
+  ): { idOperacao: string; assinatura: string } => {
+    const session = typeof window !== "undefined" ? window.sessionStorage : null;
+    if (session) {
+      return obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID());
+    }
+    return { idOperacao: crypto.randomUUID(), assinatura };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file || !user) return;
     setLoading(true);
     setToast(null);
-    
+
     try {
       // Upload do objeto no Storage com metadado de posse.
       const fileRef = ref(storage, `roteiros/${user.uid}/${Date.now()}_${file.name}`);
       await uploadBytes(fileRef, file, { customMetadata: { owner: user.uid } });
       const storagePath = fileRef.fullPath;
 
-      // Registro canônico via callable (valida objeto e emite status PUBLICAVEL).
-      const registrar = httpsCallable(getFunctions(), "registrarRoteiro");
-      await registrar({ nome, descricao, storagePath, nomeArquivo: file.name });
+      const chaveRegistrar = `lcqui.intencao.roteiro.registrar.${storagePath}`;
+      const assinaturaRegistrar = JSON.stringify(["REGISTRAR_ROTEIRO", nome, descricao, storagePath, file.name]);
+      const intencaoRegistrar = resolverIdOperacaoEtapa(chaveRegistrar, assinaturaRegistrar);
+
+      const functions = getFunctions();
+      const registrar = httpsCallable(functions, "registrarRoteiro");
+      const resRegistrar = await registrar({
+        idOperacao: intencaoRegistrar.idOperacao,
+        nome,
+        descricao,
+        storagePath,
+        nomeArquivo: file.name,
+      });
+      const { idRoteiro } = resRegistrar.data as { idRoteiro: string };
+
+      const chaveValidar = `lcqui.intencao.roteiro.validar.${idRoteiro}`;
+      const assinaturaValidar = JSON.stringify(["VALIDAR_OBJETO_ROTEIRO", idRoteiro]);
+      const intencaoValidar = resolverIdOperacaoEtapa(chaveValidar, assinaturaValidar);
+      const validar = httpsCallable(functions, "validarObjetoRoteiro");
+      await validar({ idOperacao: intencaoValidar.idOperacao, idRoteiro });
+
+      const chavePublicar = `lcqui.intencao.roteiro.publicar.${idRoteiro}`;
+      const assinaturaPublicar = JSON.stringify(["PUBLICAR_ROTEIRO", idRoteiro]);
+      const intencaoPublicar = resolverIdOperacaoEtapa(chavePublicar, assinaturaPublicar);
+      const publicar = httpsCallable(functions, "publicarRoteiro");
+      await publicar({ idOperacao: intencaoPublicar.idOperacao, idRoteiro });
 
       setToast({ type: "success", msg: "Roteiro adicionado com sucesso!" });
       setTimeout(() => {
@@ -621,9 +655,10 @@ export function NovoRoteiroModal({ isOpen, onClose }: ModalProps) {
         setFile(null);
         setToast(null);
       }, 2000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao fazer upload de roteiro:", error);
-      setToast({ type: "error", msg: error.message || "Erro ao fazer upload do roteiro." });
+      const msg = error instanceof Error ? error.message : "Erro ao fazer upload do roteiro.";
+      setToast({ type: "error", msg });
     } finally {
       setLoading(false);
     }
@@ -709,6 +744,7 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [loadingAbrirId, setLoadingAbrirId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [confirmandoExclusaoId, setConfirmandoExclusaoId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -729,24 +765,36 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
   }, [isOpen, user]);
 
   const handleExcluir = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este roteiro?")) return;
+    if (confirmandoExclusaoId !== id) {
+      setConfirmandoExclusaoId(id);
+      return;
+    }
     setLoadingId(id);
+    setToast(null);
     try {
       const fn = getFunctions();
+      const session = typeof window !== "undefined" ? window.sessionStorage : null;
+      const chave = `lcqui.intencao.roteiro.remover.${id}`;
+      const assinatura = JSON.stringify(["REMOVER_ROTEIRO", id]);
+      const intencao = session
+        ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
+        : { idOperacao: crypto.randomUUID(), assinatura };
       const remover = httpsCallable(fn, "removerRoteiro");
-      await remover({ idRoteiro: id });
-    } catch (error) {
+      await remover({ idOperacao: intencao.idOperacao, idRoteiro: id });
+      setToast({ type: "success", msg: "Roteiro removido com sucesso." });
+    } catch (error: unknown) {
       console.error("Erro ao excluir roteiro:", error);
       const message = error instanceof Error ? error.message : "Erro ao excluir roteiro.";
-      alert(message);
+      setToast({ type: "error", msg: message });
     } finally {
       setLoadingId(null);
+      setConfirmandoExclusaoId(null);
     }
   };
 
   const handleCompartilhar = (id: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/roteiro/${id}`);
-    alert("Link de compartilhamento copiado para a área de transferência!");
+    setToast({ type: "success", msg: "Link de compartilhamento copiado para a área de transferência!" });
   };
 
   const handleAbrirPdf = async (idRoteiro: string) => {
@@ -811,9 +859,13 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
                     <button
                       onClick={() => handleExcluir(roteiro.id)}
                       disabled={loadingId === roteiro.id}
-                      className="px-3 py-1.5 bg-red-500/10 text-red-600 rounded-lg text-sm font-medium hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+                        confirmandoExclusaoId === roteiro.id
+                          ? "bg-red-600 text-white hover:bg-red-700"
+                          : "bg-red-500/10 text-red-600 hover:bg-red-500/20"
+                      }`}
                     >
-                      {loadingId === roteiro.id ? "..." : "Excluir"}
+                      {loadingId === roteiro.id ? "..." : confirmandoExclusaoId === roteiro.id ? "Confirmar?" : "Excluir"}
                     </button>
                   </div>
                 </li>

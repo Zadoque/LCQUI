@@ -8,7 +8,14 @@ import {
 } from "./auth";
 import { validatePayload } from "./utils/validation";
 import {
+  construirIdentidade,
+  registrarOperacaoConcluidaTx,
+  resolverOperacaoTx,
+} from "./idempotencia";
+import {
   RegistrarRoteiroSchema,
+  ValidarObjetoRoteiroSchema,
+  PublicarRoteiroSchema,
   CompartilharRoteiroSchema,
   DescompartilharRoteiroSchema,
   EmitirUrlDownloadRoteiroSchema,
@@ -38,11 +45,16 @@ export function podeAcessarRoteiro(roteiro: Record<string, unknown> | undefined,
   return false;
 }
 
-/** Inspeciona o objeto no Storage e retorna metadados validados. */
-async function inspecionarObjetoRoteiro(storagePath: string, ownerUid: string) {
+/** Valida namespace do Storage (dono e prefixo roteiros/{uid}/). */
+function validarNamespaceStorage(storagePath: string, ownerUid: string): void {
   if (!storagePath.startsWith(`roteiros/${ownerUid}/`)) {
     throw new HttpsError("permission-denied", "Caminho do Storage fora do namespace do dono.");
   }
+}
+
+/** Inspeciona o objeto no Storage e retorna metadados validados. */
+async function inspecionarObjetoRoteiro(storagePath: string, ownerUid: string) {
+  validarNamespaceStorage(storagePath, ownerUid);
 
   const file = admin.storage().bucket().file(storagePath);
   let metadata: StorageFileMetadata;
@@ -96,39 +108,182 @@ export const registrarRoteiro = onCall(async (request) => {
   const claims = extrairClaimsAutoridade(request);
   const uid = request.auth!.uid;
 
-  const dados = validatePayload(RegistrarRoteiroSchema, request.data);
+  const { idOperacao, nome, descricao, storagePath, nomeArquivo } = validatePayload(
+    RegistrarRoteiroSchema,
+    request.data
+  );
+
+  const identidade = construirIdentidade(uid, "CADASTRAR_ROTEIRO", {
+    nome,
+    descricao,
+    storagePath,
+    nomeArquivo,
+  });
 
   const roteiroRef = admin.firestore().collection("Roteiro_Experimento").doc();
 
   return admin.firestore().runTransaction(async (tx) => {
     await resolverAutoridadePersistidaTx(tx, claims, ["Professor"]);
 
-    const referencia = await inspecionarObjetoRoteiro(dados.storagePath, uid);
+    const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+    if (decisao.estado === "REPLAY") {
+      return decisao.resultado as { idRoteiro: string };
+    }
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError("failed-precondition", "Operação de cadastro de roteiro não concluída.");
+    }
+
+    // Valida namespace e posse sem fixar a geração (será fixada na validação).
+    validarNamespaceStorage(storagePath, uid);
 
     tx.set(roteiroRef, {
       id_professor_upload: uid,
-      nome: dados.nome,
-      descricao: dados.descricao,
-      nome_arquivo: dados.nomeArquivo,
-      referencia,
-      status: "PUBLICAVEL",
+      nome,
+      descricao,
+      nome_arquivo: nomeArquivo,
+      referencia: {
+        storage_path: storagePath,
+        owner_uid: uid,
+      },
+      status: "PROVISORIO",
       professores_compartilhados: [],
       file_url: null,
       criado_em: FieldValue.serverTimestamp(),
     });
 
-    return { idRoteiro: roteiroRef.id };
+    const resultado = { idRoteiro: roteiroRef.id };
+    registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+    return resultado;
+  });
+});
+
+export const validarObjetoRoteiro = onCall(async (request) => {
+  const claims = extrairClaimsAutoridade(request);
+  const uid = request.auth!.uid;
+
+  const { idOperacao, idRoteiro } = validatePayload(ValidarObjetoRoteiroSchema, request.data);
+
+  const identidade = construirIdentidade(uid, "VALIDAR_OBJETO", { idRoteiro });
+  const roteiroRef = admin.firestore().collection("Roteiro_Experimento").doc(idRoteiro);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Professor"]);
+
+    const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+    if (decisao.estado === "REPLAY") {
+      return decisao.resultado as { idRoteiro: string; geracao: string };
+    }
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError("failed-precondition", "Operação de validação não concluída.");
+    }
+
+    const snap = await tx.get(roteiroRef);
+    if (!snap.exists) {
+      throw new HttpsError("not-found", "Roteiro não encontrado.");
+    }
+
+    const roteiro = snap.data()!;
+    if (roteiro.id_professor_upload !== uid) {
+      throw new HttpsError("permission-denied", "Somente o dono do roteiro pode validá-lo.");
+    }
+
+    if (roteiro.status !== "PROVISORIO") {
+      throw new HttpsError("failed-precondition", "Roteiro deve estar PROVISORIO para ser validado.");
+    }
+
+    const storagePath = typeof roteiro.referencia?.storage_path === "string"
+      ? roteiro.referencia.storage_path
+      : null;
+    if (!storagePath) {
+      throw new HttpsError("failed-precondition", "Referência de Storage ausente.");
+    }
+
+    // Inspeção fora da transação (etapa externa) antes de gravar a geração.
+    const referencia = await inspecionarObjetoRoteiro(storagePath, uid);
+
+    tx.update(roteiroRef, {
+      referencia,
+      status: "VALIDADO",
+    });
+
+    const resultado = { idRoteiro, geracao: referencia.geracao };
+    registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+    return resultado;
+  });
+});
+
+export const publicarRoteiro = onCall(async (request) => {
+  const claims = extrairClaimsAutoridade(request);
+  const uid = request.auth!.uid;
+
+  const { idOperacao, idRoteiro } = validatePayload(PublicarRoteiroSchema, request.data);
+
+  const identidade = construirIdentidade(uid, "PUBLICAR_ROTEIRO", { idRoteiro });
+  const roteiroRef = admin.firestore().collection("Roteiro_Experimento").doc(idRoteiro);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Professor"]);
+
+    const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+    if (decisao.estado === "REPLAY") {
+      return decisao.resultado as { idRoteiro: string };
+    }
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError("failed-precondition", "Operação de publicação não concluída.");
+    }
+
+    const snap = await tx.get(roteiroRef);
+    if (!snap.exists) {
+      throw new HttpsError("not-found", "Roteiro não encontrado.");
+    }
+
+    const roteiro = snap.data()!;
+    if (roteiro.id_professor_upload !== uid) {
+      throw new HttpsError("permission-denied", "Somente o dono do roteiro pode publicá-lo.");
+    }
+
+    if (roteiro.status !== "VALIDADO") {
+      throw new HttpsError("failed-precondition", "Roteiro deve estar VALIDADO para ser publicado.");
+    }
+
+    const geracao = roteiro.referencia?.geracao;
+    if (typeof geracao !== "string" || geracao.length === 0) {
+      throw new HttpsError("failed-precondition", "Geração do objeto não foi fixada.");
+    }
+
+    tx.update(roteiroRef, {
+      status: "PUBLICAVEL",
+    });
+
+    const resultado = { idRoteiro };
+    registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+    return resultado;
   });
 });
 
 export const compartilharRoteiro = onCall(async (request) => {
   const claims = extrairClaimsAutoridade(request);
-  const { idRoteiro, uidProfessor } = validatePayload(CompartilharRoteiroSchema, request.data);
+  const { idOperacao, idRoteiro, uidProfessor } = validatePayload(
+    CompartilharRoteiroSchema,
+    request.data
+  );
 
+  const identidade = construirIdentidade(claims.uid, "COMPARTILHAR_ROTEIRO", {
+    idRoteiro,
+    uidProfessor,
+  });
   const roteiroRef = admin.firestore().collection("Roteiro_Experimento").doc(idRoteiro);
 
   return admin.firestore().runTransaction(async (tx) => {
     const autoridade = await resolverAutoridadePersistidaTx(tx, claims, ["Professor"]);
+
+    const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+    if (decisao.estado === "REPLAY") {
+      return decisao.resultado as { success: true };
+    }
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError("failed-precondition", "Operação de compartilhamento não concluída.");
+    }
 
     const snap = await tx.get(roteiroRef);
     if (!snap.exists) {
@@ -179,18 +334,35 @@ export const compartilharRoteiro = onCall(async (request) => {
       id_alvo: idRoteiro,
     });
 
-    return { success: true };
+    const resultado = { success: true };
+    registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+    return resultado;
   });
 });
 
 export const descompartilharRoteiro = onCall(async (request) => {
   const claims = extrairClaimsAutoridade(request);
-  const { idRoteiro, uidProfessor } = validatePayload(DescompartilharRoteiroSchema, request.data);
+  const { idOperacao, idRoteiro, uidProfessor } = validatePayload(
+    DescompartilharRoteiroSchema,
+    request.data
+  );
 
+  const identidade = construirIdentidade(claims.uid, "REVOGAR_COMPARTILHAMENTO", {
+    idRoteiro,
+    uidProfessor,
+  });
   const roteiroRef = admin.firestore().collection("Roteiro_Experimento").doc(idRoteiro);
 
   return admin.firestore().runTransaction(async (tx) => {
     const autoridade = await resolverAutoridadePersistidaTx(tx, claims, ["Professor"]);
+
+    const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+    if (decisao.estado === "REPLAY") {
+      return decisao.resultado as { success: true };
+    }
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError("failed-precondition", "Operação de revogação não concluída.");
+    }
 
     const snap = await tx.get(roteiroRef);
     if (!snap.exists) {
@@ -206,7 +378,9 @@ export const descompartilharRoteiro = onCall(async (request) => {
       professores_compartilhados: FieldValue.arrayRemove(uidProfessor),
     });
 
-    return { success: true };
+    const resultado = { success: true };
+    registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+    return resultado;
   });
 });
 
@@ -243,12 +417,21 @@ export const listarRoteirosProfessor = onCall(async (request) => {
 export const removerRoteiro = onCall(async (request) => {
   const claims = extrairClaimsAutoridade(request);
   const uid = request.auth!.uid;
-  const { idRoteiro } = validatePayload(RemoverRoteiroSchema, request.data);
+  const { idOperacao, idRoteiro } = validatePayload(RemoverRoteiroSchema, request.data);
 
+  const identidade = construirIdentidade(uid, "REMOVER_ROTEIRO", { idRoteiro });
   const roteiroRef = admin.firestore().collection("Roteiro_Experimento").doc(idRoteiro);
 
-  const referencia = await admin.firestore().runTransaction(async (tx) => {
+  const referencia = await admin.firestore().runTransaction<Record<string, unknown> | undefined>(async (tx) => {
     await resolverAutoridadePersistidaTx(tx, claims, ["Professor"]);
+
+    const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+    if (decisao.estado === "REPLAY") {
+      return decisao.resultado as Record<string, unknown> | undefined;
+    }
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError("failed-precondition", "Operação de remoção não concluída.");
+    }
 
     const snap = await tx.get(roteiroRef);
     if (!snap.exists) {
@@ -258,7 +441,10 @@ export const removerRoteiro = onCall(async (request) => {
     if (roteiro.id_professor_upload !== uid) {
       throw new HttpsError("permission-denied", "Somente o dono do roteiro pode removê-lo.");
     }
+
     tx.delete(roteiroRef);
+    const resultado = { success: true };
+    registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
     return roteiro.referencia as Record<string, unknown> | undefined;
   });
 
@@ -277,16 +463,6 @@ export const removerRoteiro = onCall(async (request) => {
   return { success: true };
 });
 
-/**
- * Emite URL assinada de download para quem possui acesso ao roteiro.
- *
- * PENDÊNCIA Q13 (B03): o caminho Chefe_Geral foi fechado porque o repo não
- * grava Registro_de_Auditoria com id_post/id_turma e id_roteiro de forma
- * confiável. Para reabrir o caminho CHEFE_Q13 é necessário: (1) contrato
- * de auditoria com id_roteiro, id_chefe, id_post, id_turma, motivo; (2)
- * validação transacional de que o Post existe, removido_da_apresentacao
- * === true e roteiro_anexo.id_roteiro === id_roteiro.
- */
 export const emitirUrlDownloadRoteiro = onCall(async (request) => {
   const claims = extrairClaimsAutoridade(request);
   const dados = validatePayload(EmitirUrlDownloadRoteiroSchema, request.data);
@@ -400,4 +576,5 @@ export const emitirUrlDownloadRoteiro = onCall(async (request) => {
       validade: "ATIVA",
     };
   });
+
 });

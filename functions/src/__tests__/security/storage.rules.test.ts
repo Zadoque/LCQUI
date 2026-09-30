@@ -122,8 +122,21 @@ describe("Storage Security Rules", () => {
       
       const content = Buffer.alloc(1024);
       
-      await assertFails(storageAluno.ref("roteiros/rot1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "aluno1" } }) as any);
-      await assertSucceeds(storageProf.ref("roteiros/rot1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }) as any);
+      await assertFails(storageAluno.ref("roteiros/aluno1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "aluno1" } }) as any);
+      await assertSucceeds(storageProf.ref("roteiros/prof1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }) as any);
+    });
+
+    it("professor NÃO cria fora do próprio namespace", async () => {
+      const storageProf1 = authedStorage("prof1", ["Professor"]);
+      const storageProf2 = authedStorage("prof2", ["Professor"]);
+      const content = Buffer.from("%PDF-1.4\n");
+
+      // Criar no próprio namespace e com owner correto é permitido.
+      await assertSucceeds(storageProf1.ref("roteiros/prof1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }) as any);
+
+      // Criar no namespace de outro professor, mesmo com owner prÃ³prio, deve falhar.
+      await assertFails(storageProf1.ref("roteiros/prof2/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }) as any);
+      await assertFails(storageProf2.ref("roteiros/prof1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "prof2" } }) as any);
     });
 
     it("um professor não deve conseguir atualizar o roteiro de outro professor (update/sobrescrita maliciosa)", async () => {
@@ -131,12 +144,12 @@ describe("Storage Security Rules", () => {
       const storageProf2 = authedStorage("prof2", ["Professor"]);
       
       const content = Buffer.alloc(1024);
-      const ref = storageProf1.ref("roteiros/rot1/doc.pdf");
+      const ref = storageProf1.ref("roteiros/prof1/doc.pdf");
       
       // Prof1 envia seu roteiro
       await assertSucceeds(ref.put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }) as any);
       
-      const ref2 = storageProf2.ref("roteiros/rot1/doc.pdf");
+      const ref2 = storageProf2.ref("roteiros/prof1/doc.pdf");
       // Download mediado por endpoint: leitura direta via Storage Rules deve falhar
       await assertFails(ref2.getDownloadURL());
       
@@ -148,14 +161,14 @@ describe("Storage Security Rules", () => {
 
     it("não deve permitir roteiro acima de 15MB", async () => {
       const storage = authedStorage("prof1", ["Professor"]);
-      const ref = storage.ref("roteiros/rot1/doc.pdf");
+      const ref = storage.ref("roteiros/prof1/doc.pdf");
       const content = Buffer.alloc(16 * 1024 * 1024); // 16MB
       await assertFails(ref.put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }) as any);
     });
 
     it("deve fechar read para TODOS, inclusive o próprio dono", async () => {
       const storageProf = authedStorage("prof1", ["Professor"]);
-      const ref = storageProf.ref("roteiros/rot1/doc.pdf");
+      const ref = storageProf.ref("roteiros/prof1/doc.pdf");
       const content = Buffer.from("%PDF-1.4\n");
       await ref.put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } } as any);
 
@@ -163,13 +176,13 @@ describe("Storage Security Rules", () => {
       await assertFails(ref.getDownloadURL());
 
       // Usuário não autenticado também não pode ler.
-      const unauthedRef = unauthedStorage().ref("roteiros/rot1/doc.pdf");
+      const unauthedRef = unauthedStorage().ref("roteiros/prof1/doc.pdf");
       await assertFails(unauthedRef.getDownloadURL());
     });
 
     it("deve proibir update e delete mesmo para o próprio dono", async () => {
       const storageProf = authedStorage("prof1", ["Professor"]);
-      const ref = storageProf.ref("roteiros/rot1/doc.pdf");
+      const ref = storageProf.ref("roteiros/prof1/doc.pdf");
       const content = Buffer.from("%PDF-1.4\n");
       await ref.put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } } as any);
 
