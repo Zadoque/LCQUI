@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot, doc, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, onSnapshot, getDocs, limit } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase/config";
 import { useAuth } from "@/contexts/AuthContext";
 import { X } from "lucide-react";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { addDoc, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes } from "firebase/storage";
 import {
   resolverIdOperacao,
   lerIntencao,
@@ -597,17 +596,14 @@ export function NovoRoteiroModal({ isOpen, onClose }: ModalProps) {
     setToast(null);
     
     try {
+      // Upload do objeto no Storage com metadado de posse.
       const fileRef = ref(storage, `roteiros/${user.uid}/${Date.now()}_${file.name}`);
-      await uploadBytes(fileRef, file);
-      const downloadUrl = await getDownloadURL(fileRef);
+      await uploadBytes(fileRef, file, { customMetadata: { owner: user.uid } });
+      const storagePath = fileRef.fullPath;
 
-      await addDoc(collection(db, "Roteiro_Experimento"), {
-        id_professor_upload: user.uid,
-        nome,
-        descricao,
-        file_url: downloadUrl,
-        criado_em: serverTimestamp()
-      });
+      // Registro canônico via callable (valida objeto e emite status PUBLICAVEL).
+      const registrar = httpsCallable(getFunctions(), "registrarRoteiro");
+      await registrar({ nome, descricao, storagePath, nomeArquivo: file.name });
 
       setToast({ type: "success", msg: "Roteiro adicionado com sucesso!" });
       setTimeout(() => {
@@ -619,7 +615,7 @@ export function NovoRoteiroModal({ isOpen, onClose }: ModalProps) {
       }, 2000);
     } catch (error: any) {
       console.error("Erro ao fazer upload de roteiro:", error);
-      setToast({ type: "error", msg: "Erro ao fazer upload do roteiro." });
+      setToast({ type: "error", msg: error.message || "Erro ao fazer upload do roteiro." });
     } finally {
       setLoading(false);
     }
@@ -691,32 +687,48 @@ export function NovoRoteiroModal({ isOpen, onClose }: ModalProps) {
   );
 }
 
+interface RoteiroProjecao {
+  id: string;
+  nome: string;
+  descricao: string;
+  file_url: string;
+  status: string;
+}
+
 export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
   const { user } = useAuth();
-  const [roteiros, setRoteiros] = useState<any[]>([]);
+  const [roteiros, setRoteiros] = useState<RoteiroProjecao[]>([]);
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen || !user) return;
-    const q = query(
-      collection(db, "Roteiro_Experimento"),
-      where("id_professor_upload", "==", user.uid)
-    );
-    const unsub = onSnapshot(q, snap => {
-      setRoteiros(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    return () => unsub();
+    const fn = getFunctions();
+    const listar = httpsCallable(fn, "listarRoteirosProfessor");
+    let cancelado = false;
+    listar({})
+      .then((res) => {
+        if (cancelado) return;
+        setRoteiros((res.data as { roteiros: RoteiroProjecao[] }).roteiros);
+      })
+      .catch((err) => {
+        console.error("Erro ao listar roteiros:", err);
+      });
+    return () => {
+      cancelado = true;
+    };
   }, [isOpen, user]);
 
   const handleExcluir = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir este roteiro?")) return;
     setLoadingId(id);
     try {
-      const { deleteDoc, doc } = await import("firebase/firestore");
-      await deleteDoc(doc(db, "Roteiro_Experimento", id));
+      const fn = getFunctions();
+      const remover = httpsCallable(fn, "removerRoteiro");
+      await remover({ idRoteiro: id });
     } catch (error) {
       console.error("Erro ao excluir roteiro:", error);
-      alert("Erro ao excluir roteiro.");
+      const message = error instanceof Error ? error.message : "Erro ao excluir roteiro.";
+      alert(message);
     } finally {
       setLoadingId(null);
     }

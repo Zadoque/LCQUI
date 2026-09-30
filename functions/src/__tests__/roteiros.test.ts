@@ -1,11 +1,18 @@
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
+process.env.STORAGE_EMULATOR_HOST = "http://127.0.0.1:9199";
 process.env.FUNCTIONS_EMULATOR = "true";
 
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
-import { registrarRoteiro, compartilharRoteiro, descompartilharRoteiro } from "../roteiros";
+import {
+  registrarRoteiro,
+  compartilharRoteiro,
+  descompartilharRoteiro,
+  listarRoteirosProfessor,
+  removerRoteiro,
+} from "../roteiros";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -14,7 +21,10 @@ describe("Módulo de Roteiros", () => {
 
   beforeAll(() => {
     if (!admin.apps.length) {
-      admin.initializeApp({ projectId: "lcqui-dev" });
+      admin.initializeApp({
+        projectId: "lcqui-dev",
+        storageBucket: "lcqui-dev.appspot.com",
+      });
     }
     db = admin.firestore();
   });
@@ -23,85 +33,215 @@ describe("Módulo de Roteiros", () => {
     testEnv.cleanup();
   });
 
-  const mockRequest = (data: any, uid: string, roles: string[] = ["Professor"]): any => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mockRequest = (data: any, uid: string, roles: string[] = ["Professor"], versao_permissoes = 1): any => ({
     data,
     auth: {
       uid,
-      token: { roles }
+      token: { roles, versao_permissoes }
     },
     rawRequest: {}
   });
 
-  it("deve permitir que um professor registre um roteiro", async () => {
-    const wrapped = testEnv.wrap(registrarRoteiro);
-    const result = await wrapped(mockRequest({
-      titulo: "Roteiro de Titulação",
-      descricao: "Titulação ácido-base",
-      pdf_url: "https://example.com/roteiro.pdf"
-    }, "prof1"));
-
-    expect(result.idRoteiro).toBeDefined();
-
-    const roteiroSnap = await db.collection("Roteiro_Experimento").doc(result.idRoteiro).get();
-    expect(roteiroSnap.exists).toBe(true);
-    expect(roteiroSnap.data()?.id_professor).toBe("prof1");
-    expect(roteiroSnap.data()?.titulo).toBe("Roteiro de Titulação");
-    expect(roteiroSnap.data()?.compartilhado_com_emails).toEqual([]);
-  });
-
-  it("deve permitir compartilhar roteiro apenas se for o dono e enviar notificação", async () => {
-    const wrappedReg = testEnv.wrap(registrarRoteiro);
-    const resultReg = await wrappedReg(mockRequest({
-      titulo: "Roteiro 2",
-      pdf_url: "https://example.com/roteiro2.pdf"
-    }, "prof2"));
-
-    await db.collection("Professor").doc("prof_alvo").set({
-      nome: "Prof Alvo", email: "alvo@ufsc.br"
+  async function semearUsuario(uid: string): Promise<void> {
+    await db.collection("Usuarios").doc(uid).set({
+      ativo: true,
+      versao_permissoes: 1,
+      nome: `Nome ${uid}`,
     });
+    await db.collection("Professor").doc(uid).set({
+      id_usuario: uid,
+      ativo: true,
+    });
+  }
 
-    const wrappedComp = testEnv.wrap(compartilharRoteiro);
-    
-    // Tenta compartilhar com outro prof (diferente do dono) -> Falha
-    await expect(wrappedComp(mockRequest({
-      idRoteiro: resultReg.idRoteiro,
-      emailCompartilhar: "alvo@ufsc.br"
-    }, "prof_errado"))).rejects.toThrow(/Somente o dono/i);
+  async function criarArquivoRoteiro(uid: string, fileName: string): Promise<{ storagePath: string; buffer: Buffer }> {
+    const storagePath = `roteiros/${uid}/${Date.now()}_${fileName}`;
+    const buffer = Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(1024)]);
+    await admin.storage().bucket().file(storagePath).save(buffer, {
+      contentType: "application/pdf",
+      metadata: {
+        metadata: { owner: uid },
+      },
+    });
+    return { storagePath, buffer };
+  }
 
-    // Compartilha corretamente
-    await wrappedComp(mockRequest({
-      idRoteiro: resultReg.idRoteiro,
-      emailCompartilhar: "alvo@ufsc.br"
-    }, "prof2"));
+  describe("registrarRoteiro", () => {
+    it("deve permitir que um professor registre um roteiro publicável a partir de objeto no Storage", async () => {
+      const uid = "prof_registrar_1";
+      await semearUsuario(uid);
+      const { storagePath } = await criarArquivoRoteiro(uid, "roteiro.pdf");
 
-    const roteiroSnap = await db.collection("Roteiro_Experimento").doc(resultReg.idRoteiro).get();
-    expect(roteiroSnap.data()?.compartilhado_com_emails).toContain("alvo@ufsc.br");
+      const wrapped = testEnv.wrap(registrarRoteiro);
+      const result = await wrapped(mockRequest({
+        nome: "Roteiro de Titulação",
+        descricao: "Titulação ácido-base",
+        storagePath,
+        nomeArquivo: "roteiro.pdf",
+      }, uid));
 
-    const notifSnap = await db.collection("Usuarios").doc("prof_alvo").collection("Notificacoes")
-      .where("tipo", "==", "ROTEIRO_COMPARTILHADO").get();
-    expect(notifSnap.empty).toBe(false);
+      expect(result.idRoteiro).toBeDefined();
+
+      const roteiroSnap = await db.collection("Roteiro_Experimento").doc(result.idRoteiro).get();
+      expect(roteiroSnap.exists).toBe(true);
+      const data = roteiroSnap.data()!;
+      expect(data.id_professor_upload).toBe(uid);
+      expect(data.nome).toBe("Roteiro de Titulação");
+      expect(data.status).toBe("PUBLICAVEL");
+      expect(data.nome_arquivo).toBe("roteiro.pdf");
+      expect(data.professores_compartilhados).toEqual([]);
+      expect(data.referencia.storage_path).toBe(storagePath);
+      expect(typeof data.referencia.geracao).toBe("string");
+      expect(data.referencia.tamanho_bytes).toBeGreaterThan(0);
+    });
   });
 
-  it("deve permitir descompartilhar roteiro", async () => {
-    const wrappedReg = testEnv.wrap(registrarRoteiro);
-    const resultReg = await wrappedReg(mockRequest({
-      titulo: "Roteiro 3",
-      pdf_url: "https://example.com/roteiro3.pdf"
-    }, "prof3"));
+  describe("compartilharRoteiro", () => {
+    it("deve permitir compartilhar roteiro apenas se for o dono e enviar notificação", async () => {
+      const dono = "prof_comp_1";
+      const alvo = "prof_alvo_1";
+      await semearUsuario(dono);
+      await semearUsuario(alvo);
 
-    const wrappedComp = testEnv.wrap(compartilharRoteiro);
-    await wrappedComp(mockRequest({
-      idRoteiro: resultReg.idRoteiro,
-      emailCompartilhar: "alvo2@ufsc.br"
-    }, "prof3"));
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const { storagePath } = await criarArquivoRoteiro(dono, "roteiro.pdf");
+      const resultReg = await wrappedReg(mockRequest({
+        nome: "Roteiro 2",
+        descricao: "Descrição",
+        storagePath,
+        nomeArquivo: "roteiro.pdf",
+      }, dono));
 
-    const wrappedDescomp = testEnv.wrap(descompartilharRoteiro);
-    await wrappedDescomp(mockRequest({
-      idRoteiro: resultReg.idRoteiro,
-      emailDescompartilhar: "alvo2@ufsc.br"
-    }, "prof3"));
+      // Tentativa por não-dono deve falhar
+      const wrappedComp = testEnv.wrap(compartilharRoteiro);
+      await expect(wrappedComp(mockRequest({
+        idRoteiro: resultReg.idRoteiro,
+        uidProfessor: alvo,
+      }, alvo))).rejects.toThrow(/Somente o dono/i);
 
-    const roteiroSnap = await db.collection("Roteiro_Experimento").doc(resultReg.idRoteiro).get();
-    expect(roteiroSnap.data()?.compartilhado_com_emails).not.toContain("alvo2@ufsc.br");
+      // Compartilhamento correto
+      await wrappedComp(mockRequest({
+        idRoteiro: resultReg.idRoteiro,
+        uidProfessor: alvo,
+      }, dono));
+
+      const roteiroSnap = await db.collection("Roteiro_Experimento").doc(resultReg.idRoteiro).get();
+      expect(roteiroSnap.data()?.professores_compartilhados).toContain(alvo);
+
+      const notifSnap = await db.collection("Usuarios").doc(alvo).collection("Notificacoes")
+        .where("tipo", "==", "ROTEIRO_COMPARTILHADO").get();
+      expect(notifSnap.empty).toBe(false);
+    });
+  });
+
+  describe("descompartilharRoteiro", () => {
+    it("deve permitir descompartilhar roteiro", async () => {
+      const dono = "prof_descomp_1";
+      const alvo = "prof_alvo_2";
+      await semearUsuario(dono);
+      await semearUsuario(alvo);
+
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const { storagePath } = await criarArquivoRoteiro(dono, "roteiro.pdf");
+      const resultReg = await wrappedReg(mockRequest({
+        nome: "Roteiro 3",
+        descricao: "Descrição",
+        storagePath,
+        nomeArquivo: "roteiro.pdf",
+      }, dono));
+
+      const wrappedComp = testEnv.wrap(compartilharRoteiro);
+      await wrappedComp(mockRequest({
+        idRoteiro: resultReg.idRoteiro,
+        uidProfessor: alvo,
+      }, dono));
+
+      const wrappedDescomp = testEnv.wrap(descompartilharRoteiro);
+      await wrappedDescomp(mockRequest({
+        idRoteiro: resultReg.idRoteiro,
+        uidProfessor: alvo,
+      }, dono));
+
+      const roteiroSnap = await db.collection("Roteiro_Experimento").doc(resultReg.idRoteiro).get();
+      expect(roteiroSnap.data()?.professores_compartilhados).not.toContain(alvo);
+    });
+  });
+
+  describe("listarRoteirosProfessor", () => {
+    it("deve listar roteiros do dono e compartilhados com ele", async () => {
+      const dono = "prof_lista_dono";
+      const alvo = "prof_lista_alvo";
+      await semearUsuario(dono);
+      await semearUsuario(alvo);
+
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const { storagePath: st1 } = await criarArquivoRoteiro(dono, "dono.pdf");
+      const reg1 = await wrappedReg(mockRequest({
+        nome: "Roteiro Dono",
+        descricao: "X",
+        storagePath: st1,
+        nomeArquivo: "dono.pdf",
+      }, dono));
+
+      const { storagePath: st2 } = await criarArquivoRoteiro(dono, "comp.pdf");
+      const reg2 = await wrappedReg(mockRequest({
+        nome: "Roteiro Compartilhado",
+        descricao: "Y",
+        storagePath: st2,
+        nomeArquivo: "comp.pdf",
+      }, dono));
+
+      const wrappedComp = testEnv.wrap(compartilharRoteiro);
+      await wrappedComp(mockRequest({
+        idRoteiro: reg2.idRoteiro,
+        uidProfessor: alvo,
+      }, dono));
+
+      const wrappedList = testEnv.wrap(listarRoteirosProfessor);
+      const resultDono = await wrappedList(mockRequest({}, dono));
+      const idsDono = resultDono.roteiros.map((r: { id: string }) => r.id);
+      expect(idsDono).toContain(reg1.idRoteiro);
+      expect(idsDono).toContain(reg2.idRoteiro);
+
+      const resultAlvo = await wrappedList(mockRequest({}, alvo));
+      const idsAlvo = resultAlvo.roteiros.map((r: { id: string }) => r.id);
+      expect(idsAlvo).toContain(reg2.idRoteiro);
+      expect(idsAlvo).not.toContain(reg1.idRoteiro);
+    });
+  });
+
+  describe("removerRoteiro", () => {
+    it("deve permitir que o dono remova o roteiro e o objeto do Storage", async () => {
+      const dono = "prof_remove_1";
+      const outro = "prof_remove_outro";
+      await semearUsuario(dono);
+      await semearUsuario(outro);
+
+      const { storagePath } = await criarArquivoRoteiro(dono, "remover.pdf");
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const resultReg = await wrappedReg(mockRequest({
+        nome: "Roteiro a Remover",
+        descricao: "Z",
+        storagePath,
+        nomeArquivo: "remover.pdf",
+      }, dono));
+
+      const wrappedRem = testEnv.wrap(removerRoteiro);
+      await expect(wrappedRem(mockRequest({
+        idRoteiro: resultReg.idRoteiro,
+      }, outro))).rejects.toThrow(/Somente o dono/i);
+
+      const remResult = await wrappedRem(mockRequest({
+        idRoteiro: resultReg.idRoteiro,
+      }, dono));
+      expect(remResult.success).toBe(true);
+
+      const roteiroSnap = await db.collection("Roteiro_Experimento").doc(resultReg.idRoteiro).get();
+      expect(roteiroSnap.exists).toBe(false);
+
+      const [exists] = await admin.storage().bucket().file(storagePath).exists();
+      expect(exists).toBe(false);
+    });
   });
 });

@@ -21,6 +21,7 @@ import {
   EditarPostSchema,
   EditarComentarioSchema,
 } from "./schemas/posts.schema";
+import { podeAcessarRoteiro } from "./roteiros";
 
 
 // ---------------------------------------------------------------------------
@@ -50,6 +51,53 @@ async function resolverNomeIdentidadeTx(
   return typeof nome === "string" && nome.trim().length > 0
     ? nome.trim()
     : "Sem nome";
+}
+
+/** Monta o snapshot imutável do anexo a partir do documento Roteiro_Experimento. */
+function montarSnapshotRoteiroAnexo(roteiro: Record<string, unknown>): Record<string, unknown> {
+  const referencia = (roteiro.referencia as Record<string, unknown>) || {};
+  let nomeArquivo: string;
+  if (typeof roteiro.nome_arquivo === "string" && roteiro.nome_arquivo.length > 0) {
+    nomeArquivo = roteiro.nome_arquivo;
+  } else {
+    const storagePath = typeof referencia.storage_path === "string" ? referencia.storage_path : "";
+    nomeArquivo = storagePath.split("/").pop() || "roteiro.pdf";
+  }
+  if (nomeArquivo.length > 150) {
+    nomeArquivo = nomeArquivo.slice(0, 150);
+  }
+  return {
+    id_roteiro: roteiro.id,
+    nome_arquivo: nomeArquivo,
+    tamanho_bytes: referencia.tamanho_bytes,
+    storage_path: referencia.storage_path,
+    geracao: referencia.geracao,
+  };
+}
+
+/** Resolve e valida acesso ao roteiro, retornando snapshot ou null se nenhum anexo. */
+async function resolverRoteiroAnexoTx(
+  tx: admin.firestore.Transaction,
+  idRoteiroExperimento: string | null | undefined,
+  uid: string
+): Promise<Record<string, unknown> | null> {
+  if (idRoteiroExperimento === null || idRoteiroExperimento === undefined) {
+    return null;
+  }
+
+  const roteiroRef = admin.firestore().collection("Roteiro_Experimento").doc(idRoteiroExperimento);
+  const roteiroSnap = await tx.get(roteiroRef);
+  if (!roteiroSnap.exists) {
+    throw new HttpsError("not-found", "Roteiro não encontrado.");
+  }
+  const roteiro = roteiroSnap.data()!;
+  roteiro.id = roteiroSnap.id;
+
+  if (!podeAcessarRoteiro(roteiro, uid)) {
+    throw new HttpsError("permission-denied", "Acesso ao roteiro não autorizado.");
+  }
+
+  return montarSnapshotRoteiroAnexo(roteiro);
 }
 
 // ---------------------------------------------------------------------------
@@ -114,6 +162,9 @@ export const criarPost = onCall(async (request) => {
     // todas as leituras antes de todas as escritas na transação).
     const alunosSnap = await tx.get(turmaRef.collection("Alunos"));
 
+    // Resolução do roteiro anexo: falha fechada se requisitado sem acesso.
+    const roteiroAnexo = await resolverRoteiroAnexoTx(tx, idRoteiroExperimento, claims.uid);
+
     // Post structural fields (CUE #M12_1Post).
     const postRef = turmaRef.collection("Posts").doc();
     tx.set(postRef, {
@@ -121,6 +172,7 @@ export const criarPost = onCall(async (request) => {
       nome_professor: nomeProfessor,
       id_turma: idTurma,
       id_roteiro_experimento: idRoteiroExperimento ?? null,
+      roteiro_anexo: roteiroAnexo,
       titulo,
       descricao,
       criado_em: FieldValue.serverTimestamp(),
@@ -749,8 +801,35 @@ export const editarPost = onCall(async (request) => {
     if (descricao !== undefined) {
       atualizacoes.descricao = descricao;
     }
+
+    // Resolução do roteiro anexo na edição: undefined = não toca; null = desvincula;
+    // string = anexa/troca. Revalida acesso apenas se anexo efetivo for não-nulo.
+    const roteiroAnterior = postData.roteiro_anexo as Record<string, unknown> | null | undefined;
+    let novoRoteiroAnexo: Record<string, unknown> | null | undefined = undefined;
+
     if (idRoteiroExperimento !== undefined) {
+      if (idRoteiroExperimento === null) {
+        novoRoteiroAnexo = null;
+      } else {
+        novoRoteiroAnexo = await resolverRoteiroAnexoTx(tx, idRoteiroExperimento, claims.uid);
+      }
       atualizacoes.id_roteiro_experimento = idRoteiroExperimento ?? null;
+      atualizacoes.roteiro_anexo = novoRoteiroAnexo ?? null;
+    } else if (roteiroAnterior && typeof roteiroAnterior.id_roteiro === "string") {
+      // Manter anexo: revalida acesso atual ao roteiro já anexado.
+      // Alloy ManterExigeAcessoAtual — perdeu acesso => falha fechada.
+      const idRoteiroAnterior = roteiroAnterior.id_roteiro;
+      const roteiroAnteriorRef = admin.firestore().collection("Roteiro_Experimento").doc(idRoteiroAnterior);
+      const roteiroAnteriorSnap = await tx.get(roteiroAnteriorRef);
+      if (!roteiroAnteriorSnap.exists) {
+        throw new HttpsError("not-found", "Roteiro anexo não encontrado.");
+      }
+      const roteiroAnteriorData = roteiroAnteriorSnap.data()!;
+      if (!podeAcessarRoteiro(roteiroAnteriorData, claims.uid)) {
+        throw new HttpsError("permission-denied", "Acesso ao roteiro anexo não autorizado.");
+      }
+      // Snapshot histórico permanece inalterado; apenas registramos que houve manutenção.
+      novoRoteiroAnexo = roteiroAnterior;
     }
 
     tx.update(postRef, atualizacoes);
@@ -769,9 +848,11 @@ export const editarPost = onCall(async (request) => {
       novo_titulo: titulo !== undefined ? titulo : null,
       nova_descricao: descricao !== undefined ? descricao : null,
       novo_id_roteiro: idRoteiroExperimento !== undefined ? idRoteiroExperimento : null,
+      novo_roteiro_anexo: novoRoteiroAnexo !== undefined ? (novoRoteiroAnexo ?? null) : null,
       antigo_titulo,
       antiga_descricao,
       antigo_id_roteiro,
+      antigo_roteiro_anexo: roteiroAnterior ?? null,
       motivo: null,
     });
 

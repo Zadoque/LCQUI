@@ -39,7 +39,7 @@ export const EditarPostSchema = z.object({
   idPost: z.string().min(1),
   titulo: z.string().min(1).max(150).optional(),
   descricao: z.string().min(1).max(10000).optional(),
-  idRoteiroExperimento: z.string().optional()
+  idRoteiroExperimento: z.union([z.string().min(1), z.null()]).optional()
 }).refine(d => d.titulo !== undefined || d.descricao !== undefined || d.idRoteiroExperimento !== undefined, {
   message: "Pelo menos um campo editável deve ser fornecido."
 });

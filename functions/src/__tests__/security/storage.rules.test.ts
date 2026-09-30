@@ -136,8 +136,8 @@ describe("Storage Security Rules", () => {
       await assertSucceeds(ref.put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }) as any);
       
       const ref2 = storageProf2.ref("roteiros/rot1/doc.pdf");
-      // Download para garantir que existe no emulador
-      await assertSucceeds(ref2.getDownloadURL());
+      // Download mediado por endpoint: leitura direta via Storage Rules deve falhar
+      await assertFails(ref2.getDownloadURL());
       
       // Prof2 tenta atualizar os metadados
       await assertFails(ref2.updateMetadata({ customMetadata: { owner: "prof2" } })); // Tenta roubar posse via updateMetadata

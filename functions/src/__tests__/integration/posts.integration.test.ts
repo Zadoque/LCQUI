@@ -1,11 +1,13 @@
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
+process.env.STORAGE_EMULATOR_HOST = "http://127.0.0.1:9199";
 process.env.FUNCTIONS_EMULATOR = "true";
 
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { criarPost, adicionarComentario, removerPost, moderarComentario, listarComentariosPost, editarPost, editarComentario } from "../../posts";
+import { registrarRoteiro, compartilharRoteiro, descompartilharRoteiro } from "../../roteiros";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -30,7 +32,10 @@ let db: admin.firestore.Firestore;
 
 beforeAll(() => {
   if (!admin.apps.length) {
-    admin.initializeApp({ projectId: "lcqui-dev" });
+    admin.initializeApp({
+      projectId: "lcqui-dev",
+      storageBucket: "lcqui-dev.appspot.com",
+    });
   }
   db = admin.firestore();
 });
@@ -75,6 +80,38 @@ async function semearVinculo(idTurma: string, uid: string): Promise<void> {
     nome: `Aluno ${uid}`, 
     ingressou_em: admin.firestore.FieldValue.serverTimestamp() 
   });
+}
+
+async function criarRoteiroPublicavel(
+  uid: string,
+  nome: string,
+  nomeArquivo: string
+): Promise<{ idRoteiro: string; storagePath: string; geracao: string; tamanhoBytes: number }> {
+  const storagePath = `roteiros/${uid}/${Date.now()}_${nomeArquivo}`;
+  const buffer = Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(1024)]);
+  await admin.storage().bucket().file(storagePath).save(buffer, {
+    contentType: "application/pdf",
+    metadata: {
+      metadata: { owner: uid },
+    },
+  });
+
+  const wrapped = testEnv.wrap(registrarRoteiro);
+  const result = await wrapped(mockRequest({
+    nome,
+    descricao: `Descrição de ${nome}`,
+    storagePath,
+    nomeArquivo,
+  }, uid));
+
+  const roteiroSnap = await db.collection("Roteiro_Experimento").doc(result.idRoteiro).get();
+  const data = roteiroSnap.data()!;
+  return {
+    idRoteiro: result.idRoteiro,
+    storagePath,
+    geracao: data.referencia.geracao,
+    tamanhoBytes: data.referencia.tamanho_bytes,
+  };
 }
 
 let opSeq = 0;
@@ -1775,5 +1812,247 @@ describe("Módulo Acadêmico (Posts e Comentários - Baseado no main.tex)", () =
       titulo: "Titulo Teste 2",
       descricao: "Descricao Teste 2"
     }, professor, ["Professor"], 1))).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  // --- Anexo de Roteiro a Post (M12.2) ---
+
+  describe("Anexo de Roteiro a Post", () => {
+    it("TEST-INT-RTR-POST-001 — professor dono cria Post com roteiro próprio PUBLICAVEL", async () => {
+      const professor = "prof_rtr_dono";
+      await semearUsuario(professor, ["Professor"]);
+      await semearTurma("turma_rtr_1", professor);
+
+      const roteiro = await criarRoteiroPublicavel(professor, "Roteiro Próprio", "proprio.pdf");
+
+      const wrappedCriar = testEnv.wrap(criarPost);
+      const postResult = await wrappedCriar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_1",
+        titulo: "Post com Roteiro",
+        descricao: "Descricao",
+        idRoteiroExperimento: roteiro.idRoteiro,
+      }, professor));
+
+      const postDoc = await db.collection("Turma").doc("turma_rtr_1").collection("Posts").doc(postResult.id).get();
+      expect(postDoc.exists).toBe(true);
+      const postData = postDoc.data()!;
+      expect(postData.id_roteiro_experimento).toBe(roteiro.idRoteiro);
+
+      const anexo = postData.roteiro_anexo as Record<string, unknown>;
+      expect(Object.keys(anexo).sort()).toEqual([
+        "id_roteiro",
+        "nome_arquivo",
+        "tamanho_bytes",
+        "storage_path",
+        "geracao",
+      ].sort());
+      expect(anexo.id_roteiro).toBe(roteiro.idRoteiro);
+      expect(typeof anexo.nome_arquivo).toBe("string");
+      expect((anexo.nome_arquivo as string).length).toBeLessThanOrEqual(150);
+      expect(typeof anexo.tamanho_bytes).toBe("number");
+      expect(anexo.tamanho_bytes).toBeGreaterThan(0);
+      expect(anexo.storage_path).toBe(roteiro.storagePath);
+      expect(anexo.geracao).toBe(roteiro.geracao);
+    });
+
+    it("TEST-INT-RTR-POST-002 — criarPost com roteiro de outro professor sem compartilhamento é rejeitado", async () => {
+      const professor = "prof_rtr_protecao";
+      const outro = "prof_rtr_outro";
+      await semearUsuario(professor, ["Professor"]);
+      await semearUsuario(outro, ["Professor"]);
+      await semearTurma("turma_rtr_2", professor);
+
+      const roteiro = await criarRoteiroPublicavel(outro, "Roteiro Alheio", "alheio.pdf");
+
+      const wrappedCriar = testEnv.wrap(criarPost);
+      await expect(wrappedCriar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_2",
+        titulo: "Post com Roteiro Alheio",
+        descricao: "Descricao",
+        idRoteiroExperimento: roteiro.idRoteiro,
+      }, professor))).rejects.toMatchObject({ code: "permission-denied" });
+
+      const posts = await db.collection("Turma").doc("turma_rtr_2").collection("Posts").get();
+      expect(posts.empty).toBe(true);
+    });
+
+    it("TEST-INT-RTR-POST-003 — criarPost com roteiro compartilhado é permitido", async () => {
+      const professor = "prof_rtr_comp_dono";
+      const outro = "prof_rtr_comp_alvo";
+      await semearUsuario(professor, ["Professor"]);
+      await semearUsuario(outro, ["Professor"]);
+      await semearTurma("turma_rtr_3", professor);
+
+      const roteiro = await criarRoteiroPublicavel(outro, "Roteiro Compartilhado", "comp.pdf");
+      const wrappedComp = testEnv.wrap(compartilharRoteiro);
+      await wrappedComp(mockRequest({
+        idRoteiro: roteiro.idRoteiro,
+        uidProfessor: professor,
+      }, outro));
+
+      const wrappedCriar = testEnv.wrap(criarPost);
+      const postResult = await wrappedCriar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_3",
+        titulo: "Post com Roteiro Compartilhado",
+        descricao: "Descricao",
+        idRoteiroExperimento: roteiro.idRoteiro,
+      }, professor));
+
+      const postDoc = await db.collection("Turma").doc("turma_rtr_3").collection("Posts").doc(postResult.id).get();
+      expect(postDoc.data()?.roteiro_anexo?.id_roteiro).toBe(roteiro.idRoteiro);
+    });
+
+    it("TEST-INT-RTR-POST-004 — editarPost desvincula anexo mesmo sem acesso atual", async () => {
+      const professor = "prof_rtr_desvinc";
+      const outro = "prof_rtr_desvinc_outro";
+      await semearUsuario(professor, ["Professor"]);
+      await semearUsuario(outro, ["Professor"]);
+      await semearTurma("turma_rtr_4", professor);
+
+      const roteiro = await criarRoteiroPublicavel(outro, "Roteiro a Desvincular", "desvinc.pdf");
+      const wrappedComp = testEnv.wrap(compartilharRoteiro);
+      await wrappedComp(mockRequest({
+        idRoteiro: roteiro.idRoteiro,
+        uidProfessor: professor,
+      }, outro));
+
+      const wrappedCriar = testEnv.wrap(criarPost);
+      const postResult = await wrappedCriar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_4",
+        titulo: "Post com Anexo",
+        descricao: "Descricao",
+        idRoteiroExperimento: roteiro.idRoteiro,
+      }, professor));
+
+      // Revoga o compartilhamento
+      const wrappedDescomp = testEnv.wrap(descompartilharRoteiro);
+      await wrappedDescomp(mockRequest({
+        idRoteiro: roteiro.idRoteiro,
+        uidProfessor: professor,
+      }, outro));
+
+      const wrappedEditar = testEnv.wrap(editarPost);
+      const result = await wrappedEditar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_4",
+        idPost: postResult.id,
+        idRoteiroExperimento: null,
+      }, professor));
+      expect(result.id).toBe(postResult.id);
+
+      const postDoc = await db.collection("Turma").doc("turma_rtr_4").collection("Posts").doc(postResult.id).get();
+      const postData = postDoc.data()!;
+      expect(postData.roteiro_anexo).toBeNull();
+      expect(postData.id_roteiro_experimento).toBeNull();
+    });
+
+    it("TEST-INT-RTR-POST-005 — editarPost mantendo anexo após revogação de compartilhamento é rejeitado", async () => {
+      const professor = "prof_rtr_manter";
+      const outro = "prof_rtr_manter_outro";
+      await semearUsuario(professor, ["Professor"]);
+      await semearUsuario(outro, ["Professor"]);
+      await semearTurma("turma_rtr_5", professor);
+
+      const roteiro = await criarRoteiroPublicavel(outro, "Roteiro a Revogar", "revog.pdf");
+      const wrappedComp = testEnv.wrap(compartilharRoteiro);
+      await wrappedComp(mockRequest({
+        idRoteiro: roteiro.idRoteiro,
+        uidProfessor: professor,
+      }, outro));
+
+      const wrappedCriar = testEnv.wrap(criarPost);
+      const postResult = await wrappedCriar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_5",
+        titulo: "Post com Anexo",
+        descricao: "Descricao",
+        idRoteiroExperimento: roteiro.idRoteiro,
+      }, professor));
+
+      const wrappedDescomp = testEnv.wrap(descompartilharRoteiro);
+      await wrappedDescomp(mockRequest({
+        idRoteiro: roteiro.idRoteiro,
+        uidProfessor: professor,
+      }, outro));
+
+      const wrappedEditar = testEnv.wrap(editarPost);
+      await expect(wrappedEditar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_5",
+        idPost: postResult.id,
+        titulo: "Novo Titulo",
+      }, professor))).rejects.toMatchObject({ code: "permission-denied" });
+    });
+
+    it("TEST-INT-RTR-POST-006 — editarPost trocando para roteiro sem acesso é rejeitado", async () => {
+      const professor = "prof_rtr_troca";
+      const outro = "prof_rtr_troca_outro";
+      await semearUsuario(professor, ["Professor"]);
+      await semearUsuario(outro, ["Professor"]);
+      await semearTurma("turma_rtr_6", professor);
+
+      const roteiroSemAcesso = await criarRoteiroPublicavel(outro, "Roteiro Sem Acesso", "semacesso.pdf");
+
+      const wrappedCriar = testEnv.wrap(criarPost);
+      const postResult = await wrappedCriar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_6",
+        titulo: "Post sem Anexo",
+        descricao: "Descricao",
+      }, professor));
+
+      const wrappedEditar = testEnv.wrap(editarPost);
+      await expect(wrappedEditar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_6",
+        idPost: postResult.id,
+        idRoteiroExperimento: roteiroSemAcesso.idRoteiro,
+      }, professor))).rejects.toMatchObject({ code: "permission-denied" });
+    });
+
+    it("TEST-INT-RTR-POST-007 — criarPost com roteiro nao PUBLICAVEL é rejeitado", async () => {
+      const professor = "prof_rtr_status";
+      await semearUsuario(professor, ["Professor"]);
+      await semearTurma("turma_rtr_7", professor);
+
+      const storagePath = `roteiros/${professor}/${Date.now()}_provisorio.pdf`;
+      const buffer = Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(1024)]);
+      await admin.storage().bucket().file(storagePath).save(buffer, {
+        contentType: "application/pdf",
+        metadata: { metadata: { owner: professor } },
+      });
+
+      const roteiroRef = db.collection("Roteiro_Experimento").doc();
+      await roteiroRef.set({
+        id_professor_upload: professor,
+        nome: "Roteiro Provisorio",
+        descricao: "...",
+        nome_arquivo: "provisorio.pdf",
+        referencia: {
+          storage_path: storagePath,
+          tamanho_bytes: 1035,
+          geracao: "123",
+          owner_uid: professor,
+          content_type: "application/pdf",
+        },
+        status: "PROVISORIO",
+        professores_compartilhados: [],
+      });
+
+      const wrappedCriar = testEnv.wrap(criarPost);
+      await expect(wrappedCriar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_7",
+        titulo: "Post com Roteiro Provisorio",
+        descricao: "Descricao",
+        idRoteiroExperimento: roteiroRef.id,
+      }, professor))).rejects.toMatchObject({ code: "permission-denied" });
+
+      const posts = await db.collection("Turma").doc("turma_rtr_7").collection("Posts").get();
+      expect(posts.empty).toBe(true);
+    });
   });
 });

@@ -308,9 +308,12 @@ service cloud.firestore {
 
     // --- Roteiros ---
     match /Roteiro_Experimento/{roteiroId} {
-      allow read: if isAuthenticated();
-      allow create: if hasRole('Professor') && request.resource.data.id_professor == request.auth.uid;
-      allow update, delete: if isAdmin() || (hasRole('Professor') && resource.data.id_professor == request.auth.uid);
+      // Escrita 100% via Cloud Functions (registrarRoteiro/compartilhar/descompartilhar).
+      // Leitura controlada: professor dono, compartilhado, ou dono/chefe em contexto
+      // de Post. Leitura direta livre a autenticados foi removida para fechar
+      // superfície de ACL por recurso (M12.2 / S11).
+      allow read: if false;
+      allow write: if false;
     }
 
     // --- Auditoria ---

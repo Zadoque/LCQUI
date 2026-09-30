@@ -55,15 +55,16 @@ service firebase.storage {
     }
 
     match /roteiros/{roteiroId}/{fileName} {
-      allow read: if isAuthenticated();
-      
-      allow create: if (hasRole('Professor') || isAdmin()) && request.resource.metadata.owner == request.auth.uid && isPdf() && isSizeLessThan(15);
-      allow update: if (hasRole('Professor') || isAdmin())
-                    && (resource.metadata.owner == request.auth.uid || isAdmin())
-                    && request.resource.metadata.owner == resource.metadata.owner
-                    && isPdf() && isSizeLessThan(15);
-      allow delete: if (hasRole('Professor') || isAdmin())
-                    && (resource.metadata.owner == request.auth.uid || isAdmin());
+      // Leitura mediada por endpoint (download assinado). Não liberar a todo autenticado.
+      allow read: if false;
+
+      // Create: professor/admin, dono do objeto, PDF estritamente menor que 15 MiB.
+      allow create: if (hasRole('Professor') || isAdmin())
+                    && request.resource.metadata.owner == request.auth.uid
+                    && isPdf()
+                    && isSizeLessThan(15);
+      // Update/delete proibidos para preservar imutabilidade do objeto vinculado.
+      allow update, delete: if false;
     }
   }
 }

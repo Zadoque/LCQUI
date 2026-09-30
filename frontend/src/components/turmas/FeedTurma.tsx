@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase/config";
-import { collection, query, orderBy, onSnapshot, where, getDoc, doc } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { Trash2, FileText, ChevronDown, ChevronUp, Edit } from "lucide-react";
 import ComentariosPost from "./ComentariosPost";
+
+interface RoteiroProjecao {
+  id: string;
+  nome: string;
+  status: string;
+  referencia?: { storage_path?: string } | null;
+}
 
 interface Turma {
   id: string;
@@ -18,6 +25,14 @@ interface FeedTurmaProps {
   onOpenNovoRoteiro?: () => void;
 }
 
+interface RoteiroAnexo {
+  id_roteiro: string;
+  nome_arquivo: string;
+  tamanho_bytes: number;
+  storage_path: string;
+  geracao: string;
+}
+
 interface Post {
   id: string;
   titulo: string;
@@ -26,14 +41,64 @@ interface Post {
   id_professor: string;
   nome_professor?: string;
   id_roteiro_experimento?: string;
+  roteiro_anexo?: RoteiroAnexo | null;
   removido_da_apresentacao?: boolean;
   editado?: boolean;
+}
+
+function RoteiroAnexoCard({ anexo }: { anexo: RoteiroAnexo }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleDownload = async () => {
+    setLoading(true);
+    try {
+      const fn = getFunctions();
+      const emitir = httpsCallable(fn, "emitirUrlDownloadRoteiro");
+      const res = await emitir({ idRoteiro: anexo.id_roteiro });
+      const data = res.data as { url: string };
+      window.open(data.url, "_blank");
+    } catch (err) {
+      console.error("Erro ao emitir URL de download:", err);
+      // Falha silenciosa na UI; o botão sai do estado de loading.
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  return (
+    <div className="mt-4 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <FileText className="w-5 h-5 text-indigo-500" />
+        <div>
+          <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+            Anexo: {anexo.nome_arquivo}
+          </p>
+          <p className="text-xs text-indigo-600/70 dark:text-indigo-400/70">
+            {formatBytes(anexo.tamanho_bytes)}
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={handleDownload}
+        disabled={loading}
+        className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors disabled:opacity-50"
+      >
+        {loading ? "Gerando..." : "Baixar PDF"}
+      </button>
+    </div>
+  );
 }
 
 export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) {
   const { user, roles } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
-  const [roteiros, setRoteiros] = useState<any[]>([]);
+  const [roteiros, setRoteiros] = useState<RoteiroProjecao[]>([]);
   
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -46,9 +111,7 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
   const [descricaoEditando, setDescricaoEditando] = useState("");
   const [idRoteiroEditando, setIdRoteiroEditando] = useState("");
   const [expandedComments, setExpandedComments] = useState<{ [key: string]: boolean }>({});
-  
-  // Dicionário para armazenar informações dos roteiros associados aos posts (id -> nome, url)
-  const [roteirosPosts, setRoteirosPosts] = useState<{ [key: string]: any }>({});
+  const [erro, setErro] = useState<string | null>(null);
 
   const isProfessor = roles.includes("Professor") || roles.includes("Chefe_Geral");
 
@@ -66,32 +129,26 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
         return user?.uid === p.id_professor || roles.includes("Chefe_Geral");
       });
       setPosts(postsVisiveis);
-
-      // Buscar os dados dos roteiros associados a estes posts (se não estiverem já em cache)
-      const novosRoteiros: { [key: string]: any } = { ...roteirosPosts };
-      for (const post of postsData) {
-        if (post.id_roteiro_experimento && !novosRoteiros[post.id_roteiro_experimento]) {
-          const roteiroSnap = await getDoc(doc(db, "Roteiro_Experimento", post.id_roteiro_experimento));
-          if (roteiroSnap.exists()) {
-            novosRoteiros[post.id_roteiro_experimento] = roteiroSnap.data();
-          }
-        }
-      }
-      setRoteirosPosts(novosRoteiros);
     });
     return () => unsubscribe();
   }, [turma]);
 
   useEffect(() => {
     if (!user || !isProfessor) return;
-    const q = query(
-      collection(db, "Roteiro_Experimento"),
-      where("id_professor_upload", "==", user.uid)
-    );
-    const unsub = onSnapshot(q, snap => {
-      setRoteiros(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    return () => unsub();
+    const fn = getFunctions();
+    const listar = httpsCallable(fn, "listarRoteirosProfessor");
+    let cancelado = false;
+    listar({})
+      .then((res) => {
+        if (cancelado) return;
+        setRoteiros((res.data as { roteiros: RoteiroProjecao[] }).roteiros);
+      })
+      .catch((err) => {
+        console.error("Erro ao listar roteiros:", err);
+      });
+    return () => {
+      cancelado = true;
+    };
   }, [user, isProfessor]);
 
   const handleCriarPost = async (e: React.FormEvent) => {
@@ -117,7 +174,7 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
       setIdRoteiro("");
     } catch (error: any) {
       console.error("Erro ao criar post:", error);
-      alert(error.message || "Erro ao criar post.");
+      setErro(error.message || "Erro ao criar post.");
     } finally {
       setLoading(false);
     }
@@ -135,7 +192,7 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
       await removerPost({ idOperacao: idOp, idTurma: turma.id, idPost, motivo: motivo.trim() });
     } catch (error: any) {
       console.error("Erro ao remover post:", error);
-      alert(error.message || "Erro ao remover post.");
+      setErro(error.message || "Erro ao remover post.");
     } finally {
       setLoadingExclusao(null);
     }
@@ -184,7 +241,7 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
       setIdRoteiroEditando("");
     } catch (error: any) {
       console.error("Erro ao editar post:", error);
-      alert(error.message || "Erro ao editar post.");
+      setErro(error.message || "Erro ao editar post.");
     } finally {
       setLoadingEdicao(null);
     }
@@ -216,6 +273,13 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
         <h1 className="text-2xl font-bold">{turma.nome_turma}</h1>
         <p className="text-sm text-muted-foreground">Código: <span className="font-mono bg-muted px-1.5 py-0.5 rounded">{turma.codigo_turma}</span></p>
       </div>
+
+      {erro && (
+        <div className="mx-6 mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-600 text-sm flex items-center justify-between">
+          <span>{erro}</span>
+          <button onClick={() => setErro(null)} className="font-bold">×</button>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {isProfessor && turma.status !== "Arquivada" && (
@@ -279,7 +343,6 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
           posts.map(post => {
             const date = post.criado_em?.toDate ? post.criado_em.toDate() : new Date();
             const isOwner = user?.uid === post.id_professor;
-            const roteiro = post.id_roteiro_experimento ? roteirosPosts[post.id_roteiro_experimento] : null;
             
             return (
               <div key={post.id} className="bg-card border border-border rounded-xl p-5 shadow-sm relative group">
@@ -368,23 +431,8 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
                 </div>
                 {postEditando !== post.id && <p className="whitespace-pre-wrap text-foreground/90">{post.descricao}</p>}
                 
-                {roteiro && (
-                  <div className="mt-4 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-indigo-500" />
-                      <div>
-                        <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">Anexo: {roteiro.nome}</p>
-                      </div>
-                    </div>
-                    <a 
-                      href={roteiro.file_url} 
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors"
-                    >
-                      Baixar PDF
-                    </a>
-                  </div>
+                {post.roteiro_anexo && (
+                  <RoteiroAnexoCard anexo={post.roteiro_anexo as RoteiroAnexo} />
                 )}
 
                 <hr className="my-4 border-border" />
