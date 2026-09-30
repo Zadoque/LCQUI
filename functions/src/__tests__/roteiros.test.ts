@@ -12,6 +12,7 @@ import {
   descompartilharRoteiro,
   listarRoteirosProfessor,
   removerRoteiro,
+  emitirUrlDownloadRoteiro,
 } from "../roteiros";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
@@ -43,28 +44,32 @@ describe("Módulo de Roteiros", () => {
     rawRequest: {}
   });
 
-  async function semearUsuario(uid: string): Promise<void> {
+  async function semearUsuario(uid: string, roles: string[] = ["Professor"]): Promise<void> {
     await db.collection("Usuarios").doc(uid).set({
       ativo: true,
       versao_permissoes: 1,
       nome: `Nome ${uid}`,
     });
-    await db.collection("Professor").doc(uid).set({
-      id_usuario: uid,
-      ativo: true,
-    });
+    for (const papel of roles) {
+      await db.collection(papel).doc(uid).set({
+        id_usuario: uid,
+        ativo: true,
+      });
+    }
   }
 
-  async function criarArquivoRoteiro(uid: string, fileName: string): Promise<{ storagePath: string; buffer: Buffer }> {
+  async function criarArquivoRoteiro(uid: string, fileName: string): Promise<{ storagePath: string; buffer: Buffer; geracao: string; tamanhoBytes: number }> {
     const storagePath = `roteiros/${uid}/${Date.now()}_${fileName}`;
     const buffer = Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(1024)]);
-    await admin.storage().bucket().file(storagePath).save(buffer, {
+    const file = admin.storage().bucket().file(storagePath);
+    await file.save(buffer, {
       contentType: "application/pdf",
       metadata: {
         metadata: { owner: uid },
       },
     });
-    return { storagePath, buffer };
+    const [metadata] = await file.getMetadata();
+    return { storagePath, buffer, geracao: String(metadata.generation), tamanhoBytes: buffer.length };
   }
 
   describe("registrarRoteiro", () => {
@@ -94,6 +99,30 @@ describe("Módulo de Roteiros", () => {
       expect(data.referencia.storage_path).toBe(storagePath);
       expect(typeof data.referencia.geracao).toBe("string");
       expect(data.referencia.tamanho_bytes).toBeGreaterThan(0);
+    });
+
+    it("deve rejeitar storagePath fora do namespace do dono (H02)", async () => {
+      const uid = "prof_registrar_namespace";
+      const outroUid = "outro_prof";
+      await semearUsuario(uid);
+      await semearUsuario(outroUid);
+
+      // Cria arquivo no namespace de outro professor.
+      const storagePath = `roteiros/${outroUid}/outro.pdf`;
+      await admin.storage().bucket().file(storagePath).save(Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(1024)]), {
+        contentType: "application/pdf",
+        metadata: {
+          metadata: { owner: uid },
+        },
+      });
+
+      const wrapped = testEnv.wrap(registrarRoteiro);
+      await expect(wrapped(mockRequest({
+        nome: "Roteiro inválido",
+        descricao: "Fora do namespace",
+        storagePath,
+        nomeArquivo: "outro.pdf",
+      }, uid))).rejects.toMatchObject({ code: "permission-denied" });
     });
   });
 
@@ -242,6 +271,29 @@ describe("Módulo de Roteiros", () => {
 
       const [exists] = await admin.storage().bucket().file(storagePath).exists();
       expect(exists).toBe(false);
+    });
+  });
+
+  describe("emitirUrlDownloadRoteiro", () => {
+    it("deve rejeitar Chefe_Geral (B03 — caminho Q13 fechado)", async () => {
+      const dono = "prof_download_b03";
+      const chefe = "chefe_download_b03";
+      await semearUsuario(dono, ["Professor"]);
+      await semearUsuario(chefe, ["Chefe_Geral"]);
+
+      const wrappedReg = testEnv.wrap(registrarRoteiro);
+      const { storagePath } = await criarArquivoRoteiro(dono, "b03.pdf");
+      const resultReg = await wrappedReg(mockRequest({
+        nome: "Roteiro B03",
+        descricao: "B",
+        storagePath,
+        nomeArquivo: "b03.pdf",
+      }, dono));
+
+      const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
+      await expect(wrapped(mockRequest({
+        idRoteiro: resultReg.idRoteiro,
+      }, chefe, ["Chefe_Geral"]))).rejects.toMatchObject({ code: "permission-denied" });
     });
   });
 });

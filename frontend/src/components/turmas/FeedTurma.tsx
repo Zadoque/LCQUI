@@ -46,20 +46,38 @@ interface Post {
   editado?: boolean;
 }
 
-function RoteiroAnexoCard({ anexo }: { anexo: RoteiroAnexo }) {
+function RoteiroAnexoCard({
+  anexo,
+  idTurma,
+  idPost,
+  roles,
+  onErro,
+}: {
+  anexo: RoteiroAnexo;
+  idTurma: string;
+  idPost: string;
+  roles: string[];
+  onErro: (msg: string) => void;
+}) {
   const [loading, setLoading] = useState(false);
+  const isAlunoBolsista = roles.includes("Aluno") || roles.includes("Bolsista");
 
   const handleDownload = async () => {
     setLoading(true);
     try {
       const fn = getFunctions();
       const emitir = httpsCallable(fn, "emitirUrlDownloadRoteiro");
-      const res = await emitir({ idRoteiro: anexo.id_roteiro });
+      const payload: Record<string, string> = { idRoteiro: anexo.id_roteiro };
+      if (isAlunoBolsista) {
+        payload.idTurma = idTurma;
+        payload.idPost = idPost;
+      }
+      const res = await emitir(payload);
       const data = res.data as { url: string };
       window.open(data.url, "_blank");
     } catch (err) {
       console.error("Erro ao emitir URL de download:", err);
-      // Falha silenciosa na UI; o botão sai do estado de loading.
+      onErro("Erro ao gerar link de download do roteiro.");
     } finally {
       setLoading(false);
     }
@@ -432,7 +450,13 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
                 {postEditando !== post.id && <p className="whitespace-pre-wrap text-foreground/90">{post.descricao}</p>}
                 
                 {post.roteiro_anexo && (
-                  <RoteiroAnexoCard anexo={post.roteiro_anexo as RoteiroAnexo} />
+                  <RoteiroAnexoCard
+                    anexo={post.roteiro_anexo as RoteiroAnexo}
+                    idTurma={turma.id}
+                    idPost={post.id}
+                    roles={roles}
+                    onErro={(msg) => setErro(msg)}
+                  />
                 )}
 
                 <hr className="my-4 border-border" />

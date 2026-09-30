@@ -1,7 +1,11 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { validarPermissao } from "./auth";
+import {
+  extrairClaimsAutoridade,
+  resolverAutoridadePersistidaTx,
+  validarAutoridadePersistida,
+} from "./auth";
 import { validatePayload } from "./utils/validation";
 import {
   RegistrarRoteiroSchema,
@@ -36,6 +40,10 @@ export function podeAcessarRoteiro(roteiro: Record<string, unknown> | undefined,
 
 /** Inspeciona o objeto no Storage e retorna metadados validados. */
 async function inspecionarObjetoRoteiro(storagePath: string, ownerUid: string) {
+  if (!storagePath.startsWith(`roteiros/${ownerUid}/`)) {
+    throw new HttpsError("permission-denied", "Caminho do Storage fora do namespace do dono.");
+  }
+
   const file = admin.storage().bucket().file(storagePath);
   let metadata: StorageFileMetadata;
   try {
@@ -85,46 +93,50 @@ async function inspecionarObjetoRoteiro(storagePath: string, ownerUid: string) {
 }
 
 export const registrarRoteiro = onCall(async (request) => {
-  validarPermissao(request, ["Professor"]);
+  const claims = extrairClaimsAutoridade(request);
   const uid = request.auth!.uid;
 
   const dados = validatePayload(RegistrarRoteiroSchema, request.data);
 
-  // Inspeciona e valida o objeto no Storage (tipo, tamanho, dono, geração).
-  const referencia = await inspecionarObjetoRoteiro(dados.storagePath, uid);
-
   const roteiroRef = admin.firestore().collection("Roteiro_Experimento").doc();
 
-  await roteiroRef.set({
-    id_professor_upload: uid,
-    nome: dados.nome,
-    descricao: dados.descricao,
-    nome_arquivo: dados.nomeArquivo,
-    referencia,
-    status: "PUBLICAVEL",
-    professores_compartilhados: [],
-    file_url: null,
-    criado_em: FieldValue.serverTimestamp(),
-  });
+  return admin.firestore().runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Professor"]);
 
-  return { idRoteiro: roteiroRef.id };
+    const referencia = await inspecionarObjetoRoteiro(dados.storagePath, uid);
+
+    tx.set(roteiroRef, {
+      id_professor_upload: uid,
+      nome: dados.nome,
+      descricao: dados.descricao,
+      nome_arquivo: dados.nomeArquivo,
+      referencia,
+      status: "PUBLICAVEL",
+      professores_compartilhados: [],
+      file_url: null,
+      criado_em: FieldValue.serverTimestamp(),
+    });
+
+    return { idRoteiro: roteiroRef.id };
+  });
 });
 
 export const compartilharRoteiro = onCall(async (request) => {
-  validarPermissao(request, ["Professor"]);
-
+  const claims = extrairClaimsAutoridade(request);
   const { idRoteiro, uidProfessor } = validatePayload(CompartilharRoteiroSchema, request.data);
 
   const roteiroRef = admin.firestore().collection("Roteiro_Experimento").doc(idRoteiro);
 
   return admin.firestore().runTransaction(async (tx) => {
+    const autoridade = await resolverAutoridadePersistidaTx(tx, claims, ["Professor"]);
+
     const snap = await tx.get(roteiroRef);
     if (!snap.exists) {
       throw new HttpsError("not-found", "Roteiro não encontrado.");
     }
 
     const roteiro = snap.data()!;
-    if (roteiro.id_professor_upload !== request.auth!.uid) {
+    if (roteiro.id_professor_upload !== autoridade.uid) {
       throw new HttpsError("permission-denied", "Somente o dono do roteiro pode compartilhá-lo.");
     }
 
@@ -141,7 +153,6 @@ export const compartilharRoteiro = onCall(async (request) => {
       throw new HttpsError("already-exists", "O roteiro já está compartilhado com este professor.");
     }
 
-    // Verifica se o destinatário é um Professor ativo.
     const profSnap = await tx.get(admin.firestore().collection("Usuarios").doc(uidProfessor));
     if (!profSnap.exists) {
       throw new HttpsError("failed-precondition", "Professor destinatário não encontrado.");
@@ -163,7 +174,7 @@ export const compartilharRoteiro = onCall(async (request) => {
       id_destinatario: uidProfessor,
       papel_destinatario: "Professor",
       tipo: "ROTEIRO_COMPARTILHADO",
-      id_quem_fez_acao: request.auth!.uid,
+      id_quem_fez_acao: autoridade.uid,
       entidade_alvo: "Roteiro",
       id_alvo: idRoteiro,
     });
@@ -173,20 +184,21 @@ export const compartilharRoteiro = onCall(async (request) => {
 });
 
 export const descompartilharRoteiro = onCall(async (request) => {
-  validarPermissao(request, ["Professor"]);
-
+  const claims = extrairClaimsAutoridade(request);
   const { idRoteiro, uidProfessor } = validatePayload(DescompartilharRoteiroSchema, request.data);
 
   const roteiroRef = admin.firestore().collection("Roteiro_Experimento").doc(idRoteiro);
 
   return admin.firestore().runTransaction(async (tx) => {
+    const autoridade = await resolverAutoridadePersistidaTx(tx, claims, ["Professor"]);
+
     const snap = await tx.get(roteiroRef);
     if (!snap.exists) {
       throw new HttpsError("not-found", "Roteiro não encontrado.");
     }
 
     const roteiro = snap.data()!;
-    if (roteiro.id_professor_upload !== request.auth!.uid) {
+    if (roteiro.id_professor_upload !== autoridade.uid) {
       throw new HttpsError("permission-denied", "Somente o dono do roteiro pode remover o compartilhamento.");
     }
 
@@ -200,7 +212,7 @@ export const descompartilharRoteiro = onCall(async (request) => {
 
 /** Lista os roteiros acessíveis ao professor (dono ou compartilhado). */
 export const listarRoteirosProfessor = onCall(async (request) => {
-  validarPermissao(request, ["Professor", "Chefe_Geral"]);
+  await validarAutoridadePersistida(request, ["Professor", "Chefe_Geral"]);
   validatePayload(ListarRoteirosProfessorSchema, request.data);
   const uid = request.auth!.uid;
 
@@ -229,13 +241,15 @@ export const listarRoteirosProfessor = onCall(async (request) => {
 /** Remove o roteiro do dono e tenta remover o objeto do Storage.
  *  Posts históricos preservam o snapshot do anexo (download futuro falha fechada). */
 export const removerRoteiro = onCall(async (request) => {
-  validarPermissao(request, ["Professor"]);
+  const claims = extrairClaimsAutoridade(request);
   const uid = request.auth!.uid;
   const { idRoteiro } = validatePayload(RemoverRoteiroSchema, request.data);
 
   const roteiroRef = admin.firestore().collection("Roteiro_Experimento").doc(idRoteiro);
 
   const referencia = await admin.firestore().runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Professor"]);
+
     const snap = await tx.get(roteiroRef);
     if (!snap.exists) {
       throw new HttpsError("not-found", "Roteiro não encontrado.");
@@ -263,19 +277,28 @@ export const removerRoteiro = onCall(async (request) => {
   return { success: true };
 });
 
-/** Emite URL assinada de download para quem possui acesso ao roteiro. */
+/**
+ * Emite URL assinada de download para quem possui acesso ao roteiro.
+ *
+ * PENDÊNCIA Q13 (B03): o caminho Chefe_Geral foi fechado porque o repo não
+ * grava Registro_de_Auditoria com id_post/id_turma e id_roteiro de forma
+ * confiável. Para reabrir o caminho CHEFE_Q13 é necessário: (1) contrato
+ * de auditoria com id_roteiro, id_chefe, id_post, id_turma, motivo; (2)
+ * validação transacional de que o Post existe, removido_da_apresentacao
+ * === true e roteiro_anexo.id_roteiro === id_roteiro.
+ */
 export const emitirUrlDownloadRoteiro = onCall(async (request) => {
-  validarPermissao(request, ["Professor", "Aluno", "Bolsista", "Chefe_Geral"]);
-
+  const claims = extrairClaimsAutoridade(request);
   const dados = validatePayload(EmitirUrlDownloadRoteiroSchema, request.data);
   const { idRoteiro } = dados;
-  const uid = request.auth!.uid;
-  const token = request.auth!.token as Record<string, unknown>;
-  const roles = Array.isArray(token.roles) ? (token.roles as string[]) : [];
-  const isAlunoBolsista = roles.includes("Aluno") || roles.includes("Bolsista");
-  const isChefe = roles.includes("Chefe_Geral");
 
   return admin.firestore().runTransaction(async (tx) => {
+    const autoridade = await resolverAutoridadePersistidaTx(tx, claims, [
+      "Professor",
+      "Aluno",
+      "Bolsista",
+    ]);
+
     const roteiroRef = admin.firestore().collection("Roteiro_Experimento").doc(idRoteiro);
     const snap = await tx.get(roteiroRef);
     if (!snap.exists) {
@@ -294,28 +317,25 @@ export const emitirUrlDownloadRoteiro = onCall(async (request) => {
 
     let via: string;
 
-    // Professor: dono ou compartilhado.
-    if (roteiro.id_professor_upload === uid) {
+    if (roteiro.id_professor_upload === autoridade.uid) {
       via = "PROPRIETARIO";
-    } else if ((roteiro.professores_compartilhados || []).includes(uid)) {
+    } else if ((roteiro.professores_compartilhados || []).includes(autoridade.uid)) {
       via = "COMPARTILHADO";
-    } else if (isAlunoBolsista) {
+    } else if (autoridade.papeis.includes("Aluno") || autoridade.papeis.includes("Bolsista")) {
       if (!dados.idTurma || !dados.idPost) {
         throw new HttpsError("invalid-argument", "Aluno/Bolsista deve informar idTurma e idPost.");
       }
 
-      // Vínculo canônico atual na turma.
-      const alunoRef = admin.firestore().collection("Turma").doc(dados.idTurma).collection("Alunos").doc(uid);
+      const alunoRef = admin.firestore().collection("Turma").doc(dados.idTurma).collection("Alunos").doc(autoridade.uid);
       const alunoSnap = await tx.get(alunoRef);
       if (!alunoSnap.exists) {
         throw new HttpsError("permission-denied", "Vínculo canônico não encontrado.");
       }
       const alunoData = alunoSnap.data()!;
-      if (alunoData.id_aluno !== uid || alunoData.id_turma !== dados.idTurma) {
+      if (alunoData.id_aluno !== autoridade.uid || alunoData.id_turma !== dados.idTurma) {
         throw new HttpsError("failed-precondition", "Vínculo canônico corrompido.");
       }
 
-      // Post acessível e não removido com o roteiro anexado.
       const postRef = admin.firestore().collection("Turma").doc(dados.idTurma).collection("Posts").doc(dados.idPost);
       const postSnap = await tx.get(postRef);
       if (!postSnap.exists) {
@@ -329,19 +349,13 @@ export const emitirUrlDownloadRoteiro = onCall(async (request) => {
       if (!roteiroAnexo || roteiroAnexo.id_roteiro !== idRoteiro) {
         throw new HttpsError("permission-denied", "Post não possui o roteiro anexado.");
       }
-      via = "ALUNO_POST";
-    } else if (isChefe) {
-      const auditoriaQuery = admin
-        .firestore()
-        .collection("Registro_de_Auditoria")
-        .where("id_chefe", "==", uid)
-        .where("id_roteiro", "==", idRoteiro)
-        .limit(1);
-      const auditoriaSnap = await tx.get(auditoriaQuery);
-      if (auditoriaSnap.empty) {
-        throw new HttpsError("permission-denied", "Chefe sem escopo de auditoria para este roteiro.");
+      if (
+        roteiroAnexo.geracao !== referencia.geracao ||
+        roteiroAnexo.storage_path !== referencia.storage_path
+      ) {
+        throw new HttpsError("failed-precondition", "Referência canônica do anexo divergente.");
       }
-      via = "CHEFE_Q13";
+      via = "ALUNO_POST";
     } else {
       throw new HttpsError("permission-denied", "Usuário não possui acesso ao roteiro.");
     }
@@ -349,7 +363,7 @@ export const emitirUrlDownloadRoteiro = onCall(async (request) => {
     const file = admin.storage().bucket().file(referencia.storage_path);
     const [url] = await file.getSignedUrl({
       action: "read",
-      expires: Date.now() + 15 * 60 * 1000, // 15 minutos
+      expires: Date.now() + 15 * 60 * 1000,
       version: "v4",
     });
 
