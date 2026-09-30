@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase/config";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, doc } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { X } from "lucide-react";
 import {
@@ -20,30 +20,34 @@ interface MembrosTurmaModalProps {
 interface Membro {
   id: string;
   nome: string;
-  email: string;
 }
 
 export function MembrosTurmaModal({ isOpen, onClose, idTurma }: MembrosTurmaModalProps) {
-  const { roles } = useAuth();
+  const { user, roles } = useAuth();
   const [membros, setMembros] = useState<Membro[]>([]);
+  const [idProfessorDono, setIdProfessorDono] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [membroParaRemover, setMembroParaRemover] = useState<Membro | null>(null);
   const [removendoId, setRemovendoId] = useState<string | null>(null);
 
-  const isProfessor = roles.includes("Professor") || roles.includes("Chefe_Geral");
+  const isChefeGeral = roles.includes("Chefe_Geral");
+  const podeRemover = idProfessorDono !== null && (isChefeGeral || (user?.uid === idProfessorDono && roles.includes("Professor")));
 
   useEffect(() => {
     if (!isOpen || !idTurma) return;
 
-    const unsub = onSnapshot(collection(db, "Turma", idTurma, "Alunos"), (snap) => {
+    const unsubTurma = onSnapshot(doc(db, "Turma", idTurma), (snap) => {
+      setIdProfessorDono(snap.exists() ? (snap.data()?.id_professor ?? null) : null);
+    });
+
+    const unsubAlunos = onSnapshot(collection(db, "Turma", idTurma, "Alunos"), (snap) => {
       const lista = snap.docs
         .map((d) => {
           const data = d.data();
           return {
             id: d.id,
             nome: typeof data.nome === "string" ? data.nome : "Sem nome",
-            email: typeof data.email === "string" ? data.email : "Sem e-mail",
           };
         })
         .sort((a, b) => a.nome.localeCompare(b.nome));
@@ -51,7 +55,10 @@ export function MembrosTurmaModal({ isOpen, onClose, idTurma }: MembrosTurmaModa
       setLoading(false);
     });
 
-    return () => unsub();
+    return () => {
+      unsubTurma();
+      unsubAlunos();
+    };
   }, [isOpen, idTurma]);
 
   const handleConfirmarRemover = async () => {
@@ -141,9 +148,8 @@ export function MembrosTurmaModal({ isOpen, onClose, idTurma }: MembrosTurmaModa
                   <li key={membro.id} data-testid={`linha-membro-${membro.id}`} className="flex items-center justify-between p-4 bg-muted rounded-xl">
                     <div>
                       <p className="font-bold text-sm">{membro.nome}</p>
-                      <p className="text-xs text-muted-foreground">{membro.email}</p>
                     </div>
-                    {isProfessor && (
+                    {podeRemover && (
                       <button
                         onClick={() => setMembroParaRemover(membro)}
                         disabled={removendoId === membro.id}

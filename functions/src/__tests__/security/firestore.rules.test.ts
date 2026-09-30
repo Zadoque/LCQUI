@@ -600,6 +600,85 @@ describe("Firestore Security Rules", () => {
     });
   });
 
+  describe("Diretório Aluno (S11 / privacidade)", () => {
+    it("TEST-RULES-ALUNO-001 — dono lê o próprio documento Aluno → PASS", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Aluno").doc("aluno1").set({ id_usuario: "aluno1", nome: "A1", email: "a1@x.com", numero_matricula: "20100001" });
+      });
+      const dbAluno = authedDb("aluno1");
+      await assertSucceeds(dbAluno.collection("Aluno").doc("aluno1").get());
+    });
+
+    it("TEST-RULES-ALUNO-002 — outro usuário não lê documento Aluno alheio → DENY", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Aluno").doc("aluno2").set({ id_usuario: "aluno2", nome: "A2", email: "a2@x.com", numero_matricula: "20100002" });
+      });
+      const dbAluno = authedDb("aluno1");
+      await assertFails(dbAluno.collection("Aluno").doc("aluno2").get());
+    });
+
+    it("TEST-RULES-ALUNO-003 — professor não pode listar diretório Aluno → DENY", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Aluno").doc("aluno1").set({ id_usuario: "aluno1", nome: "A1" });
+      });
+      const dbProf = authedDb("prof1");
+      await assertFails(dbProf.collection("Aluno").get());
+    });
+
+    it("TEST-RULES-ALUNO-004 — Chefe_Geral lê documento Aluno → PASS", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Aluno").doc("aluno1").set({ id_usuario: "aluno1", nome: "A1" });
+      });
+      const dbChefe = authedDb("boss");
+      await assertSucceeds(dbChefe.collection("Aluno").doc("aluno1").get());
+    });
+
+    it("TEST-RULES-ALUNO-005 — escrita direta em Aluno é negada a qualquer cliente → DENY", async () => {
+      const dbAluno = authedDb("aluno1");
+      const dbChefe = authedDb("boss");
+      await assertFails(dbAluno.collection("Aluno").doc("aluno1").set({ nome: "Hacked" }));
+      await assertFails(dbChefe.collection("Aluno").doc("aluno1").set({ nome: "Hacked" }));
+    });
+  });
+
+  describe("Professor_x_Materia (S11 / escopo)", () => {
+    it("TEST-RULES-PROFMAT-001 — professor lê Professor_x_Materia → PASS", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Professor_x_Materia").doc("pxm1").set({ id_professor: "prof1", id_materia: "m1" });
+      });
+      const dbProf = authedDb("prof1");
+      await assertSucceeds(dbProf.collection("Professor_x_Materia").doc("pxm1").get());
+    });
+
+    it("TEST-RULES-PROFMAT-002 — Chefe_Geral lê Professor_x_Materia → PASS", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Professor_x_Materia").doc("pxm2").set({ id_professor: "prof2", id_materia: "m2" });
+      });
+      const dbChefe = authedDb("boss");
+      await assertSucceeds(dbChefe.collection("Professor_x_Materia").doc("pxm2").get());
+    });
+
+    it("TEST-RULES-PROFMAT-003 — aluno não lê Professor_x_Materia → DENY", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Professor_x_Materia").doc("pxm3").set({ id_professor: "prof1", id_materia: "m3" });
+      });
+      const dbAluno = authedDb("aluno1");
+      await assertFails(dbAluno.collection("Professor_x_Materia").doc("pxm3").get());
+    });
+
+    it("TEST-RULES-PROFMAT-004 — escrita direta em Professor_x_Materia é negada → DENY", async () => {
+      const dbProf = authedDb("prof1");
+      await assertFails(dbProf.collection("Professor_x_Materia").doc("pxm4").set({ id_professor: "prof1", id_materia: "m4" }));
+    });
+  });
+
   describe("Convite_Aluno (M11 / C.16)", () => {
     it("nega get, list e write direto a qualquer cliente (aluno, professor, chefe)", async () => {
       await testEnv.withSecurityRulesDisabled(async (context) => {

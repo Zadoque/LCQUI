@@ -32,3 +32,10 @@ export const RevogarUsuarioPapelSchema = z.object({
   papel: PapeisUsuariosSchema,
   motivo: z.string().trim().min(1, "Justificativa obrigatória.").max(2000)
 });
+
+// S11: busca server-side de alunos por Professor/Chefe, retornando apenas
+// projeção mínima { id, nome }. Nunca expõe e-mail, matrícula ou letra inicial.
+export const BuscarAlunosSchema = z.object({
+  letra: z.string().length(1).regex(/^[A-Z]$/, "Letra deve ser uma letra maiúscula de A a Z.").optional(),
+  termo: z.string().max(100, "Termo de busca excede 100 caracteres.").optional(),
+});

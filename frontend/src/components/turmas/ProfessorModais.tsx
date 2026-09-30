@@ -176,9 +176,10 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
   const handleBuscar = async () => {
     setLoadingBusca(true);
     try {
-      const q = query(collection(db, "Aluno"), where("letra_inicial", "==", letraInicial), limit(1000));
-      const snap = await getDocs(q);
-      setAlunosEncontrados(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const buscarAlunos = httpsCallable(functions, "buscarAlunos");
+      const res = await buscarAlunos({ letra: letraInicial, termo: filtroTexto });
+      const data = res.data as { alunos: { id: string; nome: string }[] };
+      setAlunosEncontrados(data.alunos);
     } catch (error) {
       console.error("Erro na busca:", error);
     } finally {
@@ -338,7 +339,7 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
   const alunosFiltrados = alunosEncontrados.filter(a => {
     if (!filtroTexto) return true;
     const term = filtroTexto.toLowerCase();
-    return (a.nome?.toLowerCase().includes(term) || a.numero_matricula?.toLowerCase().includes(term));
+    return a.nome?.toLowerCase().includes(term);
   });
 
   if (!isOpen) return null;

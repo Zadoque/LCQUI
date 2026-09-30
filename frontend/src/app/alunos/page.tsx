@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { collection, getDocs, getDoc, doc, query, where, limit, onSnapshot } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
 import { db, functions } from "@/lib/firebase/config";
 import { httpsCallable } from "firebase/functions";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
@@ -18,7 +18,6 @@ import {
 interface Aluno {
   id: string;
   nome: string;
-  email: string;
   ativo: boolean;
 }
 
@@ -71,7 +70,6 @@ export default function AlunosDashboard() {
         return {
           id: d.id,
           nome: data.nome || "Sem nome",
-          email: data.email || "Sem e-mail",
           ativo: true // Assume ativo se está na turma
         };
       });
@@ -88,20 +86,13 @@ export default function AlunosDashboard() {
       alert("Selecione uma letra inicial para realizar a busca.");
       return;
     }
-    
+
     setLoading(true);
     setHasSearched(true);
     try {
-      const q = query(
-        collection(db, "Aluno"),
-        where("letra_inicial", "==", filtroLetraInicial),
-        limit(100)
-      );
-      const querySnapshot = await getDocs(q);
-      const lista = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Aluno[];
+      const buscarAlunos = httpsCallable(functions, "buscarAlunos");
+      const res = await buscarAlunos({ letra: filtroLetraInicial, termo: searchQuery.trim() || undefined });
+      const lista = (res.data as { alunos: Aluno[] }).alunos.map(a => ({ ...a, ativo: true }));
       setAlunos(lista);
     } catch (error) {
       console.error("Erro ao buscar alunos:", error);
@@ -142,10 +133,7 @@ export default function AlunosDashboard() {
   const filteredAlunos = alunos.filter(a => {
     if (!searchQuery) return true;
     const term = searchQuery.toLowerCase();
-    return (
-      (a.nome && a.nome.toLowerCase().includes(term)) ||
-      (a.email && a.email.toLowerCase().includes(term))
-    );
+    return a.nome && a.nome.toLowerCase().includes(term);
   });
 
   return (
@@ -266,7 +254,6 @@ export default function AlunosDashboard() {
                 <thead className="bg-foreground/5 text-foreground/70 border-b border-foreground/10">
                   <tr>
                     <th className="px-5 py-4 font-medium uppercase tracking-wider text-xs">Nome</th>
-                    <th className="px-5 py-4 font-medium uppercase tracking-wider text-xs">E-mail</th>
                     <th className="px-5 py-4 font-medium uppercase tracking-wider text-xs">Status</th>
                     {!isChefeGeral && (
                       <th className="px-5 py-4 font-medium uppercase tracking-wider text-xs text-right">Ações</th>
@@ -276,7 +263,7 @@ export default function AlunosDashboard() {
                 <tbody className="divide-y divide-foreground/5">
                   {loading ? (
                     <tr>
-                      <td colSpan={isChefeGeral ? 3 : 4} className="px-6 py-16 text-center">
+                      <td colSpan={isChefeGeral ? 2 : 3} className="px-6 py-16 text-center">
                         <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-primary"></div>
                       </td>
                     </tr>
@@ -284,7 +271,6 @@ export default function AlunosDashboard() {
                     filteredAlunos.map((aluno) => (
                       <tr key={aluno.id} className="hover:bg-foreground/5 transition-colors">
                         <td className="px-5 py-4 font-semibold">{aluno.nome}</td>
-                        <td className="px-5 py-4 text-foreground/70">{aluno.email}</td>
                         <td className="px-5 py-4">
                           <span className={`px-2 py-1 rounded text-xs font-bold ${
                             aluno.ativo !== false ? "bg-green-500/15 text-green-500" : "bg-red-500/15 text-red-500"
@@ -313,7 +299,7 @@ export default function AlunosDashboard() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={isChefeGeral ? 3 : 4} className="px-6 py-16 text-center text-foreground/50">
+                      <td colSpan={isChefeGeral ? 2 : 3} className="px-6 py-16 text-center text-foreground/50">
                         {hasSearched
                           ? "Nenhum aluno encontrado para este filtro."
                           : isChefeGeral ? "Selecione uma letra e clique em 'Buscar no Banco'." : "Selecione uma turma para visualizar os alunos."}

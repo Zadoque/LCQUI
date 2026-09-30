@@ -7,6 +7,7 @@ import {
   PAPEIS_CONHECIDOS,
   extrairClaimsAutoridade,
   resolverAutoridadePersistidaTx,
+  validarAutoridadePersistida,
   validarAutoridadePersistidaComClaims,
   validarMatrizPapeis,
 } from "./auth";
@@ -16,7 +17,7 @@ import {
   resolverOperacaoTx,
 } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
-import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema } from "./schemas/usuarios.schema";
+import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema, BuscarAlunosSchema } from "./schemas/usuarios.schema";
 
 const PAPEIS: string[] = [...PAPEIS_CONHECIDOS];
 
@@ -218,4 +219,55 @@ export const revogarUsuarioPapel = onCall(async request => {
     conceder: false, motivo: dados.motivo, idOperacao: dados.idOperacao }, claims);
   await reconciliarClaimsUsuario(user.uid);
   return resultado;
+});
+
+/**
+ * S11: busca server-side de alunos para uso por professores/Chefe na UI.
+ * Retorna projeção mínima { id, nome }. Nunca expõe e-mail, matrícula ou
+ * letra inicial. O termo pode comparar nome/matricula no servidor, mas o
+ * payload cliente só recebe id+nome.
+ */
+export const buscarAlunos = onCall(async request => {
+  const { letra, termo } = validatePayload(BuscarAlunosSchema, request.data);
+
+  // M9: autoridade persistida (Professor ou Chefe_Geral).
+  await validarAutoridadePersistida(request, ["Professor", "Chefe_Geral"]);
+
+  const db = admin.firestore();
+
+  // Fail-closed: exigir critério de busca para evitar listagem ampla.
+  if (!letra && !termo) {
+    return { alunos: [] };
+  }
+
+  let consulta: admin.firestore.Query = db.collection("Aluno");
+
+  if (letra) {
+    consulta = consulta.where("letra_inicial", "==", letra);
+  }
+
+  // Limite de segurança; filtro por termo ocorre em memória sobre o limite.
+  consulta = consulta.limit(200);
+
+  const snap = await consulta.get();
+  const termoNormalizado = termo ? termo.trim().toLowerCase() : "";
+
+  const alunos = snap.docs
+    .map(doc => {
+      const data = doc.data();
+      const nome = typeof data.nome === "string" ? data.nome : "Sem nome";
+      const numeroMatricula = typeof data.numero_matricula === "string" ? data.numero_matricula : "";
+      return { id: doc.id, nome, numeroMatricula };
+    })
+    .filter(item => {
+      if (!termoNormalizado) return true;
+      return (
+        item.nome.toLowerCase().includes(termoNormalizado) ||
+        item.numeroMatricula.toLowerCase().includes(termoNormalizado)
+      );
+    })
+    .slice(0, 100)
+    .map(({ id, nome }) => ({ id, nome }));
+
+  return { alunos };
 });

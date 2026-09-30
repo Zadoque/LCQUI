@@ -103,12 +103,11 @@ service cloud.firestore {
     }
     match /Aluno/{uid} {
       allow get: if isOwner(uid) || isAdmin();
-      allow list: if isAuthenticated() && (hasRole('Professor') || isAdmin());
       allow write: if false; // Gerenciado via Cloud Function
     }
 
     match /Professor_x_Materia/{docId} {
-      allow read: if isAuthenticated();
+      allow read: if hasRole('Professor') || isAdmin();
       allow write: if false; // Gerenciado via Cloud Function
     }
     match /Chefe_Geral/{uid} {
