@@ -194,7 +194,7 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
       setIdRoteiro("");
     } catch (error: any) {
       console.error("Erro ao criar post:", error);
-      setErro(error.message || "Erro ao criar post.");
+      alert(error.message || "Erro ao criar post.");
     } finally {
       setLoading(false);
     }
@@ -212,7 +212,7 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
       await removerPost({ idOperacao: idOp, idTurma: turma.id, idPost, motivo: motivo.trim() });
     } catch (error: any) {
       console.error("Erro ao remover post:", error);
-      setErro(error.message || "Erro ao remover post.");
+      alert(error.message || "Erro ao remover post.");
     } finally {
       setLoadingExclusao(null);
     }
@@ -265,7 +265,7 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
       setIdRoteiroOriginal(null);
     } catch (error: any) {
       console.error("Erro ao editar post:", error);
-      setErro(error.message || "Erro ao editar post.");
+      alert(error.message || "Erro ao editar post.");
     } finally {
       setLoadingEdicao(null);
     }
