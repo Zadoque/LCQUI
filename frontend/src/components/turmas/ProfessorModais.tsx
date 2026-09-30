@@ -691,7 +691,7 @@ interface RoteiroProjecao {
   id: string;
   nome: string;
   descricao: string;
-  file_url: string;
+  file_url?: string | null;
   status: string;
 }
 
@@ -699,6 +699,8 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
   const { user } = useAuth();
   const [roteiros, setRoteiros] = useState<RoteiroProjecao[]>([]);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [loadingAbrirId, setLoadingAbrirId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -739,6 +741,24 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
     alert("Link de compartilhamento copiado para a área de transferência!");
   };
 
+  const handleAbrirPdf = async (idRoteiro: string) => {
+    setLoadingAbrirId(idRoteiro);
+    setToast(null);
+    try {
+      const fn = getFunctions();
+      const emitir = httpsCallable(fn, "emitirUrlDownloadRoteiro");
+      const res = await emitir({ idRoteiro });
+      const data = res.data as { url: string };
+      window.open(data.url, "_blank");
+    } catch (error) {
+      console.error("Erro ao emitir URL de download:", error);
+      const message = error instanceof Error ? error.message : "Erro ao gerar link de download do roteiro.";
+      setToast({ type: "error", msg: message });
+    } finally {
+      setLoadingAbrirId(null);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -751,6 +771,11 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
           </button>
         </div>
         <div className="p-6 overflow-y-auto max-h-[60vh]">
+          {toast && (
+            <div className={`mb-4 p-3 rounded-lg text-sm font-medium ${toast.type === 'success' ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'}`}>
+              {toast.msg}
+            </div>
+          )}
           {roteiros.length === 0 ? (
             <p className="text-muted-foreground text-center">Nenhum roteiro encontrado.</p>
           ) : (
@@ -762,14 +787,13 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
                     <p className="text-sm text-muted-foreground line-clamp-2">{roteiro.descricao}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <a
-                      href={roteiro.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-1.5 bg-background border border-foreground/10 rounded-lg text-sm font-medium hover:bg-foreground/5 transition-colors"
+                    <button
+                      onClick={() => handleAbrirPdf(roteiro.id)}
+                      disabled={loadingAbrirId === roteiro.id}
+                      className="px-3 py-1.5 bg-background border border-foreground/10 rounded-lg text-sm font-medium hover:bg-foreground/5 transition-colors disabled:opacity-50"
                     >
-                      Abrir PDF
-                    </a>
+                      {loadingAbrirId === roteiro.id ? "..." : "Abrir PDF"}
+                    </button>
                     <button
                       onClick={() => handleCompartilhar(roteiro.id)}
                       className="px-3 py-1.5 bg-indigo-500/10 text-indigo-600 rounded-lg text-sm font-medium hover:bg-indigo-500/20 transition-colors"
