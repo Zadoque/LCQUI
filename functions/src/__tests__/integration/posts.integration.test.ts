@@ -1,3 +1,5 @@
+import "../emulator-credentials";
+
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
@@ -2053,6 +2055,101 @@ describe("Módulo Acadêmico (Posts e Comentários - Baseado no main.tex)", () =
 
       const posts = await db.collection("Turma").doc("turma_rtr_7").collection("Posts").get();
       expect(posts.empty).toBe(true);
+    });
+
+    it("TEST-INT-RTR-POST-008 — histórico de anexo preserva snapshots e nunca remove o anterior", async () => {
+      const professor = "prof_rtr_historico";
+      await semearUsuario(professor, ["Professor"]);
+      await semearTurma("turma_rtr_historico", professor);
+
+      const roteiroA = await criarRoteiroPublicavel(professor, "Roteiro A", "a.pdf");
+      const roteiroB = await criarRoteiroPublicavel(professor, "Roteiro B", "b.pdf");
+
+      const wrappedCriar = testEnv.wrap(criarPost);
+      const postResult = await wrappedCriar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_historico",
+        titulo: "Post Histórico",
+        descricao: "Descricao",
+        idRoteiroExperimento: roteiroA.idRoteiro,
+      }, professor));
+
+      const wrappedEditar = testEnv.wrap(editarPost);
+      await wrappedEditar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_historico",
+        idPost: postResult.id,
+        idRoteiroExperimento: roteiroB.idRoteiro,
+      }, professor));
+
+      await wrappedEditar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_historico",
+        idPost: postResult.id,
+        idRoteiroExperimento: null,
+      }, professor));
+
+      const historicoSnap = await db.collection("Turma").doc("turma_rtr_historico").collection("Posts").doc(postResult.id).collection("Historico_Posts_Turma").get();
+      expect(historicoSnap.size).toBeGreaterThanOrEqual(2);
+
+      const historicos = historicoSnap.docs.map((d) => d.data());
+      for (const h of historicos) {
+        expect(h).toHaveProperty("antigo_roteiro_anexo");
+        expect(h).toHaveProperty("novo_roteiro_anexo");
+      }
+
+      const troca = historicos.find((h) => h.novo_roteiro_anexo?.id_roteiro === roteiroB.idRoteiro);
+      expect(troca).toBeDefined();
+      expect(troca!.antigo_roteiro_anexo.id_roteiro).toBe(roteiroA.idRoteiro);
+      expect(troca!.antigo_roteiro_anexo.geracao).toBe(roteiroA.geracao);
+      expect(troca!.novo_roteiro_anexo.geracao).toBe(roteiroB.geracao);
+
+      const desvinculo = historicos.find((h) => h.antigo_roteiro_anexo?.id_roteiro === roteiroB.idRoteiro && h.novo_roteiro_anexo === null);
+      expect(desvinculo).toBeDefined();
+
+      const snapshotAindaPresente = historicos.some((h) =>
+        h.antigo_roteiro_anexo?.id_roteiro === roteiroA.idRoteiro ||
+        h.novo_roteiro_anexo?.id_roteiro === roteiroA.idRoteiro
+      );
+      expect(snapshotAindaPresente).toBe(true);
+    });
+
+    it("TEST-INT-RTR-POST-009 — turma arquivada nega criação de Post com roteiro", async () => {
+      const professor = "prof_rtr_arquivado";
+      await semearUsuario(professor, ["Professor"]);
+      await semearTurma("turma_rtr_arq", professor);
+      await db.collection("Turma").doc("turma_rtr_arq").update({ status: "Arquivada" });
+
+      const roteiro = await criarRoteiroPublicavel(professor, "Roteiro Arquivado", "arq.pdf");
+
+      const wrappedCriar = testEnv.wrap(criarPost);
+      await expect(wrappedCriar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_arq",
+        titulo: "Post Turma Arquivada",
+        descricao: "Descricao",
+        idRoteiroExperimento: roteiro.idRoteiro,
+      }, professor))).rejects.toMatchObject({ code: "failed-precondition" });
+    });
+
+    it("TEST-INT-RTR-POST-010 — aluno não pode criar Post com roteiro anexado", async () => {
+      const professor = "prof_rtr_aluno_prof";
+      const aluno = "aluno_rtr_anexo";
+      await semearUsuario(professor, ["Professor"]);
+      await semearUsuario(aluno, ["Aluno"]);
+      await semearTurma("turma_rtr_aluno", professor);
+      await semearVinculo("turma_rtr_aluno", aluno);
+
+      const roteiro = await criarRoteiroPublicavel(professor, "Roteiro Aluno", "aluno.pdf");
+
+      const wrappedCriar = testEnv.wrap(criarPost);
+      await expect(wrappedCriar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma: "turma_rtr_aluno",
+        titulo: "Post Aluno",
+        descricao: "Descricao",
+        idRoteiroExperimento: roteiro.idRoteiro,
+      }, aluno, ["Aluno"]))).rejects.toMatchObject({ code: "permission-denied" });
     });
   });
 });

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   assertFails,
   assertSucceeds,
@@ -150,6 +151,30 @@ describe("Storage Security Rules", () => {
       const ref = storage.ref("roteiros/rot1/doc.pdf");
       const content = Buffer.alloc(16 * 1024 * 1024); // 16MB
       await assertFails(ref.put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }) as any);
+    });
+
+    it("deve fechar read para TODOS, inclusive o próprio dono", async () => {
+      const storageProf = authedStorage("prof1", ["Professor"]);
+      const ref = storageProf.ref("roteiros/rot1/doc.pdf");
+      const content = Buffer.from("%PDF-1.4\n");
+      await ref.put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } } as any);
+
+      // Dono não pode obter URL de download direta.
+      await assertFails(ref.getDownloadURL());
+
+      // Usuário não autenticado também não pode ler.
+      const unauthedRef = unauthedStorage().ref("roteiros/rot1/doc.pdf");
+      await assertFails(unauthedRef.getDownloadURL());
+    });
+
+    it("deve proibir update e delete mesmo para o próprio dono", async () => {
+      const storageProf = authedStorage("prof1", ["Professor"]);
+      const ref = storageProf.ref("roteiros/rot1/doc.pdf");
+      const content = Buffer.from("%PDF-1.4\n");
+      await ref.put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } } as any);
+
+      await assertFails(ref.updateMetadata({ customMetadata: { owner: "prof1" } }) as any);
+      await assertFails(ref.delete());
     });
   });
 

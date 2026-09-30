@@ -454,12 +454,19 @@ describe("Firestore Security Rules", () => {
       const dbProf1 = authedDb("prof1", ["Professor"]);
       const dbProf2 = authedDb("prof2", ["Professor"]);
 
-      // Prof 1 cria o roteiro
-      const roteiroRef = dbProf1.collection("Roteiro_Experimento").doc("rot1");
-      await assertSucceeds(roteiroRef.set({ titulo: "Roteiro", id_professor: "prof1" }));
+      // Cria o roteiro com regras desabilitadas (escrita é Cloud Function only)
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Roteiro_Experimento").doc("rot1").set({
+          titulo: "Roteiro",
+          id_professor: "prof1",
+        });
+      });
 
       // Prof 2 tenta deletar o roteiro do Prof 1
       await assertFails(dbProf2.collection("Roteiro_Experimento").doc("rot1").delete());
+      // Prof 1 também não pode alterar diretamente (escrita fechada para todos)
+      await assertFails(dbProf1.collection("Roteiro_Experimento").doc("rot1").update({ titulo: "Alterado" }));
     });
   });
 
