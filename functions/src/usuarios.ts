@@ -39,11 +39,11 @@ export async function reconciliarClaimsUsuario(uid: string): Promise<void> {
         if (!usuario.exists) throw new HttpsError("not-found", "Identidade não encontrada.");
         const roles = PAPEIS.filter((_, i) => perfis[i].exists);
         validarMatrizPapeis(roles);
-        return { roles: usuario.data()!.ativo === true ? roles : [], versao: usuario.data()!.versao_permissoes ?? 0 };
+        return { roles: usuario.data()!.ativo === true ? roles : [], versao: usuario.data()!.versao_permissoes ?? 0, ativo: usuario.data()!.ativo === true };
       });
       const authUser = await admin.auth().getUser(uid);
       await admin.auth().setCustomUserClaims(uid, {
-        ...authUser.customClaims, roles: estado.roles, versao_permissoes: estado.versao,
+        ...authUser.customClaims, roles: estado.roles, versao_permissoes: estado.versao, ativo: estado.ativo,
       });
       const atual = await db.runTransaction(async tx => {
         const snap = await tx.get(ref);

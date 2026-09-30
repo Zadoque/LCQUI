@@ -246,7 +246,10 @@ export async function atualizarCustomClaims(uid: string): Promise<void> {
 
   validarMatrizPapeis(roles);
 
-  await admin.auth().setCustomUserClaims(uid, { roles });
+  const usuarioDoc = await admin.firestore().collection("Usuarios").doc(uid).get();
+  const ativo = usuarioDoc.exists && usuarioDoc.data()?.ativo === true;
+
+  await admin.auth().setCustomUserClaims(uid, { roles, ativo });
 }
 
 /**

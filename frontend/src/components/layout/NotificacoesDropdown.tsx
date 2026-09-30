@@ -32,7 +32,6 @@ const TIPOS_ACADEMICOS_V1 = new Set([
   "REMOVIDO",
   "TURMA_ARQUIVADA",
   "TURMA_DESARQUIVADA",
-  "ROTEIRO_COMPARTILHADO",
   "CONVITE_PARA_TURMA",
 ]);
 
@@ -176,6 +175,7 @@ export function NotificacoesDropdown() {
         if (error.code === "permission-denied") {
           if (!permissionDeniedRef.current) {
             permissionDeniedRef.current = true;
+            console.warn("Notificações: leitura negada (caixa própria) — verifique autenticação/vínculo.");
             // Registra apenas uma vez; não polui o console em reconexões.
           }
         } else {

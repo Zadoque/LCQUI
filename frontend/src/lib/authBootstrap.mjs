@@ -24,18 +24,20 @@ export function extrairPapeisClaims(valor) {
  * bootstrap de convite. `ativo` aqui controla apenas navegação; a autorização
  * definitiva continua fail-closed no backend/Rules.
  *
- * A presença de `versao_permissoes >= 1` nas claims indica que o documento
- * `Usuarios/{uid}` existe e está ativo, independentemente de o usuário ter
- * papéis.  Uma conta sem `versao_permissoes` (ou com valor inválido) não
- * possui identidade autorizativa persistida e é tratada como desativada.
+ * A claim `ativo` é a fonte primária (definida por reconciliarClaimsUsuario
+ * a partir de Usuarios/{uid}.ativo). Fallback para versao_permissoes >= 1
+ * quando a claim `ativo` está ausente (tokens emitidos antes da migração).
  *
  * @param {unknown} rolesClaim
  * @param {unknown} versaoPermissoes
+ * @param {unknown} ativoClaim
  * @returns {{ roles: string[], ativo: boolean }}
  */
-export function construirEstadoAutenticacao(rolesClaim, versaoPermissoes) {
+export function construirEstadoAutenticacao(rolesClaim, versaoPermissoes, ativoClaim) {
   const roles = extrairPapeisClaims(rolesClaim);
-  const ativo = typeof versaoPermissoes === "number" && versaoPermissoes >= 1;
+  const ativo = typeof ativoClaim === "boolean"
+    ? ativoClaim
+    : typeof versaoPermissoes === "number" && versaoPermissoes >= 1;
   return { roles, ativo };
 }
 
@@ -49,7 +51,7 @@ export function construirEstadoAutenticacao(rolesClaim, versaoPermissoes) {
  */
 export async function renovarEstadoAutenticacao(user) {
   const tokenResult = await user.getIdTokenResult(true);
-  return construirEstadoAutenticacao(tokenResult.claims.roles, tokenResult.claims.versao_permissoes);
+  return construirEstadoAutenticacao(tokenResult.claims.roles, tokenResult.claims.versao_permissoes, tokenResult.claims.ativo);
 }
 
 /**

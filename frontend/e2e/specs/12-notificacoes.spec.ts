@@ -17,7 +17,7 @@ import { listarColecao } from "../helpers/emulator";
  * Cobre: bootstrap (conta sem papel vê sino e aceita convite via notificação),
  * "Limpar tudo", marcação individual, enum e mensagens contextuais.
  *
- * Serial: NOTIF-001 torna aluno.authonly membro de seed-turma-vazia;
+ * Serial: NOTIF-001 torna aluno.authonly membro de seed-turma-colegas;
  * NOTIF-002 arquiva essa turma e testa "Limpar tudo";
  * NOTIF-003 desarquiva para gerar TURMA_DESARQUIVADA (não-CONVITE) e
  * exercitar o botão marcar-lida.
@@ -31,11 +31,13 @@ test.describe.serial("Notificações UI-12", () => {
 
     // Professor convida o aluno authOnly COM matrícula (como E2E-009),
     // garantindo matricula_necessaria=false no detalhe e no aceite.
+    // Usa T3 Colegas em vez de T1 Vazia, pois E2E-009 já matriculou
+    // aluno.authonly em T1 Vazia.
     await login(page, "professor.alpha@lcqui.local");
-    await abrirNovoAlunoModal(page, "T1 Vazia");
+    await abrirNovoAlunoModal(page, "T3 Colegas");
     const conviteChamadas = capturarCallable(page, "convidarAluno");
     await convidarAluno(page, {
-      turmaId: "seed-turma-vazia",
+      turmaId: "seed-turma-colegas",
       emails: "aluno.authonly@lcqui.local",
       matricula: "2026000777",
     });
@@ -96,7 +98,7 @@ test.describe.serial("Notificações UI-12", () => {
       page.getByRole("banner").getByText("Aluno", { exact: true })
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /Química Geral — T1 Vazia/ })
+      page.getByRole("button", { name: /Química Geral — T3 Colegas/ })
     ).toBeVisible();
 
     // A notificação CONVITE_PARA_TURMA foi marcada como lida pelo aceite
@@ -113,14 +115,14 @@ test.describe.serial("Notificações UI-12", () => {
   test("E2E-NOTIF-002 Limpar tudo marca não lidas como lidas", async ({
     page,
   }) => {
-    // Após NOTIF-001, aluno.authonly é membro de seed-turma-vazia.
+    // Após NOTIF-001, aluno.authonly é membro de seed-turma-colegas.
     // Arquivar a turma emite TURMA_ARQUIVADA para o membro.
     await login(page, "professor.alpha@lcqui.local");
     await page.goto("/turmas");
 
     // Selecionar a turma para abrir o painel de detalhe (FeedTurma)
     await page
-      .getByRole("button", { name: /Química Geral — T1 Vazia/ })
+      .getByRole("button", { name: /Química Geral — T3 Colegas/ })
       .click();
 
     // Arquivar (requer confirmação no diálogo próprio)
@@ -169,7 +171,7 @@ test.describe.serial("Notificações UI-12", () => {
   test("E2E-NOTIF-003 marcar notificação individual como lida", async ({
     page,
   }) => {
-    // Após NOTIF-002, seed-turma-vazia está arquivada e todas as notificações
+    // Após NOTIF-002, seed-turma-colegas está arquivada e todas as notificações
     // de aluno.authonly foram marcadas como lidas. Desarquivar gera
     // TURMA_DESARQUIVADA (não-CONVITE), que possui o botão marcar-lida.
     await login(page, "professor.alpha@lcqui.local");
@@ -177,7 +179,7 @@ test.describe.serial("Notificações UI-12", () => {
 
     // Acessar turmas arquivadas e desarquivar
     await page.getByRole("button", { name: /Turmas Arquivadas/ }).click();
-    const linha = page.getByTestId("linha-turma-arquivada-seed-turma-vazia");
+    const linha = page.getByTestId("linha-turma-arquivada-seed-turma-colegas");
     await expect(linha).toBeVisible();
 
     const desarqChamada = esperarCallable(page, "alterarStatusTurma");

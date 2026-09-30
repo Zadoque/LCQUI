@@ -109,7 +109,7 @@ test("TEST-UI-INBOX-005 — Outros tipos de notificação coexistem e não quebr
 const TIPOS_ACADEMICOS_V1 = new Set([
   "POST", "COMENTARIO", "ADICIONADO", "REMOVIDO",
   "TURMA_ARQUIVADA", "TURMA_DESARQUIVADA",
-  "ROTEIRO_COMPARTILHADO", "CONVITE_PARA_TURMA",
+  "CONVITE_PARA_TURMA",
 ]);
 
 const ROTULO_TIPO = {
@@ -194,28 +194,52 @@ function extrairPapeisClaims(valor) {
   return [...new Set(valor.filter((p) => typeof p === "string" && PAPEIS.has(p)))];
 }
 
-function construirEstadoAutenticacao(rolesClaim, versaoPermissoes) {
+function construirEstadoAutenticacao(rolesClaim, versaoPermissoes, ativoClaim) {
   const roles = extrairPapeisClaims(rolesClaim);
-  const ativo = typeof versaoPermissoes === "number" && versaoPermissoes >= 1;
+  const ativo = typeof ativoClaim === "boolean"
+    ? ativoClaim
+    : typeof versaoPermissoes === "number" && versaoPermissoes >= 1;
   return { roles, ativo };
 }
 
-test("TEST-UI-INBOX-011 — zero papéis com versao_permissoes >= 1 resulta ativo=true", () => {
-  const estado = construirEstadoAutenticacao([], 1);
+test("TEST-UI-INBOX-011 — zero papéis com ativo=true no claim resulta ativo=true (bootstrap)", () => {
+  const estado = construirEstadoAutenticacao([], 1, true);
   assert.deepStrictEqual(estado, { roles: [], ativo: true });
 });
 
-test("TEST-UI-INBOX-012 — zero papéis sem versao_permissoes resulta ativo=false (desativado)", () => {
-  const estado = construirEstadoAutenticacao([], undefined);
-  assert.deepStrictEqual(estado, { roles: [], ativo: false });
+test("TEST-UI-INBOX-012 — zero papéis sem ativo claim mas com versao_permissoes >= 1 resulta ativo=true (fallback)", () => {
+  const estado = construirEstadoAutenticacao([], 1, undefined);
+  assert.deepStrictEqual(estado, { roles: [], ativo: true });
 });
 
-test("TEST-UI-INBOX-013 — com papéis e versao_permissoes resulta ativo=true", () => {
-  const estado = construirEstadoAutenticacao(["Aluno"], 1);
+test("TEST-UI-INBOX-013 — com papéis e ativo=true resulta ativo=true", () => {
+  const estado = construirEstadoAutenticacao(["Aluno"], 1, true);
   assert.deepStrictEqual(estado, { roles: ["Aluno"], ativo: true });
 });
 
-test("TEST-UI-INBOX-014 — versao_permissoes=0 resulta ativo=false", () => {
-  const estado = construirEstadoAutenticacao(["Aluno"], 0);
-  assert.deepStrictEqual(estado, { roles: ["Aluno"], ativo: false });
+test("TEST-UI-INBOX-014 — conta desativada com versao_permissoes >= 1 mas ativo=false resulta ativo=false", () => {
+  const estado = construirEstadoAutenticacao([], 2, false);
+  assert.deepStrictEqual(estado, { roles: [], ativo: false });
+});
+
+test("TEST-UI-INBOX-015 — sem versao_permissoes e sem ativo resulta ativo=false (desativado)", () => {
+  const estado = construirEstadoAutenticacao([], undefined, undefined);
+  assert.deepStrictEqual(estado, { roles: [], ativo: false });
+});
+
+test("TEST-UI-INBOX-016 — ROTEIRO_COMPARTILHADO é tipo operacional, usa rótulo simples", () => {
+  const msg = mensagemContextual({
+    tipo: "ROTEIRO_COMPARTILHADO",
+    id_alvo: "roteiro1",
+  });
+  assert.strictEqual(msg, "Roteiro compartilhado");
+});
+
+test("TEST-UI-INBOX-017 — ROTEIRO_COMPARTILHADO com customizada usa ela (operacional)", () => {
+  const msg = mensagemContextual({
+    tipo: "ROTEIRO_COMPARTILHADO",
+    id_alvo: "roteiro1",
+    mensagem_customizada: "Professor Beta compartilhou um roteiro",
+  });
+  assert.strictEqual(msg, "Professor Beta compartilhou um roteiro");
 });

@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           // Sempre busca o JWT em memória e extrai os custom claims. 
           // O backend (Cloud Functions) é quem dita essas roles.
           const tokenResult = await currentUser.getIdTokenResult();
-          const estado = construirEstadoAutenticacao(tokenResult.claims.roles, tokenResult.claims.versao_permissoes);
+          const estado = construirEstadoAutenticacao(tokenResult.claims.roles, tokenResult.claims.versao_permissoes, tokenResult.claims.ativo);
 
           aplicarEstado(currentUser, estado);
         } catch (error) {

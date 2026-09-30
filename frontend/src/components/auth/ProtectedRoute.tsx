@@ -22,9 +22,9 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
         // Usuário anônimo => Redireciona para login
         router.replace("/login");
       } else if (!ativo) {
-        // Usuário autenticado sem documento Usuarios ativo (sem versao_permissoes)
-        // — realmente desativado, vai para /desativado.
-        // Conta com zero papéis mas ativo (versao_permissoes >= 1) permanece no layout.
+        // Usuário autenticado com claim ativo=false (conta desativada no
+        // documento Usuarios) — vai para /desativado. Conta com zero papéis
+        // mas ativo=true (bootstrap de convite M13) permanece no layout.
         router.replace("/desativado");
       }
       // Nota: conta ativa sem o papel exigido NÃO é redirecionada para

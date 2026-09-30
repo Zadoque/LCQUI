@@ -200,6 +200,11 @@ describe("Auth Module (40+ Tests)", () => {
     let mockGet: jest.Mock;
     let mockSetCustomUserClaims: jest.Mock;
 
+    /** Helpers para configurar o mockGet considerando a 7ª chamada (Usuarios/{uid}). */
+    const usuarioAtivo = { exists: true, data: () => ({ ativo: true }) };
+    const usuarioInativo = { exists: true, data: () => ({ ativo: false }) };
+    const usuarioAusente = { exists: false, data: () => undefined };
+
     beforeEach(() => {
       mockGet = admin.firestore().collection("dummy").doc("").get as jest.Mock;
       mockGet.mockReset();
@@ -208,60 +213,72 @@ describe("Auth Module (40+ Tests)", () => {
       mockSetCustomUserClaims.mockClear();
     });
 
-    it("31. deve chamar get 6 vezes (uma para cada papel possível)", async () => {
+    it("31. deve chamar get 7 vezes (6 papéis + 1 Usuarios)", async () => {
       mockGet.mockResolvedValue({ exists: false });
       await atualizarCustomClaims("uid_1");
-      expect(mockGet).toHaveBeenCalledTimes(6);
+      expect(mockGet).toHaveBeenCalledTimes(7);
     });
 
-    it("32. deve definir array de roles vazio se não existir em nenhuma coleção", async () => {
+    it("32. deve definir array de roles vazio e ativo=false se Usuarios não existe", async () => {
       mockGet.mockResolvedValue({ exists: false });
       await atualizarCustomClaims("uid_1");
-      expect(mockSetCustomUserClaims).toHaveBeenCalledWith("uid_1", { roles: [] });
+      expect(mockSetCustomUserClaims).toHaveBeenCalledWith("uid_1", { roles: [], ativo: false });
     });
 
-    it("33. deve definir Chefe_Geral se existir apenas na primeira coleção", async () => {
+    it("33. deve definir Chefe_Geral e ativo=true se existir na primeira coleção e Usuarios ativo", async () => {
       mockGet
         .mockResolvedValueOnce({ exists: true }) // Chefe_Geral
-        .mockResolvedValue({ exists: false });   // Resto
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce(usuarioAtivo); // Usuarios
         
       await atualizarCustomClaims("uid_1");
-      expect(mockSetCustomUserClaims).toHaveBeenCalledWith("uid_1", { roles: ["Chefe_Geral"] });
+      expect(mockSetCustomUserClaims).toHaveBeenCalledWith("uid_1", { roles: ["Chefe_Geral"], ativo: true });
     });
 
-    it("34. deve definir Gestor_Almoxarifado se existir na segunda coleção", async () => {
+    it("34. deve definir Gestor_Almoxarifado e ativo=true se existir na segunda coleção", async () => {
       mockGet
-        .mockResolvedValueOnce({ exists: false }) 
+        .mockResolvedValueOnce({ exists: false })
         .mockResolvedValueOnce({ exists: true }) // Gestor
-        .mockResolvedValue({ exists: false });
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce(usuarioAtivo); // Usuarios
         
       await atualizarCustomClaims("uid_1");
-      expect(mockSetCustomUserClaims).toHaveBeenCalledWith("uid_1", { roles: ["Gestor_Almoxarifado"] });
+      expect(mockSetCustomUserClaims).toHaveBeenCalledWith("uid_1", { roles: ["Gestor_Almoxarifado"], ativo: true });
     });
 
-    it("35. deve definir Professor se existir na quarta coleção", async () => {
+    it("35. deve definir Professor e ativo=true se existir na quarta coleção", async () => {
       mockGet
         .mockResolvedValueOnce({ exists: false }) 
         .mockResolvedValueOnce({ exists: false }) 
         .mockResolvedValueOnce({ exists: false }) 
         .mockResolvedValueOnce({ exists: true }) // Professor
-        .mockResolvedValue({ exists: false });
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce(usuarioAtivo); // Usuarios
         
       await atualizarCustomClaims("uid_1");
-      expect(mockSetCustomUserClaims).toHaveBeenCalledWith("uid_1", { roles: ["Professor"] });
+      expect(mockSetCustomUserClaims).toHaveBeenCalledWith("uid_1", { roles: ["Professor"], ativo: true });
     });
 
-    it("36. deve definir Aluno e Bolsista se existir na quinta e sexta coleções", async () => {
+    it("36. deve definir Aluno e Bolsista e ativo=true se existir na quinta e sexta coleções", async () => {
       mockGet
         .mockResolvedValueOnce({ exists: false }) 
         .mockResolvedValueOnce({ exists: false }) 
         .mockResolvedValueOnce({ exists: false }) 
         .mockResolvedValueOnce({ exists: false }) 
         .mockResolvedValueOnce({ exists: true }) // Aluno
-        .mockResolvedValueOnce({ exists: true }); // Bolsista
+        .mockResolvedValueOnce({ exists: true }) // Bolsista
+        .mockResolvedValueOnce(usuarioAtivo); // Usuarios
         
       await atualizarCustomClaims("uid_1");
-      expect(mockSetCustomUserClaims).toHaveBeenCalledWith("uid_1", { roles: ["Aluno", "Bolsista"] });
+      expect(mockSetCustomUserClaims).toHaveBeenCalledWith("uid_1", { roles: ["Aluno", "Bolsista"], ativo: true });
     });
 
     it("37. deve rejeitar se o usuário tentar acumular todos os roles (Multi-Role Error)", async () => {
@@ -283,9 +300,10 @@ describe("Auth Module (40+ Tests)", () => {
       expect(mockCollection).toHaveBeenCalledWith("Professor");
       expect(mockCollection).toHaveBeenCalledWith("Aluno");
       expect(mockCollection).toHaveBeenCalledWith("Bolsista");
+      expect(mockCollection).toHaveBeenCalledWith("Usuarios");
     });
 
-    it("39. deve definir o doc usando o UID", async () => {
+    it("39. deve definir o doc usando o UID (6 papéis + 1 Usuarios)", async () => {
       const mockDoc = jest.fn().mockReturnValue({ get: mockGet });
       const mockCollection = jest.fn().mockReturnValue({ doc: mockDoc });
       (admin.firestore as unknown as jest.Mock).mockReturnValue({ collection: mockCollection });
@@ -294,14 +312,14 @@ describe("Auth Module (40+ Tests)", () => {
       await atualizarCustomClaims("uid_999");
       
       expect(mockDoc).toHaveBeenCalledWith("uid_999");
-      expect(mockDoc).toHaveBeenCalledTimes(6);
+      expect(mockDoc).toHaveBeenCalledTimes(7);
     });
 
     it("40. deve lançar exceção se uma das consultas falhar (Promise.all rejeita)", async () => {
       mockGet
         .mockResolvedValueOnce({ exists: false }) 
         .mockRejectedValueOnce(new Error("Erro de conexão")); 
-        
+         
       await expect(atualizarCustomClaims("uid_1")).rejects.toThrowError("Erro de conexão");
       expect(mockSetCustomUserClaims).not.toHaveBeenCalled();
     });
@@ -310,7 +328,35 @@ describe("Auth Module (40+ Tests)", () => {
       mockGet.mockResolvedValue({ exists: false });
       const unusualUid = "uid_com_caracteres_especiais_!@#";
       await atualizarCustomClaims(unusualUid);
-      expect(mockSetCustomUserClaims).toHaveBeenCalledWith(unusualUid, { roles: [] });
+      expect(mockSetCustomUserClaims).toHaveBeenCalledWith(unusualUid, { roles: [], ativo: false });
+    });
+
+    it("42. deve definir ativo=false quando Usuarios/{uid}.ativo é false", async () => {
+      mockGet
+        .mockResolvedValueOnce({ exists: true }) // Chefe_Geral
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce(usuarioInativo); // Usuarios ativo=false
+
+      await atualizarCustomClaims("uid_1");
+      expect(mockSetCustomUserClaims).toHaveBeenCalledWith("uid_1", { roles: ["Chefe_Geral"], ativo: false });
+    });
+
+    it("43. deve definir ativo=false quando Usuarios/{uid} não existe", async () => {
+      mockGet
+        .mockResolvedValueOnce({ exists: true }) // Chefe_Geral
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce(usuarioAusente); // Usuarios não existe
+
+      await atualizarCustomClaims("uid_1");
+      expect(mockSetCustomUserClaims).toHaveBeenCalledWith("uid_1", { roles: ["Chefe_Geral"], ativo: false });
     });
   });
 });
