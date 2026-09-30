@@ -32,6 +32,7 @@ export const DescompartilharRoteiroSchema = z.object({
 });
 
 export const EmitirUrlDownloadRoteiroSchema = z.object({
+  idOperacao: idOperacaoField,
   idRoteiro: z.string().min(1, "O ID do roteiro é obrigatório."),
   idTurma: z.string().min(1).optional(),
   idPost: z.string().min(1).optional(),

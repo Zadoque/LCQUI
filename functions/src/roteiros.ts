@@ -467,7 +467,13 @@ export const removerRoteiro = onCall(async (request) => {
 export const emitirUrlDownloadRoteiro = onCall(async (request) => {
   const claims = extrairClaimsAutoridade(request);
   const dados = validatePayload(EmitirUrlDownloadRoteiroSchema, request.data);
-  const { idRoteiro } = dados;
+  const { idOperacao, idRoteiro, idTurma, idPost } = dados;
+
+  const identidade = construirIdentidade(claims.uid, "EMITIR_URL", {
+    idRoteiro,
+    idTurma: idTurma ?? null,
+    idPost: idPost ?? null,
+  });
 
   return admin.firestore().runTransaction(async (tx) => {
     const autoridade = await resolverAutoridadePersistidaTx(tx, claims, [
@@ -475,6 +481,23 @@ export const emitirUrlDownloadRoteiro = onCall(async (request) => {
       "Aluno",
       "Bolsista",
     ]);
+
+    const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+    if (decisao.estado === "REPLAY") {
+      return decisao.resultado as {
+        id_roteiro: string;
+        storage_path: string;
+        geracao: string;
+        url: string;
+        emitida_em: string;
+        expira_em: string;
+        via: string;
+        validade: string;
+      };
+    }
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError("failed-precondition", "Operação de emissão de URL não concluída.");
+    }
 
     const roteiroRef = admin.firestore().collection("Roteiro_Experimento").doc(idRoteiro);
     const snap = await tx.get(roteiroRef);
@@ -499,21 +522,21 @@ export const emitirUrlDownloadRoteiro = onCall(async (request) => {
     } else if ((roteiro.professores_compartilhados || []).includes(autoridade.uid)) {
       via = "COMPARTILHADO";
     } else if (autoridade.papeis.includes("Aluno") || autoridade.papeis.includes("Bolsista")) {
-      if (!dados.idTurma || !dados.idPost) {
+      if (!idTurma || !idPost) {
         throw new HttpsError("invalid-argument", "Aluno/Bolsista deve informar idTurma e idPost.");
       }
 
-      const alunoRef = admin.firestore().collection("Turma").doc(dados.idTurma).collection("Alunos").doc(autoridade.uid);
+      const alunoRef = admin.firestore().collection("Turma").doc(idTurma).collection("Alunos").doc(autoridade.uid);
       const alunoSnap = await tx.get(alunoRef);
       if (!alunoSnap.exists) {
         throw new HttpsError("permission-denied", "Vínculo canônico não encontrado.");
       }
       const alunoData = alunoSnap.data()!;
-      if (alunoData.id_aluno !== autoridade.uid || alunoData.id_turma !== dados.idTurma) {
+      if (alunoData.id_aluno !== autoridade.uid || alunoData.id_turma !== idTurma) {
         throw new HttpsError("failed-precondition", "Vínculo canônico corrompido.");
       }
 
-      const postRef = admin.firestore().collection("Turma").doc(dados.idTurma).collection("Posts").doc(dados.idPost);
+      const postRef = admin.firestore().collection("Turma").doc(idTurma).collection("Posts").doc(idPost);
       const postSnap = await tx.get(postRef);
       if (!postSnap.exists) {
         throw new HttpsError("not-found", "Post não encontrado.");
@@ -539,6 +562,8 @@ export const emitirUrlDownloadRoteiro = onCall(async (request) => {
 
     const file = admin.storage().bucket().file(referencia.storage_path);
 
+    let url: string;
+
     // No Storage Emulator o Admin SDK não possui credenciais para assinar URL.
     // Retornamos a URL pública do emulador, preservando a geração para evitar
     // race com sobrescritas. Em produção continuamos a emitir signed URL v4.
@@ -546,27 +571,16 @@ export const emitirUrlDownloadRoteiro = onCall(async (request) => {
     if (storageEmulatorHost) {
       const bucketName = admin.storage().bucket().name;
       const encodedPath = encodeURIComponent(referencia.storage_path);
-      const url = `http://${storageEmulatorHost}/v0/b/${bucketName}/o/${encodedPath}?alt=media&generation=${referencia.geracao}`;
-
-      return {
-        id_roteiro: idRoteiro,
-        storage_path: referencia.storage_path,
-        geracao: referencia.geracao,
-        url,
-        emitida_em: new Date().toISOString(),
-        expira_em: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-        via,
-        validade: "ATIVA",
-      };
+      url = `http://${storageEmulatorHost}/v0/b/${bucketName}/o/${encodedPath}?alt=media&generation=${referencia.geracao}`;
+    } else {
+      [url] = await file.getSignedUrl({
+        action: "read",
+        expires: Date.now() + 15 * 60 * 1000,
+        version: "v4",
+      });
     }
 
-    const [url] = await file.getSignedUrl({
-      action: "read",
-      expires: Date.now() + 15 * 60 * 1000,
-      version: "v4",
-    });
-
-    return {
+    const resultado = {
       id_roteiro: idRoteiro,
       storage_path: referencia.storage_path,
       geracao: referencia.geracao,
@@ -576,6 +590,9 @@ export const emitirUrlDownloadRoteiro = onCall(async (request) => {
       via,
       validade: "ATIVA",
     };
+
+    registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+    return resultado;
   });
 
 });

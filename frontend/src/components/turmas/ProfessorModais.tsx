@@ -17,6 +17,8 @@ import {
   assinaturaMembro,
   chaveIntencaoConvite,
   assinaturaIntencaoConvite,
+  chaveIntencaoEmitirUrl,
+  assinaturaIntencaoEmitirUrl,
 } from "@/lib/intencaoOperacao";
 import { construirPayloadConvidarAluno } from "@/lib/convitesPayload.mjs";
 
@@ -898,10 +900,20 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
     setToast(null);
     try {
       const fn = getFunctions();
+
+      // M7: idOperação estável por intenção (retry idempotente)
+      const session = typeof window !== "undefined" ? window.sessionStorage : null;
+      const chave = chaveIntencaoEmitirUrl(idRoteiro);
+      const assinatura = assinaturaIntencaoEmitirUrl(idRoteiro);
+      const intencao = session
+        ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
+        : { idOperacao: crypto.randomUUID(), assinatura };
+
       const emitir = httpsCallable(fn, "emitirUrlDownloadRoteiro");
-      const res = await emitir({ idRoteiro });
+      const res = await emitir({ idOperacao: intencao.idOperacao, idRoteiro });
       const data = res.data as { url: string };
       window.open(data.url, "_blank");
+      if (session) limparIntencao(session, chave);
     } catch (error) {
       console.error("Erro ao emitir URL de download:", error);
       const message = error instanceof Error ? error.message : "Erro ao gerar link de download do roteiro.";

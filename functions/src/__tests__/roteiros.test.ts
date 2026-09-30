@@ -1012,6 +1012,7 @@ describe("Módulo de Roteiros", () => {
 
       const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
       const result = await wrapped(mockRequest({
+        idOperacao: novaOperacao(),
         idRoteiro,
       }, dono));
 
@@ -1043,6 +1044,7 @@ describe("Módulo de Roteiros", () => {
 
       const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
       const result = await wrapped(mockRequest({
+        idOperacao: novaOperacao(),
         idRoteiro,
       }, alvo));
 
@@ -1063,6 +1065,7 @@ describe("Módulo de Roteiros", () => {
 
       const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
       await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(),
         idRoteiro,
       }, outro))).rejects.toMatchObject({ code: "permission-denied" });
     });
@@ -1089,6 +1092,7 @@ describe("Módulo de Roteiros", () => {
 
       const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
       const result = await wrapped(mockRequest({
+        idOperacao: novaOperacao(),
         idRoteiro,
         idTurma,
         idPost: postResult.id,
@@ -1124,6 +1128,7 @@ describe("Módulo de Roteiros", () => {
 
       const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
       await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(),
         idRoteiro,
         idTurma,
         idPost: postResult.id,
@@ -1160,6 +1165,7 @@ describe("Módulo de Roteiros", () => {
 
       const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
       await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(),
         idRoteiro,
         idTurma,
         idPost: postResult.id,
@@ -1192,6 +1198,7 @@ describe("Módulo de Roteiros", () => {
 
       const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
       await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(),
         idRoteiro,
         idTurma,
         idPost: postResult.id,
@@ -1221,6 +1228,7 @@ describe("Módulo de Roteiros", () => {
 
       const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
       await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(),
         idRoteiro: roteiroRef.id,
       }, dono))).rejects.toMatchObject({ code: "failed-precondition" });
     });
@@ -1235,8 +1243,180 @@ describe("Módulo de Roteiros", () => {
 
       const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
       await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(),
         idRoteiro,
       }, chefe, ["Chefe_Geral"]))).rejects.toMatchObject({ code: "permission-denied" });
+    });
+
+    it("M7 replay com mesmo idOperacao devolve mesma URL", async () => {
+      const dono = "prof_download_replay";
+      await semearUsuario(dono, ["Professor"]);
+
+      const { idRoteiro } = await criarRoteiroPublicado(dono, "Roteiro Replay Download", "replay_download.pdf");
+      const op = novaOperacao();
+
+      const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
+      const primeiro = await wrapped(mockRequest({
+        idOperacao: op,
+        idRoteiro,
+      }, dono));
+
+      const segundo = await wrapped(mockRequest({
+        idOperacao: op,
+        idRoteiro,
+      }, dono));
+
+      expect(segundo).toEqual(primeiro);
+      expect(segundo.via).toBe("PROPRIETARIO");
+    });
+
+    it("IMP-ROT-004: replay COMPARTILHADO sobrevive à descompartilhação; novo idOperação falha", async () => {
+      const dono = "prof_comp_replay_url_dono";
+      const alvo = "prof_comp_replay_url_alvo";
+      await semearUsuario(dono, ["Professor"]);
+      await semearUsuario(alvo, ["Professor"]);
+
+      const { idRoteiro } = await criarRoteiroPublicado(dono, "Roteiro Comp Replay URL", "comp_replay_url.pdf");
+
+      // Dono compartilha com alvo
+      const wrappedComp = testEnv.wrap(compartilharRoteiro);
+      await wrappedComp(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro,
+        uidProfessor: alvo,
+      }, dono));
+
+      // Alvo emite URL (COMPARTILHADO) com idOperacao X
+      const op = novaOperacao();
+      const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
+      const primeiraEmissao = await wrapped(mockRequest({
+        idOperacao: op,
+        idRoteiro,
+      }, alvo));
+
+      expect(primeiraEmissao.via).toBe("COMPARTILHADO");
+      expect(typeof primeiraEmissao.url).toBe("string");
+      expect(primeiraEmissao.url.length).toBeGreaterThan(0);
+
+      // Dono descompartilha
+      const wrappedDescomp = testEnv.wrap(descompartilharRoteiro);
+      await wrappedDescomp(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro,
+        uidProfessor: alvo,
+      }, dono));
+
+      // Reexecutar o MESMO idOperacao X → replay devolve a mesma URL
+      const segundaEmissao = await wrapped(mockRequest({
+        idOperacao: op,
+        idRoteiro,
+      }, alvo));
+
+      expect(segundaEmissao).toEqual(primeiraEmissao);
+      expect(segundaEmissao.via).toBe("COMPARTILHADO");
+      expect(segundaEmissao.url).toBe(primeiraEmissao.url);
+
+      // NOVO idOperacao → falha com permission-denied
+      await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro,
+      }, alvo))).rejects.toMatchObject({ code: "permission-denied" });
+    });
+
+    it("IMP-ROT-004: ex-aluno (vínculo removido) não emite URL com novo idOperacao", async () => {
+      const professor = "prof_ex_aluno_prof";
+      const aluno = "aluno_ex_aluno";
+      const idTurma = "turma_ex_aluno";
+      await semearUsuario(professor, ["Professor"]);
+      await semearUsuario(aluno, ["Aluno"]);
+      await semearTurma(idTurma, professor);
+      await semearVinculo(idTurma, aluno);
+
+      const { idRoteiro } = await criarRoteiroPublicado(professor, "Roteiro Ex-Aluno", "ex_aluno.pdf");
+
+      // Professor anexa roteiro em Post
+      const wrappedCriar = testEnv.wrap(criarPost);
+      const postResult = await wrappedCriar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma,
+        titulo: "Post Ex-Aluno",
+        descricao: "Descricao",
+        idRoteiroExperimento: idRoteiro,
+      }, professor));
+
+      // Aluno com vínculo emite URL com sucesso (ALUNO_POST)
+      const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
+      const primeiraEmissao = await wrapped(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro,
+        idTurma,
+        idPost: postResult.id,
+      }, aluno, ["Aluno"]));
+
+      expect(primeiraEmissao.via).toBe("ALUNO_POST");
+      expect(typeof primeiraEmissao.url).toBe("string");
+      expect(primeiraEmissao.url.length).toBeGreaterThan(0);
+
+      // Remove o vínculo do aluno (ex-aluno)
+      await db.collection("Turma").doc(idTurma).collection("Alunos").doc(aluno).delete();
+
+      // Com NOVO idOperacao, deve falhar com permission-denied
+      await expect(wrapped(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro,
+        idTurma,
+        idPost: postResult.id,
+      }, aluno, ["Aluno"]))).rejects.toMatchObject({ code: "permission-denied" });
+    });
+
+    it("IMP-ROT-004: URL já emitida sobrevive à revogação do vínculo via M7 replay", async () => {
+      const professor = "prof_replay_revoga_prof";
+      const aluno = "aluno_replay_revoga";
+      const idTurma = "turma_replay_revoga";
+      await semearUsuario(professor, ["Professor"]);
+      await semearUsuario(aluno, ["Aluno"]);
+      await semearTurma(idTurma, professor);
+      await semearVinculo(idTurma, aluno);
+
+      const { idRoteiro } = await criarRoteiroPublicado(professor, "Roteiro Replay Revoga", "replay_revoga.pdf");
+
+      // Professor anexa roteiro em Post
+      const wrappedCriar = testEnv.wrap(criarPost);
+      const postResult = await wrappedCriar(mockRequest({
+        idOperacao: novaOperacao(),
+        idTurma,
+        titulo: "Post Replay Revoga",
+        descricao: "Descricao",
+        idRoteiroExperimento: idRoteiro,
+      }, professor));
+
+      // Aluno emite URL com idOperacao específico
+      const op = novaOperacao();
+      const wrapped = testEnv.wrap(emitirUrlDownloadRoteiro);
+      const primeiraEmissao = await wrapped(mockRequest({
+        idOperacao: op,
+        idRoteiro,
+        idTurma,
+        idPost: postResult.id,
+      }, aluno, ["Aluno"]));
+
+      expect(primeiraEmissao.via).toBe("ALUNO_POST");
+      expect(typeof primeiraEmissao.url).toBe("string");
+
+      // Revoga o vínculo (aluno deixa a turma)
+      await db.collection("Turma").doc(idTurma).collection("Alunos").doc(aluno).delete();
+
+      // Reexecutar o MESMO idOperacao → deve devolver a mesma URL (replay do receipt)
+      const segundaEmissao = await wrapped(mockRequest({
+        idOperacao: op,
+        idRoteiro,
+        idTurma,
+        idPost: postResult.id,
+      }, aluno, ["Aluno"]));
+
+      expect(segundaEmissao).toEqual(primeiraEmissao);
+      expect(segundaEmissao.via).toBe("ALUNO_POST");
+      expect(segundaEmissao.url).toBe(primeiraEmissao.url);
     });
   });
 });

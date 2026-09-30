@@ -12,6 +12,9 @@ import {
   limparIntencao,
   chaveIntencaoStatusTurma,
   assinaturaStatusTurma,
+  obterIntencaoPersistida,
+  chaveIntencaoEmitirUrl,
+  assinaturaIntencaoEmitirUrl,
 } from "@/lib/intencaoOperacao";
 
 interface RoteiroProjecao {
@@ -76,7 +79,21 @@ function RoteiroAnexoCard({
     try {
       const fn = getFunctions();
       const emitir = httpsCallable(fn, "emitirUrlDownloadRoteiro");
-      const payload: Record<string, string> = { idRoteiro: anexo.id_roteiro };
+
+      // M7: idOperação estável por intenção (retry idempotente)
+      const idTurmaParaIntencao = isAlunoBolsista ? idTurma : null;
+      const idPostParaIntencao = isAlunoBolsista ? idPost : null;
+      const session = typeof window !== "undefined" ? window.sessionStorage : null;
+      const chave = chaveIntencaoEmitirUrl(anexo.id_roteiro, idTurmaParaIntencao, idPostParaIntencao);
+      const assinatura = assinaturaIntencaoEmitirUrl(anexo.id_roteiro, idTurmaParaIntencao, idPostParaIntencao);
+      const intencao = session
+        ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
+        : { idOperacao: crypto.randomUUID(), assinatura };
+
+      const payload: Record<string, string> = {
+        idOperacao: intencao.idOperacao,
+        idRoteiro: anexo.id_roteiro,
+      };
       if (isAlunoBolsista) {
         payload.idTurma = idTurma;
         payload.idPost = idPost;
@@ -84,6 +101,7 @@ function RoteiroAnexoCard({
       const res = await emitir(payload);
       const data = res.data as { url: string };
       window.open(data.url, "_blank");
+      if (session) limparIntencao(session, chave);
     } catch (err) {
       console.error("Erro ao emitir URL de download:", err);
       onErro("Erro ao gerar link de download do roteiro.");

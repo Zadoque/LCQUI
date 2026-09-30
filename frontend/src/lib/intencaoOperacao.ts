@@ -185,6 +185,31 @@ export function assinaturaIntencaoAceite(idConvite: string, token?: string | nul
   return JSON.stringify(["ACEITAR_CONVITE", idConvite.trim(), (token ?? "").trim()]);
 }
 
+/** Chave de sessão da intenção de emissão de URL de download de roteiro. */
+export function chaveIntencaoEmitirUrl(
+  idRoteiro: string,
+  idTurma?: string | null,
+  idPost?: string | null
+): string {
+  const turmaKey = idTurma && idTurma.trim().length > 0 ? idTurma.trim() : "SEM_TURMA";
+  const postKey = idPost && idPost.trim().length > 0 ? idPost.trim() : "SEM_POST";
+  return `lcqui.intencao.emitirUrlRoteiro.${idRoteiro}.${turmaKey}.${postKey}`;
+}
+
+/** Assinatura canônica da emissão de URL de download de roteiro. */
+export function assinaturaIntencaoEmitirUrl(
+  idRoteiro: string,
+  idTurma?: string | null,
+  idPost?: string | null
+): string {
+  return JSON.stringify([
+    "EMITIR_URL_DOWNLOAD_ROTEIRO",
+    idRoteiro,
+    idTurma ? idTurma.trim() : null,
+    idPost ? idPost.trim() : null,
+  ]);
+}
+
 /** Chave de sessão da intenção de rejeição de convite. */
 export function chaveIntencaoRejeicao(idConvite: string): string {
   return `lcqui.intencao.rejeicao.${idConvite.trim()}`;
