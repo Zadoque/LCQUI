@@ -361,6 +361,28 @@ export const emitirUrlDownloadRoteiro = onCall(async (request) => {
     }
 
     const file = admin.storage().bucket().file(referencia.storage_path);
+
+    // No Storage Emulator o Admin SDK não possui credenciais para assinar URL.
+    // Retornamos a URL pública do emulador, preservando a geração para evitar
+    // race com sobrescritas. Em produção continuamos a emitir signed URL v4.
+    const storageEmulatorHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST;
+    if (storageEmulatorHost) {
+      const bucketName = admin.storage().bucket().name;
+      const encodedPath = encodeURIComponent(referencia.storage_path);
+      const url = `http://${storageEmulatorHost}/v0/b/${bucketName}/o/${encodedPath}?alt=media&generation=${referencia.geracao}`;
+
+      return {
+        id_roteiro: idRoteiro,
+        storage_path: referencia.storage_path,
+        geracao: referencia.geracao,
+        url,
+        emitida_em: new Date().toISOString(),
+        expira_em: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        via,
+        validade: "ATIVA",
+      };
+    }
+
     const [url] = await file.getSignedUrl({
       action: "read",
       expires: Date.now() + 15 * 60 * 1000,

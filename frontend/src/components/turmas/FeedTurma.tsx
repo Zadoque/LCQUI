@@ -40,7 +40,7 @@ interface Post {
   criado_em: any;
   id_professor: string;
   nome_professor?: string;
-  id_roteiro_experimento?: string;
+  id_roteiro_experimento?: string | null;
   roteiro_anexo?: RoteiroAnexo | null;
   removido_da_apresentacao?: boolean;
   editado?: boolean;
@@ -90,7 +90,7 @@ function RoteiroAnexoCard({
   };
 
   return (
-    <div className="mt-4 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-between">
+    <div data-testid="roteiro-anexo-card" className="mt-4 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-between">
       <div className="flex items-center gap-2">
         <FileText className="w-5 h-5 text-indigo-500" />
         <div>
@@ -105,6 +105,7 @@ function RoteiroAnexoCard({
       <button
         onClick={handleDownload}
         disabled={loading}
+        data-testid="botao-download-roteiro"
         className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors disabled:opacity-50"
       >
         {loading ? "Gerando..." : "Baixar PDF"}
@@ -128,6 +129,7 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
   const [tituloEditando, setTituloEditando] = useState("");
   const [descricaoEditando, setDescricaoEditando] = useState("");
   const [idRoteiroEditando, setIdRoteiroEditando] = useState("");
+  const [idRoteiroOriginal, setIdRoteiroOriginal] = useState<string | null>(null);
   const [expandedComments, setExpandedComments] = useState<{ [key: string]: boolean }>({});
   const [erro, setErro] = useState<string | null>(null);
 
@@ -220,7 +222,9 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
     setPostEditando(post.id);
     setTituloEditando(post.titulo);
     setDescricaoEditando(post.descricao);
-    setIdRoteiroEditando(post.id_roteiro_experimento || "");
+    const idRoteiroAtual = post.id_roteiro_experimento || null;
+    setIdRoteiroEditando(idRoteiroAtual || "");
+    setIdRoteiroOriginal(idRoteiroAtual);
   };
 
   const handleCancelarEdicao = () => {
@@ -228,6 +232,7 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
     setTituloEditando("");
     setDescricaoEditando("");
     setIdRoteiroEditando("");
+    setIdRoteiroOriginal(null);
   };
 
   const handleEditarPost = async (idPost: string) => {
@@ -240,7 +245,7 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
       const editarPost = httpsCallable(functions, "editarPost");
       const idOp = `editar-${turma.id}-${idPost}-${Date.now()}`;
       
-      const payload: Record<string, string> = {
+      const payload: Record<string, string | null | undefined> = {
         idOperacao: idOp,
         idTurma: turma.id,
         idPost,
@@ -248,8 +253,8 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
         descricao: descricaoEditando
       };
       
-      if (idRoteiroEditando) {
-        payload.idRoteiroExperimento = idRoteiroEditando;
+      if (idRoteiroEditando !== (idRoteiroOriginal || "")) {
+        payload.idRoteiroExperimento = idRoteiroEditando || null;
       }
       
       await editarPost(payload);
@@ -257,6 +262,7 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
       setTituloEditando("");
       setDescricaoEditando("");
       setIdRoteiroEditando("");
+      setIdRoteiroOriginal(null);
     } catch (error: any) {
       console.error("Erro ao editar post:", error);
       setErro(error.message || "Erro ao editar post.");
@@ -326,6 +332,7 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
                 <select
                   value={idRoteiro}
                   onChange={e => setIdRoteiro(e.target.value)}
+                  data-testid="seletor-roteiro-post"
                   className="bg-background border border-input rounded-md px-3 py-2 text-sm w-full sm:w-64"
                 >
                   <option value="">Sem roteiro anexado</option>
@@ -412,6 +419,7 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
                         <select
                           value={idRoteiroEditando}
                           onChange={e => setIdRoteiroEditando(e.target.value)}
+                          data-testid="seletor-roteiro-edicao"
                           className="bg-background border border-input rounded-md px-3 py-2 text-sm w-64"
                         >
                           <option value="">Sem roteiro anexado</option>
@@ -441,7 +449,7 @@ export default function FeedTurma({ turma, onOpenNovoRoteiro }: FeedTurmaProps) 
                     <>
                       <h3 className="text-lg font-bold">{post.titulo}</h3>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Postado por <span className="font-semibold">{(post as any).nome_professor || "Professor"}</span> em {date.toLocaleDateString()} às {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        Postado por <span className="font-semibold">{post.nome_professor || "Professor"}</span> em {date.toLocaleDateString()} às {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         {post.editado && <span className="ml-2 text-xs text-muted-foreground">(editado)</span>}
                       </p>
                     </>

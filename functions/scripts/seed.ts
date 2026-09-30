@@ -1,6 +1,7 @@
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getAuth, UserRecord } from "firebase-admin/auth";
 import { Timestamp, getFirestore } from "firebase-admin/firestore";
+import * as admin from "firebase-admin";
 import assert from "node:assert/strict";
 import { chaveAlunoMatricula, chaveMateria, chaveTurmaCodigo, normalizarCodigoMateria } from "../src/chaves";
 
@@ -50,10 +51,12 @@ function assertEmulatorOnly(id: string): { firestoreHost: string; authHost: stri
       throw new Error("SEED ABORTADO: FIREBASE_CONFIG não é JSON verificável.");
     }
   }
-  console.log("EMULATOR MODE CONFIRMADO"); console.log(`projectId: ${id}`); console.log(`Firestore host: ${firestoreHost}`); console.log(`Auth host: ${authHost}`);
+  process.env.FIREBASE_STORAGE_EMULATOR_HOST = process.env.FIREBASE_STORAGE_EMULATOR_HOST ?? "127.0.0.1:9199";
+  process.env.STORAGE_EMULATOR_HOST = process.env.STORAGE_EMULATOR_HOST ?? "http://127.0.0.1:9199";
+  console.log("EMULATOR MODE CONFIRMED"); console.log(`projectId: ${id}`); console.log(`Firestore host: ${firestoreHost}`); console.log(`Auth host: ${authHost}`); console.log(`Storage host: ${process.env.FIREBASE_STORAGE_EMULATOR_HOST}`);
   return { firestoreHost, authHost };
 }
-function dbApp(id: string) { return getApps()[0] ?? initializeApp({ projectId: id }); }
+function dbApp(id: string) { return getApps()[0] ?? initializeApp({ projectId: id, storageBucket: `${id}.appspot.com` }); }
 
 async function reset(firestoreHost: string, id: string): Promise<void> {
   console.log("RESETTING EMULATOR DATA");
@@ -61,6 +64,13 @@ async function reset(firestoreHost: string, id: string): Promise<void> {
   if (!response.ok) throw new Error(`Falha ao resetar Firestore Emulator: HTTP ${response.status}`);
   const auth = getAuth(); let pageToken: string | undefined;
   do { const page = await auth.listUsers(1000, pageToken); if (page.users.length) await auth.deleteUsers(page.users.map((user) => user.uid)); pageToken = page.pageToken; } while (pageToken);
+  // Limpa o Storage Emulator para manter o seed idempotente.
+  try {
+    const [files] = await admin.storage().bucket().getFiles();
+    await Promise.all(files.map((file) => file.delete({ ignoreNotFound: true })));
+  } catch (err) {
+    console.error("Falha ao limpar Storage Emulator:", err);
+  }
 }
 const authInput = (user: FixtureUser) => ({ uid: user.uid, email: user.email, password: PASSWORD, displayName: user.name, emailVerified: user.emailVerified, disabled: user.disabled });
 async function ensureAuth(user: FixtureUser): Promise<UserRecord> {
@@ -97,6 +107,35 @@ async function writeFixture(): Promise<void> {
   }
   batch.set(firestore.collection("Turma").doc("seed-turma-vazia").collection("HistoricoAlunos").doc("seed-exclusao-aluno-removido"), { id_turma: "seed-turma-vazia", id_aluno: byId("aluno.removed").uid, tipo: "exclusao_aluno", modo_ingresso: null, justificativa: "Remoção anterior; reingresso somente por convite explícito.", removido_por: alpha, timestamp: Timestamp.fromDate(new Date("2026-01-12T12:00:00.000Z")) });
   await batch.commit();
+
+  // Roteiro canônico M12.2 (PDF público de seed-professor-alpha)
+  const storagePath = `roteiros/${alpha}/seed-roteiro-m12.pdf`;
+  const pdfBuffer = Buffer.concat([Buffer.from("%PDF-1.4\\n"), Buffer.alloc(1024)]);
+  const pdfFile = admin.storage().bucket().file(storagePath);
+  try { await pdfFile.delete({ ignoreNotFound: true }); } catch { /* ignorar */ }
+  await pdfFile.save(pdfBuffer, {
+    contentType: "application/pdf",
+    metadata: { metadata: { owner: alpha } },
+  });
+  const [pdfMetadata] = await pdfFile.getMetadata();
+  await firestore.collection("Roteiro_Experimento").doc("seed-roteiro-m12").set({
+    id_professor_upload: alpha,
+    nome: "Roteiro M12.2 — Síntese",
+    descricao: "Roteiro canônico de experimento para testes E2E de anexo a Post.",
+    nome_arquivo: "seed-roteiro-m12.pdf",
+    referencia: {
+      storage_path: storagePath,
+      content_type: "application/pdf",
+      tamanho_bytes: pdfBuffer.length,
+      owner_uid: alpha,
+      geracao: String(pdfMetadata.generation),
+      criado_em: new Date("2026-01-15T12:00:00.000Z").toISOString(),
+    },
+    status: "PUBLICAVEL",
+    professores_compartilhados: [],
+    file_url: null,
+    criado_em: FIXTURE_TIME,
+  });
 }
 
 async function verify(): Promise<void> {
@@ -112,9 +151,18 @@ async function verify(): Promise<void> {
   for (const turmaDoc of (await firestore.collection("Turma").get()).docs) { const turma = turmaDoc.data(); assert.ok(["Ativo", "Arquivada"].includes(turma.status)); assert.ok([1, 2].includes(turma.semestre)); assert.ok(Number.isInteger(turma.capacidade) && turma.capacidade >= 1); assert.ok(Number.isInteger(turma.qtd_alunos) && turma.qtd_alunos >= 0); assert.ok(Number.isInteger(turma.versao) && turma.versao >= 1); assert.equal((await firestore.collection("Materia").doc(turma.id_materia).get()).exists, true); assert.equal((await firestore.collection("Professor").doc(turma.id_professor).get()).exists, true); const key = await firestore.collection("Chaves_Unicas").doc(chaveTurmaCodigo(turma.codigo_turma)).get(); assert.equal(key.data()?.id_recurso, turmaDoc.id); const links = await turmaDoc.ref.collection("Alunos").get(); assert.equal(turma.qtd_alunos, links.size, `${turmaDoc.id}: contador divergente`); for (const link of links.docs) { const value = link.data(); assert.equal(link.id, value.id_aluno); assert.equal(value.id_turma, turmaDoc.id); assert.ok(value.ingressou_em); assert.equal("email" in value, false); assert.equal("numero_matricula" in value, false); assert.equal((await firestore.collection("Usuarios").doc(link.id).collection("Turmas").doc(turmaDoc.id).get()).exists, true); } }
   const removed = byId("aluno.removed"); assert.equal((await firestore.collection("Turma").doc("seed-turma-vazia").collection("Alunos").doc(removed.uid).get()).exists, false); assert.equal((await firestore.collection("Usuarios").doc(removed.uid).collection("Turmas").doc("seed-turma-vazia").get()).exists, false); const history = await firestore.collection("Turma").doc("seed-turma-vazia").collection("HistoricoAlunos").where("id_aluno", "==", removed.uid).where("tipo", "==", "exclusao_aluno").get(); assert.equal(history.size, 1);
   assert.equal((await firestore.collection("Convite_Aluno").get()).empty, true); for (const user of users.filter((item) => item.activeDocument)) assert.equal((await firestore.collection("Usuarios").doc(user.uid).collection("Notificacoes").get()).empty, true); assert.equal((await firestore.collection("Chaves_Unicas").get()).docs.some((doc) => doc.id.startsWith("ConvitePendente__")), false);
-  console.log("SEED INVARIANTS OK: M9, papéis/claims/versões, matrículas, Chaves_Unicas, turmas, vínculos, espelhos, histórico, contadores e baseline sem convites/notificações/receipts.");
+  const roteiroDoc = await firestore.collection("Roteiro_Experimento").doc("seed-roteiro-m12").get();
+  assert.equal(roteiroDoc.exists, true);
+  const roteiroData = roteiroDoc.data()!;
+  assert.equal(roteiroData.status, "PUBLICAVEL");
+  assert.equal(roteiroData.id_professor_upload, byId("professor.owner").uid);
+  assert.equal(roteiroData.nome_arquivo, "seed-roteiro-m12.pdf");
+  assert.equal(roteiroData.referencia.content_type, "application/pdf");
+  assert.equal(roteiroData.referencia.tamanho_bytes, Buffer.concat([Buffer.from("%PDF-1.4\\n"), Buffer.alloc(1024)]).length);
+  assert.equal(typeof roteiroData.referencia.geracao, "string");
+  console.log("SEED INVARIANTS OK: M9, papéis/claims/versões, matrículas, Chaves_Unicas, turmas, vínculos, espelhos, histórico, contadores, baseline sem convites/notificações/receipts e roteiro canônico M12.2.");
 }
-function manifest(): void { console.log("\n=== LCQUI MANUAL TEST SEED ===\n[FIXTURES]"); for (const user of users) console.log(`${user.id.padEnd(24)} ${user.email.padEnd(38)} senha=${user.id === "aluno.noAuth" ? "—" : PASSWORD} uid=${user.uid} roles=${user.roles.join(",") || "—"} verified=${user.emailVerified} ativo=${user.activeDocument} | ${user.note}`); console.log("\n[TURMAS]\nTURMA_VAZIA=seed-turma-vazia/QGV101 | TURMA_ULTIMA_VAGA=seed-turma-ultima-vaga/QGV102 | TURMA_CHEIA=seed-turma-cheia/QAN201 | TURMA_ARQUIVADA=seed-turma-arquivada/QAN202 | TURMA_PROF_BETA=seed-turma-beta/QGB103 | TURMA_COLEGAS=seed-turma-colegas/QGV103"); console.log("Baseline sem Convite_Aluno pendente, CONVITE_PARA_TURMA, receipt M7 ou segredo/token."); }
+function manifest(): void { console.log("\n=== LCQUI MANUAL TEST SEED ===\n[FIXTURES]"); for (const user of users) console.log(`${user.id.padEnd(24)} ${user.email.padEnd(38)} senha=${user.id === "aluno.noAuth" ? "—" : PASSWORD} uid=${user.uid} roles=${user.roles.join(",") || "—"} verified=${user.emailVerified} ativo=${user.activeDocument} | ${user.note}`); console.log("\n[TURMAS]\nTURMA_VAZIA=seed-turma-vazia/QGV101 | TURMA_ULTIMA_VAGA=seed-turma-ultima-vaga/QGV102 | TURMA_CHEIA=seed-turma-cheia/QAN201 | TURMA_ARQUIVADA=seed-turma-arquivada/QAN202 | TURMA_PROF_BETA=seed-turma-beta/QGB103 | TURMA_COLEGAS=seed-turma-colegas/QGV103"); console.log("Roteiro canônico M12.2: Roteiro_Experimento/seed-roteiro-m12 (PUBLICAVEL)"); console.log("Baseline sem Convite_Aluno pendente, CONVITE_PARA_TURMA, receipt M7 ou segredo/token."); }
 
 async function main(): Promise<void> { const args = new Set(process.argv.slice(2)); if ([...args].some((arg) => !["--reset", "--verify-only"].includes(arg)) || (args.has("--reset") && args.has("--verify-only"))) throw new Error("Uso: tsx scripts/seed.ts [--reset|--verify-only]"); const id = projectId(); const { firestoreHost } = assertEmulatorOnly(id); dbApp(id); if (args.has("--verify-only")) { await verify(); manifest(); return; } if (args.has("--reset")) await reset(firestoreHost, id); for (const user of users.filter((item) => item.id !== "aluno.noAuth")) { await ensureAuth(user); if (user.activeDocument) await getAuth().setCustomUserClaims(user.uid, { roles: [...user.roles], versao_permissoes: 1 }); } await writeFixture(); await verify(); manifest(); }
 main().catch((error: unknown) => { console.error("SEED FAILURE", error instanceof Error ? error.message : String(error)); process.exitCode = 1; });

@@ -107,10 +107,13 @@ export async function abrirTurma(page: Page, nomeTurma: string): Promise<void> {
   await expect(page.getByRole("heading", { name: nomeTurma, level: 1 })).toBeVisible();
 }
 
-/** Publica um Post pela interface do professor dono. */
-export async function criarPost(page: Page, titulo: string, descricao: string): Promise<void> {
+/** Publica um Post pela interface do professor dono, com roteiro opcional. */
+export async function criarPost(page: Page, titulo: string, descricao: string, idRoteiro?: string): Promise<void> {
   await page.getByPlaceholder("Título da postagem...").fill(titulo);
   await page.getByPlaceholder("Escreva as instruções ou recados para a turma...").fill(descricao);
+  if (idRoteiro) {
+    await page.getByTestId("seletor-roteiro-post").selectOption(idRoteiro);
+  }
   await page.getByRole("button", { name: "Postar", exact: true }).click();
   await expect(page.getByRole("heading", { name: titulo, level: 3 })).toBeVisible();
 }
