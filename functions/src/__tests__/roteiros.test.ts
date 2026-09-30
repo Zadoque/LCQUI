@@ -761,6 +761,23 @@ describe("Módulo de Roteiros", () => {
       }, dono))).rejects.toMatchObject({ code: "failed-precondition" });
     });
 
+    it("deve rejeitar destinatário com papel de Professor inativo", async () => {
+      const dono = "prof_comp_dest_prof_inativo_dono";
+      const alvo = "prof_comp_dest_prof_inativo_alvo";
+      await semearUsuario(dono);
+      await semearUsuario(alvo);
+      await db.collection("Professor").doc(alvo).update({ ativo: false });
+
+      const { idRoteiro } = await criarRoteiroPublicado(dono, "Roteiro Dest Prof Inativo", "profinativo.pdf");
+
+      const wrappedComp = testEnv.wrap(compartilharRoteiro);
+      await expect(wrappedComp(mockRequest({
+        idOperacao: novaOperacao(),
+        idRoteiro,
+        uidProfessor: alvo,
+      }, dono))).rejects.toMatchObject({ code: "failed-precondition" });
+    });
+
     it("deve rejeitar compartilhamento de roteiro não PUBLICAVEL", async () => {
       const dono = "prof_comp_nao_publicavel";
       const alvo = "prof_comp_alvo_publicavel";

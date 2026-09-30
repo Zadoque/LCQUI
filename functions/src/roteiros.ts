@@ -317,8 +317,8 @@ export const compartilharRoteiro = onCall(async (request) => {
       throw new HttpsError("failed-precondition", "Professor destinatário não está ativo.");
     }
     const profRoleSnap = await tx.get(admin.firestore().collection("Professor").doc(uidProfessor));
-    if (!profRoleSnap.exists) {
-      throw new HttpsError("failed-precondition", "Professor destinatário não possui papel de Professor.");
+    if (!profRoleSnap.exists || profRoleSnap.data()?.ativo !== true) {
+      throw new HttpsError("failed-precondition", "Professor destinatário não possui papel de Professor ativo.");
     }
 
     tx.update(roteiroRef, {
@@ -396,7 +396,7 @@ export const listarRoteirosProfessor = onCall(async (request) => {
     db.collection("Roteiro_Experimento").where("professores_compartilhados", "array-contains", uid).get(),
   ]);
 
-  const map = new Map<string, { id: string; nome: string; status: string }>();
+  const map = new Map<string, { id: string; nome: string; status: string; professores_compartilhados: string[] }>();
   for (const snap of [donosSnap, compartilhadosSnap]) {
     for (const doc of snap.docs) {
       if (map.has(doc.id)) continue;
@@ -405,6 +405,7 @@ export const listarRoteirosProfessor = onCall(async (request) => {
         id: doc.id,
         nome: typeof data.nome === "string" ? data.nome : "",
         status: typeof data.status === "string" ? data.status : "",
+        professores_compartilhados: Array.isArray(data.professores_compartilhados) ? data.professores_compartilhados : [],
       });
     }
   }

@@ -29,6 +29,7 @@ export function TurmasArquivadasModal({ isOpen, onClose }: ModalProps) {
   const { user } = useAuth();
   const [arquivadas, setArquivadas] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -62,7 +63,7 @@ export function TurmasArquivadasModal({ isOpen, onClose }: ModalProps) {
       if (session) limparIntencao(session, chave);
     } catch (error) {
       console.error("Erro ao desarquivar turma:", error);
-      alert("Erro ao desarquivar turma.");
+      setToast({ type: "error", msg: "Erro ao desarquivar turma." });
     } finally {
       setLoading(false);
     }
@@ -82,6 +83,11 @@ export function TurmasArquivadasModal({ isOpen, onClose }: ModalProps) {
           </button>
         </div>
         <div className="p-6 overflow-y-auto max-h-[60vh]">
+          {toast && (
+            <div className={`mb-4 p-3 rounded-lg text-sm font-medium ${toast.type === 'success' ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'}`}>
+              {toast.msg}
+            </div>
+          )}
           {arquivadas.length === 0 ? (
             <p className="text-muted-foreground text-center">Nenhuma turma arquivada encontrada.</p>
           ) : (
@@ -736,6 +742,13 @@ interface RoteiroProjecao {
   descricao: string;
   file_url?: string | null;
   status: string;
+  professores_compartilhados: string[];
+}
+
+interface ProfessorProjecao {
+  uid: string;
+  nome: string;
+  ativo: boolean;
 }
 
 export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
@@ -745,6 +758,10 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
   const [loadingAbrirId, setLoadingAbrirId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [confirmandoExclusaoId, setConfirmandoExclusaoId] = useState<string | null>(null);
+  const [compartilhandoId, setCompartilhandoId] = useState<string | null>(null);
+  const [professores, setProfessores] = useState<ProfessorProjecao[]>([]);
+  const [modalCompartilhamentoAberto, setModalCompartilhamentoAberto] = useState(false);
+  const [roteiroSelecionadoParaCompartilhar, setRoteiroSelecionadoParaCompartilhar] = useState<RoteiroProjecao | null>(null);
 
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -763,6 +780,24 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
       cancelado = true;
     };
   }, [isOpen, user]);
+
+  // Carrega lista de professores ativos ao abrir modal de compartilhamento
+  useEffect(() => {
+    if (!modalCompartilhamentoAberto || !user) return;
+    const q = query(collection(db, "Professor"), where("ativo", "==", true));
+    const unsub = onSnapshot(q, (snap) => {
+      const lista = snap.docs.map(doc => {
+        const data = doc.data();
+        return {
+          uid: doc.id,
+          nome: data.nome || doc.id,
+          ativo: data.ativo !== false,
+        };
+      });
+      setProfessores(lista);
+    });
+    return () => unsub();
+  }, [modalCompartilhamentoAberto, user]);
 
   const handleExcluir = async (id: string) => {
     if (confirmandoExclusaoId !== id) {
@@ -792,9 +827,70 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
     }
   };
 
-  const handleCompartilhar = (id: string) => {
-    navigator.clipboard.writeText(`${window.location.origin}/roteiro/${id}`);
-    setToast({ type: "success", msg: "Link de compartilhamento copiado para a área de transferência!" });
+  const handleCompartilharClick = (roteiro: RoteiroProjecao) => {
+    if (roteiro.status !== "PUBLICAVEL") {
+      setToast({ type: "error", msg: "Apenas roteiros PUBLICAVEIS podem ser compartilhados." });
+      return;
+    }
+    setRoteiroSelecionadoParaCompartilhar(roteiro);
+    setModalCompartilhamentoAberto(true);
+  };
+
+  const handleCompartilharComProfessor = async (uidProfessor: string) => {
+    if (!roteiroSelecionadoParaCompartilhar) return;
+    setCompartilhandoId(uidProfessor);
+    setToast(null);
+    try {
+      const fn = getFunctions();
+      const session = typeof window !== "undefined" ? window.sessionStorage : null;
+      const chave = `lcqui.intencao.roteiro.compartilhar.${roteiroSelecionadoParaCompartilhar.id}.${uidProfessor}`;
+      const assinatura = JSON.stringify(["COMPARTILHAR_ROTEIRO", roteiroSelecionadoParaCompartilhar.id, uidProfessor]);
+      const intencao = session
+        ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
+        : { idOperacao: crypto.randomUUID(), assinatura };
+      const compartilhar = httpsCallable(fn, "compartilharRoteiro");
+      await compartilhar({ idOperacao: intencao.idOperacao, idRoteiro: roteiroSelecionadoParaCompartilhar.id, uidProfessor });
+      setToast({ type: "success", msg: "Roteiro compartilhado com sucesso." });
+      setModalCompartilhamentoAberto(false);
+      setRoteiroSelecionadoParaCompartilhar(null);
+      // Recarrega a lista de roteiros
+      const listar = httpsCallable(fn, "listarRoteirosProfessor");
+      const res = await listar({});
+      setRoteiros((res.data as { roteiros: RoteiroProjecao[] }).roteiros);
+    } catch (error: unknown) {
+      console.error("Erro ao compartilhar roteiro:", error);
+      const message = error instanceof Error ? error.message : "Erro ao compartilhar roteiro.";
+      setToast({ type: "error", msg: message });
+    } finally {
+      setCompartilhandoId(null);
+    }
+  };
+
+  const handleDescompartilhar = async (idRoteiro: string, uidProfessor: string) => {
+    setCompartilhandoId(uidProfessor);
+    setToast(null);
+    try {
+      const fn = getFunctions();
+      const session = typeof window !== "undefined" ? window.sessionStorage : null;
+      const chave = `lcqui.intencao.roteiro.descompartilhar.${idRoteiro}.${uidProfessor}`;
+      const assinatura = JSON.stringify(["REVOGAR_COMPARTILHAMENTO", idRoteiro, uidProfessor]);
+      const intencao = session
+        ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
+        : { idOperacao: crypto.randomUUID(), assinatura };
+      const descompartilhar = httpsCallable(fn, "descompartilharRoteiro");
+      await descompartilhar({ idOperacao: intencao.idOperacao, idRoteiro: idRoteiro, uidProfessor });
+      setToast({ type: "success", msg: "Compartilhamento revogado." });
+      // Recarrega a lista de roteiros
+      const listar = httpsCallable(fn, "listarRoteirosProfessor");
+      const res = await listar({});
+      setRoteiros((res.data as { roteiros: RoteiroProjecao[] }).roteiros);
+    } catch (error: unknown) {
+      console.error("Erro ao revogar compartilhamento:", error);
+      const message = error instanceof Error ? error.message : "Erro ao revogar compartilhamento.";
+      setToast({ type: "error", msg: message });
+    } finally {
+      setCompartilhandoId(null);
+    }
   };
 
   const handleAbrirPdf = async (idRoteiro: string) => {
@@ -839,8 +935,27 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
               {roteiros.map(roteiro => (
                 <li key={roteiro.id} className="flex items-center justify-between p-4 bg-muted rounded-xl">
                   <div className="flex-1 mr-4">
-                    <p className="font-bold text-lg">{roteiro.nome}</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-bold text-lg">{roteiro.nome}</p>
+                      <span
+                        className={`px-2 py-0.5 text-xs font-bold rounded-full ${
+                          roteiro.status === "PUBLICAVEL"
+                            ? "bg-green-500/20 text-green-700 dark:text-green-300"
+                            : roteiro.status === "VALIDADO"
+                            ? "bg-blue-500/20 text-blue-700 dark:text-blue-300"
+                            : "bg-yellow-500/20 text-yellow-700 dark:text-yellow-300"
+                        }`}
+                        data-testid={`status-roteiro-${roteiro.id}`}
+                      >
+                        {roteiro.status}
+                      </span>
+                    </div>
                     <p className="text-sm text-muted-foreground line-clamp-2">{roteiro.descricao}</p>
+                    {roteiro.professores_compartilhados && roteiro.professores_compartilhados.length > 0 && (
+                      <p className="text-xs text-foreground/50 mt-1">
+                        Compartilhado com {roteiro.professores_compartilhados.length} professor(es)
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -851,8 +966,14 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
                       {loadingAbrirId === roteiro.id ? "..." : "Abrir PDF"}
                     </button>
                     <button
-                      onClick={() => handleCompartilhar(roteiro.id)}
-                      className="px-3 py-1.5 bg-indigo-500/10 text-indigo-600 rounded-lg text-sm font-medium hover:bg-indigo-500/20 transition-colors"
+                      onClick={() => handleCompartilharClick(roteiro)}
+                      disabled={roteiro.status !== "PUBLICAVEL"}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        roteiro.status === "PUBLICAVEL"
+                          ? "bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20"
+                          : "bg-foreground/10 text-foreground/40 cursor-not-allowed"
+                      }`}
+                      title={roteiro.status !== "PUBLICAVEL" ? `Compartilhamento indisponível (status: ${roteiro.status})` : "Compartilhar roteiro"}
                     >
                       Compartilhar
                     </button>
@@ -874,6 +995,76 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
           )}
         </div>
       </div>
+
+      {/* Modal de Compartilhamento */}
+      {modalCompartilhamentoAberto && roteiroSelecionadoParaCompartilhar && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-background rounded-2xl border border-foreground/10 shadow-2xl w-full max-w-lg flex flex-col max-h-[80vh] overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="p-6 border-b border-foreground/10 flex justify-between items-center">
+              <h3 className="text-lg font-bold">
+                Compartilhar: {roteiroSelecionadoParaCompartilhar.nome}
+              </h3>
+              <button
+                onClick={() => {
+                  setModalCompartilhamentoAberto(false);
+                  setRoteiroSelecionadoParaCompartilhar(null);
+                }}
+                className="text-foreground/50 hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              {professores.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  Nenhum professor ativo encontrado.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-foreground/70 mb-2">
+                    Selecione um professor para compartilhar este roteiro:
+                  </p>
+                  {professores.map(prof => {
+                    const jaCompartilhado = roteiroSelecionadoParaCompartilhar.professores_compartilhados?.includes(prof.uid);
+                    return (
+                      <div
+                        key={prof.uid}
+                        className="flex items-center justify-between p-3 bg-muted rounded-xl"
+                      >
+                        <div>
+                          <p className="font-semibold text-sm">{prof.nome}</p>
+                          {jaCompartilhado && (
+                            <p className="text-xs text-green-600 font-medium">
+                              Já possui acesso
+                            </p>
+                          )}
+                        </div>
+                        {jaCompartilhado ? (
+                          <button
+                            onClick={() => handleDescompartilhar(roteiroSelecionadoParaCompartilhar.id, prof.uid)}
+                            disabled={compartilhandoId === prof.uid}
+                            className="px-3 py-1.5 bg-red-500/10 text-red-600 rounded-lg text-xs font-medium hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                          >
+                            {compartilhandoId === prof.uid ? "..." : "Revogar"}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleCompartilharComProfessor(prof.uid)}
+                            disabled={compartilhandoId === prof.uid}
+                            className="px-3 py-1.5 bg-indigo-500/10 text-indigo-600 rounded-lg text-xs font-medium hover:bg-indigo-500/20 transition-colors disabled:opacity-50"
+                          >
+                            {compartilhandoId === prof.uid ? "..." : "Compartilhar"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
