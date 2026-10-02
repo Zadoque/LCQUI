@@ -1,16 +1,20 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { 
-  signInWithEmailAndPassword, 
-  GoogleAuthProvider, 
-  signInWithPopup, 
-  sendPasswordResetEmail 
+import {
+  signInWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase/config";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { destinoSeguroAposLogin } from "@/lib/authBootstrap.mjs";
+
+function isNetworkError(error: unknown): boolean {
+  return error instanceof Error && "code" in error && (error as { code: string }).code === "auth/network-request-failed";
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -19,10 +23,12 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [isLoadingForm, setIsLoadingForm] = useState(false);
-  
+  const [isNetworkErrorState, setIsNetworkErrorState] = useState(false);
+  const [lastAction, setLastAction] = useState<"email" | "google" | "reset" | null>(null);
+
   const router = useRouter();
   const { user, isLoading } = useAuth();
-  
+
   useEffect(() => {
     if (!isLoading && user) {
       router.replace(destinoSeguroAposLogin(window.location.search));
@@ -34,12 +40,20 @@ export default function LoginPage() {
     setIsLoadingForm(true);
     setErrorMsg("");
     setSuccessMsg("");
+    setIsNetworkErrorState(false);
+    setLastAction("email");
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, email.trim(), password);
       router.push(destinoSeguroAposLogin(window.location.search));
-    } catch {
-      setErrorMsg("Credenciais inválidas. Verifique seu e-mail e senha.");
+    } catch (error: unknown) {
+      if (isNetworkError(error)) {
+        setErrorMsg("Erro de conexão. Verifique sua internet e tente novamente.");
+        setIsNetworkErrorState(true);
+      } else {
+        setErrorMsg("Credenciais inválidas. Verifique seu e-mail e senha.");
+        setIsNetworkErrorState(false);
+      }
     } finally {
       setIsLoadingForm(false);
     }
@@ -49,32 +63,60 @@ export default function LoginPage() {
     setIsLoadingForm(true);
     setErrorMsg("");
     setSuccessMsg("");
+    setIsNetworkErrorState(false);
+    setLastAction("google");
     const provider = new GoogleAuthProvider();
-    
+
     try {
       await signInWithPopup(auth, provider);
       router.push(destinoSeguroAposLogin(window.location.search));
-    } catch {
-      setErrorMsg("Falha ao autenticar com o Google. Tente novamente.");
+    } catch (error: unknown) {
+      if (isNetworkError(error)) {
+        setErrorMsg("Erro de conexão. Verifique sua internet e tente novamente.");
+        setIsNetworkErrorState(true);
+      } else {
+        setErrorMsg("Falha ao autenticar com o Google. Tente novamente.");
+        setIsNetworkErrorState(false);
+      }
     } finally {
       setIsLoadingForm(false);
     }
   };
 
   const handleForgotPassword = async () => {
-    if (!email) {
+    if (!email.trim()) {
       setErrorMsg("Por favor, preencha o campo de e-mail antes de redefinir a senha.");
       return;
     }
     setIsLoadingForm(true);
     setErrorMsg("");
+    setSuccessMsg("");
+    setIsNetworkErrorState(false);
+    setLastAction("reset");
+
     try {
-      await sendPasswordResetEmail(auth, email);
-      setSuccessMsg("Link de redefinição de senha enviado para o seu e-mail!");
-    } catch {
-      setErrorMsg("Erro ao enviar e-mail de recuperação. Tente novamente.");
+      await sendPasswordResetEmail(auth, email.trim());
+      setSuccessMsg("Se este e-mail estiver cadastrado, você receberá instruções para redefinir sua senha.");
+    } catch (error: unknown) {
+      if (isNetworkError(error)) {
+        setErrorMsg("Erro de conexão. Verifique sua internet e tente novamente.");
+        setIsNetworkErrorState(true);
+      } else {
+        // Anti-enumeration: mesma mensagem de sucesso para e-mail existente ou não
+        setSuccessMsg("Se este e-mail estiver cadastrado, você receberá instruções para redefinir sua senha.");
+      }
     } finally {
       setIsLoadingForm(false);
+    }
+  };
+
+  const handleRetry = () => {
+    if (lastAction === "email") {
+      handleEmailLogin({ preventDefault: () => {} } as React.FormEvent);
+    } else if (lastAction === "google") {
+      handleGoogleLogin();
+    } else if (lastAction === "reset") {
+      handleForgotPassword();
     }
   };
 
@@ -91,7 +133,7 @@ export default function LoginPage() {
       {/* Background Decorativo Premium */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary/20 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-blue-500/20 rounded-full blur-[100px] pointer-events-none" />
-      
+
       <div className="glass-panel w-full max-w-md p-8 rounded-3xl shadow-2xl relative z-10 transition-all duration-300 border border-foreground/10 hover:border-primary/30">
         <div className="text-center mb-8">
           <div className="mx-auto w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4 border border-primary/20">
@@ -110,6 +152,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              maxLength={150}
               required
               className="w-full px-4 py-3 rounded-xl bg-foreground/5 border border-foreground/10 text-foreground placeholder-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary transition-all hover:bg-foreground/10"
               placeholder="seu@email.com"
@@ -127,7 +170,7 @@ export default function LoginPage() {
                 className="w-full px-4 py-3 rounded-xl bg-foreground/5 border border-foreground/10 text-foreground placeholder-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary transition-all pr-12 hover:bg-foreground/10"
                 placeholder="••••••••"
               />
-              <button 
+              <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-foreground/50 hover:text-primary transition-colors"
@@ -144,10 +187,10 @@ export default function LoginPage() {
                 )}
               </button>
             </div>
-            
+
             <div className="flex justify-end mt-2">
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={handleForgotPassword}
                 className="text-xs text-primary hover:underline"
               >
@@ -157,11 +200,21 @@ export default function LoginPage() {
           </div>
 
           {errorMsg && (
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-medium animate-pulse">
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-medium">
               {errorMsg}
+              {isNetworkErrorState && (
+                <button
+                  type="button"
+                  data-testid="retry-button"
+                  onClick={handleRetry}
+                  className="ml-2 underline font-bold hover:text-red-400"
+                >
+                  Tentar novamente
+                </button>
+              )}
             </div>
           )}
-          
+
           {successMsg && (
             <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-500 text-sm font-medium">
               {successMsg}
@@ -201,7 +254,7 @@ export default function LoginPage() {
           Google
         </button>
       </div>
-      
+
       {/* Loading Modal Overlay quando auth trigger is processing */}
       {isLoadingForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm transition-all duration-300">
