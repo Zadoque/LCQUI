@@ -10,6 +10,8 @@ import {
   SENHA_SEED,
 } from "../helpers/ui";
 import {
+  FIRESTORE_EMULATOR,
+  PROJECT_ID,
   definirSenhaViaOob,
   extrairContinueUrl,
   lerDocumento,
@@ -161,5 +163,50 @@ test.describe.serial("Convites externos", () => {
     await expect(page.getByRole("heading", { name: "E-mail Não Verificado" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Confirmar e Ingressar" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Já verifiquei (Atualizar)" })).toBeVisible();
+  });
+
+  test("E2E-011 convite expirado exibe aviso e não permite aceite", async ({
+    page,
+    guardaConsole,
+  }) => {
+    guardaConsole.permitir(/Erro ao obter detalhes do convite/);
+
+    // Professor envia convite para aluno existente
+    await login(page, "professor.alpha@lcqui.local");
+    await abrirNovoAlunoModal(page, "T1 Vazia");
+    await convidarAluno(page, {
+      turmaId: "seed-turma-vazia",
+      emails: "aluno.removido@lcqui.local",
+    });
+    await expect(page.getByText(/Convite registrado/)).toBeVisible();
+    await page.goto("/turmas");
+    await logout(page);
+
+    // Forçar expiração: atualizar expira_em para o passado no Firestore Emulator
+    const convites = await listarColecao("Convite_Aluno");
+    const convite = convites.find((item) => item.data.email === "aluno.removido@lcqui.local");
+    expect(convite).toBeTruthy();
+    const idConvite = convite!.id;
+
+    const firestoreUrl = `${FIRESTORE_EMULATOR}/v1/projects/${PROJECT_ID}/databases/(default)/documents/Convite_Aluno/${idConvite}?updateMask.fieldPaths=expira_em`;
+    const pastDate = new Date(Date.now() - 86400000).toISOString();
+    await fetch(firestoreUrl, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer owner" },
+      body: JSON.stringify({
+        fields: {
+          expira_em: { timestampValue: pastDate },
+        },
+      }),
+    });
+
+    // Aluno tenta acessar o convite expirado
+    await login(page, "aluno.removido@lcqui.local");
+    await page.goto(`/convite?id=${idConvite}&via=notificacao`);
+
+    // A página deve exibir aviso de expiração
+    await expect(page.getByText(/expirad/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Confirmar e Ingressar" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Recusar" })).toHaveCount(0);
   });
 });

@@ -51,6 +51,7 @@ function ConviteConteudo() {
     sessaoPronta: boolean;
   } | null>(null);
   const [rejeitado, setRejeitado] = useState(false);
+  const [expirado, setExpirado] = useState(false);
   const [detalhes, setDetalhes] = useState<DetalhesConvite | null>(null);
   const [emailVerificacaoEnviado, setEmailVerificacaoEnviado] = useState(false);
 
@@ -68,6 +69,9 @@ function ConviteConteudo() {
           setDetalhes(d);
           if (d.status === "rejeitado") {
             setRejeitado(true);
+          }
+          if (d.status === "expirado") {
+            setExpirado(true);
           }
         }
       } catch (err) {
@@ -281,6 +285,30 @@ function ConviteConteudo() {
       setLoading(false);
     }
   };
+
+  if (expirado) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="max-w-md w-full p-8 bg-card border border-border rounded-2xl shadow-xl text-center space-y-4 animate-in fade-in">
+          <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto text-xl font-bold">
+            ⏱
+          </div>
+          <h1 className="text-2xl font-bold">Convite Expirado</h1>
+          <p className="text-sm text-foreground/60">
+            Este convite expirou e não pode mais ser aceito ou recusado. Entre em contato com o responsável pela turma caso necessite de um novo convite.
+          </p>
+          <div className="pt-2">
+            <Link
+              href="/"
+              className="inline-block w-full py-3 bg-foreground/10 text-foreground font-bold rounded-xl hover:bg-foreground/20 transition-colors"
+            >
+              Voltar ao Início
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (rejeitado) {
     return (
