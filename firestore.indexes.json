@@ -8,6 +8,141 @@
         { "fieldPath": "lida", "order": "ASCENDING" },
         { "fieldPath": "emitida_em", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "Historico_Frasco_Reagente",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_frasco_reagente", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Emprestimo_Reagente",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_frasco_reagente", "order": "ASCENDING" },
+        { "fieldPath": "data_retirada", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Bem_Patrimonial",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "predio", "order": "ASCENDING" },
+        { "fieldPath": "andar", "order": "ASCENDING" },
+        { "fieldPath": "sala", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Bem_Patrimonial",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_resumo_bem_patrimonial", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Historico_Patrimonio",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "predio", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Historico_Patrimonio",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "id_gestor", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Emprestimo_Reagente",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_almoxarifado", "order": "ASCENDING" },
+        { "fieldPath": "data_retirada", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Frasco_Reagente",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_almoxarifado", "order": "ASCENDING" },
+        { "fieldPath": "id_especificacao_reagente", "order": "ASCENDING" },
+        { "fieldPath": "estado_fisico", "order": "ASCENDING" },
+        { "fieldPath": "natureza_quimica", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "vencido", "order": "ASCENDING" },
+        { "fieldPath": "disponibilidade", "order": "ASCENDING" },
+        { "fieldPath": "id_lote", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Emprestimo_Reagente",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "data_devolucao_prevista", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Frasco_Reagente",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "vencido", "order": "ASCENDING" },
+        { "fieldPath": "validade_efetiva", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Emprestimo_Reagente",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_almoxarifado", "order": "ASCENDING" },
+        { "fieldPath": "data_devolucao_efetuada", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Historico_Frasco_Reagente",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_almoxarifado", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Turma",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_professor", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Gestor_Almoxarifado_x_Almoxarifado",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_gestor_almoxarifado", "order": "ASCENDING" },
+        { "fieldPath": "id_almoxarifado", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Requisicao_Edicao_Bem_Patrimonial",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_bem_patrimonial", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Requisicao_Adicao_Bem_Patrimonial",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "numero_patrimonio_proposto", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
