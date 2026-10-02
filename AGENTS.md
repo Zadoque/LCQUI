@@ -12,6 +12,21 @@ Use esta precedência:
 
 A implementação nunca sobrescreve silenciosamente a especificação. Se duas fontes normativas correntes forem realmente incompatíveis, pare e relate o conflito com referências exatas.
 
+## Orquestração e delegação de modelos
+
+1. **O orquestrador nunca edita arquivos nem executa trabalho técnico diretamente.** Toda edição e toda execução de código são delegadas exclusivamente a um modelo (subagente) via Task. O orquestrador apenas planeja, distribui e revisa.
+
+2. **Rotação de modelos obrigatória.** Nunca use o mesmo modelo em delegações consecutivas do mesmo papel; espalhe as delegações entre os modelos vivos disponíveis. Se uma delegação receber `AccessDenied` ou quota esgotada, troque imediatamente de modelo antes de tentar novamente — nunca insista no mesmo modelo que falhou.
+
+3. **Toda delegação deve instruir explicitamente:**
+   - (a) trabalhar **no máximo 5 minutos** e retornar o que fez (mesmo que incompleto);
+   - (b) **usar obrigatoriamente os LSPs disponíveis** (TypeScript, ESLint, Tailwind, Rust, texlab, nixd) para diagnóstico antes e durante a edição;
+   - (c) manter escopo restrito ao entregue e fail-closed: se algo escapa ao escopo, parar e relatar.
+
+4. **Máximo 4 investigações somente-leitura em paralelo**; **um único escritor por vez**. Nunca delegue escrita concorrente ao mesmo workspace.
+
+5. **Modelos vivos atuais** (provider `bailian-payg`, conforme `opencode.json`): `glm-5.1`, `qwq-plus`, `qvq-max`. Ajuste `max_tokens` ≤ 8192 quando necessário. Variantes de agente seguem o formato `<papel>--<modelo>` (ex.: `lcqui-writer--qwq-plus`, `lcqui-writer--qvq-max`).
+
 ## Branch e unidade de trabalho
 
 - `dev` é a linha de integração da implementação; não altere `main` diretamente.
