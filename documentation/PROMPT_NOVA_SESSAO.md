@@ -64,6 +64,8 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 | A4 | `sendPasswordResetEmail` é o mecanismo canônico para RF03 | Decisão humana |
 | A5 | Corrigir implementação de `Resumo_Reagente` para catálogo JSON (não emendar `.tex`) | Hierarquia: `.tex` ganha |
 | A6 | Índice `Notificacoes(papel, lida, emitida_em)` = dívida técnica (especulativo, sem query ativa) | `.tex` exige mas sem query = desperdício; rastrear |
+| A7 | Rejeitar convite em turma arquivada é permitido e não quebra invariantes | Auditoria: `rejeitarConviteAluno` não lê turma (convites.ts L1082–1199); Alloy `rejeitarConvite` não exige `statusT = Ativo`; turma arquivada não aparece na lista do aluno; rejeitar é útil para limpar inbox e liberar lock Chaves_Unicas |
+| A8 | UI para convite pendente em turma arquivada: manter como está (sem mudança) | Aluno vê a notificação e pode acessar /convite, mas não pode aceitar (backend bloqueia); rejeitar funciona; turma não aparece na lista; não há obrigação normativa de UI específica (S7 não prescreve) |
 
 ### Dívidas técnicas
 
