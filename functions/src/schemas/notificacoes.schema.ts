@@ -19,7 +19,8 @@ export const TipoNotificacaoSchema = z.enum([
   "ENTREGA_ATRASADA", "FRASCOS_VAZIOS", "FRASCOS_QUEBRADOS",
   "FRASCOS_VENCIDOS", "FRASCOS_A_SEREM_PESADOS",
   "FRASCOS_EM_QUARENTENA", "ESCASSEZ_ESTOQUE",
-  "CONVITE_PARA_TURMA"
+  "CONVITE_PARA_TURMA",
+  "AUTO_ATENDIMENTO_RETIRADA"
 ]);
 
 // Rotas conhecidas de `entidade_alvo`; URL arbitrária não pertence ao enum.
