@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import SidebarTurmas, { Turma } from "@/components/turmas/SidebarTurmas";
 import FeedTurma from "@/components/turmas/FeedTurma";
@@ -10,8 +11,10 @@ import { MembrosTurmaModal } from "@/components/turmas/MembrosTurmaModal";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ProfessorDashboardBar from "@/components/turmas/ProfessorDashboardBar";
 
-export default function TurmasPage() {
+function TurmasConteudo() {
   const { user, roles, isLoading } = useAuth();
+  const searchParams = useSearchParams();
+  const turmaInicialId = searchParams.get("turma") ?? undefined;
   const [turmaSelecionada, setTurmaSelecionada] = useState<Turma | null>(null);
   const isProfessor = roles.includes("Professor") || roles.includes("Chefe_Geral");
 
@@ -44,6 +47,7 @@ export default function TurmasPage() {
           setTurmaSelecionada={setTurmaSelecionada}
           onOpenNovaTurma={() => setShowNovaTurma(true)}
           onOpenIngressar={() => setShowIngressar(true)}
+          turmaInicialId={turmaInicialId}
         />
 
         {/* Feed Central */}
@@ -61,5 +65,17 @@ export default function TurmasPage() {
       <GerenciarRoteirosModal isOpen={showGerenciarRoteiros} onClose={() => setShowGerenciarRoteiros(false)} />
       <MembrosTurmaModal isOpen={showMembros} onClose={() => setShowMembros(false)} idTurma={turmaSelecionada?.id} />
     </ProtectedRoute>
+  );
+}
+
+export default function TurmasPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <p className="text-foreground/60 animate-pulse">Carregando turmas...</p>
+      </div>
+    }>
+      <TurmasConteudo />
+    </Suspense>
   );
 }

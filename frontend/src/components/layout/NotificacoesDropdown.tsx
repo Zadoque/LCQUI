@@ -76,6 +76,33 @@ export function buildDeepLinkConvite(idAlvo: string): string {
   return `/convite?id=${encodeURIComponent(idAlvo)}&via=notificacao`;
 }
 
+/**
+ * RN-M13-04: mapeia `entidade_alvo` para deep link correspondente.
+ * Retorna `null` quando não há rota implementada.
+ */
+export function buildDeepLink(notif: NotificacaoItem): string | null {
+  switch (notif.entidade_alvo) {
+    case "Convite_Aluno":
+      return `/convite?id=${encodeURIComponent(notif.id_alvo)}&via=notificacao`;
+    case "Bem_Patrimonial":
+      return `/patrimonio/${encodeURIComponent(notif.id_alvo)}`;
+    case "Requisicao_Bem":
+      return `/patrimonio/requisicoes`;
+    case "Turma":
+      return `/turmas?turma=${encodeURIComponent(notif.id_alvo)}`;
+    case "Post":
+      return notif.id_turma
+        ? `/turmas?turma=${encodeURIComponent(notif.id_turma)}`
+        : null;
+    case "Comentario":
+      return notif.id_turma
+        ? `/turmas?turma=${encodeURIComponent(notif.id_turma)}`
+        : null;
+    default:
+      return null;
+  }
+}
+
 export function shouldRenderInbox(user: { uid?: string } | null | undefined): boolean {
   return !!user?.uid;
 }
@@ -443,21 +470,25 @@ export function NotificacoesDropdown() {
                 // Notificação V1 com mensagem contextual
                 const msg = mensagemContextual(notif);
                 const rotulo = ROTULO_TIPO[notif.tipo] ?? notif.tipo.replace(/_/g, " ");
+                const deepUrl = buildDeepLink(notif);
 
-                return (
+                const cardContent = (
                   <div
-                    key={notif.id}
                     className={`p-3 rounded-xl border transition-all text-xs space-y-1 ${
                       naoLidaAtiva
                         ? "bg-primary/5 border-primary/20"
                         : "bg-muted/50 border-foreground/5"
-                    }`}
+                    } ${deepUrl ? "cursor-pointer hover:bg-primary/10" : ""}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-semibold text-foreground">{rotulo}</p>
                       {!notif.lida && !expirada && (
                         <button
-                          onClick={() => marcarComoLida(notif.id)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            marcarComoLida(notif.id);
+                          }}
                           disabled={marcando}
                           className="shrink-0 text-foreground/40 hover:text-primary transition-colors"
                           aria-label="Marcar como lida"
@@ -472,6 +503,25 @@ export function NotificacoesDropdown() {
                       )}
                     </div>
                     <p className="text-foreground/70">{msg}</p>
+                  </div>
+                );
+
+                if (deepUrl) {
+                  return (
+                    <Link
+                      key={notif.id}
+                      href={deepUrl}
+                      onClick={() => setIsOpen(false)}
+                      data-testid={`notif-link-${notif.id}`}
+                    >
+                      {cardContent}
+                    </Link>
+                  );
+                }
+
+                return (
+                  <div key={notif.id}>
+                    {cardContent}
                   </div>
                 );
               })
