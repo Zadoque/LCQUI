@@ -36,7 +36,7 @@ const TIPOS_ACADEMICOS_V1 = new Set([
 ]);
 
 /** Rótulos legíveis para os tipos V1 ativos. */
-const ROTULO_TIPO: Record<string, string> = {
+export const ROTULO_TIPO: Record<string, string> = {
   POST: "Nova postagem",
   COMENTARIO: "Novo comentário",
   ADICIONADO: "Adicionado à turma",
@@ -526,6 +526,11 @@ export function NotificacoesDropdown() {
                 );
               })
             )}
+          </div>
+          <div className="p-2 border-t border-foreground/10 text-center">
+            <Link href="/notificacoes" onClick={() => setIsOpen(false)} className="text-xs font-semibold text-primary hover:text-primary/80" data-testid="link-ver-todas">
+              Ver todas
+            </Link>
           </div>
         </div>
       )}
