@@ -17,7 +17,7 @@ import {
   resolverOperacaoTx,
 } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
-import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema, BuscarAlunosSchema, AtualizarPerfilSchema } from "./schemas/usuarios.schema";
+import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema, BuscarAlunosSchema, BuscarProfessoresSchema, AtualizarPerfilSchema } from "./schemas/usuarios.schema";
 
 const PAPEIS: string[] = [...PAPEIS_CONHECIDOS];
 
@@ -270,6 +270,41 @@ export const buscarAlunos = onCall(async request => {
     .map(({ id, nome }) => ({ id, nome }));
 
   return { alunos };
+});
+
+/**
+ * S8 UI-02/UI-13: busca server-side de professores para uso por professores/Chefe
+ * na UI de diretório mínimo. Retorna projeção mínima { id, nome }.
+ * Nunca expõe e-mail, centro ou laboratório.
+ * Nome vem de Usuarios/{uid}.nome — fonte canônica; o doc Professor pode não ter nome.
+ */
+export const buscarProfessores = onCall(async request => {
+  const { termo } = validatePayload(BuscarProfessoresSchema, request.data);
+
+  // M9: autoridade persistida (Professor ou Chefe_Geral).
+  await validarAutoridadePersistida(request, ["Professor", "Chefe_Geral"]);
+
+  const db = admin.firestore();
+
+  const snap = await db.collection("Professor").limit(200).get();
+  const ids = snap.docs.map(d => d.id);
+
+  if (ids.length === 0) return { professores: [] };
+
+  const usuarioSnaps = await db.getAll(...ids.map(id => db.collection("Usuarios").doc(id)));
+  const nomePorId = new Map<string, string>();
+  usuarioSnaps.forEach(s => {
+    const n = s.exists ? (s.data()?.nome as string | undefined) : undefined;
+    nomePorId.set(s.id, typeof n === "string" && n.trim() ? n.trim() : "Sem nome");
+  });
+
+  const termoNorm = termo ? termo.trim().toLowerCase() : "";
+  const professores = ids
+    .map(id => ({ id, nome: nomePorId.get(id) ?? "Sem nome" }))
+    .filter(p => !termoNorm || p.nome.toLowerCase().includes(termoNorm))
+    .slice(0, 100);
+
+  return { professores };
 });
 
 /**

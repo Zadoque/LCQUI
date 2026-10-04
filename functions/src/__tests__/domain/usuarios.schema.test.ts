@@ -1,4 +1,4 @@
-import { AtualizarPerfilSchema } from "../../schemas/usuarios.schema";
+import { AtualizarPerfilSchema, BuscarProfessoresSchema } from "../../schemas/usuarios.schema";
 
 describe("AtualizarPerfilSchema", () => {
   it("aceita nome válido", () => {
@@ -28,5 +28,32 @@ describe("AtualizarPerfilSchema", () => {
 
   it("rejeita nome não-string", () => {
     expect(AtualizarPerfilSchema.safeParse({ nome: 123 }).success).toBe(false);
+  });
+});
+
+describe("BuscarProfessoresSchema", () => {
+  it("aceita payload vazio {}", () => {
+    expect(BuscarProfessoresSchema.safeParse({}).success).toBe(true);
+  });
+
+  it("aceita { termo } válido", () => {
+    expect(BuscarProfessoresSchema.safeParse({ termo: "Silva" }).success).toBe(true);
+  });
+
+  it("faz trim do termo", () => {
+    const result = BuscarProfessoresSchema.parse({ termo: "  João  " });
+    expect(result.termo).toBe("João");
+  });
+
+  it("rejeita termo com mais de 150 caracteres", () => {
+    expect(BuscarProfessoresSchema.safeParse({ termo: "A".repeat(151) }).success).toBe(false);
+  });
+
+  it("aceita termo com exatamente 150 caracteres", () => {
+    expect(BuscarProfessoresSchema.safeParse({ termo: "A".repeat(150) }).success).toBe(true);
+  });
+
+  it("rejeita termo não-string", () => {
+    expect(BuscarProfessoresSchema.safeParse({ termo: 123 }).success).toBe(false);
   });
 });

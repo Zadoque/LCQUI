@@ -40,6 +40,12 @@ export const BuscarAlunosSchema = z.object({
   termo: z.string().max(100, "Termo de busca excede 100 caracteres.").optional(),
 });
 
+// S8 UI-02/UI-13: busca server-side de professores por Professor/Chefe,
+// retornando projeção mínima { id, nome }. Nunca expõe e-mail, centro ou laboratório.
+export const BuscarProfessoresSchema = z.object({
+  termo: z.string().trim().max(150).optional(),
+});
+
 // S8 UI-01 L191: atualização do próprio perfil (self-service).
 export const AtualizarPerfilSchema = z.object({
   nome: z.string().trim().min(1, "O nome é obrigatório.").max(150, "O nome não pode exceder 150 caracteres."),

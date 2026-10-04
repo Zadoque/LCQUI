@@ -6,7 +6,7 @@ process.env.FUNCTIONS_EMULATOR = "true";
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { CallableRequest } from "firebase-functions/v2/https";
-import { convidarUsuario, revogarUsuarioPapel, atualizarPerfil } from "../../usuarios";
+import { convidarUsuario, revogarUsuarioPapel, atualizarPerfil, buscarProfessores } from "../../usuarios";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -306,5 +306,83 @@ describe("Integração: atualizarPerfil (S8 UI-01 L191)", () => {
     const wrapped = testEnv.wrap(atualizarPerfil);
     const req = mockRequest({ nome: "Novo Nome" }, uidAluno);
     await expect(wrapped(req)).rejects.toMatchObject({ code: "permission-denied" });
+  });
+});
+
+describe("Integração: buscarProfessores (S8 UI-02/UI-13)", () => {
+  let db: admin.firestore.Firestore;
+
+  beforeAll(() => {
+    if (!admin.apps.length) {
+      admin.initializeApp({ projectId: "lcqui-dev" });
+    }
+    db = admin.firestore();
+  });
+
+  afterAll(async () => {
+    testEnv.cleanup();
+  });
+
+  const mockRequest = (data: unknown, uid: string, roles: string[] = ["Chefe_Geral"]): CallableRequest =>
+    ({
+      data,
+      auth: { uid, token: { roles, versao_permissoes: 1 } },
+      rawRequest: {}
+    }) as unknown as CallableRequest;
+
+  const uidChefe = "chefe_buscaprof_001";
+  const uidProf = "prof_buscaprof_001";
+
+  beforeEach(async () => {
+    await db.collection("Usuarios").doc(uidChefe).delete().catch(() => {});
+    await db.collection("Chefe_Geral").doc(uidChefe).delete().catch(() => {});
+    await db.collection("Usuarios").doc(uidProf).delete().catch(() => {});
+    await db.collection("Professor").doc(uidProf).delete().catch(() => {});
+
+    // Chefe_Geral ativo
+    await db.collection("Usuarios").doc(uidChefe).set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Chefe_Geral").doc(uidChefe).set({ id_usuario: uidChefe });
+
+    // Professor com nome em Usuarios (fonte canônica)
+    await db.collection("Usuarios").doc(uidProf).set({
+      nome: "Professora Ana Lima",
+      email: "ana.lima@example.com",
+      centro: "CCT",
+      laboratorio: "Lab Física",
+      ativo: true,
+    });
+    await db.collection("Professor").doc(uidProf).set({ id_usuario: uidProf });
+  });
+
+  it("S8-BUSCAPROF-INT-001 — retorna projeção mínima { id, nome } sem email/centro/laboratorio", async () => {
+    const wrapped = testEnv.wrap(buscarProfessores);
+    const req = mockRequest({}, uidChefe);
+    const result = await wrapped(req);
+
+    expect(result.professores).toBeDefined();
+    const found = result.professores.find((p: { id: string; nome: string }) => p.id === uidProf);
+    expect(found).toBeDefined();
+    expect(found).toMatchObject({ id: uidProf, nome: "Professora Ana Lima" });
+    // Projeção mínima: NÃO deve conter email, centro ou laboratorio
+    const foundKeys = Object.keys(found!);
+    expect(foundKeys).toEqual(expect.arrayContaining(["id", "nome"]));
+    expect(foundKeys).not.toContain("email");
+    expect(foundKeys).not.toContain("centro");
+    expect(foundKeys).not.toContain("laboratorio");
+  });
+
+  it("S8-BUSCAPROF-INT-002 — filtra por termo no nome", async () => {
+    const wrapped = testEnv.wrap(buscarProfessores);
+    const req = mockRequest({ termo: "Ana" }, uidChefe);
+    const result = await wrapped(req);
+
+    expect(result.professores.length).toBeGreaterThanOrEqual(1);
+    expect(result.professores[0].nome.toLowerCase()).toContain("ana");
+  });
+
+  it("S8-BUSCAPROF-INT-003 — rejeita chamada sem autenticação", async () => {
+    const wrapped = testEnv.wrap(buscarProfessores);
+    const req = { data: {}, auth: undefined, rawRequest: {} } as unknown as CallableRequest;
+    await expect(wrapped(req)).rejects.toMatchObject({ code: "unauthenticated" });
   });
 });
