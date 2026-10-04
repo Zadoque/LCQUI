@@ -5,7 +5,11 @@ service firebase.storage {
 
     function isAuthenticated() { return request.auth != null; }
     function isOwner(userId) { return isAuthenticated() && request.auth.uid == userId; }
-    function hasRole(role) { return isAuthenticated() && request.auth.token.get('roles', []).hasAny([role]); }
+    function hasRole(role) {
+      return isAuthenticated()
+        && request.auth.token.get('ativo', false) == true
+        && request.auth.token.get('roles', []).hasAny([role]);
+    }
     function isAdmin() { return hasRole('Chefe_Geral'); }
     function isImage() { return request.resource.contentType.matches('image/.*'); }
     function isPdf() { return request.resource.contentType == 'application/pdf'; }
@@ -14,14 +18,14 @@ service firebase.storage {
     match /{allPaths=**} { allow read, write: if false; }
 
     match /fotos_perfil/{userId}/{fileName} {
-      allow read: if isAuthenticated();
+      allow read: if isOwner(userId) || isAdmin();
       allow create: if (isOwner(userId) || isAdmin()) && isImage() && isSizeLessThan(5);
       allow update: if (isOwner(userId) || isAdmin()) && isImage() && isSizeLessThan(5);
       allow delete: if isOwner(userId) || isAdmin();
     }
 
     match /patrimonio/{itemId}/{fileName} {
-      allow read: if isAuthenticated();
+      allow read: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais') || hasRole('Professor');
       allow create: if (hasRole('Gestor_Bens_Patrimoniais') || isAdmin()) && request.resource.metadata.owner == request.auth.uid && isImage() && isSizeLessThan(5);
       allow update: if (hasRole('Gestor_Bens_Patrimoniais') || isAdmin()) 
                     && (resource.metadata.owner == request.auth.uid || isAdmin())
@@ -32,7 +36,7 @@ service firebase.storage {
     }
     
     match /requisicoes/{reqId}/{fileName} {
-      allow read: if isAuthenticated();
+      allow read: if hasRole('Professor') || hasRole('Gestor_Bens_Patrimoniais') || isAdmin();
       allow create: if (hasRole('Professor') || hasRole('Gestor_Bens_Patrimoniais') || isAdmin()) 
                     && request.resource.metadata.owner == request.auth.uid && isImage() && isSizeLessThan(5);
       allow update: if (hasRole('Professor') || hasRole('Gestor_Bens_Patrimoniais') || isAdmin()) 
@@ -44,14 +48,13 @@ service firebase.storage {
     }
 
     match /baixas_patrimoniais/{itemId}/{fileName} {
-      allow read: if isAuthenticated();
+      allow read: if hasRole('Gestor_Bens_Patrimoniais') || isAdmin();
       allow create: if (hasRole('Gestor_Bens_Patrimoniais') || isAdmin()) && request.resource.metadata.owner == request.auth.uid && isPdf() && isSizeLessThan(10);
       allow update: if (hasRole('Gestor_Bens_Patrimoniais') || isAdmin())
                     && (resource.metadata.owner == request.auth.uid || isAdmin())
                     && request.resource.metadata.owner == resource.metadata.owner
                     && isPdf() && isSizeLessThan(10);
-      allow delete: if (hasRole('Gestor_Bens_Patrimoniais') || isAdmin())
-                    && (resource.metadata.owner == request.auth.uid || isAdmin());
+      allow delete: if false; // S11: comprovante não pode ser removido após vinculação
     }
 
     match /roteiros/{userId}/{fileName} {

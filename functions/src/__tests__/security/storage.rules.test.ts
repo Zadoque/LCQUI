@@ -34,8 +34,8 @@ describe("Storage Security Rules", () => {
   
   // Helpers
   const unauthedStorage = () => testEnv.unauthenticatedContext().storage();
-  const authedStorage = (uid: string, roles: string[] = []) => 
-    testEnv.authenticatedContext(uid, { roles }).storage();
+  const authedStorage = (uid: string, roles: string[] = [], ativo: boolean = true) => 
+    testEnv.authenticatedContext(uid, { roles, ativo }).storage();
 
   describe("Acessos Básicos", () => {
     it("não deve permitir leitura ou escrita se não estiver autenticado", async () => {
@@ -65,6 +65,16 @@ describe("Storage Security Rules", () => {
       const ref = storage.ref("fotos_perfil/alice/minha_foto.pdf");
       const content = Buffer.alloc(1024);
       await assertFails(ref.put(content, { contentType: "application/pdf" }) as any);
+    });
+
+    it("outro usuário autenticado NÃO lê a foto do dono (read escopado)", async () => {
+      const aliceStorage = authedStorage("alice");
+      const ref = aliceStorage.ref("fotos_perfil/alice/x.png");
+      const content = Buffer.alloc(1024);
+      await assertSucceeds(ref.put(content, { contentType: "image/png" }) as any);
+
+      const bobStorage = authedStorage("bob");
+      await assertFails(bobStorage.ref("fotos_perfil/alice/x.png").getDownloadURL());
     });
   });
 
@@ -101,6 +111,39 @@ describe("Storage Security Rules", () => {
       const hackerStorage = authedStorage("gestor1", ["Gestor_Bens_Patrimoniais"]);
       await assertFails(hackerStorage.ref("patrimonio/item1/foto.png").put(content, { contentType: "image/jpeg", customMetadata: { owner: "hacker" } }) as any);
     });
+
+    it("Aluno NÃO lê patrimônio; Professor LÊ; Gestor LÊ", async () => {
+      // Seed um arquivo de patrimônio
+      const gestorStorage = authedStorage("gestor1", ["Gestor_Bens_Patrimoniais"]);
+      await assertSucceeds(
+        gestorStorage.ref("patrimonio/item1/foto.png").put(
+          Buffer.alloc(1024),
+          { contentType: "image/jpeg", customMetadata: { owner: "gestor1" } }
+        ) as any
+      );
+
+      const alunoStorage = authedStorage("aluno1", ["Aluno"]);
+      await assertFails(alunoStorage.ref("patrimonio/item1/foto.png").getDownloadURL());
+
+      const profStorage = authedStorage("prof1", ["Professor"]);
+      await assertSucceeds(profStorage.ref("patrimonio/item1/foto.png").getDownloadURL());
+
+      await assertSucceeds(gestorStorage.ref("patrimonio/item1/foto.png").getDownloadURL());
+    });
+
+    it("Aluno NÃO lê requisições", async () => {
+      // Seed um arquivo de requisição
+      const profStorage = authedStorage("prof1", ["Professor"]);
+      await assertSucceeds(
+        profStorage.ref("requisicoes/req1/foto.png").put(
+          Buffer.alloc(1024),
+          { contentType: "image/jpeg", customMetadata: { owner: "prof1" } }
+        ) as any
+      );
+
+      const alunoStorage = authedStorage("aluno1", ["Aluno"]);
+      await assertFails(alunoStorage.ref("requisicoes/req1/foto.png").getDownloadURL());
+    });
   });
 
   describe("Baixas Patrimoniais", () => {
@@ -112,6 +155,47 @@ describe("Storage Security Rules", () => {
       
       await assertFails(storageProf.ref("baixas_patrimoniais/item1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }) as any);
       await assertSucceeds(storageGestor.ref("baixas_patrimoniais/item1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "gestor1" } }) as any);
+    });
+
+    it("Gestor cria PDF OK; DELETE pelo Gestor → assertFails (retenção)", async () => {
+      const storageGestor = authedStorage("gestor1", ["Gestor_Bens_Patrimoniais"]);
+      const content = Buffer.alloc(1024);
+      await assertSucceeds(
+        storageGestor.ref("baixas_patrimoniais/item1/doc.pdf").put(
+          content,
+          { contentType: "application/pdf", customMetadata: { owner: "gestor1" } }
+        ) as any
+      );
+      // Delete deve falhar — comprovante não pode ser removido após vinculação (S11)
+      await assertFails(storageGestor.ref("baixas_patrimoniais/item1/doc.pdf").delete());
+    });
+
+    it("Gestor LÊ baixas; Aluno NÃO lê", async () => {
+      const storageGestor = authedStorage("gestor1", ["Gestor_Bens_Patrimoniais"]);
+      const content = Buffer.alloc(1024);
+      await assertSucceeds(
+        storageGestor.ref("baixas_patrimoniais/item1/doc.pdf").put(
+          content,
+          { contentType: "application/pdf", customMetadata: { owner: "gestor1" } }
+        ) as any
+      );
+      await assertSucceeds(storageGestor.ref("baixas_patrimoniais/item1/doc.pdf").getDownloadURL());
+
+      const alunoStorage = authedStorage("aluno1", ["Aluno"]);
+      await assertFails(alunoStorage.ref("baixas_patrimoniais/item1/doc.pdf").getDownloadURL());
+    });
+  });
+
+  describe("Token sem ativo", () => {
+    it("Gestor sem ativo=true NÃO consegue criar em patrimonio", async () => {
+      const storageSemAtivo = testEnv.authenticatedContext("x", { roles: ["Gestor_Bens_Patrimoniais"] }).storage();
+      const content = Buffer.alloc(1024);
+      await assertFails(
+        storageSemAtivo.ref("patrimonio/item1/foto.png").put(
+          content,
+          { contentType: "image/jpeg", customMetadata: { owner: "x" } }
+        ) as any
+      );
     });
   });
 
