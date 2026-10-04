@@ -12,7 +12,7 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-  const { user, roles, ativo, isLoading } = useAuth();
+  const { user, roles, ativo, papelAtivo, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -85,7 +85,9 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <Header />
-        {children}
+        <React.Fragment key={papelAtivo ?? "sem-papel"}>
+          {children}
+        </React.Fragment>
       </div>
     </div>
   );
