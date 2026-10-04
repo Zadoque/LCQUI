@@ -294,6 +294,11 @@ service cloud.firestore {
     match /Resumo_Reagente/{resumoId} {
       allow read: if isAuthenticated();
       allow write: if false;
+
+      match /Especificacoes/{specId} {
+        allow read: if isAuthenticated();
+        allow write: if false;
+      }
     }
 
     match /Almoxarifado/{almId} {

@@ -601,6 +601,17 @@ describe("Firestore Security Rules", () => {
       await assertFails(dbChefe.collection("Almoxarifado").add({ nome: "Central", id_local: "l1" }));
       await assertFails(dbGestor.collection("Gestor_Almoxarifado_x_Almoxarifado").add({ id_gestor_almoxarifado: "gestorAlm", id_almoxarifado: "a1" }));
     });
+
+    it("aluno autenticado pode ler Especificacoes de Resumo_Reagente; escrita negada (S11 L67)", async () => {
+      const dbAluno = authedDb("aluno1", ["Aluno"]);
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Resumo_Reagente").doc("r1").set({ nome: "HCl" });
+        await db.collection("Resumo_Reagente").doc("r1").collection("Especificacoes").doc("s1").set({ pureza: "PA" });
+      });
+      await assertSucceeds(dbAluno.collection("Resumo_Reagente/r1/Especificacoes").doc("s1").get());
+      await assertFails(dbAluno.collection("Resumo_Reagente/r1/Especificacoes").doc("s1").set({ pureza: "ACS" }));
+    });
   });
 
   describe("Auditoria", () => {
