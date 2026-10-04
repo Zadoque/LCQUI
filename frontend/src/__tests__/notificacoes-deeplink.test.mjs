@@ -20,6 +20,8 @@ function buildDeepLink(notif) {
       return notif.id_turma
         ? `/turmas?turma=${encodeURIComponent(notif.id_turma)}`
         : null;
+    case "Roteiro":
+      return "/turmas?roteiros=1";
     default:
       return null;
   }
@@ -105,9 +107,9 @@ test("DEEPLINK-011 — Comentario sem id_turma retorna null", () => {
 
 // --- Entidades sem rota ---
 
-test("DEEPLINK-012 — Roteiro retorna null (sem rota implementada)", () => {
+test("DEEPLINK-012 — Roteiro gera link /turmas?roteiros=1", () => {
   const notif = { entidade_alvo: "Roteiro", id_alvo: "rot_1" };
-  assert.strictEqual(buildDeepLink(notif), null);
+  assert.strictEqual(buildDeepLink(notif), "/turmas?roteiros=1");
 });
 
 test("DEEPLINK-013 — Almoxarifado retorna null (sem rota implementada)", () => {

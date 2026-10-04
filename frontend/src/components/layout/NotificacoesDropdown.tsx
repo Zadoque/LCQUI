@@ -98,6 +98,8 @@ export function buildDeepLink(notif: NotificacaoItem): string | null {
       return notif.id_turma
         ? `/turmas?turma=${encodeURIComponent(notif.id_turma)}`
         : null;
+    case "Roteiro":
+      return "/turmas?roteiros=1";
     default:
       return null;
   }

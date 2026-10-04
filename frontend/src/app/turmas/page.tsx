@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import SidebarTurmas, { Turma } from "@/components/turmas/SidebarTurmas";
@@ -26,6 +26,16 @@ function TurmasConteudo() {
   const [showNovoRoteiro, setShowNovoRoteiro] = useState(false);
   const [showGerenciarRoteiros, setShowGerenciarRoteiros] = useState(false);
   const [showMembros, setShowMembros] = useState(false);
+
+  // RN-M13-04: deep link ?roteiros=1 abre GerenciarRoteirosModal uma única vez
+  const abrirRoteiros = searchParams.get("roteiros") === "1";
+  const roteirosJaAbertosRef = useRef(false);
+  useEffect(() => {
+    if (abrirRoteiros && !roteirosJaAbertosRef.current) {
+      roteirosJaAbertosRef.current = true;
+      setShowGerenciarRoteiros(true);
+    }
+  }, [abrirRoteiros]);
 
   return (
     <ProtectedRoute allowedRoles={["Chefe_Geral", "Professor", "Aluno", "Bolsista"]}>
