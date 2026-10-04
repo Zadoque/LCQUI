@@ -7,6 +7,7 @@ import {
   construirEstadoAutenticacao,
   renovarEstadoAutenticacao,
 } from "@/lib/authBootstrap.mjs";
+import { resolverPapelAtivo, CHAVE_PAPEL_ATIVO } from "@/lib/papelAtivo.mjs";
 
 interface EstadoAutenticacao {
   roles: string[];
@@ -17,16 +18,20 @@ interface AuthContextType {
   user: User | null;
   roles: string[];
   ativo: boolean;
+  papelAtivo: string | null;
   isLoading: boolean;
   refreshSession: () => Promise<EstadoAutenticacao>;
+  setPapelAtivo: (role: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   roles: [],
   ativo: false,
+  papelAtivo: null,
   isLoading: true,
   refreshSession: async () => ({ roles: [], ativo: false }),
+  setPapelAtivo: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -35,6 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [ativo, setAtivo] = useState<boolean>(false);
+  const [papelAtivo, setPapelAtivo] = useState<string | null>(null);
   // Começa como true por padrão absoluto para prevenir flashes de UI vazados
   const [isLoading, setIsLoading] = useState(true);
 
@@ -42,6 +48,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(currentUser);
     setRoles(estado.roles);
     setAtivo(estado.ativo);
+
+    // Recomputa papelAtivo com base em roles e preferência persistida
+    const preferido = localStorage.getItem(CHAVE_PAPEL_ATIVO);
+    const novoPapelAtivo = resolverPapelAtivo(estado.roles, preferido);
+    setPapelAtivo(novoPapelAtivo);
+    if (novoPapelAtivo) {
+      localStorage.setItem(CHAVE_PAPEL_ATIVO, novoPapelAtivo);
+    } else {
+      localStorage.removeItem(CHAVE_PAPEL_ATIVO);
+    }
   }, []);
 
   const refreshSession = useCallback(async (): Promise<EstadoAutenticacao> => {
@@ -76,6 +92,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
         setRoles([]);
         setAtivo(false);
+        setPapelAtivo(null);
+        localStorage.removeItem(CHAVE_PAPEL_ATIVO);
       }
       
       // Somente após ter certeza de QUEM é o usuário (ou se não tem), soltamos o render.
@@ -85,8 +103,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => unsubscribe();
   }, [aplicarEstado]);
 
+  const handleSetPapelAtivo = useCallback((role: string) => {
+    if (!Array.isArray(roles) || roles.length === 0) return;
+    if (!roles.includes(role)) return;
+    setPapelAtivo(role);
+    localStorage.setItem(CHAVE_PAPEL_ATIVO, role);
+  }, [roles]);
+
   return (
-    <AuthContext.Provider value={{ user, roles, ativo, isLoading, refreshSession }}>
+    <AuthContext.Provider value={{ user, roles, ativo, papelAtivo, isLoading, refreshSession, setPapelAtivo: handleSetPapelAtivo }}>
       {children}
     </AuthContext.Provider>
   );

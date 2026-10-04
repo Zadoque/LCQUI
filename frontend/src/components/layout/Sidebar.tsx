@@ -71,7 +71,7 @@ interface NavGroup {
 }
 
 export default function Sidebar() {
-  const { roles } = useAuth();
+  const { papelAtivo } = useAuth();
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
@@ -101,12 +101,13 @@ export default function Sidebar() {
     </svg>
   );
 
-  const isChefe = roles.includes("Chefe_Geral");
-  const isGestorAlmox = roles.includes("Gestor_Almoxarifado");
-  const isGestorPatr = roles.includes("Gestor_Bens_Patrimoniais");
-  const isProfessor = roles.includes("Professor");
-  const isAluno = roles.includes("Aluno");
-  const isBolsista = roles.includes("Bolsista");
+  const isChefe = papelAtivo === "Chefe_Geral";
+  const isGestorAlmox = papelAtivo === "Gestor_Almoxarifado";
+  const isGestorPatr = papelAtivo === "Gestor_Bens_Patrimoniais";
+  const isProfessor = papelAtivo === "Professor";
+  const isBolsista = papelAtivo === "Bolsista";
+  // Bolsista é superset de Aluno: mantém os grupos de aluno para ambos.
+  const isAluno = papelAtivo === "Aluno" || isBolsista;
 
   // Constrói grupos de navegação conforme o papel (Seção 6 do main.tex)
   const groups: NavGroup[] = [];

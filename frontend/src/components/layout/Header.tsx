@@ -14,7 +14,7 @@ const getSnapshot = () => true;
 const getServerSnapshot = () => false;
 
 export default function Header() {
-  const { user, roles } = useAuth();
+  const { user, roles, papelAtivo, setPapelAtivo } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const { theme, setTheme, systemTheme } = useTheme();
   const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
@@ -38,14 +38,29 @@ export default function Header() {
           </span>
         </div>
         {roles && roles.length > 0 && (
-          <div className="flex gap-2 mt-1">
-            {roles.map(r => (
-              <span key={r} className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                {r.replace(/_/g, " ")}
+          roles.length > 1 ? (
+            <div className="flex gap-2 mt-1 flex-wrap" data-testid="seletor-papel" role="group" aria-label="Seletor de papel ativo">
+              {roles.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setPapelAtivo(r)}
+                  data-testid={`papel-opcao-${r}`}
+                  aria-pressed={papelAtivo === r}
+                  className={"text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded-full transition-colors " + (papelAtivo === r ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary hover:bg-primary/20")}
+                >
+                  {r.replace(/_/g, " ")}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex gap-2 mt-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                {roles[0].replace(/_/g, " ")}
               </span>
-            ))}
-          </div>
-        )}
+            </div>
+          )
+          )}
       </div>
 
       <nav className="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
