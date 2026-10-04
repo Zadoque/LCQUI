@@ -2,12 +2,12 @@
 
 import React, { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
-import { auth } from "@/lib/firebase/config";
-import { signOut } from "firebase/auth";
 import { useTheme } from "@/components/ThemeProvider";
 import { Moon, Sun } from "lucide-react";
 import { NotificacoesDropdown } from "./NotificacoesDropdown";
+import { PerfilDrawer } from "./PerfilDrawer";
 
 const subscribe = () => () => {};
 const getSnapshot = () => true;
@@ -15,19 +15,11 @@ const getServerSnapshot = () => false;
 
 export default function Header() {
   const { user, roles, papelAtivo, setPapelAtivo } = useAuth();
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [showPerfil, setShowPerfil] = useState(false);
   const { theme, setTheme, systemTheme } = useTheme();
   const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   if (!user) return null;
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error("Erro ao fazer logout:", error);
-    }
-  };
 
   return (
     <header className="w-full bg-background border-b border-foreground/10 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
@@ -104,13 +96,20 @@ export default function Header() {
         )}
 
         <button
-          onClick={() => setShowDropdown(!showDropdown)}
+          onClick={() => setShowPerfil(true)}
           aria-label="Menu do usuário"
           data-testid="header-user-menu"
           className="w-10 h-10 rounded-full border-2 border-primary/20 overflow-hidden hover:border-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
         >
           {user.photoURL ? (
-            <img src={user.photoURL} alt="Perfil" className="w-full h-full object-cover" />
+            <Image
+              src={user.photoURL}
+              alt="Perfil"
+              width={40}
+              height={40}
+              unoptimized
+              className="w-full h-full object-cover"
+            />
           ) : (
             <div className="w-full h-full bg-foreground/10 flex items-center justify-center text-foreground font-bold">
               {user.displayName ? user.displayName.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase()}
@@ -118,32 +117,7 @@ export default function Header() {
           )}
         </button>
 
-        {showDropdown && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)}></div>
-            <div className="absolute right-0 mt-2 w-48 bg-background border border-foreground/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in slide-in-from-top-2">
-              <div className="p-3 border-b border-foreground/10">
-                <p className="text-sm font-semibold truncate">{user.displayName || "Usuário"}</p>
-                <p className="text-xs text-foreground/50 truncate">{user.email}</p>
-              </div>
-              <div className="p-2">
-                <button
-                  className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-foreground/5 rounded-lg transition-colors"
-                  onClick={() => { setShowDropdown(false); }}
-                >
-                  Perfil de Usuário
-                </button>
-                <button
-                  onClick={handleLogout}
-                  data-testid="logout-button"
-                  className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 rounded-lg transition-colors mt-1 font-medium"
-                >
-                  Sair
-                </button>
-              </div>
-            </div>
-          </>
-        )}
+        <PerfilDrawer isOpen={showPerfil} onClose={() => setShowPerfil(false)} />
       </div>
     </header>
   );
