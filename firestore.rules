@@ -182,6 +182,14 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      match /HistoricoAlunos/{eventoId} {
+        allow get, list: if isAuthenticated() && (
+          get(/databases/$(database)/documents/Turma/$(turmaId)).data.id_professor == request.auth.uid
+          || isAdmin()
+        );
+        allow write: if false;
+      }
+
       match /Posts/{postId} {
         // S11 / M12.1: leitura de Posts exige escopo acadêmico (professor-dono,
         // membro canônico ou Chefe). Post removido só visível a dono + Chefe.
@@ -205,6 +213,14 @@ service cloud.firestore {
         match /Comentarios/{comentarioId} {
           // S11: leitura/escrita direta negada ao cliente.
           // Acesso via Cloud Function listarComentariosPost (projeção mascarada).
+          allow read, write: if false;
+
+          match /Historico_Comentario/{histId} {
+            allow read, write: if false;
+          }
+        }
+
+        match /Historico_Posts_Turma/{histId} {
           allow read, write: if false;
         }
       }

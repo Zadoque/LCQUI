@@ -711,6 +711,103 @@ describe("Firestore Security Rules", () => {
     });
   });
 
+  describe("Históricos Acadêmicos (S11)", () => {
+    // Setup: turma de prof1 com documento de histórico
+    const turmaId = "t_hist_s11";
+    const historicoAlunoPath = `Turma/${turmaId}/HistoricoAlunos`;
+    const historicoPostPath = `Turma/${turmaId}/Posts/p1/Historico_Posts_Turma`;
+    const historicoComentarioPath = `Turma/${turmaId}/Posts/p1/Comentarios/c1/Historico_Comentario`;
+
+    beforeEach(async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("Turma").doc(turmaId).set({
+          nome: "Turma Hist S11",
+          id_professor: "prof1",
+          status: "Ativo",
+        });
+        await db.collection(historicoAlunoPath).doc("ev1").set({
+          tipo: "matricula",
+          id_aluno: "aluno1",
+          timestamp: new Date(),
+        });
+        await db.collection("Turma").doc(turmaId).collection("Posts").doc("p1").set({
+          id_professor: "prof1",
+          titulo: "Post S11",
+          removido_da_apresentacao: false,
+        });
+        await db.collection("Turma").doc(turmaId).collection("Posts").doc("p1")
+          .collection("Comentarios").doc("c1").set({
+            id_usuario: "aluno1",
+            texto: "Comentário S11",
+          });
+        await db.collection(historicoPostPath).doc("h1").set({
+          tipo: "edicao",
+          timestamp: new Date(),
+        });
+        await db.collection(historicoComentarioPath).doc("hc1").set({
+          tipo: "edicao",
+          timestamp: new Date(),
+        });
+        // aluno1 como membro canônico da turma
+        await db.collection("Turma").doc(turmaId).collection("Alunos").doc("aluno1").set({
+          id_aluno: "aluno1",
+          id_turma: turmaId,
+          nome: "Aluno 1",
+        });
+      });
+    });
+
+    it("TEST-RULES-HIST-001 — professor dono da turma lê HistoricoAlunos → PASS", async () => {
+      const dbProf = authedDb("prof1", ["Professor"]);
+      await assertSucceeds(dbProf.collection(historicoAlunoPath).doc("ev1").get());
+      await assertSucceeds(dbProf.collection(historicoAlunoPath).get());
+    });
+
+    it("TEST-RULES-HIST-002 — Chefe_Geral lê HistoricoAlunos → PASS", async () => {
+      const dbChefe = authedDb("boss", ["Chefe_Geral"]);
+      await assertSucceeds(dbChefe.collection(historicoAlunoPath).doc("ev1").get());
+      await assertSucceeds(dbChefe.collection(historicoAlunoPath).get());
+    });
+
+    it("TEST-RULES-HIST-003 — aluno membro NÃO lê HistoricoAlunos → DENY", async () => {
+      const dbAluno = authedDb("aluno1", ["Aluno"]);
+      await assertFails(dbAluno.collection(historicoAlunoPath).doc("ev1").get());
+      await assertFails(dbAluno.collection(historicoAlunoPath).get());
+    });
+
+    it("TEST-RULES-HIST-004 — professor de outra turma NÃO lê HistoricoAlunos → DENY", async () => {
+      const dbProf2 = authedDb("prof2", ["Professor"]);
+      await assertFails(dbProf2.collection(historicoAlunoPath).doc("ev1").get());
+    });
+
+    it("TEST-RULES-HIST-005 — escrita em HistoricoAlunos falha a qualquer cliente → DENY", async () => {
+      const dbProf = authedDb("prof1", ["Professor"]);
+      const dbChefe = authedDb("boss", ["Chefe_Geral"]);
+      await assertFails(dbProf.collection(historicoAlunoPath).doc("ev2").set({ tipo: "remocao" }));
+      await assertFails(dbChefe.collection(historicoAlunoPath).doc("ev1").update({ tipo: "hack" }));
+      await assertFails(dbChefe.collection(historicoAlunoPath).doc("ev1").delete());
+    });
+
+    it("TEST-RULES-HIST-006 — leitura/escrita em Historico_Posts_Turma falham → DENY", async () => {
+      const dbProf = authedDb("prof1", ["Professor"]);
+      const dbChefe = authedDb("boss", ["Chefe_Geral"]);
+      await assertFails(dbProf.collection(historicoPostPath).doc("h1").get());
+      await assertFails(dbChefe.collection(historicoPostPath).doc("h1").get());
+      await assertFails(dbProf.collection(historicoPostPath).doc("h2").set({ tipo: "novo" }));
+      await assertFails(dbChefe.collection(historicoPostPath).doc("h1").delete());
+    });
+
+    it("TEST-RULES-HIST-007 — leitura/escrita em Historico_Comentario falham → DENY", async () => {
+      const dbProf = authedDb("prof1", ["Professor"]);
+      const dbChefe = authedDb("boss", ["Chefe_Geral"]);
+      await assertFails(dbProf.collection(historicoComentarioPath).doc("hc1").get());
+      await assertFails(dbChefe.collection(historicoComentarioPath).doc("hc1").get());
+      await assertFails(dbProf.collection(historicoComentarioPath).doc("hc2").set({ tipo: "novo" }));
+      await assertFails(dbChefe.collection(historicoComentarioPath).doc("hc1").delete());
+    });
+  });
+
 });
 
 // AUD-35/36: usar documentos existentes para provar negativa por Rules, não ausência.
