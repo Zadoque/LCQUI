@@ -6,7 +6,7 @@ process.env.FUNCTIONS_EMULATOR = "true";
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { CallableRequest } from "firebase-functions/v2/https";
-import { convidarUsuario, revogarUsuarioPapel } from "../../usuarios";
+import { convidarUsuario, revogarUsuarioPapel, atualizarPerfil } from "../../usuarios";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -221,5 +221,90 @@ describe("Integração: M7 em mutações de papel", () => {
     await expect(
       wrapped(mockRequest({ idOperacao: id, email, papel: "Aluno", motivo: "Motivo B" }, "chefe123"))
     ).rejects.toMatchObject({ code: "already-exists" });
+  });
+});
+
+describe("Integração: atualizarPerfil (S8 UI-01 L191)", () => {
+  let db: admin.firestore.Firestore;
+
+  beforeAll(() => {
+    if (!admin.apps.length) {
+      admin.initializeApp({ projectId: "lcqui-dev" });
+    }
+    db = admin.firestore();
+  });
+
+  afterAll(async () => {
+    testEnv.cleanup();
+  });
+
+  const mockRequest = (data: unknown, uid: string): CallableRequest =>
+    ({
+      data,
+      auth: { uid, token: { roles: ["Aluno"], versao_permissoes: 1 } },
+      rawRequest: {}
+    }) as unknown as CallableRequest;
+
+  const uidAluno = "aluno_perfil_001";
+
+  beforeEach(async () => {
+    // Limpa estado anterior
+    await db.collection("Usuarios").doc(uidAluno).delete().catch(() => {});
+    await db.collection("Aluno").doc(uidAluno).delete().catch(() => {});
+
+    // Cria usuário ativo com perfil Aluno
+    await db.collection("Usuarios").doc(uidAluno).set({
+      nome: "Aluno Original",
+      email: "aluno_perfil@example.com",
+      ativo: true,
+      versao_permissoes: 1,
+    });
+    await db.collection("Aluno").doc(uidAluno).set({
+      nome: "Aluno Original",
+      letra_inicial: "A",
+      email: "aluno_perfil@example.com",
+      id_usuario: uidAluno,
+      ativo: true,
+    });
+  });
+
+  it("S8-PERFIL-INT-001 — atualiza Usuarios.nome, Aluno.nome e Aluno.letra_inicial", async () => {
+    const wrapped = testEnv.wrap(atualizarPerfil);
+    const req = mockRequest({ nome: "Bruno Silva" }, uidAluno);
+    const result = await wrapped(req);
+
+    expect(result).toMatchObject({ sucesso: true });
+
+    const usuarioDoc = await db.collection("Usuarios").doc(uidAluno).get();
+    expect(usuarioDoc.data()?.nome).toBe("Bruno Silva");
+
+    const alunoDoc = await db.collection("Aluno").doc(uidAluno).get();
+    expect(alunoDoc.data()?.nome).toBe("Bruno Silva");
+    expect(alunoDoc.data()?.letra_inicial).toBe("B");
+  });
+
+  it("S8-PERFIL-INT-002 — rejeita nome vazio (invalid-argument)", async () => {
+    const wrapped = testEnv.wrap(atualizarPerfil);
+    const req = mockRequest({ nome: "   " }, uidAluno);
+    await expect(wrapped(req)).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("S8-PERFIL-INT-003 — rejeita nome com mais de 150 caracteres (invalid-argument)", async () => {
+    const wrapped = testEnv.wrap(atualizarPerfil);
+    const req = mockRequest({ nome: "X".repeat(151) }, uidAluno);
+    await expect(wrapped(req)).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("S8-PERFIL-INT-004 — rejeita usuário não autenticado", async () => {
+    const wrapped = testEnv.wrap(atualizarPerfil);
+    const req = { data: { nome: "Novo Nome" }, auth: undefined, rawRequest: {} } as unknown as CallableRequest;
+    await expect(wrapped(req)).rejects.toMatchObject({ code: "unauthenticated" });
+  });
+
+  it("S8-PERFIL-INT-005 — rejeita usuário inativo (permission-denied)", async () => {
+    await db.collection("Usuarios").doc(uidAluno).update({ ativo: false });
+    const wrapped = testEnv.wrap(atualizarPerfil);
+    const req = mockRequest({ nome: "Novo Nome" }, uidAluno);
+    await expect(wrapped(req)).rejects.toMatchObject({ code: "permission-denied" });
   });
 });

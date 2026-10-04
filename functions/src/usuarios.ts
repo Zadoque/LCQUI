@@ -17,7 +17,7 @@ import {
   resolverOperacaoTx,
 } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
-import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema, BuscarAlunosSchema } from "./schemas/usuarios.schema";
+import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema, BuscarAlunosSchema, AtualizarPerfilSchema } from "./schemas/usuarios.schema";
 
 const PAPEIS: string[] = [...PAPEIS_CONHECIDOS];
 
@@ -270,4 +270,90 @@ export const buscarAlunos = onCall(async request => {
     .map(({ id, nome }) => ({ id, nome }));
 
   return { alunos };
+});
+
+/**
+ * S8 UI-01 L191: atualiza o nome do próprio usuário (self-service).
+ * Propaga a projeção de nome para perfis de papel e vínculos canônicos de turma.
+ * Preserva eventos históricos (HistoricoAlunos, Posts, Comentários).
+ */
+export const atualizarPerfil = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Autenticação obrigatória.");
+  }
+
+  const { nome } = validatePayload(AtualizarPerfilSchema, request.data);
+
+  const db = admin.firestore();
+  const usuarioRef = db.collection("Usuarios").doc(uid);
+  const alunoRef = db.collection("Aluno").doc(uid);
+  const professorRef = db.collection("Professor").doc(uid);
+  const bolsistaRef = db.collection("Bolsista").doc(uid);
+
+  await db.runTransaction(async (tx) => {
+    // --- Todas as leituras primeiro (Firestore exige reads antes de writes na transação) ---
+    const usuarioSnap = await tx.get(usuarioRef);
+    if (!usuarioSnap.exists) {
+      throw new HttpsError("not-found", "Usuário não encontrado.");
+    }
+    if (usuarioSnap.data()?.ativo !== true) {
+      throw new HttpsError("permission-denied", "Usuário inativo não pode atualizar perfil.");
+    }
+
+    const [alunoSnap, professorSnap, bolsistaSnap] = await tx.getAll(alunoRef, professorRef, bolsistaRef);
+
+    // Espelho de turmas do usuário
+    const turmasEspelhoSnap = await tx.get(db.collection("Usuarios").doc(uid).collection("Turmas"));
+
+    // Vínculos canônicos de turma (para propagar nome)
+    const turmaVinculoRefs = turmasEspelhoSnap.docs.map(doc =>
+      db.collection("Turma").doc(doc.id).collection("Alunos").doc(uid)
+    );
+    const turmaVinculoSnaps = turmaVinculoRefs.length > 0
+      ? await tx.getAll(...turmaVinculoRefs)
+      : [];
+
+    // --- Escritas ---
+    // 1. Usuarios/{uid}
+    tx.update(usuarioRef, {
+      nome,
+      atualizado_em: FieldValue.serverTimestamp(),
+    });
+
+    // 2. Aluno/{uid} — nome + letra_inicial
+    if (alunoSnap.exists) {
+      tx.update(alunoRef, {
+        nome,
+        letra_inicial: nome.charAt(0).toUpperCase(),
+      });
+    }
+
+    // 3. Professor/{uid} — nome
+    if (professorSnap.exists) {
+      tx.update(professorRef, { nome });
+    }
+
+    // 4. Bolsista/{uid} — nome (apenas se o doc tiver campo nome)
+    if (bolsistaSnap.exists && "nome" in (bolsistaSnap.data() ?? {})) {
+      tx.update(bolsistaRef, { nome });
+    }
+
+    // 5. Vínculos canônicos de turma — propagar nome se o vínculo existir
+    for (let i = 0; i < turmaVinculoSnaps.length; i++) {
+      if (turmaVinculoSnaps[i].exists) {
+        tx.update(turmaVinculoRefs[i], { nome });
+      }
+    }
+  });
+
+  // Efeito externo pós-commit: atualizar displayName no Auth.
+  // Falha aqui não desfaz o Firestore; apenas logue.
+  try {
+    await admin.auth().updateUser(uid, { displayName: nome });
+  } catch (error) {
+    console.error("Falha ao atualizar displayName no Auth para uid=%s:", uid, error);
+  }
+
+  return { sucesso: true };
 });

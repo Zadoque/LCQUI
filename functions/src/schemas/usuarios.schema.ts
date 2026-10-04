@@ -39,3 +39,8 @@ export const BuscarAlunosSchema = z.object({
   letra: z.string().length(1).regex(/^[A-Z]$/, "Letra deve ser uma letra maiúscula de A a Z.").optional(),
   termo: z.string().max(100, "Termo de busca excede 100 caracteres.").optional(),
 });
+
+// S8 UI-01 L191: atualização do próprio perfil (self-service).
+export const AtualizarPerfilSchema = z.object({
+  nome: z.string().trim().min(1, "O nome é obrigatório.").max(150, "O nome não pode exceder 150 caracteres."),
+});
