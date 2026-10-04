@@ -37,12 +37,15 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 
 ## Estado atual
 
-- Branch `dev` à frente de `origin/dev` por 3 commits (não publicado).
-- Matriz (70 features auditadas): **20 NÃO DIVERGENTE / 40 DIVERGENTE / 10 NÃO IMPLEMENTADO** (contagem manual após sessão; matriz ainda não foi atualizada no arquivo).
-- Última fatia concluída: `IMP-AUTH-001/002/003` — login page convergido com S8 UI-01.
-- Features NÃO DIVERGENTE: `IMP-ACAD-001`..`004`, `IMP-POST-001`..`004`, `IMP-ROT-001`..`005`, `IMP-NOTIF-002/003`, `IMP-RULES-001`, `IMP-INDEX-001`, `IMP-AUTH-001`, `IMP-AUTH-002`, `IMP-AUTH-003`.
-- Features que voltaram a DIVERGENTE após auditoria independente: `IMP-ACAD-006` (faltam E2E de aceite em turma arquivada e reingresso de aluno removido).
-- **Matriz de implementação NÃO foi atualizada** — branch `docs/atualizar-matriz-sessao` existe mas não foi verificada/mergeada.
+- Branch `dev` sincronizado com `origin/dev` (tudo publicado).
+- Matriz (70 features): **26 NÃO DIVERGENTE / 34 DIVERGENTE / 10 NÃO IMPLEMENTADO** (atualizada no arquivo).
+- Features NÃO DIVERGENTE (atuais): `IMP-ACAD-001`..`004`, `IMP-POST-001`..`004`, `IMP-ROT-001`..`005`, `IMP-NOTIF-001`..`003`, `IMP-RULES-001`..`004`, `IMP-INDEX-001`, `IMP-AUTH-001`..`004`.
+- Sessão (Frente A + autorização + Rules), commits em `dev`:
+  - `IMP-NOTIF-001` -> NÃO DIVERGENTE: enum alinhado ao CUE (`#M13Tipo`, 21 valores), página `/notificacoes` (UI-12), deep links por `entidade_alvo` (incl. Roteiro -> `/turmas?roteiros=1`), papel/escopo por item, E2E-NOTIF-004.
+  - `IMP-AUTH-004` -> NÃO DIVERGENTE: seletor de papel (UI-01) + `papelAtivo`/`resolverPapelAtivo`, Sidebar escopada, remonte por `papelAtivo` (cancela listeners, UI-13), perfil editável + callable `atualizarPerfil` (propaga nome, preserva históricos), guard de formulário modificado (S8 UI-01 L193).
+  - `IMP-RULES-002/003/004` -> NÃO DIVERGENTE: históricos acadêmicos (`HistoricoAlunos`/`Historico_Posts_Turma`/`Historico_Comentario`); patrimônio/reagentes server-owned + escopo (Lote/Emprestimo/Requisicao) + coleções M8 + `Especificacoes` + `Historico_Patrimonio`; Storage read por recurso + claim `ativo` + retenção do comprovante de baixa.
+  - `IMP-ROLE-004`: PARCIAL — callable `buscarProfessores` (projeção `{id,nome}`) criado; falta migrar 3 consumidores (`professores/page.tsx`, `ProfessorModais.tsx`, `ModaisAcademico.tsx`) + flip da Rule `Professor` (read->get) + remover `alert()` nativo em `alunos/page.tsx`.
+- **Pendências principais**: `IMP-UI-004` (cache/offline UI-13 + deep links de entidades não emitidas); `IMP-ROLE-004` (frontend acima); `IMP-NOTIF-004/005` (jobs M8/Seção 10.7 + `AUTO_ATENDIMENTO_RETIRADA`/Q14); `IMP-ACAD-006` (E2E residual já coberto por 15).
 
 ### Sessão anterior — resumo do trabalho
 
@@ -75,7 +78,9 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 3. **`Resumo_Reagente` via Firestore vs catálogo JSON** — código faz `.where()` direto; S5/S8 dizem catálogo JSON. Corrigir (A5).
 4. **IMP-ACAD-006 E2E residual** — faltam cenários E2E para aceite em turma arquivada e reingresso de aluno removido.
 5. **Matriz de implementação desatualizada** — branch `docs/atualizar-matriz-sessao` existe mas contagem pode estar incorreta.
-6. **Logs de debug** — `firebase-debug.log` e `firestore-debug.log` no diff. Adicionar ao `.gitignore` ou remover.
+6. **Comentário stale do Alloy M13** — o comentário diz "20 valores do enum", mas CUE/S7/Alloy fixam 21 (incl. `AUTO_ATENDIMENTO_RETIRADA`). Comentário desatualizado; não alterar o contrato formal (rastrear).
+7. **Rules das materializações M8/M10** — coleções `Resumo_*_Diario`/`Atividade_Gestor_*_Mensal` (S11 L82) ainda sem match explícito (features NÃO IMPLEMENTADO; nomes exatos a confirmar ao implementar MVIEW).
+8. **Logs de debug** — `firebase-debug.log` e `firestore-debug.log` no diff. Adicionar ao `.gitignore` ou remover.
 
 ## Próximas fatias priorizadas
 
