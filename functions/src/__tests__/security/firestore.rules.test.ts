@@ -22,6 +22,7 @@ const LEGACY_AUTHORITIES: Record<string, KnownRole[]> = {
   alice: ["Aluno"],
   boss: ["Chefe_Geral"],
   aluno1: ["Aluno"],
+  aluno2: ["Aluno"],
   prof1: ["Professor"],
   prof2: ["Professor"],
   gestor1: ["Gestor_Bens_Patrimoniais"],
@@ -400,14 +401,182 @@ describe("Firestore Security Rules", () => {
       await assertFails(dbProf.collection("Local").doc("l1").set({ predio: "A", andar: "1", sala: "2" }));
     });
 
-    it("deve permitir que um gestor de patrimônio crie patrimônio", async () => {
+    it("S11: gestor de patrimônio NÃO cria Bem_Patrimonial diretamente (server-owned)", async () => {
       const db = authedDb("gestor1", ["Gestor_Bens_Patrimoniais"]);
-      await assertSucceeds(db.collection("Bem_Patrimonial").add({ nome: "Microscópio" }));
+      await assertFails(db.collection("Bem_Patrimonial").add({ nome: "Microscópio" }));
     });
 
-    it("deve permitir que um professor crie requisição de patrimônio", async () => {
+    it("S11: professor NÃO cria Requisicao_Adicao_Bem_Patrimonial diretamente (server-owned)", async () => {
       const db = authedDb("prof1", ["Professor"]);
-      await assertSucceeds(db.collection("Requisicao_Adicao_Bem_Patrimonial").add({ nome: "Microscópio" }));
+      await assertFails(db.collection("Requisicao_Adicao_Bem_Patrimonial").add({ nome: "Microscópio" }));
+    });
+  });
+
+  describe("Patrimônio S11 — server-owned e escopo", () => {
+    it("S11: nenhum cliente escreve em Bem_Patrimonial (Gestor, Professor, Chefe)", async () => {
+      const dbGestor = authedDb("gestor1", ["Gestor_Bens_Patrimoniais"]);
+      const dbProf = authedDb("prof1", ["Professor"]);
+      const dbChefe = authedDb("boss", ["Chefe_Geral"]);
+      await assertFails(dbGestor.collection("Bem_Patrimonial").add({ nome: "Bem" }));
+      await assertFails(dbProf.collection("Bem_Patrimonial").add({ nome: "Bem" }));
+      await assertFails(dbChefe.collection("Bem_Patrimonial").add({ nome: "Bem" }));
+    });
+
+    it("S11: nenhum cliente escreve em Resumo_Bem_Patrimonial", async () => {
+      const dbGestor = authedDb("gestor1", ["Gestor_Bens_Patrimoniais"]);
+      await assertFails(dbGestor.collection("Resumo_Bem_Patrimonial").add({ resumo: "r" }));
+    });
+
+    it("S11: Locks_Requisicao_Patrimonio deny-all a qualquer cliente", async () => {
+      await testEnv.withSecurityRulesDisabled(async ctx => {
+        await ctx.firestore().collection("Locks_Requisicao_Patrimonio").doc("lk1").set({ status: "locked" });
+      });
+      const dbGestor = authedDb("gestor1", ["Gestor_Bens_Patrimoniais"]);
+      const dbChefe = authedDb("boss", ["Chefe_Geral"]);
+      await assertFails(dbGestor.collection("Locks_Requisicao_Patrimonio").doc("lk1").get());
+      await assertFails(dbGestor.collection("Locks_Requisicao_Patrimonio").get());
+      await assertFails(dbGestor.collection("Locks_Requisicao_Patrimonio").doc("lk1").set({ status: "unlocked" }));
+      await assertFails(dbChefe.collection("Locks_Requisicao_Patrimonio").doc("lk1").get());
+    });
+
+    it("S11: Professor lê apenas própria Requisicao_Adicao_Bem_Patrimonial", async () => {
+      await testEnv.withSecurityRulesDisabled(async ctx => {
+        await ctx.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc("req1").set({
+          id_usuario_solicitante: "prof1",
+          nome: "Req Prof1",
+        });
+        await ctx.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc("req2").set({
+          id_usuario_solicitante: "prof2",
+          nome: "Req Prof2",
+        });
+      });
+      const dbProf1 = authedDb("prof1", ["Professor"]);
+      const dbProf2 = authedDb("prof2", ["Professor"]);
+      const dbGestor = authedDb("gestor1", ["Gestor_Bens_Patrimoniais"]);
+      // Professor lê a própria
+      await assertSucceeds(dbProf1.collection("Requisicao_Adicao_Bem_Patrimonial").doc("req1").get());
+      // Professor NÃO lê requisição de outro professor
+      await assertFails(dbProf1.collection("Requisicao_Adicao_Bem_Patrimonial").doc("req2").get());
+      // Professor lê a própria (prof2 lê req2)
+      await assertSucceeds(dbProf2.collection("Requisicao_Adicao_Bem_Patrimonial").doc("req2").get());
+      // Professor NÃO escreve (server-owned)
+      await assertFails(dbProf1.collection("Requisicao_Adicao_Bem_Patrimonial").add({ nome: "Nova" }));
+      // Gestor lê qualquer
+      await assertSucceeds(dbGestor.collection("Requisicao_Adicao_Bem_Patrimonial").doc("req2").get());
+    });
+
+    it("S11: Professor lê apenas própria Requisicao_Edicao_Bem_Patrimonial", async () => {
+      await testEnv.withSecurityRulesDisabled(async ctx => {
+        await ctx.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc("req1").set({
+          id_usuario_solicitante: "prof1",
+          nome: "Req Edição Prof1",
+        });
+        await ctx.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc("req2").set({
+          id_usuario_solicitante: "prof2",
+          nome: "Req Edição Prof2",
+        });
+      });
+      const dbProf1 = authedDb("prof1", ["Professor"]);
+      const dbGestor = authedDb("gestor1", ["Gestor_Bens_Patrimoniais"]);
+      await assertSucceeds(dbProf1.collection("Requisicao_Edicao_Bem_Patrimonial").doc("req1").get());
+      await assertFails(dbProf1.collection("Requisicao_Edicao_Bem_Patrimonial").doc("req2").get());
+      await assertFails(dbProf1.collection("Requisicao_Edicao_Bem_Patrimonial").add({ nome: "Nova" }));
+      await assertSucceeds(dbGestor.collection("Requisicao_Edicao_Bem_Patrimonial").doc("req2").get());
+    });
+
+    it("S11: Historico_Patrimonio collection-group — Gestor lê, nenhum cliente escreve", async () => {
+      await testEnv.withSecurityRulesDisabled(async ctx => {
+        await ctx.firestore().collection("Bem_Patrimonial").doc("b1")
+          .collection("Historico_Patrimonio").doc("ev1").set({ tipo: "criacao" });
+      });
+      const dbGestor = authedDb("gestor1", ["Gestor_Bens_Patrimoniais"]);
+      const dbProf = authedDb("prof1", ["Professor"]);
+      // Gestor lê via subcoleção
+      await assertSucceeds(
+        dbGestor.collection("Bem_Patrimonial").doc("b1").collection("Historico_Patrimonio").doc("ev1").get()
+      );
+      // Professor não lê
+      await assertFails(
+        dbProf.collection("Bem_Patrimonial").doc("b1").collection("Historico_Patrimonio").doc("ev1").get()
+      );
+      // Ninguém escreve
+      await assertFails(
+        dbGestor.collection("Bem_Patrimonial").doc("b1").collection("Historico_Patrimonio").doc("ev2").set({ tipo: "hack" })
+      );
+    });
+  });
+
+  describe("Almoxarifado S11 — escopo de leitura", () => {
+    it("S11: Lote lido por Aluno DENY; Lote lido por Professor DENY", async () => {
+      await testEnv.withSecurityRulesDisabled(async ctx => {
+        await ctx.firestore().collection("Lote").doc("lote1").set({ codigo: "L001" });
+      });
+      const dbAluno = authedDb("aluno1", ["Aluno"]);
+      const dbProf = authedDb("prof1", ["Professor"]);
+      await assertFails(dbAluno.collection("Lote").doc("lote1").get());
+      await assertFails(dbProf.collection("Lote").doc("lote1").get());
+    });
+
+    it("S11: Lote lido por Gestor_Almoxarifado PASS; Lote lido por Chefe_Geral PASS", async () => {
+      await testEnv.withSecurityRulesDisabled(async ctx => {
+        await ctx.firestore().collection("Lote").doc("lote1").set({ codigo: "L001" });
+      });
+      const dbGestor = authedDb("gestorAlm", ["Gestor_Almoxarifado"]);
+      const dbChefe = authedDb("boss", ["Chefe_Geral"]);
+      await assertSucceeds(dbGestor.collection("Lote").doc("lote1").get());
+      await assertSucceeds(dbChefe.collection("Lote").doc("lote1").get());
+    });
+
+    it("S11: Emprestimo lido pelo retirante PASS; lido por terceiro DENY", async () => {
+      await testEnv.withSecurityRulesDisabled(async ctx => {
+        await ctx.firestore().collection("Emprestimo_Reagente").doc("emp1").set({
+          id_usuario_retirou: "aluno1",
+          frasco: "f1",
+        });
+        await ctx.firestore().collection("Emprestimo_Reagente").doc("emp2").set({
+          id_usuario_retirou: "prof1",
+          frasco: "f2",
+        });
+      });
+      const dbRetirante = authedDb("aluno1", ["Aluno"]);
+      const dbTerceiro = authedDb("aluno2", ["Aluno"]);
+      // Retirante lê o próprio
+      await assertSucceeds(dbRetirante.collection("Emprestimo_Reagente").doc("emp1").get());
+      // Terceiro não lê
+      await assertFails(dbTerceiro.collection("Emprestimo_Reagente").doc("emp1").get());
+      // Gestor_Almox lê qualquer
+      const dbGestor = authedDb("gestorAlm", ["Gestor_Almoxarifado"]);
+      await assertSucceeds(dbGestor.collection("Emprestimo_Reagente").doc("emp1").get());
+    });
+
+    it("S11: Estoques_Configurados lido por Gestor_Almoxarifado PASS; Aluno DENY", async () => {
+      await testEnv.withSecurityRulesDisabled(async ctx => {
+        await ctx.firestore().collection("Almoxarifado").doc("alm1").set({ nome: "Central" });
+        await ctx.firestore().collection("Almoxarifado").doc("alm1")
+          .collection("Estoques_Configurados").doc("cfg1").set({ reagente: "NaCl" });
+      });
+      const dbGestor = authedDb("gestorAlm", ["Gestor_Almoxarifado"]);
+      const dbAluno = authedDb("aluno1", ["Aluno"]);
+      await assertSucceeds(
+        dbGestor.collection("Almoxarifado").doc("alm1").collection("Estoques_Configurados").doc("cfg1").get()
+      );
+      await assertFails(
+        dbAluno.collection("Almoxarifado").doc("alm1").collection("Estoques_Configurados").doc("cfg1").get()
+      );
+      // Write deny-all
+      await assertFails(
+        dbGestor.collection("Almoxarifado").doc("alm1").collection("Estoques_Configurados").add({ reagente: "HCl" })
+      );
+    });
+
+    it("S11: Sistema_Catalogo_Reagentes — Aluno lê PASS; write DENY", async () => {
+      await testEnv.withSecurityRulesDisabled(async ctx => {
+        await ctx.firestore().collection("Sistema_Catalogo_Reagentes").doc("cat1").set({ nome: "NaCl" });
+      });
+      const dbAluno = authedDb("aluno1", ["Aluno"]);
+      await assertSucceeds(dbAluno.collection("Sistema_Catalogo_Reagentes").doc("cat1").get());
+      await assertFails(dbAluno.collection("Sistema_Catalogo_Reagentes").add({ nome: "HCl" }));
+      await assertFails(dbAluno.collection("Sistema_Catalogo_Reagentes").doc("cat1").update({ nome: "hack" }));
     });
   });
 
@@ -811,7 +980,7 @@ describe("Firestore Security Rules", () => {
 });
 
 // AUD-35/36: usar documentos existentes para provar negativa por Rules, não ausência.
-describe.each(["Controle_Papeis", "Operacoes", "Chaves_Unicas", "Convite_Aluno"])("Coleção interna %s", colecao => {
+describe.each(["Controle_Papeis", "Operacoes", "Chaves_Unicas", "Convite_Aluno", "Sistema_Cache_Dashboard", "Sistema_Rate_Limit_Dashboard", "Pendencias_Descarte_Frasco"])("Coleção interna %s", colecao => {
   it.each<KnownRole[]>([[], ["Aluno"], ["Professor"], ["Gestor_Almoxarifado"], ["Chefe_Geral"]])("nega cliente com roles %j", async (...roles) => {
     await testEnv.withSecurityRulesDisabled(async ctx => {
       await ctx.firestore().collection(colecao).doc("singleton").set({ versao: 1 });

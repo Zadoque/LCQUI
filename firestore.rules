@@ -66,11 +66,26 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Historico_Patrimonio collection-group (S11 L57)
+    match /{path=**}/Historico_Patrimonio/{eventoId} {
+      allow read: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais');
+      allow write: if false;
+    }
+
     // Coleções internas: deny-all já as protegia; matches explicitam a arquitetura.
     // Admin SDK não é sujeito a Security Rules.
     match /Controle_Papeis/{document=**} { allow read, write: if false; }
     match /Operacoes/{document=**} { allow read, write: if false; }
     match /Chaves_Unicas/{document=**} { allow read, write: if false; }
+    match /Sistema_Cache_Dashboard/{document=**} { allow read, write: if false; }
+    match /Sistema_Rate_Limit_Dashboard/{document=**} { allow read, write: if false; }
+    match /Pendencias_Descarte_Frasco/{idFrasco} { allow read, write: if false; }
+    match /Sistema_Catalogo_Reagentes/{document=**} {
+      allow read: if request.auth != null &&
+        (hasRole("Chefe_Geral") || hasRole("Gestor_Almoxarifado") ||
+         hasRole("Professor") || hasRole("Bolsista") || hasRole("Aluno"));
+      allow write: if false;
+    }
 
     // --- Usuarios ---
     match /Usuarios/{uid} {
@@ -235,12 +250,12 @@ service cloud.firestore {
     // --- Patrimonio ---
     match /Bem_Patrimonial/{itemId} {
       allow read: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais') || hasRole('Professor');
-      allow write: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais');
+      allow write: if false; // S11: server-owned (responderRequisicao*)
     }
 
     match /Resumo_Bem_Patrimonial/{itemId} {
       allow read: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais') || hasRole('Professor');
-      allow write: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais');
+      allow write: if false; // S11: server-owned
     }
 
     match /Local/{itemId} {
@@ -250,19 +265,19 @@ service cloud.firestore {
     }
 
     match /Requisicao_Adicao_Bem_Patrimonial/{reqId} {
-      allow read: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais') || hasRole('Professor');
-      allow create: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais') || hasRole('Professor');
-      allow update, delete: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais');
+      allow read: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais')
+        || (hasRole('Professor') && resource.data.id_usuario_solicitante == request.auth.uid);
+      allow write: if false; // S11: server-owned (criarRequisicaoAdicaoBem)
     }
 
     match /Requisicao_Edicao_Bem_Patrimonial/{reqId} {
-      allow read: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais') || hasRole('Professor');
-      allow create: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais') || hasRole('Professor');
-      allow update, delete: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais');
+      allow read: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais')
+        || (hasRole('Professor') && resource.data.id_usuario_solicitante == request.auth.uid);
+      allow write: if false; // S11: server-owned (criarRequisicaoEdicaoBem)
     }
 
     match /Locks_Requisicao_Patrimonio/{lockId} {
-      allow read, write: if isAdmin() || hasRole('Gestor_Bens_Patrimoniais');
+      allow read, write: if false; // S11 L73: exclusivo de Cloud Function
     }
 
     match /Historico_Bem_Patrimonial/{histId} {
@@ -285,6 +300,11 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       // Criação/status/gestores server-owned (gerenciarAlmoxarifado).
       allow write: if false;
+
+      match /Estoques_Configurados/{configId} {
+        allow read: if hasRole('Chefe_Geral') || hasRole('Gestor_Almoxarifado');
+        allow write: if false;
+      }
     }
 
     match /Gestor_Almoxarifado_x_Almoxarifado/{junctionId} {
@@ -303,7 +323,7 @@ service cloud.firestore {
     }
 
     match /Lote/{loteId} {
-      allow read: if isAuthenticated();
+      allow read: if hasRole('Chefe_Geral') || hasRole('Gestor_Almoxarifado');
       allow write: if false;
     }
 
@@ -313,7 +333,8 @@ service cloud.firestore {
     }
 
     match /Emprestimo_Reagente/{empId} {
-      allow read: if isAuthenticated();
+      allow read: if hasRole('Chefe_Geral') || hasRole('Gestor_Almoxarifado')
+        || resource.data.id_usuario_retirou == request.auth.uid;
       allow write: if false;
     }
 
