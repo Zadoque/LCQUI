@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDirtyForm } from "@/contexts/DirtyFormContext";
 import { auth, storage, functions } from "@/lib/firebase/config";
 import { signOut, updateProfile } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -23,6 +24,11 @@ export function PerfilDrawer({ isOpen, onClose }: PerfilDrawerProps) {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState(false);
+
+  const formSujo =
+    isOpen &&
+    (nome.trim() !== (user?.displayName ?? "").trim() || !!fotoFile || removerFoto);
+  useDirtyForm("perfil", formSujo);
 
   // Reseta o formulário quando o drawer abre
   useEffect(() => {
@@ -130,7 +136,7 @@ export function PerfilDrawer({ isOpen, onClose }: PerfilDrawerProps) {
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black/40 z-40"
+        className="fixed inset-x-0 bottom-0 top-[73px] bg-black/40 z-40"
         onClick={onClose}
         aria-hidden="true"
       />

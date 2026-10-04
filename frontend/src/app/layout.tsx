@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { DirtyFormsProvider } from "@/contexts/DirtyFormContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -33,7 +34,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <ThemeProvider>
           <AuthProvider>
-            {children}
+            <DirtyFormsProvider>
+              {children}
+            </DirtyFormsProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
