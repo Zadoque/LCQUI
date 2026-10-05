@@ -27,3 +27,5 @@ functions/lib/
 /tools/spec-doc/target/
 /build/latex/
 opencode.json
+opencode.json.bak
+.opencode/

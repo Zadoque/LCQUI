@@ -14,18 +14,43 @@ A implementação nunca sobrescreve silenciosamente a especificação. Se duas f
 
 ## Orquestração e delegação de modelos
 
-1. **O orquestrador nunca edita arquivos nem executa trabalho técnico diretamente.** Toda edição e toda execução de código são delegadas exclusivamente a um modelo (subagente) via Task. O orquestrador apenas planeja, distribui e revisa.
+1. **O orquestrador nunca edita arquivos nem executa trabalho técnico diretamente.** TODA ação — investigar, escolher, planejar, auditar, implementar, testar, commitar e atualizar documentação — é delegada a um subagente via Task. O orquestrador apenas opera a máquina de estados (DFA) abaixo.
 
-2. **Rotação de modelos obrigatória.** Nunca use o mesmo modelo em delegações consecutivas do mesmo papel; espalhe as delegações entre os modelos vivos disponíveis. Se uma delegação receber `AccessDenied` ou quota esgotada, troque imediatamente de modelo antes de tentar novamente — nunca insista no mesmo modelo que falhou.
+2. **Rotação estrita e sem fallback.** Nunca reutilize o **mesmo modelo** em delegações consecutivas do mesmo papel, mesmo que ele seja o conhecido por estar funcionando. Nunca faça fallback para um **único** modelo; sempre varie entre os modelos vivos. Cada delegação deve usar uma variante `<papel>--<modelo>` cujo modelo seja diferente do usado na última delegação daquele papel.
 
-3. **Toda delegação deve instruir explicitamente:**
+3. **Quota/erro do provider.** Em `AccessDenied`/quota esgotada ou erro de `max_tokens` (ex.: `Range of max_tokens should be [1, N]`), troque **IMEDIATAMENTE** para OUTRO modelo e repita a MESMA delegação — o estado do DFA **não** muda. Nunca insista no modelo que falhou e nunca resolva o problema editando `opencode.json` em runtime.
+
+4. **Toda delegação deve instruir explicitamente o subagente a:**
    - (a) trabalhar **no máximo 5 minutos** e retornar o que fez (mesmo que incompleto);
-   - (b) **usar obrigatoriamente os LSPs disponíveis** (TypeScript, ESLint, Tailwind, Rust, texlab, nixd) para diagnóstico antes e durante a edição;
-   - (c) manter escopo restrito ao entregue e fail-closed: se algo escapa ao escopo, parar e relatar.
+   - (b) **usar obrigatoriamente os LSPs disponíveis** (TypeScript, ESLint, Tailwind, texlab, nixd) para diagnóstico antes e durante a edição;
+   - (c) manter escopo restrito ao entregue e fail-closed: se algo escapa ao escopo, parar e relatar;
+   - (d) verificar cada passo com bash (`git branch --show-current`, `git diff --stat`, `tsc --noEmit`, testes) antes de retornar.
 
-4. **Máximo 4 investigações somente-leitura em paralelo**; **um único escritor por vez**. Nunca delegue escrita concorrente ao mesmo workspace.
+5. **Máximo 4 investigações read-only em paralelo**. **Um único escritor por vez.** Nunca delegue escrita concorrente ao mesmo workspace.
 
-5. **Modelos vivos atuais** (provider `bailian-payg`, conforme `opencode.json`): `glm-5.1`, `qwq-plus`, `qvq-max`. Ajuste `max_tokens` ≤ 8192 quando necessário. Variantes de agente seguem o formato `<papel>--<modelo>` (ex.: `lcqui-writer--qwq-plus`, `lcqui-writer--qvq-max`).
+6. **⚠️ Modelos frequentemente relatam sucesso sem materializar as mudanças.** Verifique SEMPRE o estado real (git diff/rev-parse/ls-remote, leitura do arquivo, execução de testes) ANTES de aceitar o retorno do subagente como concluído.
+
+7. **Modelos vivos** (provider `bailian-payg`, conforme `opencode.json`): a lista é grande e vários modelos entram em quota/limite de `max_tokens` sem aviso. Não há modelo garantido: **rotacione sempre** e trate falha de modelo como evento de rotação (item 3), nunca como motivo para parar ou para escolher um único modelo. `qwen-plus` foi removido por quota esgotada.
+
+## Máquina de estados (DFA) de implementação gradual
+
+O orquestrador DEVE seguir esta máquina de estados **determinística** (DFA), delegando cada estado a um papel distinto. Nenhum estado é opcional e as transições são fixas.
+
+| Estado | Papel (variante `<papel>--<modelo>`) | Ação delegada | Transição determinística |
+|---|---|---|---|
+| **q0 SELECT** | `matrix-selector` | Escolher a fatia que maximiza throughput na `documentation/MATRIZ_IMPLEMENTACAO_LCQUI.md` | → **q1** |
+| **q1 AUDIT_SELECTION** | `selection-auditor` | Auditar adversarialmente a escolha | APROVADO → **q2**; REPROVADO → **q0** |
+| **q2 PLAN** | `planner` | Planejar a modificação seguindo a norma | → **q3** |
+| **q3 AUDIT_PLAN** | `plan-auditor` | Verificar se o plano segue a norma corrente | APROVADO → **q5**; REPROVADO → **q4** |
+| **q4 CORRECT_PLAN** | `plan-corrector` | Corrigir o plano (sem editar código) | → **q3** |
+| **q5 IMPLEMENT** | `lcqui-writer` | Implementar em incrementos ≤ 5 min | → **q6** |
+| **q6 VERIFY** | `implementation-auditor` | Verificar materialização e conformidade | OK → **q7**; FALHA → **q5** |
+| **q7 TEST** | `test-specialist` | Executar testes (Jest/Emulator/Rules/E2E) | VERDE → **q8**; FALHA → **q5** |
+| **q8 ADVANCE** | `lcqui-writer` | Atualizar a matriz e commitar | → **q0** (próxima fatia) |
+
+- A variante concreta `<papel>--<modelo>` é escolhida a cada delegação respeitando a rotação estrita (item 2).
+- `repo-explorer` e `visual-auditor` são apoio read-only usável em qualquer estado, também com rotação de modelo.
+- O estado só avança quando a condição de transição for satisfeita **e** a materialização verificada (item 6).
 
 ## Branch e unidade de trabalho
 
