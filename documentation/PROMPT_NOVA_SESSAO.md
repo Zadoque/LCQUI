@@ -47,15 +47,16 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
   - `IMP-ROLE-004`: PARCIAL — callable `buscarProfessores` (projeção `{id,nome}`) criado; falta migrar 3 consumidores (`professores/page.tsx`, `ProfessorModais.tsx`, `ModaisAcademico.tsx`) + flip da Rule `Professor` (read->get) + remover `alert()` nativo em `alunos/page.tsx`.
 - **Pendências principais**: `IMP-UI-004` (cache/offline UI-13 + deep links de entidades não emitidas); `IMP-ROLE-004` (frontend acima); `IMP-NOTIF-004/005` (jobs M8/Seção 10.7 + `AUTO_ATENDIMENTO_RETIRADA`/Q14); `IMP-ACAD-006` (E2E residual já coberto por 15).
 
-### Sessão anterior — resumo do trabalho
+### Sessão atual — resumo do trabalho (commits em `dev`)
 
 | Feature | O que foi feito | Commits em `dev` |
 |---|---|---|
-| `IMP-INDEX-001` | 17 índices compostos declarados em `firestore.indexes.json` (12 normativos + 4 queries reais + 1 existente) | `c73e08a5` |
-| `IMP-AUTH-001` | `email.trim()` + `maxLength=150` + erro genérico + botão retry para rede | `843ac2a7` |
-| `IMP-AUTH-002` | Login Google: retry de rede; conta sem `Usuarios` = fail-closed via `ProtectedRoute` | `843ac2a7` |
-| `IMP-AUTH-003` | `sendPasswordResetEmail` com `email.trim()` + confirmação uniforme anti-enumeration + retry rede | `843ac2a7` |
-| `IMP-ACAD-006` | E2E-011 (convite expirado) + UI de expiração em `/convite/page.tsx`; auditoria revelou lacunas E2E residuais | `462abf59` |
+| `IMP-NOTIF-001` | Enum alinhado ao CUE `#M13Tipo` (21); página `/notificacoes` (UI-12) + E2E-NOTIF-004; deep links por `entidade_alvo` (incl. Roteiro) | `c4c9f21a`, `44207c52`, `0868cae8`, `20a6ca85`, `aa150850` |
+| `IMP-AUTH-004` | Seletor de papel (UI-01) + `papelAtivo`; remonte por `papelAtivo` (UI-13); perfil + `atualizarPerfil`; guard de formulário modificado | `7a52a2fa`, `4980e210`, `e4a2f506`, `ad54f078`, `3d96bdd7` |
+| `IMP-RULES-003` | Históricos acadêmicos nas Rules (S11) | `c14f15c3` |
+| `IMP-RULES-002` | Patrimônio/reagentes server-owned + escopo + coleções M8 + `Especificacoes` + `Historico_Patrimonio` | `a3a99ae8`, `f7b89a9e` |
+| `IMP-RULES-004` | Storage read por recurso + claim `ativo` + retenção de comprovante | `c03d16cc` |
+| `IMP-ROLE-004` (parcial) | Callable `buscarProfessores` (projeção `{id,nome}`) | `6d4086f2` |
 
 ### Decisões humanas registradas
 
@@ -76,31 +77,16 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 1. **Índice `Notificacoes(papel, lida, emitida_em)`** — S5 L860 pede mas não há query ativa.
 2. **Divergência `Historico_Patrimonio`** — S5 define como sub-coleção com collection-group; `relatorios.ts` consulta coleção raiz. Tratar em IMP-PAT-005/IMP-REP-002.
 3. **`Resumo_Reagente` via Firestore vs catálogo JSON** — código faz `.where()` direto; S5/S8 dizem catálogo JSON. Corrigir (A5).
-4. **IMP-ACAD-006 E2E residual** — faltam cenários E2E para aceite em turma arquivada e reingresso de aluno removido.
-5. **Matriz de implementação desatualizada** — branch `docs/atualizar-matriz-sessao` existe mas contagem pode estar incorreta.
-6. **Comentário stale do Alloy M13** — o comentário diz "20 valores do enum", mas CUE/S7/Alloy fixam 21 (incl. `AUTO_ATENDIMENTO_RETIRADA`). Comentário desatualizado; não alterar o contrato formal (rastrear).
-7. **Rules das materializações M8/M10** — coleções `Resumo_*_Diario`/`Atividade_Gestor_*_Mensal` (S11 L82) ainda sem match explícito (features NÃO IMPLEMENTADO; nomes exatos a confirmar ao implementar MVIEW).
-8. **Logs de debug** — `firebase-debug.log` e `firestore-debug.log` no diff. Adicionar ao `.gitignore` ou remover.
+4. **Comentário stale do Alloy M13** — o comentário diz "20 valores do enum", mas CUE/S7/Alloy fixam 21 (incl. `AUTO_ATENDIMENTO_RETIRADA`). Comentário desatualizado; não alterar o contrato formal (rastrear).
+5. **Rules das materializações M8/M10** — coleções `Resumo_*_Diario`/`Atividade_Gestor_*_Mensal` (S11 L82) ainda sem match explícito (features NÃO IMPLEMENTADO; nomes exatos a confirmar ao implementar MVIEW).
 
 ## Próximas fatias priorizadas
 
-### Onda 1 — convergência de base (residual)
-- `IMP-ACAD-006` (residual): E2E de aceite em turma arquivada + reingresso de aluno removido.
-- Atualizar e mergear a matriz de implementação.
-
-### Onda 2 — notificações e UI
-- `IMP-NOTIF-001` + `IMP-NOTIF-004` + `IMP-NOTIF-005`: dashboard UI-12, expiração, emissores V1.
-- `IMP-UI-004`: página dedicada UI-12/UI-13, deep links, seletor de papel.
-
-### Onda 3 — autorização residual
-- `IMP-AUTH-004` + `IMP-ROLE-004`: perfil, seletor de papel, diretório mínimo.
-- `IMP-RULES-002` + `IMP-RULES-003` + `IMP-RULES-004`: escopo de reagentes/patrimônio, ACL residual, Storage Rules.
-
-### Onda 4 — domínio de patrimônio
-- `IMP-PAT-001`..`005`: cadastro, plaqueta, requisições, histórico, baixa.
-
-### Onda 5+ — domínio de laboratório
-- Reagentes, frascos, retirada, devolução (M1–M4); M5/M6 (extravio, metrologia); M8 (estoque, escassez, cache, materializações); relatórios; etiquetas; UI-001..003.
+1. `IMP-ROLE-004` (fechar): migrar `professores/page.tsx`, `ProfessorModais.tsx`, `ModaisAcademico.tsx` para o callable `buscarProfessores`; flip da Rule `Professor` (`read`->`get`); remover `alert()` nativo em `alunos/page.tsx`; E2E por papel.
+2. `IMP-UI-004`: cache/offline (UI-13) + deep links de `entidade_alvo` sem tela.
+3. `IMP-NOTIF-004/005`: jobs M8/Seção 10.7 (`ESCASSEZ_ESTOQUE`, `FRASCOS_VENCIDOS`, `DATA_DEVOLUCAO_REAGENTE`, `ENTREGA_ATRASADA`) e `AUTO_ATENDIMENTO_RETIRADA` (Q14).
+4. `IMP-ACAD-005` (lacuna de canal GLOBAL), `IMP-BASE-001/002/003` (UI-03), `IMP-ROLE-001/002/003`.
+5. Ondas de patrimônio (`IMP-PAT-001..005`) e laboratório (M1–M8, relatórios, etiquetas, UI-001..003).
 
 ## Papéis (prompt + permissão fixos)
 
