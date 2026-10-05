@@ -9,6 +9,9 @@ import Link from "next/link";
 import { BemPatrimonial } from "@/types/patrimonio";
 import ModalRelatoriosPatrimonio from "@/components/patrimonio/ModalRelatoriosPatrimonio";
 import { ModalNovoBem, ModalNotificacoesPatrimonio } from "@/components/patrimonio/ModaisPatrimonio";
+import { ListaLocais } from "@/components/patrimonio/ListaLocais";
+import { NovaLocalModal } from "@/components/patrimonio/NovaLocalModal";
+import type { LocalItem } from "@/components/patrimonio/ListaLocais";
 
 export default function PatrimonioDashboard() {
   const { roles, user } = useAuth();
@@ -21,6 +24,10 @@ export default function PatrimonioDashboard() {
   // Novos estados de modais
   const [isNovoBemOpen, setIsNovoBemOpen] = useState(false);
   const [isNotificacoesOpen, setIsNotificacoesOpen] = useState(false);
+
+  // Estados de gestão de locais
+  const [isNovoLocalOpen, setIsNovoLocalOpen] = useState(false);
+  const [localEditavel, setLocalEditavel] = useState<LocalItem | undefined>(undefined);
 
   // Filtros obrigatórios (Seção 5.2 do main.tex):
   // "Combinação obrigatória de pelo menos um: (Prédio) ou (letra_inicial_nome) ou (Status)"
@@ -173,6 +180,29 @@ export default function PatrimonioDashboard() {
               </p>
             </div>
           </header>
+
+          {/* ================================================================ */}
+          {/* GESTÃO DE LOCAIS — UI-03 (Seção 8) — visível apenas a gestores   */}
+          {/* ================================================================ */}
+          {hasManagementAccess && (
+            <div className="glass-panel p-6 rounded-2xl space-y-4 border border-foreground/10">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                Gestão de Locais
+              </h2>
+              <ListaLocais
+                modo="listagem"
+                onNovoLocal={() => { setLocalEditavel(undefined); setIsNovoLocalOpen(true); }}
+                onEditar={(local) => { setLocalEditavel(local); setIsNovoLocalOpen(true); }}
+              />
+              <NovaLocalModal
+                isOpen={isNovoLocalOpen}
+                onClose={() => { setIsNovoLocalOpen(false); setLocalEditavel(undefined); }}
+                onSucesso={() => { setIsNovoLocalOpen(false); setLocalEditavel(undefined); }}
+                localEditavel={localEditavel}
+              />
+            </div>
+          )}
 
           {/* ====================================================================== */}
           {/* FILTROS OBRIGATÓRIOS DE BANCO (Seção 5.2, linha 1280-1281)             */}

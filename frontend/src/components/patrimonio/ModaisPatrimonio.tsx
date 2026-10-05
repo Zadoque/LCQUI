@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { ListaLocais } from "@/components/patrimonio/ListaLocais";
+import { NovaLocalModal } from "@/components/patrimonio/NovaLocalModal";
 
 interface ModalProps {
   isOpen: boolean;
@@ -12,10 +14,13 @@ interface ModalProps {
 export function ModalNovoBem({ isOpen, onClose, onSuccess }: ModalProps) {
   const [nome, setNome] = useState("");
   const [numeroPatrimonio, setNumeroPatrimonio] = useState("");
-  const [predio, setPredio] = useState("");
+  const [selectedLocalId, setSelectedLocalId] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState("Ativo");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+
+  // Estados do modal interno de novo local
+  const [isNovoLocalOpen, setIsNovoLocalOpen] = useState(false);
 
   if (!isOpen) return null;
 
@@ -29,8 +34,9 @@ export function ModalNovoBem({ isOpen, onClose, onSuccess }: ModalProps) {
         onClose();
         setLoading(false);
       }, 1000);
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro interno.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Erro interno.";
+      setErrorMsg(message);
       setLoading(false);
     }
   };
@@ -53,13 +59,20 @@ export function ModalNovoBem({ isOpen, onClose, onSuccess }: ModalProps) {
                 className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-blue-500 outline-none" />
             </div>
           </div>
-          
+
+          {/* Seletor de Local (INC4) */}
+          <div>
+            <label className="block text-sm font-medium mb-1">Local</label>
+            <ListaLocais
+              modo="selecao"
+              selectedId={selectedLocalId}
+              onSelecionar={(id: string) => setSelectedLocalId(id)}
+              onNovoLocal={() => setIsNovoLocalOpen(true)}
+              testIdPrefix="seletor-local-"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Prédio</label>
-              <input type="text" required value={predio} onChange={(e) => setPredio(e.target.value)} 
-                className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-blue-500 outline-none" />
-            </div>
             <div>
               <label className="block text-sm font-medium mb-1">Status</label>
               <select value={status} onChange={(e) => setStatus(e.target.value)}
@@ -74,11 +87,21 @@ export function ModalNovoBem({ isOpen, onClose, onSuccess }: ModalProps) {
 
           <div className="flex justify-end gap-3 mt-6">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg hover:bg-foreground/5 transition-colors">Cancelar</button>
-            <button type="submit" disabled={loading} className="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50">
+            <button type="submit" disabled={loading || !selectedLocalId} className="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50">
               {loading ? "Salvando..." : "Salvar Bem"}
             </button>
           </div>
         </form>
+
+        {/* Modal interno de criação de local */}
+        <NovaLocalModal
+          isOpen={isNovoLocalOpen}
+          onClose={() => setIsNovoLocalOpen(false)}
+          onSucesso={(id: string) => {
+            setIsNovoLocalOpen(false);
+            setSelectedLocalId(id);
+          }}
+        />
       </div>
     </div>
   );

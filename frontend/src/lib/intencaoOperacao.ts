@@ -219,3 +219,24 @@ export function chaveIntencaoRejeicao(idConvite: string): string {
 export function assinaturaIntencaoRejeicao(idConvite: string): string {
   return JSON.stringify(["REJEITAR_CONVITE", idConvite.trim()]);
 }
+
+/** Campos semânticos da intenção de criação/edição de Local. */
+export interface CamposIntencaoLocal {
+  predio: string;
+  andar: string;
+  sala: string;
+  idLocal?: string;
+}
+
+/** Chave de sessão da intenção de criação/edição de local. */
+export const CHAVE_INTENCAO_LOCAL = "lcqui.intencao.local";
+
+/** Assinatura canônica e determinística dos campos semânticos da intenção de local. */
+export function assinaturaIntencaoLocal(campos: CamposIntencaoLocal): string {
+  return JSON.stringify([
+    campos.predio,
+    campos.andar,
+    campos.sala,
+    campos.idLocal ?? null,
+  ]);
+}
