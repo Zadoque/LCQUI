@@ -14,7 +14,7 @@ A implementação nunca sobrescreve silenciosamente a especificação. Se duas f
 
 ## Orquestração e delegação de modelos
 
-1. **O orquestrador nunca edita arquivos nem executa trabalho técnico diretamente.** TODA ação — investigar, escolher, planejar, auditar, implementar, testar, commitar e atualizar documentação — é delegada a um subagente via Task. O orquestrador apenas opera a máquina de estados (DFA) abaixo.
+1. **Delegação obrigatória e inegociável — sem exceção.** O orquestrador NUNCA edita arquivos, nunca executa comandos mutáveis e nunca realiza trabalho técnico diretamente. TODA ação — investigar, escolher, planejar, auditar, implementar, testar, commitar, publicar e atualizar documentação — é delegada a um subagente via Task. O orquestrador apenas opera a máquina de estados (DFA) abaixo.
 
 2. **Rotação estrita e sem fallback.** Nunca reutilize o **mesmo modelo** em delegações consecutivas do mesmo papel, mesmo que ele seja o conhecido por estar funcionando. Nunca faça fallback para um **único** modelo; sempre varie entre os modelos vivos. Cada delegação deve usar uma variante `<papel>--<modelo>` cujo modelo seja diferente do usado na última delegação daquele papel.
 
@@ -25,6 +25,9 @@ A implementação nunca sobrescreve silenciosamente a especificação. Se duas f
    - (b) **usar obrigatoriamente os LSPs disponíveis** (TypeScript, ESLint, Tailwind, texlab, nixd) para diagnóstico antes e durante a edição;
    - (c) manter escopo restrito ao entregue e fail-closed: se algo escapa ao escopo, parar e relatar;
    - (d) verificar cada passo com bash (`git branch --show-current`, `git diff --stat`, `tsc --noEmit`, testes) antes de retornar.
+   - (e) **lembrar e respeitar a hierarquia de decisão** — **norma corrente (`documentation/main.tex` e Seções) > CUE + Alloy (`specification/cue/**`, `specification/alloy/**`) > implementação atual** — a implementação atual NUNCA sobrescreve a norma; em conflito, pare e reporte.
+
+> **CHECKLIST MÍNIMO DE TODA DELEGAÇÃO (obrigatório):** todo prompt de Task DEVE conter, de forma explícita e literal: (1) a ordem de **delegar** o trabalho (o subagente executa; o orquestrador não); (2) a ordem de **usar obrigatoriamente os LSPs disponíveis** (TypeScript, ESLint, Tailwind, texlab, nixd) para diagnóstico antes e durante a edição; (3) o lembrete da **hierarquia de decisão**: norma corrente > CUE + Alloy > implementação atual. Delegação sem esses três itens é considerada inválida.
 
 5. **Máximo 4 investigações read-only em paralelo**. **Um único escritor por vez.** Nunca delegue escrita concorrente ao mesmo workspace.
 

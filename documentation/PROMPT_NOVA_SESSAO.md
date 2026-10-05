@@ -5,7 +5,7 @@ Antes de agir, leia `AGENTS.md`, `opencode.json` e as fontes relevantes.
 
 ## ⛔ POLÍTICA RÍGIDA DE DELEGAÇÃO
 
-1. **O orquestrador NUNCA edita arquivos.** Toda edição e toda execução de mutação é delegada a um **modelo** (subagente).
+1. **Delegação obrigatória e inegociável, sem exceção.** O orquestrador NUNCA edita arquivos nem executa mutação alguma. TODA edição, comando mutável, teste, commit e atualização de documentação é delegada a um **modelo** (subagente) via Task. O orquestrador apenas opera o DFA.
 2. **Rotacionar modelos obrigatoriamente.** É proibido usar o mesmo modelo em delegações consecutivas do mesmo papel. Espalhar papéis entre os modelos vivos. Manter uma rotação explícita e registrada.
 3. **`AccessDenied` / quota esgotada → trocar imediatamente** para outro modelo vivo. Não editar `opencode.json` para resolver.
 4. **Toda delegação deve instruir o modelo a:**
@@ -13,6 +13,7 @@ Antes de agir, leia `AGENTS.md`, `opencode.json` e as fontes relevantes.
    - (b) **usar obrigatoriamente os LSPs disponíveis** (TypeScript, ESLint, Tailwind, TeX, Nix) quando úteis;
    - (c) **não editar fora do escopo** entregue.
    - (d) **verificar cada passo com bash** (`git branch --show-current`, `git diff --stat`, `tsc --noEmit`) antes de retornar.
+   - (e) **lembrar a hierarquia de decisão** — norma corrente (`documentation/main.tex` e Seções) **>** CUE + Alloy (`specification/cue/**`, `specification/alloy/**`) **>** implementação atual; a implementação nunca sobrescreve a norma.
 5. Máximo **4 investigações read-only em paralelo**. **Um escritor por vez.**
 6. **⚠️ Lição aprendida: modelos frequentemente relatam sucesso sem ter materializado as mudanças.** Sempre verificar o estado real do workspace (git diff, leitura do arquivo) ANTES de aceitar o retorno do writer como concluído.
 
@@ -20,18 +21,32 @@ Antes de agir, leia `AGENTS.md`, `opencode.json` e as fontes relevantes.
 
 | Modelo | Notas | Papel(es) canônico(s) atual(is) |
 |---|---|---|
-| `glm-5.1` | Raciocínio forte; writer e auditoria | orquestrador, `lcqui-writer`, `normative-auditor`, `implementation-auditor` |
+| `glm-5.1` | Raciocínio forte; writer e auditoria | orquestrador, `lcqui-writer`, `normative-auditor`, `implementation-auditor`, `test-creator`, `test-auditor`, `test-corrector`, `test-executor`, `matrix-selector`, `selection-auditor`, `planner`, `plan-auditor`, `plan-corrector` |
+| `qwen3-next-80b-a3b-thinking` | **Fallback canônico** de raciocínio quando `glm-5.1` falhar | todos os papéis (variante `--qwen3-next-80b-a3b-thinking`) |
 | `qwq-plus` | Raciocínio; exploração e testes | `repo-explorer`, `test-specialist` |
 | `qvq-max` | Visão multimodal; só quando imagem for relevante | `visual-auditor` (pode exigir `max_tokens` ≤ 8192) |
+| `qwq-plus` | ⚠️ NÃO materializa escrita; alucina auditorias — usar apenas com verificação | (evitar para escrita/auditoria) |
 
 **⚠️ `qvq-max` pode falhar com `max_tokens` fora do range [1, 8192].** Se falhar, trocar para outro modelo.
 **⚠️ Alguns modelos (qwq-plus) alucinam conteúdo de arquivos sem lê-los de fato.** Sempre cruzar auditorias com verificação direta.
+**Fallback obrigatório do `glm-5.1`:** se uma delegação ao `glm-5.1` (ou a qualquer variante baseada nele) falhar com `AccessDenied`/quota esgotada, erro de `Range of max_tokens`, `Internal Server Error` ou timeout, troque **IMEDIATAMENTE** para a variante do MESMO papel com `--qwen3-next-80b-a3b-thinking` (ex.: `lcqui-writer` → `lcqui-writer--qwen3-next-80b-a3b-thinking`; `implementation-auditor` → `implementation-auditor--qwen3-next-80b-a3b-thinking`) e repita a MESMA delegação — o estado do DFA NÃO muda. O `qwen3-next-80b-a3b-thinking` é o fallback canônico de raciocínio para todos os 15 papéis. Se ele também falhar, prossiga a rotação entre os demais modelos vivos (nunca insista no modelo que falhou, nunca edite `opencode.json` em runtime).
 
 Modelos sem quota foram removidos. A variante `<papel>--<modelo>` (pontos → hífen) é escolhida via Task e invoca o subagente `hidden` correspondente.
 
-Modelos com quota esgotada foram removidos de `opencode.json` (raiz e global): `qwen3.5-122b-a10b`, `qwen3.6-plus`, `qwen3.6-35b-a3b`, `qwen3.7-max-2026-05-20`, `qwen3.8-max-0902`, `qwen-flash-2025-07-28`, `qwen-flash`, `qwen3.7-flash`, `qwen3.6-27b`. Defaults base ajustados: `test-executor` → `bailian-payg/glm-5.1`, `test-creator` → `bailian-payg/qwen3.8-flash`. Orquestrador agora em `bailian-payg/glm-5.1`.
+Modelos com quota esgotada foram removidos de `opencode.json` (raiz e global): `qwen3.5-122b-a10b`, `qwen3.6-plus`, `qwen3.6-35b-a3b`, `qwen3.7-max-2026-05-20`, `qwen3.8-max-0902`, `qwen-flash-2025-07-28`, `qwen-flash`, `qwen3.7-flash`, `qwen3.6-27b`, `qwen3.8-flash`, `qwen-mt-plus`, `qwen-mt-turbo`, `qwen3-14b`, `qwen3.5-27b`, `qwen3-coder-plus-2025-07-22`, `qwen3.5-35b-a3b`. Também removidos por não suportarem function calling: `qwen-mt-*`. Defaults base reatribuídos: `test-executor`/`test-creator`/`test-auditor`/`test-corrector` e os papéis de planejamento (`matrix-selector`, `selection-auditor`, `planner`, `plan-auditor`, `plan-corrector`) → `bailian-payg/glm-5.1`; orquestrador em `bailian-payg/glm-5.1`. Estado corrente: 59 modelos / 911 agentes.
+
+## ⛔ Kit mínimo de delegação (obrigatório em TODO prompt de Task)
+
+Todo prompt de delegação DEVE conter explicitamente:
+1. **Delegar** — o subagente executa; o orquestrador não executa trabalho técnico.
+2. **Usar obrigatoriamente os LSPs disponíveis** (TypeScript, ESLint, Tailwind, texlab, nixd) para diagnóstico antes e durante a edição.
+3. **Hierarquia de decisão** — norma corrente > CUE + Alloy > implementação atual.
+
+Delegação sem os três itens é inválida e deve ser refeita.
 
 ## Hierarquia normativa (não inverter)
+
+> **Regra de ouro:** **norma corrente > CUE + Alloy > implementação atual.** Em qualquer conflito, a decisão vem de cima para baixo; a implementação nunca prevalece nem "conserta" silenciosamente a norma.
 
 1. decisão humana explícita → 2. `documentation/main.tex` e seções → 3. `specification/cue/**` e `specification/alloy/**` → 4. `documentation/worklogs/formal-spec/**` (M0–M13) → 5. `documentation/MATRIZ_IMPLEMENTACAO_LCQUI.md` → 6. implementação/testes.
 
@@ -61,6 +76,7 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 | `IMP-RULES-004` | Storage read por recurso + claim `ativo` + retenção de comprovante | `c03d16cc` |
 | `IMP-ROLE-004` (parcial) | Callable `buscarProfessores` (projeção `{id,nome}`) | `6d4086f2` |
 | `IMP-BASE-002` | Locais UI-03 + E2E (NovaLocalModal, ListaLocais, integração ModalNovoBem, fix M7 limparIntencao, 8 testes verdes) | TBD |
+| `IMP-BASE-001` | PLANO PRONTO (q0→q4): Almoxarifados UI-03 + E2E; aguarda q5 | — (planning) |
 
 ### Decisões humanas registradas
 
@@ -90,31 +106,37 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 
 ## Próximas fatias priorizadas
 
+**EM EXECUÇÃO (plano pronto):** `IMP-BASE-001` — Almoxarifados UI-03 + E2E (q0→q4 concluído; aguarda q5 IMPLEMENT)
+
 1. `IMP-ROLE-004` (fechar): migrar `professores/page.tsx`, `ProfessorModais.tsx`, `ModaisAcademico.tsx` para o callable `buscarProfessores`; flip da Rule `Professor` (`read`->`get`); remover `alert()` nativo em `alunos/page.tsx`; E2E por papel.
 2. `IMP-UI-004`: cache/offline (UI-13) + deep links de `entidade_alvo` sem tela.
 3. `IMP-NOTIF-004/005`: jobs M8/Seção 10.7 (`ESCASSEZ_ESTOQUE`, `FRASCOS_VENCIDOS`, `DATA_DEVOLUCAO_REAGENTE`, `ENTREGA_ATRASADA`) e `AUTO_ATENDIMENTO_RETIRADA` (Q14).
-4. `IMP-ACAD-005` (lacuna de canal GLOBAL), `IMP-BASE-001/003` (UI-03), `IMP-ROLE-001/002/003`.
+4. `IMP-ACAD-005` (lacuna de canal GLOBAL), `IMP-BASE-003` (UI-03), `IMP-ROLE-001/002/003`.
 5. Ondas de patrimônio (`IMP-PAT-001..005`) e laboratório (M1–M8, relatórios, etiquetas, UI-001..003).
 
-## Plano pronto para execução — IMP-BASE-002 (Locais UI-03 + E2E)
+## Plano pronto para execução — IMP-BASE-001 (Almoxarifados UI-03 + E2E)
 
-Fatia selecionada em q0, aprovada em q1 e com plano aprovado por q3. Backend já convergido; trabalho 100% frontend + E2E. Não alterar backend/Rules/CUE/Alloy.
+Fatia selecionada em q0 (2ª rodada, após q1 reprovar IMP-ROLE-004 por `buscarProfessores` retornar só `{id,nome}`); plano aprovado após correções em q4. Backend de gerenciamento já convergido; esta fatia ADICIONA uma projeção de listagem de gestores + UI-03 + E2E. Não alterar CUE/Alloy/main.tex.
 
-Norma: Section-8-Descricao-das-telas-Dashboards.tex:208 (UI-03): Novo Local exige prédio (30), andar (10, texto para térreo/subsolo) e sala (30); remover espaços externos; rejeitar vazios; unicidade normalizada no servidor; retornar o ID e selecionar o local no formulário de origem. Acesso: Gestor_Bens_Patrimoniais e Chefe_Geral. M7 (idOperacao) + M9.
+Norma: Section-8-Descricao-das-telas-Dashboards.tex:33-46 (Aba Almoxarifados: Novo Almoxarifado / Novo Gestor de Almoxarifado / Gerenciar Gestores) e :205-206 (UI-03): Novo Almoxarifado exige nome (100), descrição (500), Local existente e ≥1 gestor para ativação; seleção múltipla lista apenas gestores ativos; pode ser salvo inativo sem gestor; ativar exige vínculo válido; gerenciar vínculos impede remover o último de almoxarifado ativo. Section-9-Exemplos-de-fluxos.tex:426-427 (CHE-03). Section-7 (RN-ROLE-05): almoxarifado ativo exige ≥1 Gestor_Almoxarifado. Section-5-Notas-de-Mapeamento-para-Firestore.tex:333 (descricao O, max 500). M7 (idOperacao) + M9 (Chefe_Geral persistido).
 
-Evidência: functions/src/patrimonio.ts:294-378 (gerenciarLocal CRIAR/EDITAR, M9 l.306, M7/resolverOperacaoTx l.310/346, Chaves_Unicas l.315/360, retorno {id}); functions/src/schemas/patrimonio.schema.ts:8-15 (predio≤30/andar≤10/sala≤30); firestore.rules:261-265 (Local read para Gestor_Bens/Professor, write:false); functions/src/__tests__/locais.test.ts:58-169 (TEST-INT-LOCAL-001–009 verdes); trigger onLocalAtualizado (patrimonio.ts:380). UI ausente. Padrão reutilizável: `frontend/src/components/materias/ListaMaterias.tsx` (5 estados incl. `snapshot.metadata.fromCache`) e `NovaMateriaModal.tsx` (CRIAR/EDITAR, already-exists via `.includes`, a11y).
+Evidência: functions/src/almoxarifados.ts:59-199 (gerenciarAlmoxarifado CRIAR/EDITAR/ATIVAR/DESATIVAR — NÃO alterar comportamento); functions/src/schemas/almoxarifados.schema.ts:9-18 (schema flat atual a refatorar); functions/src/__tests__/almoxarifados.test.ts (TEST-INT-ALMOX-001–015; helper corpo() L55-63; L124/L139 enviam idLocal fictício); firestore.rules:132-134 (Gestor_Almoxarifado isOwner-only → projeção necessária); functions/src/usuarios.ts:281-308 (padrão buscarProfessores); frontend/src/app/reagentes/page.tsx:323-340 (botões sem handler); padrão discriminatedUnion em functions/src/schemas/materias.schema.ts:7-19; padrão UI em frontend/src/components/patrimonio/ListaLocais.tsx, NovaLocalModal.tsx e frontend/src/lib/intencaoOperacao.ts.
 
 INCREMENTOS:
-INC1 `frontend/src/lib/intencaoOperacao.ts` (após L221): adicionar `CamposIntencaoLocal` (predio, andar, sala, idLocal?), `chaveIntencaoLocal`, `assinaturaIntencaoLocal` no padrão de `assinaturaIntencaoTurma` (L37) e `obterIntencaoPersistida` (L140).
-INC2 novo `frontend/src/components/patrimonio/NovaLocalModal.tsx`: campos predio(maxLength=30)/andar(maxLength=10, texto livre)/sala(maxLength=30); `trim()` e rejeitar vazios no cliente; M7 via `obterIntencaoPersistida`; callable `gerenciarLocal` com acao CRIAR/EDITAR; mapear `err.code.includes("already-exists")` para erro de unicidade no campo; callback `onSucesso(id)`; a11y (role=dialog, aria-modal, foco inicial, Escape, aria-describedby); data-testids modal-local/input-predio/input-andar/input-sala/btn-salvar-local/erro-campo-local.
-INC3 novo `frontend/src/components/patrimonio/ListaLocais.tsx`: onSnapshot `collection(db,"Local")` orderBy("predio"); 5 estados (loading/permissionDenied/error/stale via metadata.fromCache/empty); modos listagem|selecao; data-testids lista-locais/btn-novo-local/local-item-{id}/btn-editar-local-{id}.
-INC4 integrar em `frontend/src/app/patrimonio/page.tsx` (gestão de Locais visível a `hasManagementAccess` = isChefe || isGestorPatrimonio, L41; ProtectedRoute já inclui ambos, L90) e em `frontend/src/components/patrimonio/ModaisPatrimonio.tsx` (`ModalNovoBem`: seleção de Local via ListaLocais modo selecao; `NovaLocalModal` como etapa interna/suspende o form; `onSucesso(id)` seleciona o local no formulário de origem).
-INC5 novo `frontend/e2e/specs/20-locais.spec.ts` LOCAL-E2E-001..006: 001 Gestor cria (persistência, trim, maxLength, retorno de ID); 002 Chefe edita mantendo ID de documento; 003 duplicata normalizada → erro already-exists no campo; 004 5 estados da lista (carregando/vazio/erro/desatualizado); 005 criar via ModalNovoBem seleciona o local retornado; 006 Professor/Bolsista não acessam gestão. Seed: `gestor.patrimonial` (Gestor_Bens_Patrimoniais).
-INC6 matriz L47 -> NÃO DIVERGENTE + `documentation/testes/sections/19-imp-base-002.tex` ATUALIZAR.
-Regressão: `cd frontend && npx --no-install tsc --noEmit && npm run lint`; `cd frontend && npm run test:e2e -- e2e/specs/19-materias.spec.ts`; `cd functions && npm run test:emulator`.
-Critério de conclusão: LOCAL-E2E-001..006 verdes; regressão verde; matriz L47 NÃO DIVERGENTE; backend/Rules/CUE/Alloy intocados; UI restrita a Gestor_Bens_Patrimoniais+Chefe_Geral.
-
-EXECUÇÃO: iniciar direto em **q5 IMPLEMENT** (plano já aprovado por q3), delegando ao `lcqui-writer`, seguindo o DFA ampliado a partir do bloco de testes.
+INC1 functions/src/schemas/almoxarifados.schema.ts: refatorar `GerenciarAlmoxarifadoSchema` para `z.discriminatedUnion("acao", [...])` — CRIAR: {idOperacao, idLocal min1, nome trim min1 max100, descricao trim min1 max500, gestores? string[], ativo? boolean}; EDITAR: {idOperacao, idAlmoxarifado min1, idLocal, nome, descricao, gestores?} SEM ativo; ATIVAR/DESATIVAR: {idOperacao, idAlmoxarifado min1}. Remover `.default("")` de descricao (S5 L333 "O").
+INC2 functions/src/almoxarifados.ts: DELETAR L62-63 (trim redundante; Zod já faz); usar dados.nome/descricao dentro dos branches CRIAR/EDITAR (TS narrow).
+INC3 functions/src/__tests__/almoxarifados.test.ts: helper `corpoStatus(id, acao)` = {idOperacao, acao, idAlmoxarifado}; atualizar L124/L139; adicionar TEST-INT-ALMOX-017 (CRIAR sem descricao → invalid-argument) e TEST-INT-ALMOX-018 (ATIVAR com idLocal extra → invalid-argument).
+INC4 functions/src/usuarios.ts + functions/src/schemas/usuarios.schema.ts + functions/src/index.ts: callable `buscarGestoresAlmoxarifado` (padrão buscarProfessores + filtro `Usuarios.ativo === true`; M9 Chefe_Geral; retorna {gestores:[{id,nome}]}, max 100, termo opcional). Testes TEST-INT-ALMOX-019/020/021 (ativo retorna; inativo ausente; sem Chefe → permission-denied).
+INC5 frontend/src/lib/intencaoOperacao.ts: campos/chaves/assinaturas M7 por ação (CRIAR/EDITAR/ATIVAR/DESATIVAR) espelhando construirIdentidade (gestores ordenado/set em CRIAR; null em EDITAR).
+INC6 novo frontend/src/components/almoxarifados/ListaAlmoxarifados.tsx: onSnapshot(Almoxarifado orderBy nome), 5 estados, cards com badge ativo/inativo + qtd_gestores_ativos; botões Ativar (se inativo e qtd>0)/Desativar (se ativo); data-testids almox-lista-almoxarifados, almox-item-{id}, almox-btn-ativar-{id}, almox-btn-desativar-{id}, almox-btn-novo-almoxarifado.
+INC7 novo frontend/src/components/almoxarifados/ModalAlmoxarifado.tsx: CRIAR/EDITAR (nome max100, descricao max500 obrigatória, Local via ListaLocais modo seleção com NovaLocalModal inline, multi-select de gestores ativos, toggle ativo só em CRIAR; se ativo exigir ≥1 gestor); M7 com obterIntencaoPersistida + limparIntencao após sucesso; a11y; data-testids modal-almoxarifado, input-nome-almoxarifado, input-descricao-almoxarifado, seletor-local-almoxarifado, seletor-gestores-almoxarifado, toggle-ativo-almoxarifado, btn-salvar-almoxarifado, erro-campo-almoxarifado, erro-gestor-ativacao.
+INC8 novo frontend/src/components/almoxarifados/GerenciarGestoresAlmoxarifadoModal.tsx: mostra vínculos; impede remover último gestor de almoxarifado ativo (server rejeita; UI mostra erro).
+INC9 frontend/src/app/reagentes/page.tsx: handlers nos botões (Novo Almoxarifado → ModalAlmoxarifado CRIAR/EDITAR; Gerenciar Gestores → GerenciarGestoresAlmoxarifadoModal); "Novo Gestor de Almoxarifado" fica fora de escopo (IMP-ROLE-001/002); renderizar ListaAlmoxarifados na aba.
+INC10 novo frontend/e2e/specs/21-almoxarifados.spec.ts ALMOX-E2E-001..010: 001 criar ativo com gestor; 002 criar ativo sem gestor→erro; 003 criar inativo sem gestor; 004 ativar sem gestor→rejeitado; 005 editar inativo adicionando gestores; 006 ativar com gestor→ok; 007 desativar preserva vínculos; 008 editar ativo removendo último→rejeitado; 009 gestor inativo invisível; 010 criar Local inline. Seed: chefe.seed@lcqui.local, gestor.almoxarifado@lcqui.local.
+INC11 documentation/testes/sections/20-imp-base-001.tex UPDATE + matriz L46 → NÃO DIVERGENTE.
+Regressão: `cd functions && npm run test:unit && npm run test:integration && npm run test:rules && npm run build && npm run lint`; `cd frontend && npx --no-install tsc --noEmit && npm run lint`; `cd frontend && npm run test:e2e -- e2e/specs/19-materias.spec.ts`; `... 20-locais.spec.ts`; `... 21-almoxarifados.spec.ts`.
+Critério de conclusão: ALMOX-E2E-001..010 verdes; novo callable testado; regressão verde; matriz L46 NÃO DIVERGENTE; CUE/Alloy/main.tex intocados.
+EXECUÇÃO: iniciar direto em **q5 IMPLEMENT** (plano aprovado), delegando ao `lcqui-writer`.
 
 ## Papéis (prompt + permissão fixos)
 
