@@ -7,8 +7,17 @@ server-owned com unicidade, autoria e validação; as Rules permitiam escrita
 cliente a papéis e o trigger \texttt{onLocalAtualizado} era o único efeito de
 propagação.
 
-\textbf{Estado depois:} backend e Rules convergidos; permanece
-\texttt{DIVERGENTE} pela UI de gestão (S8 UI-03) e E2E.
+\textbf{Estado depois:} \textbf{NÃO DIVERGENTE} --- backend, Rules, UI (UI-03) e E2E convergidos.
+
+\subsection{UI (Seção 8 UI-03)}
+
+Componentes criados para gestão de Locais conforme S8 UI-03:
+\begin{itemize}
+  \item \path{frontend/src/components/patrimonio/NovaLocalModal.tsx}: modal CRIAR/EDITAR com campos prédio (\texttt{maxLength=30}), andar (\texttt{maxLength=10}, texto livre para térreo/subsolo), sala (\texttt{maxLength=30}); \texttt{trim()} e rejeição de vazios no cliente; M7 via \texttt{obterIntencaoPersistida}; callable \texttt{gerenciarLocal}; erro \texttt{already-exists} mapeado para banner no campo; correção crítica M7: \texttt{limparIntencao(sessionStorage, CHAVE\_INTENCAO\_LOCAL)} após sucesso evita replay silencioso que mascarava duplicatas em testes E2E; a11y (\texttt{role=dialog}, \texttt{aria-modal}, foco inicial, Escape); \texttt{data-testid}s para testabilidade.
+  \item \path{frontend/src/components/patrimonio/ListaLocais.tsx}: \texttt{onSnapshot} coleção \texttt{Local} ordenada por \texttt{predio}; 5 estados explícitos (loading, permissionDenied, error, stale via \texttt{metadata.fromCache}, empty); modos listagem|seleção; \texttt{testIdPrefix} para escopar seletores quando usado dentro do \texttt{ModalNovoBem}.
+  \item Integração em \path{frontend/src/app/patrimonio/page.tsx}: seção "Gestão de Locais" visível apenas a \texttt{hasManagementAccess} (\texttt{Chefe\_Geral} ou \texttt{Gestor\_Bens\_Patrimoniais}).
+  \item Integração em \path{frontend/src/components/patrimonio/ModaisPatrimonio.tsx}: \texttt{ModalNovoBem} contém seletor de Local via \texttt{ListaLocais} modo seleção + \texttt{NovaLocalModal} como etapa interna; \texttt{onSucesso(id)} seleciona o local recém-criado no formulário de origem.
+\end{itemize}
 
 \subsection{Contrato}
 
@@ -50,6 +59,14 @@ TEST-INT-LOCAL-007 & Reuso incompatível do \texttt{idOperacao} é \texttt{alrea
 TEST-INT-LOCAL-008 & Edição troca endereço, migra chave e mantém o id \\
 TEST-INT-LOCAL-009 & Edição para endereço existente é \texttt{already-exists} \\
 TEST-RULES-Local & Nenhum cliente escreve Local diretamente \\
+LOCAL-E2E-001 & Criação com trim, maxLength e retorno de ID \\
+LOCAL-E2E-002 & Edição mantém o ID do documento \\
+LOCAL-E2E-003 & Duplicata normalizada é \texttt{already-exists} (após fix M7) \\
+LOCAL-E2E-004 & Estado vazio da lista desaparece após criar \\
+LOCAL-E2E-005 & Criar via \texttt{ModalNovoBem} seleciona o local retornado \\
+LOCAL-E2E-006 & Professor não acessa a gestão de locais \\
+LOCAL-E2E-007 & \texttt{maxLength} impede exceder 30/10/30 \\
+LOCAL-E2E-008 & Campos vazios (apenas espaços) rejeitados \\
 \bottomrule
 \end{longtable}
 \normalsize
@@ -57,7 +74,26 @@ TEST-RULES-Local & Nenhum cliente escreve Local diretamente \\
 GREEN sob Node 20.19.6: \texttt{locais.test.ts} 9/9; Rules 78/78; unit 71/71;
 integração completa 182 passam / 14 falham (legadas); \texttt{build} PASS. Lint
 dos arquivos alterados limpo (erros restantes em \texttt{patrimonio.ts} são
-pré-existentes e não relacionados).
+pré-existentes e não relacionados). E2E \texttt{20-locais.spec.ts} 8/8
+(\texttt{LOCAL-E2E-001–008}). Frontend: \texttt{tsc --noEmit} PASS; eslint sem
+erros novos (1 warning legado em \texttt{page.tsx}: \texttt{isProfessor} unused).
+Integração backend total: 394/406 passam (12 falhas legadas em
+\texttt{patrimonio.test.ts}/\texttt{reagentes.test.ts}, não relacionadas a esta
+feature; \texttt{functions/} zero diff nesta implementação).
 
-\textbf{Estado final:} \texttt{IMP-BASE-002} = \texttt{DIVERGENTE} apenas pela
-UI de gestão/E2E; backend e Rules convergidos.
+\subsection{Dívidas técnicas remanescentes (a11y/testabilidade)}
+
+\begin{itemize}
+  \item \textbf{F1}: \texttt{data-testid="erro-campo-local"} duplicado em
+  \texttt{NovaLocalModal.tsx} (banner genérico + banner de unicidade) → renomear
+  para \texttt{erro-generico-local} e \texttt{erro-unicidade-local}.
+  \item \textbf{F2}: \texttt{NovaLocalModal.tsx} sem *focus trap* (Tab pode mover
+  o foco para fora do modal) → WCAG 2.1.
+  \item \textbf{F3}: ausência de \texttt{aria-hidden} no diálogo pai quando
+  \texttt{NovaLocalModal} sobrepõe o \texttt{ModalNovoBem}.
+  \item \textbf{F4}: \texttt{alert()} nativo em
+  \path{frontend/src/app/patrimonio/page.tsx:53} (validação de filtros) — quebra
+  Playwright e viola pitfall documentado; dívida pré-existente nesta feature.
+\end{itemize}
+
+\textbf{Estado final:} \texttt{IMP-BASE-002} = \textbf{\texttt{NÃO DIVERGENTE}}.
