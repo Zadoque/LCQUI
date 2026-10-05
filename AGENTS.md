@@ -30,6 +30,8 @@ A implementação nunca sobrescreve silenciosamente a especificação. Se duas f
 
 6. **⚠️ Modelos frequentemente relatam sucesso sem materializar as mudanças.** Verifique SEMPRE o estado real (git diff/rev-parse/ls-remote, leitura do arquivo, execução de testes) ANTES de aceitar o retorno do subagente como concluído.
 
+6.1 **Handoff obrigatório e verificação sem partir do zero.** Toda delegação deve embutir um HANDOFF ESTRUTURADO do estado anterior — FEATURE_ID; LINHA_MATRIZ; FONTE_NORMATIVA; EVIDENCIA_CODIGO (arquivo:linha); decisões; REJEIÇÕES anteriores (para não repetir); suposições a verificar. O subagente NÃO deve começar do zero: deve VERIFICAR MATERIALMENTE (git/grep/leitura) cada afirmação do handoff antes de agir, sem confiar cegamente nem repartir do início. Cite apenas linhas verificadas; se não verificou, escreva "VERIFICAR". Ao fim de cada estado, produza um novo handoff para o próximo, preservando os anteriores. O orquestrador deve quebrar loops de seleção/plano fornecendo o ground-truth verificado (ex.: mapa de linhas produzido por `repo-explorer` read-only) quando os modelos errarem referências.
+
 7. **Modelos vivos** (provider `bailian-payg`, conforme `opencode.json`): a lista é grande e vários modelos entram em quota/limite de `max_tokens` sem aviso. Não há modelo garantido: **rotacione sempre** e trate falha de modelo como evento de rotação (item 3), nunca como motivo para parar ou para escolher um único modelo. `qwen-plus` foi removido por quota esgotada.
 
 ## Máquina de estados (DFA) de implementação gradual
@@ -45,7 +47,10 @@ O orquestrador DEVE seguir esta máquina de estados **determinística** (DFA), d
 | **q4 CORRECT_PLAN** | `plan-corrector` | Corrigir o plano (sem editar código) | → **q3** |
 | **q5 IMPLEMENT** | `lcqui-writer` | Implementar em incrementos ≤ 5 min | → **q6** |
 | **q6 VERIFY** | `implementation-auditor` | Verificar materialização e conformidade | OK → **q7**; FALHA → **q5** |
-| **q7 TEST** | `test-specialist` | Executar testes (Jest/Emulator/Rules/E2E) | VERDE → **q8**; FALHA → **q5** |
+| **q7 CREATE_TESTS** | `test-creator` | Escrever os testes derivados do contrato/norma (RED), apenas arquivos de teste | → **q7a** |
+| **q7a AUDIT_TESTS** | `test-auditor` | Auditar adversarialmente a cobertura e o valor probatório dos testes | APROVADO → **q7c**; REPROVADO → **q7b** |
+| **q7b CORRECT_TESTS** | `test-corrector` | Corrigir os testes reprovados (sem tocar produção) | → **q7a** |
+| **q7c EXECUTE_TESTS** | `test-executor` | Executar Jest/Emulator/Rules/E2E e diagnosticar a camada da falha | VERDE → **q8**; FALHA (produção) → **q5**; FALHA (teste) → **q7b** |
 | **q8 ADVANCE** | `lcqui-writer` | Atualizar a matriz e commitar | → **q0** (próxima fatia) |
 
 - A variante concreta `<papel>--<modelo>` é escolhida a cada delegação respeitando a rotação estrita (item 2).
