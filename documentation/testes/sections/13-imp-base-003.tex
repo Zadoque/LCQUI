@@ -6,8 +6,11 @@
 consulta prévia sem chave canônica, não havia canonicalização de código, a
 autorização confiava apenas no JWT e não havia edição nem propagação de projeção.
 
-\textbf{Estado depois:} \texttt{DIVERGENTE}. O backend foi convergido; falta a UI
+\textbf{Estado depois (backend):} \texttt{DIVERGENTE}. O backend foi convergido; falta a UI
 de edição/detalhe no frontend.
+
+\textbf{Estado depois (UI/E2E):} \texttt{NÃO DIVERGENTE}. UI de edição/listagem e
+E2E UI-03/MAT-01 convergidos.
 
 \subsection{Contrato}
 
@@ -30,7 +33,18 @@ recriar turmas; Chefe e Professor), Seção~9/MAT-01, Seção~5 (denormalizaçã
   \item \path{firestore.rules}: \texttt{Materia} passa a \texttt{write: false}
   (server-owned);
   \item \path{frontend/src/components/materias/NovaMateriaModal.tsx}: passa a
-  chamar \texttt{gerenciarMateria} com \texttt{acao:"CRIAR"}.
+  chamar \texttt{gerenciarMateria} com \texttt{acao:"CRIAR"};
+  \item \path{frontend/src/components/materias/ListaMaterias.tsx}: componente de
+  listagem com 5 estados (vazio, carregando, dados, erro, dados desatualizados
+  via \texttt{metadata.fromCache}); acesso Chefe+Professor;
+  \item \path{frontend/src/components/materias/NovaMateriaModal.tsx}: estendido
+  para \texttt{CRIAR}/\texttt{EDITAR} com erro \texttt{already-exists} no
+  campo;
+  \item \path{frontend/src/app/professores/page.tsx}: consome
+  \texttt{ListaMaterias} modo seleção de matéria existente;
+  \item \path{frontend/src/components/layout/ProfessorDashboardBar.tsx}: ganhou
+  \texttt{onOpenMaterias};
+  \item \path{frontend/src/app/turmas/page.tsx}: overlay de gestão de matérias.
 \end{itemize}
 
 \subsection{TDD}
@@ -70,3 +84,39 @@ roteiros); Rules 73/73. Verificação de tipos do frontend
 
 Falta a UI de edição/detalhe de matéria (não há listagem/edição hoje); por isso
 \texttt{IMP-BASE-003} permanece \texttt{DIVERGENTE}.
+
+\subsection{Etapa UI/E2E (UI-03/MAT-01)}
+
+Componentes implementados: \texttt{ListaMaterias.tsx} (listagem com 5 estados:
+vazio, carregando, dados, erro e dados desatualizados via
+\texttt{metadata.fromCache}), \texttt{NovaMateriaModal.tsx} estendido para
+\texttt{CRIAR}/\texttt{EDITAR} com erro \texttt{already-exists} exibido no
+campo do código, acesso Chefe+Professor, e seleção de matéria existente na
+página de professores.
+
+\small
+\begin{longtable}{@{}p{0.26\textwidth}p{0.55\textwidth}@{}}
+\toprule
+ID & Obrigação observada \\
+\midrule
+\endhead
+MAT-E2E-001 & Listagem vazia exibe estado vazio \\
+MAT-E2E-002 & Criação de matéria com sucesso \\
+MAT-E2E-003 & Erro de código duplicado no campo (already-exists) \\
+MAT-E2E-004 & Edição de matéria existente \\
+MAT-E2E-005 & Estado de carregamento durante busca \\
+MAT-E2E-006 & Estado de dados com cache (metadata.fromCache) \\
+MAT-E2E-007 & Acesso Chefe vê listagem completa \\
+MAT-E2E-008 & Acesso Professor vê listagem completa \\
+MAT-E2E-009 & Seleção de matéria existente no modo seleção \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+Regressão: \texttt{TURMA-E2E-001} verde após mudanças.
+
+\subsection{Achado fora de escopo}
+
+% NOTA: convidarUsuario exige idOperacao (M7) e professores/page.tsx não o envia.
+% Defeito pré-existente (já no HEAD), pertence a IMP-ROLE-001/IMP-ROLE-004.
+% NÃO corrigido nesta etapa.
