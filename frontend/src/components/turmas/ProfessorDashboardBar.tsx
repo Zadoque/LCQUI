@@ -9,6 +9,7 @@ interface ProfessorDashboardBarProps {
   onOpenNovoRoteiro: () => void;
   onOpenGerenciarRoteiros: () => void;
   onOpenMembros: () => void;
+  onOpenMaterias: () => void;
 }
 
 export default function ProfessorDashboardBar({
@@ -18,6 +19,7 @@ export default function ProfessorDashboardBar({
   onOpenNovoRoteiro,
   onOpenGerenciarRoteiros,
   onOpenMembros,
+  onOpenMaterias,
 }: ProfessorDashboardBarProps) {
   const [isPlusOpen, setIsPlusOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -78,6 +80,12 @@ export default function ProfessorDashboardBar({
                 className="w-full text-left px-4 py-2 text-sm hover:bg-muted transition-colors"
               >
                 📄 Novo Roteiro de Experimento
+              </button>
+              <button
+                onClick={() => { setIsPlusOpen(false); onOpenMaterias(); }}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-muted transition-colors"
+              >
+                📚 Gerenciar Matérias
               </button>
             </div>
           )}

@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { collection, onSnapshot, query } from "firebase/firestore";
 import { db, functions } from "@/lib/firebase/config";
 import { httpsCallable } from "firebase/functions";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { NovaMateriaModal } from "@/components/materias/NovaMateriaModal";
+import { ListaMaterias } from "@/components/materias/ListaMaterias";
 
 interface Professor {
   id: string;
@@ -17,16 +18,9 @@ interface Professor {
   laboratorio?: string;
 }
 
-interface Materia {
-  id: string;
-  nome: string;
-  codigo_materia: string;
-}
-
 export default function ProfessoresDashboard() {
   const { roles } = useAuth();
   const [professores, setProfessores] = useState<Professor[]>([]);
-  const [materiasDb, setMateriasDb] = useState<Materia[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -39,7 +33,6 @@ export default function ProfessoresDashboard() {
   const [centro, setCentro] = useState("CCT");
   const [laboratorio, setLaboratorio] = useState("");
   const [selectedMaterias, setSelectedMaterias] = useState<string[]>([]);
-  const [materiaSearch, setMateriaSearch] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -57,21 +50,8 @@ export default function ProfessoresDashboard() {
       setLoading(false);
     });
 
-    // Fetch Materias
-    const qMat = query(collection(db, "Materia"), orderBy("nome", "asc"));
-    const unsubMat = onSnapshot(qMat, (querySnapshot) => {
-      const lista = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Materia[];
-      setMateriasDb(lista);
-    }, (error) => {
-      console.error("Erro ao buscar materias:", error);
-    });
-
     return () => {
       unsubProf();
-      unsubMat();
     };
   }, []);
 
@@ -129,11 +109,6 @@ export default function ProfessoresDashboard() {
       (p.email && p.email.toLowerCase().includes(term))
     );
   });
-
-  const filteredMaterias = materiasDb.filter(m => 
-    m.nome.toLowerCase().includes(materiaSearch.toLowerCase()) || 
-    m.codigo_materia.toLowerCase().includes(materiaSearch.toLowerCase())
-  );
 
   return (
     <ProtectedRoute allowedRoles={["Chefe_Geral"]}>
@@ -309,46 +284,13 @@ export default function ProfessoresDashboard() {
                   <div className="border border-foreground/10 rounded-xl p-4 bg-foreground/5 space-y-4">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                       <label className="block text-sm font-semibold text-foreground/80">Matérias Lecionadas</label>
-                      <button 
-                        type="button"
-                        onClick={() => setIsMateriaModalOpen(true)}
-                        className="text-xs bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 px-3 py-1.5 rounded-md font-bold transition-colors flex items-center gap-1"
-                      >
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
-                        Nova Matéria
-                      </button>
                     </div>
-
-                    <input
-                      type="text"
-                      placeholder="Filtrar matérias..."
-                      value={materiaSearch}
-                      onChange={(e) => setMateriaSearch(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-background border border-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                    <ListaMaterias
+                      modo="selecao"
+                      selectedIds={selectedMaterias}
+                      onToggle={toggleMateria}
+                      onNovaMateria={() => setIsMateriaModalOpen(true)}
                     />
-
-                    <div className="max-h-48 overflow-y-auto border border-foreground/10 rounded-lg bg-background">
-                      {filteredMaterias.length > 0 ? (
-                        filteredMaterias.map(m => (
-                          <label key={m.id} className="flex items-center gap-3 p-3 hover:bg-foreground/5 border-b border-foreground/5 last:border-0 cursor-pointer">
-                            <input 
-                              type="checkbox" 
-                              checked={selectedMaterias.includes(m.id)}
-                              onChange={() => toggleMateria(m.id)}
-                              className="rounded border-foreground/30 text-primary focus:ring-primary w-4 h-4"
-                            />
-                            <div>
-                              <span className="font-bold text-sm block">{m.codigo_materia}</span>
-                              <span className="text-xs text-foreground/60">{m.nome}</span>
-                            </div>
-                          </label>
-                        ))
-                      ) : (
-                        <div className="p-4 text-center text-sm text-foreground/50">
-                          Nenhuma matéria encontrada.
-                        </div>
-                      )}
-                    </div>
                   </div>
 
                   <div className="pt-4 flex gap-3 justify-end border-t border-foreground/10">
