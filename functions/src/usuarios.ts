@@ -19,7 +19,7 @@ import {
   resolverOperacaoTx,
 } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
-import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema, BuscarAlunosSchema, BuscarProfessoresSchema, BuscarGestoresAlmoxarifadoSchema, BuscarUsuariosPapelSchema, AtualizarPerfilSchema } from "./schemas/usuarios.schema";
+import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema, BuscarAlunosSchema, BuscarProfessoresSchema, BuscarGestoresAlmoxarifadoSchema, BuscarUsuariosPapelSchema, DetalhesUsuarioPapelSchema, AtualizarPerfilSchema } from "./schemas/usuarios.schema";
 
 const PAPEIS: string[] = [...PAPEIS_CONHECIDOS];
 
@@ -289,11 +289,37 @@ export const buscarUsuariosParaPapel = onCall(async request => {
   return { usuarios: resultado };
 });
 
+/** UI-02: detalhes autorizados por abas, sem usar a lista para baixar identidades. */
+export const obterDetalhesUsuarioParaPapel = onCall(async request => {
+  const { uid } = validatePayload(DetalhesUsuarioPapelSchema, request.data);
+  await validarAutoridadePersistida(request, ["Chefe_Geral"]);
+  const db = admin.firestore();
+  const usuario = await db.collection("Usuarios").doc(uid).get();
+  if (!usuario.exists) throw new HttpsError("not-found", "Usuário não encontrado.");
+  const papeis = await Promise.all(PAPEIS.map(async papel => ({ papel, snap: await db.collection(papel).doc(uid).get() })));
+  const turmas = await db.collection("Usuarios").doc(uid).collection("Turmas").limit(100).get();
+  const atividade = await db.collection("Registro_de_Auditoria")
+    .where("id_do_objeto_da_entidade", "==", uid).limit(100).get();
+  const dados = usuario.data()!;
+  return {
+    dados: {
+      id: uid,
+      nome: typeof dados.nome === "string" ? dados.nome : "Sem nome",
+      email: typeof dados.email === "string" ? dados.email : null,
+      ativo: dados.ativo === true,
+      versao_permissoes: dados.versao_permissoes ?? 0,
+    },
+    papeis: papeis.filter(item => item.snap.exists).map(item => item.papel),
+    turmas: turmas.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+    atividade: atividade.docs.map(doc => ({ id: doc.id, acao: doc.data().acao, instante: doc.data().acao_feita_em ?? null })),
+  };
+});
+
 export const revogarUsuarioPapel = onCall(async request => {
   const claims = extrairClaimsAutoridade(request);
   const dados = validatePayload(RevogarUsuarioPapelSchema, request.data);
-  let user;
-  try { user = await admin.auth().getUserByEmail(dados.email); }
+  let user: admin.auth.UserRecord;
+  try { user = dados.uidAlvo ? await admin.auth().getUser(dados.uidAlvo) : await admin.auth().getUserByEmail(dados.email!); }
   catch { throw new HttpsError("not-found", "Usuário não encontrado."); }
   // A decisão autoritativa é tomada dentro da transação de `alterarPapel`.
   const resultado = await alterarPapel({ ator: claims.uid, uid: user.uid, papel: dados.papel,
