@@ -39,6 +39,7 @@ export default function AlunosDashboard() {
   const [historicoModal, setHistoricoModal] = useState<{ isOpen: boolean, idAluno: string, nomeAluno: string, idTurma: string }>({ isOpen: false, idAluno: "", nomeAluno: "", idTurma: "" });
   const [loadingAcao, setLoadingAcao] = useState<string | null>(null);
   const [confirmarRemocao, setConfirmarRemocao] = useState<{ id: string; nome: string } | null>(null);
+  const [feedback, setFeedback] = useState<{ tipo: "erro" | "sucesso"; texto: string } | null>(null);
 
   const isChefeGeral = roles.includes("Chefe_Geral");
 
@@ -83,7 +84,7 @@ export default function AlunosDashboard() {
 
   const fetchAlunosGestor = async () => {
     if (!filtroLetraInicial) {
-      alert("Selecione uma letra inicial para realizar a busca.");
+      setFeedback({ tipo: "erro", texto: "Selecione uma letra inicial para realizar a busca." });
       return;
     }
 
@@ -120,11 +121,11 @@ export default function AlunosDashboard() {
       const removerAlunoTurma = httpsCallable(functions, "removerAlunoTurma");
       await removerAlunoTurma({ idOperacao: intencao.idOperacao, idTurma: selectedTurma, idAluno });
       if (session) limparIntencao(session, chave);
-      alert("Aluno removido com sucesso!");
+      setFeedback({ tipo: "sucesso", texto: "Aluno removido com sucesso!" });
     } catch (error: unknown) {
       console.error("Erro ao remover aluno:", error);
       const message = error instanceof Error ? error.message : "Erro ao remover aluno.";
-      alert(message);
+      setFeedback({ tipo: "erro", texto: message });
     } finally {
       setLoadingAcao(null);
     }
@@ -156,6 +157,12 @@ export default function AlunosDashboard() {
               Novo Aluno
             </button>
           </header>
+
+          {feedback && (
+            <div role={feedback.tipo === "erro" ? "alert" : "status"} className={`rounded-lg border px-4 py-3 text-sm ${feedback.tipo === "erro" ? "border-red-500/30 bg-red-500/10 text-red-600" : "border-green-500/30 bg-green-500/10 text-green-600"}`}>
+              {feedback.texto}
+            </div>
+          )}
 
           {confirmarRemocao && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
