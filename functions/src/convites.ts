@@ -328,7 +328,10 @@ export async function executarConvidarAluno(
         throw new HttpsError("internal", "Lock de pendência aponta para convite não pendente.");
       }
 
-      const notifRefReenvio = (authUser && contexto === "TURMA" && idTurmaFinal)
+      // Decisão normativa corrente: convite GLOBAL para conta Auth existente
+      // também usa a caixa interna. A forma M13 (id_turma obrigatório para
+      // CONVITE_PARA_TURMA) será formalmente alinhada em CUE/Alloy depois.
+      const notifRefReenvio = authUser
         ? db.collection("Usuarios").doc(authUser.uid).collection("Notificacoes").doc(idConviteExistente)
         : null;
       const notifSnapReenvio = notifRefReenvio ? await tx.get(notifRefReenvio) : null;
@@ -368,8 +371,9 @@ export async function executarConvidarAluno(
           criado_em: agora,
         });
 
-        // Se destinatário possui conta Auth e convite é de turma: emite notificação interna M13 canônica
-        if (authUser && contexto === "TURMA" && idTurmaFinal) {
+        // Conta Auth existente recebe convite de turma ou GLOBAL pela caixa
+        // interna, conforme Seção 7/Seção 8; no GLOBAL id_turma permanece null.
+        if (authUser) {
           adicionarNotificacaoTx(
             tx,
             db,
@@ -420,7 +424,7 @@ export async function executarConvidarAluno(
         atualizado_em: agora,
       });
 
-      if (authUser && contexto === "TURMA" && idTurmaFinal && notifRefReenvio) {
+      if (authUser && notifRefReenvio) {
         if (notifSnapReenvio && notifSnapReenvio.exists) {
           // Preserva par coerente lida e lida_em original (#M13Notificacao), atualizando apenas expiração
           tx.update(notifRefReenvio, {
@@ -497,7 +501,9 @@ export async function executarConvidarAluno(
       criado_em: agora,
     });
 
-    if (authUser && contexto === "TURMA" && idTurmaFinal) {
+    // Conta Auth existente recebe também convite GLOBAL pela caixa interna;
+    // dívida formal M13: CUE/Alloy ainda exigem id_turma para este tipo.
+    if (authUser) {
       adicionarNotificacaoTx(
         tx,
         db,
