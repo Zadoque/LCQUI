@@ -68,7 +68,7 @@ function ListaLocaisAssinatura({
           andar: (doc.data().andar ?? "") as string,
           sala: (doc.data().sala ?? "") as string,
         }));
-        setLocais(lista);
+        setLocais([...new Map(lista.map((local) => [local.id, local])).values()]);
         setLoading(false);
         setStale(snapshot.metadata.fromCache === true);
       },
@@ -211,9 +211,9 @@ function ListaLocaisAssinatura({
               </tr>
             </thead>
             <tbody className="divide-y divide-foreground/5">
-              {locais.map((loc) => (
+              {locais.map((loc, indice) => (
                 <tr
-                  key={loc.id}
+                  key={`local-listagem-${indice}-${loc.id}`}
                   data-testid={`${p}local-item-${loc.id}`}
                   className="hover:bg-foreground/5 transition-colors"
                 >
@@ -236,9 +236,9 @@ function ListaLocaisAssinatura({
         </div>
       ) : (
         <div className="max-h-48 overflow-y-auto border border-foreground/10 rounded-lg bg-background">
-          {locais.map((loc) => (
+          {locais.map((loc, indice) => (
             <button
-              key={loc.id}
+              key={`local-selecao-${indice}-${loc.id}`}
               data-testid={`${p}local-item-${loc.id}`}
               type="button"
               onClick={() => onSelecionar?.(loc.id, loc)}
