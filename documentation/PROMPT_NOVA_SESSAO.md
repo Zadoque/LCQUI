@@ -55,9 +55,9 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 ## Estado atual
 
 - Branch `dev` sincronizado com `origin/dev` (tudo publicado).
-- Matriz (70 features): **28 DIVERGENTE / 32 NÃO DIVERGENTE / 10 NÃO IMPLEMENTADO** (atualizada no arquivo).
+- Matriz (70 features): **27 DIVERGENTE / 33 NÃO DIVERGENTE / 10 NÃO IMPLEMENTADO** (atualizada no arquivo).
 - IMP-BASE-003 (Matérias UI edição/listagem) concluído em commits `2bd38091` (feat) e `9ef10d35` (docs).
-- Features NÃO DIVERGENTE (atuais): `IMP-ACAD-001`..`004`, `IMP-POST-001`..`004`, `IMP-ROT-001`..`005`, `IMP-NOTIF-001`..`003`, `IMP-RULES-001`..`004`, `IMP-INDEX-001`, `IMP-AUTH-001`..`004`, `IMP-BASE-002`, `IMP-BASE-003`.
+- Features NÃO DIVERGENTE (atuais): `IMP-ACAD-001`..`004`, `IMP-POST-001`..`004`, `IMP-ROT-001`..`005`, `IMP-NOTIF-001`..`003`, `IMP-RULES-001`..`004`, `IMP-INDEX-001`, `IMP-AUTH-001`..`004`, `IMP-BASE-002`, `IMP-BASE-003`, `IMP-ROLE-003`.
 - Sessão (Frente A + autorização + Rules), commits em `dev`:
   - `IMP-NOTIF-001` -> NÃO DIVERGENTE: enum alinhado ao CUE (`#M13Tipo`, 21 valores), página `/notificacoes` (UI-12), deep links por `entidade_alvo` (incl. Roteiro -> `/turmas?roteiros=1`), papel/escopo por item, E2E-NOTIF-004.
   - `IMP-AUTH-004` -> NÃO DIVERGENTE: seletor de papel (UI-01) + `papelAtivo`/`resolverPapelAtivo`, Sidebar escopada, remonte por `papelAtivo` (cancela listeners, UI-13), perfil editável + callable `atualizarPerfil` (propaga nome, preserva históricos), guard de formulário modificado (S8 UI-01 L193).
@@ -65,7 +65,8 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
   - `IMP-ROLE-004`: NÃO DIVERGENTE — `buscarProfessores` (projeção `{id,nome}`) consumido por `professores/page.tsx`, `ProfessorModais.tsx` e `ModaisAcademico.tsx`; Rule `Professor` usa `get`; `alunos/page.tsx` não usa `alert()` nativo.
   - `IMP-UI-004`: NÃO DIVERGENTE — deep link de `Roteiro` comprovado por E2E; cache em memória/offline com aviso de desatualização, limpeza por UID e regressão das caixas de notificação verde.
   - `IMP-NOTIF-005`: NÃO DIVERGENTE — jobs de vencimento/escassez/devolução e atraso com deduplicação diária; Q14 com segregação, justificativa e aviso à chefia.
-- **Pendências principais**: `IMP-NOTIF-004`; `IMP-ACAD-006` (E2E residual já coberto por 15); `IMP-ROLE-001/002/003`.
+  - `IMP-ROLE-003`: NÃO DIVERGENTE — autoridade persistida M9 em todos os callables de produção, receipt M7 pendente/concluído para provisionamento Auth pós-commit e retry pelo UID reservado.
+- **Pendências principais**: `IMP-NOTIF-004`; `IMP-ACAD-006` (E2E residual já coberto por 15); `IMP-ROLE-001/002`.
 
 ### Sessão atual — resumo do trabalho (commits em `dev`)
 
@@ -108,10 +109,10 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 
 ## Próximas fatias priorizadas
 
-**Última fatia concluída:** `IMP-UI-004` — deep link de roteiro e cache/offline UI-13 (q0→q8 concluído; matriz em `NÃO DIVERGENTE`).
+**Última fatia concluída:** `IMP-ROLE-003` — autoridade persistida M9 e provisionamento Auth pós-commit idempotente (q0→q8 concluído; matriz em `NÃO DIVERGENTE`).
 
 1. `IMP-NOTIF-004`: validar a cobertura residual do dashboard/UI-12 amplo.
-3. `IMP-ACAD-005` (lacuna de canal GLOBAL), `IMP-ROLE-001/002/003`.
+3. `IMP-ACAD-005` (lacuna de canal GLOBAL), `IMP-ROLE-001/002`.
 4. Ondas de patrimônio (`IMP-PAT-001..005`) e laboratório (M1–M8, relatórios, etiquetas, UI-001..003).
 
 ## Plano executado — IMP-BASE-001 (Almoxarifados UI-03 + E2E)
