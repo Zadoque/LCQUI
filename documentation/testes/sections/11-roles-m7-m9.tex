@@ -4,7 +4,8 @@
 \texttt{IMP-ROLE-002} (revogação e proteção dos últimos responsáveis), com
 progresso em \texttt{IMP-IDEM-001}.
 
-\textbf{Estado:} ambas permanecem \texttt{DIVERGENTE}; a evidência abaixo cobre
+\textbf{Estado:} \texttt{IMP-ROLE-001} está \texttt{NÃO DIVERGENTE};
+\texttt{IMP-ROLE-002} permanece \texttt{DIVERGENTE}. A evidência abaixo cobre
 a migração das mutações de papel para M7 canônico e M9 transacional.
 
 \subsection{Contrato}
@@ -70,9 +71,8 @@ relação com esta fatia.
 
 \subsection{Pendências}
 
-As mutações de papel continuam com efeito externo de Auth antes do commit em
-\texttt{convidarUsuario}; a reconciliação e a revogação de refresh tokens
-ocorrem depois. A migração para outbox \texttt{PENDENTE}$\rightarrow$\texttt{CONCLUIDA}
-e o aceite de convite/autoatendimento ficam para rodada própria. Por isso
-\texttt{IMP-ROLE-001}, \texttt{IMP-ROLE-002} e \texttt{IMP-ROLE-003} seguem
-\texttt{DIVERGENTE}.
+Para \texttt{IMP-ROLE-002}, permanecem a ampliação de cenários concorrentes e
+retenção/sessão sob revogações simultâneas. A operação de concessão/revogação
+já usa receipt M7 e autoridade M9; o aceite de convite/autoatendimento não é
+critério remanescente de \texttt{IMP-ROLE-001}. A tela UI-02 e a concessão por
+identidade existente foram implementadas em \texttt{frontend/src/app/pessoas}.
