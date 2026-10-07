@@ -88,6 +88,44 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
     await expect(wrapped(req)).rejects.toThrow(/Já existe requisição pendente/i);
   });
 
+  it("deve rejeitar na criação uma plaqueta já reservada permanentemente", async () => {
+    await db.collection("Chaves_Unicas").doc("Bem_Patrimonial__PAT-CRIACAO-RESERVADA").set({
+      tipo: "Bem_Patrimonial",
+      id_recurso: "bem-existente",
+      chave_recurso: "PAT-CRIACAO-RESERVADA",
+    });
+
+    await expect(testEnv.wrap(criarRequisicaoAdicaoBem)(mockRequest({
+      numeroPatrimonioProposto: " pat-criacao-reservada ",
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: "requisicoes/prof1/foto.png",
+      idLocal: "local1",
+      nomeResponsavelProposto: "Maria",
+      motivo: "Colisão de reserva",
+    }, "prof1", ["Professor"]))).rejects.toThrow(/reservada permanentemente/i);
+  });
+
+  it("deve serializar duas requisições equivalentes no mesmo lock canônico", async () => {
+    const dados = {
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: "requisicoes/prof1/foto.png",
+      idLocal: "local1",
+      nomeResponsavelProposto: "Maria",
+      motivo: "Corrida de reserva",
+    };
+    const resultados = await Promise.allSettled([
+      testEnv.wrap(criarRequisicaoAdicaoBem)(mockRequest({ ...dados, numeroPatrimonioProposto: " pat-corrida " }, "prof1", ["Professor"])),
+      testEnv.wrap(criarRequisicaoAdicaoBem)(mockRequest({ ...dados, numeroPatrimonioProposto: "PAT-CORRIDA" }, "prof2", ["Professor"])),
+    ]);
+
+    expect(resultados.filter(resultado => resultado.status === "fulfilled")).toHaveLength(1);
+    expect(resultados.filter(resultado => resultado.status === "rejected")).toHaveLength(1);
+    expect((await db.collection("Locks_Requisicao_Patrimonio").doc("bem_adicao_PAT-CORRIDA").get()).data()).toMatchObject({
+      tipo: "ADICAO",
+      chave_recurso: "PAT-CORRIDA",
+    });
+  });
+
   it("deve rejeitar requisição patrimonial quando a claim está com versão obsoleta", async () => {
     const req = mockRequest({
       numeroPatrimonioProposto: "777000",
@@ -259,7 +297,7 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
     });
     await admin.storage().bucket().file(photoPath).save(Buffer.from("fake-image"), { contentType: "image/png" });
 
-    const criado = await testEnv.wrap(criarRequisicaoAdicaoBem)(mockRequest({
+    await expect(testEnv.wrap(criarRequisicaoAdicaoBem)(mockRequest({
       numeroPatrimonioProposto: ` ${numero.toLowerCase()} `,
       estadoConservacaoProposto: "BOM",
       photoUrlProposta: photoPath,
@@ -267,13 +305,7 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
       idResumoBemPatrimonial: "resumo-antigo",
       nomeResponsavelProposto: "Responsável SEI",
       motivo: "Tentativa de reutilização",
-    }, "prof1", ["Professor"]));
-
-    await expect(testEnv.wrap(responderRequisicaoAdicaoBem)(mockRequest({
-      idRequisicao: criado.idRequisicao,
-      aprovar: true,
-      justificativa: "Plaqueta terminal não pode ser reutilizada",
-    }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]))).rejects.toThrow(/reservada permanentemente/i);
+    }, "prof1", ["Professor"]))).rejects.toThrow(/reservada permanentemente/i);
     expect((await db.collection("Chaves_Unicas").doc(`Bem_Patrimonial__${numero}`).get()).data()?.id_recurso).toBe("bem-terminal");
   });
 
