@@ -46,6 +46,10 @@ export const BuscarProfessoresSchema = z.object({
   termo: z.string().trim().max(150).optional(),
 });
 
+export const BuscarGestoresAlmoxarifadoSchema = z.object({
+  termo: z.string().trim().max(150).optional(),
+});
+
 // S8 UI-01 L191: atualização do próprio perfil (self-service).
 export const AtualizarPerfilSchema = z.object({
   nome: z.string().trim().min(1, "O nome é obrigatório.").max(150, "O nome não pode exceder 150 caracteres."),
