@@ -240,3 +240,29 @@ export function assinaturaIntencaoLocal(campos: CamposIntencaoLocal): string {
     campos.idLocal ?? null,
   ]);
 }
+
+export type AcaoAlmoxarifado = "CRIAR" | "EDITAR" | "ATIVAR" | "DESATIVAR";
+export interface CamposIntencaoAlmoxarifado {
+  acao: AcaoAlmoxarifado;
+  idAlmoxarifado?: string;
+  idLocal?: string;
+  nome?: string;
+  descricao?: string;
+  gestores?: string[];
+  ativo?: boolean;
+}
+
+export function chaveIntencaoAlmoxarifado(acao: AcaoAlmoxarifado, idAlmoxarifado?: string): string {
+  return `lcqui.intencao.almoxarifado.${acao}.${idAlmoxarifado ?? "novo"}`;
+}
+
+export function assinaturaIntencaoAlmoxarifado(campos: CamposIntencaoAlmoxarifado): string {
+  const gestores = campos.gestores ? [...new Set(campos.gestores)].sort() : null;
+  if (campos.acao === "CRIAR") {
+    return JSON.stringify(["CRIAR_ALMOXARIFADO", campos.idLocal ?? null, campos.nome?.trim() ?? "", campos.descricao?.trim() ?? "", gestores ?? [], campos.ativo === true]);
+  }
+  if (campos.acao === "EDITAR") {
+    return JSON.stringify(["EDITAR_ALMOXARIFADO", campos.idAlmoxarifado ?? null, campos.idLocal ?? null, campos.nome?.trim() ?? "", campos.descricao?.trim() ?? "", gestores]);
+  }
+  return JSON.stringify([campos.acao === "ATIVAR" ? "ATIVAR_ALMOXARIFADO" : "DESATIVAR_ALMOXARIFADO", campos.idAlmoxarifado ?? null]);
+}
