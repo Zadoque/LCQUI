@@ -224,6 +224,28 @@ export async function validarGestorDoAlmoxarifado(
 }
 
 /**
+ * Valida papel persistido e vínculo de almoxarifado dentro da transação da
+ * mutação. A leitura do escopo não pode depender apenas do JWT.
+ */
+export async function validarGestorDoAlmoxarifadoTx(
+  tx: admin.firestore.Transaction,
+  claims: ClaimsAutoridade,
+  idAlmoxarifado: string,
+): Promise<AutoridadePersistida> {
+  const autoridade = await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  if (autoridade.papeis.includes("Chefe_Geral")) return autoridade;
+
+  const vinculo = await tx.get(admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
+    .where("id_gestor_almoxarifado", "==", claims.uid)
+    .where("id_almoxarifado", "==", idAlmoxarifado)
+    .limit(1));
+  if (vinculo.empty) {
+    throw new HttpsError("permission-denied", "Gestor não está designado para este almoxarifado.");
+  }
+  return autoridade;
+}
+
+/**
  * Chamada após TODA concessão ou remoção de papel.
  * Isso atualiza os custom claims para o próximo token; não invalida o token atual.
  * O cliente precisará renovar o token chamando `user.getIdToken(true)`.
