@@ -21,8 +21,8 @@
 | Total de features | 70 |
 | Auditadas | 70 |
 | Não auditadas | 0 |
-| DIVERGENTE | 23 |
-| NÃO DIVERGENTE | 37 |
+| DIVERGENTE | 22 |
+| NÃO DIVERGENTE | 38 |
 | NÃO IMPLEMENTADO | 10 |
 
 <!-- MATRIX_COUNTS_END -->
@@ -75,7 +75,7 @@ Abreviações: `S5`–`S11` = seções normativas; `UI-n` = contrato de tela; `C
 
 | ID | Domínio | Feature | Fonte normativa | Milestone(s) | Implementação encontrada | Auditado | Estado | Divergência / evidência | Testes existentes relacionados | Teste futuro necessário |
 |---|---|---|---|---|---|---|---|---|---|---|
-| IMP-PAT-001 | Patrimônio | Cadastro/manutenção de resumo e bem | RF06; S5; S7 M10; S8 UI-09; S9 PAT-01 | M10 | aprovação via callable; telas patrimoniais | SIM | DIVERGENTE | Não há mutação canônica completa; faltam versão inicial/incremento, enums/limites e foto validada; Rules permitem escrita direta fora das callables. | `patrimonio.test.ts` | Lifecycle M10 + versão otimista + M9 |
+| IMP-PAT-001 | Patrimônio | Cadastro/manutenção de resumo e bem | RF06; S5; S7 M10; S8 UI-09; S9 PAT-01 | M10 | `patrimonio.ts: criar/responderRequisicaoAdicaoBem`, `criar/responderRequisicaoEdicaoBem`; `firestore.rules` server-owned | SIM | NÃO DIVERGENTE | Convergido: transações relêem M9, lock tipado e pertencente à requisição, normalizam a plaqueta por `trim().toUpperCase()`, reservam `Chaves_Unicas/Bem_Patrimonial__{plaqueta}` permanentemente, validam enums/limites, local e foto Storage inferior a 5 MiB, materializam projeções `nome_equipamento`/local, criam `versao=1` e evento `cadastro`; edição aprovada exige `versao_bem_origem`, incrementa uma vez, reclassifica por resumo existente, valida transição de status, registra `edicao` e falha fechado em conflito. `Bem_Patrimonial` e `Resumo_Bem_Patrimonial` permanecem server-owned nas Rules. | `patrimonio.test.ts` (9/9: cadastro canônico, reserva, histórico, versão e conflito); `firestore.rules.test.ts` (163/163) | Manter regressão; baixa terminal em IMP-PAT-006 |
 | IMP-PAT-002 | Patrimônio | Plaqueta canônica e unicidade permanente | S5; S7 M10; S8 UI-09 | M10 | consulta prévia + lock textual em `patrimonio.ts` | SIM | DIVERGENTE | Não normaliza trim/uppercase, não cria `Chaves_Unicas`, não relê reserva permanente na aprovação e baixa poderia reutilizar plaqueta. | `patrimonio.test.ts` | Corrida adição/aprovação e não reuso após baixa |
 | IMP-PAT-003 | Requisições | Requisição de adição e lock | RF08/RF10; S7 M10; S8 UI-09; S9 PRO-10/PAT-03 | M7, M10 | `criarRequisicaoAdicaoBem` | SIM | DIVERGENTE | Lock não tem tipo/requisição/chave normalizada; foto não é validada; pré-checagem fica fora da transação; sem versão/idempotência. | `patrimonio.test.ts` | Duas propostas equivalentes e lock íntegro |
 | IMP-PAT-004 | Requisições | Requisição de edição, versão e reclassificação | RF09–11; S5/S7 M10; S8 UI-09 | M7, M10 | `criar/responderRequisicaoEdicaoBem` | SIM | DIVERGENTE | Não guarda `versao_origem`; aprovação aceita lock ausente, altera `nome_equipamento` diretamente e não reclassifica o resumo nem gera versão/histórico. | `patrimonio.test.ts` | Conflito de versão, lock ausente e reclassificação |
