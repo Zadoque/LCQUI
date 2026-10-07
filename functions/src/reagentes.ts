@@ -1,7 +1,12 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { validarPermissao, validarGestorDoAlmoxarifado } from "./auth";
+import {
+  extrairClaimsAutoridade,
+  validarPermissao,
+  validarGestorDoAlmoxarifado,
+  validarGestorDoAlmoxarifadoTx,
+} from "./auth";
 import { validatePayload } from "./utils/validation";
 import { 
   CadastroFrascoFechadoSchema, 
@@ -193,14 +198,14 @@ export function calcularValidadeEfetivaNaAbertura(frasco: any, dataAbertura: Dat
 
 export const registrarAberturaFrasco = onCall(async (request) => {
   const dados = validatePayload(AberturaFrascoSchema, request.data);
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  const claims = extrairClaimsAutoridade(request);
 
   const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
   return admin.firestore().runTransaction(async (tx) => {
     const snap = await tx.get(frascoRef);
     if (!snap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     const frasco = snap.data()!;
-    await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
+    await validarGestorDoAlmoxarifadoTx(tx, claims, frasco.id_almoxarifado);
 
     if (frasco.estado_fisico_frasco !== "FECHADO") {
       throw new HttpsError("failed-precondition", "Somente um frasco FECHADO pode ser aberto por esta operação.");
