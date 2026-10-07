@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { collection, onSnapshot, query } from "firebase/firestore";
-import { db, functions } from "@/lib/firebase/config";
+import { functions } from "@/lib/firebase/config";
 import { httpsCallable } from "firebase/functions";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,10 +11,6 @@ import { ListaMaterias } from "@/components/materias/ListaMaterias";
 interface Professor {
   id: string;
   nome: string;
-  email: string;
-  ativo: boolean;
-  centro?: string;
-  laboratorio?: string;
 }
 
 export default function ProfessoresDashboard() {
@@ -36,23 +31,19 @@ export default function ProfessoresDashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    // Section 5 Search Strategy for Professores:
-    const qProf = query(collection(db, "Professor"));
-    const unsubProf = onSnapshot(qProf, (querySnapshot) => {
-      const lista = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Professor[];
-      setProfessores(lista);
-      setLoading(false);
-    }, (error) => {
-      console.error("Erro ao buscar professores:", error);
-      setLoading(false);
-    });
+    let cancelado = false;
+    const buscarProfessores = httpsCallable(functions, "buscarProfessores");
+    buscarProfessores({})
+      .then((resultado) => {
+        if (cancelado) return;
+        setProfessores((resultado.data as { professores: Professor[] }).professores);
+      })
+      .catch((error) => console.error("Erro ao buscar professores:", error))
+      .finally(() => {
+        if (!cancelado) setLoading(false);
+      });
 
-    return () => {
-      unsubProf();
-    };
+    return () => { cancelado = true; };
   }, []);
 
   const handleConvidar = async (e: React.FormEvent) => {
@@ -106,7 +97,7 @@ export default function ProfessoresDashboard() {
     const term = searchQuery.toLowerCase();
     return (
       (p.nome && p.nome.toLowerCase().includes(term)) ||
-      (p.email && p.email.toLowerCase().includes(term))
+      p.nome.toLowerCase().includes(term)
     );
   });
 
@@ -161,7 +152,7 @@ export default function ProfessoresDashboard() {
             <div className="w-full sm:w-1/2">
               <input
                 type="text"
-                placeholder="Buscar por nome ou e-mail..."
+                placeholder="Buscar por nome..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary"
@@ -175,15 +166,12 @@ export default function ProfessoresDashboard() {
                 <thead className="bg-foreground/5 text-foreground/70 border-b border-foreground/10">
                   <tr>
                     <th className="px-5 py-4 font-medium uppercase tracking-wider text-xs">Nome</th>
-                    <th className="px-5 py-4 font-medium uppercase tracking-wider text-xs">E-mail</th>
-                    <th className="px-5 py-4 font-medium uppercase tracking-wider text-xs">Centro</th>
-                    <th className="px-5 py-4 font-medium uppercase tracking-wider text-xs">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-foreground/5">
                   {loading ? (
                     <tr>
-                      <td colSpan={4} className="px-6 py-16 text-center">
+                      <td colSpan={1} className="px-6 py-16 text-center">
                         <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-primary"></div>
                       </td>
                     </tr>
@@ -191,20 +179,11 @@ export default function ProfessoresDashboard() {
                     filteredProfessores.map((prof) => (
                       <tr key={prof.id} className="hover:bg-foreground/5 transition-colors">
                         <td className="px-5 py-4 font-semibold">{prof.nome}</td>
-                        <td className="px-5 py-4 text-foreground/70">{prof.email}</td>
-                        <td className="px-5 py-4 text-foreground/70">{prof.centro || "N/A"}</td>
-                        <td className="px-5 py-4">
-                          <span className={`px-2 py-1 rounded text-xs font-bold ${
-                            prof.ativo !== false ? "bg-green-500/15 text-green-500" : "bg-red-500/15 text-red-500"
-                          }`}>
-                            {prof.ativo !== false ? "Ativo" : "Inativo"}
-                          </span>
-                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={4} className="px-6 py-16 text-center text-foreground/50">
+                      <td colSpan={1} className="px-6 py-16 text-center text-foreground/50">
                         Nenhum professor encontrado.
                       </td>
                     </tr>
