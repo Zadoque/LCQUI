@@ -27,3 +27,12 @@ As suítes foram executadas separadamente, cada uma com uma única preparação 
 seed, pois compartilham o banco do emulador. A execução combinada dos dois
 arquivos não é evidência válida: o primeiro arquivo deixa notificações de
 arquivamento para a sequência do segundo.
+
+\textbf{Incremento posterior de IMP-NOTIF-005.} Os jobs de reagentes foram
+verificados separadamente em Node.js 20: \texttt{notificacoesReagentes.test.ts}
+passou 4/4, cobrindo vencimento, escassez, atraso, janela preventiva e
+deduplicação diária. O cenário Q14 em \texttt{reagentes.test.ts} passou 1/1,
+com Professor+Gestor, justificativa, ausência de outro gestor ativo e aviso à
+chefia. A suíte legada completa de reagentes ainda contém payloads históricos
+sem os IDs exigidos pelo schema atual; essa falha é registrada e não foi
+atribuída ao incremento dos jobs/Q14.
