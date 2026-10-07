@@ -100,6 +100,14 @@ export function buildDeepLink(notif: NotificacaoItem): string | null {
         : null;
     case "Roteiro":
       return "/turmas?roteiros=1";
+    case "Almoxarifado":
+      // A tela revalida o escopo do usuário antes de exibir operações do almoxarifado.
+      return `/reagentes?almoxarifado=${encodeURIComponent(notif.id_alvo)}&via=notificacao`;
+    case "Emprestimo":
+      // O alvo é resolvido pela tela operacional; o ID não concede acesso por si só.
+      return `/reagentes?emprestimo=${encodeURIComponent(notif.id_alvo)}&via=notificacao`;
+    case "Usuario":
+      return `/alunos?usuario=${encodeURIComponent(notif.id_alvo)}&via=notificacao`;
     default:
       return null;
   }
