@@ -158,7 +158,9 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
     it("TEST-INT-CONVITE-002 — convite global cria convite com id_turma nulo", async () => {
       const profId = "prof_owner_2";
       await semearProfessor(profId);
-      const email = "global.aluno@ufsc.br";
+      // Identidade única evita que execuções repetidas reutilizem o lock GLOBAL
+      // no Emulator; cada cenário deve começar com estado limpo.
+      const email = `global.aluno.${Date.now()}@ufsc.br`;
       const idOperacao = novaOp();
 
       const req = mockRequest({ idOperacao, email, idTurma: null }, profId);
@@ -174,6 +176,29 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
       const lockSnap = await db.collection("Chaves_Unicas").doc(chaveConvitePendente(hmac)).get();
       expect(lockSnap.exists).toBe(true);
       expect(lockSnap.data()?.id_recurso).toBe(res.id);
+    });
+
+    it("TEST-INT-CONVITE-002A — convite global para Auth existente chega na caixa interna", async () => {
+      const profId = "prof_global_auth_2a";
+      await semearProfessor(profId);
+      const email = "global.auth.existente@ufsc.br";
+      const alunoUid = await criarUsuarioAuth(email, true, "Aluno Global Auth");
+
+      const res = await executarConvidarAluno({
+        idOperacao: novaOp(), email, idTurma: null,
+      }, mockRequest({}, profId), SECRET_TEST);
+
+      expect(res.canal_entrega).toBe("notificacao_interna");
+      const notificacao = await db.collection("Usuarios").doc(alunoUid)
+        .collection("Notificacoes").doc(res.id).get();
+      expect(notificacao.exists).toBe(true);
+      expect(notificacao.data()).toMatchObject({
+        tipo: "CONVITE_PARA_TURMA",
+        id_destinatario: alunoUid,
+        id_turma: null,
+        entidade_alvo: "Convite_Aluno",
+        id_alvo: res.id,
+      });
     });
 
     it("TEST-INT-CONVITE-003 — professor tentando convidar para turma alheia é negado (DENY)", async () => {
@@ -957,4 +982,3 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
     });
   });
 });
-
