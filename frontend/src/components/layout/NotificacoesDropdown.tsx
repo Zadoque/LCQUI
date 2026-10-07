@@ -144,6 +144,8 @@ export function NotificacoesDropdown() {
   const [notificacoes, setNotificacoes] = useState<NotificacaoItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [agora, setAgora] = useState(0);
+  const [dadosDesatualizados, setDadosDesatualizados] = useState(false);
+  const [offline, setOffline] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // "Limpar tudo" state
@@ -164,8 +166,20 @@ export function NotificacoesDropdown() {
 
   useEffect(() => {
     if (!user?.uid) {
+      setNotificacoes([]);
+      setDadosDesatualizados(false);
+      setOffline(false);
       return;
     }
+
+    setNotificacoes([]);
+    setLoading(true);
+    setDadosDesatualizados(false);
+    setOffline(typeof navigator !== "undefined" && !navigator.onLine);
+
+    const atualizarConectividade = () => setOffline(!navigator.onLine);
+    window.addEventListener("online", atualizarConectividade);
+    window.addEventListener("offline", atualizarConectividade);
 
     // Reset permission-denied state on user change
     permissionDeniedRef.current = false;
@@ -195,6 +209,8 @@ export function NotificacoesDropdown() {
 
         setNotificacoes(itens);
         setLoading(false);
+        setDadosDesatualizados(snapshot.metadata.fromCache === true);
+        setOffline(!navigator.onLine);
       },
       (error) => {
         // permission-denied em cenários legítimos (conta sem papel
@@ -210,12 +226,17 @@ export function NotificacoesDropdown() {
         } else {
           console.error("Erro ao ouvir notificações:", error);
         }
-        setNotificacoes([]);
         setLoading(false);
+        setDadosDesatualizados(true);
+        setOffline(!navigator.onLine);
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      window.removeEventListener("online", atualizarConectividade);
+      window.removeEventListener("offline", atualizarConectividade);
+    };
   }, [user?.uid]);
 
   // Fechar dropdown ao clicar fora
@@ -360,6 +381,20 @@ export function NotificacoesDropdown() {
               </div>
             )}
           </div>
+
+          {/* Abas de filtro */}
+          {(offline || dadosDesatualizados) && (
+            <div
+              className="px-3 py-2 text-xs text-amber-800 bg-amber-100/80 dark:text-amber-100 dark:bg-amber-950/50"
+              role="status"
+              data-testid="notificacoes-estado-offline"
+            >
+              {offline
+                ? "Você está offline. Exibindo notificações autorizadas anteriormente; ações serão validadas ao reconectar."
+                : "Notificações possivelmente desatualizadas. Aguarde a reconexão para confirmar mudanças."
+              }
+            </div>
+          )}
 
           {/* Abas de filtro */}
           <div className="flex border-b border-foreground/10 text-xs font-semibold">
