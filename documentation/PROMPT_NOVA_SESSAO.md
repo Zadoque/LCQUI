@@ -55,9 +55,9 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 ## Estado atual
 
 - Branch `dev` sincronizado com `origin/dev` (tudo publicado).
-- Matriz (70 features): **23 DIVERGENTE / 37 NÃO DIVERGENTE / 10 NÃO IMPLEMENTADO** (atualizada no arquivo).
+- Matriz (70 features): **22 DIVERGENTE / 38 NÃO DIVERGENTE / 10 NÃO IMPLEMENTADO** (atualizada no arquivo).
 - IMP-BASE-003 (Matérias UI edição/listagem) concluído em commits `2bd38091` (feat) e `9ef10d35` (docs).
-- Features NÃO DIVERGENTE (atuais): `IMP-ACAD-001`..`005`, `IMP-POST-001`..`004`, `IMP-ROT-001`..`005`, `IMP-NOTIF-001`..`005`, `IMP-RULES-001`..`004`, `IMP-INDEX-001`, `IMP-AUTH-001`..`004`, `IMP-BASE-002`, `IMP-BASE-003`, `IMP-ROLE-001`..`003`.
+- Features NÃO DIVERGENTE (atuais): `IMP-ACAD-001`..`006`, `IMP-POST-001`..`004`, `IMP-ROT-001`..`005`, `IMP-NOTIF-001`..`005`, `IMP-RULES-001`..`004`, `IMP-INDEX-001`, `IMP-AUTH-001`..`004`, `IMP-BASE-001`..`004`, `IMP-ROLE-001`..`004`, `IMP-PAT-001`.
 - Sessão (Frente A + autorização + Rules), commits em `dev`:
   - `IMP-NOTIF-001` -> NÃO DIVERGENTE: enum alinhado ao CUE (`#M13Tipo`, 21 valores), página `/notificacoes` (UI-12), deep links por `entidade_alvo` (incl. Roteiro -> `/turmas?roteiros=1`), papel/escopo por item, E2E-NOTIF-004.
   - `IMP-AUTH-004` -> NÃO DIVERGENTE: seletor de papel (UI-01) + `papelAtivo`/`resolverPapelAtivo`, Sidebar escopada, remonte por `papelAtivo` (cancela listeners, UI-13), perfil editável + callable `atualizarPerfil` (propaga nome, preserva históricos), guard de formulário modificado (S8 UI-01 L193).
@@ -69,6 +69,7 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
   - `IMP-NOTIF-004`: NÃO DIVERGENTE — abertura de alvo revalida M9, destinatário, expiração e ACL corrente no servidor; perda de vínculo/alvo expirado produz resposta neutra; relógio do conjunto ativo é atualizado continuamente.
 - `IMP-ACAD-005`: NÃO DIVERGENTE — convite global para conta Auth existente usa notificação interna, com dívida CUE/Alloy formal documentada para alinhamento posterior.
 - `IMP-ROLE-001`: NÃO DIVERGENTE — UI-02 completa, concessão/revogação por UID, detalhes por abas e matriz RN-ROLE exaustivamente coberta.
+- `IMP-PAT-001`: NÃO DIVERGENTE — cadastro patrimonial canônico com M9 transacional, plaqueta normalizada e reserva permanente, foto Storage validada, projeções de resumo/local, `versao=1`, histórico de cadastro; edição com reclassificação por resumo, incremento único, máquina de status e conflito otimista fail-closed. Teste patrimonial direcionado 9/9 e Rules 163/163.
 - **Pendências principais**: nenhuma pendência adicional de papéis; o próximo `q0` deve recalcular a maior prioridade entre as divergências restantes.
 
 ### Sessão atual — resumo do trabalho (commits em `dev`)
@@ -112,7 +113,7 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 
 ## Próximas fatias priorizadas
 
-**Última fatia concluída:** `IMP-ACAD-005` — convites globais/turma, entrega interna Auth e entrega OOB pós-commit (q0→q8 concluído; matriz em `NÃO DIVERGENTE`).
+**Última fatia concluída:** `IMP-PAT-001` — cadastro/manutenção patrimonial canônica (q0→q8 concluído; matriz em `NÃO DIVERGENTE`).
 
 1. Recalcular q0 entre as divergências remanescentes da matriz.
 4. Ondas de patrimônio (`IMP-PAT-001..005`) e laboratório (M1–M8, relatórios, etiquetas, UI-001..003).
