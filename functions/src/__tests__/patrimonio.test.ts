@@ -249,6 +249,34 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
     expect((await bem.ref.collection("Historico_Patrimonio").get()).size).toBe(1);
   });
 
+  it("deve impedir reutilização de plaqueta já reservada por bem terminal", async () => {
+    const numero = "PAT-BAIXADO";
+    const photoPath = "requisicoes/prof1/pat-baixado.png";
+    await db.collection("Chaves_Unicas").doc(`Bem_Patrimonial__${numero}`).set({
+      tipo: "Bem_Patrimonial",
+      id_recurso: "bem-terminal",
+      chave_recurso: numero,
+    });
+    await admin.storage().bucket().file(photoPath).save(Buffer.from("fake-image"), { contentType: "image/png" });
+
+    const criado = await testEnv.wrap(criarRequisicaoAdicaoBem)(mockRequest({
+      numeroPatrimonioProposto: ` ${numero.toLowerCase()} `,
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: photoPath,
+      idLocal: "local1",
+      idResumoBemPatrimonial: "resumo-antigo",
+      nomeResponsavelProposto: "Responsável SEI",
+      motivo: "Tentativa de reutilização",
+    }, "prof1", ["Professor"]));
+
+    await expect(testEnv.wrap(responderRequisicaoAdicaoBem)(mockRequest({
+      idRequisicao: criado.idRequisicao,
+      aprovar: true,
+      justificativa: "Plaqueta terminal não pode ser reutilizada",
+    }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]))).rejects.toThrow(/reservada permanentemente/i);
+    expect((await db.collection("Chaves_Unicas").doc(`Bem_Patrimonial__${numero}`).get()).data()?.id_recurso).toBe("bem-terminal");
+  });
+
   it("deve rejeitar aprovação de edição quando a versão observada ficou obsoleta", async () => {
     await db.collection("Locks_Requisicao_Patrimonio").doc("bem_edicao_bem-versao-pat").delete();
     await db.collection("Bem_Patrimonial").doc("bem-versao-pat").set({
