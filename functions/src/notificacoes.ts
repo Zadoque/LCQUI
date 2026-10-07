@@ -119,6 +119,137 @@ export const marcarNotificacaoComoLida = onCall(async (request) => {
   });
 });
 
+/**
+ * Revalida a abertura de um alvo M13 no instante da navegação. A notificação
+ * nunca concede acesso: ela apenas aponta para um recurso cuja ACL corrente é
+ * verificada novamente antes de devolver uma rota interna.
+ */
+export const resolverDestinoNotificacao = onCall(async (request) => {
+  const claims = extrairClaimsAutoridade(request);
+  const { idNotificacao } = validatePayload(
+    z.object({ idNotificacao: z.string().min(1) }),
+    request.data,
+  );
+  const db = admin.firestore();
+  const agora = Timestamp.now();
+
+  return db.runTransaction(async (tx) => {
+    const autoridade = await resolverAutoridadePersistidaTx(tx, claims, PAPEIS_CONHECIDOS);
+    const notificacaoRef = db.collection("Usuarios").doc(claims.uid).collection("Notificacoes").doc(idNotificacao);
+    const notificacaoSnap = await tx.get(notificacaoRef);
+    if (!notificacaoSnap.exists || notificacaoSnap.data()?.id_destinatario !== claims.uid) {
+      throw new HttpsError("not-found", "Notificação não encontrada.");
+    }
+    const notificacao = notificacaoSnap.data()!;
+    const expiraEm = notificacao.expira_em;
+    if (expiraEm && typeof expiraEm.toMillis === "function" && expiraEm.toMillis() <= agora.toMillis()) {
+      return { autorizado: false, motivo: "expirada" };
+    }
+
+    const tipoAlvo = notificacao.entidade_alvo;
+    const idAlvo = notificacao.id_alvo;
+    if (typeof tipoAlvo !== "string" || typeof idAlvo !== "string" || !idAlvo) {
+      return { autorizado: false, motivo: "alvo_invalido" };
+    }
+    const papeis = new Set(autoridade.papeis);
+    const ehChefe = papeis.has("Chefe_Geral");
+    const ehGestorPatrimonio = papeis.has("Gestor_Bens_Patrimoniais");
+    const ehGestorAlmox = papeis.has("Gestor_Almoxarifado");
+
+    const turmaRef = notificacao.id_turma ? db.collection("Turma").doc(notificacao.id_turma) : null;
+    const turmaSnap = turmaRef ? await tx.get(turmaRef) : null;
+    const turma = turmaSnap?.data();
+    const membro = turmaRef ? await tx.get(turmaRef.collection("Alunos").doc(claims.uid)) : null;
+    const ehMembroTurma = membro?.exists === true;
+    const acessoTurma = ehChefe || turma?.id_professor === claims.uid || ehMembroTurma;
+
+    let autorizado = false;
+    switch (tipoAlvo) {
+      case "Convite_Aluno": {
+        const convite = await tx.get(db.collection("Convite_Aluno").doc(idAlvo));
+        autorizado = convite.exists && (notificacao.tipo === "CONVITE_PARA_TURMA" || ehChefe || convite.data()?.convidado_por === claims.uid);
+        break;
+      }
+      case "Turma": {
+        const alvo = await tx.get(db.collection("Turma").doc(idAlvo));
+        autorizado = alvo.exists && (ehChefe || alvo.data()?.id_professor === claims.uid || (await tx.get(alvo.ref.collection("Alunos").doc(claims.uid))).exists);
+        break;
+      }
+      case "Post": {
+        const alvo = turmaRef ? await tx.get(turmaRef.collection("Posts").doc(idAlvo)) : null;
+        autorizado = alvo?.exists === true && acessoTurma && alvo.data()?.removido_da_apresentacao !== true;
+        break;
+      }
+      case "Comentario": {
+        const consulta = db.collectionGroup("Comentarios").where(FieldPath.documentId(), "==", idAlvo).limit(1);
+        const alvo = await tx.get(consulta);
+        autorizado = !alvo.empty && acessoTurma && alvo.docs[0].data()?.removido_da_apresentacao !== true;
+        break;
+      }
+      case "Roteiro": {
+        const alvo = await tx.get(db.collection("Roteiro_Experimento").doc(idAlvo));
+        const dados = alvo.data();
+        autorizado = alvo.exists && (ehChefe || dados?.id_professor_upload === claims.uid || dados?.professores_compartilhados?.includes(claims.uid));
+        break;
+      }
+      case "Almoxarifado": {
+        const alvo = await tx.get(db.collection("Almoxarifado").doc(idAlvo));
+        const vinculo = await tx.get(db.collection("Gestor_Almoxarifado_x_Almoxarifado")
+          .where("id_gestor_almoxarifado", "==", claims.uid)
+          .where("id_almoxarifado", "==", idAlvo).limit(1));
+        autorizado = alvo.exists && (ehChefe || (ehGestorAlmox && !vinculo.empty));
+        break;
+      }
+      case "Emprestimo": {
+        const alvo = await tx.get(db.collection("Emprestimo_Reagente").doc(idAlvo));
+        const dados = alvo.data();
+        const almoxId = dados?.id_almoxarifado;
+        const vinculo = almoxId ? await tx.get(db.collection("Gestor_Almoxarifado_x_Almoxarifado")
+          .where("id_gestor_almoxarifado", "==", claims.uid)
+          .where("id_almoxarifado", "==", almoxId).limit(1)) : null;
+        autorizado = alvo.exists && (ehChefe || dados?.id_usuario_retirou === claims.uid || (ehGestorAlmox && !!vinculo && !vinculo.empty));
+        break;
+      }
+      case "Usuario":
+        autorizado = idAlvo === claims.uid || ehChefe;
+        break;
+      case "Bem_Patrimonial": {
+        const alvo = await tx.get(db.collection("Bem_Patrimonial").doc(idAlvo));
+        autorizado = alvo.exists && (ehChefe || ehGestorPatrimonio);
+        break;
+      }
+      case "Requisicao_Bem": {
+        const colecao = notificacao.tipo === "REQUISICAO_ADICAO_BEM"
+          ? "Requisicao_Adicao_Bem_Patrimonial"
+          : "Requisicao_Edicao_Bem_Patrimonial";
+        const alvo = await tx.get(db.collection(colecao).doc(idAlvo));
+        const dados = alvo.data();
+        autorizado = alvo.exists && (ehChefe || ehGestorPatrimonio || dados?.id_usuario_solicitante === claims.uid);
+        break;
+      }
+      default:
+        autorizado = false;
+    }
+
+    if (!autorizado) return { autorizado: false, motivo: "sem_acesso" };
+    const encoded = encodeURIComponent(idAlvo);
+    const rotas: Record<string, string> = {
+      Convite_Aluno: `/convite?id=${encoded}&via=notificacao`,
+      Turma: `/turmas?turma=${encoded}`,
+      Post: `/turmas?turma=${encodeURIComponent(notificacao.id_turma ?? "")}`,
+      Comentario: `/turmas?turma=${encodeURIComponent(notificacao.id_turma ?? "")}`,
+      Roteiro: "/turmas?roteiros=1",
+      Almoxarifado: `/reagentes?almoxarifado=${encoded}&via=notificacao`,
+      Emprestimo: `/reagentes?emprestimo=${encoded}&via=notificacao`,
+      Usuario: `/alunos?usuario=${encoded}&via=notificacao`,
+      Bem_Patrimonial: `/patrimonio/${encoded}`,
+      Requisicao_Bem: "/patrimonio/requisicoes",
+    };
+    const url = rotas[tipoAlvo];
+    return url ? { autorizado: true, url } : { autorizado: false, motivo: "alvo_invalido" };
+  });
+});
+
 /** Tamanho de página padrão do "Limpar tudo" paginado/reentrante (RN-M13-02). */
 export const LIMPAR_TUDO_LIMITE_PADRAO = 100;
 /** Teto de página do "Limpar tudo" (limite de transação e previsibilidade). */
