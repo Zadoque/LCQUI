@@ -47,16 +47,12 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
   useEffect(() => {
     if (!isOpen) return;
 
-    let unsubProf = () => {};
+    let cancelado = false;
     if (isChefeGeral) {
-      const qProf = query(collection(db, "Professor"));
-      unsubProf = onSnapshot(qProf, (snap) => {
-        const lista = snap.docs.map(doc => ({
-          id: doc.id,
-          nome: doc.data().nome
-        }));
-        setProfessores(lista);
-      });
+      const buscarProfessores = httpsCallable(getFunctions(), "buscarProfessores");
+      buscarProfessores({}).then((resultado) => {
+        if (!cancelado) setProfessores((resultado.data as { professores: { id: string; nome: string }[] }).professores);
+      }).catch((erro) => setError(erro instanceof Error ? erro.message : "Não foi possível carregar os professores."));
     }
 
     const qMat = query(collection(db, "Materia"), orderBy("nome", "asc"));
@@ -70,7 +66,7 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
     });
 
     return () => {
-      unsubProf();
+      cancelado = true;
       unsubMat();
     };
   }, [isOpen, isChefeGeral]);
@@ -201,6 +197,7 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
               <label className="block text-sm font-semibold mb-1 text-primary">Professor Responsável</label>
               <select 
                 required
+                aria-label="Professor Responsável"
                 value={selectedProfId}
                 onChange={(e) => setSelectedProfId(e.target.value)}
                 className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary font-medium"
