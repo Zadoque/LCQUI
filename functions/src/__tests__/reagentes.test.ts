@@ -9,7 +9,7 @@ import {
   cadastrarFrascoFechado, 
   registrarAberturaFrasco, 
   registrarRetirada, 
-  registrarDevolucao 
+  registrarDevolucao
 } from "../reagentes";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
@@ -292,5 +292,47 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
       idEmprestimo: retResult.idEmprestimo,
       pesoRetorno: 550
     }, "gestor10"))).rejects.toThrow(/excede 102% da massa de saída/i);
+  });
+
+  it("deve registrar autoatendimento e notificar a chefia quando não há outro gestor ativo", async () => {
+    const uid = `prof_gestor_${Date.now()}`;
+    const chefe = `chefe_auto_${Date.now()}`;
+    const almox = `almox_auto_${Date.now()}`;
+    const frasco = `frasco_auto_${Date.now()}`;
+
+    await db.collection("Usuarios").doc(uid).set({ ativo: true });
+    await db.collection("Professor").doc(uid).set({ id_usuario: uid });
+    await db.collection("Gestor_Almoxarifado").doc(uid).set({ id_usuario: uid });
+    await db.collection("Gestor_Almoxarifado_x_Almoxarifado").doc(`${uid}_${almox}`).set({
+      id_gestor_almoxarifado: uid,
+      id_almoxarifado: almox,
+    });
+    await db.collection("Usuarios").doc(chefe).set({ ativo: true });
+    await db.collection("Chefe_Geral").doc(chefe).set({ id_usuario: chefe });
+    await db.collection("Frasco_Reagente").doc(frasco).set({
+      id_almoxarifado: almox,
+      disponibilidade: "DISPONIVEL",
+      em_quarentena: false,
+      estado_fisico_frasco: "FECHADO",
+      vencido: false,
+    });
+
+    const resultado = await testEnv.wrap(registrarRetirada)(mockRequest({
+      idFrasco: frasco,
+      idUsuarioRetirou: uid,
+      idLocalUsado: "local-auto",
+      pesoSaida: 100,
+      dataDevolucaoPrevista: "2030-01-01",
+      finalidadeUso: "OUTRO",
+      justificativaAutoAtendimento: "Não havia outro gestor ativo no almoxarifado.",
+    }, uid, ["Professor", "Gestor_Almoxarifado"]));
+
+    expect(resultado.autoAtendimento).toBe(true);
+    expect((await db.collection("Emprestimo_Reagente").doc(resultado.idEmprestimo).get()).data()).toMatchObject({
+      auto_atendimento: true,
+      id_gestor_retirada: uid,
+    });
+    expect((await db.collection("Usuarios").doc(chefe).collection("Notificacoes")
+      .where("tipo", "==", "AUTO_ATENDIMENTO_RETIRADA").get()).size).toBe(1);
   });
 });
