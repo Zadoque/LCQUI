@@ -113,7 +113,7 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 
 **Última fatia concluída:** `IMP-ACAD-005` — convites globais/turma, entrega interna Auth e entrega OOB pós-commit (q0→q8 concluído; matriz em `NÃO DIVERGENTE`).
 
-1. `IMP-ROLE-001/002`.
+1. `IMP-ROLE-001` (q0 em andamento: seleção de identidade existente e concessão por `uidAlvo`); depois `IMP-ROLE-002`.
 4. Ondas de patrimônio (`IMP-PAT-001..005`) e laboratório (M1–M8, relatórios, etiquetas, UI-001..003).
 
 ## Plano executado — IMP-BASE-001 (Almoxarifados UI-03 + E2E)
