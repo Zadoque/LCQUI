@@ -19,6 +19,9 @@ import {
   ModalNovaSubstancia
 } from "@/components/reagentes/ModaisReagentes";
 import { NovaMateriaModal } from "@/components/materias/NovaMateriaModal";
+import { ListaAlmoxarifados, type AlmoxarifadoItem } from "@/components/almoxarifados/ListaAlmoxarifados";
+import { ModalAlmoxarifado } from "@/components/almoxarifados/ModalAlmoxarifado";
+import { GerenciarGestoresAlmoxarifadoModal } from "@/components/almoxarifados/GerenciarGestoresAlmoxarifadoModal";
 
 function AccordionRow({ reagente, onAction }: { reagente: ResumoReagente, onAction: (action: string, payload: any) => void }) {
   const [expanded, setExpanded] = useState(false);
@@ -240,6 +243,9 @@ export default function GestorAlmoxarifadoDashboard() {
   const [isCadastroMenuOpen, setIsCadastroMenuOpen] = useState(false);
   const [isRetiradaOpen, setIsRetiradaOpen] = useState(false);
   const [isDevolucaoOpen, setIsDevolucaoOpen] = useState(false);
+  const [isAlmoxOpen, setIsAlmoxOpen] = useState(false);
+  const [isGestoresAlmoxOpen, setIsGestoresAlmoxOpen] = useState(false);
+  const [almoxSelecionado, setAlmoxSelecionado] = useState<AlmoxarifadoItem | undefined>();
 
   // Estados dos modais de hierarquia
   const [isNovaEspecOpen, setIsNovaEspecOpen] = useState(false);
@@ -255,6 +261,7 @@ export default function GestorAlmoxarifadoDashboard() {
   const [filtroEstado, setFiltroEstado] = useState<string>("");
   const [filtroNatureza, setFiltroNatureza] = useState<string>("");
   const [hasSearched, setHasSearched] = useState(false);
+  const [errorBusca, setErrorBusca] = useState("");
 
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
@@ -264,7 +271,7 @@ export default function GestorAlmoxarifadoDashboard() {
 
   const searchFirestore = async () => {
     if (!filtroLetra && !filtroEstado && !filtroNatureza) {
-      alert("Por favor, selecione ao menos uma Letra Inicial, Estado Físico ou Natureza Química para buscar (Regra de performance).");
+      setErrorBusca("Por favor, selecione ao menos uma Letra Inicial, Estado Físico ou Natureza Química para buscar (Regra de performance).");
       return;
     }
 
@@ -320,7 +327,7 @@ export default function GestorAlmoxarifadoDashboard() {
           {isChefe && (
             <div className="flex flex-col lg:flex-row gap-4 items-center justify-between p-5 bg-indigo-500/5 rounded-2xl border border-indigo-500/20">
               <div className="flex items-center gap-3 flex-wrap">
-                <button className="px-4 py-2 rounded-lg bg-indigo-500/10 text-indigo-400 text-sm font-medium hover:bg-indigo-500/20 transition-colors flex items-center gap-2 border border-indigo-500/20">
+                <button onClick={() => { setAlmoxSelecionado(undefined); setIsAlmoxOpen(true); }} data-testid="almox-btn-novo-almoxarifado-header" className="px-4 py-2 rounded-lg bg-indigo-500/10 text-indigo-400 text-sm font-medium hover:bg-indigo-500/20 transition-colors flex items-center gap-2 border border-indigo-500/20">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
                   Novo Almoxarifado
                 </button>
@@ -333,7 +340,7 @@ export default function GestorAlmoxarifadoDashboard() {
                   Nova Matéria
                 </button>
                 <div className="h-8 w-px bg-foreground/10 hidden sm:block"></div>
-                <button className="px-4 py-2 rounded-lg bg-foreground/5 text-sm font-medium hover:bg-foreground/10 transition-colors flex items-center gap-2">
+                <button onClick={() => setIsGestoresAlmoxOpen(true)} className="px-4 py-2 rounded-lg bg-foreground/5 text-sm font-medium hover:bg-foreground/10 transition-colors flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                   Gerenciar Gestores de Almoxarifado
                 </button>
@@ -433,6 +440,9 @@ export default function GestorAlmoxarifadoDashboard() {
             </div>
           </header>
 
+          {isChefe && <ListaAlmoxarifados onNovo={() => { setAlmoxSelecionado(undefined); setIsAlmoxOpen(true); }} onEditar={item => { setAlmoxSelecionado(item); setIsAlmoxOpen(true); }} onGerenciar={item => { setAlmoxSelecionado(item); setIsGestoresAlmoxOpen(true); }} />}
+          {errorBusca && <p role="alert" className="text-red-500">{errorBusca}</p>}
+
           <div className="glass-panel p-6 rounded-2xl space-y-4 border-2 border-primary/20 bg-primary/5">
             <h2 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
               Passo 1: Filtros de Banco de Dados (Obrigatório)
@@ -526,6 +536,8 @@ export default function GestorAlmoxarifadoDashboard() {
           <ModalEntradaFrasco isOpen={isAdicionarFrascoOpen} onClose={() => setIsAdicionarFrascoOpen(false)} onSuccess={() => {}} idResumoReagente={selectedResumo?.id} idEspecificacaoReagente={selectedEspec?.id} />
           <ModalRegistrarRetirada isOpen={isRetiradaOpen} onClose={() => setIsRetiradaOpen(false)} />
           <ModalDevolucaoFrasco isOpen={isDevolucaoOpen} onClose={() => setIsDevolucaoOpen(false)} frascoId="" />
+          <ModalAlmoxarifado key={`modal-almox-${almoxSelecionado?.id ?? "novo"}`} isOpen={isAlmoxOpen} onClose={() => setIsAlmoxOpen(false)} onSuccess={() => setIsAlmoxOpen(false)} item={almoxSelecionado} />
+          <GerenciarGestoresAlmoxarifadoModal key={`gestores-almox-${almoxSelecionado?.id ?? "gestores"}`} isOpen={isGestoresAlmoxOpen} onClose={() => setIsGestoresAlmoxOpen(false)} onSuccess={() => setIsGestoresAlmoxOpen(false)} item={almoxSelecionado} />
 
         </div>
       </main>
