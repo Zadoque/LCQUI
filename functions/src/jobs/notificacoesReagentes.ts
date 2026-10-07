@@ -170,6 +170,95 @@ export const verificarEscassezDeEstoque = onSchedule({
   timeZone: TIME_ZONE,
 }, async () => executarVerificacaoEscassez());
 
+function dataCivilDoCampo(valor: unknown): string | null {
+  const data = valor && typeof (valor as { toDate?: () => Date }).toDate === "function"
+    ? (valor as { toDate: () => Date }).toDate()
+    : valor instanceof Date ? valor : typeof valor === "string" ? new Date(valor) : null;
+  if (!data || Number.isNaN(data.getTime())) return null;
+  return data.toISOString().slice(0, 10);
+}
+
+function deslocarDataCivil(dataCivil: string, dias: number): string {
+  const data = new Date(`${dataCivil}T12:00:00.000Z`);
+  data.setUTCDate(data.getUTCDate() + dias);
+  return data.toISOString().slice(0, 10);
+}
+
+export async function executarVerificacaoDevolucoes(): Promise<void> {
+  const db = admin.firestore();
+  const hoje = dataCivilSaoPaulo(new Date());
+  const amanha = deslocarDataCivil(hoje, 1);
+  const emprestimos = await db.collection("Emprestimo_Reagente")
+    .where("status", "==", "EM_USO").get();
+  const atrasadosPorAlmox = new Map<string, number>();
+  const batch = db.batch();
+  let atualizados = 0;
+
+  for (const emprestimo of emprestimos.docs) {
+    const dados = emprestimo.data();
+    const prevista = dataCivilDoCampo(dados.data_devolucao_prevista);
+    if (!prevista) throw new Error(`Empréstimo ${emprestimo.id} sem data de devolução válida.`);
+    if (prevista < hoje) {
+      batch.update(emprestimo.ref, { status: "ATRASADO" });
+      atualizados += 1;
+      if (typeof dados.id_almoxarifado === "string") {
+        atrasadosPorAlmox.set(
+          dados.id_almoxarifado,
+          (atrasadosPorAlmox.get(dados.id_almoxarifado) ?? 0) + 1
+        );
+      }
+      continue;
+    }
+    if (prevista !== hoje && prevista !== amanha) continue;
+
+    const uid = dados.id_usuario_retirou;
+    if (typeof uid !== "string" || uid.length === 0) {
+      throw new Error(`Empréstimo ${emprestimo.id} sem retirante; job interrompido fail-closed.`);
+    }
+    const professor = await db.collection("Professor").doc(uid).get();
+    const bolsista = await db.collection("Bolsista").doc(uid).get();
+    const papel = professor.exists ? "Professor" : bolsista.exists ? "Bolsista" : null;
+    if (!papel) throw new Error(`Retirante ${uid} sem papel Professor/Bolsista.`);
+    const janela = prevista === hoje ? "VENCE_HOJE" : "VENCE_AMANHA";
+    await criarNotificacaoSeAusente(db, uid, `${emprestimo.id}--${janela}`, {
+      papel_destinatario: papel,
+      tipo: "DATA_DEVOLUCAO_REAGENTE",
+      quantidade: null,
+      entidade_alvo: "Emprestimo",
+      id_alvo: emprestimo.id,
+      mensagem_customizada: `A devolução do empréstimo vence ${prevista === hoje ? "hoje" : "amanhã"}.`,
+      expira_em: null,
+    });
+  }
+  if (atualizados > 0) await batch.commit();
+
+  for (const [idAlmoxarifado, quantidade] of atrasadosPorAlmox) {
+    const gestores = await db.collection("Gestor_Almoxarifado_x_Almoxarifado")
+      .where("id_almoxarifado", "==", idAlmoxarifado).get();
+    for (const gestor of gestores.docs) {
+      const uid = gestor.data().id_gestor_almoxarifado;
+      if (typeof uid !== "string" || uid.length === 0) {
+        throw new Error(`Vínculo ${gestor.id} sem gestor; job interrompido fail-closed.`);
+      }
+      await criarNotificacaoSeAusente(db, uid, `atraso_${idAlmoxarifado}_${hoje}`, {
+        papel_destinatario: "Gestor_Almoxarifado",
+        tipo: "ENTREGA_ATRASADA",
+        quantidade,
+        entidade_alvo: "Almoxarifado",
+        id_alvo: idAlmoxarifado,
+        mensagem_customizada: `${quantidade} empréstimo(s) estão atrasados para devolução.`,
+        expira_em: null,
+      });
+    }
+  }
+  console.info("Devoluções preventivas processadas", { atualizados, atrasados: atrasadosPorAlmox.size });
+}
+
+export const verificarVencimentosEAtrasos = onSchedule({
+  schedule: "every day 03:00",
+  timeZone: TIME_ZONE,
+}, async () => executarVerificacaoDevolucoes());
+
 export const verificarVencimentosFrascos = onSchedule({
   schedule: "every day 03:00",
   timeZone: TIME_ZONE,
