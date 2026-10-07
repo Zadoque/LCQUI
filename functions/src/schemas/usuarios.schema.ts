@@ -18,12 +18,17 @@ export const IdOperacaoSchema = z
 export const ConvidarUsuarioSchema = z.object({
   idOperacao: IdOperacaoSchema,
   motivo: z.string().trim().min(1).max(2000).optional(),
-  email: z.string().email("O e-mail fornecido não é válido."),
-  nome: z.string().min(1, "O nome é obrigatório."),
+  uidAlvo: z.string().trim().min(1).optional(),
+  email: z.string().email("O e-mail fornecido não é válido.").optional(),
+  nome: z.string().min(1, "O nome é obrigatório.").optional(),
   papel: PapeisUsuariosSchema,
   centro: z.string().optional(),
   laboratorio: z.string().optional(),
   materias: z.array(z.string()).optional()
+}).superRefine((dados, contexto) => {
+  if (!dados.uidAlvo && (!dados.email || !dados.nome)) {
+    contexto.addIssue({ code: z.ZodIssueCode.custom, message: "Informe uidAlvo ou e-mail e nome para convidar." });
+  }
 });
 
 export const RevogarUsuarioPapelSchema = z.object({
@@ -47,6 +52,12 @@ export const BuscarProfessoresSchema = z.object({
 });
 
 export const BuscarGestoresAlmoxarifadoSchema = z.object({
+  termo: z.string().trim().max(150).optional(),
+});
+
+// UI-02: seleção autorizada de uma identidade já existente, sem expor e-mail,
+// matrícula ou dados de contato na listagem.
+export const BuscarUsuariosPapelSchema = z.object({
   termo: z.string().trim().max(150).optional(),
 });
 
