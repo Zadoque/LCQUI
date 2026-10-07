@@ -217,13 +217,6 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
   const dados = validatePayload(CriarRequisicaoAdicaoBemSchema, request.data);
   const numeroNormalizado = normalizarPlaqueta(dados.numeroPatrimonioProposto);
 
-  const checkBem = await admin.firestore().collection("Bem_Patrimonial")
-    .where("numero_patrimonio", "==", numeroNormalizado)
-    .limit(1).get();
-  if (!checkBem.empty) {
-    throw new HttpsError("failed-precondition", "Já existe um bem cadastrado com este número de patrimônio.");
-  }
-
   const lockId = `bem_adicao_${numeroNormalizado}`;
   const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(lockId);
   const reqRef  = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc();
@@ -231,6 +224,15 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
   return admin.firestore().runTransaction(async (tx) => {
     await resolverAutoridadePersistidaTx(tx, claims, ["Professor"]);
     const lockSnap = await tx.get(lockRef);
+    const chaveSnap = await tx.get(chavePlaqueta(numeroNormalizado));
+    const bemSnap = await tx.get(admin.firestore().collection("Bem_Patrimonial")
+      .where("numero_patrimonio", "==", numeroNormalizado).limit(1));
+    if (!bemSnap.empty) {
+      throw new HttpsError("failed-precondition", "Já existe um bem cadastrado com este número de patrimônio.");
+    }
+    if (chaveSnap.exists) {
+      throw new HttpsError("already-exists", "A plaqueta já está reservada permanentemente.");
+    }
     if (lockSnap.exists) {
       throw new HttpsError("failed-precondition", "Já existe requisição pendente para este número de patrimônio.");
     }
