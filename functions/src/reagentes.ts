@@ -240,7 +240,16 @@ export const registrarAberturaFrasco = onCall(async (request) => {
 
 export const registrarRetirada = onCall(async (request) => {
   const dados = validatePayload(RetiradaFrascoSchema, request.data);
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  const papeisOperador = validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  const autoAtendimento = dados.idUsuarioRetirou === request.auth!.uid;
+  if (autoAtendimento) {
+    if (!papeisOperador.includes("Professor") || !papeisOperador.includes("Gestor_Almoxarifado")) {
+      throw new HttpsError("permission-denied", "Autoatendimento exige Professor e Gestor de Almoxarifado.");
+    }
+    if (!dados.justificativaAutoAtendimento || dados.justificativaAutoAtendimento.length < 20) {
+      throw new HttpsError("invalid-argument", "Autoatendimento exige justificativa de pelo menos 20 caracteres.");
+    }
+  }
 
   const [profSnap, bolsSnap] = await Promise.all([
     admin.firestore().collection("Professor").doc(dados.idUsuarioRetirou).get(),
@@ -252,12 +261,29 @@ export const registrarRetirada = onCall(async (request) => {
 
   const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
 
-  return admin.firestore().runTransaction(async (tx) => {
+  const resultado = await admin.firestore().runTransaction(async (tx) => {
     const frascoSnap = await tx.get(frascoRef);
     if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     const frasco = frascoSnap.data()!;
 
     await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
+    if (autoAtendimento) {
+      const vinculos = await tx.get(admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
+        .where("id_almoxarifado", "==", frasco.id_almoxarifado));
+      let gestoresAtivos = 0;
+      for (const vinculo of vinculos.docs) {
+        const uid = vinculo.data().id_gestor_almoxarifado;
+        if (typeof uid !== "string") continue;
+        const [usuario, papel] = await Promise.all([
+          tx.get(admin.firestore().collection("Usuarios").doc(uid)),
+          tx.get(admin.firestore().collection("Gestor_Almoxarifado").doc(uid)),
+        ]);
+        if (usuario.data()?.ativo === true && papel.exists) gestoresAtivos += 1;
+      }
+      if (gestoresAtivos > 1) {
+        throw new HttpsError("failed-precondition", "Autoatendimento só é permitido quando não há outro gestor ativo.");
+      }
+    }
     if (frasco.disponibilidade !== "DISPONIVEL") {
       throw new HttpsError("failed-precondition", "Frasco não está disponível para retirada.");
     }
@@ -289,6 +315,7 @@ export const registrarRetirada = onCall(async (request) => {
     tx.set(emprestimoRef, {
       id_frasco_reagente: dados.idFrasco,
       id_usuario_retirou: dados.idUsuarioRetirou,
+      id_gestor_retirada: request.auth!.uid,
       id_almoxarifado: frasco.id_almoxarifado,
       status: "EM_USO",
       data_retirada: FieldValue.serverTimestamp(),
@@ -297,6 +324,8 @@ export const registrarRetirada = onCall(async (request) => {
       peso_saida: dados.pesoSaida,
       uso_vencido_aceito: Boolean(frascoVencido),
       finalidade_uso: finalidade,
+      auto_atendimento: autoAtendimento,
+      justificativa_auto_atendimento: autoAtendimento ? dados.justificativaAutoAtendimento : null,
     });
 
     tx.update(frascoRef, { disponibilidade: "EMPRESTADO" });
@@ -311,8 +340,38 @@ export const registrarRetirada = onCall(async (request) => {
       timestamp: FieldValue.serverTimestamp(),
     });
 
-    return { idEmprestimo: emprestimoRef.id };
+    return { idEmprestimo: emprestimoRef.id, autoAtendimento };
   });
+
+  if (autoAtendimento) {
+    const chefes = await admin.firestore().collection("Chefe_Geral").get();
+    for (const chefe of chefes.docs) {
+      const usuario = await admin.firestore().collection("Usuarios").doc(chefe.id).get();
+      if (usuario.data()?.ativo !== true) continue;
+      const ref = admin.firestore().collection("Usuarios").doc(chefe.id)
+        .collection("Notificacoes").doc(`autoatendimento_${resultado.idEmprestimo}`);
+      await admin.firestore().runTransaction(async (tx) => {
+        if ((await tx.get(ref)).exists) return;
+        tx.create(ref, {
+          id_destinatario: chefe.id,
+          papel_destinatario: "Chefe_Geral",
+          tipo: "AUTO_ATENDIMENTO_RETIRADA",
+          id_quem_fez_acao: request.auth!.uid,
+          id_turma: null,
+          quantidade: null,
+          entidade_alvo: "Emprestimo",
+          id_alvo: resultado.idEmprestimo,
+          mensagem_customizada: "Retirada registrada em autoatendimento; revisão da chefia necessária.",
+          lida: false,
+          lida_em: null,
+          emitida_em: FieldValue.serverTimestamp(),
+          expira_em: null,
+          contem_conteudo_protegido: false,
+        });
+      });
+    }
+  }
+  return resultado;
 });
 
 async function resolverDensidadeDoFrasco(frasco: any): Promise<number | null> {
