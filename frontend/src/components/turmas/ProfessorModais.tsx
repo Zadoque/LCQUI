@@ -786,19 +786,14 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
   // Carrega lista de professores ativos ao abrir modal de compartilhamento
   useEffect(() => {
     if (!modalCompartilhamentoAberto || !user) return;
-    const q = query(collection(db, "Professor"), where("ativo", "==", true));
-    const unsub = onSnapshot(q, (snap) => {
-      const lista = snap.docs.map(doc => {
-        const data = doc.data();
-        return {
-          uid: doc.id,
-          nome: data.nome || doc.id,
-          ativo: data.ativo !== false,
-        };
-      });
-      setProfessores(lista);
-    });
-    return () => unsub();
+    let cancelado = false;
+    const buscarProfessores = httpsCallable(getFunctions(), "buscarProfessores");
+    buscarProfessores({}).then((resultado) => {
+      if (cancelado) return;
+      const lista = (resultado.data as { professores: { id: string; nome: string }[] }).professores;
+      setProfessores(lista.map(professor => ({ uid: professor.id, nome: professor.nome, ativo: true })));
+    }).catch((erro) => console.error("Erro ao buscar professores:", erro));
+    return () => { cancelado = true; };
   }, [modalCompartilhamentoAberto, user]);
 
   const handleExcluir = async (id: string) => {
