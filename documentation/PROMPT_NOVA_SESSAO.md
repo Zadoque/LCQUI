@@ -55,7 +55,7 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 ## Estado atual
 
 - Branch `dev` sincronizado com `origin/dev` (tudo publicado).
-- Matriz (70 features): **30 DIVERGENTE / 30 NÃO DIVERGENTE / 10 NÃO IMPLEMENTADO** (atualizada no arquivo).
+- Matriz (70 features): **29 DIVERGENTE / 31 NÃO DIVERGENTE / 10 NÃO IMPLEMENTADO** (atualizada no arquivo).
 - IMP-BASE-003 (Matérias UI edição/listagem) concluído em commits `2bd38091` (feat) e `9ef10d35` (docs).
 - Features NÃO DIVERGENTE (atuais): `IMP-ACAD-001`..`004`, `IMP-POST-001`..`004`, `IMP-ROT-001`..`005`, `IMP-NOTIF-001`..`003`, `IMP-RULES-001`..`004`, `IMP-INDEX-001`, `IMP-AUTH-001`..`004`, `IMP-BASE-002`, `IMP-BASE-003`.
 - Sessão (Frente A + autorização + Rules), commits em `dev`:
@@ -63,7 +63,8 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
   - `IMP-AUTH-004` -> NÃO DIVERGENTE: seletor de papel (UI-01) + `papelAtivo`/`resolverPapelAtivo`, Sidebar escopada, remonte por `papelAtivo` (cancela listeners, UI-13), perfil editável + callable `atualizarPerfil` (propaga nome, preserva históricos), guard de formulário modificado (S8 UI-01 L193).
   - `IMP-RULES-002/003/004` -> NÃO DIVERGENTE: históricos acadêmicos (`HistoricoAlunos`/`Historico_Posts_Turma`/`Historico_Comentario`); patrimônio/reagentes server-owned + escopo (Lote/Emprestimo/Requisicao) + coleções M8 + `Especificacoes` + `Historico_Patrimonio`; Storage read por recurso + claim `ativo` + retenção do comprovante de baixa.
   - `IMP-ROLE-004`: NÃO DIVERGENTE — `buscarProfessores` (projeção `{id,nome}`) consumido por `professores/page.tsx`, `ProfessorModais.tsx` e `ModaisAcademico.tsx`; Rule `Professor` usa `get`; `alunos/page.tsx` não usa `alert()` nativo.
-- **Pendências principais**: `IMP-UI-004` (cache/offline UI-13 + deep links de entidades não emitidas); `IMP-ROLE-004` (frontend acima); `IMP-NOTIF-004/005` (jobs M8/Seção 10.7 + `AUTO_ATENDIMENTO_RETIRADA`/Q14); `IMP-ACAD-006` (E2E residual já coberto por 15).
+  - `IMP-UI-004`: NÃO DIVERGENTE — deep link de `Roteiro` comprovado por E2E; cache em memória/offline com aviso de desatualização, limpeza por UID e regressão das caixas de notificação verde.
+- **Pendências principais**: `IMP-NOTIF-004/005` (jobs M8/Seção 10.7 + `AUTO_ATENDIMENTO_RETIRADA`/Q14); `IMP-ACAD-006` (E2E residual já coberto por 15); `IMP-ROLE-001/002/003`.
 
 ### Sessão atual — resumo do trabalho (commits em `dev`)
 
@@ -106,10 +107,9 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 
 ## Próximas fatias priorizadas
 
-**EM EXECUÇÃO (plano pronto):** `IMP-BASE-001` — Almoxarifados UI-03 + E2E (q0→q4 concluído; aguarda q5 IMPLEMENT)
+**Última fatia concluída:** `IMP-UI-004` — deep link de roteiro e cache/offline UI-13 (q0→q8 concluído; matriz em `NÃO DIVERGENTE`).
 
-1. `IMP-UI-004`: cache/offline (UI-13) + deep links de `entidade_alvo` sem tela.
-2. `IMP-NOTIF-004/005`: jobs M8/Seção 10.7 (`ESCASSEZ_ESTOQUE`, `FRASCOS_VENCIDOS`, `DATA_DEVOLUCAO_REAGENTE`, `ENTREGA_ATRASADA`) e `AUTO_ATENDIMENTO_RETIRADA` (Q14).
+1. `IMP-NOTIF-004/005`: jobs M8/Seção 10.7 (`ESCASSEZ_ESTOQUE`, `FRASCOS_VENCIDOS`, `DATA_DEVOLUCAO_REAGENTE`, `ENTREGA_ATRASADA`) e `AUTO_ATENDIMENTO_RETIRADA` (Q14).
 3. `IMP-ACAD-005` (lacuna de canal GLOBAL), `IMP-ROLE-001/002/003`.
 4. Ondas de patrimônio (`IMP-PAT-001..005`) e laboratório (M1–M8, relatórios, etiquetas, UI-001..003).
 
@@ -135,7 +135,7 @@ INC10 novo frontend/e2e/specs/21-almoxarifados.spec.ts ALMOX-E2E-001..010: 001 c
 INC11 documentation/testes/sections/20-imp-base-001.tex UPDATE + matriz L46 → NÃO DIVERGENTE.
 Regressão: `cd functions && npm run test:unit && npm run test:integration && npm run test:rules && npm run build && npm run lint`; `cd frontend && npx --no-install tsc --noEmit && npm run lint`; `cd frontend && npm run test:e2e -- e2e/specs/19-materias.spec.ts`; `... 20-locais.spec.ts`; `... 21-almoxarifados.spec.ts`.
 Critério de conclusão: ALMOX-E2E-001..010 verdes; novo callable testado; regressão verde; matriz L46 NÃO DIVERGENTE; CUE/Alloy/main.tex intocados.
-EXECUÇÃO: iniciar direto em **q5 IMPLEMENT** (plano aprovado), delegando ao `lcqui-writer`.
+PRÓXIMA EXECUÇÃO: iniciar em **q0 SELECT** e selecionar a próxima fatia divergente, verificando materialmente a matriz e as fontes normativas antes do plano.
 
 ## Papéis (prompt + permissão fixos)
 
