@@ -55,9 +55,9 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 ## Estado atual
 
 - Branch `dev` sincronizado com `origin/dev` (tudo publicado).
-- Matriz (70 features): **22 DIVERGENTE / 38 NÃO DIVERGENTE / 10 NÃO IMPLEMENTADO** (atualizada no arquivo).
+- Matriz (70 features): **21 DIVERGENTE / 39 NÃO DIVERGENTE / 10 NÃO IMPLEMENTADO** (atualizada no arquivo).
 - IMP-BASE-003 (Matérias UI edição/listagem) concluído em commits `2bd38091` (feat) e `9ef10d35` (docs).
-- Features NÃO DIVERGENTE (atuais): `IMP-ACAD-001`..`006`, `IMP-POST-001`..`004`, `IMP-ROT-001`..`005`, `IMP-NOTIF-001`..`005`, `IMP-RULES-001`..`004`, `IMP-INDEX-001`, `IMP-AUTH-001`..`004`, `IMP-BASE-001`..`004`, `IMP-ROLE-001`..`004`, `IMP-PAT-001`.
+- Features NÃO DIVERGENTE (atuais): `IMP-ACAD-001`..`006`, `IMP-POST-001`..`004`, `IMP-ROT-001`..`005`, `IMP-NOTIF-001`..`005`, `IMP-RULES-001`..`004`, `IMP-INDEX-001`, `IMP-AUTH-001`..`004`, `IMP-BASE-001`..`004`, `IMP-ROLE-001`..`004`, `IMP-PAT-001`..`002`.
 - Sessão (Frente A + autorização + Rules), commits em `dev`:
   - `IMP-NOTIF-001` -> NÃO DIVERGENTE: enum alinhado ao CUE (`#M13Tipo`, 21 valores), página `/notificacoes` (UI-12), deep links por `entidade_alvo` (incl. Roteiro -> `/turmas?roteiros=1`), papel/escopo por item, E2E-NOTIF-004.
   - `IMP-AUTH-004` -> NÃO DIVERGENTE: seletor de papel (UI-01) + `papelAtivo`/`resolverPapelAtivo`, Sidebar escopada, remonte por `papelAtivo` (cancela listeners, UI-13), perfil editável + callable `atualizarPerfil` (propaga nome, preserva históricos), guard de formulário modificado (S8 UI-01 L193).
@@ -70,6 +70,7 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 - `IMP-ACAD-005`: NÃO DIVERGENTE — convite global para conta Auth existente usa notificação interna, com dívida CUE/Alloy formal documentada para alinhamento posterior.
 - `IMP-ROLE-001`: NÃO DIVERGENTE — UI-02 completa, concessão/revogação por UID, detalhes por abas e matriz RN-ROLE exaustivamente coberta.
 - `IMP-PAT-001`: NÃO DIVERGENTE — cadastro patrimonial canônico com M9 transacional, plaqueta normalizada e reserva permanente, foto Storage validada, projeções de resumo/local, `versao=1`, histórico de cadastro; edição com reclassificação por resumo, incremento único, máquina de status e conflito otimista fail-closed. Teste patrimonial direcionado 9/9 e Rules 163/163.
+- `IMP-PAT-002`: NÃO DIVERGENTE — normalização e reserva permanente da plaqueta comprovadas, inclusive rejeição de reutilização após bem terminal; teste patrimonial 10/10.
 - **Pendências principais**: nenhuma pendência adicional de papéis; o próximo `q0` deve recalcular a maior prioridade entre as divergências restantes.
 
 ### Sessão atual — resumo do trabalho (commits em `dev`)
@@ -117,6 +118,46 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 
 1. Recalcular q0 entre as divergências remanescentes da matriz.
 4. Ondas de patrimônio (`IMP-PAT-001..005`) e laboratório (M1–M8, relatórios, etiquetas, UI-001..003).
+
+### Avaliação q0 — incremento futuro de `functions/scripts/seed.ts`
+
+O seed atual cobre Auth/M9, matérias/turmas/vínculos acadêmicos e um roteiro
+M12.2, mas não cria fatos patrimoniais, catálogo de reagentes, frascos,
+empréstimos, metrologia, materializações ou relatórios. `IMP-PAT-002` não exige
+alteração do seed: sua prova é backend determinística e cria a reserva terminal
+localmente no teste.
+
+O próximo incremento do seed deve ser feito antes dos E2E das seguintes ondas:
+
+- `IMP-PAT-003`/`004`/`005`, `IMP-PAT-006`, `IMP-REP-002` e `IMP-UI-002`:
+  `Local`, `Resumo_Bem_Patrimonial`, bens Ativo/Inservivel/Ja_dado_baixa,
+  `Chaves_Unicas` de plaquetas, fotos no namespace do professor/gestor,
+  `Historico_Patrimonio`, requisições pendentes e locks tipados; PDF de baixa
+  para `IMP-PAT-006`.
+- `IMP-BASE-004`: documento versionado
+  `Sistema_Catalogo_Reagentes/estado`, artefato JSON protegido no Storage e
+  fixtures de versão anterior/nova.
+- `IMP-REAG-001`/`002`, `IMP-FRASC-001`..`003`, `IMP-RET-001`, `IMP-DEV-001`,
+  `IMP-MET-001`/`002`, `IMP-M5-001`..`003`, `IMP-TERM-001`, `IMP-STOCK-001`/`002`,
+  `IMP-CACHE-001`, `IMP-MVIEW-001`, `IMP-REP-001`/`003`, `IMP-LABEL-001`/`002`
+  e `IMP-UI-001`: catálogo canônico (substância, resumo, especificação,
+  composição, lote), almoxarifado/vínculos, configurações de estoque, frascos
+  fechados/abertos, históricos de abertura/empréstimo/devolução, pendências
+  metrológicas, quarentena/extravio/terminalidade, snapshots/materializações,
+  `Operacoes` apenas quando o cenário exigir retry e objetos Storage para fotos,
+  PDFs e etiquetas.
+- `IMP-IDEM-001`: não deve ganhar receipts no baseline; adicionar apenas
+  recursos estáveis para os cenários de retry, mantendo `Operacoes` vazio no
+  seed limpo.
+- `IMP-UI-003`: o seed acadêmico já cobre turmas e roteiro; antes da cobertura
+  integral de Posts/Comentários/roteiros compartilhados, adicionar somente os
+  estados canônicos necessários (post, comentário, roteiro compartilhado e
+  turma arquivada), preservando o baseline sem convites/notificações.
+
+Regra operacional: o incremento deve ser aditivo e versionado, preservar o
+reset limpo e atualizar `verify()`/`manifest()` na mesma mudança; não semear
+receipts, convites, notificações ou locks pendentes salvo quando uma fixture
+normativa exigir explicitamente esse estado.
 
 ## Plano executado — IMP-BASE-001 (Almoxarifados UI-03 + E2E)
 
