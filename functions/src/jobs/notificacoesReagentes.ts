@@ -15,6 +15,29 @@ function dataCivilSaoPaulo(agora: Date): string {
   return `${valores.year}-${valores.month}-${valores.day}`;
 }
 
+async function criarNotificacaoSeAusente(
+  db: admin.firestore.Firestore,
+  uid: string,
+  idNotificacao: string,
+  dados: Record<string, unknown>
+): Promise<boolean> {
+  const ref = db.collection("Usuarios").doc(uid).collection("Notificacoes").doc(idNotificacao);
+  return db.runTransaction(async (tx) => {
+    if ((await tx.get(ref)).exists) return false;
+    tx.create(ref, {
+      id_destinatario: uid,
+      id_quem_fez_acao: null,
+      id_turma: null,
+      lida: false,
+      lida_em: null,
+      emitida_em: FieldValue.serverTimestamp(),
+      contem_conteudo_protegido: false,
+      ...dados,
+    });
+    return true;
+  });
+}
+
 /**
  * Autoridade temporal de M8: só este job transforma validade efetiva expirada
  * em `vencido=true` e emite o alerta diário para gestores vinculados.
@@ -61,28 +84,14 @@ export async function executarVerificacaoVencimentos(): Promise<void> {
       if (typeof uid !== "string" || uid.length === 0) {
         throw new Error(`Vínculo ${gestor.id} sem gestor; job interrompido fail-closed.`);
       }
-      const ref = db.collection("Usuarios").doc(uid).collection("Notificacoes")
-        .doc(`vencidos_${idAlmoxarifado}_${dataCivil}`);
-      const criou = await db.runTransaction(async (tx) => {
-        const existente = await tx.get(ref);
-        if (existente.exists) return false;
-        tx.create(ref, {
-          id_destinatario: uid,
-          papel_destinatario: "Gestor_Almoxarifado",
-          tipo: "FRASCOS_VENCIDOS",
-          id_quem_fez_acao: null,
-          id_turma: null,
-          quantidade,
-          entidade_alvo: "Almoxarifado",
-          id_alvo: idAlmoxarifado,
-          mensagem_customizada: null,
-          lida: false,
-          lida_em: null,
-          emitida_em: FieldValue.serverTimestamp(),
-          expira_em: null,
-          contem_conteudo_protegido: false,
-        });
-        return true;
+      const criou = await criarNotificacaoSeAusente(db, uid, `vencidos_${idAlmoxarifado}_${dataCivil}`, {
+        papel_destinatario: "Gestor_Almoxarifado",
+        tipo: "FRASCOS_VENCIDOS",
+        quantidade,
+        entidade_alvo: "Almoxarifado",
+        id_alvo: idAlmoxarifado,
+        mensagem_customizada: null,
+        expira_em: null,
       });
       if (criou) notificacoesCriadas += 1;
     }
@@ -92,6 +101,74 @@ export async function executarVerificacaoVencimentos(): Promise<void> {
     notificacoesCriadas,
   });
 }
+
+export async function executarVerificacaoEscassez(): Promise<void> {
+  const db = admin.firestore();
+  const agora = new Date();
+  const dataCivil = dataCivilSaoPaulo(agora);
+  const almoxarifados = await db.collection("Almoxarifado").where("ativo", "==", true).get();
+  let notificacoesCriadas = 0;
+
+  for (const almoxarifado of almoxarifados.docs) {
+    const idAlmoxarifado = almoxarifado.id;
+    const configuracoes = await almoxarifado.ref.collection("Estoques_Configurados")
+      .where("ativo", "==", true)
+      .where("notificacao_ativa", "==", true)
+      .get();
+    if (configuracoes.empty) continue;
+
+    const gestores = await db.collection("Gestor_Almoxarifado_x_Almoxarifado")
+      .where("id_almoxarifado", "==", idAlmoxarifado).get();
+    const gestoresIds = gestores.docs.map((doc) => doc.data().id_gestor_almoxarifado)
+      .filter((uid): uid is string => typeof uid === "string" && uid.length > 0);
+
+    for (const configuracao of configuracoes.docs) {
+      const config = configuracao.data();
+      const limite = config.qtd_limiar_escassez;
+      if (!Number.isInteger(limite) || limite < 0) {
+        throw new Error(`Configuração ${configuracao.ref.path} tem limiar inválido; job interrompido fail-closed.`);
+      }
+      const base = db.collection("Frasco_Reagente")
+        .where("id_almoxarifado", "==", idAlmoxarifado)
+        .where("id_resumo_reagente", "==", config.id_resumo_reagente)
+        .where("id_especificacao_reagente", "==", config.id_especificacao_reagente)
+        .where("situacao_localizacao", "==", "LOCALIZADO")
+        .where("disponibilidade", "==", "DISPONIVEL")
+        .where("estado_fisico_frasco", "in", ["FECHADO", "ABERTO"])
+        .where("em_quarentena", "==", false);
+      const [naoVencidos, vencidosAutorizados] = await Promise.all([
+        base.where("vencido", "==", false).count().get(),
+        base.where("vencido", "==", true).where("uso_vencido_autorizado", "==", true).count().get(),
+      ]);
+      const quantidade = naoVencidos.data().count + vencidosAutorizados.data().count;
+      if (quantidade >= limite) continue;
+
+      for (const uid of gestoresIds) {
+        const criou = await criarNotificacaoSeAusente(
+          db,
+          uid,
+          `escassez_${idAlmoxarifado}_${configuracao.id}_${dataCivil}`,
+          {
+            papel_destinatario: "Gestor_Almoxarifado",
+            tipo: "ESCASSEZ_ESTOQUE",
+            quantidade,
+            entidade_alvo: "Almoxarifado",
+            id_alvo: idAlmoxarifado,
+            mensagem_customizada: null,
+            expira_em: null,
+          }
+        );
+        if (criou) notificacoesCriadas += 1;
+      }
+    }
+  }
+  console.info("Escassez de estoque processada", { notificacoesCriadas });
+}
+
+export const verificarEscassezDeEstoque = onSchedule({
+  schedule: "every day 04:00",
+  timeZone: TIME_ZONE,
+}, async () => executarVerificacaoEscassez());
 
 export const verificarVencimentosFrascos = onSchedule({
   schedule: "every day 03:00",
