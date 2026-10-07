@@ -2,7 +2,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import PDFDocument from "pdfkit-table";
-import { validarPermissao, validarGestorDoAlmoxarifado } from "./auth";
+import { validarGestorDoAlmoxarifado, validarAutoridadePersistida } from "./auth";
 import { addHeader } from "./relatorios/pdfHeader";
 import { addFooterAndHash } from "./relatorios/pdfFooter";
 import { chunkArray } from "./utils/chunk";
@@ -53,7 +53,7 @@ export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
     throw new Error("O mês do relatório não pode ser no futuro.");
   }
 
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
   await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, idAlmoxarifado);
 
   // 1. Obter metadados do almoxarifado
@@ -235,7 +235,7 @@ export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
 // -------------------------------------------------------------
 export const gerarRelatorioBensPredio = onCall(async (request) => {
   const filtros = validatePayload(FiltrosPredioSchema, request.data);
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
+  await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
 
   let query: admin.firestore.Query = admin.firestore().collection("Bem_Patrimonial");
   if (filtros.predio) query = query.where("predio", "==", filtros.predio);
@@ -308,7 +308,7 @@ export const gerarRelatorioPersonalizado = onCall(async (request) => {
     throw new Error("O período selecionado permite no máximo 31 dias corridos.");
   }
 
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais", "Gestor_Almoxarifado"]);
+  await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais", "Gestor_Almoxarifado"]);
 
   const doc = new PDFDocument({ bufferPages: true, layout: "landscape", size: "A4", margin: 30 });
   let canonicalString = "";
@@ -478,7 +478,7 @@ async function renderBarcodesGrid(doc: any, codigos: string[], startRow: number,
 
 export const gerarPdfEtiquetasVirgens = onCall(async (request) => {
   try {
-    validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+    await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
     const dados = validatePayload(DadosEtiquetasVirgensSchema, request.data);
 
     const total = dados.codigoFinal - dados.codigoInicial + 1;
@@ -746,7 +746,7 @@ async function gerarBufferFichaConferencia(frascos: any[]): Promise<Buffer> {
 
 export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
   try {
-    validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+    await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
     const { frascoIds } = validatePayload(DadosReimpressaoSchema, request.data);
 
     if (!frascoIds || frascoIds.length === 0 || frascoIds.length > 10) {
