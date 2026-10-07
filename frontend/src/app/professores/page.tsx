@@ -13,6 +13,12 @@ interface Professor {
   nome: string;
 }
 
+interface UsuarioSelecionavel {
+  id: string;
+  nome: string;
+  papeis: string[];
+}
+
 export default function ProfessoresDashboard() {
   const { roles } = useAuth();
   const [professores, setProfessores] = useState<Professor[]>([]);
@@ -28,7 +34,17 @@ export default function ProfessoresDashboard() {
   const [centro, setCentro] = useState("CCT");
   const [laboratorio, setLaboratorio] = useState("");
   const [selectedMaterias, setSelectedMaterias] = useState<string[]>([]);
+  const [usuariosSelecionaveis, setUsuariosSelecionaveis] = useState<UsuarioSelecionavel[]>([]);
+  const [uidAlvo, setUidAlvo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const buscarUsuarios = httpsCallable(functions, "buscarUsuariosParaPapel");
+    buscarUsuarios({})
+      .then((resultado) => setUsuariosSelecionaveis((resultado.data as { usuarios: UsuarioSelecionavel[] }).usuarios))
+      .catch((error) => console.error("Erro ao buscar identidades existentes:", error));
+  }, [isModalOpen]);
 
   useEffect(() => {
     let cancelado = false;
@@ -54,8 +70,8 @@ export default function ProfessoresDashboard() {
     try {
       const convidarUsuario = httpsCallable(functions, "convidarUsuario");
       const result = await convidarUsuario({ 
-        email, 
-        nome, 
+        idOperacao: crypto.randomUUID(),
+        ...(uidAlvo ? { uidAlvo } : { email, nome }),
         papel: "Professor",
         centro,
         laboratorio,
@@ -75,6 +91,7 @@ export default function ProfessoresDashboard() {
       setCentro("CCT");
       setLaboratorio("");
       setSelectedMaterias([]);
+      setUidAlvo("");
     } catch (error: any) {
       console.error("Erro ao convidar professor:", error);
       setToastMessage({
@@ -205,13 +222,38 @@ export default function ProfessoresDashboard() {
                 </div>
                 
                 <form onSubmit={handleConvidar} className="p-6 overflow-y-auto space-y-6 flex-1">
+                  <div>
+                    <label htmlFor="usuario-existente" className="block text-sm font-semibold mb-1 text-foreground/80">
+                      Usuário existente (opcional)
+                    </label>
+                    <select
+                      id="usuario-existente"
+                      value={uidAlvo}
+                      onChange={(e) => {
+                        const uid = e.target.value;
+                        const selecionado = usuariosSelecionaveis.find((usuario) => usuario.id === uid);
+                        setUidAlvo(uid);
+                        if (selecionado) setNome(selecionado.nome);
+                      }}
+                      className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Convidar por e-mail</option>
+                      {usuariosSelecionaveis.map((usuario) => (
+                        <option key={usuario.id} value={usuario.id}>
+                          {usuario.nome} — {usuario.papeis.join(", ") || "sem papel"}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-foreground/60 mt-1">A lista contém somente identidades ativas autorizadas.</p>
+                  </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-semibold mb-1 text-foreground/80">Nome Completo</label>
                       <input
                         type="text"
-                        required
+                        required={!uidAlvo}
+                        disabled={Boolean(uidAlvo)}
                         value={nome}
                         onChange={(e) => setNome(e.target.value)}
                         className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary"
@@ -222,7 +264,8 @@ export default function ProfessoresDashboard() {
                       <label className="block text-sm font-semibold mb-1 text-foreground/80">E-mail (UFSC)</label>
                       <input
                         type="email"
-                        required
+                        required={!uidAlvo}
+                        disabled={Boolean(uidAlvo)}
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary"
