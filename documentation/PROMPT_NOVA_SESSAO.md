@@ -55,7 +55,7 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 ## Estado atual
 
 - Branch `dev` sincronizado com `origin/dev` (tudo publicado).
-- Matriz (70 features): **29 DIVERGENTE / 31 NÃO DIVERGENTE / 10 NÃO IMPLEMENTADO** (atualizada no arquivo).
+- Matriz (70 features): **28 DIVERGENTE / 32 NÃO DIVERGENTE / 10 NÃO IMPLEMENTADO** (atualizada no arquivo).
 - IMP-BASE-003 (Matérias UI edição/listagem) concluído em commits `2bd38091` (feat) e `9ef10d35` (docs).
 - Features NÃO DIVERGENTE (atuais): `IMP-ACAD-001`..`004`, `IMP-POST-001`..`004`, `IMP-ROT-001`..`005`, `IMP-NOTIF-001`..`003`, `IMP-RULES-001`..`004`, `IMP-INDEX-001`, `IMP-AUTH-001`..`004`, `IMP-BASE-002`, `IMP-BASE-003`.
 - Sessão (Frente A + autorização + Rules), commits em `dev`:
@@ -64,7 +64,8 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
   - `IMP-RULES-002/003/004` -> NÃO DIVERGENTE: históricos acadêmicos (`HistoricoAlunos`/`Historico_Posts_Turma`/`Historico_Comentario`); patrimônio/reagentes server-owned + escopo (Lote/Emprestimo/Requisicao) + coleções M8 + `Especificacoes` + `Historico_Patrimonio`; Storage read por recurso + claim `ativo` + retenção do comprovante de baixa.
   - `IMP-ROLE-004`: NÃO DIVERGENTE — `buscarProfessores` (projeção `{id,nome}`) consumido por `professores/page.tsx`, `ProfessorModais.tsx` e `ModaisAcademico.tsx`; Rule `Professor` usa `get`; `alunos/page.tsx` não usa `alert()` nativo.
   - `IMP-UI-004`: NÃO DIVERGENTE — deep link de `Roteiro` comprovado por E2E; cache em memória/offline com aviso de desatualização, limpeza por UID e regressão das caixas de notificação verde.
-- **Pendências principais**: `IMP-NOTIF-004/005` (jobs M8/Seção 10.7 + `AUTO_ATENDIMENTO_RETIRADA`/Q14); `IMP-ACAD-006` (E2E residual já coberto por 15); `IMP-ROLE-001/002/003`.
+  - `IMP-NOTIF-005`: NÃO DIVERGENTE — jobs de vencimento/escassez/devolução e atraso com deduplicação diária; Q14 com segregação, justificativa e aviso à chefia.
+- **Pendências principais**: `IMP-NOTIF-004`; `IMP-ACAD-006` (E2E residual já coberto por 15); `IMP-ROLE-001/002/003`.
 
 ### Sessão atual — resumo do trabalho (commits em `dev`)
 
@@ -109,7 +110,7 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 
 **Última fatia concluída:** `IMP-UI-004` — deep link de roteiro e cache/offline UI-13 (q0→q8 concluído; matriz em `NÃO DIVERGENTE`).
 
-1. `IMP-NOTIF-004/005`: jobs M8/Seção 10.7 (`ESCASSEZ_ESTOQUE`, `FRASCOS_VENCIDOS`, `DATA_DEVOLUCAO_REAGENTE`, `ENTREGA_ATRASADA`) e `AUTO_ATENDIMENTO_RETIRADA` (Q14).
+1. `IMP-NOTIF-004`: validar a cobertura residual do dashboard/UI-12 amplo.
 3. `IMP-ACAD-005` (lacuna de canal GLOBAL), `IMP-ROLE-001/002/003`.
 4. Ondas de patrimônio (`IMP-PAT-001..005`) e laboratório (M1–M8, relatórios, etiquetas, UI-001..003).
 
