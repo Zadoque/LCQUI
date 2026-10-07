@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
-import { validarPermissao } from "./auth";
+import { extrairClaimsAutoridade, resolverAutoridadePersistidaTx, validarAutoridadePersistida } from "./auth";
 import { validatePayload } from "./utils/validation";
 import {
   CadastroSubstanciaQuimicaSchema,
@@ -11,7 +11,7 @@ import {
 
 export const cadastrarSubstanciaQuimica = onCall(async (request) => {
   const dados = validatePayload(CadastroSubstanciaQuimicaSchema, request.data);
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
 
   const substanciaRef = admin.firestore().collection("Substancia_Quimica").doc();
   await substanciaRef.set({
@@ -26,7 +26,7 @@ export const cadastrarSubstanciaQuimica = onCall(async (request) => {
 
 export const cadastrarResumoReagente = onCall(async (request) => {
   const dados = validatePayload(CadastroResumoReagenteSchema, request.data);
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
 
   const nome = dados.nome.trim();
   const letraInicial = nome.charAt(0).toUpperCase();
@@ -48,9 +48,10 @@ export const cadastrarResumoReagente = onCall(async (request) => {
 
 export const cadastrarEspecificacao = onCall(async (request) => {
   const dados = validatePayload(CadastroEspecificacaoSchema, request.data);
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  const claims = extrairClaimsAutoridade(request);
 
   return admin.firestore().runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral", "Gestor_Almoxarifado"]);
     const resumoRef = admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente);
     const resumoSnap = await tx.get(resumoRef);
     if (!resumoSnap.exists) {
@@ -121,9 +122,10 @@ export const cadastrarEspecificacao = onCall(async (request) => {
 
 export const cadastrarLote = onCall(async (request) => {
   const dados = validatePayload(CadastroLoteSchema, request.data);
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  const claims = extrairClaimsAutoridade(request);
 
   return admin.firestore().runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral", "Gestor_Almoxarifado"]);
     // 1. Verifica duplicidade
     const lotesRef = admin.firestore().collection("Lote");
     const snapshot = await tx.get(
