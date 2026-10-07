@@ -6,7 +6,7 @@ process.env.FUNCTIONS_EMULATOR = "true";
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { CallableRequest } from "firebase-functions/v2/https";
-import { convidarUsuario, revogarUsuarioPapel, atualizarPerfil, buscarProfessores, buscarUsuariosParaPapel } from "../../usuarios";
+import { convidarUsuario, revogarUsuarioPapel, atualizarPerfil, buscarProfessores, buscarUsuariosParaPapel, obterDetalhesUsuarioParaPapel } from "../../usuarios";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -125,6 +125,32 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
     const alvo = (busca as { usuarios: Array<Record<string, unknown>> }).usuarios.find(item => item.id === authUser.uid);
     expect(alvo).toMatchObject({ id: authUser.uid, nome: "Alvo Existente", papeis: ["Aluno", "Bolsista"] });
     expect(alvo).not.toHaveProperty("email");
+  });
+
+  it("TEST-INT-ROLE-UI02-002 — revoga papel por UID e preserva o papel restante", async () => {
+    const email = `role_revogar_uid_${Date.now()}@example.com`;
+    const authUser = await admin.auth().createUser({ email, displayName: "Alvo Revogação" });
+    await db.collection("Usuarios").doc(authUser.uid).set({ nome: "Alvo Revogação", email, ativo: true, versao_permissoes: 1 });
+    await db.collection("Aluno").doc(authUser.uid).set({ id_usuario: authUser.uid, nome: "Alvo Revogação", email });
+    await db.collection("Bolsista").doc(authUser.uid).set({ id_usuario: authUser.uid, nome: "Alvo Revogação" });
+
+    const resultado = await testEnv.wrap(revogarUsuarioPapel)(mockRequest({
+      idOperacao: `op-role-revogar-ui02-${Date.now()}`,
+      uidAlvo: authUser.uid,
+      papel: "Bolsista",
+      motivo: "Encerramento do vínculo de bolsista",
+    }, "chefe123"));
+
+    expect(resultado).toMatchObject({ uid: authUser.uid, ativo: true });
+    expect((await db.collection("Aluno").doc(authUser.uid).get()).exists).toBe(true);
+    expect((await db.collection("Bolsista").doc(authUser.uid).get()).exists).toBe(false);
+
+    const detalhes = await testEnv.wrap(obterDetalhesUsuarioParaPapel)(mockRequest({ uid: authUser.uid }, "chefe123"));
+    expect(detalhes).toMatchObject({
+      dados: { id: authUser.uid, nome: "Alvo Revogação", ativo: true },
+      papeis: ["Aluno"],
+    });
+    expect(Array.isArray((detalhes as { atividade: unknown[] }).atividade)).toBe(true);
   });
 
   it("deve desativar o usuário ao revogar seu último papel e manter em Usuarios com ativo = false", async () => {
