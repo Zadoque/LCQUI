@@ -90,7 +90,7 @@ service cloud.firestore {
     // --- Usuarios ---
     match /Usuarios/{uid} {
       // Usuário lê a si mesmo, chefe lê todos
-      allow read: if isOwner(uid) || isAdmin();
+      allow get: if isOwner(uid) || isAdmin();
       // Escrita principal é feita via Cloud Function
       allow write: if false; // identidade/ativo: transação servidor (RN-ROLE)
 
@@ -113,7 +113,7 @@ service cloud.firestore {
 
     // --- Coleções de Papéis (Identidade) ---
     match /Professor/{uid} {
-      allow read: if isOwner(uid) || isAdmin();
+      allow get: if isOwner(uid) || isAdmin();
       allow write: if false; // Gerenciado via Cloud Function
     }
     match /Aluno/{uid} {
