@@ -59,9 +59,6 @@ async function gestoresVinculadosTx(
 export const gerenciarAlmoxarifado = onCall(async (request) => {
   const claims = extrairClaimsAutoridade(request);
   const dados: GerenciarAlmoxarifado = validatePayload(GerenciarAlmoxarifadoSchema, request.data);
-  const nome = dados.nome.trim();
-  const descricao = dados.descricao.trim();
-
   const db = admin.firestore();
   const colecaoJunction = db.collection("Gestor_Almoxarifado_x_Almoxarifado");
 
@@ -69,10 +66,11 @@ export const gerenciarAlmoxarifado = onCall(async (request) => {
     await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral"]);
     // Vínculos são um conjunto: normaliza (dedup + ordem determinística) antes
     // do hash e do efeito, para que a MESMA intenção não dependa da ordem.
-    const gestoresOrdenados = dados.gestores ? [...new Set(dados.gestores)].sort() : undefined;
-    const ativoEfetivo = dados.ativo === true;
-
     if (dados.acao === "CRIAR") {
+      const nome = dados.nome;
+      const descricao = dados.descricao;
+      const gestoresOrdenados: string[] | undefined = dados.gestores ? [...new Set(dados.gestores)].sort() : undefined;
+      const ativoEfetivo = dados.ativo === true;
       const identidade = construirIdentidade(claims.uid, "CRIAR_ALMOXARIFADO", {
         idLocal: dados.idLocal,
         nome,
@@ -118,6 +116,9 @@ export const gerenciarAlmoxarifado = onCall(async (request) => {
     const almoxRef = db.collection("Almoxarifado").doc(dados.idAlmoxarifado);
 
     if (dados.acao === "EDITAR") {
+      const nome = dados.nome;
+      const descricao = dados.descricao;
+      const gestoresOrdenados: string[] | undefined = dados.gestores ? [...new Set(dados.gestores)].sort() : undefined;
       const identidade = construirIdentidade(claims.uid, "EDITAR_ALMOXARIFADO", {
         idAlmoxarifado: dados.idAlmoxarifado,
         idLocal: dados.idLocal,
@@ -197,4 +198,3 @@ export const gerenciarAlmoxarifado = onCall(async (request) => {
     return resultado;
   });
 });
-
