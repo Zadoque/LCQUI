@@ -17,7 +17,7 @@ import {
   resolverOperacaoTx,
 } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
-import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema, BuscarAlunosSchema, BuscarProfessoresSchema, AtualizarPerfilSchema } from "./schemas/usuarios.schema";
+import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema, BuscarAlunosSchema, BuscarProfessoresSchema, BuscarGestoresAlmoxarifadoSchema, AtualizarPerfilSchema } from "./schemas/usuarios.schema";
 
 const PAPEIS: string[] = [...PAPEIS_CONHECIDOS];
 
@@ -305,6 +305,24 @@ export const buscarProfessores = onCall(async request => {
     .slice(0, 100);
 
   return { professores };
+});
+
+/** UI-03/M9: projeção mínima de gestores ativos de almoxarifado. */
+export const buscarGestoresAlmoxarifado = onCall(async request => {
+  const { termo } = validatePayload(BuscarGestoresAlmoxarifadoSchema, request.data);
+  await validarAutoridadePersistida(request, ["Chefe_Geral"]);
+  const db = admin.firestore();
+  const papeis = await db.collection("Gestor_Almoxarifado").limit(200).get();
+  if (papeis.empty) return { gestores: [] };
+  const usuarios = await db.getAll(...papeis.docs.map(d => db.collection("Usuarios").doc(d.id)));
+  const termoNorm = termo ? termo.toLowerCase() : "";
+  const gestores = papeis.docs.map((papel, i) => {
+    if (!usuarios[i].exists || usuarios[i].data()?.ativo !== true) return null;
+    const nome = usuarios[i].exists && typeof usuarios[i].data()?.nome === "string" && usuarios[i].data()?.nome.trim()
+      ? usuarios[i].data()!.nome.trim() : "Sem nome";
+    return { id: papel.id, nome };
+  }).filter((g): g is { id: string; nome: string } => g !== null && (!termoNorm || g.nome.toLowerCase().includes(termoNorm))).slice(0, 100);
+  return { gestores };
 });
 
 /**
