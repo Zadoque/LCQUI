@@ -55,7 +55,7 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 ## Estado atual
 
 - Branch `dev` sincronizado com `origin/dev` (tudo publicado).
-- Matriz (70 features): **21 DIVERGENTE / 39 NÃO DIVERGENTE / 10 NÃO IMPLEMENTADO** (atualizada no arquivo).
+- Matriz (70 features): **20 DIVERGENTE / 40 NÃO DIVERGENTE / 10 NÃO IMPLEMENTADO** (atualizada no arquivo).
 - IMP-BASE-003 (Matérias UI edição/listagem) concluído em commits `2bd38091` (feat) e `9ef10d35` (docs).
 - Features NÃO DIVERGENTE (atuais): `IMP-ACAD-001`..`006`, `IMP-POST-001`..`004`, `IMP-ROT-001`..`005`, `IMP-NOTIF-001`..`005`, `IMP-RULES-001`..`004`, `IMP-INDEX-001`, `IMP-AUTH-001`..`004`, `IMP-BASE-001`..`004`, `IMP-ROLE-001`..`004`, `IMP-PAT-001`..`002`.
 - Sessão (Frente A + autorização + Rules), commits em `dev`:
@@ -71,6 +71,7 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 - `IMP-ROLE-001`: NÃO DIVERGENTE — UI-02 completa, concessão/revogação por UID, detalhes por abas e matriz RN-ROLE exaustivamente coberta.
 - `IMP-PAT-001`: NÃO DIVERGENTE — cadastro patrimonial canônico com M9 transacional, plaqueta normalizada e reserva permanente, foto Storage validada, projeções de resumo/local, `versao=1`, histórico de cadastro; edição com reclassificação por resumo, incremento único, máquina de status e conflito otimista fail-closed. Teste patrimonial direcionado 9/9 e Rules 163/163.
 - `IMP-PAT-002`: NÃO DIVERGENTE — normalização e reserva permanente da plaqueta comprovadas, inclusive rejeição de reutilização após bem terminal; teste patrimonial 10/10.
+- `IMP-PAT-003`: NÃO DIVERGENTE — criação de requisição lê Bem, chave permanente e lock na mesma transação; lock tipado e pertencente à requisição; plaquetas equivalentes serializadas; reserva terminal rejeitada já na criação; teste patrimonial 12/12 e build Node 20.
 - **Pendências principais**: nenhuma pendência adicional de papéis; o próximo `q0` deve recalcular a maior prioridade entre as divergências restantes.
 
 ### Sessão atual — resumo do trabalho (commits em `dev`)
@@ -114,7 +115,7 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 
 ## Próximas fatias priorizadas
 
-**Última fatia concluída:** `IMP-PAT-001` — cadastro/manutenção patrimonial canônica (q0→q8 concluído; matriz em `NÃO DIVERGENTE`).
+**Última fatia concluída:** `IMP-PAT-003` — requisição de adição e lock patrimonial canônicos (q0→q8 concluído; matriz em `NÃO DIVERGENTE`).
 
 1. Recalcular q0 entre as divergências remanescentes da matriz.
 4. Ondas de patrimônio (`IMP-PAT-001..005`) e laboratório (M1–M8, relatórios, etiquetas, UI-001..003).
@@ -125,7 +126,9 @@ O seed atual cobre Auth/M9, matérias/turmas/vínculos acadêmicos e um roteiro
 M12.2, mas não cria fatos patrimoniais, catálogo de reagentes, frascos,
 empréstimos, metrologia, materializações ou relatórios. `IMP-PAT-002` não exige
 alteração do seed: sua prova é backend determinística e cria a reserva terminal
-localmente no teste.
+localmente nos testes. `IMP-PAT-003` também não exige alteração do seed nesta
+rodada: sua prova de reserva/lock é backend determinística. O incremento
+patrimonial continua necessário antes dos E2E das ondas seguintes.
 
 O próximo incremento do seed deve ser feito antes dos E2E das seguintes ondas:
 
