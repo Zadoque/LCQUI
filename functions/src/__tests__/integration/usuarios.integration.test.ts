@@ -85,6 +85,23 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
     expect(professorDoc.exists).toBe(false);
   });
 
+  it("deve concluir provisionamento Auth pós-commit e receipt M7", async () => {
+    const email = `aluno_outbox_${Date.now()}@example.com`;
+    const idOperacao = `op-outbox-${Date.now()}`;
+    const resultado = await testEnv.wrap(convidarUsuario)(mockRequest({
+      idOperacao,
+      email,
+      nome: "Aluno Outbox",
+      papel: "Aluno",
+      motivo: "Provisionamento pós-commit",
+    }, "chefe123"));
+
+    const authUser = await admin.auth().getUserByEmail(email);
+    expect(authUser.uid).toBe(resultado.uid);
+    expect((await db.collection("Aluno").doc(resultado.uid).get()).exists).toBe(true);
+    expect((await db.collection("Operacoes").doc(idOperacao).get()).data()?.status).toBe("CONCLUIDA");
+  });
+
   it("deve desativar o usuário ao revogar seu último papel e manter em Usuarios com ativo = false", async () => {
     const { revogarUsuarioPapel } = require("../../usuarios");
     const wrapped = testEnv.wrap(revogarUsuarioPapel);
