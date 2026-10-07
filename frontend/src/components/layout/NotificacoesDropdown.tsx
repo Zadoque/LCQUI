@@ -7,6 +7,7 @@ import { collection, onSnapshot, query, Timestamp, where } from "firebase/firest
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { Bell, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export interface NotificacaoItem {
   id: string;
@@ -151,10 +152,11 @@ export function NotificacoesDropdown() {
   const [abaAtiva, setAbaAtiva] = useState<"nao_lidas" | "todas">("nao_lidas");
   const [notificacoes, setNotificacoes] = useState<NotificacaoItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [agora, setAgora] = useState(0);
+  const [agora, setAgora] = useState(() => Date.now());
   const [dadosDesatualizados, setDadosDesatualizados] = useState(false);
   const [offline, setOffline] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   // "Limpar tudo" state
   const [limparConfirmacao, setLimparConfirmacao] = useState(false);
@@ -170,7 +172,31 @@ export function NotificacoesDropdown() {
     setLimparConfirmacao(false);
   };
 
+  const abrirNotificacao = useCallback(async (event: React.MouseEvent, notif: NotificacaoItem) => {
+    event.preventDefault();
+    try {
+      const resolver = httpsCallable<{ idNotificacao: string }, { autorizado: boolean; url?: string }>(
+        getFunctions(), "resolverDestinoNotificacao",
+      );
+      const resultado = await resolver({ idNotificacao: notif.id });
+      if (resultado.data.autorizado && resultado.data.url) {
+        setIsOpen(false);
+        router.push(resultado.data.url);
+      } else {
+        setDadosDesatualizados(true);
+      }
+    } catch (error) {
+      console.error("Erro ao validar destino da notificação:", error);
+      setDadosDesatualizados(true);
+    }
+  }, [router]);
+
   const permissionDeniedRef = useRef(false);
+
+  useEffect(() => {
+    const relogio = window.setInterval(() => setAgora(Date.now()), 30_000);
+    return () => window.clearInterval(relogio);
+  }, []);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -492,7 +518,7 @@ export function NotificacoesDropdown() {
                         <div className="mt-3 flex gap-2">
                           <Link
                             href={`/convite?id=${encodeURIComponent(notif.id_alvo)}&via=notificacao`}
-                            onClick={() => setIsOpen(false)}
+                            onClick={(event) => abrirNotificacao(event, notif)}
                             className="flex-1 py-1.5 px-3 bg-primary text-primary-foreground text-center text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-1"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
@@ -500,7 +526,7 @@ export function NotificacoesDropdown() {
                           </Link>
                           <Link
                             href={`/convite?id=${encodeURIComponent(notif.id_alvo)}&via=notificacao`}
-                            onClick={() => setIsOpen(false)}
+                            onClick={(event) => abrirNotificacao(event, notif)}
                             className="py-1.5 px-3 bg-foreground/10 hover:bg-red-500/10 text-foreground/70 hover:text-red-500 text-center text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1"
                           >
                             <XCircle className="w-3.5 h-3.5" />
@@ -556,7 +582,7 @@ export function NotificacoesDropdown() {
                     <Link
                       key={notif.id}
                       href={deepUrl}
-                      onClick={() => setIsOpen(false)}
+                      onClick={(event) => abrirNotificacao(event, notif)}
                       data-testid={`notif-link-${notif.id}`}
                     >
                       {cardContent}
