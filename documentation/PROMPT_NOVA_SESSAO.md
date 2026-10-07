@@ -55,14 +55,14 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 ## Estado atual
 
 - Branch `dev` sincronizado com `origin/dev` (tudo publicado).
-- Matriz (70 features): **32 DIVERGENTE / 28 NÃO DIVERGENTE / 10 NÃO IMPLEMENTADO** (atualizada no arquivo).
+- Matriz (70 features): **30 DIVERGENTE / 30 NÃO DIVERGENTE / 10 NÃO IMPLEMENTADO** (atualizada no arquivo).
 - IMP-BASE-003 (Matérias UI edição/listagem) concluído em commits `2bd38091` (feat) e `9ef10d35` (docs).
 - Features NÃO DIVERGENTE (atuais): `IMP-ACAD-001`..`004`, `IMP-POST-001`..`004`, `IMP-ROT-001`..`005`, `IMP-NOTIF-001`..`003`, `IMP-RULES-001`..`004`, `IMP-INDEX-001`, `IMP-AUTH-001`..`004`, `IMP-BASE-002`, `IMP-BASE-003`.
 - Sessão (Frente A + autorização + Rules), commits em `dev`:
   - `IMP-NOTIF-001` -> NÃO DIVERGENTE: enum alinhado ao CUE (`#M13Tipo`, 21 valores), página `/notificacoes` (UI-12), deep links por `entidade_alvo` (incl. Roteiro -> `/turmas?roteiros=1`), papel/escopo por item, E2E-NOTIF-004.
   - `IMP-AUTH-004` -> NÃO DIVERGENTE: seletor de papel (UI-01) + `papelAtivo`/`resolverPapelAtivo`, Sidebar escopada, remonte por `papelAtivo` (cancela listeners, UI-13), perfil editável + callable `atualizarPerfil` (propaga nome, preserva históricos), guard de formulário modificado (S8 UI-01 L193).
   - `IMP-RULES-002/003/004` -> NÃO DIVERGENTE: históricos acadêmicos (`HistoricoAlunos`/`Historico_Posts_Turma`/`Historico_Comentario`); patrimônio/reagentes server-owned + escopo (Lote/Emprestimo/Requisicao) + coleções M8 + `Especificacoes` + `Historico_Patrimonio`; Storage read por recurso + claim `ativo` + retenção do comprovante de baixa.
-  - `IMP-ROLE-004`: PARCIAL — callable `buscarProfessores` (projeção `{id,nome}`) criado; falta migrar 3 consumidores (`professores/page.tsx`, `ProfessorModais.tsx`, `ModaisAcademico.tsx`) + flip da Rule `Professor` (read->get) + remover `alert()` nativo em `alunos/page.tsx`.
+  - `IMP-ROLE-004`: NÃO DIVERGENTE — `buscarProfessores` (projeção `{id,nome}`) consumido por `professores/page.tsx`, `ProfessorModais.tsx` e `ModaisAcademico.tsx`; Rule `Professor` usa `get`; `alunos/page.tsx` não usa `alert()` nativo.
 - **Pendências principais**: `IMP-UI-004` (cache/offline UI-13 + deep links de entidades não emitidas); `IMP-ROLE-004` (frontend acima); `IMP-NOTIF-004/005` (jobs M8/Seção 10.7 + `AUTO_ATENDIMENTO_RETIRADA`/Q14); `IMP-ACAD-006` (E2E residual já coberto por 15).
 
 ### Sessão atual — resumo do trabalho (commits em `dev`)
@@ -76,7 +76,7 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 | `IMP-RULES-004` | Storage read por recurso + claim `ativo` + retenção de comprovante | `c03d16cc` |
 | `IMP-ROLE-004` (parcial) | Callable `buscarProfessores` (projeção `{id,nome}`) | `6d4086f2` |
 | `IMP-BASE-002` | Locais UI-03 + E2E (NovaLocalModal, ListaLocais, integração ModalNovoBem, fix M7 limparIntencao, 8 testes verdes) | TBD |
-| `IMP-BASE-001` | PLANO PRONTO (q0→q4): Almoxarifados UI-03 + E2E; aguarda q5 | — (planning) |
+| `IMP-BASE-001` | EXECUTADO: Almoxarifados UI-03 + E2E; matriz em `NÃO DIVERGENTE` | `92ef6346`..`274e2fb7` |
 
 ### Decisões humanas registradas
 
@@ -108,15 +108,14 @@ UNSAT formal NÃO equivale a teste. Implementação não sobrescreve a norma. Se
 
 **EM EXECUÇÃO (plano pronto):** `IMP-BASE-001` — Almoxarifados UI-03 + E2E (q0→q4 concluído; aguarda q5 IMPLEMENT)
 
-1. `IMP-ROLE-004` (fechar): migrar `professores/page.tsx`, `ProfessorModais.tsx`, `ModaisAcademico.tsx` para o callable `buscarProfessores`; flip da Rule `Professor` (`read`->`get`); remover `alert()` nativo em `alunos/page.tsx`; E2E por papel.
-2. `IMP-UI-004`: cache/offline (UI-13) + deep links de `entidade_alvo` sem tela.
-3. `IMP-NOTIF-004/005`: jobs M8/Seção 10.7 (`ESCASSEZ_ESTOQUE`, `FRASCOS_VENCIDOS`, `DATA_DEVOLUCAO_REAGENTE`, `ENTREGA_ATRASADA`) e `AUTO_ATENDIMENTO_RETIRADA` (Q14).
-4. `IMP-ACAD-005` (lacuna de canal GLOBAL), `IMP-BASE-003` (UI-03), `IMP-ROLE-001/002/003`.
-5. Ondas de patrimônio (`IMP-PAT-001..005`) e laboratório (M1–M8, relatórios, etiquetas, UI-001..003).
+1. `IMP-UI-004`: cache/offline (UI-13) + deep links de `entidade_alvo` sem tela.
+2. `IMP-NOTIF-004/005`: jobs M8/Seção 10.7 (`ESCASSEZ_ESTOQUE`, `FRASCOS_VENCIDOS`, `DATA_DEVOLUCAO_REAGENTE`, `ENTREGA_ATRASADA`) e `AUTO_ATENDIMENTO_RETIRADA` (Q14).
+3. `IMP-ACAD-005` (lacuna de canal GLOBAL), `IMP-ROLE-001/002/003`.
+4. Ondas de patrimônio (`IMP-PAT-001..005`) e laboratório (M1–M8, relatórios, etiquetas, UI-001..003).
 
-## Plano pronto para execução — IMP-BASE-001 (Almoxarifados UI-03 + E2E)
+## Plano executado — IMP-BASE-001 (Almoxarifados UI-03 + E2E)
 
-Fatia selecionada em q0 (2ª rodada, após q1 reprovar IMP-ROLE-004 por `buscarProfessores` retornar só `{id,nome}`); plano aprovado após correções em q4. Backend de gerenciamento já convergido; esta fatia ADICIONA uma projeção de listagem de gestores + UI-03 + E2E. Não alterar CUE/Alloy/main.tex.
+Fatia selecionada em q0 (2ª rodada, após q1 reprovar IMP-ROLE-004 por `buscarProfessores` retornar só `{id,nome}`); plano aprovado após correções em q4 e executado em q5–q8. Backend de gerenciamento já convergido; a fatia adicionou uma projeção de listagem de gestores + UI-03 + E2E. CUE/Alloy/main.tex permaneceram intocados.
 
 Norma: Section-8-Descricao-das-telas-Dashboards.tex:33-46 (Aba Almoxarifados: Novo Almoxarifado / Novo Gestor de Almoxarifado / Gerenciar Gestores) e :205-206 (UI-03): Novo Almoxarifado exige nome (100), descrição (500), Local existente e ≥1 gestor para ativação; seleção múltipla lista apenas gestores ativos; pode ser salvo inativo sem gestor; ativar exige vínculo válido; gerenciar vínculos impede remover o último de almoxarifado ativo. Section-9-Exemplos-de-fluxos.tex:426-427 (CHE-03). Section-7 (RN-ROLE-05): almoxarifado ativo exige ≥1 Gestor_Almoxarifado. Section-5-Notas-de-Mapeamento-para-Firestore.tex:333 (descricao O, max 500). M7 (idOperacao) + M9 (Chefe_Geral persistido).
 
