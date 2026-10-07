@@ -188,14 +188,15 @@ export function registrarOperacaoConcluidaTx(
 export function registrarOperacaoPendenteTx(
   tx: admin.firestore.Transaction,
   idOperacao: string,
-  identidade: IdentidadeOperacao
+  identidade: IdentidadeOperacao,
+  resultado: unknown = null,
 ): void {
   tx.create(operacaoRef(idOperacao), {
     uid: identidade.uid,
     tipo_operacao: identidade.tipoOperacao,
     payload_hash: identidade.payloadHash,
     status: "PENDENTE",
-    resultado: null,
+    resultado,
     criado_em: FieldValue.serverTimestamp(),
     atualizado_em: FieldValue.serverTimestamp(),
   });
