@@ -1,0 +1,33 @@
+\clearpage
+\section{IMP-PAT-001 — Cadastro e manutenção patrimonial}
+
+\textbf{Contrato verificado.} A implementação foi comparada à Seção 5, à
+Seção 8 (UI-09), à Seção 9 (PAT-01), à especificação CUE M10 e ao modelo Alloy
+M10. CUE forneceu os enums, limites e nulabilidades; Alloy forneceu a reserva
+permanente da plaqueta, o versionamento, o ciclo de status e o evento histórico.
+
+\textbf{Evidência backend.} As requisições de adição e edição agora usam
+autorização M9 dentro da transação, locks tipados e pertencentes à requisição,
+plaqueta normalizada por \texttt{trim().toUpperCase()}, chave permanente em
+\texttt{Chaves\_Unicas}, resumo/local como fontes de verdade e projeções de
+consulta, foto Storage validada como imagem inferior a 5 MiB, versão inicial
+igual a 1 e histórico em
+\texttt{Bem\_Patrimonial/\{id\}/Historico\_Patrimonio}. Edição aprovada exige
+\texttt{versao\_bem\_origem}, incrementa a versão uma vez, reclassifica por
+resumo e rejeita transições de status inválidas ou conflitos otimistas.
+
+\begin{longtable}{p{0.28\textwidth}p{0.62\textwidth}}
+\toprule
+Teste & Resultado \\
+\midrule
+\endhead
+PAT-INT-001--007 & Requisições, autorização, lock e notificações: PASS \\
+PAT-INT-008 & Cadastro canônico, reserva, versão 1 e histórico: PASS \\
+PAT-INT-009 & Conflito de versão sem sobrescrita: PASS \\
+Rules & 163/163 PASS; patrimônio permanece server-owned \\
+Build & TypeScript Node.js 20: PASS \\
+\bottomrule
+\end{longtable}
+
+\textbf{Estado da matriz:} \texttt{NÃO DIVERGENTE}. A baixa terminal continua
+deliberadamente fora desta fatia e pertence a \texttt{IMP-PAT-006}.
