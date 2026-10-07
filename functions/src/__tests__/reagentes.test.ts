@@ -22,6 +22,9 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
       admin.initializeApp({ projectId: "lcqui-dev" });
     }
     db = admin.firestore();
+    return db.collection("Contador_Codigo_Frasco").doc("singleton").set({
+      ultimo_codigo_gerado: 0,
+    });
   });
 
   afterAll(() => {
@@ -29,25 +32,39 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
   });
 
   const mockRequest = (data: any, uid: string, roles: string[] = ["Gestor_Almoxarifado"]): any => ({
-    data,
+    data: data.idEspecificacaoReagente && !data.idResumoReagente
+      ? { ...data, idResumoReagente: `resumo_${data.idEspecificacaoReagente}` }
+      : data,
     auth: {
       uid,
-      token: { roles }
+      token: { roles, versao_permissoes: 1 }
     },
     rawRequest: {}
   });
 
   async function seedEspecificacao(id: string, densidade: number | null, estadoFisico: "LIQUIDO" | "SOLIDO") {
-    await db.collection("Especificacao_Reagente").doc(id).set({
+    const dados = {
       densidade,
       estado_fisico: estadoFisico
-    });
+    };
+    await db.collection("Especificacao_Reagente").doc(id).set(dados);
+    await db.collection("Resumo_Reagente").doc(`resumo_${id}`)
+      .collection("Especificacoes").doc(id).set(dados);
   }
 
   async function seedGestorAlmoxarifado(uid: string, idAlmoxarifado: string) {
+    await db.collection("Usuarios").doc(uid).set({
+      ativo: true,
+      versao_permissoes: 1,
+    });
+    await db.collection("Gestor_Almoxarifado").doc(uid).set({
+      id_usuario: uid,
+      ativo: true,
+    });
     await db.collection("Gestor_Almoxarifado_x_Almoxarifado").doc(`${uid}_${idAlmoxarifado}`).set({
       id_usuario: uid,
-      id_almoxarifado: idAlmoxarifado
+      id_gestor_almoxarifado: uid,
+      id_almoxarifado: idAlmoxarifado,
     });
   }
 
