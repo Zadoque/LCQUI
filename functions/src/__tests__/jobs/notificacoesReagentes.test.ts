@@ -1,7 +1,12 @@
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 
 import * as admin from "firebase-admin";
-import { dataCivilSaoPaulo, executarVerificacaoEscassez, executarVerificacaoVencimentos } from "../../jobs/notificacoesReagentes";
+import {
+  dataCivilSaoPaulo,
+  executarVerificacaoDevolucoes,
+  executarVerificacaoEscassez,
+  executarVerificacaoVencimentos,
+} from "../../jobs/notificacoesReagentes";
 
 describe("jobs de notificações de reagentes", () => {
   let db: admin.firestore.Firestore;
@@ -64,5 +69,43 @@ describe("jobs de notificações de reagentes", () => {
     expect(notificacoes.size).toBe(1);
     expect(notificacoes.docs[0].data().quantidade).toBe(0);
     expect(notificacoes.docs[0].data().expira_em).toBeNull();
+  });
+
+  it("marca atraso e emite janela preventiva ao retirante sem duplicar", async () => {
+    const hoje = dataCivilSaoPaulo(new Date());
+    const ontem = new Date(`${hoje}T12:00:00.000Z`);
+    ontem.setUTCDate(ontem.getUTCDate() - 1);
+    const idAlmoxarifado = `almox-devolucao-${Date.now()}`;
+    const gestor = `gestor-devolucao-${Date.now()}`;
+    const professor = `professor-devolucao-${Date.now()}`;
+    const atrasado = `emprestimo-atrasado-${Date.now()}`;
+    const preventivo = `emprestimo-preventivo-${Date.now()}`;
+    await db.collection("Gestor_Almoxarifado_x_Almoxarifado").doc(`${gestor}_${idAlmoxarifado}`).set({
+      id_gestor_almoxarifado: gestor,
+      id_almoxarifado: idAlmoxarifado,
+    });
+    await db.collection("Professor").doc(professor).set({ id_usuario: professor });
+    await db.collection("Emprestimo_Reagente").doc(atrasado).set({
+      status: "EM_USO",
+      id_almoxarifado: idAlmoxarifado,
+      id_usuario_retirou: professor,
+      data_devolucao_prevista: ontem,
+    });
+    await db.collection("Emprestimo_Reagente").doc(preventivo).set({
+      status: "EM_USO",
+      id_almoxarifado: idAlmoxarifado,
+      id_usuario_retirou: professor,
+      data_devolucao_prevista: new Date(`${hoje}T12:00:00.000Z`),
+    });
+
+    await executarVerificacaoDevolucoes();
+    await executarVerificacaoDevolucoes();
+
+    expect((await db.collection("Emprestimo_Reagente").doc(atrasado).get()).data()?.status).toBe("ATRASADO");
+    const notificacoes = await db.collection("Usuarios").doc(professor).collection("Notificacoes").get();
+    expect(notificacoes.docs.filter((doc) => doc.data().tipo === "DATA_DEVOLUCAO_REAGENTE")).toHaveLength(1);
+    expect(notificacoes.docs.filter((doc) => doc.data().tipo === "ENTREGA_ATRASADA")).toHaveLength(0);
+    expect((await db.collection("Usuarios").doc(gestor).collection("Notificacoes")
+      .where("tipo", "==", "ENTREGA_ATRASADA").get()).size).toBe(1);
   });
 });
