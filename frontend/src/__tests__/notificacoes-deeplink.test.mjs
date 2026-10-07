@@ -22,6 +22,12 @@ function buildDeepLink(notif) {
         : null;
     case "Roteiro":
       return "/turmas?roteiros=1";
+    case "Almoxarifado":
+      return `/reagentes?almoxarifado=${encodeURIComponent(notif.id_alvo)}&via=notificacao`;
+    case "Emprestimo":
+      return `/reagentes?emprestimo=${encodeURIComponent(notif.id_alvo)}&via=notificacao`;
+    case "Usuario":
+      return `/alunos?usuario=${encodeURIComponent(notif.id_alvo)}&via=notificacao`;
     default:
       return null;
   }
@@ -112,19 +118,19 @@ test("DEEPLINK-012 — Roteiro gera link /turmas?roteiros=1", () => {
   assert.strictEqual(buildDeepLink(notif), "/turmas?roteiros=1");
 });
 
-test("DEEPLINK-013 — Almoxarifado retorna null (sem rota implementada)", () => {
+test("DEEPLINK-013 — Almoxarifado gera rota interna sem token", () => {
   const notif = { entidade_alvo: "Almoxarifado", id_alvo: "alm_1" };
-  assert.strictEqual(buildDeepLink(notif), null);
+  assert.strictEqual(buildDeepLink(notif), "/reagentes?almoxarifado=alm_1&via=notificacao");
 });
 
-test("DEEPLINK-014 — Emprestimo retorna null (sem rota implementada)", () => {
+test("DEEPLINK-014 — Emprestimo gera rota interna sem token", () => {
   const notif = { entidade_alvo: "Emprestimo", id_alvo: "emp_1" };
-  assert.strictEqual(buildDeepLink(notif), null);
+  assert.strictEqual(buildDeepLink(notif), "/reagentes?emprestimo=emp_1&via=notificacao");
 });
 
-test("DEEPLINK-015 — Usuario retorna null (sem rota implementada)", () => {
+test("DEEPLINK-015 — Usuario gera rota interna sem token", () => {
   const notif = { entidade_alvo: "Usuario", id_alvo: "usr_1" };
-  assert.strictEqual(buildDeepLink(notif), null);
+  assert.strictEqual(buildDeepLink(notif), "/alunos?usuario=usr_1&via=notificacao");
 });
 
 test("DEEPLINK-016 — entidade_alvo ausente/undefined retorna null", () => {
