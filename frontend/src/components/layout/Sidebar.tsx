@@ -119,6 +119,7 @@ export default function Sidebar() {
         { label: "Almoxarifados", href: "/reagentes", icon: icons.beaker },
         { label: "Bens Patrimoniais", href: "/patrimonio", icon: icons.patrimonio },
         { label: "Professores", href: "/professores", icon: icons.users },
+        { label: "Pessoas e papéis", href: "/pessoas", icon: icons.users },
         { label: "Turmas", href: "/turmas", icon: icons.book },
         { label: "Alunos", href: "/alunos", icon: icons.student },
       ],
