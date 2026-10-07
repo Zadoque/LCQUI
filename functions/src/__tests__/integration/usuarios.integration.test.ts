@@ -37,6 +37,12 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
   beforeEach(async () => {
     await db.collection("Usuarios").doc("chefe123").set({ ativo: true, versao_permissoes: 1 });
     await db.collection("Chefe_Geral").doc("chefe123").set({ id_usuario: "chefe123" });
+    await Promise.all([
+      "op-revogar-aluno-1",
+      "op-m7-receipt-1",
+      "op-m7-replay-1",
+      "op-m7-reuso-1",
+    ].map(id => db.collection("Operacoes").doc(id).delete()));
   });
 
   it("deve bloquear a atribuição de Professor para um usuário que já é Aluno, sem poluir Firestore", async () => {
@@ -105,7 +111,8 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
     await db.collection("Usuarios").doc(userRecord.uid).set({
       nome: "Aluno Para Revogar",
       email: userEmail,
-      ativo: true
+      ativo: true,
+      versao_permissoes: 1,
     });
 
     const req = mockRequest({
@@ -166,7 +173,7 @@ describe("Integração: M7 em mutações de papel", () => {
       user = await admin.auth().createUser({ email, displayName: "Alvo M7" });
     }
     await db.collection("Aluno").doc(user.uid).set({ nome: "Alvo M7", email });
-    await db.collection("Usuarios").doc(user.uid).set({ nome: "Alvo M7", email, ativo: true, versao_permissoes: 0 });
+    await db.collection("Usuarios").doc(user.uid).set({ nome: "Alvo M7", email, ativo: true, versao_permissoes: 1 });
     return user.uid;
   }
 
