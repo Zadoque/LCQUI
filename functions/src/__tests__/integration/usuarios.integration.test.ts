@@ -204,6 +204,56 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
     const usuarioCentralDoc = await db.collection("Usuarios").doc(userRecord.uid).get();
     expect(usuarioCentralDoc.exists).toBe(true);
     expect(usuarioCentralDoc.data()?.ativo).toBe(false);
+    expect(usuarioCentralDoc.data()?.nome).toBe("Aluno Para Revogar");
+    const authDepois = await admin.auth().getUser(userRecord.uid);
+    expect(authDepois.customClaims).toMatchObject({ roles: [], ativo: false, versao_permissoes: 2 });
+    const auditoria = await db.collection("Registro_de_Auditoria")
+      .where("id_do_objeto_da_entidade", "==", userRecord.uid).get();
+    expect(auditoria.docs.some(doc => doc.data().acao === "REVOGAR_PAPEL")).toBe(true);
+  });
+
+  it("TEST-INT-ROLE-002-001 — duas auto-revogações concorrentes não removem os dois últimos Chefes", async () => {
+    await db.collection("Chefe_Geral").doc("chefe123").delete();
+    const alvos = [`chefe_concorrente_a_${Date.now()}`, `chefe_concorrente_b_${Date.now()}`];
+    for (const [indice, uid] of alvos.entries()) {
+      const email = `${uid}@example.com`;
+      await admin.auth().createUser({ uid, email, displayName: `Chefe Concorrente ${indice}` });
+      await db.collection("Usuarios").doc(uid).set({ nome: `Chefe Concorrente ${indice}`, email, ativo: true, versao_permissoes: 1 });
+      await db.collection("Chefe_Geral").doc(uid).set({ id_usuario: uid, ativo: true });
+    }
+
+    const chamadas = alvos.map((uid, indice) => testEnv.wrap(revogarUsuarioPapel)(mockRequest({
+      idOperacao: `op-role-002-chief-${Date.now()}-${indice}`,
+      uidAlvo: uid, papel: "Chefe_Geral", motivo: "Auto-revogação concorrente de teste",
+    }, uid)));
+    const resultados = await Promise.allSettled(chamadas);
+    expect(resultados.filter(item => item.status === "fulfilled")).toHaveLength(1);
+    expect(resultados.filter(item => item.status === "rejected")).toHaveLength(1);
+    const chefesAtivos = await db.collection("Chefe_Geral").get();
+    expect(chefesAtivos.docs.map(doc => doc.id).filter(uid => alvos.includes(uid))).toHaveLength(1);
+
+    await db.collection("Usuarios").doc("chefe123").set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Chefe_Geral").doc("chefe123").set({ id_usuario: "chefe123", ativo: true });
+  });
+
+  it("TEST-INT-ROLE-002-002 — duas revogações concorrentes preservam o último Gestor Patrimonial", async () => {
+    const alvos = [`gestor_concorrente_a_${Date.now()}`, `gestor_concorrente_b_${Date.now()}`];
+    for (const [indice, uid] of alvos.entries()) {
+      const email = `${uid}@example.com`;
+      await admin.auth().createUser({ uid, email, displayName: `Gestor Concorrente ${indice}` });
+      await db.collection("Usuarios").doc(uid).set({ nome: `Gestor Concorrente ${indice}`, email, ativo: true, versao_permissoes: 1 });
+      await db.collection("Gestor_Bens_Patrimoniais").doc(uid).set({ id_usuario: uid, ativo: true });
+    }
+
+    const chamadas = alvos.map((uid, indice) => testEnv.wrap(revogarUsuarioPapel)(mockRequest({
+      idOperacao: `op-role-002-patr-${Date.now()}-${indice}`,
+      uidAlvo: uid, papel: "Gestor_Bens_Patrimoniais", motivo: "Revogação concorrente de teste",
+    }, "chefe123")));
+    const resultados = await Promise.allSettled(chamadas);
+    expect(resultados.filter(item => item.status === "fulfilled")).toHaveLength(1);
+    expect(resultados.filter(item => item.status === "rejected")).toHaveLength(1);
+    const gestoresAtivos = await db.collection("Gestor_Bens_Patrimoniais").get();
+    expect(gestoresAtivos.docs.map(doc => doc.id).filter(uid => alvos.includes(uid))).toHaveLength(1);
   });
 });
 
