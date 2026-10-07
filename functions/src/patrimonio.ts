@@ -3,7 +3,7 @@ import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { validarPermissao, extrairClaimsAutoridade, resolverAutoridadePersistidaTx } from "./auth";
+import { extrairClaimsAutoridade, resolverAutoridadePersistidaTx } from "./auth";
 import { construirIdentidade, registrarOperacaoConcluidaTx, resolverOperacaoTx } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
 import { CriarRequisicaoEdicaoBemSchema, ResponderRequisicaoBemSchema, CriarRequisicaoAdicaoBemSchema, GerenciarLocalSchema } from "./schemas/patrimonio.schema";
@@ -11,7 +11,7 @@ import { adicionarNotificacaoTx } from "./notificacoes";
 import { chaveLocal as derivarChaveLocal } from "./chaves";
 
 export const criarRequisicaoEdicaoBem = onCall(async (request) => {
-  validarPermissao(request, ["Professor"]);
+  const claims = extrairClaimsAutoridade(request);
   const dados = validatePayload(CriarRequisicaoEdicaoBemSchema, request.data);
 
   const lockId = `bem_edicao_${dados.idBemPatrimonial}`;
@@ -19,6 +19,7 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
   const reqRef  = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc();
 
   return admin.firestore().runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Professor"]);
     const lockSnap = await tx.get(lockRef);
     if (lockSnap.exists) {
       throw new HttpsError("failed-precondition", "Já existe uma requisição de edição pendente para este bem.");
@@ -55,17 +56,22 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
 });
 
 export const responderRequisicaoEdicaoBem = onCall(async (request) => {
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
+  const claims = extrairClaimsAutoridade(request);
   const { idRequisicao, aprovar, justificativa } = validatePayload(ResponderRequisicaoBemSchema, request.data);
   const reqRef = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc(idRequisicao);
 
   return admin.firestore().runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
     const reqSnap = await tx.get(reqRef);
     if (!reqSnap.exists) throw new HttpsError("not-found", "Requisição não encontrada.");
     const req = reqSnap.data()!;
     if (req.status !== "pendente") {
       throw new HttpsError("failed-precondition", "Requisição já foi respondida.");
     }
+
+    const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(req.id_bem_patrimonial);
+    const bemSnap = aprovar ? await tx.get(bemRef) : null;
+    if (aprovar && !bemSnap?.exists) throw new HttpsError("not-found", "Bem patrimonial não encontrado.");
 
     const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio")
       .doc(`bem_edicao_${req.id_bem_patrimonial}`);
@@ -89,10 +95,6 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
     });
 
     if (aprovar) {
-      const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(req.id_bem_patrimonial);
-      const bemSnap = await tx.get(bemRef);
-      if (!bemSnap.exists) throw new HttpsError("not-found", "Bem patrimonial não encontrado.");
-
       const camposBem: Record<string, unknown> = {};
       if (req.novo_status) camposBem.status = req.novo_status;
       if (req.novo_estado_conservacao) camposBem.estado_conservacao = req.novo_estado_conservacao;
@@ -109,7 +111,7 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
 });
 
 export const criarRequisicaoAdicaoBem = onCall(async (request) => {
-  validarPermissao(request, ["Professor"]);
+  const claims = extrairClaimsAutoridade(request);
 
   const dados = validatePayload(CriarRequisicaoAdicaoBemSchema, request.data);
 
@@ -125,6 +127,7 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
   const reqRef  = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc();
 
   return admin.firestore().runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Professor"]);
     const lockSnap = await tx.get(lockRef);
     if (lockSnap.exists) {
       throw new HttpsError("failed-precondition", "Já existe requisição pendente para este número de patrimônio.");
@@ -165,11 +168,12 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
 });
 
 export const responderRequisicaoAdicaoBem = onCall(async (request) => {
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
+  const claims = extrairClaimsAutoridade(request);
   const { idRequisicao, aprovar, justificativa } = validatePayload(ResponderRequisicaoBemSchema, request.data);
   const reqRef = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc(idRequisicao);
 
   return admin.firestore().runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
     const reqSnap = await tx.get(reqRef);
     if (!reqSnap.exists) throw new HttpsError("not-found", "Requisição não encontrada.");
     const req = reqSnap.data()!;
