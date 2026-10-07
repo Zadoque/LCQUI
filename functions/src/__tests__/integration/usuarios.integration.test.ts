@@ -6,7 +6,7 @@ process.env.FUNCTIONS_EMULATOR = "true";
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { CallableRequest } from "firebase-functions/v2/https";
-import { convidarUsuario, revogarUsuarioPapel, atualizarPerfil, buscarProfessores } from "../../usuarios";
+import { convidarUsuario, revogarUsuarioPapel, atualizarPerfil, buscarProfessores, buscarUsuariosParaPapel } from "../../usuarios";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -100,6 +100,31 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
     expect(authUser.uid).toBe(resultado.uid);
     expect((await db.collection("Aluno").doc(resultado.uid).get()).exists).toBe(true);
     expect((await db.collection("Operacoes").doc(idOperacao).get()).data()?.status).toBe("CONCLUIDA");
+  });
+
+  it("TEST-INT-ROLE-UI02-001 — seleciona identidade existente por UID e conserva projeção mínima", async () => {
+    const email = `role_existente_${Date.now()}@example.com`;
+    const authUser = await admin.auth().createUser({ email, displayName: "Alvo Existente" });
+    await db.collection("Usuarios").doc(authUser.uid).set({
+      id_usuario: authUser.uid, nome: "Alvo Existente", email, ativo: true, versao_permissoes: 1,
+    });
+    await db.collection("Aluno").doc(authUser.uid).set({ id_usuario: authUser.uid, nome: "Alvo Existente", email });
+
+    const idOperacao = `op-role-ui02-${Date.now()}`;
+    const resultado = await testEnv.wrap(convidarUsuario)(mockRequest({
+      idOperacao,
+      uidAlvo: authUser.uid,
+      papel: "Bolsista",
+      motivo: "Concessão de Bolsista para identidade existente",
+    }, "chefe123"));
+
+    expect(resultado.uid).toBe(authUser.uid);
+    expect((await db.collection("Bolsista").doc(authUser.uid).get()).exists).toBe(true);
+
+    const busca = await testEnv.wrap(buscarUsuariosParaPapel)(mockRequest({ termo: "Alvo Existente" }, "chefe123"));
+    const alvo = (busca as { usuarios: Array<Record<string, unknown>> }).usuarios.find(item => item.id === authUser.uid);
+    expect(alvo).toMatchObject({ id: authUser.uid, nome: "Alvo Existente", papeis: ["Aluno", "Bolsista"] });
+    expect(alvo).not.toHaveProperty("email");
   });
 
   it("deve desativar o usuário ao revogar seu último papel e manter em Usuarios com ativo = false", async () => {
