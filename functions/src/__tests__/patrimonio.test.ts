@@ -22,17 +22,32 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
       admin.initializeApp({ projectId: "lcqui-dev" });
     }
     db = admin.firestore();
+    const professores = ["prof1", "prof2", "prof3"];
+    const usuarios = professores.map(uid => db.collection("Usuarios").doc(uid).set({ ativo: true, versao_permissoes: 1 }));
+    const papeisProfessores = professores.map(uid => db.collection("Professor").doc(uid).set({ id_usuario: uid, ativo: true }));
+    usuarios.push(db.collection("Usuarios").doc("gestor_pat").set({ ativo: true, versao_permissoes: 1 }));
+    papeisProfessores.push(db.collection("Gestor_Bens_Patrimoniais").doc("gestor_pat").set({ id_usuario: "gestor_pat", ativo: true }));
+    return Promise.all([...usuarios, ...papeisProfessores]);
   });
 
   afterAll(() => {
     testEnv.cleanup();
   });
 
+  beforeEach(async () => {
+    await Promise.all([
+      "bem_adicao_123456",
+      "bem_adicao_654321",
+      "bem_adicao_888888",
+      "bem_edicao_bem_editar",
+    ].map(id => db.collection("Locks_Requisicao_Patrimonio").doc(id).delete()));
+  });
+
   const mockRequest = (data: any, uid: string, roles: string[] = ["Professor"]): any => ({
     data,
     auth: {
       uid,
-      token: { roles }
+      token: { roles, versao_permissoes: 1 }
     },
     rawRequest: {}
   });
@@ -71,6 +86,20 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
     await expect(wrapped(req)).rejects.toThrow(/Já existe requisição pendente/i);
   });
 
+  it("deve rejeitar requisição patrimonial quando a claim está com versão obsoleta", async () => {
+    const req = mockRequest({
+      numeroPatrimonioProposto: "777000",
+      estadoConservacaoProposto: "Novo",
+      idLocal: "local1",
+      nomeResponsavelProposto: "Maria",
+      motivo: "Versão de autorização obsoleta",
+    }, "prof1", ["Professor"]);
+    req.auth.token.versao_permissoes = 2;
+
+    await expect(testEnv.wrap(criarRequisicaoAdicaoBem)(req))
+      .rejects.toThrow(/Permissões desatualizadas/i);
+  });
+
   it("deve rejeitar criação de bem se número de patrimônio já existir (validação Zod/base)", async () => {
     await db.collection("Bem_Patrimonial").doc("bem1").set({
       numero_patrimonio: "999999",
@@ -100,11 +129,11 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
       // idLocal is missing
     }, "prof1", ["Professor"]);
 
-    await expect(wrapped(req)).rejects.toThrow(/ID do local é obrigatório/i);
+    await expect(wrapped(req)).rejects.toThrow(/idLocal.*(obrigatório|expected string)/i);
   });
 
   it("deve disparar notificação transacional ao aprovar requisição de edição", async () => {
-    await db.collection("Gestor_Bens_Patrimoniais").doc("gestor_pat").set({ nome: "Gestor" });
+    await db.collection("Gestor_Bens_Patrimoniais").doc("gestor_pat").set({ id_usuario: "gestor_pat", ativo: true, nome: "Gestor" });
     await db.collection("Bem_Patrimonial").doc("bem_editar").set({
       numero_patrimonio: "777777",
       nome_equipamento: "Antigo Nome",
