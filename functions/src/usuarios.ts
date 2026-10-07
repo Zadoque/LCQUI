@@ -19,7 +19,7 @@ import {
   resolverOperacaoTx,
 } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
-import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema, BuscarAlunosSchema, BuscarProfessoresSchema, BuscarGestoresAlmoxarifadoSchema, AtualizarPerfilSchema } from "./schemas/usuarios.schema";
+import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema, BuscarAlunosSchema, BuscarProfessoresSchema, BuscarGestoresAlmoxarifadoSchema, BuscarUsuariosPapelSchema, AtualizarPerfilSchema } from "./schemas/usuarios.schema";
 
 const PAPEIS: string[] = [...PAPEIS_CONHECIDOS];
 
@@ -203,6 +203,7 @@ export const convidarUsuario = onCall(async request => {
     return resultadoExistente;
   }
   let uid: string;
+  let identidadeAuth: admin.auth.UserRecord | undefined;
   let contaAuthExistente = false;
   if (operacaoExistente.data()?.status === "PENDENTE" && resultadoExistente && typeof resultadoExistente === "object"
     && typeof (resultadoExistente as Record<string, unknown>).uid === "string") {
@@ -210,14 +211,17 @@ export const convidarUsuario = onCall(async request => {
     // estável do retry, mesmo que a conta Auth ainda não exista.
     uid = (resultadoExistente as Record<string, string>).uid;
     try {
-      await admin.auth().getUser(uid);
+      identidadeAuth = await admin.auth().getUser(uid);
       contaAuthExistente = true;
     } catch (error: any) {
       if (error.code !== "auth/user-not-found") throw error;
     }
   } else {
     try {
-      uid = (await admin.auth().getUserByEmail(dados.email)).uid;
+      identidadeAuth = dados.uidAlvo
+        ? await admin.auth().getUser(dados.uidAlvo)
+        : await admin.auth().getUserByEmail(dados.email!);
+      uid = identidadeAuth.uid;
       contaAuthExistente = true;
     } catch (error: any) {
       if (error.code !== "auth/user-not-found") throw error;
@@ -226,15 +230,22 @@ export const convidarUsuario = onCall(async request => {
       uid = randomUUID();
     }
   }
-  const perfil: Record<string, unknown> = { nome: dados.nome, email: dados.email };
-  if (dados.papel === "Aluno") perfil.letra_inicial = dados.nome.charAt(0).toUpperCase();
+  if (contaAuthExistente && !identidadeAuth) identidadeAuth = await admin.auth().getUser(uid);
+  const usuarioExistente = await admin.firestore().collection("Usuarios").doc(uid).get();
+  const nome = dados.nome ?? usuarioExistente.data()?.nome ?? identidadeAuth?.displayName;
+  const email = dados.email ?? identidadeAuth?.email;
+  if (typeof nome !== "string" || !nome.trim() || typeof email !== "string" || !email.trim()) {
+    throw new HttpsError("failed-precondition", "A identidade existente não possui nome e e-mail válidos.");
+  }
+  const perfil: Record<string, unknown> = { nome: nome.trim(), email: email.trim() };
+  if (dados.papel === "Aluno") perfil.letra_inicial = nome.trim().charAt(0).toUpperCase();
   if (dados.papel === "Professor") { perfil.centro = dados.centro ?? "N/A"; perfil.laboratorio = dados.laboratorio ?? "N/A"; }
   const resultado = await alterarPapel({ ator: claims.uid, uid, papel: dados.papel,
     conceder: true, motivo: dados.motivo ?? "Concessão solicitada pela chefia", idOperacao: dados.idOperacao,
-    perfil, identidade: { nome: dados.nome, email: dados.email }, materias: dados.materias ?? [], etapaAuthPendente: true }, claims);
+    perfil, identidade: { nome: nome.trim(), email: email.trim() }, materias: dados.materias ?? [], etapaAuthPendente: true }, claims);
   if (!contaAuthExistente) {
     try {
-      await admin.auth().createUser({ uid, email: dados.email, displayName: dados.nome });
+      await admin.auth().createUser({ uid, email: email.trim(), displayName: nome.trim() });
     } catch (error: any) {
       // Corrida de e-mail deixa a operação PENDENTE; retry/reconciliação
       // reconhece a intenção sem reaplicar o papel Firestore.
@@ -243,11 +254,39 @@ export const convidarUsuario = onCall(async request => {
     }
   }
   await reconciliarClaimsUsuario(uid);
-  const resetLink = await admin.auth().generatePasswordResetLink(dados.email);
+  const resetLink = await admin.auth().generatePasswordResetLink(email.trim());
   await admin.firestore().runTransaction(async tx => {
     await concluirOperacaoPendenteTx(tx, dados.idOperacao, { ...resultado, resetLink });
   });
   return { ...resultado, resetLink };
+});
+
+/** UI-02/M9: diretório mínimo para selecionar identidade já existente. */
+export const buscarUsuariosParaPapel = onCall(async request => {
+  const { termo } = validatePayload(BuscarUsuariosPapelSchema, request.data);
+  await validarAutoridadePersistida(request, ["Chefe_Geral"]);
+  const db = admin.firestore();
+  const usuarios = await db.collection("Usuarios").where("ativo", "==", true).limit(200).get();
+  const termoNormalizado = termo?.toLowerCase() ?? "";
+  const papeisPorUsuario = new Map<string, string[]>();
+  for (const papel of PAPEIS) {
+    const docs = await db.collection(papel).limit(200).get();
+    for (const doc of docs.docs) {
+      const papeis = papeisPorUsuario.get(doc.id) ?? [];
+      papeis.push(papel);
+      papeisPorUsuario.set(doc.id, papeis);
+    }
+  }
+  const resultado = usuarios.docs
+    .map(doc => {
+      const data = doc.data();
+      const nome = typeof data.nome === "string" && data.nome.trim() ? data.nome.trim() : "Sem nome";
+      return { id: doc.id, nome, papeis: papeisPorUsuario.get(doc.id) ?? [] };
+    })
+    .filter(usuario => !termoNormalizado || usuario.nome.toLowerCase().includes(termoNormalizado))
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR") || a.id.localeCompare(b.id))
+    .slice(0, 100);
+  return { usuarios: resultado };
 });
 
 export const revogarUsuarioPapel = onCall(async request => {
