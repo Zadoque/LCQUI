@@ -15,12 +15,28 @@ export default function NotificacoesPage() {
   const [abaAtiva, setAbaAtiva] = useState<"nao_lidas" | "todas">("nao_lidas");
   const [notificacoes, setNotificacoes] = useState<NotificacaoItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dadosDesatualizados, setDadosDesatualizados] = useState(false);
+  const [offline, setOffline] = useState(false);
   const [limparConfirmacao, setLimparConfirmacao] = useState(false);
   const [limparLoading, setLimparLoading] = useState(false);
 
   // Real-time subscription
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      setNotificacoes([]);
+      setLoading(false);
+      setDadosDesatualizados(false);
+      setOffline(false);
+      return;
+    }
+
+    setNotificacoes([]);
+    setLoading(true);
+    setDadosDesatualizados(false);
+    setOffline(typeof navigator !== "undefined" && !navigator.onLine);
+    const atualizarConectividade = () => setOffline(!navigator.onLine);
+    window.addEventListener("online", atualizarConectividade);
+    window.addEventListener("offline", atualizarConectividade);
 
     const colRef = collection(db, "Usuarios", user.uid, "Notificacoes");
     const notificacoesQuery = query(colRef, where("id_destinatario", "==", user.uid));
@@ -46,15 +62,22 @@ export default function NotificacoesPage() {
 
         setNotificacoes(itens);
         setLoading(false);
+        setDadosDesatualizados(snapshot.metadata.fromCache === true);
+        setOffline(!navigator.onLine);
       },
       (error) => {
         console.error("Erro ao ouvir notificações:", error);
-        setNotificacoes([]);
         setLoading(false);
+        setDadosDesatualizados(true);
+        setOffline(!navigator.onLine);
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      window.removeEventListener("online", atualizarConectividade);
+      window.removeEventListener("offline", atualizarConectividade);
+    };
   }, [user?.uid]);
 
   const [agora] = useState(() => Date.now());
@@ -104,6 +127,19 @@ export default function NotificacoesPage() {
     <ProtectedRoute allowedRoles={["Chefe_Geral", "Professor", "Aluno", "Bolsista"]}>
       <div className="max-w-3xl mx-auto p-4 sm:p-6">
         <h1 className="text-2xl font-bold text-foreground mb-6">Notificações</h1>
+
+        {(offline || dadosDesatualizados) && (
+          <div
+            className="mb-4 px-3 py-2 text-xs text-amber-800 bg-amber-100/80 rounded-lg dark:text-amber-100 dark:bg-amber-950/50"
+            role="status"
+            data-testid="notificacoes-estado-offline"
+          >
+            {offline
+              ? "Você está offline. Exibindo notificações autorizadas anteriormente; ações serão validadas ao reconectar."
+              : "Notificações possivelmente desatualizadas. Aguarde a reconexão para confirmar mudanças."
+            }
+          </div>
+        )}
 
         {/* Abas */}
         <div className="flex border-b border-foreground/10 text-sm font-semibold mb-4">
