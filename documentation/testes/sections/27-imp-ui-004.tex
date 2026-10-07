@@ -1,0 +1,29 @@
+\section{IMP-UI-004 — Notificações, deep link de roteiro e estado offline}
+
+\textbf{Escopo.} Esta verificação cobre a caixa interna e a página dedicada de
+notificações (UI-12), o comportamento de cache em memória/offline (UI-13) e o
+deep link de roteiro exigido por RN-M13-04. Não há persistência de conteúdo de
+notificação em \texttt{localStorage}; mutações continuam sendo confirmadas por
+callable e validação server-side.
+
+\textbf{Implementação verificada.} A página e o dropdown limpam a lista quando
+o UID muda, encerram o listener anterior e preservam a última leitura autorizada
+quando o listener perde a conexão. O estado usa \texttt{snapshot.metadata.fromCache}
+e eventos \texttt{online/offline}; quando aplicável, a UI exibe o aviso
+``Você está offline'' ou ``Notificações possivelmente desatualizadas''. O
+entidade-alvo \texttt{Roteiro} aponta para
+\texttt{/turmas?roteiros=1}, que abre o gerenciamento de roteiros e volta a
+revalidar o acesso na tela protegida.
+
+\textbf{Evidência E2E (Node.js 20).}
+
+\begin{itemize}
+  \item \texttt{12-notificacoes.spec.ts}: E2E-NOTIF-001--003, 3/3 verdes.
+  \item \texttt{15-notificacoes-page.spec.ts}: UI-004-E2E-001 (deep link de
+  roteiro), UI-004-E2E-002 (aviso offline) e regressão legada, 3/3 verdes.
+\end{itemize}
+
+As suítes foram executadas separadamente, cada uma com uma única preparação da
+seed, pois compartilham o banco do emulador. A execução combinada dos dois
+arquivos não é evidência válida: o primeiro arquivo deixa notificações de
+arquivamento para a sequência do segundo.
