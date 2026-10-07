@@ -15,3 +15,4 @@ export * from "./roteiros";
 export * from "./reagentes_base";
 export * from "./almoxarifados";
 export * from "./convites";
+export * from "./jobs/notificacoesReagentes";
