@@ -18,6 +18,19 @@ function buildDeepLinkConvite(idAlvo) {
   return `/convite?id=${encodeURIComponent(idAlvo)}&via=notificacao`;
 }
 
+function buildDeepLink(notif) {
+  switch (notif.entidade_alvo) {
+    case "Almoxarifado":
+      return `/reagentes?almoxarifado=${encodeURIComponent(notif.id_alvo)}&via=notificacao`;
+    case "Emprestimo":
+      return `/reagentes?emprestimo=${encodeURIComponent(notif.id_alvo)}&via=notificacao`;
+    case "Usuario":
+      return `/alunos?usuario=${encodeURIComponent(notif.id_alvo)}&via=notificacao`;
+    default:
+      return null;
+  }
+}
+
 function shouldRenderInbox(user) {
   return !!user?.uid;
 }
@@ -102,6 +115,22 @@ test("TEST-UI-INBOX-005 — Outros tipos de notificação coexistem e não quebr
   assert.strictEqual(ativas.length, 2);
   assert.strictEqual(ativas[0].tipo, "AVISO_SISTEMA");
   assert.strictEqual(ativas[1].tipo, "CONVITE_PARA_TURMA");
+});
+
+test("TEST-UI-INBOX-018 — Alvos operacionais emitidos por M8/Q14 têm rota interna sem token", () => {
+  assert.strictEqual(
+    buildDeepLink({ entidade_alvo: "Almoxarifado", id_alvo: "almox/1" }),
+    "/reagentes?almoxarifado=almox%2F1&via=notificacao",
+  );
+  assert.strictEqual(
+    buildDeepLink({ entidade_alvo: "Emprestimo", id_alvo: "emprestimo-1" }),
+    "/reagentes?emprestimo=emprestimo-1&via=notificacao",
+  );
+  assert.strictEqual(
+    buildDeepLink({ entidade_alvo: "Usuario", id_alvo: "uid-1" }),
+    "/alunos?usuario=uid-1&via=notificacao",
+  );
+  assert.strictEqual(buildDeepLink({ entidade_alvo: "Almoxarifado", id_alvo: "a&b" }).includes("token"), false);
 });
 
 // --- mensagemContextual (UI-12 V1) ---
