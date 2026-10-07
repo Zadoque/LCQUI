@@ -3,8 +3,6 @@ import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import {
   extrairClaimsAutoridade,
-  validarPermissao,
-  validarGestorDoAlmoxarifado,
   validarGestorDoAlmoxarifadoTx,
 } from "./auth";
 import { validatePayload } from "./utils/validation";
@@ -18,8 +16,7 @@ import {
 
 export const cadastrarFrascoFechado = onCall(async (request) => {
   const dados = validatePayload(CadastroFrascoFechadoSchema, request.data);
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
-  await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, dados.idAlmoxarifado);
+  const claims = extrairClaimsAutoridade(request);
 
   const especSnap = await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).collection("Especificacoes").doc(dados.idEspecificacaoReagente).get();
   if (!especSnap.exists) throw new HttpsError("not-found", "Especificação de reagente não encontrada.");
@@ -55,6 +52,7 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
   const frascoRef = admin.firestore().collection("Frasco_Reagente").doc();
 
   return admin.firestore().runTransaction(async (tx) => {
+    await validarGestorDoAlmoxarifadoTx(tx, claims, dados.idAlmoxarifado);
     const contadorSnap = await tx.get(contadorRef);
     const proximoNumero = (contadorSnap.data()?.ultimo_codigo_gerado || 0) + 1;
     const codigoFrasco = `LCQUI-${proximoNumero}`;
@@ -90,8 +88,7 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
 
 export const cadastrarFrascoAberto = onCall(async (request) => {
   const dados = validatePayload(CadastroFrascoAbertoSchema, request.data);
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
-  await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, dados.idAlmoxarifado);
+  const claims = extrairClaimsAutoridade(request);
 
   const especSnap = await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).collection("Especificacoes").doc(dados.idEspecificacaoReagente).get();
   if (!especSnap.exists) throw new HttpsError("not-found", "Especificação não encontrada.");
@@ -141,6 +138,7 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
   const frascoRef = admin.firestore().collection("Frasco_Reagente").doc();
 
   return admin.firestore().runTransaction(async (tx) => {
+    await validarGestorDoAlmoxarifadoTx(tx, claims, dados.idAlmoxarifado);
     const contadorSnap = await tx.get(contadorRef);
     const proximoNumero = (contadorSnap.data()?.ultimo_codigo_gerado || 0) + 1;
     const codigoFrasco = `LCQUI-${proximoNumero}`;
@@ -245,15 +243,10 @@ export const registrarAberturaFrasco = onCall(async (request) => {
 
 export const registrarRetirada = onCall(async (request) => {
   const dados = validatePayload(RetiradaFrascoSchema, request.data);
-  const papeisOperador = validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  const claims = extrairClaimsAutoridade(request);
   const autoAtendimento = dados.idUsuarioRetirou === request.auth!.uid;
-  if (autoAtendimento) {
-    if (!papeisOperador.includes("Professor") || !papeisOperador.includes("Gestor_Almoxarifado")) {
-      throw new HttpsError("permission-denied", "Autoatendimento exige Professor e Gestor de Almoxarifado.");
-    }
-    if (!dados.justificativaAutoAtendimento || dados.justificativaAutoAtendimento.length < 20) {
-      throw new HttpsError("invalid-argument", "Autoatendimento exige justificativa de pelo menos 20 caracteres.");
-    }
+  if (autoAtendimento && (!dados.justificativaAutoAtendimento || dados.justificativaAutoAtendimento.length < 20)) {
+    throw new HttpsError("invalid-argument", "Autoatendimento exige justificativa de pelo menos 20 caracteres.");
   }
 
   const [profSnap, bolsSnap] = await Promise.all([
@@ -271,8 +264,11 @@ export const registrarRetirada = onCall(async (request) => {
     if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     const frasco = frascoSnap.data()!;
 
-    await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
+    const autoridade = await validarGestorDoAlmoxarifadoTx(tx, claims, frasco.id_almoxarifado);
     if (autoAtendimento) {
+      if (!autoridade.papeis.includes("Professor") || !autoridade.papeis.includes("Gestor_Almoxarifado")) {
+        throw new HttpsError("permission-denied", "Autoatendimento exige Professor e Gestor de Almoxarifado.");
+      }
       const vinculos = await tx.get(admin.firestore().collection("Gestor_Almoxarifado_x_Almoxarifado")
         .where("id_almoxarifado", "==", frasco.id_almoxarifado));
       let gestoresAtivos = 0;
@@ -392,7 +388,7 @@ async function resolverDensidadeDoFrasco(frasco: any): Promise<number | null> {
 
 export const registrarDevolucao = onCall(async (request) => {
   const dados = validatePayload(DevolucaoFrascoSchema, request.data);
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  const claims = extrairClaimsAutoridade(request);
 
   const emprestimoRef = admin.firestore().collection("Emprestimo_Reagente").doc(dados.idEmprestimo);
 
@@ -407,7 +403,7 @@ export const registrarDevolucao = onCall(async (request) => {
     const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(emprestimo.id_frasco_reagente);
     const frascoSnap = await tx.get(frascoRef);
     const frasco = frascoSnap.data()!;
-    await validarGestorDoAlmoxarifado(request.auth!.uid, request.auth!.token, frasco.id_almoxarifado);
+    await validarGestorDoAlmoxarifadoTx(tx, claims, frasco.id_almoxarifado);
 
     const densidade = await resolverDensidadeDoFrasco(frasco);
     const pesoConsumido = Math.max(0, emprestimo.peso_saida - dados.pesoRetorno);
