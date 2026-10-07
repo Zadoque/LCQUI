@@ -19,7 +19,7 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
 
   beforeAll(() => {
     if (!admin.apps.length) {
-      admin.initializeApp({ projectId: "lcqui-dev" });
+      admin.initializeApp({ projectId: "lcqui-dev", storageBucket: "lcqui-dev.appspot.com" });
     }
     db = admin.firestore();
     const professores = ["prof1", "prof2", "prof3"];
@@ -56,7 +56,8 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
     const wrapped = testEnv.wrap(criarRequisicaoAdicaoBem);
     const req = mockRequest({
       numeroPatrimonioProposto: "123456",
-      estadoConservacaoProposto: "Novo",
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: "requisicoes/prof1/foto.png",
       idLocal: "local1",
       nomeResponsavelProposto: "João",
       motivo: "Novo equipamento"
@@ -73,7 +74,8 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
     const wrapped = testEnv.wrap(criarRequisicaoAdicaoBem);
     const req = mockRequest({
       numeroPatrimonioProposto: "654321",
-      estadoConservacaoProposto: "Novo",
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: "requisicoes/prof1/foto.png",
       idLocal: "local1",
       nomeResponsavelProposto: "Maria",
       motivo: "Equipamento duplicado req"
@@ -89,7 +91,8 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
   it("deve rejeitar requisição patrimonial quando a claim está com versão obsoleta", async () => {
     const req = mockRequest({
       numeroPatrimonioProposto: "777000",
-      estadoConservacaoProposto: "Novo",
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: "requisicoes/prof1/foto.png",
       idLocal: "local1",
       nomeResponsavelProposto: "Maria",
       motivo: "Versão de autorização obsoleta",
@@ -110,7 +113,8 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
     const wrapped = testEnv.wrap(criarRequisicaoAdicaoBem);
     const req = mockRequest({
       numeroPatrimonioProposto: "999999",
-      estadoConservacaoProposto: "Novo",
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: "requisicoes/prof1/foto.png",
       idLocal: "local1",
       nomeResponsavelProposto: "Maria",
       motivo: "Req"
@@ -123,7 +127,8 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
     const wrapped = testEnv.wrap(criarRequisicaoAdicaoBem);
     const req = mockRequest({
       numeroPatrimonioProposto: "111111",
-      estadoConservacaoProposto: "Novo",
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: "requisicoes/prof1/foto.png",
       nomeResponsavelProposto: "João",
       motivo: "Falta Local"
       // idLocal is missing
@@ -137,13 +142,19 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
     await db.collection("Bem_Patrimonial").doc("bem_editar").set({
       numero_patrimonio: "777777",
       nome_equipamento: "Antigo Nome",
-      status: "Ativo"
+      status: "Ativo",
+      versao: 1,
+      id_resumo_bem_patrimonial: "resumo-antigo",
+      id_local: "local1",
     });
+    await db.collection("Resumo_Bem_Patrimonial").doc("resumo-antigo").set({ nome: "Antigo Nome", descricao: "Resumo" });
+    await db.collection("Resumo_Bem_Patrimonial").doc("resumo-novo").set({ nome: "Novo Nome", descricao: "Resumo novo" });
 
     const wrappedReq = testEnv.wrap(criarRequisicaoEdicaoBem);
     const resultReq = await wrappedReq(mockRequest({
       idBemPatrimonial: "bem_editar",
-      novoNome: "Novo Nome",
+      novoEstadoConservacao: "REGULAR",
+      novoIdResumoBemPatrimonial: "resumo-novo",
       motivo: "Mudança de nome"
     }, "prof2", ["Professor"]));
 
@@ -173,7 +184,8 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
     const wrappedReq = testEnv.wrap(criarRequisicaoAdicaoBem);
     const resultReq = await wrappedReq(mockRequest({
       numeroPatrimonioProposto: "888888",
-      estadoConservacaoProposto: "Novo",
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: "requisicoes/prof3/foto.png",
       idLocal: "local1",
       nomeResponsavelProposto: "João",
       motivo: "Novo"
@@ -196,5 +208,71 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
       .get();
       
     expect(notifSnap.empty).toBe(false);
+  });
+
+  it("deve materializar cadastro canônico com reserva permanente, versão 1 e histórico", async () => {
+    const numero = ` pat-${Date.now()} `;
+    const photoPath = `requisicoes/prof1/pat-${Date.now()}.png`;
+    await db.collection("Local").doc("local-pat-canonico").set({ predio: "P1", andar: "1", sala: "101" });
+    await db.collection("Resumo_Bem_Patrimonial").doc("resumo-pat-canonico").set({ nome: "Balança Analítica", descricao: "Balança de precisão" });
+    await admin.storage().bucket().file(photoPath).save(Buffer.from("fake-image"), { contentType: "image/png" });
+
+    const criado = await testEnv.wrap(criarRequisicaoAdicaoBem)(mockRequest({
+      numeroPatrimonioProposto: numero,
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: photoPath,
+      idLocal: "local-pat-canonico",
+      idResumoBemPatrimonial: "resumo-pat-canonico",
+      nomeResponsavelProposto: "Responsável SEI",
+      motivo: "Cadastro canônico",
+    }, "prof1", ["Professor"]));
+
+    const aprovado = await testEnv.wrap(responderRequisicaoAdicaoBem)(mockRequest({
+      idRequisicao: criado.idRequisicao,
+      aprovar: true,
+      justificativa: "Aprovado",
+    }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]));
+    const idBemCriado = aprovado.idBemCriado as string;
+    const bem = await db.collection("Bem_Patrimonial").doc(idBemCriado).get();
+    expect(bem.data()).toMatchObject({
+      id: idBemCriado,
+      numero_patrimonio: numero.trim().toUpperCase(),
+      versao: 1,
+      status: "Ativo",
+      id_resumo_bem_patrimonial: "resumo-pat-canonico",
+      predio: "P1",
+      andar: "1",
+      sala: "101",
+      photo_url: photoPath,
+    });
+    expect((await db.collection("Chaves_Unicas").doc(`Bem_Patrimonial__${numero.trim().toUpperCase()}`).get()).exists).toBe(true);
+    expect((await bem.ref.collection("Historico_Patrimonio").get()).size).toBe(1);
+  });
+
+  it("deve rejeitar aprovação de edição quando a versão observada ficou obsoleta", async () => {
+    await db.collection("Locks_Requisicao_Patrimonio").doc("bem_edicao_bem-versao-pat").delete();
+    await db.collection("Bem_Patrimonial").doc("bem-versao-pat").set({
+      id: "bem-versao-pat",
+      numero_patrimonio: "PAT-VERSAO",
+      status: "Ativo",
+      versao: 1,
+      estado_conservacao: "BOM",
+      id_resumo_bem_patrimonial: "resumo-antigo",
+      id_local: "local1",
+      photo_url: "patrimonio/bem-versao-pat/foto.png",
+    });
+    const criado = await testEnv.wrap(criarRequisicaoEdicaoBem)(mockRequest({
+      idBemPatrimonial: "bem-versao-pat",
+      novoEstadoConservacao: "REGULAR",
+      motivo: "Teste de conflito",
+    }, "prof1", ["Professor"]));
+    await db.collection("Bem_Patrimonial").doc("bem-versao-pat").update({ versao: 2 });
+
+    await expect(testEnv.wrap(responderRequisicaoEdicaoBem)(mockRequest({
+      idRequisicao: criado.idRequisicao,
+      aprovar: true,
+      justificativa: "Não aprovar conflito",
+    }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]))).rejects.toThrow(/Versão do bem mudou/i);
+    expect((await db.collection("Bem_Patrimonial").doc("bem-versao-pat").get()).data()?.estado_conservacao).toBe("BOM");
   });
 });
