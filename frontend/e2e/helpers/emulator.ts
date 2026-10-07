@@ -86,6 +86,57 @@ export async function listarColecao(caminho: string): Promise<DocumentoEmulado[]
   }));
 }
 
+export async function criarNotificacaoEmulada(
+  uid: string,
+  id: string,
+  dados: {
+    tipo: string;
+    idAlvo: string;
+    entidadeAlvo: string;
+    mensagem: string;
+  }
+): Promise<void> {
+  const resposta = await fetch(
+    `${FIRESTORE_DOCS}/Usuarios/${uid}/Notificacoes/${id}?currentDocument.exists=false`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: "Bearer owner",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        fields: {
+          tipo: { stringValue: dados.tipo },
+          papel_destinatario: { stringValue: "Professor" },
+          id_destinatario: { stringValue: uid },
+          id_alvo: { stringValue: dados.idAlvo },
+          entidade_alvo: { stringValue: dados.entidadeAlvo },
+          id_turma: { nullValue: null },
+          id_quem_fez_acao: { stringValue: "seed-professor-alpha" },
+          lida: { booleanValue: false },
+          lida_em: { nullValue: null },
+          emitida_em: { timestampValue: new Date().toISOString() },
+          expira_em: { nullValue: null },
+          mensagem_customizada: { stringValue: dados.mensagem },
+        },
+      }),
+    }
+  );
+  if (!resposta.ok) {
+    throw new Error(`Falha ao criar notificação de teste (HTTP ${resposta.status}).`);
+  }
+}
+
+export async function removerDocumentoEmulado(caminho: string): Promise<void> {
+  const resposta = await fetch(`${FIRESTORE_DOCS}/${caminho}`, {
+    method: "DELETE",
+    headers: { Authorization: "Bearer owner" },
+  });
+  if (!resposta.ok && resposta.status !== 404) {
+    throw new Error(`Falha ao remover documento de teste (HTTP ${resposta.status}).`);
+  }
+}
+
 export interface OobCode {
   email: string;
   requestType: string;
