@@ -188,10 +188,14 @@ export const convidarUsuario = onCall(async request => {
   // autoritativa é refeita por `alterarPapel` dentro da transação do efeito.
   await validarAutoridadePersistidaComClaims(claims, ["Chefe_Geral"]);
   let user;
+  let usuarioAuthCriadoNestaTentativa = false;
   try { user = await admin.auth().getUserByEmail(dados.email); }
   catch (error: any) {
     if (error.code !== "auth/user-not-found") throw error;
-    try { user = await admin.auth().createUser({ email: dados.email, displayName: dados.nome }); }
+    try {
+      user = await admin.auth().createUser({ email: dados.email, displayName: dados.nome });
+      usuarioAuthCriadoNestaTentativa = true;
+    }
     catch (creation: any) {
       if (creation.code !== "auth/email-already-exists") throw creation;
       user = await admin.auth().getUserByEmail(dados.email);
@@ -200,9 +204,19 @@ export const convidarUsuario = onCall(async request => {
   const perfil: Record<string, unknown> = { nome: dados.nome, email: dados.email };
   if (dados.papel === "Aluno") perfil.letra_inicial = dados.nome.charAt(0).toUpperCase();
   if (dados.papel === "Professor") { perfil.centro = dados.centro ?? "N/A"; perfil.laboratorio = dados.laboratorio ?? "N/A"; }
-  const resultado = await alterarPapel({ ator: claims.uid, uid: user.uid, papel: dados.papel,
-    conceder: true, motivo: dados.motivo ?? "Concessão solicitada pela chefia", idOperacao: dados.idOperacao,
-    perfil, identidade: { nome: dados.nome, email: dados.email }, materias: dados.materias ?? [] }, claims);
+  let resultado;
+  try {
+    resultado = await alterarPapel({ ator: claims.uid, uid: user.uid, papel: dados.papel,
+      conceder: true, motivo: dados.motivo ?? "Concessão solicitada pela chefia", idOperacao: dados.idOperacao,
+      perfil, identidade: { nome: dados.nome, email: dados.email }, materias: dados.materias ?? [] }, claims);
+  } catch (error) {
+    // Compensação limitada ao efeito Auth criado nesta tentativa. Se a conta
+    // já existia, nunca removê-la; o retry M7 deve reconciliar o estado pendente.
+    if (usuarioAuthCriadoNestaTentativa) {
+      try { await admin.auth().deleteUser(user.uid); } catch { /* reconciliação posterior */ }
+    }
+    throw error;
+  }
   await reconciliarClaimsUsuario(user.uid);
   const resetLink = await admin.auth().generatePasswordResetLink(dados.email);
   return { ...resultado, resetLink };
