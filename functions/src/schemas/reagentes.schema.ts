@@ -46,6 +46,7 @@ export const RetiradaFrascoSchema = z.object({
   confirmarUsoVencido: z.boolean().optional(),
   abrirNoEmprestimo: z.boolean().optional(),
   finalidadeUso: z.enum(["PESQUISA", "DIDATICO_DEMONSTRACAO", "OUTRO"]),
+  justificativaAutoAtendimento: z.string().trim().optional(),
 });
 
 export const DevolucaoFrascoSchema = z.object({
