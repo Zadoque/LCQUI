@@ -33,9 +33,14 @@ export const ConvidarUsuarioSchema = z.object({
 
 export const RevogarUsuarioPapelSchema = z.object({
   idOperacao: IdOperacaoSchema,
-  email: z.string().email("O e-mail fornecido não é válido."),
+  uidAlvo: z.string().trim().min(1).optional(),
+  email: z.string().email("O e-mail fornecido não é válido.").optional(),
   papel: PapeisUsuariosSchema,
   motivo: z.string().trim().min(1, "Justificativa obrigatória.").max(2000)
+}).superRefine((dados, contexto) => {
+  if (!dados.uidAlvo && !dados.email) {
+    contexto.addIssue({ code: z.ZodIssueCode.custom, message: "Informe uidAlvo ou e-mail para revogar o papel." });
+  }
 });
 
 // S11: busca server-side de alunos por Professor/Chefe, retornando apenas
@@ -59,6 +64,10 @@ export const BuscarGestoresAlmoxarifadoSchema = z.object({
 // matrícula ou dados de contato na listagem.
 export const BuscarUsuariosPapelSchema = z.object({
   termo: z.string().trim().max(150).optional(),
+});
+
+export const DetalhesUsuarioPapelSchema = z.object({
+  uid: z.string().trim().min(1),
 });
 
 // S8 UI-01 L191: atualização do próprio perfil (self-service).
