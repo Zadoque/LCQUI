@@ -1739,7 +1739,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
       expect("matricula" in detalhes).toBe(false);
     });
 
-    it("TEST-INT-CONV-M13-GLOBAL-001 — Convite GLOBAL não emite notificação CONVITE_PARA_TURMA com id_turma=null", async () => {
+    it("TEST-INT-CONV-M13-GLOBAL-001 — Convite GLOBAL para Auth existente emite notificação interna", async () => {
       const emailGlobal = `aluno_global_reg_${Date.now()}@ufsc.br`;
       const authUser = await admin.auth().createUser({ email: emailGlobal, emailVerified: true });
       await semearAluno(authUser.uid);
@@ -1754,9 +1754,18 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
       const resGlobal = await executarConvidarAluno(reqGlobal.data, reqGlobal);
       expect(resGlobal.id).toBeDefined();
 
-      // Verificar que NÃO foi criada notificação CONVITE_PARA_TURMA com id_turma: null
+      // Norma operacional corrente: conta Auth existente recebe o convite GLOBAL
+      // pela caixa interna; o alinhamento formal CUE/Alloy está documentado.
       const notifDoc = await db.collection("Usuarios").doc(authUser.uid).collection("Notificacoes").doc(resGlobal.id).get();
-      expect(notifDoc.exists).toBe(false);
+      expect(notifDoc.exists).toBe(true);
+      expect(notifDoc.data()).toMatchObject({
+        tipo: "CONVITE_PARA_TURMA",
+        papel_destinatario: "Aluno",
+        id_destinatario: authUser.uid,
+        id_turma: null,
+        entidade_alvo: "Convite_Aluno",
+        id_alvo: resGlobal.id,
+      });
     });
   });
 });
