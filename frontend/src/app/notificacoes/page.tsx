@@ -7,11 +7,13 @@ import { db } from "@/lib/firebase/config";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { Clock, CheckCircle2, XCircle, AlertCircle, Loader2 } from "lucide-react";
 
 export default function NotificacoesPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [abaAtiva, setAbaAtiva] = useState<"nao_lidas" | "todas">("nao_lidas");
   const [notificacoes, setNotificacoes] = useState<NotificacaoItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,7 +82,11 @@ export default function NotificacoesPage() {
     };
   }, [user?.uid]);
 
-  const [agora] = useState(() => Date.now());
+  const [agora, setAgora] = useState(() => Date.now());
+  useEffect(() => {
+    const relogio = window.setInterval(() => setAgora(Date.now()), 30_000);
+    return () => window.clearInterval(relogio);
+  }, []);
   const naoLidasAtivas = filtrarNaoLidasAtivas(notificacoes, agora);
   const totalNaoLidas = naoLidasAtivas.length;
   const itensExibidos = abaAtiva === "nao_lidas" ? naoLidasAtivas : notificacoes;
@@ -107,6 +113,24 @@ export default function NotificacoesPage() {
     } finally {
       setLimparLoading(false);
       setLimparConfirmacao(false);
+    }
+  };
+
+  const abrirNotificacao = async (event: React.MouseEvent, notif: NotificacaoItem) => {
+    event.preventDefault();
+    try {
+      const resolver = httpsCallable<{ idNotificacao: string }, { autorizado: boolean; url?: string }>(
+        getFunctions(), "resolverDestinoNotificacao",
+      );
+      const resultado = await resolver({ idNotificacao: notif.id });
+      if (resultado.data.autorizado && resultado.data.url) {
+        router.push(resultado.data.url);
+      } else {
+        setDadosDesatualizados(true);
+      }
+    } catch (error) {
+      console.error("Erro ao validar destino da notificação:", error);
+      setDadosDesatualizados(true);
     }
   };
 
@@ -221,7 +245,7 @@ export default function NotificacoesPage() {
                       <div className="mt-3 flex gap-2">
                         <Link
                           href={`/convite?id=${encodeURIComponent(notif.id_alvo)}&via=notificacao`}
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(event) => abrirNotificacao(event, notif)}
                           className="py-1.5 px-3 bg-primary text-primary-foreground text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-1"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
@@ -229,7 +253,7 @@ export default function NotificacoesPage() {
                         </Link>
                         <Link
                           href={`/convite?id=${encodeURIComponent(notif.id_alvo)}&via=notificacao`}
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(event) => abrirNotificacao(event, notif)}
                           className="py-1.5 px-3 bg-foreground/10 hover:bg-red-500/10 text-foreground/70 hover:text-red-500 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1"
                         >
                           <XCircle className="w-3.5 h-3.5" />
@@ -282,7 +306,7 @@ export default function NotificacoesPage() {
                   <Link
                     key={notif.id}
                     href={deepUrl}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(event) => abrirNotificacao(event, notif)}
                     data-testid={`notif-link-${notif.id}`}
                   >
                     {cardContent}
