@@ -16,10 +16,12 @@ export const GerenciarLocalSchema = z.object({
 
 export const CriarRequisicaoEdicaoBemSchema = z.object({
   idBemPatrimonial: z.string().min(1, "ID do bem patrimonial é obrigatório."),
-  novoNome: z.string().optional(),
-  novoStatus: z.string().optional(),
-  novoEstadoConservacao: z.string().optional(),
+  novoNome: z.string().trim().min(1).max(150).optional(),
+  novoIdResumoBemPatrimonial: z.string().min(1).optional(),
+  novoStatus: z.enum(["Ativo", "Inservivel"]).nullable().optional(),
+  novoEstadoConservacao: z.enum(["BOM", "REGULAR", "RUIM"]).optional(),
   novoIdLocal: z.string().optional(),
+  novaPhotoUrl: z.string().min(1).optional(),
   motivo: z.string().min(1, "Motivo é obrigatório.")
 });
 
@@ -30,12 +32,13 @@ export const ResponderRequisicaoBemSchema = z.object({
 });
 
 export const CriarRequisicaoAdicaoBemSchema = z.object({
-  numeroPatrimonioProposto: z.string().min(1, "O número de patrimônio proposto é obrigatório."),
-  estadoConservacaoProposto: z.string().min(1, "O estado de conservação é obrigatório."),
+  numeroPatrimonioProposto: z.string().trim().min(1, "O número de patrimônio proposto é obrigatório.").max(30),
+  estadoConservacaoProposto: z.enum(["BOM", "REGULAR", "RUIM"]),
   idLocal: z.string().min(1, "O ID do local é obrigatório."),
-  nomeResponsavelProposto: z.string().min(1, "O nome do responsável é obrigatório."),
+  photoUrlProposta: z.string().min(1, "A foto do bem é obrigatória."),
+  nomeResponsavelProposto: z.string().trim().min(1, "O nome do responsável é obrigatório.").max(150),
   idResumoBemPatrimonial: z.string().optional(),
-  nomeResumoProposto: z.string().optional(),
-  descricaoResumoProposta: z.string().optional(),
+  nomeResumoProposto: z.string().trim().min(1).max(150).optional(),
+  descricaoResumoProposta: z.string().trim().min(1).optional(),
   motivo: z.string().min(1, "Motivo é obrigatório.")
 });
