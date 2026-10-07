@@ -83,6 +83,34 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
     await expect(wrapped(req)).rejects.toThrow(/Líquido exige densidade positiva/i);
   });
 
+  it("deve rejeitar cadastro quando a versão de permissões da claim está obsoleta", async () => {
+    await seedEspecificacao("espec_claim_obsoleta", null, "SOLIDO");
+    await seedGestorAlmoxarifado("gestor_claim_obsoleta", "almox_claim");
+
+    const req = mockRequest({
+      idEspecificacaoReagente: "espec_claim_obsoleta",
+      idAlmoxarifado: "almox_claim",
+      pesoTotal: 600,
+      volumeNominal: 500,
+    }, "gestor_claim_obsoleta");
+    req.auth.token.versao_permissoes = 2;
+
+    await expect(testEnv.wrap(cadastrarFrascoFechado)(req))
+      .rejects.toThrow(/Permissões desatualizadas/i);
+  });
+
+  it("deve rejeitar operação fora do vínculo persistido do almoxarifado", async () => {
+    await seedEspecificacao("espec_escopo", null, "SOLIDO");
+    await seedGestorAlmoxarifado("gestor_escopo", "almox_autorizado");
+
+    await expect(testEnv.wrap(cadastrarFrascoFechado)(mockRequest({
+      idEspecificacaoReagente: "espec_escopo",
+      idAlmoxarifado: "almox_nao_autorizado",
+      pesoTotal: 600,
+      volumeNominal: 500,
+    }, "gestor_escopo"))).rejects.toThrow(/não está designado/i);
+  });
+
   it("deve calcular o peso_vazio do frasco líquido usando a fórmula: pesoTotal - (volumeNominal * densidade)", async () => {
     await seedEspecificacao("espec_liq", 1.2, "LIQUIDO");
     await seedGestorAlmoxarifado("gestor2", "almox2");
@@ -317,7 +345,7 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
     const almox = `almox_auto_${Date.now()}`;
     const frasco = `frasco_auto_${Date.now()}`;
 
-    await db.collection("Usuarios").doc(uid).set({ ativo: true });
+    await db.collection("Usuarios").doc(uid).set({ ativo: true, versao_permissoes: 1 });
     await db.collection("Professor").doc(uid).set({ id_usuario: uid });
     await db.collection("Gestor_Almoxarifado").doc(uid).set({ id_usuario: uid });
     await db.collection("Gestor_Almoxarifado_x_Almoxarifado").doc(`${uid}_${almox}`).set({
