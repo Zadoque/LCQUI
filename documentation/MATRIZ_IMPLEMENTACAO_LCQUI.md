@@ -21,9 +21,9 @@
 | Total de features | 70 |
 | Auditadas | 70 |
 | Não auditadas | 0 |
-| DIVERGENTE | 9 |
-| NÃO DIVERGENTE | 58 |
-| NÃO IMPLEMENTADO | 3 |
+| DIVERGENTE | 11 |
+| NÃO DIVERGENTE | 53 |
+| NÃO IMPLEMENTADO | 6 |
 
 <!-- MATRIX_COUNTS_END -->
 
