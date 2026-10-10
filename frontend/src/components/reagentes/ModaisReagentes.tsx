@@ -155,9 +155,10 @@ export function ModalNovaSubstancia({ isOpen, onClose, onSuccess }: ModalProps) 
     try {
       const cadastrarSubstanciaQuimica = httpsCallable(functions, 'cadastrarSubstanciaQuimica');
       await cadastrarSubstanciaQuimica({
+        idOperacao: crypto.randomUUID(),
         nome,
-        casNumber: casNumber || undefined,
-        formulaQuimica: formulaQuimica || undefined,
+        casNumber: casNumber ? casNumber.trim() : undefined,
+        formulaQuimica: formulaQuimica ? formulaQuimica.trim() : undefined,
         ativo
       });
       if (onSuccess) onSuccess();
@@ -216,6 +217,7 @@ export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
   const [naturezaQuimica, setNaturezaQuimica] = useState("ORGANICO");
   const [estadoFisico, setEstadoFisico] = useState("SOLIDO");
   const [requerPesagemFrequente, setRequerPesagemFrequente] = useState(false);
+  const [ehHigroscopico, setEhHigroscopico] = useState(false);
   const [frequenciaPesagemDias, setFrequenciaPesagemDias] = useState("");
   const [qtdEscasso, setQtdEscasso] = useState("");
   const [loading, setLoading] = useState(false);
@@ -230,12 +232,14 @@ export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
     try {
       const cadastrarResumoReagente = httpsCallable(functions, 'cadastrarResumoReagente');
       await cadastrarResumoReagente({
+        idOperacao: crypto.randomUUID(),
         nome,
         tipoSubstancia,
         naturezaQuimica,
         estadoFisico,
         requerPesagemFrequente,
         frequenciaPesagemDias: requerPesagemFrequente && frequenciaPesagemDias ? Number(frequenciaPesagemDias) : undefined,
+        ehHigroscopico,
         qtdEmQueEConsideradoEscasso: Number(qtdEscasso)
       });
       if (onSuccess) onSuccess();
@@ -284,7 +288,6 @@ export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
               className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none">
               <option value="SOLIDO">Sólido</option>
               <option value="LIQUIDO">Líquido</option>
-              <option value="GASOSO">Gasoso</option>
             </select>
           </div>
           
@@ -300,6 +303,11 @@ export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
               <input type="number" required={requerPesagemFrequente} disabled={!requerPesagemFrequente} value={frequenciaPesagemDias} onChange={(e) => setFrequenciaPesagemDias(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none disabled:opacity-50" />
             </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input type="checkbox" checked={ehHigroscopico} onChange={(e) => setEhHigroscopico(e.target.checked)} className="rounded text-primary focus:ring-primary bg-foreground/5 border-foreground/10" />
+            <span className="text-sm font-medium">É higroscópico?</span>
           </div>
 
           <div>
@@ -335,7 +343,7 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSu
   const [ehControladoEb, setEhControladoEb] = useState(false);
   
   const [idSubstanciaPura, setIdSubstanciaPura] = useState("");
-  const [composicoes, setComposicoes] = useState([{ idSubstanciaQuimica: "", valorComposicao: "", tipoConcentracao: "M_M", unidade: "" }]);
+  const [composicoes, setComposicoes] = useState([{ idSubstanciaQuimica: "", valorMin: "", valorMax: "", tipoConcentracao: "M_M", notacaoOriginalFabricante: "" }]);
   
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroNatureza, setFiltroNatureza] = useState("");
@@ -369,7 +377,6 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSu
 
   useEffect(() => {
     if (isOpen) {
-      // Carrega apenas as substâncias base. Resumos são carregados sob demanda ou via id prop.
       getDocs(query(collection(db, "Substancia_Quimica"), limit(200))).then(snap => {
         setSubstancias(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       });
@@ -384,21 +391,14 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSu
 
   if (!isOpen) return null;
 
-  // Derivar propriedades do resumo selecionado
   const selectedResumoData = resumos.find(r => r.id === selectedResumoId) || (idResumoReagente ? { tipo_substancia: "PURA", estado_fisico: "SOLIDO" } : null);
-  // Nota: se o modal for aberto com idResumoReagente via prop (a partir da tabela que expande o resumo já existente),
-  // ele não irá buscar todos os resumos. Mas como o tipo_substancia agora precisa ser conhecido, precisamos
-  // de uma forma de saber se é PURA ou MISTURA e o estado fisico.
-  // Como o idResumoReagente é fornecido, na verdade o parent tem esses dados. 
-  // Na props de ModalProps já não passa tipoSubstancia, mas podemos buscar O ResumoEspecifico.
-  // Vou fazer um fetch do resumo especifico se houver idResumoReagente mas ele não estiver em "resumos".
   
   const isMistura = selectedResumoData?.tipo_substancia === "MISTURA";
   const estadoFisico = selectedResumoData?.estado_fisico || "SOLIDO";
-  const unidadeDeMedida = (estadoFisico === "LIQUIDO" || estadoFisico === "GASOSO") ? "ml" : "g";
+  const unidadeDeMedida = estadoFisico === "LIQUIDO" ? "ml" : "g";
 
   const handleAddComposicao = () => {
-    setComposicoes([...composicoes, { idSubstanciaQuimica: "", valorComposicao: "", tipoConcentracao: "M_M", unidade: "" }]);
+    setComposicoes([...composicoes, { idSubstanciaQuimica: "", valorMin: "", valorMax: "", tipoConcentracao: "M_M", notacaoOriginalFabricante: "" }]);
   };
 
   const handleComposicaoChange = (index: number, field: string, value: string) => {
@@ -416,14 +416,18 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSu
       
       const cadastrarEspecificacao = httpsCallable(functions, 'cadastrarEspecificacao');
       const compData = isMistura ? composicoes.map(c => ({
-        ...c,
-        valorComposicao: c.valorComposicao ? Number(c.valorComposicao) : undefined
+        idSubstanciaQuimica: c.idSubstanciaQuimica,
+        valorMin: c.valorMin ? Number(c.valorMin) : undefined,
+        valorMax: c.valorMax ? Number(c.valorMax) : undefined,
+        tipoConcentracao: c.tipoConcentracao as "M_M" | "V_V" | "M_V" | "MOL_L" | "MOL_KG" | "PPM" | "PPB",
+        notacaoOriginalFabricante: c.notacaoOriginalFabricante || undefined,
       })) : undefined;
 
       await cadastrarEspecificacao({
+        idOperacao: crypto.randomUUID(),
         idResumoReagente: selectedResumoId,
         descricao,
-        fabricante,
+        fabricante: fabricante || undefined,
         densidade: estadoFisico === "LIQUIDO" ? Number(densidade) : undefined,
         classeInflamabilidade,
         ehControladoPf,
@@ -571,12 +575,16 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSu
                           <option key={s.id} value={s.id}>{s.nome}</option>
                         ))}
                       </select>
-                      <input type="number" step="0.01" placeholder="Valor" value={comp.valorComposicao} onChange={(e) => handleComposicaoChange(idx, "valorComposicao", e.target.value)} className="px-2 py-1 text-xs rounded bg-background border border-foreground/10" required />
+                      <input type="number" step="0.01" placeholder="Mín" value={comp.valorMin} onChange={(e) => handleComposicaoChange(idx, "valorMin", e.target.value)} className="px-2 py-1 text-xs rounded bg-background border border-foreground/10" />
+                      <input type="number" step="0.01" placeholder="Máx" value={comp.valorMax} onChange={(e) => handleComposicaoChange(idx, "valorMax", e.target.value)} className="px-2 py-1 text-xs rounded bg-background border border-foreground/10" />
                       <select value={comp.tipoConcentracao} onChange={(e) => handleComposicaoChange(idx, "tipoConcentracao", e.target.value)} className="px-2 py-1 text-xs rounded bg-background border border-foreground/10">
                         <option value="M_M">% m/m</option>
                         <option value="V_V">% v/v</option>
                         <option value="M_V">% m/v</option>
                         <option value="MOL_L">mol/L</option>
+                        <option value="MOL_KG">mol/kg</option>
+                        <option value="PPM">ppm</option>
+                        <option value="PPB">ppb</option>
                       </select>
                     </div>
                   ))}

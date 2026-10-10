@@ -13,7 +13,12 @@ import {
   registrarRetirada, 
   registrarDevolucao
 } from "../reagentes";
-import { cadastrarLote } from "../reagentes_base";
+import { 
+  cadastrarLote,
+  cadastrarSubstanciaQuimica,
+  cadastrarResumoReagente,
+  cadastrarEspecificacao
+} from "../reagentes_base";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -536,5 +541,157 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
     });
     expect((await db.collection("Usuarios").doc(chefe).collection("Notificacoes")
       .where("tipo", "==", "AUTO_ATENDIMENTO_RETIRADA").get()).size).toBe(1);
+  });
+
+  describe("Catálogo Canônico (IMP-REAG-001)", () => {
+    it("deve cadastrar substância com CAS, reservar chave determinística e validar replay", async () => {
+      const uid = `gestor_cat_${Date.now()}`;
+      await db.collection("Usuarios").doc(uid).set({ ativo: true, versao_permissoes: 1 });
+      await db.collection("Gestor_Almoxarifado").doc(uid).set({ id_usuario: uid });
+
+      const casValido = "7732-18-5";
+      const req: any = {
+        data: {
+          idOperacao: `op_subst_${Date.now()}`,
+          nome: "Água P.A.",
+          casNumber: casValido,
+          formulaQuimica: "H2O",
+          ativo: true,
+        },
+        auth: {
+          uid,
+          token: { roles: ["Gestor_Almoxarifado"], versao_permissoes: 1 },
+        },
+        rawRequest: {},
+      };
+
+      const res1 = await testEnv.wrap(cadastrarSubstanciaQuimica)(req);
+      expect(res1.idSubstanciaQuimica).toBeDefined();
+
+      // Replay idempotente com mesmo idOperacao
+      const replay = await testEnv.wrap(cadastrarSubstanciaQuimica)(req);
+      expect(replay.idSubstanciaQuimica).toBe(res1.idSubstanciaQuimica);
+
+      // Chave única de CAS reservada
+      const chaveCas = await db.collection("Chaves_Unicas").doc(`Substancia_Quimica__CAS__${casValido}`).get();
+      expect(chaveCas.exists).toBe(true);
+      expect(chaveCas.data()?.id_recurso).toBe(res1.idSubstanciaQuimica);
+
+      // Conflito de CAS com idOperacao diferente deve falhar fechado com already-exists
+      const reqColisao: any = {
+        ...req,
+        data: {
+          ...req.data,
+          idOperacao: `op_subst_outro_${Date.now()}`,
+          nome: "Outra Água",
+        },
+        rawRequest: {},
+      };
+      await expect(testEnv.wrap(cadastrarSubstanciaQuimica)(reqColisao)).rejects.toThrow(/Já existe uma substância química/i);
+    });
+
+    it("deve cadastrar resumo com higroscopicidade e replay idempotente", async () => {
+      const uid = `gestor_res_${Date.now()}`;
+      await db.collection("Usuarios").doc(uid).set({ ativo: true, versao_permissoes: 1 });
+      await db.collection("Gestor_Almoxarifado").doc(uid).set({ id_usuario: uid });
+
+      const req: any = {
+        data: {
+          idOperacao: `op_res_${Date.now()}`,
+          nome: "Hidróxido de Potássio",
+          tipoSubstancia: "PURA",
+          naturezaQuimica: "INORGANICO",
+          estadoFisico: "SOLIDO",
+          requerPesagemFrequente: true,
+          frequenciaPesagemDias: 15,
+          ehHigroscopico: true,
+          qtdEmQueEConsideradoEscasso: 3,
+        },
+        auth: {
+          uid,
+          token: { roles: ["Gestor_Almoxarifado"], versao_permissoes: 1 },
+        },
+        rawRequest: {},
+      };
+
+      const res = await testEnv.wrap(cadastrarResumoReagente)(req);
+      expect(res.idResumoReagente).toBeDefined();
+
+      const doc = await db.collection("Resumo_Reagente").doc(res.idResumoReagente).get();
+      expect(doc.data()).toMatchObject({
+        nome: "Hidróxido de Potássio",
+        eh_higroscopico: true,
+        estado_fisico: "SOLIDO",
+        letra_inicial: "H",
+        frequencia_pesagem_dias: 15,
+      });
+
+      // Replay idempotente
+      const replay = await testEnv.wrap(cadastrarResumoReagente)(req);
+      expect(replay.idResumoReagente).toBe(res.idResumoReagente);
+    });
+
+    it("deve cadastrar especificação líquida com densidade obrigatória e composição pura", async () => {
+      const uid = `gestor_esp_${Date.now()}`;
+      await db.collection("Usuarios").doc(uid).set({ ativo: true, versao_permissoes: 1 });
+      await db.collection("Gestor_Almoxarifado").doc(uid).set({ id_usuario: uid });
+
+      // Cria substância base
+      const subRef = db.collection("Substancia_Quimica").doc();
+      await subRef.set({ nome: "Etanol Absoluto", cas_number: "64-17-5", ativo: true });
+
+      // Cria resumo líquido puro
+      const resRef = db.collection("Resumo_Reagente").doc();
+      await resRef.set({
+        nome: "Etanol 99%",
+        tipo_substancia: "PURA",
+        natureza_quimica: "ORGANICO",
+        estado_fisico: "LIQUIDO",
+        requer_pesagem_frequente: false,
+        frequencia_pesagem_dias: null,
+        eh_higroscopico: false,
+        qtd_em_que_e_considerado_escasso: 2,
+      });
+
+      // Tentar cadastrar líquido sem densidade deve falhar
+      const reqSemDensidade: any = {
+        data: {
+          idOperacao: `op_esp_sem_dens_${Date.now()}`,
+          idResumoReagente: resRef.id,
+          descricao: "Etanol P.A. 99.5%",
+          classeInflamabilidade: "CLASSE_1",
+          ehControladoPf: false,
+          ehControladoEb: false,
+          idSubstanciaQuimica: subRef.id,
+        },
+        auth: {
+          uid,
+          token: { roles: ["Gestor_Almoxarifado"], versao_permissoes: 1 },
+        },
+        rawRequest: {},
+      };
+      await expect(testEnv.wrap(cadastrarEspecificacao)(reqSemDensidade)).rejects.toThrow(/Densidade é obrigatória/i);
+
+      // Com densidade válida
+      const reqComDensidade: any = {
+        ...reqSemDensidade,
+        data: {
+          ...reqSemDensidade.data,
+          idOperacao: `op_esp_com_dens_${Date.now()}`,
+          densidade: 0.789,
+        },
+        rawRequest: {},
+      };
+      const resEsp = await testEnv.wrap(cadastrarEspecificacao)(reqComDensidade);
+      expect(resEsp.idEspecificacao).toBeDefined();
+
+      const especDoc = await resRef.collection("Especificacoes").doc(resEsp.idEspecificacao).get();
+      expect(especDoc.data()).toMatchObject({
+        densidade: 0.789,
+        unidade_de_medida: "ml",
+        estado_fisico: "LIQUIDO",
+        composicao: [{ id_substancia_quimica: subRef.id, tipo_concentracao: "M_M" }],
+      });
+    });
   });
 });

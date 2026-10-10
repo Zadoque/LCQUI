@@ -2,7 +2,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { createHash } from "crypto";
 import { FieldValue } from "firebase-admin/firestore";
-import { extrairClaimsAutoridade, resolverAutoridadePersistidaTx, validarAutoridadePersistida } from "./auth";
+import { extrairClaimsAutoridade, resolverAutoridadePersistidaTx } from "./auth";
 import { validatePayload } from "./utils/validation";
 import { construirIdentidade, registrarOperacaoConcluidaTx, resolverOperacaoTx } from "./idempotencia";
 import {
@@ -14,47 +14,122 @@ import {
 
 export const cadastrarSubstanciaQuimica = onCall(async (request) => {
   const dados = validatePayload(CadastroSubstanciaQuimicaSchema, request.data);
-  await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
-
-  const substanciaRef = admin.firestore().collection("Substancia_Quimica").doc();
-  await substanciaRef.set({
+  const claims = extrairClaimsAutoridade(request);
+  const casNorm = dados.casNumber ? dados.casNumber.trim() : null;
+  const identidade = construirIdentidade(claims.uid, "CADASTRAR_SUBSTANCIA_QUIMICA", {
     nome: dados.nome.trim(),
-    cas_number: dados.casNumber ?? null,
-    formula_quimica: dados.formulaQuimica ?? null,
+    casNumber: casNorm,
+    formulaQuimica: dados.formulaQuimica ? dados.formulaQuimica.trim() : null,
     ativo: dados.ativo,
   });
 
-  return { idSubstanciaQuimica: substanciaRef.id };
+  return admin.firestore().runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+    const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+    if (decisao.estado === "REPLAY") return decisao.resultado as { idSubstanciaQuimica: string };
+    if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de cadastro de substância química não concluída.");
+
+    const substanciaRef = admin.firestore().collection("Substancia_Quimica").doc();
+
+    if (casNorm) {
+      const chaveCasRef = admin.firestore().collection("Chaves_Unicas").doc(`Substancia_Quimica__CAS__${casNorm}`);
+      const chaveCasSnap = await tx.get(chaveCasRef);
+      if (chaveCasSnap.exists) {
+        throw new HttpsError("already-exists", `Já existe uma substância química cadastrada com o número CAS ${casNorm}.`);
+      }
+      tx.set(chaveCasRef, {
+        tipo: "Substancia_Quimica_CAS",
+        id_recurso: substanciaRef.id,
+        chave_recurso: casNorm,
+        criado_em: FieldValue.serverTimestamp(),
+      });
+    }
+
+    tx.set(substanciaRef, {
+      id: substanciaRef.id,
+      nome: dados.nome.trim(),
+      cas_number: casNorm,
+      formula_quimica: dados.formulaQuimica ? dados.formulaQuimica.trim() : null,
+      ativo: dados.ativo,
+      criado_em: FieldValue.serverTimestamp(),
+      criado_por: claims.uid,
+    });
+
+    const resultado = { idSubstanciaQuimica: substanciaRef.id };
+    registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+    return resultado;
+  });
 });
 
 export const cadastrarResumoReagente = onCall(async (request) => {
   const dados = validatePayload(CadastroResumoReagenteSchema, request.data);
-  await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
-
+  const claims = extrairClaimsAutoridade(request);
   const nome = dados.nome.trim();
   const letraInicial = nome.charAt(0).toUpperCase();
-
-  const resumoRef = admin.firestore().collection("Resumo_Reagente").doc();
-  await resumoRef.set({
-    nome: nome,
-    tipo_substancia: dados.tipoSubstancia,
-    natureza_quimica: dados.naturezaQuimica,
-    requer_pesagem_frequente: dados.requerPesagemFrequente,
-    qtd_em_que_e_considerado_escasso: dados.qtdEmQueEConsideradoEscasso,
-    frequencia_pesagem_dias: dados.frequenciaPesagemDias ?? null,
-    letra_inicial: letraInicial,
-    estado_fisico: dados.estadoFisico, // Estado físico agora pertence ao Resumo
+  const frequenciaPesagem = dados.requerPesagemFrequente ? (dados.frequenciaPesagemDias ?? null) : null;
+  const identidade = construirIdentidade(claims.uid, "CADASTRAR_RESUMO_REAGENTE", {
+    nome,
+    tipoSubstancia: dados.tipoSubstancia,
+    naturezaQuimica: dados.naturezaQuimica,
+    estadoFisico: dados.estadoFisico,
+    requerPesagemFrequente: dados.requerPesagemFrequente,
+    frequenciaPesagemDias: frequenciaPesagem,
+    ehHigroscopico: dados.ehHigroscopico,
+    qtdEmQueEConsideradoEscasso: dados.qtdEmQueEConsideradoEscasso,
   });
 
-  return { idResumoReagente: resumoRef.id };
+  return admin.firestore().runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+    const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+    if (decisao.estado === "REPLAY") return decisao.resultado as { idResumoReagente: string };
+    if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de cadastro de resumo de reagente não concluída.");
+
+    const resumoRef = admin.firestore().collection("Resumo_Reagente").doc();
+    tx.set(resumoRef, {
+      id: resumoRef.id,
+      nome,
+      tipo_substancia: dados.tipoSubstancia,
+      natureza_quimica: dados.naturezaQuimica,
+      requer_pesagem_frequente: dados.requerPesagemFrequente,
+      qtd_em_que_e_considerado_escasso: dados.qtdEmQueEConsideradoEscasso,
+      frequencia_pesagem_dias: frequenciaPesagem,
+      letra_inicial: letraInicial,
+      estado_fisico: dados.estadoFisico,
+      eh_higroscopico: dados.ehHigroscopico,
+      criado_em: FieldValue.serverTimestamp(),
+      criado_por: claims.uid,
+    });
+
+    const resultado = { idResumoReagente: resumoRef.id };
+    registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+    return resultado;
+  });
 });
 
 export const cadastrarEspecificacao = onCall(async (request) => {
   const dados = validatePayload(CadastroEspecificacaoSchema, request.data);
   const claims = extrairClaimsAutoridade(request);
+  const identidade = construirIdentidade(claims.uid, "CADASTRAR_ESPECIFICACAO_REAGENTE", {
+    idResumoReagente: dados.idResumoReagente,
+    descricao: dados.descricao.trim(),
+    fabricante: dados.fabricante?.trim() ?? null,
+    codigoProdutoFabricante: dados.codigoProdutoFabricante?.trim() ?? null,
+    grauPureza: dados.grauPureza?.trim() ?? null,
+    densidade: dados.densidade ?? null,
+    classeInflamabilidade: dados.classeInflamabilidade,
+    ehControladoPf: dados.ehControladoPf,
+    ehControladoEb: dados.ehControladoEb,
+    linkFdsFispq: dados.linkFdsFispq?.trim() ?? null,
+    idSubstanciaQuimica: dados.idSubstanciaQuimica?.trim() ?? null,
+    composicao: dados.composicao ?? null,
+  });
 
   return admin.firestore().runTransaction(async (tx) => {
     await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+    const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+    if (decisao.estado === "REPLAY") return decisao.resultado as { idEspecificacao: string; idEspecificacaoReagente: string };
+    if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de cadastro de especificação não concluída.");
+
     const resumoRef = admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente);
     const resumoSnap = await tx.get(resumoRef);
     if (!resumoSnap.exists) {
@@ -74,52 +149,69 @@ export const cadastrarEspecificacao = onCall(async (request) => {
       throw new HttpsError("invalid-argument", "Densidade é obrigatória para reagentes líquidos.");
     }
 
-    // Valida duplicidade de composição
-    if (dados.composicao && dados.composicao.length > 0) {
-      const substanciasUnicas = new Set(dados.composicao.map((c) => c.idSubstanciaQuimica));
-      if (substanciasUnicas.size !== dados.composicao.length) {
-        throw new HttpsError("invalid-argument", "A composição possui substâncias duplicadas.");
-      }
-    }
-
-    const especRef = resumoRef.collection("Especificacoes").doc();
-
     let composicao: any[] = [];
     if (resumoData.tipo_substancia === "PURA") {
+      const subRef = admin.firestore().collection("Substancia_Quimica").doc(dados.idSubstanciaQuimica!);
+      const subSnap = await tx.get(subRef);
+      if (!subSnap.exists || !subSnap.data()?.ativo) {
+        throw new HttpsError("not-found", "Substância química base não encontrada ou inativa.");
+      }
       composicao.push({
         id_substancia_quimica: dados.idSubstanciaQuimica,
-        valor_composicao: null,
-        tipo_concentracao: null,
-        unidade: null,
+        valor_min: null,
+        valor_max: null,
+        tipo_concentracao: "M_M",
+        notacao_original_fabricante: null,
       });
     } else {
-      composicao = (dados.composicao ?? []).map(c => ({
+      const substanciasUnicas = new Set(dados.composicao!.map((c) => c.idSubstanciaQuimica));
+      if (substanciasUnicas.size !== dados.composicao!.length) {
+        throw new HttpsError("invalid-argument", "A composição possui substâncias duplicadas.");
+      }
+      for (const comp of dados.composicao!) {
+        const subRef = admin.firestore().collection("Substancia_Quimica").doc(comp.idSubstanciaQuimica);
+        const subSnap = await tx.get(subRef);
+        if (!subSnap.exists || !subSnap.data()?.ativo) {
+          throw new HttpsError("not-found", `Substância química ${comp.idSubstanciaQuimica} não encontrada ou inativa.`);
+        }
+      }
+      composicao = dados.composicao!.map(c => ({
         id_substancia_quimica: c.idSubstanciaQuimica,
-        valor_composicao: c.valorComposicao ?? null,
-        tipo_concentracao: c.tipoConcentracao ?? null,
-        unidade: c.unidade ?? null,
+        valor_min: c.valorMin ?? null,
+        valor_max: c.valorMax ?? null,
+        tipo_concentracao: c.tipoConcentracao,
+        notacao_original_fabricante: c.notacaoOriginalFabricante ?? null,
       }));
     }
 
-    const unidadeDeMedida = (resumoData.estado_fisico === "LIQUIDO" || resumoData.estado_fisico === "GASOSO") ? "ml" : "g";
+    const especRef = resumoRef.collection("Especificacoes").doc();
+    const unidadeDeMedida = resumoData.estado_fisico === "LIQUIDO" ? "ml" : "g";
 
-    tx.set(especRef, {
+    const especDoc = {
+      id: especRef.id,
       id_resumo_reagente: dados.idResumoReagente,
-      descricao: dados.descricao,
-      fabricante: dados.fabricante ?? null,
-      codigo_produto_fabricante: dados.codigoProdutoFabricante ?? null,
-      grau_pureza: dados.grauPureza ?? null,
+      descricao: dados.descricao.trim(),
+      fabricante: dados.fabricante?.trim() ?? null,
+      codigo_produto_fabricante: dados.codigoProdutoFabricante?.trim() ?? null,
+      grau_pureza: dados.grauPureza?.trim() ?? null,
       densidade: dados.densidade ?? null,
       estado_fisico: resumoData.estado_fisico,
       unidade_de_medida: unidadeDeMedida,
       classe_inflamabilidade: dados.classeInflamabilidade,
       eh_controlado_pf: dados.ehControladoPf,
       eh_controlado_eb: dados.ehControladoEb,
-      link_fds_fispq: dados.linkFdsFispq ?? null,
+      link_fds_fispq: dados.linkFdsFispq?.trim() ?? null,
       composicao: composicao,
-    });
+      criado_em: FieldValue.serverTimestamp(),
+      criado_por: claims.uid,
+    };
 
-    return { idEspecificacao: especRef.id };
+    tx.set(especRef, especDoc);
+    tx.set(admin.firestore().collection("Especificacao_Reagente").doc(especRef.id), especDoc);
+
+    const resultado = { idEspecificacao: especRef.id, idEspecificacaoReagente: especRef.id };
+    registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+    return resultado;
   });
 });
 
