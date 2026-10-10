@@ -90,7 +90,7 @@ export function ModalEntradaFrasco({ isOpen, onClose, idResumoReagente, idEspeci
   );
 }
 
-export function ModalDevolucaoFrasco({ isOpen, onClose, frascoId, onSuccess }: ModalProps & { frascoId: string }) {
+export function ModalDevolucaoFrasco({ isOpen, onClose, frascoId, idEmprestimo, onSuccess }: ModalProps & { frascoId: string; idEmprestimo?: string }) {
   const [quantidadeDevolvida, setQuantidadeDevolvida] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -103,8 +103,9 @@ export function ModalDevolucaoFrasco({ isOpen, onClose, frascoId, onSuccess }: M
     try {
       const registrarDevolucao = httpsCallable(functions, 'registrarDevolucao');
       await registrarDevolucao({
-        id_emprestimo_reagente: "simulado_emprestimo_aberto",
-        quantidade_devolvida_mg_ml: Number(quantidadeDevolvida),
+        idOperacao: crypto.randomUUID(),
+        idEmprestimo: idEmprestimo || frascoId,
+        pesoRetorno: Number(quantidadeDevolvida),
       });
       if (onSuccess) onSuccess();
       onClose();

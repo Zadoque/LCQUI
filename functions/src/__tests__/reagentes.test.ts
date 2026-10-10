@@ -11,7 +11,12 @@ import {
   cadastrarFrascoAberto,
   registrarAberturaFrasco, 
   registrarRetirada, 
-  registrarDevolucao
+  registrarDevolucao,
+  repetirPesagemDevolucaoAnomala,
+  confirmarEsgotamentoAposInspecao,
+  recalibrarTaraFrascoEsgotado,
+  registrarPesagemRotina,
+  descartarFrasco
 } from "../reagentes";
 import { 
   cadastrarLote,
@@ -43,15 +48,14 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
     const payload = data.idEspecificacaoReagente && !data.idResumoReagente
       ? { ...data, idResumoReagente: `resumo_${data.idEspecificacaoReagente}` }
       : data;
+    const idOp = payload.idOperacao ?? `test_${createHash("sha256").update(JSON.stringify({ uid, payload })).digest("hex").slice(0, 24)}`;
     return {
-    data: payload.idEspecificacaoReagente || (payload.idFrasco && !("idUsuarioRetirou" in payload)) || payload.idUsuarioRetirou
-      ? { ...payload, idOperacao: payload.idOperacao ?? `test_${createHash("sha256").update(JSON.stringify({ uid, payload })).digest("hex").slice(0, 24)}` }
-      : payload,
-    auth: {
-      uid,
-      token: { roles, versao_permissoes: 1 }
-    },
-    rawRequest: {}
+      data: { ...payload, idOperacao: idOp },
+      auth: {
+        uid,
+        token: { roles, versao_permissoes: 1 }
+      },
+      rawRequest: {}
     };
   };
 
@@ -470,7 +474,7 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
     expect(frascoSnap.data()?.medida_usada).toBe(50);
   });
   
-  it("deve evitar consumo negativo (peso_retorno > peso_saida) lançando erro na devolução (com tolerancia higroscopica)", async () => {
+  it("deve evitar consumo negativo (peso_retorno > peso_saida) retendo frasco em anomalia Q06 e quarentena", async () => {
     await seedEspecificacao("espec_dev2", 2.0, "LIQUIDO");
     await seedGestorAlmoxarifado("gestor10", "almox10");
     await Promise.all([db.collection("Professor").doc("prof_dev").set({ nome: "Prof Dev" }), db.collection("Usuarios").doc("prof_dev").set({ ativo: true, versao_permissoes: 1 })]);
@@ -494,11 +498,22 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
     }, "gestor10"));
 
     const wrappedDevolucao = testEnv.wrap(registrarDevolucao);
-    // Retornou com 550g (> 102% de 500g, que é 510g). Deve falhar.
-    await expect(wrappedDevolucao(mockRequest({
+    // Retornou com 550g (> limite Q06).
+    const devResult = await wrappedDevolucao(mockRequest({
       idEmprestimo: retResult.idEmprestimo,
       pesoRetorno: 550
-    }, "gestor10"))).rejects.toThrow(/excede 102% da massa de saída/i);
+    }, "gestor10"));
+
+    expect(devResult.anomalia).toBe("GANHO_ACIMA_Q06");
+    expect(devResult.consumoPendente).toBe(true);
+
+    const empDoc = await db.collection("Emprestimo_Reagente").doc(retResult.idEmprestimo).get();
+    expect(empDoc.data()?.status).toBe("DEVOLVIDO_COM_ANOMALIA");
+    expect(empDoc.data()?.consumo_validado).toBe(false);
+
+    const frascoDoc = await db.collection("Frasco_Reagente").doc(frascoResult.idFrasco).get();
+    expect(frascoDoc.data()?.em_quarentena).toBe(true);
+    expect(frascoDoc.data()?.disponibilidade).toBe("INDISPONIVEL");
   });
 
   it("deve registrar autoatendimento e notificar a chefia quando não há outro gestor ativo", async () => {
@@ -692,6 +707,292 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
         estado_fisico: "LIQUIDO",
         composicao: [{ id_substancia_quimica: subRef.id, tipo_concentracao: "M_M" }],
       });
+    });
+  });
+
+  describe("Devolução e Metrologia Quantitativa (IMP-DEV-001, IMP-MET-001, IMP-MET-002, IMP-TERM-001)", () => {
+    const uidGestor = "gestor_metrologia";
+    const idAlmox = "almox_metrologia";
+
+    beforeEach(async () => {
+      await seedGestorAlmoxarifado(uidGestor, idAlmox);
+      await Promise.all([
+        db.collection("Professor").doc("prof_met").set({ nome: "Prof Metrologia" }),
+        db.collection("Usuarios").doc("prof_met").set({ ativo: true, versao_permissoes: 1 }),
+      ]);
+    });
+
+    it("deve registrar devolução com evaporação dentro da perda bruta e calcular volume corretamente", async () => {
+      await seedEspecificacao("espec_dev_evap", 1.5, "LIQUIDO");
+      const frasco = await testEnv.wrap(cadastrarFrascoFechado)(mockRequest({
+        idEspecificacaoReagente: "espec_dev_evap",
+        idAlmoxarifado: idAlmox,
+        pesoTotal: 500,
+        volumeNominal: 200,
+      }, uidGestor));
+
+      const ret = await testEnv.wrap(registrarRetirada)(mockRequest({
+        idFrasco: frasco.idFrasco,
+        idUsuarioRetirou: "prof_met",
+        idLocalUsado: "local1",
+        pesoSaida: 500,
+        dataDevolucaoPrevista: "2030-01-01",
+        finalidadeUso: "PESQUISA",
+      }, uidGestor));
+
+      const dev = await testEnv.wrap(registrarDevolucao)(mockRequest({
+        idEmprestimo: ret.idEmprestimo,
+        pesoRetorno: 470,
+        pesoPerdaEvaporacao: 10,
+      }, uidGestor));
+
+      expect(dev.pesoConsumido).toBe(20);
+      expect(dev.volumeUtilizado).toBeCloseTo(20 / 1.5);
+      expect(dev.consumoPendente).toBe(false);
+
+      const empDoc = await db.collection("Emprestimo_Reagente").doc(ret.idEmprestimo).get();
+      expect(empDoc.data()?.status).toBe("DEVOLVIDO");
+      expect(empDoc.data()?.consumo_validado).toBe(true);
+      expect(empDoc.data()?.peso_perda_evaporacao).toBe(10);
+    });
+
+    it("deve rejeitar devolução se perda por evaporação exceder a perda bruta observada (constraint M6)", async () => {
+      await seedEspecificacao("espec_dev_evap_inv", 1.0, "LIQUIDO");
+      const frasco = await testEnv.wrap(cadastrarFrascoFechado)(mockRequest({
+        idEspecificacaoReagente: "espec_dev_evap_inv",
+        idAlmoxarifado: idAlmox,
+        pesoTotal: 300,
+        volumeNominal: 100,
+      }, uidGestor));
+
+      const ret = await testEnv.wrap(registrarRetirada)(mockRequest({
+        idFrasco: frasco.idFrasco,
+        idUsuarioRetirou: "prof_met",
+        idLocalUsado: "local1",
+        pesoSaida: 300,
+        dataDevolucaoPrevista: "2030-01-01",
+        finalidadeUso: "PESQUISA",
+      }, uidGestor));
+
+      await expect(testEnv.wrap(registrarDevolucao)(mockRequest({
+        idEmprestimo: ret.idEmprestimo,
+        pesoRetorno: 295,
+        pesoPerdaEvaporacao: 8,
+      }, uidGestor))).rejects.toThrow(/Perda por evaporação excede a perda bruta observada/i);
+    });
+
+    it("deve registrar esgotamento confirmado (confirmarEsgotamento) tornando o frasco VAZIO com tara real e saldo zero", async () => {
+      await seedEspecificacao("espec_dev_esgotar", 1.0, "LIQUIDO");
+      const frasco = await testEnv.wrap(cadastrarFrascoFechado)(mockRequest({
+        idEspecificacaoReagente: "espec_dev_esgotar",
+        idAlmoxarifado: idAlmox,
+        pesoTotal: 250,
+        volumeNominal: 100,
+      }, uidGestor));
+
+      const ret = await testEnv.wrap(registrarRetirada)(mockRequest({
+        idFrasco: frasco.idFrasco,
+        idUsuarioRetirou: "prof_met",
+        idLocalUsado: "local1",
+        pesoSaida: 250,
+        dataDevolucaoPrevista: "2030-01-01",
+        finalidadeUso: "PESQUISA",
+      }, uidGestor));
+
+      const dev = await testEnv.wrap(registrarDevolucao)(mockRequest({
+        idEmprestimo: ret.idEmprestimo,
+        pesoRetorno: 148,
+        confirmarEsgotamento: true,
+      }, uidGestor));
+
+      expect(dev.consumoPendente).toBe(false);
+
+      const frascoDoc = await db.collection("Frasco_Reagente").doc(frasco.idFrasco).get();
+      expect(frascoDoc.data()?.estado_fisico_frasco).toBe("VAZIO");
+      expect(frascoDoc.data()?.origem_tara).toBe("MEDIDA_REAL");
+      expect(frascoDoc.data()?.peso_frasco_vazio).toBe(148);
+      expect(frascoDoc.data()?.saldo_desconhecido).toBe(false);
+      expect(frascoDoc.data()?.saldo_aferido_g).toBe(0);
+      expect(frascoDoc.data()?.disponibilidade).toBe("INDISPONIVEL");
+    });
+
+    it("deve resolver pendência metrológica anômala pela Rota 1 (repetirPesagemDevolucaoAnomala)", async () => {
+      await seedEspecificacao("espec_dev_r1", 1.0, "LIQUIDO");
+      const frasco = await testEnv.wrap(cadastrarFrascoFechado)(mockRequest({
+        idEspecificacaoReagente: "espec_dev_r1",
+        idAlmoxarifado: idAlmox,
+        pesoTotal: 500,
+        volumeNominal: 200,
+      }, uidGestor));
+
+      const ret = await testEnv.wrap(registrarRetirada)(mockRequest({
+        idFrasco: frasco.idFrasco,
+        idUsuarioRetirou: "prof_met",
+        idLocalUsado: "local1",
+        pesoSaida: 500,
+        dataDevolucaoPrevista: "2030-01-01",
+        finalidadeUso: "PESQUISA",
+      }, uidGestor));
+
+      const dev = await testEnv.wrap(registrarDevolucao)(mockRequest({
+        idEmprestimo: ret.idEmprestimo,
+        pesoRetorno: 530,
+      }, uidGestor));
+      expect(dev.anomalia).toBe("GANHO_ACIMA_Q06");
+
+      const res = await testEnv.wrap(repetirPesagemDevolucaoAnomala)(mockRequest({
+        idEmprestimo: ret.idEmprestimo,
+        pesoNovaMedicao: 480,
+        motivo: "Revisão e repetição de pesagem em balança calibrada de precisão.",
+      }, uidGestor));
+
+      expect(res.status).toBe("OK");
+      expect(res.pesoRetornoEfetivo).toBe(480);
+      expect(res.medidaUtilizada).toBe(20);
+
+      const empDoc = await db.collection("Emprestimo_Reagente").doc(ret.idEmprestimo).get();
+      expect(empDoc.data()?.consumo_validado).toBe(true);
+      expect(empDoc.data()?.peso_retorno_efetivo).toBe(480);
+      expect(empDoc.data()?.peso_retorno).toBe(530);
+      expect(empDoc.data()?.id_resolucao_metrologica).toBeDefined();
+    });
+
+    it("deve resolver pendência metrológica pela Rota 2 (confirmarEsgotamentoAposInspecao)", async () => {
+      await seedEspecificacao("espec_dev_r2", 1.0, "LIQUIDO");
+      const frasco = await testEnv.wrap(cadastrarFrascoFechado)(mockRequest({
+        idEspecificacaoReagente: "espec_dev_r2",
+        idAlmoxarifado: idAlmox,
+        pesoTotal: 300,
+        volumeNominal: 100,
+      }, uidGestor));
+
+      await db.collection("Frasco_Reagente").doc(frasco.idFrasco).update({
+        origem_tara: "MEDIDA_REAL",
+        peso_frasco_vazio: 200,
+      });
+
+      const ret = await testEnv.wrap(registrarRetirada)(mockRequest({
+        idFrasco: frasco.idFrasco,
+        idUsuarioRetirou: "prof_met",
+        idLocalUsado: "local1",
+        pesoSaida: 300,
+        dataDevolucaoPrevista: "2030-01-01",
+        finalidadeUso: "PESQUISA",
+      }, uidGestor));
+
+      const dev = await testEnv.wrap(registrarDevolucao)(mockRequest({
+        idEmprestimo: ret.idEmprestimo,
+        pesoRetorno: 195,
+      }, uidGestor));
+      expect(dev.anomalia).toBe("RETORNO_ABAIXO_TARA_REAL");
+
+      const res = await testEnv.wrap(confirmarEsgotamentoAposInspecao)(mockRequest({
+        idEmprestimo: ret.idEmprestimo,
+        pesoVazioRealMedido: 195,
+        motivo: "Inspeção visual confirmou frasco completamente esgotado e limpo.",
+      }, uidGestor));
+
+      expect(res.status).toBe("OK");
+      expect(res.vazioConfirmado).toBe(true);
+
+      const frascoDoc = await db.collection("Frasco_Reagente").doc(frasco.idFrasco).get();
+      expect(frascoDoc.data()?.estado_fisico_frasco).toBe("VAZIO");
+      expect(frascoDoc.data()?.disponibilidade).toBe("INDISPONIVEL");
+
+      const empDoc = await db.collection("Emprestimo_Reagente").doc(ret.idEmprestimo).get();
+      expect(empDoc.data()?.consumo_validado).toBe(true);
+      expect(empDoc.data()?.peso_retorno_efetivo).toBe(195);
+    });
+
+    it("deve recalibrar tara pela Rota 3 (recalibrarTaraFrascoEsgotado) e rejeitar se frasco não estiver VAZIO", async () => {
+      const idFrasco = `frasco_tara_${Date.now()}`;
+      await db.collection("Frasco_Reagente").doc(idFrasco).set({
+        id: idFrasco,
+        id_almoxarifado: idAlmox,
+        estado_fisico_frasco: "ABERTO",
+        peso_atual: 150,
+      });
+
+      await expect(testEnv.wrap(recalibrarTaraFrascoEsgotado)(mockRequest({
+        idFrasco,
+        pesoVazioReal: 145,
+        motivo: "Tentativa de recalibrar frasco ainda com reagente.",
+      }, uidGestor))).rejects.toThrow(/recipiente efetivamente vazio/i);
+
+      await db.collection("Frasco_Reagente").doc(idFrasco).update({
+        estado_fisico_frasco: "VAZIO",
+      });
+
+      const res = await testEnv.wrap(recalibrarTaraFrascoEsgotado)(mockRequest({
+        idFrasco,
+        pesoVazioReal: 145,
+        motivo: "Homologação de tara real com frasco seco e completamente esgotado.",
+      }, uidGestor));
+
+      expect(res.status).toBe("OK");
+      expect(res.novaTara).toBe(145);
+
+      const doc = await db.collection("Frasco_Reagente").doc(idFrasco).get();
+      expect(doc.data()?.peso_frasco_vazio).toBe(145);
+      expect(doc.data()?.origem_tara).toBe("MEDIDA_REAL");
+    });
+
+    it("deve registrar pesagem de rotina (registrarPesagemRotina) e rejeitar se frasco estiver emprestado", async () => {
+      const idFrasco = `frasco_rotina_${Date.now()}`;
+      await db.collection("Frasco_Reagente").doc(idFrasco).set({
+        id: idFrasco,
+        id_almoxarifado: idAlmox,
+        disponibilidade: "EMPRESTADO",
+        peso_atual: 400,
+      });
+
+      await expect(testEnv.wrap(registrarPesagemRotina)(mockRequest({
+        idFrasco,
+        pesoAtual: 395,
+        motivo: "Pesagem de inventário em frasco fora do almoxarifado",
+      }, uidGestor))).rejects.toThrow(/empréstimo ativo não pode sofrer pesagem/i);
+
+      await db.collection("Frasco_Reagente").doc(idFrasco).update({ disponibilidade: "DISPONIVEL" });
+      const res = await testEnv.wrap(registrarPesagemRotina)(mockRequest({
+        idFrasco,
+        pesoAtual: 395,
+        motivo: "Pesagem periódica semestral de controle de estoque.",
+      }, uidGestor));
+
+      expect(res.status).toBe("OK");
+      expect(res.pesoAtual).toBe(395);
+
+      const doc = await db.collection("Frasco_Reagente").doc(idFrasco).get();
+      expect(doc.data()?.peso_atual).toBe(395);
+    });
+
+    it("deve realizar descarte terminal (descartarFrasco) em frasco VAZIO e rejeitar se em quarentena", async () => {
+      const idFrasco = `frasco_desc_${Date.now()}`;
+      await db.collection("Frasco_Reagente").doc(idFrasco).set({
+        id: idFrasco,
+        id_almoxarifado: idAlmox,
+        disponibilidade: "INDISPONIVEL",
+        em_quarentena: true,
+        estado_fisico_frasco: "VAZIO",
+      });
+
+      await expect(testEnv.wrap(descartarFrasco)(mockRequest({
+        idFrasco,
+        motivo: "Descarte de frasco vazio ainda sob regime de quarentena.",
+      }, uidGestor))).rejects.toThrow(/Resolva a quarentena antes do descarte/i);
+
+      await db.collection("Frasco_Reagente").doc(idFrasco).update({ em_quarentena: false });
+
+      const res = await testEnv.wrap(descartarFrasco)(mockRequest({
+        idFrasco,
+        motivo: "Descarte técnico institucional de resíduo e embalagem esgotada.",
+      }, uidGestor));
+
+      expect(res.status).toBe("OK");
+
+      const doc = await db.collection("Frasco_Reagente").doc(idFrasco).get();
+      expect(doc.data()?.estado_fisico_frasco).toBe("DESCARTADO");
+      expect(doc.data()?.disponibilidade).toBe("INDISPONIVEL");
     });
   });
 });

@@ -54,7 +54,46 @@ export const RetiradaFrascoSchema = z.object({
 });
 
 export const DevolucaoFrascoSchema = z.object({
+  idOperacao: idOperacaoField,
   idEmprestimo: z.string().min(1, "O ID do empréstimo é obrigatório."),
-  pesoRetorno: z.number().min(0, "O peso de retorno não pode ser negativo."),
+  pesoRetorno: z.number().positive("O peso de retorno deve ser positivo."),
+  pesoPerdaEvaporacao: z.number().min(0, "A perda por evaporação não pode ser negativa.").optional(),
+  confirmarEsgotamento: z.boolean().optional(),
+  idUsuarioDevolveu: z.string().min(1).optional(),
   destinoPosDevolucao: DecisaoFrascoVencidoSchema.optional(),
 });
+
+export const RepetirPesagemDevolucaoAnomalaSchema = z.object({
+  idOperacao: idOperacaoField,
+  idEmprestimo: z.string().min(1, "O ID do empréstimo é obrigatório."),
+  pesoNovaMedicao: z.number().positive("O peso medido deve ser positivo."),
+  motivo: z.string().trim().min(20, "A justificativa deve conter pelo menos 20 caracteres."),
+});
+
+export const ConfirmarEsgotamentoAposInspecaoSchema = z.object({
+  idOperacao: idOperacaoField,
+  idEmprestimo: z.string().min(1, "O ID do empréstimo é obrigatório."),
+  pesoVazioRealMedido: z.number().positive("O peso do frasco vazio medido deve ser positivo."),
+  motivo: z.string().trim().min(20, "A justificativa deve conter pelo menos 20 caracteres."),
+});
+
+export const RecalibrarTaraFrascoEsgotadoSchema = z.object({
+  idOperacao: idOperacaoField,
+  idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
+  pesoVazioReal: z.number().positive("O peso do recipiente vazio deve ser positivo."),
+  motivo: z.string().trim().min(20, "A justificativa deve conter pelo menos 20 caracteres."),
+});
+
+export const RegistrarPesagemRotinaSchema = z.object({
+  idOperacao: idOperacaoField,
+  idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
+  pesoAtual: z.number().positive("O peso medido deve ser positivo."),
+  motivo: z.string().trim().optional(),
+});
+
+export const DescartarFrascoSchema = z.object({
+  idOperacao: idOperacaoField,
+  idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
+  motivo: z.string().trim().min(20, "A justificativa do descarte institucional deve conter pelo menos 20 caracteres."),
+});
+
