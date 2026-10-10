@@ -34,6 +34,7 @@ export const CadastroFrascoAbertoSchema = z.object({
 });
 
 export const AberturaFrascoSchema = z.object({
+  idOperacao: idOperacaoField,
   idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
   destinoSeVencerNaAbertura: DecisaoFrascoVencidoSchema.optional(),
   detalheStatus: z.string().optional(),

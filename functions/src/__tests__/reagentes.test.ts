@@ -39,7 +39,7 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
       ? { ...data, idResumoReagente: `resumo_${data.idEspecificacaoReagente}` }
       : data;
     return {
-    data: payload.idEspecificacaoReagente
+    data: payload.idEspecificacaoReagente || (payload.idFrasco && !("idUsuarioRetirou" in payload))
       ? { ...payload, idOperacao: payload.idOperacao ?? `test_${createHash("sha256").update(JSON.stringify({ uid, payload })).digest("hex").slice(0, 24)}` }
       : payload,
     auth: {

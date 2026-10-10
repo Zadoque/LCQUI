@@ -269,12 +269,20 @@ export function calcularValidadeEfetivaNaAbertura(frasco: any, dataAbertura: Dat
 export const registrarAberturaFrasco = onCall(async (request) => {
   const dados = validatePayload(AberturaFrascoSchema, request.data);
   const claims = extrairClaimsAutoridade(request);
+  const identidade = construirIdentidade(claims.uid, "ABRIR_FRASCO", {
+    idFrasco: dados.idFrasco,
+    destinoSeVencerNaAbertura: dados.destinoSeVencerNaAbertura,
+    detalheStatus: dados.detalheStatus,
+  });
 
   const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
   return admin.firestore().runTransaction(async (tx) => {
     const snap = await tx.get(frascoRef);
     if (!snap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     const frasco = snap.data()!;
+    const decisaoOperacao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+    if (decisaoOperacao.estado === "REPLAY") return decisaoOperacao.resultado as { validadeEfetiva: Date | null; venceu: boolean; destino: string | null };
+    if (decisaoOperacao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de abertura não concluída.");
     await validarGestorDoAlmoxarifadoTx(tx, claims, frasco.id_almoxarifado);
 
     if (frasco.estado_fisico_frasco !== "FECHADO") {
@@ -291,8 +299,8 @@ export const registrarAberturaFrasco = onCall(async (request) => {
     if (venceu && !dados.destinoSeVencerNaAbertura) {
       throw new HttpsError("failed-precondition", "A abertura tornou o frasco vencido. O gestor deve escolher o destino do frasco.");
     }
-    if (venceu && dados.destinoSeVencerNaAbertura === "QUARENTENA" && !dados.detalheStatus) {
-      throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status.");
+    if (venceu && dados.destinoSeVencerNaAbertura === "QUARENTENA" && (!dados.detalheStatus || dados.detalheStatus.trim().length < 20)) {
+      throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status humano com no mínimo 20 caracteres.");
     }
 
     tx.update(frascoRef, {
@@ -308,8 +316,19 @@ export const registrarAberturaFrasco = onCall(async (request) => {
           : null))
         : null,
     });
-
-    return { validadeEfetiva, venceu, destino: dados.destinoSeVencerNaAbertura ?? null };
+    tx.create(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+      id_frasco_reagente: dados.idFrasco, id_almoxarifado: frasco.id_almoxarifado,
+      id_gestor: claims.uid, tipo: "ABERTURA", timestamp: FieldValue.serverTimestamp(),
+    });
+    if (venceu && dados.destinoSeVencerNaAbertura === "PENDENTE_DE_DESCARTE") {
+      tx.create(admin.firestore().collection("Pendencias_Descarte_Frasco").doc(dados.idFrasco), {
+        id_frasco: dados.idFrasco, origem: "QUARENTENA", id_operacao_decisao: dados.idOperacao,
+        id_gestor_decisao: claims.uid, motivo: dados.detalheStatus ?? "Frasco vencido aguardando processo institucional de descarte.", criada_em: FieldValue.serverTimestamp(),
+      });
+    }
+    const resultado = { validadeEfetiva, venceu, destino: dados.destinoSeVencerNaAbertura ?? null };
+    registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+    return resultado;
   });
 });
 
