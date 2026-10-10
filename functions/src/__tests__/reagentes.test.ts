@@ -366,7 +366,7 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
   it("deve proibir retirada (empréstimo) de frasco em QUARENTENA", async () => {
     await seedEspecificacao("espec_quarentena", null, "SOLIDO");
     await seedGestorAlmoxarifado("gestor7", "almox7");
-    await db.collection("Professor").doc("prof1").set({ nome: "Prof 1" });
+    await Promise.all([db.collection("Professor").doc("prof1").set({ nome: "Prof 1" }), db.collection("Usuarios").doc("prof1").set({ ativo: true, versao_permissoes: 1 })]);
 
     const wrapped = testEnv.wrap(cadastrarFrascoFechado);
     const frascoResult = await wrapped(mockRequest({
@@ -393,7 +393,7 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
   it("deve proibir nova retirada de frasco vencido se uso_vencido_autorizado for false", async () => {
     await seedEspecificacao("espec_vencido", null, "SOLIDO");
     await seedGestorAlmoxarifado("gestor8", "almox8");
-    await db.collection("Professor").doc("prof1").set({ nome: "Prof 1" });
+    await Promise.all([db.collection("Professor").doc("prof1").set({ nome: "Prof 1" }), db.collection("Usuarios").doc("prof1").set({ ativo: true, versao_permissoes: 1 })]);
 
     const wrapped = testEnv.wrap(cadastrarFrascoFechado);
     const frascoResult = await wrapped(mockRequest({
@@ -427,7 +427,7 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
   it("deve calcular volume consumido (mL) na devolução subtraindo peso_retorno e dividindo pela densidade", async () => {
     await seedEspecificacao("espec_dev", 2.0, "LIQUIDO"); // densidade = 2.0
     await seedGestorAlmoxarifado("gestor9", "almox9");
-    await db.collection("Professor").doc("prof_dev").set({ nome: "Prof Dev" });
+    await Promise.all([db.collection("Professor").doc("prof_dev").set({ nome: "Prof Dev" }), db.collection("Usuarios").doc("prof_dev").set({ ativo: true, versao_permissoes: 1 })]);
 
     const wrapped = testEnv.wrap(cadastrarFrascoFechado);
     const frascoResult = await wrapped(mockRequest({
@@ -468,7 +468,7 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
   it("deve evitar consumo negativo (peso_retorno > peso_saida) lançando erro na devolução (com tolerancia higroscopica)", async () => {
     await seedEspecificacao("espec_dev2", 2.0, "LIQUIDO");
     await seedGestorAlmoxarifado("gestor10", "almox10");
-    await db.collection("Professor").doc("prof_dev").set({ nome: "Prof Dev" });
+    await Promise.all([db.collection("Professor").doc("prof_dev").set({ nome: "Prof Dev" }), db.collection("Usuarios").doc("prof_dev").set({ ativo: true, versao_permissoes: 1 })]);
 
     const wrapped = testEnv.wrap(cadastrarFrascoFechado);
     const frascoResult = await wrapped(mockRequest({

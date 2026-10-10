@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { httpsCallable } from "firebase/functions";
 import { collection, getDocs, query, limit, where } from "firebase/firestore";
 import { functions, db } from "@/lib/firebase/config";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ModalProps {
   isOpen: boolean;
@@ -701,24 +702,44 @@ export function ModalNovoLote({ isOpen, onClose, idResumoReagente, idEspecificac
 }
 
 export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProps) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [frascoId, setFrascoId] = useState("");
+  const [usuarioRetirou, setUsuarioRetirou] = useState("");
+  const [localUsado, setLocalUsado] = useState("");
+  const [pesoSaida, setPesoSaida] = useState("");
+  const [dataDevolucao, setDataDevolucao] = useState("");
+  const [finalidade, setFinalidade] = useState<"PESQUISA" | "DIDATICO_DEMONSTRACAO" | "OUTRO">("PESQUISA");
+  const [abrirNoEmprestimo, setAbrirNoEmprestimo] = useState(false);
+  const [confirmarUsoVencido, setConfirmarUsoVencido] = useState(false);
+  const [justificativa, setJustificativa] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
+    setErrorMsg("");
+    try {
+      const registrarRetirada = httpsCallable(functions, "registrarRetirada");
+      await registrarRetirada({
+        idOperacao: crypto.randomUUID(), idFrasco: frascoId.trim(),
+        idUsuarioRetirou: (usuarioRetirou.trim() || user?.uid || ""), idLocalUsado: localUsado.trim(),
+        pesoSaida: Number(pesoSaida), dataDevolucaoPrevista: dataDevolucao,
+        finalidadeUso: finalidade, abrirNoEmprestimo, confirmarUsoVencido,
+        justificativaAutoAtendimento: justificativa.trim(),
+      });
       if (onSuccess) onSuccess();
       onClose();
-      setLoading(false);
-    }, 1000);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Erro ao registrar retirada.");
+    } finally { setLoading(false); }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="glass-panel w-full max-w-sm p-6 rounded-2xl shadow-xl border-orange-500/20">
+      <div className="glass-panel w-full max-w-lg p-6 rounded-2xl shadow-xl border-orange-500/20">
         <h2 className="text-xl font-bold mb-4 text-orange-500">Registrar Retirada</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -726,6 +747,17 @@ export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProp
             <input type="text" required placeholder="Ex: F-12345" value={frascoId} onChange={(e) => setFrascoId(e.target.value)}
               className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-orange-500 outline-none" />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="block text-sm font-medium mb-1">UID do retirante (vazio = usuário atual)</label><input type="text" value={usuarioRetirou} onChange={(e) => setUsuarioRetirou(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10" /></div>
+            <div><label className="block text-sm font-medium mb-1">ID do local usado</label><input type="text" required value={localUsado} onChange={(e) => setLocalUsado(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10" /></div>
+            <div><label className="block text-sm font-medium mb-1">Peso de saída (g)</label><input type="number" min="0.01" step="0.01" required value={pesoSaida} onChange={(e) => setPesoSaida(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10" /></div>
+            <div><label className="block text-sm font-medium mb-1">Devolução prevista</label><input type="date" required value={dataDevolucao} onChange={(e) => setDataDevolucao(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10" /></div>
+          </div>
+          <div><label className="block text-sm font-medium mb-1">Finalidade</label><select value={finalidade} onChange={(e) => setFinalidade(e.target.value as typeof finalidade)} className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10"><option value="PESQUISA">Pesquisa</option><option value="DIDATICO_DEMONSTRACAO">Didático/demonstração</option><option value="OUTRO">Outro</option></select></div>
+          <label className="flex gap-2 items-center text-sm"><input type="checkbox" checked={abrirNoEmprestimo} onChange={(e) => setAbrirNoEmprestimo(e.target.checked)} /> Abrir o frasco no empréstimo</label>
+          <label className="flex gap-2 items-center text-sm"><input type="checkbox" checked={confirmarUsoVencido} onChange={(e) => setConfirmarUsoVencido(e.target.checked)} /> Confirmar uso vencido</label>
+          <div><label className="block text-sm font-medium mb-1">Justificativa de autoatendimento (se aplicável)</label><textarea value={justificativa} onChange={(e) => setJustificativa(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10" /></div>
+          {errorMsg && <div className="text-red-500 text-sm bg-red-500/10 p-2 rounded">{errorMsg}</div>}
           <div className="flex justify-end gap-3 mt-6">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg hover:bg-foreground/5 transition-colors">Cancelar</button>
             <button type="submit" disabled={loading} className="px-4 py-2 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600 disabled:opacity-50">

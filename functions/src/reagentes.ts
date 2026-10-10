@@ -346,14 +346,6 @@ export const registrarRetirada = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "Autoatendimento exige justificativa de pelo menos 20 caracteres.");
   }
 
-  const [profSnap, bolsSnap] = await Promise.all([
-    admin.firestore().collection("Professor").doc(dados.idUsuarioRetirou).get(),
-    admin.firestore().collection("Bolsista").doc(dados.idUsuarioRetirou).get(),
-  ]);
-  if (!profSnap.exists && !bolsSnap.exists) {
-    throw new HttpsError("failed-precondition", "Usuário selecionado não é Professor nem Bolsista.");
-  }
-
   const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
 
   const resultado = await admin.firestore().runTransaction(async (tx) => {
@@ -365,6 +357,14 @@ export const registrarRetirada = onCall(async (request) => {
     if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de retirada não concluída.");
 
     const autoridade = await validarGestorDoAlmoxarifadoTx(tx, claims, frasco.id_almoxarifado);
+    const [profSnap, bolsSnap, usuarioSnap] = await Promise.all([
+      tx.get(admin.firestore().collection("Professor").doc(dados.idUsuarioRetirou)),
+      tx.get(admin.firestore().collection("Bolsista").doc(dados.idUsuarioRetirou)),
+      tx.get(admin.firestore().collection("Usuarios").doc(dados.idUsuarioRetirou)),
+    ]);
+    if ((!profSnap.exists && !bolsSnap.exists) || usuarioSnap.data()?.ativo !== true) {
+      throw new HttpsError("failed-precondition", "Usuário selecionado não é um Professor/Bolsista ativo.");
+    }
     if (autoAtendimento) {
       if (!autoridade.papeis.includes("Professor") || !autoridade.papeis.includes("Gestor_Almoxarifado")) {
         throw new HttpsError("permission-denied", "Autoatendimento exige Professor e Gestor de Almoxarifado.");

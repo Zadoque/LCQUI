@@ -1,0 +1,52 @@
+import { test, expect } from "../fixtures";
+import { login, esperarCallable } from "../helpers/ui";
+import { lerDocumento, listarColecao } from "../helpers/emulator";
+
+test("RET-E2E-001: registra retirada com contrato completo", async ({ page, guardaConsole }) => {
+  await login(page, "gestor.almoxarifado@lcqui.local");
+  await page.goto("/reagentes");
+  await page.locator("select").first().selectOption("Líquido");
+  await page.getByRole("button", { name: "Buscar no Banco" }).click();
+  await page.getByText("Reagente Seed").click();
+  await page.getByRole("button", { name: "+ Frasco S/ Lote" }).click();
+  const entrada = page.locator("form").filter({ hasText: "Salvar Frasco" });
+  const entradaNumeros = entrada.locator('input[type="number"]');
+  await entradaNumeros.nth(0).fill("500");
+  await entradaNumeros.nth(1).fill("250");
+  let resposta = esperarCallable(page, "cadastrarFrascoFechado");
+  await entrada.getByRole("button", { name: "Salvar Frasco" }).click();
+  await resposta;
+  const chave = await lerDocumento("Chaves_Unicas/Frasco_Reagente__LCQUI-1");
+  expect(chave).not.toBeNull();
+
+  await page.getByRole("button", { name: "Registrar Retirada" }).click();
+  const formulario = page.locator("form").filter({ has: page.getByRole("button", { name: "Confirmar" }) });
+  const textos = formulario.locator('input[type="text"]');
+  await textos.nth(0).fill(chave!.data.id_recurso as string);
+  await textos.nth(1).fill("seed-professor-alpha");
+  await textos.nth(2).fill("local1");
+  await formulario.locator('input[type="number"]').fill("500");
+  await formulario.locator('input[type="date"]').fill("2099-01-01");
+  const chamada = esperarCallable(page, "registrarRetirada");
+  await formulario.getByRole("button", { name: "Confirmar" }).click();
+  const retorno = await chamada;
+  expect(retorno.status()).toBe(200);
+  await expect(page.getByRole("heading", { name: "Estoque (Reagentes)" })).toBeVisible();
+  const emprestimos = await listarColecao("Emprestimo_Reagente");
+  expect(emprestimos.some((item) => item.data.id_frasco_reagente === chave!.data.id_recurso && item.data.status === "EM_USO")).toBe(true);
+
+  guardaConsole.permitir(/400/);
+  await page.getByRole("button", { name: "Registrar Retirada" }).click();
+  const segunda = page.locator("form").filter({ has: page.getByRole("button", { name: "Confirmar" }) });
+  const segundaTextos = segunda.locator('input[type="text"]');
+  await segundaTextos.nth(0).fill(chave!.data.id_recurso as string);
+  await segundaTextos.nth(1).fill("seed-professor-alpha");
+  await segundaTextos.nth(2).fill("local1");
+  await segunda.locator('input[type="number"]').fill("500");
+  await segunda.locator('input[type="date"]').fill("2099-01-01");
+  const segundaChamada = esperarCallable(page, "registrarRetirada");
+  await segunda.getByRole("button", { name: "Confirmar" }).click();
+  const segundaResposta = await segundaChamada;
+  expect(segundaResposta.status()).toBe(400);
+  await expect(page.getByText(/não está disponível/i)).toBeVisible();
+});
