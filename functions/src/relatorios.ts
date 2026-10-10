@@ -317,7 +317,7 @@ export const gerarRelatorioPersonalizado = onCall(async (request) => {
     addHeader(doc, `Relatório Personalizado: ${entidade.replace("_", " ")}`, `Período: ${dataIniObj.toLocaleDateString("pt-BR")} até ${dataFimObj.toLocaleDateString("pt-BR")}`);
 
     if (entidade === "Bens_Patrimoniais") {
-      const snapshot = await admin.firestore().collection("Historico_Bem_Patrimonial")
+      const snapshot = await admin.firestore().collectionGroup("Historico_Patrimonio")
         .where("timestamp", ">=", dataIniObj)
         .where("timestamp", "<=", dataFimObj)
         .get();

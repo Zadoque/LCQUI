@@ -11,7 +11,8 @@ import {
   criarRequisicaoEdicaoBem, 
   responderRequisicaoEdicaoBem, 
   criarRequisicaoAdicaoBem, 
-  responderRequisicaoAdicaoBem 
+  responderRequisicaoAdicaoBem,
+  registrarBaixaBemPatrimonial
 } from "../patrimonio";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
@@ -505,6 +506,177 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
         aprovar: true,
         justificativa: "Payload divergente",
       }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]))).rejects.toMatchObject({ code: "already-exists" });
+    });
+  });
+
+  describe("Baixa Patrimonial Comprovada e Histórico Auditável (IMP-PAT-005 e IMP-PAT-006)", () => {
+    it("deve registrar baixa de bem Inservivel com PDF no Storage, histórico único e plaqueta preservada", async () => {
+      const idBem = `bem_baixa_${Date.now()}`;
+      const plaqueta = `PLQ-BX-${Date.now()}`;
+      const bemRef = db.collection("Bem_Patrimonial").doc(idBem);
+      await bemRef.set({
+        id: idBem,
+        numero_patrimonio: plaqueta,
+        status: "Inservivel",
+        versao: 2,
+        predio: "Química",
+        andar: "1",
+        sala: "101",
+        cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Chave única reservada permanentemente
+      await db.collection("Chaves_Unicas").doc(`Bem_Patrimonial__${plaqueta}`).set({
+        tipo: "Bem_Patrimonial",
+        id_recurso: idBem,
+        chave_recurso: plaqueta,
+      });
+
+      // Cria PDF no Storage Emulator
+      const storagePath = `baixas_patrimoniais/${idBem}/termo_baixa_sei.pdf`;
+      const file = admin.storage().bucket().file(storagePath);
+      await file.save(Buffer.from("%PDF-1.4 mock pdf"), { contentType: "application/pdf" });
+
+      const idOp = `op_baixa_${Date.now()}`;
+      const req = mockRequest({
+        idOperacao: idOp,
+        idBemPatrimonial: idBem,
+        documentoDadoBaixaPdfUrl: storagePath,
+        justificativa: "Equipamento obsoleto e sem condições de reparo conforme processo SEI 12345.",
+      }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]);
+
+      const res = await testEnv.wrap(registrarBaixaBemPatrimonial)(req);
+      expect(res).toEqual({ idBemPatrimonial: idBem, status: "Ja_dado_baixa" });
+
+      // Verifica atualização do bem
+      const bemAtualizado = await bemRef.get();
+      expect(bemAtualizado.data()).toMatchObject({
+        status: "Ja_dado_baixa",
+        versao: 3,
+        documento_dado_baixa_pdf_url: storagePath,
+        justificativa_baixa: "Equipamento obsoleto e sem condições de reparo conforme processo SEI 12345.",
+      });
+
+      // Verifica evento único no caminho normativo do histórico
+      const histSnap = await bemRef.collection("Historico_Patrimonio").get();
+      expect(histSnap.docs).toHaveLength(1);
+      expect(histSnap.docs[0].id).toBe(`baixa_${idOp}`);
+      expect(histSnap.docs[0].data()).toMatchObject({
+        id_bem_patrimonial: idBem,
+        tipo: "baixa",
+        documento_dado_baixa_pdf_url: storagePath,
+        alteracoes: [
+          { campo: "status", valor_anterior: "Inservivel", valor_novo: "Ja_dado_baixa" },
+          { campo: "documento_dado_baixa_pdf_url", valor_anterior: "", valor_novo: storagePath },
+        ],
+      });
+
+      // Verifica recuperação via collectionGroup
+      const cgSnap = await db.collectionGroup("Historico_Patrimonio")
+        .where("id_bem_patrimonial", "==", idBem)
+        .get();
+      expect(cgSnap.docs).toHaveLength(1);
+      expect(cgSnap.docs[0].data().tipo).toBe("baixa");
+
+      // Verifica que a plaqueta PERMANECE reservada (não liberada)
+      const chaveSnap = await db.collection("Chaves_Unicas").doc(`Bem_Patrimonial__${plaqueta}`).get();
+      expect(chaveSnap.exists).toBe(true);
+
+      // Replay idempotente com mesmo idOperacao
+      const replay = await testEnv.wrap(registrarBaixaBemPatrimonial)(req);
+      expect(replay).toEqual(res);
+
+      // Rejeita reuso incompatível com payload diferente
+      const reqIncompativel = mockRequest({
+        idOperacao: idOp,
+        idBemPatrimonial: idBem,
+        documentoDadoBaixaPdfUrl: storagePath,
+        justificativa: "Outra justificativa incompatível",
+      }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]);
+      await expect(testEnv.wrap(registrarBaixaBemPatrimonial)(reqIncompativel)).rejects.toMatchObject({ code: "already-exists" });
+    });
+
+    it("deve rejeitar baixa direta de bem com status Ativo (exige Inservível prévio)", async () => {
+      const idBem = `bem_ativo_${Date.now()}`;
+      const bemRef = db.collection("Bem_Patrimonial").doc(idBem);
+      await bemRef.set({
+        id: idBem,
+        numero_patrimonio: `PLQ-AT-${Date.now()}`,
+        status: "Ativo",
+        versao: 1,
+      });
+
+      const storagePath = `baixas_patrimoniais/${idBem}/termo.pdf`;
+      const file = admin.storage().bucket().file(storagePath);
+      await file.save(Buffer.from("%PDF-1.4 mock pdf"), { contentType: "application/pdf" });
+
+      const req = mockRequest({
+        idOperacao: `op_baixa_ativo_${Date.now()}`,
+        idBemPatrimonial: idBem,
+        documentoDadoBaixaPdfUrl: storagePath,
+        justificativa: "Tentativa de baixa direta",
+      }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]);
+
+      await expect(testEnv.wrap(registrarBaixaBemPatrimonial)(req)).rejects.toThrow(
+        /Apenas bens classificados como Inservível podem receber baixa patrimonial definitiva/i
+      );
+    });
+
+    it("deve rejeitar baixa se comprovante PDF não existir no Storage ou namespace for incorreto", async () => {
+      const idBem = `bem_sem_pdf_${Date.now()}`;
+      await db.collection("Bem_Patrimonial").doc(idBem).set({
+        id: idBem,
+        status: "Inservivel",
+        versao: 1,
+      });
+
+      // Path incorreto (fora de baixas_patrimoniais/{idBem}/)
+      const reqPathIncorreto = mockRequest({
+        idOperacao: `op_bx_err_${Date.now()}`,
+        idBemPatrimonial: idBem,
+        documentoDadoBaixaPdfUrl: "outro_lugar/comprovante.pdf",
+        justificativa: "Teste",
+      }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]);
+
+      await expect(testEnv.wrap(registrarBaixaBemPatrimonial)(reqPathIncorreto)).rejects.toThrow(
+        /caminho normativo do bem/i
+      );
+
+      // Arquivo inexistente no Storage
+      const reqArquivoInexistente = mockRequest({
+        idOperacao: `op_bx_err2_${Date.now()}`,
+        idBemPatrimonial: idBem,
+        documentoDadoBaixaPdfUrl: `baixas_patrimoniais/${idBem}/inexistente.pdf`,
+        justificativa: "Teste",
+      }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]);
+
+      await expect(testEnv.wrap(registrarBaixaBemPatrimonial)(reqArquivoInexistente)).rejects.toThrow(
+        /Arquivo do comprovante de baixa não encontrado/i
+      );
+    });
+
+    it("deve rejeitar nova baixa em bem que já possui baixa definitiva", async () => {
+      const idBem = `bem_ja_dado_baixa_${Date.now()}`;
+      await db.collection("Bem_Patrimonial").doc(idBem).set({
+        id: idBem,
+        status: "Ja_dado_baixa",
+        versao: 3,
+      });
+
+      const storagePath = `baixas_patrimoniais/${idBem}/termo.pdf`;
+      const file = admin.storage().bucket().file(storagePath);
+      await file.save(Buffer.from("%PDF-1.4 mock pdf"), { contentType: "application/pdf" });
+
+      const req = mockRequest({
+        idOperacao: `op_bx_rebaixa_${Date.now()}`,
+        idBemPatrimonial: idBem,
+        documentoDadoBaixaPdfUrl: storagePath,
+        justificativa: "Tentativa de rebaixa",
+      }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]);
+
+      await expect(testEnv.wrap(registrarBaixaBemPatrimonial)(req)).rejects.toThrow(
+        /já possui baixa definitiva/i
+      );
     });
   });
 });

@@ -6,7 +6,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { extrairClaimsAutoridade, resolverAutoridadePersistidaTx } from "./auth";
 import { construirIdentidade, registrarOperacaoConcluidaTx, resolverOperacaoTx } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
-import { CriarRequisicaoEdicaoBemSchema, ResponderRequisicaoBemSchema, CriarRequisicaoAdicaoBemSchema, GerenciarLocalSchema } from "./schemas/patrimonio.schema";
+import { CriarRequisicaoEdicaoBemSchema, ResponderRequisicaoBemSchema, CriarRequisicaoAdicaoBemSchema, GerenciarLocalSchema, RegistrarBaixaBemPatrimonialSchema } from "./schemas/patrimonio.schema";
 import { adicionarNotificacaoTx } from "./notificacoes";
 import { chaveLocal as derivarChaveLocal } from "./chaves";
 
@@ -56,6 +56,94 @@ async function validarFoto(storagePath: unknown, ownerUid?: string): Promise<str
   }
   return storagePath;
 }
+
+async function validarComprovanteBaixaPdf(storagePath: unknown, itemId: string): Promise<string> {
+  if (typeof storagePath !== "string" || !storagePath.trim()) {
+    throw new HttpsError("invalid-argument", "Comprovante de baixa é obrigatório.");
+  }
+  const path = storagePath.trim();
+  if (!path.startsWith(`baixas_patrimoniais/${itemId}/`)) {
+    throw new HttpsError("invalid-argument", "O comprovante de baixa deve estar localizado no caminho normativo do bem.");
+  }
+  const file = admin.storage().bucket().file(path);
+  const [existe] = await file.exists();
+  if (!existe) throw new HttpsError("failed-precondition", "Arquivo do comprovante de baixa não encontrado no Storage.");
+  const [metadata] = await file.getMetadata();
+  const tamanho = Number(metadata.size ?? 0);
+  if (tamanho >= 10 * 1024 * 1024 || metadata.contentType !== "application/pdf") {
+    throw new HttpsError("failed-precondition", "Comprovante de baixa inválido: PDF inferior a 10 MiB é obrigatório.");
+  }
+  return path;
+}
+
+export const registrarBaixaBemPatrimonial = onCall(async (request) => {
+  const claims = extrairClaimsAutoridade(request);
+  const dados = validatePayload(RegistrarBaixaBemPatrimonialSchema, request.data);
+  const pathPdf = dados.documentoDadoBaixaPdfUrl.trim();
+  const justificativa = dados.justificativa.trim();
+
+  await validarComprovanteBaixaPdf(pathPdf, dados.idBemPatrimonial);
+
+  const db = admin.firestore();
+  const bemRef = db.collection("Bem_Patrimonial").doc(dados.idBemPatrimonial);
+  const identidade = construirIdentidade(claims.uid, "REGISTRAR_BAIXA_BEM_PATRIMONIAL", {
+    idBemPatrimonial: dados.idBemPatrimonial,
+    documentoDadoBaixaPdfUrl: pathPdf,
+    justificativa,
+  });
+
+  return db.runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
+
+    const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+    if (decisao.estado === "REPLAY") return decisao.resultado as { idBemPatrimonial: string; status: string };
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError("failed-precondition", "Operação de baixa patrimonial não concluída.");
+    }
+
+    const bemSnap = await tx.get(bemRef);
+    if (!bemSnap.exists) throw new HttpsError("not-found", "Bem patrimonial não encontrado.");
+    const bem = bemSnap.data()!;
+
+    if (bem.status === "Ja_dado_baixa") {
+      throw new HttpsError("failed-precondition", "Bem patrimonial já possui baixa definitiva.");
+    }
+
+    if (bem.status !== "Inservivel") {
+      throw new HttpsError("failed-precondition", "Apenas bens classificados como Inservível podem receber baixa patrimonial definitiva.");
+    }
+
+    const novaVersao = (bem.versao ?? 1) + 1;
+    tx.update(bemRef, {
+      status: "Ja_dado_baixa",
+      documento_dado_baixa_pdf_url: pathPdf,
+      justificativa_baixa: justificativa,
+      dado_baixa_em: FieldValue.serverTimestamp(),
+      dado_baixa_por: claims.uid,
+      versao: novaVersao,
+    });
+
+    tx.set(bemRef.collection("Historico_Patrimonio").doc(`baixa_${dados.idOperacao}`), {
+      id_bem_patrimonial: bemRef.id,
+      tipo: "baixa",
+      id_usuario: claims.uid,
+      timestamp: FieldValue.serverTimestamp(),
+      predio: bem.predio ?? null,
+      andar: bem.andar ?? null,
+      sala: bem.sala ?? null,
+      documento_dado_baixa_pdf_url: pathPdf,
+      justificativa,
+      alteracoes: [
+        { campo: "status", valor_anterior: "Inservivel", valor_novo: "Ja_dado_baixa" },
+        { campo: "documento_dado_baixa_pdf_url", valor_anterior: "", valor_novo: pathPdf },
+      ],
+    });
+
+    const resultado = { idBemPatrimonial: bemRef.id, status: "Ja_dado_baixa" };
+    registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+    return resultado;
+  });
+});
 
 export const criarRequisicaoEdicaoBem = onCall(async (request) => {
   const claims = extrairClaimsAutoridade(request);

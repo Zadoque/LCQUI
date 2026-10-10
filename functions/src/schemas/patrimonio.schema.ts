@@ -61,3 +61,11 @@ export const CriarRequisicaoAdicaoBemSchema = z.object({
   descricaoResumoProposta: z.string().trim().min(1).optional(),
   motivo: z.string().min(1, "Motivo é obrigatório.")
 });
+
+export const RegistrarBaixaBemPatrimonialSchema = z.object({
+  idOperacao: IdOperacaoPatrimonioSchema,
+  idBemPatrimonial: z.string().min(1, "ID do bem patrimonial é obrigatório."),
+  documentoDadoBaixaPdfUrl: z.string().trim().min(1, "URL ou caminho do comprovante de baixa é obrigatório."),
+  justificativa: z.string().trim().min(1, "Justificativa da baixa é obrigatória.").max(500),
+});
+
