@@ -335,6 +335,12 @@ export const registrarAberturaFrasco = onCall(async (request) => {
 export const registrarRetirada = onCall(async (request) => {
   const dados = validatePayload(RetiradaFrascoSchema, request.data);
   const claims = extrairClaimsAutoridade(request);
+  const identidade = construirIdentidade(claims.uid, "REGISTRAR_RETIRADA", {
+    idFrasco: dados.idFrasco, idUsuarioRetirou: dados.idUsuarioRetirou, idLocalUsado: dados.idLocalUsado,
+    pesoSaida: dados.pesoSaida, dataDevolucaoPrevista: dados.dataDevolucaoPrevista,
+    confirmarUsoVencido: dados.confirmarUsoVencido, abrirNoEmprestimo: dados.abrirNoEmprestimo,
+    finalidadeUso: dados.finalidadeUso, justificativaAutoAtendimento: dados.justificativaAutoAtendimento,
+  });
   const autoAtendimento = dados.idUsuarioRetirou === request.auth!.uid;
   if (autoAtendimento && (!dados.justificativaAutoAtendimento || dados.justificativaAutoAtendimento.length < 20)) {
     throw new HttpsError("invalid-argument", "Autoatendimento exige justificativa de pelo menos 20 caracteres.");
@@ -354,6 +360,9 @@ export const registrarRetirada = onCall(async (request) => {
     const frascoSnap = await tx.get(frascoRef);
     if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
     const frasco = frascoSnap.data()!;
+    const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+    if (decisao.estado === "REPLAY") return decisao.resultado as { idEmprestimo: string; autoAtendimento: boolean };
+    if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de retirada não concluída.");
 
     const autoridade = await validarGestorDoAlmoxarifadoTx(tx, claims, frasco.id_almoxarifado);
     if (autoAtendimento) {
@@ -432,7 +441,9 @@ export const registrarRetirada = onCall(async (request) => {
       timestamp: FieldValue.serverTimestamp(),
     });
 
-    return { idEmprestimo: emprestimoRef.id, autoAtendimento };
+    const resultado = { idEmprestimo: emprestimoRef.id, autoAtendimento };
+    registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+    return resultado;
   });
 
   if (autoAtendimento) {

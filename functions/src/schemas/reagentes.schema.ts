@@ -41,6 +41,7 @@ export const AberturaFrascoSchema = z.object({
 });
 
 export const RetiradaFrascoSchema = z.object({
+  idOperacao: idOperacaoField,
   idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
   idUsuarioRetirou: z.string().min(1, "O ID do usuário é obrigatório."),
   idLocalUsado: z.string().min(1, "O ID do local é obrigatório."),
