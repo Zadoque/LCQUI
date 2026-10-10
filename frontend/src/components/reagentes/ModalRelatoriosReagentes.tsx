@@ -24,9 +24,11 @@ export default function ModalRelatoriosReagentes({ isOpen, onClose, uid, isChefe
   
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     if (isOpen) {
+      setErrorMsg("");
       if (isChefe) {
         getDocs(collection(db, "Almoxarifado")).then(snap => {
           const alms = snap.docs.map(doc => ({ id: doc.id, nome: doc.data().nome_almoxarifado || "Sem Nome" }));
@@ -59,20 +61,21 @@ export default function ModalRelatoriosReagentes({ isOpen, onClose, uid, isChefe
   if (!isOpen) return null;
 
   const handleGerar = async () => {
+    setErrorMsg("");
     // Validações
     if (activeTab === "mensal") {
       const hoje = new Date();
       // O ano selecionado não pode ser no futuro. E se for o ano atual, o mês selecionado não pode ser no futuro.
       if (ano > hoje.getFullYear()) {
-        alert("O ano do relatório não pode ser no futuro.");
+        setErrorMsg("O ano do relatório não pode ser no futuro.");
         return;
       }
       if (ano === hoje.getFullYear() && mes > hoje.getMonth() + 1) {
-        alert("O mês do relatório não pode ser no futuro.");
+        setErrorMsg("O mês do relatório não pode ser no futuro.");
         return;
       }
       if (!idAlmoxarifado) {
-        alert("Selecione um almoxarifado.");
+        setErrorMsg("Selecione um almoxarifado.");
         return;
       }
     } else {
@@ -81,22 +84,22 @@ export default function ModalRelatoriosReagentes({ isOpen, onClose, uid, isChefe
       const hoje = new Date();
 
       if (inicio > hoje) {
-        alert("A data inicial não pode ser no futuro.");
+        setErrorMsg("A data inicial não pode ser no futuro.");
         return;
       }
       if (fim > hoje) {
-        alert("A data final não pode ser no futuro.");
+        setErrorMsg("A data final não pode ser no futuro.");
         return;
       }
       if (inicio > fim) {
-        alert("A data inicial não pode ser maior que a data final.");
+        setErrorMsg("A data inicial não pode ser maior que a data final.");
         return;
       }
       
       const diffTime = Math.abs(fim.getTime() - inicio.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
       if (diffDays > 31) {
-        alert("O período selecionado permite no máximo 31 dias corridos.");
+        setErrorMsg("O período selecionado permite no máximo 31 dias corridos.");
         return;
       }
     }
@@ -120,7 +123,7 @@ export default function ModalRelatoriosReagentes({ isOpen, onClose, uid, isChefe
       }
     } catch (error: any) {
       console.error(error);
-      alert("Erro ao gerar relatório: " + error.message);
+      setErrorMsg("Erro ao gerar relatório: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -234,6 +237,12 @@ export default function ModalRelatoriosReagentes({ isOpen, onClose, uid, isChefe
               <p className="text-xs text-foreground/50 mt-2 text-center">
                 O relatório personalizado buscará todos os empréstimos e devoluções dentro do período selecionado, sem restringir a um único almoxarifado.
               </p>
+            </div>
+          )}
+
+          {errorMsg && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg text-xs mt-3">
+              {errorMsg}
             </div>
           )}
         </div>

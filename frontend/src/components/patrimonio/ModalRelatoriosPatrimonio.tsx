@@ -22,11 +22,13 @@ export default function ModalRelatoriosPatrimonio({ isOpen, onClose, uid }: Moda
   
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
   if (!isOpen) return null;
 
   const handleGerar = async () => {
     setLoading(true);
+    setErrorMsg("");
     try {
       if (activeTab === "mensal") {
         const gerarRelatorioBensPredio = httpsCallable(functions, "gerarRelatorioBensPredio");
@@ -47,7 +49,7 @@ export default function ModalRelatoriosPatrimonio({ isOpen, onClose, uid }: Moda
       }
     } catch (error: any) {
       console.error(error);
-      alert("Erro ao gerar relatório: " + error.message);
+      setErrorMsg("Erro ao gerar relatório: " + (error?.message || "falha na operação"));
     } finally {
       setLoading(false);
     }
@@ -145,6 +147,12 @@ export default function ModalRelatoriosPatrimonio({ isOpen, onClose, uid }: Moda
                   Este relatório irá buscar todos os bens patrimoniais marcados com o status "Inservível", agrupando pelo nome do responsável SEI, pronto para ser anexado ao processo administrativo da Universidade.
                 </p>
               </div>
+            </div>
+          )}
+
+          {errorMsg && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg text-xs mt-3">
+              {errorMsg}
             </div>
           )}
         </div>

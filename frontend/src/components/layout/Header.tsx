@@ -65,7 +65,7 @@ export default function Header() {
       </div>
 
       <nav className="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
-        {(roles.includes("Chefe_Geral") || roles.includes("Gestor_Almoxarifado") || roles.includes("Professor") || roles.includes("Bolsista")) && (
+        {(roles.includes("Chefe_Geral") || roles.includes("Gestor_Almoxarifado") || roles.includes("Professor") || roles.includes("Bolsista") || roles.includes("Aluno")) && (
           <Link href="/reagentes" className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors">
             Reagentes
           </Link>

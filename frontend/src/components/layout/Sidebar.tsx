@@ -131,8 +131,8 @@ export default function Sidebar() {
       title: "Almoxarifado",
       items: [
         { label: "Estoque (Reagentes)", href: "/reagentes", icon: icons.beaker },
-        { label: "Movimentações", href: "/movimentacoes", icon: icons.exchange },
-        { label: "Descartes / Alertas", href: "/alertas-almox", icon: icons.alert },
+        { label: "Movimentações", href: "/reagentes?aba=movimentacoes", icon: icons.exchange },
+        { label: "Quarentena / Alertas", href: "/reagentes?aba=alertas", icon: icons.alert },
       ],
     });
   }
@@ -142,8 +142,8 @@ export default function Sidebar() {
       title: "Patrimônio",
       items: [
         { label: "Patrimônio Geral", href: "/patrimonio", icon: icons.patrimonio },
-        { label: "Requisições", href: "/requisicoes", icon: icons.clipboard },
-        { label: "Alertas (Inservíveis)", href: "/alertas-patrimonio", icon: icons.alert },
+        { label: "Requisições", href: "/patrimonio/requisicoes", icon: icons.clipboard },
+        { label: "Alertas (Inservíveis)", href: "/patrimonio?status=Inservivel", icon: icons.alert },
       ],
     });
   }
@@ -171,14 +171,13 @@ export default function Sidebar() {
   }
 
   if (isAluno && !isChefe && !isProfessor) {
-    if (isBolsista) {
-      groups.push({
-        title: "Visualizar",
-        items: [
-          { label: "Reagentes", href: "/reagentes", icon: icons.beaker },
-        ],
-      });
-    }
+    groups.push({
+      title: "Visualizar",
+      items: [
+        { label: "Catálogo de Reagentes", href: "/reagentes", icon: icons.beaker },
+        { label: "Bens Patrimoniais", href: "/patrimonio", icon: icons.patrimonio },
+      ],
+    });
     groups.push({
       title: "Turmas",
       items: [

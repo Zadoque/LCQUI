@@ -5,10 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { useAuth } from "@/contexts/AuthContext";
 import { ResumoReagente, FrascoReagente } from "@/types/reagentes";
 import { ModalEntradaFrasco, ModalDevolucaoFrasco } from "@/components/reagentes/ModaisReagentes";
 
 export default function ReagenteDetailsPage() {
+  const { roles } = useAuth();
   const { id } = useParams();
   const router = useRouter();
   
@@ -66,7 +68,7 @@ export default function ReagenteDetailsPage() {
   if (!reagente) return null;
 
   return (
-    <ProtectedRoute allowedRoles={["Chefe_Geral", "Gestor_Almoxarifado", "Professor", "Bolsista"]}>
+    <ProtectedRoute allowedRoles={["Chefe_Geral", "Gestor_Almoxarifado", "Professor", "Bolsista", "Aluno"]}>
       <main className="min-h-screen bg-background p-6">
         <div className="max-w-5xl mx-auto space-y-8">
           
@@ -87,12 +89,14 @@ export default function ReagenteDetailsPage() {
               </div>
             </div>
             
-            <button 
-              onClick={() => setIsModalEntradaOpen(true)}
-              className="px-5 py-2.5 bg-primary text-primary-foreground font-medium rounded-xl shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 transition-all"
-            >
-              + Novo Frasco
-            </button>
+            {(roles.includes("Chefe_Geral") || roles.includes("Gestor_Almoxarifado")) && (
+              <button 
+                onClick={() => setIsModalEntradaOpen(true)}
+                className="px-5 py-2.5 bg-primary text-primary-foreground font-medium rounded-xl shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 transition-all"
+              >
+                + Novo Frasco
+              </button>
+            )}
           </header>
 
           <section>

@@ -28,6 +28,7 @@ export interface BemPatrimonial {
   andar?: string;                  // derivado de Local.andar
   sala?: string;                   // derivado de Local.sala
   letra_inicial_nome?: string;     // derivado da primeira letra de nome_equipamento
+  versao?: number;                 // controle de versão de concorrência e histórico M10
 }
 
 // Seção 4.10: Requisicao_Edicao_Bem_Patrimonial
