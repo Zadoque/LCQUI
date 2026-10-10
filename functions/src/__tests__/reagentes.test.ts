@@ -8,6 +8,7 @@ import { createHash } from "crypto";
 import fft from "firebase-functions-test";
 import { 
   cadastrarFrascoFechado, 
+  cadastrarFrascoAberto,
   registrarAberturaFrasco, 
   registrarRetirada, 
   registrarDevolucao
@@ -95,6 +96,40 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
 
     const outroRequest = { ...request, data: { ...request.data, idOperacao: "lote-outro-operacao" } };
     await expect(testEnv.wrap(cadastrarLote)(outroRequest)).rejects.toThrow(/Já existe um lote/i);
+  });
+
+  it("deve cadastrar frasco já aberto sem fabricar tara ou saldo", async () => {
+    await seedEspecificacao("espec_aberto_convergente", 1.2, "LIQUIDO");
+    await seedGestorAlmoxarifado("gestor_aberto_convergente", "almox_aberto_convergente");
+    const resultado = await testEnv.wrap(cadastrarFrascoAberto)(mockRequest({
+      idEspecificacaoReagente: "espec_aberto_convergente",
+      idResumoReagente: "resumo_espec_aberto_convergente",
+      idAlmoxarifado: "almox_aberto_convergente",
+      pesoTotalBalanca: 500,
+      volumeNominal: 250,
+      validadeDesconhecida: true,
+    }, "gestor_aberto_convergente"));
+    const frasco = await db.collection("Frasco_Reagente").doc(resultado.idFrasco).get();
+    expect(frasco.data()).toMatchObject({
+      condicao_inicial_cadastro: "JA_ABERTO",
+      estado_fisico_frasco: "ABERTO",
+      disponibilidade: "INDISPONIVEL",
+      peso_frasco_vazio: null,
+      origem_tara: null,
+      saldo_desconhecido: true,
+      saldo_aferido_ml: null,
+      data_abertura: null,
+      id_especificacao_reagente: "espec_aberto_convergente",
+    });
+    const replay = await testEnv.wrap(cadastrarFrascoAberto)(mockRequest({
+      idEspecificacaoReagente: "espec_aberto_convergente",
+      idResumoReagente: "resumo_espec_aberto_convergente",
+      idAlmoxarifado: "almox_aberto_convergente",
+      pesoTotalBalanca: 500,
+      volumeNominal: 250,
+      validadeDesconhecida: true,
+    }, "gestor_aberto_convergente"));
+    expect(replay).toEqual(resultado);
   });
 
   it("deve rejeitar lote com datas impossíveis antes de gravar", async () => {

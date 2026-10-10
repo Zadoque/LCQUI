@@ -20,15 +20,13 @@ export const CadastroFrascoFechadoSchema = z.object({
 });
 
 export const CadastroFrascoAbertoSchema = z.object({
+  idOperacao: idOperacaoField,
   idResumoReagente: z.string().min(1, "O ID do resumo é obrigatório."),
   idEspecificacaoReagente: z.string().min(1, "A especificação do reagente é obrigatória."),
   idAlmoxarifado: z.string().min(1, "O almoxarifado é obrigatório."),
-  idLote: z.string().optional(),
-  modalidade: z.enum(["CONHECE_TARA", "ESTIMA_VOLUME", "ESTIMA_MASSA"]),
+  idLote: z.string().nullable().optional(),
   pesoTotalBalanca: z.number().positive("O peso total deve ser positivo."),
-  pesoFrascoVazioInformado: z.number().positive("O peso do frasco vazio deve ser positivo.").optional(),
-  volumeAtualEstimado: z.number().positive("O volume atual estimado deve ser positivo.").optional(),
-  massaAtualEstimada: z.number().positive("A massa atual estimada deve ser positiva.").optional(),
+  volumeNominal: z.number().positive("O conteúdo nominal deve ser positivo.").nullable().optional(),
   validadeAberto: z.string().optional(),
   validadeDesconhecida: z.boolean().optional(),
   decisaoSeJaVencido: DecisaoFrascoVencidoSchema.optional(),
