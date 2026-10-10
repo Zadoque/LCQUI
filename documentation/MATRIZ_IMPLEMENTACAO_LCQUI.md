@@ -21,8 +21,8 @@
 | Total de features | 70 |
 | Auditadas | 70 |
 | Não auditadas | 0 |
-| DIVERGENTE | 20 |
-| NÃO DIVERGENTE | 40 |
+| DIVERGENTE | 19 |
+| NÃO DIVERGENTE | 41 |
 | NÃO IMPLEMENTADO | 10 |
 
 <!-- MATRIX_COUNTS_END -->
@@ -53,7 +53,7 @@ Abreviações: `S5`–`S11` = seções normativas; `UI-n` = contrato de tela; `C
 | ID | Domínio | Feature | Fonte normativa | Milestone(s) | Implementação encontrada | Auditado | Estado | Divergência / evidência | Testes existentes relacionados | Teste futuro necessário |
 |---|---|---|---|---|---|---|---|---|---|---|
 | IMP-REAG-001 | Reagentes | Substância, resumo, especificação e composição | S5; RF14; S7 campos; S8 UI-05; S9 ALM-01 | M1, M2 | `reagentes_base.ts`; schemas; `ModaisReagentes.tsx` | SIM | DIVERGENTE | Shapes divergem: higroscopicidade ausente; CAS sem dígito/unicidade; composição usa valor único em vez de faixa/notação; escopo/atividade do gestor não são relidos. | `reagentes.test.ts` (densidade) | Fixtures CUE + integração de referências/unicidade |
-| IMP-REAG-002 | Lotes | Cadastro e unicidade de lote | S5; S8 UI-05; S9 ALM-01 | M2 | `reagentes_base.ts: cadastrarLote` | SIM | DIVERGENTE | Consulta de duplicidade não cria chave/lock canônico; não valida datas/limites integrais e mistura subcoleção de especificação com referências raiz usadas em outros módulos. | `relatorios.test.ts` textual | Concorrência, datas e integridade de referência |
+| IMP-REAG-002 | Lotes | Cadastro e unicidade de lote | S5; S8 UI-05; S9 ALM-01 | M2, M7, M9 | `functions/src/reagentes_base.ts:cadastrarLote`; `CadastroLoteSchema`; `Chaves_Unicas/Lote__*`; `ModalNovoLote` | SIM | NÃO DIVERGENTE | Transação relê M9, verifica resumo/especificação e coerência da referência, valida datas civis, aquisição não futura, fabricação ≤ validade e limites textuais; grava projeção completa com IDs de resumo/especificação e reserva chave determinística por (especificação, fornecedor, número), fechando concorrência. M7 retorna receipt, replay idempotente e rejeita reuso incompatível. | `functions/src/__tests__/reagentes.test.ts` (17/17); `frontend/e2e/specs/23-lotes.spec.ts` (`LOTE-E2E-001`, 1/1, Node 20 + Emulator Suite) | Manter regressão de reagentes |
 | IMP-FRASC-001 | Frascos | Cadastro fechado e código atômico | RF14–15; S5 contador; S7; S8 UI-06 | M2, M7, M9 | `functions/src/reagentes.ts:cadastrarFrascoFechado`; `Contador_Codigo_Frasco/singleton`; `functions/scripts/seed.ts`; `ModaisReagentes.tsx` | SIM | NÃO DIVERGENTE | Transação relê autorização e almoxarifado ativo, valida referências, reserva `LCQUI-N` por chave determinística, preserva nominal/tara/saldo desconhecidos sem fabricar dados, grava localização/estado/snapshot, histórico de cadastro e projeção de pendência de descarte; M7 retorna receipt e replay idempotente, rejeitando reuso incompatível. | `functions/src/__tests__/reagentes.test.ts` (15/15); `frontend/e2e/specs/22-frascos-fechados.spec.ts` (`FRASC-E2E-001`, 1/1, Node 20 + Emulator Suite) | Regressão relevante de reagentes |
 | IMP-FRASC-002 | Frascos | Cadastro já aberto | S7 condição inicial; S8 UI-06 | M2, M6 | `cadastrarFrascoAberto`; schema | SIM | DIVERGENTE | Implementa `CONHECE_TARA/ESTIMA_VOLUME/ESTIMA_MASSA`, expressamente proibidos; fabrica abertura atual, calcula tara e saldo onde o contrato exige desconhecidos. | `reagentes.test.ts` | Casos CUE de saldo/tara/abertura desconhecidos |
 | IMP-FRASC-003 | Abertura | Abertura e validade efetiva | S7 validade; S8 UI-06/07; S10.6 | M2, M7 | `registrarAberturaFrasco`; `calcularValidadeEfetivaNaAbertura` | SIM | DIVERGENTE | Recalcula validade, mas não há idempotência/histórico/auditoria; decisão de pendência não gera projeção; autorização/escopo não são lidos atomicamente. | `reagentes.test.ts` | Datas-limite, retry e concorrência |

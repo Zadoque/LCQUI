@@ -618,6 +618,7 @@ export function ModalNovoLote({ isOpen, onClose, idResumoReagente, idEspecificac
     try {
       const cadastrarLote = httpsCallable(functions, 'cadastrarLote');
       await cadastrarLote({
+        idOperacao: crypto.randomUUID(),
         idResumoReagente,
         idEspecificacaoReagente,
         numeroLote,

@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { ID_OPERACAO_PATTERN } from "../idempotencia";
+
+const idOperacaoField = z.string().regex(ID_OPERACAO_PATTERN, "idOperacao inválido.");
 
 export const CadastroSubstanciaQuimicaSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório."),
@@ -46,13 +49,14 @@ export const CadastroEspecificacaoSchema = z.object({
 });
 
 export const CadastroLoteSchema = z.object({
+  idOperacao: idOperacaoField,
   idResumoReagente: z.string().min(1, "O ID do resumo é obrigatório."),
   idEspecificacaoReagente: z.string().min(1, "A especificação do reagente é obrigatória."),
-  dataAquisicao: z.string().min(1, "Data de aquisição é obrigatória."),
+  dataAquisicao: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data de aquisição deve estar em YYYY-MM-DD."),
   qtdFrascosComprados: z.number().int().nonnegative(),
-  nomeFornecedor: z.string().min(1, "Fornecedor é obrigatório."),
-  numeroLote: z.string().min(1, "Número do lote é obrigatório."),
-  notaFiscal: z.string().min(1, "Nota fiscal é obrigatória."),
-  dataFabricacao: z.string().min(1, "Data de fabricação é obrigatória."),
-  dataValidade: z.string().min(1, "Data de validade é obrigatória."),
+  nomeFornecedor: z.string().trim().min(1, "Fornecedor é obrigatório.").max(80),
+  numeroLote: z.string().trim().min(1, "Número do lote é obrigatório.").max(100),
+  notaFiscal: z.string().trim().min(1, "Nota fiscal é obrigatória.").max(100),
+  dataFabricacao: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data de fabricação deve estar em YYYY-MM-DD."),
+  dataValidade: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data de validade deve estar em YYYY-MM-DD."),
 });

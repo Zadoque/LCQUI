@@ -12,6 +12,7 @@ import {
   registrarRetirada, 
   registrarDevolucao
 } from "../reagentes";
+import { cadastrarLote } from "../reagentes_base";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -53,11 +54,66 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
       densidade,
       estado_fisico: estadoFisico
     };
-    await db.collection("Resumo_Reagente").doc(`resumo_${id}`).set({ eh_higroscopico: false });
+    await db.collection("Resumo_Reagente").doc(`resumo_${id}`).set({ nome: `Reagente ${id}`, eh_higroscopico: false });
     await db.collection("Especificacao_Reagente").doc(id).set(dados);
     await db.collection("Resumo_Reagente").doc(`resumo_${id}`)
       .collection("Especificacoes").doc(id).set(dados);
   }
+
+  it("deve cadastrar lote com referência imutável, chave atômica e replay idempotente", async () => {
+    await seedEspecificacao("espec_lote", null, "SOLIDO");
+    await seedGestorAlmoxarifado("gestor_lote", "almox_lote");
+    const request = mockRequest({
+      idEspecificacaoReagente: "espec_lote",
+      idResumoReagente: "resumo_espec_lote",
+      dataAquisicao: "2026-10-09",
+      qtdFrascosComprados: 12,
+      nomeFornecedor: "  Fornecedor Lote  ",
+      numeroLote: "  LT-001  ",
+      notaFiscal: " NF-001 ",
+      dataFabricacao: "2026-01-01",
+      dataValidade: "2027-01-01",
+    }, "gestor_lote");
+    const primeiro = await testEnv.wrap(cadastrarLote)(request);
+    const replay = await testEnv.wrap(cadastrarLote)(request);
+    expect(replay).toEqual(primeiro);
+
+    const lote = await db.collection("Lote").doc(primeiro.idLote).get();
+    expect(lote.data()).toMatchObject({
+      id: primeiro.idLote,
+      id_resumo_reagente: "resumo_espec_lote",
+      id_especificacao_reagente: "espec_lote",
+      nome_fornecedor: "Fornecedor Lote",
+      numero_lote: "LT-001",
+      nota_fiscal: "NF-001",
+      qtd_frascos_comprados: 12,
+      data_fabricacao: "2026-01-01",
+      data_validade: "2027-01-01",
+    });
+    const chave = await db.collection("Chaves_Unicas").where("id_recurso", "==", primeiro.idLote).get();
+    expect(chave.docs).toHaveLength(1);
+
+    const outroRequest = { ...request, data: { ...request.data, idOperacao: "lote-outro-operacao" } };
+    await expect(testEnv.wrap(cadastrarLote)(outroRequest)).rejects.toThrow(/Já existe um lote/i);
+  });
+
+  it("deve rejeitar lote com datas impossíveis antes de gravar", async () => {
+    await seedEspecificacao("espec_lote_datas", null, "SOLIDO");
+    await seedGestorAlmoxarifado("gestor_lote_datas", "almox_lote_datas");
+    const base = {
+      idEspecificacaoReagente: "espec_lote_datas",
+      idResumoReagente: "resumo_espec_lote_datas",
+      dataAquisicao: "2027-01-01",
+      qtdFrascosComprados: 1,
+      nomeFornecedor: "Fornecedor",
+      numeroLote: "LT-DATAS",
+      notaFiscal: "NF-DATAS",
+      dataFabricacao: "2026-12-31",
+      dataValidade: "2026-01-01",
+    };
+    await expect(testEnv.wrap(cadastrarLote)(mockRequest(base, "gestor_lote_datas")))
+      .rejects.toThrow(/não pode estar no futuro/i);
+  });
 
   async function seedGestorAlmoxarifado(uid: string, idAlmoxarifado: string) {
     await db.collection("Almoxarifado").doc(idAlmoxarifado).set({ ativo: true, nome: idAlmoxarifado });

@@ -1,7 +1,10 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
+import { createHash } from "crypto";
+import { FieldValue } from "firebase-admin/firestore";
 import { extrairClaimsAutoridade, resolverAutoridadePersistidaTx, validarAutoridadePersistida } from "./auth";
 import { validatePayload } from "./utils/validation";
+import { construirIdentidade, registrarOperacaoConcluidaTx, resolverOperacaoTx } from "./idempotencia";
 import {
   CadastroSubstanciaQuimicaSchema,
   CadastroResumoReagenteSchema,
@@ -123,24 +126,44 @@ export const cadastrarEspecificacao = onCall(async (request) => {
 export const cadastrarLote = onCall(async (request) => {
   const dados = validatePayload(CadastroLoteSchema, request.data);
   const claims = extrairClaimsAutoridade(request);
+  const dataCivil = (value: string, campo: string): Date => {
+    const date = new Date(`${value}T00:00:00.000Z`);
+    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+      throw new HttpsError("invalid-argument", `${campo} inválida.`);
+    }
+    return date;
+  };
+  const dataAquisicao = dataCivil(dados.dataAquisicao, "Data de aquisição");
+  const dataFabricacao = dataCivil(dados.dataFabricacao, "Data de fabricação");
+  const dataValidade = dataCivil(dados.dataValidade, "Data de validade");
+  const hoje = new Date();
+  hoje.setUTCHours(0, 0, 0, 0);
+  if (dataAquisicao > hoje) throw new HttpsError("invalid-argument", "Data de aquisição não pode estar no futuro.");
+  if (dataFabricacao > dataValidade) throw new HttpsError("invalid-argument", "Data de fabricação não pode ser posterior à validade.");
+  const fornecedor = dados.nomeFornecedor.trim();
+  const numeroLote = dados.numeroLote.trim();
+  const notaFiscal = dados.notaFiscal.trim();
+  const identidade = construirIdentidade(claims.uid, "CADASTRAR_LOTE", {
+    idResumoReagente: dados.idResumoReagente,
+    idEspecificacaoReagente: dados.idEspecificacaoReagente,
+    dataAquisicao: dados.dataAquisicao,
+    qtdFrascosComprados: dados.qtdFrascosComprados,
+    nomeFornecedor: fornecedor,
+    numeroLote,
+    notaFiscal,
+    dataFabricacao: dados.dataFabricacao,
+    dataValidade: dados.dataValidade,
+  });
+  const chave = createHash("sha256").update(JSON.stringify([
+    dados.idEspecificacaoReagente, fornecedor, numeroLote,
+  ])).digest("hex");
 
   return admin.firestore().runTransaction(async (tx) => {
     await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral", "Gestor_Almoxarifado"]);
-    // 1. Verifica duplicidade
-    const lotesRef = admin.firestore().collection("Lote");
-    const snapshot = await tx.get(
-      lotesRef
-        .where("id_especificacao_reagente", "==", dados.idEspecificacaoReagente)
-        .where("nome_fornecedor", "==", dados.nomeFornecedor)
-        .where("numero_lote", "==", dados.numeroLote)
-        .limit(1)
-    );
+    const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+    if (decisao.estado === "REPLAY") return decisao.resultado as { idLote: string };
+    if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de cadastro de lote não concluída.");
 
-    if (!snapshot.empty) {
-      throw new HttpsError("already-exists", "Já existe um lote com este número e fornecedor para esta especificação.");
-    }
-
-    // 2. Busca o nome do reagente para denormalização (Section 5)
     const resumoRef = admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente);
     const resumoSnap = await tx.get(resumoRef);
     if (!resumoSnap.exists) {
@@ -152,24 +175,39 @@ export const cadastrarLote = onCall(async (request) => {
     if (!especSnap.exists) {
       throw new HttpsError("not-found", "Especificação de reagente não encontrada.");
     }
+    if (especSnap.data()?.id_resumo_reagente && especSnap.data()?.id_resumo_reagente !== dados.idResumoReagente) {
+      throw new HttpsError("failed-precondition", "Especificação não pertence ao resumo informado.");
+    }
 
     const nomeReagente = resumoSnap.data()!.nome;
 
     const loteRef = admin.firestore().collection("Lote").doc();
+    const chaveRef = admin.firestore().collection("Chaves_Unicas").doc(`Lote__${chave}`);
+    const chaveSnap = await tx.get(chaveRef);
+    if (chaveSnap.exists) throw new HttpsError("already-exists", "Já existe um lote com este número e fornecedor para esta especificação.");
+    tx.create(chaveRef, {
+      tipo: "Lote",
+      id_recurso: loteRef.id,
+      chave_recurso: `${dados.idEspecificacaoReagente}__${fornecedor}__${numeroLote}`,
+      criado_em: FieldValue.serverTimestamp(),
+    });
     tx.set(loteRef, {
+      id: loteRef.id,
+      id_resumo_reagente: dados.idResumoReagente,
       id_especificacao_reagente: dados.idEspecificacaoReagente,
       nome_reagente: nomeReagente, // Denormalizado para buscas eficientes
-      data_aquisicao: new Date(dados.dataAquisicao),
+      data_aquisicao: dataAquisicao,
       qtd_frascos_comprados: dados.qtdFrascosComprados,
-      nome_fornecedor: dados.nomeFornecedor,
-      numero_lote: dados.numeroLote,
-      nota_fiscal: dados.notaFiscal,
-      data_fabricacao: new Date(dados.dataFabricacao),
-      data_validade: new Date(dados.dataValidade),
-      cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+      nome_fornecedor: fornecedor,
+      numero_lote: numeroLote,
+      nota_fiscal: notaFiscal,
+      data_fabricacao: dataFabricacao.toISOString().slice(0, 10),
+      data_validade: dataValidade.toISOString().slice(0, 10),
+      cadastrado_em: FieldValue.serverTimestamp(),
       cadastrado_por: request.auth!.uid,
     });
-
-    return { idLote: loteRef.id };
+    const resultado = { idLote: loteRef.id };
+    registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+    return resultado;
   });
 });
