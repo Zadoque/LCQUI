@@ -3,7 +3,7 @@ import { getAuth, UserRecord } from "firebase-admin/auth";
 import { Timestamp, getFirestore } from "firebase-admin/firestore";
 import * as admin from "firebase-admin";
 import assert from "node:assert/strict";
-import { chaveAlunoMatricula, chaveMateria, chaveTurmaCodigo, normalizarCodigoMateria } from "../src/chaves";
+import { chaveAlunoMatricula, chaveLocal, chaveMateria, chaveTurmaCodigo, normalizarCodigoMateria } from "../src/chaves";
 
 /** Fixture manual canônica M9/M11/M13. Recusa qualquer execução fora dos emuladores. */
 const ALLOWED_PROJECT_IDS = new Set(["lcqui-uenf", "lcqui-dev"]);
@@ -109,6 +109,149 @@ async function writeFixture(): Promise<void> {
     for (const member of turma.members) { const joined = Timestamp.fromDate(new Date("2026-01-10T12:00:00.000Z")); batch.set(firestore.collection("Turma").doc(turma.id).collection("Alunos").doc(member.uid), { id_aluno: member.uid, id_turma: turma.id, nome: member.name, ingressou_em: joined }); batch.set(firestore.collection("Usuarios").doc(member.uid).collection("Turmas").doc(turma.id), { id_turma: turma.id, id_professor: turma.professor, id_materia: turma.materia, nome_turma: turma.nome, nome_materia: names.get(turma.materia), ano: turma.ano, semestre: turma.semestre, status: turma.status, ingressou_em: joined }); batch.set(firestore.collection("Turma").doc(turma.id).collection("HistoricoAlunos").doc(`seed-inclusao-${member.uid}`), { id_turma: turma.id, id_aluno: member.uid, tipo: "inclusao_aluno", modo_ingresso: "CODIGO", justificativa: null, removido_por: null, timestamp: joined }); }
   }
   batch.set(firestore.collection("Turma").doc("seed-turma-vazia").collection("HistoricoAlunos").doc("seed-exclusao-aluno-removido"), { id_turma: "seed-turma-vazia", id_aluno: byId("aluno.removed").uid, tipo: "exclusao_aluno", modo_ingresso: null, justificativa: "Remoção anterior; reingresso somente por convite explícito.", removido_por: alpha, timestamp: Timestamp.fromDate(new Date("2026-01-12T12:00:00.000Z")) });
+
+  // Fixtures patrimoniais M10. Cada bem possui Local, Resumo e requisição/lock
+  // próprios para que os cenários E2E não compartilhem estado mutável.
+  const patrimonioFixtures = [
+    {
+      sufixo: "aprovacao",
+      bemId: "seed-bem-edicao-aprovacao",
+      resumoId: "seed-resumo-bem-aprovacao",
+      localId: "seed-local-patrimonio-aprovacao",
+      requisicaoId: "seed-req-edicao-aprovacao",
+      lockId: "bem_edicao_seed-bem-edicao-aprovacao",
+      numero: "PAT-SEED-001",
+      predio: "Bloco Patrimonial A",
+      andar: "1",
+      sala: "Sala 101",
+      nome: "Balança Analítica Seed",
+      descricao: "Balança analítica para o cenário de aprovação patrimonial.",
+      novoNome: null as string | null,
+      novoResumoId: "seed-resumo-bem-aprovacao-alvo",
+      statusBem: "Ativo" as const,
+      versaoBem: 1,
+      versaoOrigem: 1,
+    },
+    {
+      sufixo: "rejeicao",
+      bemId: "seed-bem-edicao-rejeicao",
+      resumoId: "seed-resumo-bem-rejeicao",
+      localId: "seed-local-patrimonio-rejeicao",
+      requisicaoId: "seed-req-edicao-rejeicao",
+      lockId: "bem_edicao_seed-bem-edicao-rejeicao",
+      numero: "PAT-SEED-002",
+      predio: "Bloco Patrimonial B",
+      andar: "2",
+      sala: "Sala 202",
+      nome: "Centrífuga Seed",
+      descricao: "Centrífuga para o cenário de rejeição patrimonial.",
+      novoNome: null,
+      novoResumoId: null,
+      statusBem: "Ativo" as const,
+      versaoBem: 1,
+      versaoOrigem: 1,
+    },
+    {
+      sufixo: "conflito",
+      bemId: "seed-bem-edicao-conflito",
+      resumoId: "seed-resumo-bem-conflito",
+      localId: "seed-local-patrimonio-conflito",
+      requisicaoId: "seed-req-edicao-conflito",
+      lockId: "bem_edicao_seed-bem-edicao-conflito",
+      numero: "PAT-SEED-003",
+      predio: "Bloco Patrimonial C",
+      andar: "3",
+      sala: "Sala 303",
+      nome: "Espectrofotômetro Seed",
+      descricao: "Espectrofotômetro para o cenário de conflito de versão.",
+      novoNome: null,
+      novoResumoId: null,
+      statusBem: "Ativo" as const,
+      versaoBem: 2,
+      versaoOrigem: 1,
+    },
+  ];
+  for (const fixture of patrimonioFixtures) {
+    const localRef = firestore.collection("Local").doc(fixture.localId);
+    const resumoRef = firestore.collection("Resumo_Bem_Patrimonial").doc(fixture.resumoId);
+    const bemRef = firestore.collection("Bem_Patrimonial").doc(fixture.bemId);
+    const reqRef = firestore.collection("Requisicao_Edicao_Bem_Patrimonial").doc(fixture.requisicaoId);
+    batch.set(localRef, {
+      predio: fixture.predio,
+      andar: fixture.andar,
+      sala: fixture.sala,
+      criado_por: byId("chefe").uid,
+      criado_em: FIXTURE_TIME,
+      atualizado_em: FIXTURE_TIME,
+    });
+    batch.set(firestore.collection("Chaves_Unicas").doc(chaveLocal(fixture.predio, fixture.andar, fixture.sala)), {
+      tipo: "Local",
+      id_recurso: fixture.localId,
+      criado_em: FIXTURE_TIME,
+    });
+    batch.set(resumoRef, {
+      nome: fixture.nome,
+      descricao: fixture.descricao,
+      letra_inicial_nome: fixture.nome.charAt(0).toUpperCase(),
+      criado_em: FIXTURE_TIME,
+    });
+    if (fixture.novoResumoId) {
+      batch.set(firestore.collection("Resumo_Bem_Patrimonial").doc(fixture.novoResumoId), {
+        nome: "Balança Analítica — Modelo de Precisão",
+        descricao: "Resumo alvo para reclassificação no cenário de aprovação.",
+        letra_inicial_nome: "B",
+        criado_em: FIXTURE_TIME,
+      });
+    }
+    batch.set(bemRef, {
+      id_resumo_bem_patrimonial: fixture.resumoId,
+      numero_patrimonio: fixture.numero,
+      estado_conservacao: "BOM",
+      id_local: fixture.localId,
+      photo_url: `seed/patrimonio/${fixture.sufixo}.jpg`,
+      documento_dado_baixa_pdf_url: null,
+      nome_responsavel_sei: "Responsável Patrimonial Seed",
+      status: fixture.statusBem,
+      descricao_complementar: `Fixture M10 de ${fixture.sufixo}.`,
+      versao: fixture.versaoBem,
+      nome_equipamento: fixture.nome,
+      predio: fixture.predio,
+      andar: fixture.andar,
+      sala: fixture.sala,
+      letra_inicial_nome: fixture.nome.charAt(0).toUpperCase(),
+    });
+    batch.set(firestore.collection("Chaves_Unicas").doc(`Bem_Patrimonial__${fixture.numero}`), {
+      tipo: "Bem_Patrimonial",
+      id_recurso: fixture.bemId,
+      criado_em: FIXTURE_TIME,
+    });
+    batch.set(reqRef, {
+      id_bem_patrimonial: fixture.bemId,
+      status: "pendente",
+      feita_em: FIXTURE_TIME,
+      respondida_em: null,
+      id_usuario_solicitante: alpha,
+      id_usuario_respondente: null,
+      novo_nome: fixture.novoNome,
+      nova_descricao_resumo: null,
+      novo_status: null,
+      novo_estado_conservacao: null,
+      novo_id_local: null,
+      nova_photo_url: null,
+      motivo: `Fixture M10 — ${fixture.sufixo}.`,
+      justificativa_resposta: null,
+      versao_bem_origem: fixture.versaoOrigem,
+      novo_id_resumo_bem_patrimonial: fixture.novoResumoId,
+      nome_equipamento: fixture.nome,
+      numero_patrimonio: fixture.numero,
+    });
+    batch.set(firestore.collection("Locks_Requisicao_Patrimonio").doc(fixture.lockId), {
+      id_requisicao: fixture.requisicaoId,
+      tipo: "EDICAO",
+      chave_recurso: fixture.bemId,
+      criado_em: FIXTURE_TIME,
+    });
+  }
   await batch.commit();
 
   // Roteiro canônico M12.2 (PDF público de seed-professor-alpha)
@@ -164,9 +307,16 @@ async function verify(): Promise<void> {
   assert.equal(roteiroData.referencia.content_type, "application/pdf");
   assert.equal(roteiroData.referencia.tamanho_bytes, Buffer.concat([Buffer.from("%PDF-1.4\\n"), Buffer.alloc(1024)]).length);
   assert.equal(typeof roteiroData.referencia.geracao, "string");
+  for (const id of ["aprovacao", "rejeicao", "conflito"]) {
+    const requisicao = await firestore.collection("Requisicao_Edicao_Bem_Patrimonial").doc(`seed-req-edicao-${id}`).get();
+    assert.equal(requisicao.data()?.status, "pendente");
+    assert.equal((await firestore.collection("Locks_Requisicao_Patrimonio").doc(`bem_edicao_seed-bem-edicao-${id}`).get()).data()?.tipo, "EDICAO");
+  }
+  assert.equal((await firestore.collection("Bem_Patrimonial").doc("seed-bem-edicao-conflito").get()).data()?.versao, 2);
+  assert.equal((await firestore.collection("Resumo_Bem_Patrimonial").doc("seed-resumo-bem-aprovacao-alvo").get()).data()?.descricao, "Resumo alvo para reclassificação no cenário de aprovação.");
   console.log("SEED INVARIANTS OK: M9, papéis/claims/versões, matrículas, Chaves_Unicas, turmas, vínculos, espelhos, histórico, contadores, baseline sem convites/notificações/receipts e roteiro canônico M12.2.");
 }
-function manifest(): void { console.log("\n=== LCQUI MANUAL TEST SEED ===\n[FIXTURES]"); for (const user of users) console.log(`${user.id.padEnd(24)} ${user.email.padEnd(38)} senha=${user.id === "aluno.noAuth" ? "—" : PASSWORD} uid=${user.uid} roles=${user.roles.join(",") || "—"} verified=${user.emailVerified} ativo=${user.activeDocument} | ${user.note}`); console.log("\n[TURMAS]\nTURMA_VAZIA=seed-turma-vazia/QGV101 | TURMA_ULTIMA_VAGA=seed-turma-ultima-vaga/QGV102 | TURMA_CHEIA=seed-turma-cheia/QAN201 | TURMA_ARQUIVADA=seed-turma-arquivada/QAN202 | TURMA_PROF_BETA=seed-turma-beta/QGB103 | TURMA_COLEGAS=seed-turma-colegas/QGV103"); console.log("Roteiro canônico M12.2: Roteiro_Experimento/seed-roteiro-m12 (PUBLICAVEL)"); console.log("Baseline sem Convite_Aluno pendente, CONVITE_PARA_TURMA, receipt M7 ou segredo/token."); }
+function manifest(): void { console.log("\n=== LCQUI MANUAL TEST SEED ===\n[FIXTURES]"); for (const user of users) console.log(`${user.id.padEnd(24)} ${user.email.padEnd(38)} senha=${user.id === "aluno.noAuth" ? "—" : PASSWORD} uid=${user.uid} roles=${user.roles.join(",") || "—"} verified=${user.emailVerified} ativo=${user.activeDocument} | ${user.note}`); console.log("\n[TURMAS]\nTURMA_VAZIA=seed-turma-vazia/QGV101 | TURMA_ULTIMA_VAGA=seed-turma-ultima-vaga/QGV102 | TURMA_CHEIA=seed-turma-cheia/QAN201 | TURMA_ARQUIVADA=seed-turma-arquivada/QAN202 | TURMA_PROF_BETA=seed-turma-beta/QGB103 | TURMA_COLEGAS=seed-turma-colegas/QGV103"); console.log("[PATRIMÔNIO]\nAPROVACAO=seed-bem-edicao-aprovacao / seed-req-edicao-aprovacao\nREJEICAO=seed-bem-edicao-rejeicao / seed-req-edicao-rejeicao\nCONFLITO=seed-bem-edicao-conflito / seed-req-edicao-conflito (versao do bem=2, origem=1)"); console.log("Roteiro canônico M12.2: Roteiro_Experimento/seed-roteiro-m12 (PUBLICAVEL)"); console.log("Baseline sem Convite_Aluno pendente, CONVITE_PARA_TURMA, receipt M7 ou segredo/token."); }
 
 async function main(): Promise<void> { const args = new Set(process.argv.slice(2)); if ([...args].some((arg) => !["--reset", "--verify-only"].includes(arg)) || (args.has("--reset") && args.has("--verify-only"))) throw new Error("Uso: tsx scripts/seed.ts [--reset|--verify-only]"); const id = projectId(); const { firestoreHost } = assertEmulatorOnly(id); dbApp(id); if (args.has("--verify-only")) { await verify(); manifest(); return; } if (args.has("--reset")) await reset(firestoreHost, id); for (const user of users.filter((item) => item.id !== "aluno.noAuth")) { await ensureAuth(user);       if (user.activeDocument) await getAuth().setCustomUserClaims(user.uid, { roles: [...user.roles], versao_permissoes: 1, ativo: true }); } await writeFixture(); await verify(); manifest(); }
 main().catch((error: unknown) => { console.error("SEED FAILURE", error instanceof Error ? error.message : String(error)); process.exitCode = 1; });

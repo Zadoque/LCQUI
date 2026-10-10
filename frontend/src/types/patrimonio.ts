@@ -40,6 +40,8 @@ export interface RequisicaoEdicaoBemPatrimonial {
   id_usuario_solicitante: string;                                       // FK, NOT NULL
   id_usuario_respondente?: string | null;                               // FK, NULL
   novo_nome?: string | null;                                            // VARCHAR(150), NULL
+  nova_descricao_resumo?: string | null;
+  novo_id_resumo_bem_patrimonial?: string | null;
   novo_status?: "Ativo" | "Inservivel" | "Ja_dado_baixa" | null;       // ENUM, NULL
   novo_estado_conservacao?: "BOM" | "REGULAR" | "RUIM" | null;         // ENUM, NULL
   novo_id_local?: string | null;                                        // FK, NULL
@@ -50,6 +52,7 @@ export interface RequisicaoEdicaoBemPatrimonial {
   // Denormalizados (Seção 5.8, linha 1231)
   nome_equipamento?: string;
   numero_patrimonio?: string;
+  versao_bem_origem?: number;
 }
 
 // Seção 4.11: Requisicao_Adicao_Bem_Patrimonial

@@ -6,13 +6,11 @@ import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "@/lib/firebase/config";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { useAuth } from "@/contexts/AuthContext";
 import { BemPatrimonial } from "@/types/patrimonio";
 
 export default function BemPatrimonialDetails() {
   const { id } = useParams();
   const router = useRouter();
-  const { roles } = useAuth();
   
   const [bem, setBem] = useState<BemPatrimonial | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,25 +59,22 @@ export default function BemPatrimonialDetails() {
     try {
       const criarRequisicao = httpsCallable(functions, 'criarRequisicaoEdicaoBem');
       await criarRequisicao({
-        id_bem_patrimonial: bem?.id,
-        numero_patrimonio_atual: bem?.numero_patrimonio,
-        novo_status: novoStatus !== bem?.status ? novoStatus : undefined,
-        novo_nome_responsavel_sei: novoResponsavel !== bem?.nome_responsavel_sei ? novoResponsavel : undefined,
-        novo_estado_conservacao: novoConservacao !== bem?.estado_conservacao ? novoConservacao : undefined,
+        idOperacao: crypto.randomUUID(),
+        idBemPatrimonial: bem?.id,
+        novoStatus: novoStatus !== bem?.status ? novoStatus : undefined,
+        novoEstadoConservacao: novoConservacao !== bem?.estado_conservacao ? novoConservacao : undefined,
         motivo: motivo,  // NOT NULL — obrigatório conforme Seção 4.10
       });
       
       setSuccessMsg("Requisição de alteração enviada com sucesso! Aguardando aprovação.");
       setTimeout(() => setIsModalOpen(false), 2000);
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro ao criar requisição. Talvez já exista uma pendente.");
+    } catch (err: unknown) {
+      const mensagem = err instanceof Error ? err.message : "Erro ao criar requisição. Talvez já exista uma pendente.";
+      setErrorMsg(mensagem);
     } finally {
       setSubmitting(false);
     }
   };
-
-  const isProfessorOrBolsista = roles.includes("Professor") || roles.includes("Bolsista");
-  const isGestor = roles.includes("Chefe_Geral") || roles.includes("Gestor_Bens_Patrimoniais");
 
   if (loading) {
     return (
@@ -196,7 +191,7 @@ export default function BemPatrimonialDetails() {
                   <label className="block text-sm font-medium mb-1">Status Proposto</label>
                   <select 
                     value={novoStatus} 
-                    onChange={(e) => setNovoStatus(e.target.value as any)}
+                    onChange={(e) => setNovoStatus(e.target.value as "Ativo" | "Inservivel" | "Ja_dado_baixa" | "")}
                     className="w-full px-4 py-3 rounded-xl bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none"
                   >
                     <option value="Ativo">Ativo</option>
@@ -219,7 +214,7 @@ export default function BemPatrimonialDetails() {
                   <label className="block text-sm font-medium mb-1">Estado de Conservação Proposto</label>
                   <select 
                     value={novoConservacao} 
-                    onChange={(e) => setNovoConservacao(e.target.value as any)}
+                    onChange={(e) => setNovoConservacao(e.target.value as "BOM" | "REGULAR" | "RUIM" | "")}
                     className="w-full px-4 py-3 rounded-xl bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none"
                   >
                     <option value="BOM">Bom</option>

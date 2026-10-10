@@ -15,20 +15,39 @@ export const GerenciarLocalSchema = z.object({
 });
 
 export const CriarRequisicaoEdicaoBemSchema = z.object({
+  idOperacao: IdOperacaoPatrimonioSchema,
   idBemPatrimonial: z.string().min(1, "ID do bem patrimonial é obrigatório."),
   novoNome: z.string().trim().min(1).max(150).optional(),
+  novaDescricaoResumo: z.string().trim().min(1, "A descrição do novo resumo é obrigatória.").optional(),
   novoIdResumoBemPatrimonial: z.string().min(1).optional(),
   novoStatus: z.enum(["Ativo", "Inservivel"]).nullable().optional(),
   novoEstadoConservacao: z.enum(["BOM", "REGULAR", "RUIM"]).optional(),
   novoIdLocal: z.string().optional(),
   novaPhotoUrl: z.string().min(1).optional(),
-  motivo: z.string().min(1, "Motivo é obrigatório.")
+  motivo: z.string().trim().min(1, "Motivo é obrigatório.")
+}).superRefine((dados, ctx) => {
+  const criaResumo = dados.novoNome !== undefined || dados.novaDescricaoResumo !== undefined;
+  if (criaResumo && (dados.novoNome === undefined || dados.novaDescricaoResumo === undefined)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: dados.novoNome === undefined ? ["novoNome"] : ["novaDescricaoResumo"],
+      message: "Nome e descrição são obrigatórios para criar um novo resumo.",
+    });
+  }
+  if (criaResumo && dados.novoIdResumoBemPatrimonial !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["novoIdResumoBemPatrimonial"],
+      message: "Informe um resumo existente ou os dados de um novo resumo, não ambos.",
+    });
+  }
 });
 
 export const ResponderRequisicaoBemSchema = z.object({
+  idOperacao: IdOperacaoPatrimonioSchema,
   idRequisicao: z.string().min(1, "ID da requisição é obrigatório."),
   aprovar: z.boolean(),
-  justificativa: z.string().optional().default("")
+  justificativa: z.string().trim().min(1, "Justificativa é obrigatória.")
 });
 
 export const CriarRequisicaoAdicaoBemSchema = z.object({
