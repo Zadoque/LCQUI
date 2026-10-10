@@ -17,7 +17,10 @@ import {
   ConfirmarEsgotamentoAposInspecaoSchema,
   RecalibrarTaraFrascoEsgotadoSchema,
   RegistrarPesagemRotinaSchema,
-  DescartarFrascoSchema
+  DescartarFrascoSchema,
+  RegistrarExtravioOuReencontroSchema,
+  ColocarFrascoEmQuarentenaSchema,
+  ResolverQuarentenaFrascoSchema
 } from "./schemas/reagentes.schema";
 
 export const cadastrarFrascoFechado = onCall(async (request) => {
@@ -1109,5 +1112,289 @@ export const descartarFrasco = onCall(async (request) => {
     const resultado = { status: "OK", idFrasco: dados.idFrasco };
     registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
     return resultado;
+  });
+});
+
+export const registrarExtravioOuReencontro = onCall(async (request) => {
+  const claims = extrairClaimsAutoridade(request);
+  const dados = validatePayload(RegistrarExtravioOuReencontroSchema, request.data);
+  const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
+  const authRef = admin.firestore().collection("Pendencias_Descarte_Frasco").doc(dados.idFrasco);
+
+  const payloadIdentidade = dados.tipoAcao === "EXTRAVIAR"
+    ? { tipoAcao: "EXTRAVIAR", idFrasco: dados.idFrasco, motivo: dados.motivo }
+    : { tipoAcao: "REENCONTRAR", idFrasco: dados.idFrasco, estadoFisicoConstatado: dados.estadoFisicoConstatado, motivo: dados.motivo };
+  const identidade = construirIdentidade(claims.uid, "EXTRAVIO_OU_REENCONTRO", payloadIdentidade);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+    if (decisao.estado === "REPLAY") return decisao.resultado as any;
+    if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação não concluída.");
+
+    const frascoSnap = await tx.get(frascoRef);
+    if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
+    const frasco = frascoSnap.data()!;
+    await validarGestorDoAlmoxarifadoTx(tx, claims, frasco.id_almoxarifado);
+
+    if (frasco.estado_fisico_frasco === "DESCARTADO") {
+      throw new HttpsError("failed-precondition", "Frasco descartado é terminal e não pode sofrer extravio ou reencontro.");
+    }
+
+    const emprestimoSnap = await tx.get(
+      admin.firestore()
+        .collection("Emprestimo_Frasco")
+        .where("id_frasco_reagente", "==", dados.idFrasco)
+        .where("status", "==", "EMPRESTADO")
+        .limit(1)
+    );
+
+    const pendenciaDescarteSnap = await tx.get(authRef);
+
+    if (dados.tipoAcao === "EXTRAVIAR") {
+      if (frasco.situacao_localizacao === "EXTRAVIADO") {
+        throw new HttpsError("failed-precondition", "Frasco já está registrado como extraviado.");
+      }
+
+      if (!emprestimoSnap.empty) {
+        const empDoc = emprestimoSnap.docs[0];
+        tx.update(empDoc.ref, {
+          status: "ENCERRADO_EXTRAORDINARIO",
+          tipo_encerramento_excepcional: "EXTRAVIO_SINISTRO",
+          data_devolucao_efetuada: FieldValue.serverTimestamp(),
+          id_gestor_devolucao: claims.uid,
+          detalhe_encerramento: dados.motivo,
+        });
+      }
+
+      if (pendenciaDescarteSnap.exists) {
+        tx.delete(authRef);
+      }
+
+      tx.update(frascoRef, {
+        situacao_localizacao: "EXTRAVIADO",
+        disponibilidade: "INDISPONIVEL",
+        descarte_autorizado: false,
+        detalhe_status: "Frasco extraviado: " + dados.motivo,
+      });
+
+      tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+        id_frasco_reagente: dados.idFrasco,
+        id_almoxarifado: frasco.id_almoxarifado,
+        id_gestor: claims.uid,
+        tipo: "EXTRAVIO",
+        motivo: dados.motivo,
+        teve_encerramento_emprestimo: !emprestimoSnap.empty,
+        timestamp: FieldValue.serverTimestamp(),
+      });
+
+      const resultado = { status: "OK", idFrasco: dados.idFrasco, situacao_localizacao: "EXTRAVIADO" };
+      registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+      return resultado;
+    } else {
+      if (frasco.situacao_localizacao !== "EXTRAVIADO") {
+        throw new HttpsError("failed-precondition", "Apenas frascos previamente extraviados podem ser reencontrados.");
+      }
+
+      const anterior = frasco.estado_fisico_frasco;
+      const constatado = dados.estadoFisicoConstatado;
+
+      if (constatado === "FECHADO") {
+        if (anterior !== "FECHADO" || frasco.data_abertura) {
+          throw new HttpsError("failed-precondition", "Frasco aberto anteriormente não pode ser reencontrado como fechado.");
+        }
+      } else if (constatado === "ABERTO") {
+        if (anterior !== "FECHADO" && anterior !== "ABERTO") {
+          throw new HttpsError("failed-precondition", "Frasco vazio ou quebrado não pode ser reencontrado como aberto.");
+        }
+      } else if (constatado === "VAZIO") {
+        if (anterior !== "VAZIO") {
+          throw new HttpsError("failed-precondition", "Transição física impossível no reencontro: frasco não estava vazio antes do extravio.");
+        }
+      } else if (constatado === "QUEBRADO") {
+        // Quebra constatada é permitida
+      }
+
+      const atualizacao: Record<string, unknown> = {
+        situacao_localizacao: "LOCALIZADO",
+        em_quarentena: true,
+        disponibilidade: "INDISPONIVEL",
+        descarte_autorizado: false,
+        estado_fisico_frasco: constatado,
+        detalhe_status: "Frasco reencontrado e retido em quarentena compulsória: " + dados.motivo,
+      };
+
+      if (anterior === "FECHADO" && constatado === "ABERTO") {
+        atualizacao.abertura_historica_desconhecida = true;
+      }
+
+      tx.update(frascoRef, atualizacao);
+
+      tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+        id_frasco_reagente: dados.idFrasco,
+        id_almoxarifado: frasco.id_almoxarifado,
+        id_gestor: claims.uid,
+        tipo: "REENCONTRO",
+        estado_fisico_anterior: anterior,
+        estado_fisico_constatado: constatado,
+        motivo: dados.motivo,
+        timestamp: FieldValue.serverTimestamp(),
+      });
+
+      const resultado = {
+        status: "OK",
+        idFrasco: dados.idFrasco,
+        situacao_localizacao: "LOCALIZADO",
+        em_quarentena: true,
+        estado_fisico: constatado,
+      };
+      registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+      return resultado;
+    }
+  });
+});
+
+export const colocarFrascoEmQuarentena = onCall(async (request) => {
+  const claims = extrairClaimsAutoridade(request);
+  const dados = validatePayload(ColocarFrascoEmQuarentenaSchema, request.data);
+  const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
+  const identidade = construirIdentidade(claims.uid, "COLOCAR_QUARENTENA", {
+    idFrasco: dados.idFrasco,
+    motivo: dados.motivo,
+  });
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+    if (decisao.estado === "REPLAY") return decisao.resultado as any;
+    if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação não concluída.");
+
+    const frascoSnap = await tx.get(frascoRef);
+    if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
+    const frasco = frascoSnap.data()!;
+    await validarGestorDoAlmoxarifadoTx(tx, claims, frasco.id_almoxarifado);
+
+    if (frasco.estado_fisico_frasco === "DESCARTADO") {
+      throw new HttpsError("failed-precondition", "Frasco descartado não pode entrar em quarentena.");
+    }
+    if (frasco.situacao_localizacao === "EXTRAVIADO") {
+      throw new HttpsError("failed-precondition", "Frasco extraviado não pode ser colocado em quarentena.");
+    }
+    if (frasco.em_quarentena === true) {
+      throw new HttpsError("failed-precondition", "Frasco já se encontra em quarentena.");
+    }
+    if (frasco.disponibilidade === "EMPRESTADO") {
+      throw new HttpsError("failed-precondition", "Frasco com empréstimo ativo não pode ser colocado em quarentena.");
+    }
+
+    tx.update(frascoRef, {
+      em_quarentena: true,
+      disponibilidade: "INDISPONIVEL",
+      detalhe_status: "Frasco colocado em quarentena: " + dados.motivo,
+    });
+
+    tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+      id_frasco_reagente: dados.idFrasco,
+      id_almoxarifado: frasco.id_almoxarifado,
+      id_gestor: claims.uid,
+      tipo: "ENTROU_EM_QUARENTENA",
+      motivo: dados.motivo,
+      timestamp: FieldValue.serverTimestamp(),
+    });
+
+    const resultado = { status: "OK", idFrasco: dados.idFrasco, em_quarentena: true };
+    registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+    return resultado;
+  });
+});
+
+export const resolverQuarentenaFrasco = onCall(async (request) => {
+  const claims = extrairClaimsAutoridade(request);
+  const dados = validatePayload(ResolverQuarentenaFrascoSchema, request.data);
+  const frascoRef = admin.firestore().collection("Frasco_Reagente").doc(dados.idFrasco);
+  const authRef = admin.firestore().collection("Pendencias_Descarte_Frasco").doc(dados.idFrasco);
+  const identidade = construirIdentidade(claims.uid, "RESOLVER_QUARENTENA", {
+    idFrasco: dados.idFrasco,
+    decisao: dados.decisao,
+    motivo: dados.motivo,
+  });
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+    if (decisao.estado === "REPLAY") return decisao.resultado as any;
+    if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação não concluída.");
+
+    const frascoSnap = await tx.get(frascoRef);
+    if (!frascoSnap.exists) throw new HttpsError("not-found", "Frasco não encontrado.");
+    const frasco = frascoSnap.data()!;
+    await validarGestorDoAlmoxarifadoTx(tx, claims, frasco.id_almoxarifado);
+
+    if (frasco.em_quarentena !== true) {
+      throw new HttpsError("failed-precondition", "Frasco não está em quarentena.");
+    }
+    if (frasco.situacao_localizacao === "EXTRAVIADO") {
+      throw new HttpsError("failed-precondition", "Frasco extraviado deve ser reencontrado antes de resolver quarentena.");
+    }
+
+    const pendenciaMetrologicaAtiva = await existePendenciaMetrologicaTx(tx, dados.idFrasco);
+    if (pendenciaMetrologicaAtiva) {
+      throw new HttpsError("failed-precondition", "Frasco com anomalia metrológica pendente deve ser resolvido pelas rotas metrológicas normativas (Rota 1, 2 ou 3).");
+    }
+
+    if (dados.decisao === "VOLTAR_A_DISPONIVEL") {
+      if (frasco.estado_fisico_frasco === "VAZIO" || frasco.estado_fisico_frasco === "QUEBRADO") {
+        throw new HttpsError("failed-precondition", "Frasco vazio ou quebrado não pode voltar a disponível.");
+      }
+
+      const estaVencido = Boolean(frasco.vencido);
+      const usoVencidoAutorizado = Boolean(frasco.uso_vencido_autorizado);
+      const podeFicarDisponivel = !estaVencido || usoVencidoAutorizado;
+
+      tx.update(frascoRef, {
+        em_quarentena: false,
+        disponibilidade: podeFicarDisponivel ? "DISPONIVEL" : "INDISPONIVEL",
+        detalhe_status: "Liberado da quarentena: " + dados.motivo,
+      });
+
+      tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+        id_frasco_reagente: dados.idFrasco,
+        id_almoxarifado: frasco.id_almoxarifado,
+        id_gestor: claims.uid,
+        tipo: "LIBERADO_QUARENTENA",
+        motivo: dados.motivo,
+        timestamp: FieldValue.serverTimestamp(),
+      });
+
+      const resultado = { status: "OK", idFrasco: dados.idFrasco, decisao: "VOLTAR_A_DISPONIVEL" };
+      registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+      return resultado;
+    } else {
+      tx.update(frascoRef, {
+        em_quarentena: false,
+        disponibilidade: "INDISPONIVEL",
+        descarte_autorizado: true,
+        detalhe_status: "Autorizado para descarte institucional: " + dados.motivo,
+      });
+
+      tx.set(authRef, {
+        id_frasco: dados.idFrasco,
+        id_almoxarifado: frasco.id_almoxarifado,
+        origem: "QUARENTENA",
+        motivo: dados.motivo,
+        autorizado_por: claims.uid,
+        data_autorizacao: FieldValue.serverTimestamp(),
+      });
+
+      tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
+        id_frasco_reagente: dados.idFrasco,
+        id_almoxarifado: frasco.id_almoxarifado,
+        id_gestor: claims.uid,
+        tipo: "PENDENTE_DE_DESCARTE",
+        motivo: dados.motivo,
+        timestamp: FieldValue.serverTimestamp(),
+      });
+
+      const resultado = { status: "OK", idFrasco: dados.idFrasco, decisao: "PENDENTE_DE_DESCARTE" };
+      registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+      return resultado;
+    }
   });
 });

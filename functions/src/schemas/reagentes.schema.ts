@@ -97,3 +97,32 @@ export const DescartarFrascoSchema = z.object({
   motivo: z.string().trim().min(20, "A justificativa do descarte institucional deve conter pelo menos 20 caracteres."),
 });
 
+export const RegistrarExtravioOuReencontroSchema = z.discriminatedUnion("tipoAcao", [
+  z.object({
+    idOperacao: idOperacaoField,
+    idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
+    tipoAcao: z.literal("EXTRAVIAR"),
+    motivo: z.string().trim().min(5, "O motivo do extravio deve conter pelo menos 5 caracteres."),
+  }),
+  z.object({
+    idOperacao: idOperacaoField,
+    idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
+    tipoAcao: z.literal("REENCONTRAR"),
+    estadoFisicoConstatado: z.enum(["FECHADO", "ABERTO", "VAZIO", "QUEBRADO"]),
+    motivo: z.string().trim().min(5, "O laudo/motivo do reencontro deve conter pelo menos 5 caracteres."),
+  }),
+]);
+
+export const ColocarFrascoEmQuarentenaSchema = z.object({
+  idOperacao: idOperacaoField,
+  idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
+  motivo: z.string().trim().min(10, "O motivo da entrada em quarentena deve conter pelo menos 10 caracteres."),
+});
+
+export const ResolverQuarentenaFrascoSchema = z.object({
+  idOperacao: idOperacaoField,
+  idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
+  decisao: z.enum(["VOLTAR_A_DISPONIVEL", "PENDENTE_DE_DESCARTE"]),
+  motivo: z.string().trim().min(10, "A justificativa da decisão de quarentena deve conter pelo menos 10 caracteres."),
+});
+

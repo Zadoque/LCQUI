@@ -16,7 +16,10 @@ import {
   confirmarEsgotamentoAposInspecao,
   recalibrarTaraFrascoEsgotado,
   registrarPesagemRotina,
-  descartarFrasco
+  descartarFrasco,
+  registrarExtravioOuReencontro,
+  colocarFrascoEmQuarentena,
+  resolverQuarentenaFrasco
 } from "../reagentes";
 import { 
   cadastrarLote,
@@ -993,6 +996,217 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
       const doc = await db.collection("Frasco_Reagente").doc(idFrasco).get();
       expect(doc.data()?.estado_fisico_frasco).toBe("DESCARTADO");
       expect(doc.data()?.disponibilidade).toBe("INDISPONIVEL");
+    });
+  });
+
+  describe("Extravio, Reencontro e Quarentena (IMP-M5-001, IMP-M5-002, IMP-M5-003)", () => {
+    const uidGestor = "gestor_m5";
+    const idAlmox = "almox_m5";
+
+    beforeEach(async () => {
+      await seedGestorAlmoxarifado(uidGestor, idAlmox);
+    });
+
+    it("deve registrar extravio (IMP-M5-001) encerrando extraordinariamente empréstimo ativo e preservando estado físico", async () => {
+      const idFrasco = `frasco_ext_${Date.now()}`;
+      const idEmp = `emp_ext_${Date.now()}`;
+      await db.collection("Frasco_Reagente").doc(idFrasco).set({
+        id: idFrasco,
+        id_almoxarifado: idAlmox,
+        estado_fisico_frasco: "ABERTO",
+        situacao_localizacao: "LOCALIZADO",
+        disponibilidade: "EMPRESTADO",
+        saldo_desconhecido: false,
+        peso_atual: 250,
+      });
+
+      await db.collection("Emprestimo_Frasco").doc(idEmp).set({
+        id_frasco_reagente: idFrasco,
+        status: "EMPRESTADO",
+        id_usuario_retirou: "usuario_teste",
+      });
+
+      const reqExtrair = mockRequest({
+        idOperacao: `op_ext_${Date.now()}`,
+        idFrasco,
+        tipoAcao: "EXTRAVIAR",
+        motivo: "Frasco não localizado após auditoria de bancada.",
+      }, uidGestor);
+
+      const res = await testEnv.wrap(registrarExtravioOuReencontro)(reqExtrair);
+      expect(res.status).toBe("OK");
+      expect(res.situacao_localizacao).toBe("EXTRAVIADO");
+
+      // Replay idempotente
+      const replay = await testEnv.wrap(registrarExtravioOuReencontro)(reqExtrair);
+      expect(replay.status).toBe("OK");
+
+      // Frasco preserva estado físico e peso
+      const frascoDoc = await db.collection("Frasco_Reagente").doc(idFrasco).get();
+      expect(frascoDoc.data()?.situacao_localizacao).toBe("EXTRAVIADO");
+      expect(frascoDoc.data()?.disponibilidade).toBe("INDISPONIVEL");
+      expect(frascoDoc.data()?.estado_fisico_frasco).toBe("ABERTO");
+      expect(frascoDoc.data()?.peso_atual).toBe(250);
+
+      // Empréstimo sofre encerramento extraordinário
+      const empDoc = await db.collection("Emprestimo_Frasco").doc(idEmp).get();
+      expect(empDoc.data()?.status).toBe("ENCERRADO_EXTRAORDINARIO");
+      expect(empDoc.data()?.tipo_encerramento_excepcional).toBe("EXTRAVIO_SINISTRO");
+
+      // Segunda tentativa de extraviar o mesmo frasco falha fechado
+      await expect(testEnv.wrap(registrarExtravioOuReencontro)(mockRequest({
+        idFrasco,
+        tipoAcao: "EXTRAVIAR",
+        motivo: "Tentativa de extraviar frasco já extraviado.",
+      }, uidGestor))).rejects.toThrow(/já está registrado como extraviado/i);
+    });
+
+    it("deve reencontrar frasco (IMP-M5-002) com validação de transição, quarentena compulsória e sem reabrir empréstimo", async () => {
+      const idFrasco = `frasco_reen_${Date.now()}`;
+      await db.collection("Frasco_Reagente").doc(idFrasco).set({
+        id: idFrasco,
+        id_almoxarifado: idAlmox,
+        estado_fisico_frasco: "FECHADO",
+        situacao_localizacao: "EXTRAVIADO",
+        disponibilidade: "INDISPONIVEL",
+        saldo_desconhecido: false,
+        peso_atual: 300,
+      });
+
+      // Reencontro constatado como ABERTO a partir de FECHADO: marca abertura histórica desconhecida
+      const res = await testEnv.wrap(registrarExtravioOuReencontro)(mockRequest({
+        idFrasco,
+        tipoAcao: "REENCONTRAR",
+        estadoFisicoConstatado: "ABERTO",
+        motivo: "Frasco localizado em armário secundário com selo rompido.",
+      }, uidGestor));
+
+      expect(res.status).toBe("OK");
+      expect(res.situacao_localizacao).toBe("LOCALIZADO");
+      expect(res.em_quarentena).toBe(true);
+
+      const frascoDoc = await db.collection("Frasco_Reagente").doc(idFrasco).get();
+      expect(frascoDoc.data()?.situacao_localizacao).toBe("LOCALIZADO");
+      expect(frascoDoc.data()?.em_quarentena).toBe(true);
+      expect(frascoDoc.data()?.disponibilidade).toBe("INDISPONIVEL");
+      expect(frascoDoc.data()?.estado_fisico_frasco).toBe("ABERTO");
+      expect(frascoDoc.data()?.abertura_historica_desconhecida).toBe(true);
+      expect(frascoDoc.data()?.peso_atual).toBe(300); // preserva medição anterior
+    });
+
+    it("deve rejeitar reencontro com transição física impossível (ex: frasco aberto reencontrado como fechado)", async () => {
+      const idFrasco = `frasco_imposs_${Date.now()}`;
+      await db.collection("Frasco_Reagente").doc(idFrasco).set({
+        id: idFrasco,
+        id_almoxarifado: idAlmox,
+        estado_fisico_frasco: "ABERTO",
+        situacao_localizacao: "EXTRAVIADO",
+        disponibilidade: "INDISPONIVEL",
+        data_abertura: "2026-01-01",
+      });
+
+      await expect(testEnv.wrap(registrarExtravioOuReencontro)(mockRequest({
+        idFrasco,
+        tipoAcao: "REENCONTRAR",
+        estadoFisicoConstatado: "FECHADO",
+        motivo: "Afirmação impossível de que frasco aberto voltou a ser fechado.",
+      }, uidGestor))).rejects.toThrow(/Frasco aberto anteriormente não pode ser reencontrado como fechado/i);
+    });
+
+    it("deve colocar frasco em quarentena (IMP-M5-003) e rejeitar se já em quarentena ou emprestado", async () => {
+      const idFrasco = `frasco_quar_${Date.now()}`;
+      await db.collection("Frasco_Reagente").doc(idFrasco).set({
+        id: idFrasco,
+        id_almoxarifado: idAlmox,
+        estado_fisico_frasco: "ABERTO",
+        situacao_localizacao: "LOCALIZADO",
+        disponibilidade: "DISPONIVEL",
+        em_quarentena: false,
+      });
+
+      const res = await testEnv.wrap(colocarFrascoEmQuarentena)(mockRequest({
+        idFrasco,
+        motivo: "Suspeita de contaminação por turvação observada no líquido.",
+      }, uidGestor));
+
+      expect(res.status).toBe("OK");
+      expect(res.em_quarentena).toBe(true);
+
+      const frascoDoc = await db.collection("Frasco_Reagente").doc(idFrasco).get();
+      expect(frascoDoc.data()?.em_quarentena).toBe(true);
+      expect(frascoDoc.data()?.disponibilidade).toBe("INDISPONIVEL");
+
+      // Rejeita colocar novamente em quarentena
+      await expect(testEnv.wrap(colocarFrascoEmQuarentena)(mockRequest({
+        idFrasco,
+        motivo: "Segunda tentativa de entrada em quarentena para mesmo frasco.",
+      }, uidGestor))).rejects.toThrow(/Frasco já se encontra em quarentena/i);
+    });
+
+    it("deve resolver quarentena pela rota VOLTAR_A_DISPONIVEL ou PENDENTE_DE_DESCARTE (IMP-M5-003)", async () => {
+      // Caso 1: Frasco VAZIO não pode voltar a disponível
+      const idVazio = `frasco_quar_vazio_${Date.now()}`;
+      await db.collection("Frasco_Reagente").doc(idVazio).set({
+        id: idVazio,
+        id_almoxarifado: idAlmox,
+        estado_fisico_frasco: "VAZIO",
+        situacao_localizacao: "LOCALIZADO",
+        disponibilidade: "INDISPONIVEL",
+        em_quarentena: true,
+      });
+
+      await expect(testEnv.wrap(resolverQuarentenaFrasco)(mockRequest({
+        idFrasco: idVazio,
+        decisao: "VOLTAR_A_DISPONIVEL",
+        motivo: "Tentativa indevida de disponibilizar frasco vazio.",
+      }, uidGestor))).rejects.toThrow(/Frasco vazio ou quebrado não pode voltar a disponível/i);
+
+      // Caso 2: Resolução por PENDENTE_DE_DESCARTE gera autorização e permite descarte posterior
+      const resDescarte = await testEnv.wrap(resolverQuarentenaFrasco)(mockRequest({
+        idFrasco: idVazio,
+        decisao: "PENDENTE_DE_DESCARTE",
+        motivo: "Laudo técnico confirma frasco completamente esgotado e apto a descarte.",
+      }, uidGestor));
+
+      expect(resDescarte.status).toBe("OK");
+      expect(resDescarte.decisao).toBe("PENDENTE_DE_DESCARTE");
+
+      const pendenciaDoc = await db.collection("Pendencias_Descarte_Frasco").doc(idVazio).get();
+      expect(pendenciaDoc.exists).toBe(true);
+      expect(pendenciaDoc.data()?.origem).toBe("QUARENTENA");
+
+      // Agora descarte terminal é admitido consumindo a pendência
+      const resFinal = await testEnv.wrap(descartarFrasco)(mockRequest({
+        idFrasco: idVazio,
+        motivo: "Execução do descarte autorizado com descarte em bombona apropriada.",
+      }, uidGestor));
+      expect(resFinal.status).toBe("OK");
+
+      const frascoFinal = await db.collection("Frasco_Reagente").doc(idVazio).get();
+      expect(frascoFinal.data()?.estado_fisico_frasco).toBe("DESCARTADO");
+
+      // Caso 3: Frasco ABERTO liberado da quarentena volta a DISPONIVEL
+      const idAberto = `frasco_quar_aberto_${Date.now()}`;
+      await db.collection("Frasco_Reagente").doc(idAberto).set({
+        id: idAberto,
+        id_almoxarifado: idAlmox,
+        estado_fisico_frasco: "ABERTO",
+        situacao_localizacao: "LOCALIZADO",
+        disponibilidade: "INDISPONIVEL",
+        em_quarentena: true,
+        vencido: false,
+      });
+
+      const resLibera = await testEnv.wrap(resolverQuarentenaFrasco)(mockRequest({
+        idFrasco: idAberto,
+        decisao: "VOLTAR_A_DISPONIVEL",
+        motivo: "Inspeção visual e teste de pureza confirmam ausência de contaminantes.",
+      }, uidGestor));
+
+      expect(resLibera.status).toBe("OK");
+      const frascoLib = await db.collection("Frasco_Reagente").doc(idAberto).get();
+      expect(frascoLib.data()?.em_quarentena).toBe(false);
+      expect(frascoLib.data()?.disponibilidade).toBe("DISPONIVEL");
     });
   });
 });
