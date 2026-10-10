@@ -252,6 +252,25 @@ async function writeFixture(): Promise<void> {
       criado_em: FIXTURE_TIME,
     });
   }
+  // Fixture de cadastro fechado M2/M7 para UI-06 e regressão do código atômico.
+  const reagenteSeed = firestore.collection("Resumo_Reagente").doc("seed-resumo-reagente-frascos");
+  const especSeed = reagenteSeed.collection("Especificacoes").doc("seed-especificacao-frascos");
+  batch.set(firestore.collection("Almoxarifado").doc("seed-almox-frascos"), { nome: "Almoxarifado de Frascos Seed", ativo: true });
+  batch.set(firestore.collection("Gestor_Almoxarifado_x_Almoxarifado").doc(`${byId("gestor.almoxarifado").uid}_seed-almox-frascos`), {
+    id_gestor_almoxarifado: byId("gestor.almoxarifado").uid,
+    id_almoxarifado: "seed-almox-frascos",
+  });
+  batch.set(reagenteSeed, {
+    id: reagenteSeed.id, nome: "Reagente Seed", letra_inicial: "R", estado_fisico: "Líquido",
+    natureza_quimica: "INORGANICO", eh_higroscopico: false,
+  });
+  batch.set(especSeed, {
+    id: especSeed.id, estado_fisico: "LIQUIDO", densidade: 1,
+    unidade_de_medida: "ml", eh_higroscopico: false,
+  });
+  batch.set(firestore.collection("Contador_Codigo_Frasco").doc("singleton"), {
+    ultimo_codigo_gerado: 0,
+  });
   await batch.commit();
 
   // Roteiro canônico M12.2 (PDF público de seed-professor-alpha)

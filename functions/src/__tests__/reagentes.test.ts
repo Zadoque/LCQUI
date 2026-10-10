@@ -4,6 +4,7 @@ process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
 process.env.FUNCTIONS_EMULATOR = "true";
 
 import * as admin from "firebase-admin";
+import { createHash } from "crypto";
 import fft from "firebase-functions-test";
 import { 
   cadastrarFrascoFechado, 
@@ -31,28 +32,35 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
     testEnv.cleanup();
   });
 
-  const mockRequest = (data: any, uid: string, roles: string[] = ["Gestor_Almoxarifado"]): any => ({
-    data: data.idEspecificacaoReagente && !data.idResumoReagente
+  const mockRequest = (data: any, uid: string, roles: string[] = ["Gestor_Almoxarifado"]): any => {
+    const payload = data.idEspecificacaoReagente && !data.idResumoReagente
       ? { ...data, idResumoReagente: `resumo_${data.idEspecificacaoReagente}` }
-      : data,
+      : data;
+    return {
+    data: payload.idEspecificacaoReagente
+      ? { ...payload, idOperacao: payload.idOperacao ?? `test_${createHash("sha256").update(JSON.stringify({ uid, payload })).digest("hex").slice(0, 24)}` }
+      : payload,
     auth: {
       uid,
       token: { roles, versao_permissoes: 1 }
     },
     rawRequest: {}
-  });
+    };
+  };
 
   async function seedEspecificacao(id: string, densidade: number | null, estadoFisico: "LIQUIDO" | "SOLIDO") {
     const dados = {
       densidade,
       estado_fisico: estadoFisico
     };
+    await db.collection("Resumo_Reagente").doc(`resumo_${id}`).set({ eh_higroscopico: false });
     await db.collection("Especificacao_Reagente").doc(id).set(dados);
     await db.collection("Resumo_Reagente").doc(`resumo_${id}`)
       .collection("Especificacoes").doc(id).set(dados);
   }
 
   async function seedGestorAlmoxarifado(uid: string, idAlmoxarifado: string) {
+    await db.collection("Almoxarifado").doc(idAlmoxarifado).set({ ativo: true, nome: idAlmoxarifado });
     await db.collection("Usuarios").doc(uid).set({
       ativo: true,
       versao_permissoes: 1,
@@ -149,6 +157,56 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
     expect(result.pesoVazioCalculado).toBe(100);
   });
 
+  it("deve preservar nominal desconhecido sem fabricar tara ou saldo", async () => {
+    await seedEspecificacao("espec_desconhecido", 1.2, "LIQUIDO");
+    await seedGestorAlmoxarifado("gestor_desconhecido", "almox_desconhecido");
+
+    const resultado = await testEnv.wrap(cadastrarFrascoFechado)(mockRequest({
+      idOperacao: "frasco-desconhecido-001",
+      idEspecificacaoReagente: "espec_desconhecido",
+      idAlmoxarifado: "almox_desconhecido",
+      pesoTotal: 600,
+      volumeNominal: null,
+    }, "gestor_desconhecido"));
+    const frasco = (await db.collection("Frasco_Reagente").doc(resultado.idFrasco).get()).data();
+    expect(frasco).toMatchObject({
+      conteudo_nominal: null,
+      peso_frasco_vazio: null,
+      origem_tara: null,
+      saldo_aferido_g: null,
+      saldo_aferido_ml: null,
+      saldo_desconhecido: true,
+      estado_fisico_frasco: "FECHADO",
+      situacao_localizacao: "LOCALIZADO",
+      condicao_inicial_cadastro: "FECHADO",
+      abertura_historica_desconhecida: false,
+    });
+    expect((await db.collection("Chaves_Unicas").doc(`Frasco_Reagente__${resultado.codigoFrasco}`).get()).data())
+      .toMatchObject({ tipo: "Frasco_Reagente", id_recurso: resultado.idFrasco });
+    expect((await db.collection("Historico_Frasco_Reagente").where("id_frasco_reagente", "==", resultado.idFrasco).get()).docs[0].data())
+      .toMatchObject({ tipo: "CADASTRO", id_almoxarifado: "almox_desconhecido", id_gestor: "gestor_desconhecido" });
+    expect((await db.collection("Operacoes").doc("frasco-desconhecido-001").get()).data()).toMatchObject({
+      tipo_operacao: "CADASTRAR_FRASCO_FECHADO", status: "CONCLUIDA",
+    });
+  });
+
+  it("deve devolver o receipt no replay e rejeitar reuso incompatível", async () => {
+    await seedEspecificacao("espec_replay", null, "SOLIDO");
+    await seedGestorAlmoxarifado("gestor_replay", "almox_replay");
+    const dados = {
+      idOperacao: "frasco-replay-001", idEspecificacaoReagente: "espec_replay",
+      idAlmoxarifado: "almox_replay", pesoTotal: 600, volumeNominal: 500,
+    };
+    const wrapped = testEnv.wrap(cadastrarFrascoFechado);
+    const primeira = await wrapped(mockRequest(dados, "gestor_replay"));
+    const segunda = await wrapped(mockRequest(dados, "gestor_replay"));
+    expect(segunda).toEqual(primeira);
+    expect((await db.collection("Contador_Codigo_Frasco").doc("singleton").get()).data()?.ultimo_codigo_gerado)
+      .toBe(Number(String(primeira.codigoFrasco).replace("LCQUI-", "")));
+    await expect(wrapped(mockRequest({ ...dados, pesoTotal: 601 }, "gestor_replay")))
+      .rejects.toMatchObject({ code: "already-exists" });
+  });
+
   it("deve exigir detalhe_status preenchido ao colocar um frasco em QUARENTENA", async () => {
     await seedEspecificacao("espec_liq", 1.2, "LIQUIDO");
     await seedGestorAlmoxarifado("gestor4", "almox4");
@@ -227,7 +285,7 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
       volumeNominal: 500,
       validadeFechado: "2020-01-01",
       decisaoSeJaVencido: "QUARENTENA",
-      detalheStatus: "Retido para analise"
+      detalheStatus: "Retido para analise pelo gestor"
     }, "gestor7"));
 
     const wrappedRetirada = testEnv.wrap(registrarRetirada);
@@ -255,6 +313,14 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
       validadeFechado: "2020-01-01",
       decisaoSeJaVencido: "PENDENTE_DE_DESCARTE"
     }, "gestor8"));
+
+    const pendencia = await db.collection("Pendencias_Descarte_Frasco").doc(frascoResult.idFrasco).get();
+    expect(pendencia.data()).toMatchObject({
+      id_frasco: frascoResult.idFrasco,
+      origem: "QUARENTENA",
+      id_operacao_decisao: expect.any(String),
+      id_gestor_decisao: "gestor8",
+    });
 
     const wrappedRetirada = testEnv.wrap(registrarRetirada);
     await expect(wrappedRetirada(mockRequest({

@@ -10,10 +10,11 @@ interface ModalProps {
   onClose: () => void;
   idResumoReagente?: string;
   idEspecificacaoReagente?: string;
+  idAlmoxarifado?: string;
   onSuccess?: () => void;
 }
 
-export function ModalEntradaFrasco({ isOpen, onClose, idResumoReagente, idEspecificacaoReagente, onSuccess }: ModalProps) {
+export function ModalEntradaFrasco({ isOpen, onClose, idResumoReagente, idEspecificacaoReagente, idAlmoxarifado, onSuccess }: ModalProps) {
   const [lote, setLote] = useState("");
   const [pesoCheio, setPesoCheio] = useState("");
   const [volumeNominal, setVolumeNominal] = useState("");
@@ -29,11 +30,13 @@ export function ModalEntradaFrasco({ isOpen, onClose, idResumoReagente, idEspeci
     setErrorMsg("");
 
     try {
+      if (!idAlmoxarifado) throw new Error("Nenhum almoxarifado ativo está vinculado ao gestor.");
       const cadastrarFrascoFechado = httpsCallable(functions, 'cadastrarFrascoFechado');
       await cadastrarFrascoFechado({
+        idOperacao: crypto.randomUUID(),
         idResumoReagente,
         idEspecificacaoReagente,
-        idAlmoxarifado: "simulado_almoxarifado", // TODO: pegar do contexto do gestor
+        idAlmoxarifado,
         idLote: lote || undefined,
         pesoTotal: Number(pesoCheio),
         volumeNominal: Number(volumeNominal)

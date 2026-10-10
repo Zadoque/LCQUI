@@ -6,6 +6,7 @@ import {
   validarGestorDoAlmoxarifadoTx,
 } from "./auth";
 import { validatePayload } from "./utils/validation";
+import { construirIdentidade, registrarOperacaoConcluidaTx, resolverOperacaoTx } from "./idempotencia";
 import { 
   CadastroFrascoFechadoSchema, 
   CadastroFrascoAbertoSchema, 
@@ -17,64 +18,119 @@ import {
 export const cadastrarFrascoFechado = onCall(async (request) => {
   const dados = validatePayload(CadastroFrascoFechadoSchema, request.data);
   const claims = extrairClaimsAutoridade(request);
-
-  const especSnap = await admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente).collection("Especificacoes").doc(dados.idEspecificacaoReagente).get();
-  if (!especSnap.exists) throw new HttpsError("not-found", "Especificação de reagente não encontrada.");
-  const densidade = especSnap.data()!.densidade;
-  const estadoFisico = especSnap.data()!.estado_fisico;
-
-  let pesoVazio: number;
-  if (estadoFisico === "LIQUIDO") {
-    if (!densidade || densidade <= 0) throw new HttpsError("failed-precondition", "Líquido exige densidade positiva.");
-    pesoVazio = dados.pesoTotal - (dados.volumeNominal * densidade);
-  } else {
-    pesoVazio = dados.pesoTotal - dados.volumeNominal; // g
-  }
-
-  if (pesoVazio <= 0) {
-    throw new HttpsError("invalid-argument", "Peso total incompatível com o volume nominal para esta densidade.");
-  }
-
-  const agora = new Date();
-  const validadeFechado = dados.validadeFechado ? new Date(dados.validadeFechado) : null;
-  const validadeEfetiva = dados.validadeDesconhecida ? null : validadeFechado;
-  const venceuNoCadastro = Boolean(validadeEfetiva && validadeEfetiva <= agora);
-
-  if (venceuNoCadastro && !dados.decisaoSeJaVencido) {
-    throw new HttpsError("failed-precondition", "O frasco está vencido no cadastro e exige uma decisão do gestor.");
-  }
-
-  if (dados.decisaoSeJaVencido === "QUARENTENA" && !dados.detalheStatus) {
-    throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status.");
-  }
-
   const contadorRef = admin.firestore().collection("Contador_Codigo_Frasco").doc("singleton");
   const frascoRef = admin.firestore().collection("Frasco_Reagente").doc();
 
   return admin.firestore().runTransaction(async (tx) => {
     await validarGestorDoAlmoxarifadoTx(tx, claims, dados.idAlmoxarifado);
+    const identidade = construirIdentidade(claims.uid, "CADASTRAR_FRASCO_FECHADO", {
+      idResumoReagente: dados.idResumoReagente,
+      idEspecificacaoReagente: dados.idEspecificacaoReagente,
+      idAlmoxarifado: dados.idAlmoxarifado,
+      idLote: dados.idLote,
+      pesoTotal: dados.pesoTotal,
+      volumeNominal: dados.volumeNominal,
+      validadeFechado: dados.validadeFechado,
+      validadeDesconhecida: dados.validadeDesconhecida,
+      decisaoSeJaVencido: dados.decisaoSeJaVencido,
+      detalheStatus: dados.detalheStatus,
+    });
+    const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+    if (decisao.estado === "REPLAY") return decisao.resultado as {
+      idFrasco: string;
+      codigoFrasco: string;
+      pesoVazioCalculado: number | null;
+      venceuNoCadastro: boolean;
+    };
+    if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de cadastro não concluída.");
+
+    const resumoRef = admin.firestore().collection("Resumo_Reagente").doc(dados.idResumoReagente);
+    const especRef = resumoRef.collection("Especificacoes").doc(dados.idEspecificacaoReagente);
+    const almoxSnap = await tx.get(admin.firestore().collection("Almoxarifado").doc(dados.idAlmoxarifado));
+    const [resumoSnap, especSnap] = await Promise.all([tx.get(resumoRef), tx.get(especRef)]);
+    if (!almoxSnap.exists || almoxSnap.data()?.ativo !== true) throw new HttpsError("failed-precondition", "Almoxarifado inexistente ou inativo.");
+    if (!resumoSnap.exists || !especSnap.exists) throw new HttpsError("not-found", "Resumo ou especificação de reagente não encontrada.");
+    const especData = especSnap.data()!;
+    const densidade = especData.densidade;
+    const estadoFisico = especData.estado_fisico;
+    if (estadoFisico !== "LIQUIDO" && estadoFisico !== "SOLIDO") throw new HttpsError("failed-precondition", "Estado físico da especificação inválido.");
+
+    if (dados.idLote) {
+      const loteSnap = await tx.get(admin.firestore().collection("Lote").doc(dados.idLote));
+      if (!loteSnap.exists || loteSnap.data()?.id_especificacao_reagente !== dados.idEspecificacaoReagente || loteSnap.data()?.id_resumo_reagente !== dados.idResumoReagente) {
+        throw new HttpsError("failed-precondition", "Lote inexistente ou incompatível com a especificação e o resumo.");
+      }
+    }
+
+    let pesoVazio: number | null = null;
+    let saldoDesconhecido = true;
+    let saldoG: number | null = null;
+    let saldoMl: number | null = null;
+    let origemTara: "REFERENCIA_TEORICA" | null = null;
+    if (dados.volumeNominal != null) {
+      if (estadoFisico === "LIQUIDO") {
+        if (typeof densidade !== "number" || densidade <= 0) throw new HttpsError("failed-precondition", "Líquido exige densidade positiva.");
+        pesoVazio = dados.pesoTotal - (dados.volumeNominal * densidade);
+        saldoMl = dados.volumeNominal;
+      } else {
+        pesoVazio = dados.pesoTotal - dados.volumeNominal;
+        saldoG = dados.volumeNominal;
+      }
+      if (pesoVazio <= 0) throw new HttpsError("invalid-argument", "Peso total incompatível com o conteúdo nominal.");
+      origemTara = "REFERENCIA_TEORICA";
+      saldoDesconhecido = false;
+    }
+
+    const validadeFechado = dados.validadeFechado ?? null;
+    const validadeEfetiva = dados.validadeDesconhecida ? null : validadeFechado;
+    const venceuNoCadastro = Boolean(validadeEfetiva && new Date(validadeEfetiva) <= new Date());
+    if (venceuNoCadastro && !dados.decisaoSeJaVencido) throw new HttpsError("failed-precondition", "O frasco está vencido no cadastro e exige uma decisão do gestor.");
+    if (dados.decisaoSeJaVencido === "QUARENTENA" && (!dados.detalheStatus || dados.detalheStatus.trim().length < 20)) {
+      throw new HttpsError("invalid-argument", "A entrada em quarentena exige detalhe_status humano com no mínimo 20 caracteres.");
+    }
+
     const contadorSnap = await tx.get(contadorRef);
-    const proximoNumero = (contadorSnap.data()?.ultimo_codigo_gerado || 0) + 1;
+    const ultimo = contadorSnap.data()?.ultimo_codigo_gerado;
+    if (!Number.isInteger(ultimo) || ultimo < 0) throw new HttpsError("failed-precondition", "Contador de código de frasco inválido.");
+    const proximoNumero = ultimo + 1;
     const codigoFrasco = `LCQUI-${proximoNumero}`;
+    const chaveRef = admin.firestore().collection("Chaves_Unicas").doc(`Frasco_Reagente__${codigoFrasco}`);
+    const chaveSnap = await tx.get(chaveRef);
+    if (chaveSnap.exists) throw new HttpsError("already-exists", "Código de frasco já reservado.");
 
     tx.update(contadorRef, { ultimo_codigo_gerado: proximoNumero });
+    tx.create(chaveRef, {
+      tipo: "Frasco_Reagente",
+      id_recurso: frascoRef.id,
+      chave_recurso: codigoFrasco,
+      criado_em: FieldValue.serverTimestamp(),
+    });
     tx.set(frascoRef, {
+      id: frascoRef.id,
       id_almoxarifado: dados.idAlmoxarifado,
       id_lote: dados.idLote ?? null,
       id_resumo_reagente: dados.idResumoReagente,
-      id_especificacao_reagente: dados.idLote ? null : dados.idEspecificacaoReagente,
+      id_especificacao_reagente: dados.idEspecificacaoReagente,
       codigo_frasco: codigoFrasco,
-      conteudo_nominal: dados.volumeNominal,
+      conteudo_nominal: dados.volumeNominal ?? null,
       peso_no_cadastrado: dados.pesoTotal,
       peso_atual: dados.pesoTotal,
       peso_frasco_vazio: pesoVazio,
+      origem_tara: origemTara,
+      saldo_aferido_g: saldoG,
+      saldo_aferido_ml: saldoMl,
+      saldo_desconhecido: saldoDesconhecido,
       medida_usada: 0,
       estado_fisico_frasco: "FECHADO",
       disponibilidade: "DISPONIVEL",
-      validade_fechado: validadeEfetiva,
+      validade_fechado: validadeFechado,
       validade_efetiva: validadeEfetiva,
       validade_desconhecida: dados.validadeDesconhecida ?? false,
       vencido: venceuNoCadastro,
+      situacao_localizacao: "LOCALIZADO",
+      condicao_inicial_cadastro: "FECHADO",
+      abertura_historica_desconhecida: false,
+      eh_higroscopico: resumoSnap.data()?.eh_higroscopico === true,
       em_quarentena: venceuNoCadastro && dados.decisaoSeJaVencido === "QUARENTENA",
       uso_vencido_autorizado: venceuNoCadastro && dados.decisaoSeJaVencido === "DISPONIVEL",
       detalhe_status: venceuNoCadastro ? (dados.detalheStatus ?? (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE" ? "Frasco vencido aguardando processo institucional de descarte." : null)) : null,
@@ -82,7 +138,28 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
       cadastrado_por: request.auth!.uid,
     });
 
-    return { idFrasco: frascoRef.id, codigoFrasco, pesoVazioCalculado: pesoVazio, venceuNoCadastro };
+    if (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE") {
+      tx.create(admin.firestore().collection("Pendencias_Descarte_Frasco").doc(frascoRef.id), {
+        id_frasco: frascoRef.id,
+        origem: "QUARENTENA",
+        id_operacao_decisao: dados.idOperacao,
+        id_gestor_decisao: claims.uid,
+        motivo: dados.detalheStatus ?? "Frasco vencido aguardando processo institucional de descarte.",
+        criada_em: FieldValue.serverTimestamp(),
+      });
+    }
+
+    const historicoRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
+    tx.create(historicoRef, {
+      id_frasco_reagente: frascoRef.id,
+      id_almoxarifado: dados.idAlmoxarifado,
+      id_gestor: claims.uid,
+      tipo: "CADASTRO",
+      timestamp: FieldValue.serverTimestamp(),
+    });
+    const resultado = { idFrasco: frascoRef.id, codigoFrasco, pesoVazioCalculado: pesoVazio, venceuNoCadastro };
+    registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+    return resultado;
   });
 });
 

@@ -1,14 +1,18 @@
 import { z } from "zod";
+import { ID_OPERACAO_PATTERN } from "../idempotencia";
+
+const idOperacaoField = z.string().regex(ID_OPERACAO_PATTERN, "idOperacao inválido.");
 
 export const DecisaoFrascoVencidoSchema = z.enum(["QUARENTENA", "PENDENTE_DE_DESCARTE", "DISPONIVEL"]);
 
 export const CadastroFrascoFechadoSchema = z.object({
+  idOperacao: idOperacaoField,
   idResumoReagente: z.string().min(1, "O ID do resumo é obrigatório."),
   idEspecificacaoReagente: z.string().min(1, "A especificação do reagente é obrigatória."),
   idAlmoxarifado: z.string().min(1, "O almoxarifado é obrigatório."),
-  idLote: z.string().optional(),
+  idLote: z.string().nullable().optional(),
   pesoTotal: z.number().positive("O peso total deve ser positivo."),
-  volumeNominal: z.number().positive("O volume nominal deve ser positivo."),
+  volumeNominal: z.number().positive("O volume nominal deve ser positivo.").nullable().optional(),
   validadeFechado: z.string().optional(),
   validadeDesconhecida: z.boolean().optional(),
   decisaoSeJaVencido: DecisaoFrascoVencidoSchema.optional(),

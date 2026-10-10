@@ -256,6 +256,7 @@ export default function GestorAlmoxarifadoDashboard() {
   const [selectedResumo, setSelectedResumo] = useState<any>(null);
   const [selectedEspec, setSelectedEspec] = useState<any>(null);
   const [selectedLote, setSelectedLote] = useState<any>(null);
+  const [idAlmoxarifado, setIdAlmoxarifado] = useState<string>();
 
   const [filtroLetra, setFiltroLetra] = useState<string>("");
   const [filtroEstado, setFiltroEstado] = useState<string>("");
@@ -268,6 +269,13 @@ export default function GestorAlmoxarifadoDashboard() {
   const isChefe = roles.includes("Chefe_Geral");
   const isGestorAlmox = roles.includes("Gestor_Almoxarifado");
   const hasManagementAccess = isChefe || isGestorAlmox;
+
+  useEffect(() => {
+    if (!user || !isGestorAlmox) return;
+    void getDocs(query(collection(db, "Gestor_Almoxarifado_x_Almoxarifado"), where("id_gestor_almoxarifado", "==", user.uid), limit(1)))
+      .then((snapshot) => setIdAlmoxarifado(snapshot.docs[0]?.data().id_almoxarifado as string | undefined))
+      .catch(() => setIdAlmoxarifado(undefined));
+  }, [user, isGestorAlmox]);
 
   const searchFirestore = async () => {
     if (!filtroLetra && !filtroEstado && !filtroNatureza) {
@@ -533,7 +541,7 @@ export default function GestorAlmoxarifadoDashboard() {
           
           <ModalNovaEspecificacao isOpen={isNovaEspecOpen} onClose={() => setIsNovaEspecOpen(false)} onSuccess={() => {}} idResumoReagente={selectedResumo?.id} />
           <ModalNovoLote isOpen={isNovoLoteOpen} onClose={() => setIsNovoLoteOpen(false)} onSuccess={() => {}} idResumoReagente={selectedResumo?.id} idEspecificacaoReagente={selectedEspec?.id} />
-          <ModalEntradaFrasco isOpen={isAdicionarFrascoOpen} onClose={() => setIsAdicionarFrascoOpen(false)} onSuccess={() => {}} idResumoReagente={selectedResumo?.id} idEspecificacaoReagente={selectedEspec?.id} />
+          <ModalEntradaFrasco isOpen={isAdicionarFrascoOpen} onClose={() => setIsAdicionarFrascoOpen(false)} onSuccess={() => {}} idResumoReagente={selectedResumo?.id} idEspecificacaoReagente={selectedEspec?.id} idAlmoxarifado={idAlmoxarifado} />
           <ModalRegistrarRetirada isOpen={isRetiradaOpen} onClose={() => setIsRetiradaOpen(false)} />
           <ModalDevolucaoFrasco isOpen={isDevolucaoOpen} onClose={() => setIsDevolucaoOpen(false)} frascoId="" />
           <ModalAlmoxarifado key={`modal-almox-${almoxSelecionado?.id ?? "novo"}`} isOpen={isAlmoxOpen} onClose={() => setIsAlmoxOpen(false)} onSuccess={() => setIsAlmoxOpen(false)} item={almoxSelecionado} />
