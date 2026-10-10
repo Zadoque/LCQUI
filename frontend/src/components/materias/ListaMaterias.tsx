@@ -3,12 +3,9 @@
 import React, { useEffect, useState } from "react";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
+import type { MateriaItem } from "@/types/cadastros";
 
-export interface MateriaItem {
-  id: string;
-  nome: string;
-  codigo: string;
-}
+export type { MateriaItem };
 
 interface ListaMateriasProps {
   modo: "listagem" | "selecao";

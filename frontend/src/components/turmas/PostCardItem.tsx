@@ -1,21 +1,10 @@
 import React from "react";
 import { Trash2, Edit, ChevronDown, ChevronUp } from "lucide-react";
 import ComentariosPost from "./ComentariosPost";
-import { RoteiroAnexoCard, type RoteiroAnexo } from "./RoteiroAnexoCard";
-import type { RoteiroProjecao } from "./NovoPostForm";
+import { RoteiroAnexoCard } from "./RoteiroAnexoCard";
+import type { Post, RoteiroAnexo, RoteiroProjecao } from "@/types/turmas";
 
-export interface Post {
-  id: string;
-  titulo: string;
-  descricao: string;
-  criado_em: any;
-  id_professor: string;
-  nome_professor?: string;
-  id_roteiro_experimento?: string | null;
-  roteiro_anexo?: RoteiroAnexo | null;
-  removido_da_apresentacao?: boolean;
-  editado?: boolean;
-}
+export type { Post };
 
 interface PostCardItemProps {
   post: Post;

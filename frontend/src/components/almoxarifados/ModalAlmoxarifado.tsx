@@ -7,10 +7,9 @@ import { ListaLocais } from "@/components/patrimonio/ListaLocais";
 import { NovaLocalModal } from "@/components/patrimonio/NovaLocalModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { obterIntencaoPersistida, limparIntencao, chaveIntencaoAlmoxarifado, assinaturaIntencaoAlmoxarifado } from "@/lib/intencaoOperacao";
-import type { AlmoxarifadoItem } from "./ListaAlmoxarifados";
+import type { AlmoxarifadoItem, GestorAlmoxarifado as Gestor } from "@/types/cadastros";
 
 interface Props { isOpen: boolean; onClose: () => void; onSuccess: () => void; item?: AlmoxarifadoItem; }
-interface Gestor { id: string; nome: string; }
 export function ModalAlmoxarifado({ isOpen, onClose, onSuccess, item }: Props) {
   const { user } = useAuth();
   const [nome, setNome] = useState(item?.nome ?? ""); const [descricao, setDescricao] = useState(item?.descricao ?? ""); const [idLocal, setIdLocal] = useState(item?.id_local ?? ""); const [gestores, setGestores] = useState<string[]>([]); const [opcoes, setOpcoes] = useState<Gestor[]>([]); const [ativo, setAtivo] = useState(item?.ativo ?? false); const [erro, setErro] = useState(""); const [novoLocal, setNovoLocal] = useState(false); const [loading, setLoading] = useState(false);

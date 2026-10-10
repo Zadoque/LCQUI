@@ -1,26 +1,14 @@
 import React from "react";
 import { ShieldAlert, Flag, Edit } from "lucide-react";
+import type { ComentarioItem, VisaoComentario } from "@/types/turmas";
 
-export interface ComentarioItem {
-  id: string;
-  id_usuario: string;
-  nome_usuario: string;
-  texto: string | null;
-  criado_em: { toDate: () => Date } | null;
-  editado: boolean;
-  editado_em: unknown;
-  moderado: boolean;
-  motivo_moderacao?: string | null;
-  moderado_por?: string | null;
-  moderado_em?: unknown;
-  aviso_institucional?: string | null;
-}
+export type { ComentarioItem };
 
 interface ComentarioItemRowProps {
   comentario: ComentarioItem;
   currentUserId?: string;
   isProfessor: boolean;
-  visao: "AUTOR" | "COLEGA" | "AUDITOR" | null;
+  visao: VisaoComentario | null;
   moderandoId: string | null;
   motivoModeracao: string;
   onMotivoModeracaoChange: (v: string) => void;

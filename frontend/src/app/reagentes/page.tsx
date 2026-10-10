@@ -3,8 +3,9 @@
 import React, { useState, Suspense } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useSearchParams } from "next/navigation";
-import { ListaAlmoxarifados, type AlmoxarifadoItem } from "@/components/almoxarifados/ListaAlmoxarifados";
+import { ListaAlmoxarifados } from "@/components/almoxarifados/ListaAlmoxarifados";
 import { EstoqueSnapshotCard } from "@/components/reagentes/EstoqueSnapshotCard";
+import type { AlmoxarifadoItem } from "@/types/cadastros";
 import { ReagentesActionBar } from "@/components/reagentes/ReagentesActionBar";
 import { ReagentesFiltros } from "@/components/reagentes/ReagentesFiltros";
 import { CatalogoReagentesTable } from "@/components/reagentes/CatalogoReagentesTable";

@@ -5,8 +5,9 @@ import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "@/lib/firebase/config";
 import { obterIntencaoPersistida, limparIntencao, chaveIntencaoAlmoxarifado, assinaturaIntencaoAlmoxarifado, type AcaoAlmoxarifado } from "@/lib/intencaoOperacao";
+import type { AlmoxarifadoItem } from "@/types/cadastros";
 
-export interface AlmoxarifadoItem { id: string; id_local: string; nome: string; descricao: string; ativo: boolean; qtd_gestores_ativos: number; }
+export type { AlmoxarifadoItem };
 interface Props { onNovo: () => void; onEditar: (item: AlmoxarifadoItem) => void; onGerenciar: (item: AlmoxarifadoItem) => void; }
 
 export function ListaAlmoxarifados({ onNovo, onEditar, onGerenciar }: Props) {

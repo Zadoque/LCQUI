@@ -2,6 +2,8 @@
 // Tipos de Bens Patrimoniais — Modelados conforme main.tex Seção 4
 // ===================================================================
 
+import type { Timestamp } from "firebase/firestore";
+
 // Seção 4.9: Resumo_Bem_Patrimonial
 export interface ResumoBemPatrimonial {
   id: string;
@@ -78,3 +80,30 @@ export interface RequisicaoAdicaoBemPatrimonial {
 
 // Alias de retrocompatibilidade (usado por componentes antigos)
 export type RequisicaoProfessor = RequisicaoEdicaoBemPatrimonial;
+
+/**
+ * Registro de histórico e auditoria de versão de bem patrimonial (M10).
+ */
+export interface HistoricoPatrimonioItem {
+  id: string;
+  id_bem_patrimonial?: string;
+  versao?: number;
+  tipo?: string;
+  id_usuario?: string;
+  timestamp?: Timestamp | { toDate?: () => Date } | null;
+  modificado_em?: Timestamp | { toDate?: () => Date } | null;
+  modificado_por?: string;
+  status?: string;
+  estado_conservacao?: string;
+  nome_responsavel_sei?: string;
+  id_local?: string;
+  predio?: string | null;
+  andar?: string | null;
+  sala?: string | null;
+  justificativa?: string;
+  motivo_alteracao?: string;
+  tipo_registro?: string;
+  documento_dado_baixa_pdf_url?: string;
+  alteracoes?: Array<{ campo: string; valor_anterior: unknown; valor_novo: unknown }>;
+}
+export type HistoricoItem = HistoricoPatrimonioItem;

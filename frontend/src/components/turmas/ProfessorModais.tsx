@@ -21,6 +21,8 @@ import {
   assinaturaIntencaoEmitirUrl,
 } from "@/lib/intencaoOperacao";
 import { construirPayloadConvidarAluno } from "@/lib/convitesPayload.mjs";
+import type { RoteiroProjecao } from "@/types/turmas";
+import type { ProfessorProjecao } from "@/types/usuarios";
 
 interface ModalProps {
   isOpen: boolean;
@@ -738,20 +740,6 @@ export function NovoRoteiroModal({ isOpen, onClose }: ModalProps) {
   );
 }
 
-interface RoteiroProjecao {
-  id: string;
-  nome: string;
-  descricao: string;
-  file_url?: string | null;
-  status: string;
-  professores_compartilhados: string[];
-}
-
-interface ProfessorProjecao {
-  uid: string;
-  nome: string;
-  ativo: boolean;
-}
 
 export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
   const { user } = useAuth();

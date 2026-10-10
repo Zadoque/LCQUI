@@ -6,7 +6,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
-import { BemPatrimonial } from "@/types/patrimonio";
+import type { BemPatrimonial } from "@/types/patrimonio";
 import { ModalBaixaPatrimonial } from "@/components/patrimonio/ModalBaixaPatrimonial";
 import { HistoricoPatrimonioList } from "@/components/patrimonio/HistoricoPatrimonioList";
 import { ModalPropostaAlteracaoBem } from "@/components/patrimonio/ModalPropostaAlteracaoBem";

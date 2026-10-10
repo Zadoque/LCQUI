@@ -3,15 +3,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase/config";
 import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
 import { TurmasArquivadasModal } from "./ProfessorModais";
+import type { Turma } from "@/types/turmas";
 
-export interface Turma {
-  id: string;
-  nome_turma: string;
-  codigo_turma?: string;
-  nome_materia?: string;
-  status?: string;
-  id_professor?: string;
-}
+export type { Turma };
 
 interface SidebarTurmasProps {
   turmaSelecionada: Turma | null;

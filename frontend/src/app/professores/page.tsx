@@ -7,17 +7,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { NovaMateriaModal } from "@/components/materias/NovaMateriaModal";
 import { ListaMaterias } from "@/components/materias/ListaMaterias";
-
-interface Professor {
-  id: string;
-  nome: string;
-}
-
-interface UsuarioSelecionavel {
-  id: string;
-  nome: string;
-  papeis: string[];
-}
+import type { Professor, UsuarioSelecionavel } from "@/types/usuarios";
 
 export default function ProfessoresDashboard() {
   const { roles } = useAuth();
@@ -240,7 +230,7 @@ export default function ProfessoresDashboard() {
                       <option value="">Convidar por e-mail</option>
                       {usuariosSelecionaveis.map((usuario) => (
                         <option key={usuario.id} value={usuario.id}>
-                          {usuario.nome} — {usuario.papeis.join(", ") || "sem papel"}
+                          {usuario.nome} — {usuario.papeis?.join(", ") || "sem papel"}
                         </option>
                       ))}
                     </select>

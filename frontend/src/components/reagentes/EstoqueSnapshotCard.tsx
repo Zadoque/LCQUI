@@ -2,17 +2,9 @@
 
 import React from "react";
 
-export interface EstoqueSnapshot {
-  qtd_aptos: number;
-  qtd_total: number;
-  qtd_emprestados: number;
-  qtd_saldo_desconhecido: number;
-  massa_aferida_g: number | null;
-  volume_aferido_ml: number | null;
-  idadeMs?: number;
-  fonte?: string;
-  calculadoEm?: Date;
-}
+import type { EstoqueSnapshot } from "@/types/reagentes";
+
+export type { EstoqueSnapshot };
 
 export interface EstoqueSnapshotCardProps {
   snapshot: EstoqueSnapshot | null;

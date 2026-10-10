@@ -7,14 +7,9 @@ import {
   chaveIntencaoEmitirUrl,
   assinaturaIntencaoEmitirUrl,
 } from "@/lib/intencaoOperacao";
+import type { RoteiroAnexo } from "@/types/turmas";
 
-export interface RoteiroAnexo {
-  id_roteiro: string;
-  nome_arquivo: string;
-  tamanho_bytes: number;
-  storage_path: string;
-  geracao: string;
-}
+export type { RoteiroAnexo };
 
 interface RoteiroAnexoCardProps {
   anexo: RoteiroAnexo;

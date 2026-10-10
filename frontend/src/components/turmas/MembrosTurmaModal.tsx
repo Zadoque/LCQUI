@@ -10,16 +10,12 @@ import {
   assinaturaMembro,
   limparIntencao,
 } from "@/lib/intencaoOperacao";
+import type { MembroTurma as Membro } from "@/types/turmas";
 
 interface MembrosTurmaModalProps {
   isOpen: boolean;
   onClose: () => void;
   idTurma: string | undefined;
-}
-
-interface Membro {
-  id: string;
-  nome: string;
 }
 
 export function MembrosTurmaModal({ isOpen, onClose, idTurma }: MembrosTurmaModalProps) {

@@ -1,7 +1,9 @@
 "use client";
 
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { NotificacaoItem, buildDeepLink, mensagemContextual, filtrarNaoLidasAtivas, isNotificacaoExpirada, ROTULO_TIPO } from "@/components/layout/NotificacoesDropdown";
+import type { NotificacaoItem } from "@/types/notificacoes";
+import { ROTULO_TIPO_NOTIFICACAO as ROTULO_TIPO } from "@/types/notificacoes";
+import { buildDeepLink, mensagemContextual, filtrarNaoLidasAtivas, isNotificacaoExpirada } from "@/components/layout/NotificacoesDropdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase/config";
 import { collection, onSnapshot, query, where } from "firebase/firestore";

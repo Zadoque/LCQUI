@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
+import type { HistoricoAlunoTurmaEntry as HistoricoEntry } from "@/types/turmas";
 
 interface HistoricoAlunoTurmaModalProps {
   isOpen: boolean;
@@ -10,12 +11,6 @@ interface HistoricoAlunoTurmaModalProps {
   idAluno: string;
   nomeAluno: string;
   idTurma: string;
-}
-
-interface HistoricoEntry {
-  id: string;
-  tipo: string;
-  timestamp: any;
 }
 
 export function HistoricoAlunoTurmaModal({ isOpen, onClose, idAluno, nomeAluno, idTurma }: HistoricoAlunoTurmaModalProps) {

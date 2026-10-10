@@ -19,19 +19,7 @@ import {
   construirPayloadAcessoConvite,
   construirPayloadRejeitarConvite,
 } from "@/lib/convitesPayload.mjs";
-
-interface DetalhesConvite {
-  idConvite: string;
-  status: string;
-  expira_em: string;
-  id_turma: string | null;
-  nome_turma: string | null;
-  nome_professor: string | null;
-  convidado_por_nome: string | null;
-  contexto_convidador: "Professor" | "Chefe_Geral";
-  exceder_capacidade: boolean;
-  matricula_necessaria: boolean;
-}
+import type { DetalhesConvite } from "@/types/turmas";
 
 function ConviteConteudo() {
   const searchParams = useSearchParams();

@@ -14,12 +14,7 @@ import {
   assinaturaMembro,
   limparIntencao,
 } from "@/lib/intencaoOperacao";
-
-interface Aluno {
-  id: string;
-  nome: string;
-  ativo: boolean;
-}
+import type { Aluno } from "@/types/usuarios";
 
 export default function AlunosDashboard() {
   const { user, roles } = useAuth();

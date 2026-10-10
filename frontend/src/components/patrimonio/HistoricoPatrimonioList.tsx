@@ -4,15 +4,9 @@ import React, { useEffect, useState } from "react";
 import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 
-export interface HistoricoItem {
-  id: string;
-  tipo?: string;
-  id_usuario?: string;
-  timestamp?: any;
-  justificativa?: string;
-  documento_dado_baixa_pdf_url?: string;
-  alteracoes?: Array<{ campo: string; valor_anterior: any; valor_novo: any }>;
-}
+import type { HistoricoPatrimonioItem as HistoricoItem } from "@/types/patrimonio";
+
+export type { HistoricoItem };
 
 export function HistoricoPatrimonioList({ idBemPatrimonial }: { idBemPatrimonial: string }) {
   const [historico, setHistorico] = useState<HistoricoItem[]>([]);

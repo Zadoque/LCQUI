@@ -18,7 +18,7 @@ import {
 import { NovaMateriaModal } from "@/components/materias/NovaMateriaModal";
 import { ModalAlmoxarifado } from "@/components/almoxarifados/ModalAlmoxarifado";
 import { GerenciarGestoresAlmoxarifadoModal } from "@/components/almoxarifados/GerenciarGestoresAlmoxarifadoModal";
-import type { AlmoxarifadoItem } from "@/components/almoxarifados/ListaAlmoxarifados";
+import type { AlmoxarifadoItem } from "@/types/cadastros";
 
 interface ReagentesModaisManagerProps {
   uid?: string;

@@ -1,12 +1,8 @@
 import React from "react";
 import { FileText } from "lucide-react";
+import type { RoteiroProjecao } from "@/types/turmas";
 
-export interface RoteiroProjecao {
-  id: string;
-  nome: string;
-  status: string;
-  referencia?: { storage_path?: string } | null;
-}
+export type { RoteiroProjecao };
 
 interface NovoPostFormProps {
   titulo: string;

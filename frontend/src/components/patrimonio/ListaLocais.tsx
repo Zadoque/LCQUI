@@ -3,13 +3,9 @@
 import React, { useEffect, useState } from "react";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
+import type { LocalItem } from "@/types/cadastros";
 
-export interface LocalItem {
-  id: string;
-  predio: string;
-  andar: string;
-  sala: string;
-}
+export type { LocalItem };
 
 interface ListaLocaisProps {
   modo: "listagem" | "selecao";

@@ -12,13 +12,7 @@ import {
   assinaturaIntencaoLocal,
   type CamposIntencaoLocal,
 } from "@/lib/intencaoOperacao";
-
-interface LocalEditavel {
-  id: string;
-  predio: string;
-  andar: string;
-  sala: string;
-}
+import type { LocalEditavel } from "@/types/cadastros";
 
 interface NovaLocalModalProps {
   isOpen: boolean;

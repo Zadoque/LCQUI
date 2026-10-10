@@ -8,22 +8,11 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import { Bell, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type { NotificacaoItem } from "@/types/notificacoes";
+import { ROTULO_TIPO_NOTIFICACAO } from "@/types/notificacoes";
 
-export interface NotificacaoItem {
-  id: string;
-  tipo: string;
-  papel_destinatario: string;
-  id_destinatario: string;
-  id_alvo: string;
-  entidade_alvo?: string | null;
-  id_turma?: string | null;
-  id_quem_fez_acao?: string | null;
-  lida: boolean;
-  lida_em?: Timestamp | null;
-  emitida_em?: Timestamp | null;
-  expira_em?: Timestamp | null;
-  mensagem_customizada?: string | null;
-}
+export type { NotificacaoItem };
+export const ROTULO_TIPO = ROTULO_TIPO_NOTIFICACAO;
 
 // Tipos acadêmicos V1 com mensagem contextual (RN-M13-07: exigem id_turma)
 const TIPOS_ACADEMICOS_V1 = new Set([
@@ -35,31 +24,6 @@ const TIPOS_ACADEMICOS_V1 = new Set([
   "TURMA_DESARQUIVADA",
   "CONVITE_PARA_TURMA",
 ]);
-
-/** Rótulos legíveis para os tipos V1 ativos. */
-export const ROTULO_TIPO: Record<string, string> = {
-  POST: "Nova postagem",
-  COMENTARIO: "Novo comentário",
-  ADICIONADO: "Adicionado à turma",
-  REMOVIDO: "Removido da turma",
-  TURMA_ARQUIVADA: "Turma arquivada",
-  TURMA_DESARQUIVADA: "Turma desarquivada",
-  ROTEIRO_COMPARTILHADO: "Roteiro compartilhado",
-  CONVITE_PARA_TURMA: "Convite para turma",
-  REQUISICAO_EDICAO_BEM: "Requisição de edição de bem",
-  REQUISICAO_ADICAO_BEM: "Requisição de adição de bem",
-  REQUISICAO_BEM: "Requisição de bem",
-  BEM_INSERVIVEL: "Bem inservível",
-  DATA_DEVOLUCAO_REAGENTE: "Data de devolução",
-  ENTREGA_ATRASADA: "Entrega atrasada",
-  FRASCOS_VAZIOS: "Frascos vazios",
-  FRASCOS_QUEBRADOS: "Frascos quebrados",
-  FRASCOS_VENCIDOS: "Frascos vencidos",
-  FRASCOS_A_SEREM_PESADOS: "Frascos a serem pesados",
-  FRASCOS_EM_QUARENTENA: "Frascos em quarentena",
-  ESCASSEZ_ESTOQUE: "Escassez no estoque",
-  AUTO_ATENDIMENTO_RETIRADA: "Autoatendimento — retirada",
-};
 
 export function isNotificacaoExpirada(expira_em_ms: number | null | undefined, agora_ms: number): boolean {
   if (!expira_em_ms) return false;

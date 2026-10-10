@@ -11,16 +11,7 @@ import {
   chaveIntencaoStatusTurma,
   assinaturaStatusTurma,
 } from "@/lib/intencaoOperacao";
-import type { Post } from "@/components/turmas/PostCardItem";
-import type { RoteiroProjecao } from "@/components/turmas/NovoPostForm";
-
-interface Turma {
-  id: string;
-  nome_turma: string;
-  codigo_turma?: string;
-  status?: string;
-  id_professor?: string;
-}
+import type { Turma, Post, RoteiroProjecao } from "@/types/turmas";
 
 export function useFeedTurma(turma: Turma | null) {
   const { user, roles } = useAuth();

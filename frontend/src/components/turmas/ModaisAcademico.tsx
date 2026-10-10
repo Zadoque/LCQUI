@@ -14,6 +14,8 @@ import {
   assinaturaIngressar,
   CHAVE_INTENCAO_CRIAR_TURMA,
 } from "@/lib/intencaoOperacao";
+import type { MateriaItem } from "@/types/cadastros";
+import type { UsuarioSelecionavel } from "@/types/usuarios";
 
 interface NovaTurmaModalProps {
   isOpen: boolean;
@@ -35,8 +37,8 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
   const isChefeGeral = roles.includes("Chefe_Geral");
   
   // Data states
-  const [professores, setProfessores] = useState<{id: string, nome: string}[]>([]);
-  const [materiasDb, setMateriasDb] = useState<{id: string, nome: string, codigo: string}[]>([]);
+  const [professores, setProfessores] = useState<UsuarioSelecionavel[]>([]);
+  const [materiasDb, setMateriasDb] = useState<MateriaItem[]>([]);
   const [profMateriasRel, setProfMateriasRel] = useState<{id_materia: string}[]>([]);
   
   // Selection states

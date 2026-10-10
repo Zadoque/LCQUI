@@ -7,7 +7,7 @@ import ModalRelatoriosPatrimonio from "@/components/patrimonio/ModalRelatoriosPa
 import { ModalNovoBem, ModalNotificacoesPatrimonio } from "@/components/patrimonio/ModaisPatrimonio";
 import { ListaLocais } from "@/components/patrimonio/ListaLocais";
 import { NovaLocalModal } from "@/components/patrimonio/NovaLocalModal";
-import type { LocalItem } from "@/components/patrimonio/ListaLocais";
+import type { LocalItem } from "@/types/cadastros";
 import { usePatrimonioSearch } from "@/hooks/usePatrimonioSearch";
 import { PatrimonioActionBar } from "@/components/patrimonio/PatrimonioActionBar";
 import { PatrimonioFiltros } from "@/components/patrimonio/PatrimonioFiltros";

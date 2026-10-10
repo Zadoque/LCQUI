@@ -4,11 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { functions } from "@/lib/firebase/config";
+import type { Pessoa, DetalhesUsuario as Detalhes, Papel } from "@/types/usuarios";
 
 const PAPEIS = ["Aluno", "Bolsista", "Professor", "Gestor_Almoxarifado", "Gestor_Bens_Patrimoniais"] as const;
-type Papel = typeof PAPEIS[number];
-type Pessoa = { id: string; nome: string; papeis: string[] };
-type Detalhes = { dados: { id: string; nome: string; email: string | null; ativo: boolean; versao_permissoes: number }; papeis: string[]; turmas: Array<{ id: string; [key: string]: unknown }>; atividade: Array<{ id: string; acao?: string }> };
 
 export default function PessoasPage() {
   const [pessoas, setPessoas] = useState<Pessoa[]>([]);

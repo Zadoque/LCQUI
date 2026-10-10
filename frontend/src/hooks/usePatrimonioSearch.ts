@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { collection, getDocs, query, where, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
-import { BemPatrimonial } from "@/types/patrimonio";
+import type { BemPatrimonial } from "@/types/patrimonio";
 
 export function usePatrimonioSearch() {
   const [bens, setBens] = useState<BemPatrimonial[]>([]);

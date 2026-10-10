@@ -3,8 +3,7 @@ import { collection, getDocs, query, where, limit } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "@/lib/firebase/config";
 import { useAuth } from "@/contexts/AuthContext";
-import { ResumoReagente } from "@/types/reagentes";
-import type { EstoqueSnapshot } from "@/components/reagentes/EstoqueSnapshotCard";
+import type { ResumoReagente, EstoqueSnapshot } from "@/types/reagentes";
 
 export function useReagentesData(abaParam: string = "catalogo") {
   const { roles, user } = useAuth();

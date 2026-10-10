@@ -4,14 +4,7 @@ import { PostCardItem } from "./PostCardItem";
 import { ModalRemoverPost } from "./ModalRemoverPost";
 import { ModalArquivarTurmaDialog } from "./ModalArquivarTurmaDialog";
 import { useFeedTurma } from "@/hooks/useFeedTurma";
-
-interface Turma {
-  id: string;
-  nome_turma: string;
-  codigo_turma?: string;
-  status?: string;
-  id_professor?: string;
-}
+import type { Turma } from "@/types/turmas";
 
 interface FeedTurmaProps {
   turma: Turma | null;
