@@ -5,6 +5,11 @@ import { validatePayload } from "./utils/validation";
 import { GerenciarMateriaSchema, GerenciarMateria } from "./schemas/materias.schema";
 import { extrairClaimsAutoridade, resolverAutoridadePersistidaTx } from "./auth";
 import { chaveMateria as derivarChaveMateria, normalizarCodigoMateria } from "./chaves";
+import {
+  construirIdentidade,
+  registrarOperacaoConcluidaTx,
+  resolverOperacaoTx,
+} from "./idempotencia";
 
 /** N(s) = s.trim().toUpperCase(): canonicalização única do código de matéria. */
 function normalizarCodigo(codigo: string): string {
@@ -21,7 +26,7 @@ function chaveMateria(codigoNormalizado: string) {
  * Contrato UI-03/MAT-01: nome (100) e código (10) não vazios; código com
  * canonicalização única e unicidade transacional em `Chaves_Unicas/Materia__N`;
  * edição mantém o ID e atualiza a projeção `Turma.nome_materia` (turmas não são
- * recriadas); autorização M9 persistida (Professor ou Chefe).
+ * recriadas); autorização M9 persistida (Professor ou Chefe). Suporta M7 com idOperacao.
  */
 export const gerenciarMateria = onCall(async (request) => {
   const claims = extrairClaimsAutoridade(request);
@@ -32,9 +37,28 @@ export const gerenciarMateria = onCall(async (request) => {
   const nome = dados.nome.trim();
   const chaveRef = chaveMateria(codigoNormalizado);
 
+  const identidade = dados.idOperacao
+    ? construirIdentidade(claims.uid, dados.acao === "CRIAR" ? "CRIAR_MATERIA" : "EDITAR_MATERIA", {
+        acao: dados.acao,
+        idMateria: dados.acao === "EDITAR" ? dados.idMateria : undefined,
+        nome,
+        codigoMateria: codigoNormalizado,
+      })
+    : null;
+
   return db.runTransaction(async (tx) => {
     // M9: autoridade persistida relida na transação do efeito.
     await resolverAutoridadePersistidaTx(tx, claims, ["Professor", "Chefe_Geral"]);
+
+    if (dados.idOperacao && identidade) {
+      const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+      if (decisao.estado === "REPLAY") {
+        return decisao.resultado as { id: string; nome: string; codigoMateria: string };
+      }
+      if (decisao.estado !== "NOVA") {
+        throw new HttpsError("failed-precondition", "Operação de matéria não concluída.");
+      }
+    }
 
     if (dados.acao === "CRIAR") {
       const chave = await tx.get(chaveRef);
@@ -53,7 +77,11 @@ export const gerenciarMateria = onCall(async (request) => {
         id_recurso: materiaRef.id,
         criado_em: FieldValue.serverTimestamp(),
       });
-      return { id: materiaRef.id, nome, codigoMateria: codigoNormalizado };
+      const resultado = { id: materiaRef.id, nome, codigoMateria: codigoNormalizado };
+      if (dados.idOperacao && identidade) {
+        registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+      }
+      return resultado;
     }
 
     // EDITAR: mantém o ID e não recria turmas; apenas atualiza projeção.
@@ -93,6 +121,10 @@ export const gerenciarMateria = onCall(async (request) => {
     for (const turma of turmas.docs) {
       tx.update(turma.ref, { nome_materia: nome });
     }
-    return { id: dados.idMateria, nome, codigoMateria: codigoNormalizado };
+    const resultado = { id: dados.idMateria, nome, codigoMateria: codigoNormalizado };
+    if (dados.idOperacao && identidade) {
+      registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+    }
+    return resultado;
   });
 });

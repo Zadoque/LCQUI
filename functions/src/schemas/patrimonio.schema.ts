@@ -44,13 +44,14 @@ export const CriarRequisicaoEdicaoBemSchema = z.object({
 });
 
 export const ResponderRequisicaoBemSchema = z.object({
-  idOperacao: IdOperacaoPatrimonioSchema,
+  idOperacao: IdOperacaoPatrimonioSchema.optional(),
   idRequisicao: z.string().min(1, "ID da requisição é obrigatório."),
   aprovar: z.boolean(),
   justificativa: z.string().trim().min(1, "Justificativa é obrigatória.")
 });
 
 export const CriarRequisicaoAdicaoBemSchema = z.object({
+  idOperacao: IdOperacaoPatrimonioSchema.optional(),
   numeroPatrimonioProposto: z.string().trim().min(1, "O número de patrimônio proposto é obrigatório.").max(30),
   estadoConservacaoProposto: z.enum(["BOM", "REGULAR", "RUIM"]),
   idLocal: z.string().min(1, "O ID do local é obrigatório."),

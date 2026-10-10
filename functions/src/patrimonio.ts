@@ -230,14 +230,18 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
 
   return admin.firestore().runTransaction(async (tx) => {
     await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
-    const identidade = construirIdentidade(claims.uid, "RESPONDER_REQUISICAO_EDICAO_BEM", {
-      idRequisicao,
-      aprovar,
-      justificativa,
-    });
-    const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
-    if (decisao.estado === "REPLAY") return decisao.resultado;
-    if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de resposta não concluída.");
+    const identidade = idOperacao
+      ? construirIdentidade(claims.uid, "RESPONDER_REQUISICAO_EDICAO_BEM", {
+          idRequisicao,
+          aprovar,
+          justificativa,
+        })
+      : null;
+    if (idOperacao && identidade) {
+      const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+      if (decisao.estado === "REPLAY") return decisao.resultado;
+      if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de resposta não concluída.");
+    }
     const reqSnap = await tx.get(reqRef);
     if (!reqSnap.exists) throw new HttpsError("not-found", "Requisição não encontrada.");
     const req = reqSnap.data()!;
@@ -276,9 +280,11 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
         entidade_alvo: "Requisicao_Bem",
         id_alvo: idRequisicao,
         mensagem_customizada: mensagem,
-      }, `patrimonio_${idOperacao}_${req.id_usuario_solicitante}`);
+      }, idOperacao ? `patrimonio_${idOperacao}_${req.id_usuario_solicitante}` : undefined);
       const resultado = { status, ...(motivo ? { motivo } : {}) };
-      registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+      if (idOperacao && identidade) {
+        registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+      }
       return resultado;
     };
 
@@ -382,8 +388,29 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
   const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(lockId);
   const reqRef  = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc();
 
+  const identidade = dados.idOperacao
+    ? construirIdentidade(claims.uid, "CRIAR_REQUISICAO_ADICAO_BEM", {
+        numeroPatrimonioProposto: dados.numeroPatrimonioProposto,
+        estadoConservacaoProposto: dados.estadoConservacaoProposto,
+        idLocal: dados.idLocal,
+        photoUrlProposta: dados.photoUrlProposta,
+        nomeResponsavelProposto: dados.nomeResponsavelProposto,
+        idResumoBemPatrimonial: dados.idResumoBemPatrimonial,
+        nomeResumoProposto: dados.nomeResumoProposto,
+        descricaoResumoProposta: dados.descricaoResumoProposta,
+        motivo: dados.motivo,
+      })
+    : null;
+
   return admin.firestore().runTransaction(async (tx) => {
     await resolverAutoridadePersistidaTx(tx, claims, ["Professor"]);
+
+    if (dados.idOperacao && identidade) {
+      const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+      if (decisao.estado === "REPLAY") return decisao.resultado as { idRequisicao: string };
+      if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de criação não concluída.");
+    }
+
     const lockSnap = await tx.get(lockRef);
     const chaveSnap = await tx.get(chavePlaqueta(numeroNormalizado));
     const bemSnap = await tx.get(admin.firestore().collection("Bem_Patrimonial")
@@ -434,13 +461,17 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
       });
     });
 
-    return { idRequisicao: reqRef.id };
+    const resultado = { idRequisicao: reqRef.id };
+    if (dados.idOperacao && identidade) {
+      registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+    }
+    return resultado;
   });
 });
 
 export const responderRequisicaoAdicaoBem = onCall(async (request) => {
   const claims = extrairClaimsAutoridade(request);
-  const { idRequisicao, aprovar, justificativa } = validatePayload(ResponderRequisicaoBemSchema, request.data);
+  const { idOperacao, idRequisicao, aprovar, justificativa } = validatePayload(ResponderRequisicaoBemSchema, request.data);
   const reqRef = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc(idRequisicao);
 
   if (aprovar) {
@@ -448,8 +479,23 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
     await validarFoto(reqPre.data()?.photo_url_proposta, reqPre.data()?.id_usuario_solicitante);
   }
 
+  const identidade = idOperacao
+    ? construirIdentidade(claims.uid, "RESPONDER_REQUISICAO_ADICAO_BEM", {
+        idRequisicao,
+        aprovar,
+        justificativa,
+      })
+    : null;
+
   return admin.firestore().runTransaction(async (tx) => {
     await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
+
+    if (idOperacao && identidade) {
+      const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+      if (decisao.estado === "REPLAY") return decisao.resultado as any;
+      if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de resposta não concluída.");
+    }
+
     const reqSnap = await tx.get(reqRef);
     if (!reqSnap.exists) throw new HttpsError("not-found", "Requisição não encontrada.");
     const req = reqSnap.data()!;
@@ -565,7 +611,11 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
       mensagem_customizada: justificativa,
     });
 
-    return { status: aprovar ? "aprovada" : "rejeitada", idBemCriado };
+    const resultado = { status: aprovar ? "aprovada" : "rejeitada", idBemCriado };
+    if (idOperacao && identidade) {
+      registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+    }
+    return resultado;
   });
 });
 
