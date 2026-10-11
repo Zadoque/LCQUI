@@ -2,6 +2,8 @@
 // Tipos de Bens Patrimoniais — Modelados conforme main.tex Seção 4
 // ===================================================================
 
+import type { Timestamp } from "firebase/firestore";
+
 // Seção 4.9: Resumo_Bem_Patrimonial
 export interface ResumoBemPatrimonial {
   id: string;
@@ -28,6 +30,7 @@ export interface BemPatrimonial {
   andar?: string;                  // derivado de Local.andar
   sala?: string;                   // derivado de Local.sala
   letra_inicial_nome?: string;     // derivado da primeira letra de nome_equipamento
+  versao?: number;                 // controle de versão de concorrência e histórico M10
 }
 
 // Seção 4.10: Requisicao_Edicao_Bem_Patrimonial
@@ -40,6 +43,8 @@ export interface RequisicaoEdicaoBemPatrimonial {
   id_usuario_solicitante: string;                                       // FK, NOT NULL
   id_usuario_respondente?: string | null;                               // FK, NULL
   novo_nome?: string | null;                                            // VARCHAR(150), NULL
+  nova_descricao_resumo?: string | null;
+  novo_id_resumo_bem_patrimonial?: string | null;
   novo_status?: "Ativo" | "Inservivel" | "Ja_dado_baixa" | null;       // ENUM, NULL
   novo_estado_conservacao?: "BOM" | "REGULAR" | "RUIM" | null;         // ENUM, NULL
   novo_id_local?: string | null;                                        // FK, NULL
@@ -50,6 +55,7 @@ export interface RequisicaoEdicaoBemPatrimonial {
   // Denormalizados (Seção 5.8, linha 1231)
   nome_equipamento?: string;
   numero_patrimonio?: string;
+  versao_bem_origem?: number;
 }
 
 // Seção 4.11: Requisicao_Adicao_Bem_Patrimonial
@@ -74,3 +80,30 @@ export interface RequisicaoAdicaoBemPatrimonial {
 
 // Alias de retrocompatibilidade (usado por componentes antigos)
 export type RequisicaoProfessor = RequisicaoEdicaoBemPatrimonial;
+
+/**
+ * Registro de histórico e auditoria de versão de bem patrimonial (M10).
+ */
+export interface HistoricoPatrimonioItem {
+  id: string;
+  id_bem_patrimonial?: string;
+  versao?: number;
+  tipo?: string;
+  id_usuario?: string;
+  timestamp?: Timestamp | { toDate?: () => Date } | null;
+  modificado_em?: Timestamp | { toDate?: () => Date } | null;
+  modificado_por?: string;
+  status?: string;
+  estado_conservacao?: string;
+  nome_responsavel_sei?: string;
+  id_local?: string;
+  predio?: string | null;
+  andar?: string | null;
+  sala?: string | null;
+  justificativa?: string;
+  motivo_alteracao?: string;
+  tipo_registro?: string;
+  documento_dado_baixa_pdf_url?: string;
+  alteracoes?: Array<{ campo: string; valor_anterior: unknown; valor_novo: unknown }>;
+}
+export type HistoricoItem = HistoricoPatrimonioItem;

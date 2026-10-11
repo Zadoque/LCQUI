@@ -27,7 +27,7 @@ test("renova o ID token antes de publicar papéis concedidos", async () => {
   const estado = await renovarEstadoAutenticacao({
     async getIdTokenResult(forceRefresh) {
       chamadas.push(forceRefresh);
-      return { claims: { roles: ["Aluno"] } };
+      return { claims: { roles: ["Aluno"], versao_permissoes: 1, ativo: true } };
     },
   });
 

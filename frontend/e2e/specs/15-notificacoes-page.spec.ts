@@ -5,10 +5,46 @@ import {
   abrirNotificacoes,
   esperarCallable,
 } from "../helpers/ui";
-import { listarColecao } from "../helpers/emulator";
+import { criarNotificacaoEmulada, listarColecao, removerDocumentoEmulado } from "../helpers/emulator";
 
 // E2E-NOTIF-004 — página dedicada /notificacoes (S8 UI-12)
 test.describe.serial("Notificações UI-12 — página dedicada", () => {
+  test("UI-004-E2E-001 deep link de roteiro abre o gerenciamento autorizado", async ({ page }) => {
+    await criarNotificacaoEmulada("seed-professor-alpha", "e2e-ui004-roteiro", {
+      tipo: "ROTEIRO_COMPARTILHADO",
+      idAlvo: "seed-roteiro-m12",
+      entidadeAlvo: "Roteiro",
+      mensagem: "Um roteiro foi compartilhado com você.",
+    });
+
+    try {
+      await login(page, "professor.alpha@lcqui.local");
+      await page.goto("/notificacoes");
+
+      const link = page.getByTestId("notif-link-e2e-ui004-roteiro");
+      await expect(link).toHaveAttribute("href", "/turmas?roteiros=1");
+      await link.click();
+      await page.waitForURL(/\/turmas\?roteiros=1/);
+      await expect(page.getByRole("heading", { name: "Gerenciar Roteiros" })).toBeVisible();
+    } finally {
+      await removerDocumentoEmulado("Usuarios/seed-professor-alpha/Notificacoes/e2e-ui004-roteiro");
+    }
+  });
+
+  test("UI-004-E2E-002 sinaliza notificações offline com dados autorizados em memória", async ({ page, guardaConsole }) => {
+    // A desconexão deliberada gera falhas de transporte esperadas no navegador;
+    // o estado visual offline continua sendo a asserção probatória.
+    guardaConsole.permitir(/Failed to load resource: net::ERR_INTERNET_DISCONNECTED/);
+    await login(page, "professor.alpha@lcqui.local");
+    await page.goto("/notificacoes");
+    await expect(page.getByTestId("pagina-notificacoes")).toBeVisible();
+
+    await page.context().setOffline(true);
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await expect(page.getByTestId("notificacoes-estado-offline")).toContainText("Você está offline");
+    await page.context().setOffline(false);
+  });
+
   let turmaArquivada = false;
 
   test("deve exibir a página /notificacoes com aba de não lidas e todas as notificações, permitir marcar como lida e restaurar turma arquivada", async ({

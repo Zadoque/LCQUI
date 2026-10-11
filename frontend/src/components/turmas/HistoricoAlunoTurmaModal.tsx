@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
+import { buscarHistoricoAlunoTurma } from "@/services/turmas/turmasService";
+import type { HistoricoAlunoTurmaEntry as HistoricoEntry } from "@/types/turmas";
 
 interface HistoricoAlunoTurmaModalProps {
   isOpen: boolean;
@@ -12,41 +12,34 @@ interface HistoricoAlunoTurmaModalProps {
   idTurma: string;
 }
 
-interface HistoricoEntry {
-  id: string;
-  tipo: string;
-  timestamp: any;
-}
-
 export function HistoricoAlunoTurmaModal({ isOpen, onClose, idAluno, nomeAluno, idTurma }: HistoricoAlunoTurmaModalProps) {
   const [historico, setHistorico] = useState<HistoricoEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+
+  const currentKey = isOpen && idTurma && idAluno ? `${idTurma}:${idAluno}` : null;
+  const loading = currentKey !== null && loadedKey !== currentKey;
 
   useEffect(() => {
     if (!isOpen || !idTurma || !idAluno) return;
     
-    const fetchHistorico = async () => {
-      setLoading(true);
-      try {
-        const q = query(
-          collection(db, "Turma", idTurma, "HistoricoAlunos"),
-          where("id_aluno", "==", idAluno),
-          orderBy("timestamp", "desc")
-        );
-        const snap = await getDocs(q);
-        const lista = snap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as HistoricoEntry[];
-        setHistorico(lista);
-      } catch (error) {
+    let cancelado = false;
+    buscarHistoricoAlunoTurma(idTurma, idAluno)
+      .then((lista) => {
+        if (!cancelado) {
+          setHistorico(lista);
+          setLoadedKey(`${idTurma}:${idAluno}`);
+        }
+      })
+      .catch((error) => {
         console.error("Erro ao buscar histórico:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+        if (!cancelado) {
+          setLoadedKey(`${idTurma}:${idAluno}`);
+        }
+      });
 
-    fetchHistorico();
+    return () => {
+      cancelado = true;
+    };
   }, [isOpen, idTurma, idAluno]);
 
   if (!isOpen) return null;

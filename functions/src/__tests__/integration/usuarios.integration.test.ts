@@ -6,7 +6,7 @@ process.env.FUNCTIONS_EMULATOR = "true";
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { CallableRequest } from "firebase-functions/v2/https";
-import { convidarUsuario, revogarUsuarioPapel, atualizarPerfil, buscarProfessores } from "../../usuarios";
+import { convidarUsuario, revogarUsuarioPapel, atualizarPerfil, buscarProfessores, buscarUsuariosParaPapel, obterDetalhesUsuarioParaPapel } from "../../usuarios";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -37,6 +37,12 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
   beforeEach(async () => {
     await db.collection("Usuarios").doc("chefe123").set({ ativo: true, versao_permissoes: 1 });
     await db.collection("Chefe_Geral").doc("chefe123").set({ id_usuario: "chefe123" });
+    await Promise.all([
+      "op-revogar-aluno-1",
+      "op-m7-receipt-1",
+      "op-m7-replay-1",
+      "op-m7-reuso-1",
+    ].map(id => db.collection("Operacoes").doc(id).delete()));
   });
 
   it("deve bloquear a atribuição de Professor para um usuário que já é Aluno, sem poluir Firestore", async () => {
@@ -79,6 +85,74 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
     expect(professorDoc.exists).toBe(false);
   });
 
+  it("deve concluir provisionamento Auth pós-commit e receipt M7", async () => {
+    const email = `aluno_outbox_${Date.now()}@example.com`;
+    const idOperacao = `op-outbox-${Date.now()}`;
+    const resultado = await testEnv.wrap(convidarUsuario)(mockRequest({
+      idOperacao,
+      email,
+      nome: "Aluno Outbox",
+      papel: "Aluno",
+      motivo: "Provisionamento pós-commit",
+    }, "chefe123"));
+
+    const authUser = await admin.auth().getUserByEmail(email);
+    expect(authUser.uid).toBe(resultado.uid);
+    expect((await db.collection("Aluno").doc(resultado.uid).get()).exists).toBe(true);
+    expect((await db.collection("Operacoes").doc(idOperacao).get()).data()?.status).toBe("CONCLUIDA");
+  });
+
+  it("TEST-INT-ROLE-UI02-001 — seleciona identidade existente por UID e conserva projeção mínima", async () => {
+    const email = `role_existente_${Date.now()}@example.com`;
+    const authUser = await admin.auth().createUser({ email, displayName: "Alvo Existente" });
+    await db.collection("Usuarios").doc(authUser.uid).set({
+      id_usuario: authUser.uid, nome: "Alvo Existente", email, ativo: true, versao_permissoes: 1,
+    });
+    await db.collection("Aluno").doc(authUser.uid).set({ id_usuario: authUser.uid, nome: "Alvo Existente", email });
+
+    const idOperacao = `op-role-ui02-${Date.now()}`;
+    const resultado = await testEnv.wrap(convidarUsuario)(mockRequest({
+      idOperacao,
+      uidAlvo: authUser.uid,
+      papel: "Bolsista",
+      motivo: "Concessão de Bolsista para identidade existente",
+    }, "chefe123"));
+
+    expect(resultado.uid).toBe(authUser.uid);
+    expect((await db.collection("Bolsista").doc(authUser.uid).get()).exists).toBe(true);
+
+    const busca = await testEnv.wrap(buscarUsuariosParaPapel)(mockRequest({ termo: "Alvo Existente" }, "chefe123"));
+    const alvo = (busca as { usuarios: Array<Record<string, unknown>> }).usuarios.find(item => item.id === authUser.uid);
+    expect(alvo).toMatchObject({ id: authUser.uid, nome: "Alvo Existente", papeis: ["Aluno", "Bolsista"] });
+    expect(alvo).not.toHaveProperty("email");
+  });
+
+  it("TEST-INT-ROLE-UI02-002 — revoga papel por UID e preserva o papel restante", async () => {
+    const email = `role_revogar_uid_${Date.now()}@example.com`;
+    const authUser = await admin.auth().createUser({ email, displayName: "Alvo Revogação" });
+    await db.collection("Usuarios").doc(authUser.uid).set({ nome: "Alvo Revogação", email, ativo: true, versao_permissoes: 1 });
+    await db.collection("Aluno").doc(authUser.uid).set({ id_usuario: authUser.uid, nome: "Alvo Revogação", email });
+    await db.collection("Bolsista").doc(authUser.uid).set({ id_usuario: authUser.uid, nome: "Alvo Revogação" });
+
+    const resultado = await testEnv.wrap(revogarUsuarioPapel)(mockRequest({
+      idOperacao: `op-role-revogar-ui02-${Date.now()}`,
+      uidAlvo: authUser.uid,
+      papel: "Bolsista",
+      motivo: "Encerramento do vínculo de bolsista",
+    }, "chefe123"));
+
+    expect(resultado).toMatchObject({ uid: authUser.uid, ativo: true });
+    expect((await db.collection("Aluno").doc(authUser.uid).get()).exists).toBe(true);
+    expect((await db.collection("Bolsista").doc(authUser.uid).get()).exists).toBe(false);
+
+    const detalhes = await testEnv.wrap(obterDetalhesUsuarioParaPapel)(mockRequest({ uid: authUser.uid }, "chefe123"));
+    expect(detalhes).toMatchObject({
+      dados: { id: authUser.uid, nome: "Alvo Revogação", ativo: true },
+      papeis: ["Aluno"],
+    });
+    expect(Array.isArray((detalhes as { atividade: unknown[] }).atividade)).toBe(true);
+  });
+
   it("deve desativar o usuário ao revogar seu último papel e manter em Usuarios com ativo = false", async () => {
     const { revogarUsuarioPapel } = require("../../usuarios");
     const wrapped = testEnv.wrap(revogarUsuarioPapel);
@@ -105,7 +179,8 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
     await db.collection("Usuarios").doc(userRecord.uid).set({
       nome: "Aluno Para Revogar",
       email: userEmail,
-      ativo: true
+      ativo: true,
+      versao_permissoes: 1,
     });
 
     const req = mockRequest({
@@ -129,6 +204,56 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
     const usuarioCentralDoc = await db.collection("Usuarios").doc(userRecord.uid).get();
     expect(usuarioCentralDoc.exists).toBe(true);
     expect(usuarioCentralDoc.data()?.ativo).toBe(false);
+    expect(usuarioCentralDoc.data()?.nome).toBe("Aluno Para Revogar");
+    const authDepois = await admin.auth().getUser(userRecord.uid);
+    expect(authDepois.customClaims).toMatchObject({ roles: [], ativo: false, versao_permissoes: 2 });
+    const auditoria = await db.collection("Registro_de_Auditoria")
+      .where("id_do_objeto_da_entidade", "==", userRecord.uid).get();
+    expect(auditoria.docs.some(doc => doc.data().acao === "REVOGAR_PAPEL")).toBe(true);
+  });
+
+  it("TEST-INT-ROLE-002-001 — duas auto-revogações concorrentes não removem os dois últimos Chefes", async () => {
+    await db.collection("Chefe_Geral").doc("chefe123").delete();
+    const alvos = [`chefe_concorrente_a_${Date.now()}`, `chefe_concorrente_b_${Date.now()}`];
+    for (const [indice, uid] of alvos.entries()) {
+      const email = `${uid}@example.com`;
+      await admin.auth().createUser({ uid, email, displayName: `Chefe Concorrente ${indice}` });
+      await db.collection("Usuarios").doc(uid).set({ nome: `Chefe Concorrente ${indice}`, email, ativo: true, versao_permissoes: 1 });
+      await db.collection("Chefe_Geral").doc(uid).set({ id_usuario: uid, ativo: true });
+    }
+
+    const chamadas = alvos.map((uid, indice) => testEnv.wrap(revogarUsuarioPapel)(mockRequest({
+      idOperacao: `op-role-002-chief-${Date.now()}-${indice}`,
+      uidAlvo: uid, papel: "Chefe_Geral", motivo: "Auto-revogação concorrente de teste",
+    }, uid)));
+    const resultados = await Promise.allSettled(chamadas);
+    expect(resultados.filter(item => item.status === "fulfilled")).toHaveLength(1);
+    expect(resultados.filter(item => item.status === "rejected")).toHaveLength(1);
+    const chefesAtivos = await db.collection("Chefe_Geral").get();
+    expect(chefesAtivos.docs.map(doc => doc.id).filter(uid => alvos.includes(uid))).toHaveLength(1);
+
+    await db.collection("Usuarios").doc("chefe123").set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Chefe_Geral").doc("chefe123").set({ id_usuario: "chefe123", ativo: true });
+  });
+
+  it("TEST-INT-ROLE-002-002 — duas revogações concorrentes preservam o último Gestor Patrimonial", async () => {
+    const alvos = [`gestor_concorrente_a_${Date.now()}`, `gestor_concorrente_b_${Date.now()}`];
+    for (const [indice, uid] of alvos.entries()) {
+      const email = `${uid}@example.com`;
+      await admin.auth().createUser({ uid, email, displayName: `Gestor Concorrente ${indice}` });
+      await db.collection("Usuarios").doc(uid).set({ nome: `Gestor Concorrente ${indice}`, email, ativo: true, versao_permissoes: 1 });
+      await db.collection("Gestor_Bens_Patrimoniais").doc(uid).set({ id_usuario: uid, ativo: true });
+    }
+
+    const chamadas = alvos.map((uid, indice) => testEnv.wrap(revogarUsuarioPapel)(mockRequest({
+      idOperacao: `op-role-002-patr-${Date.now()}-${indice}`,
+      uidAlvo: uid, papel: "Gestor_Bens_Patrimoniais", motivo: "Revogação concorrente de teste",
+    }, "chefe123")));
+    const resultados = await Promise.allSettled(chamadas);
+    expect(resultados.filter(item => item.status === "fulfilled")).toHaveLength(1);
+    expect(resultados.filter(item => item.status === "rejected")).toHaveLength(1);
+    const gestoresAtivos = await db.collection("Gestor_Bens_Patrimoniais").get();
+    expect(gestoresAtivos.docs.map(doc => doc.id).filter(uid => alvos.includes(uid))).toHaveLength(1);
   });
 });
 
@@ -166,7 +291,7 @@ describe("Integração: M7 em mutações de papel", () => {
       user = await admin.auth().createUser({ email, displayName: "Alvo M7" });
     }
     await db.collection("Aluno").doc(user.uid).set({ nome: "Alvo M7", email });
-    await db.collection("Usuarios").doc(user.uid).set({ nome: "Alvo M7", email, ativo: true, versao_permissoes: 0 });
+    await db.collection("Usuarios").doc(user.uid).set({ nome: "Alvo M7", email, ativo: true, versao_permissoes: 1 });
     return user.uid;
   }
 

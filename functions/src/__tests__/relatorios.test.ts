@@ -4,200 +4,347 @@ process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
 process.env.FUNCTIONS_EMULATOR = "true";
 
 import * as admin from "firebase-admin";
+import {
+  gerarRelatorioAlmoxarifado,
+  gerarRelatorioBensPredio,
+  gerarRelatorioPersonalizado,
+  gerarPdfEtiquetasVirgens,
+  gerarPdfReimpressaoFrascos,
+} from "../relatorios";
 
+describe("Relatórios e Etiquetas (IMP-REP-001, IMP-REP-002, IMP-REP-003, IMP-LABEL-001, IMP-LABEL-002)", () => {
+  let db: admin.firestore.Firestore;
 
-describe("Relatórios PDF - Geração e Agregação (Baseado no main.tex)", () => {
-  beforeAll(async () => {
+  beforeAll(() => {
     if (!admin.apps.length) {
-      admin.initializeApp({ 
-        projectId: "lcqui-dev",
-        storageBucket: "lcqui-dev.appspot.com"
-      });
+      admin.initializeApp({ projectId: "lcqui-dev" });
     }
+    db = admin.firestore();
   });
 
-  it("deve gerar o PDF usando a biblioteca pdfkit", async () => {
-    expect(true).toBe(true);
+  function mockRequest(data: any, uid: string, roles: string[] = ["Chefe_Geral"]) {
+    return {
+      data,
+      auth: {
+        uid,
+        token: {
+          roles,
+          versao_permissoes: 1,
+        },
+      },
+      rawRequest: {},
+    } as any;
+  }
+
+  async function criarUsuario(uid: string, papel: string, ativo = true) {
+    await db.collection("Usuarios").doc(uid).set({ ativo, versao_permissoes: 1 });
+    await db.collection(papel).doc(uid).set({ id_usuario: uid });
+  }
+
+  describe("IMP-REP-001: Relatório de Almoxarifado por Período", () => {
+    it("TEST-INT-REP-M9-AUTH-001: deve rejeitar Aluno com permission-denied", async () => {
+      const uidAluno = `aluno_rep_${Date.now()}`;
+      await criarUsuario(uidAluno, "Aluno");
+
+      const req = mockRequest(
+        { idAlmoxarifado: "almox_1", mes: 5, ano: 2025 },
+        uidAluno,
+        ["Aluno"]
+      );
+
+      await expect(gerarRelatorioAlmoxarifado.run(req)).rejects.toMatchObject({
+        code: "permission-denied",
+      });
+    });
+
+    it("TEST-INT-REP-SCOPE-002: deve impedir Gestor de Almox A de gerar relatório de Almox B", async () => {
+      const uidGestor = `gestor_scope_${Date.now()}`;
+      await criarUsuario(uidGestor, "Gestor_Almoxarifado");
+      // Vincula apenas a almox_A
+      await db.collection("Gestor_Almoxarifado").doc(uidGestor).set({
+        id_usuario: uidGestor,
+        almoxarifados_vinculados: ["almox_A"],
+      });
+
+      const req = mockRequest(
+        { idAlmoxarifado: "almox_B", mes: 5, ano: 2025 },
+        uidGestor,
+        ["Gestor_Almoxarifado"]
+      );
+
+      await expect(gerarRelatorioAlmoxarifado.run(req)).rejects.toMatchObject({
+        code: "permission-denied",
+      });
+    });
+
+    it("TEST-INT-REP-DATE-003: deve rejeitar períodos no futuro", async () => {
+      const uidChefe = `chefe_fut_${Date.now()}`;
+      await criarUsuario(uidChefe, "Chefe_Geral");
+
+      const anoFuturo = new Date().getFullYear() + 2;
+      const req = mockRequest(
+        { idAlmoxarifado: "almox_ok", mes: 1, ano: anoFuturo },
+        uidChefe,
+        ["Chefe_Geral"]
+      );
+
+      await expect(gerarRelatorioAlmoxarifado.run(req)).rejects.toMatchObject({
+        code: "invalid-argument",
+      });
+    });
+
+    it("TEST-INT-REP-FLOW-004: deve agregar Resumo_Almoxarifado_Diario e gerar PDF com hash canônico determinístico", async () => {
+      const uidChefe = `chefe_rep_${Date.now()}`;
+      await criarUsuario(uidChefe, "Chefe_Geral");
+
+      const idAlmox = `almox_flow_${Date.now()}`;
+      await db.collection("Almoxarifado").doc(idAlmox).set({
+        nome_almoxarifado: "Almoxarifado Central",
+        predio: "CCT",
+        sala: "101",
+      });
+
+      // Cria resumo diário para o mês 05/2025
+      const docAlmoxId = `2025-05-15__${idAlmox}`;
+      await db.collection("Resumo_Almoxarifado_Diario").doc(docAlmoxId).set({
+        data_alvo: "2025-05-15",
+        id_almoxarifado: idAlmox,
+        massa_utilizada_g: 45.5,
+        volume_utilizado_ml: 120.0,
+        total_retiradas: 3,
+        total_devolucoes: 3,
+        total_descartes: 0,
+        total_quebras: 0,
+      });
+
+      const req = mockRequest(
+        { idAlmoxarifado: idAlmox, mes: 5, ano: 2025 },
+        uidChefe,
+        ["Chefe_Geral"]
+      );
+
+      const res1 = await gerarRelatorioAlmoxarifado.run(req);
+      expect(res1).toBeDefined();
+      expect(res1.base64).toBeDefined();
+      expect(res1.hash).toBeDefined();
+      expect(res1.consumoMassaG).toBe(45.5);
+      expect(res1.consumoVolumeMl).toBe(120.0);
+      expect(res1.tamanhoBytes).toBeGreaterThan(0);
+
+      // Chamada idêntica deve gerar o MESMO hash canônico determinístico (sem Date.now)
+      const res2 = await gerarRelatorioAlmoxarifado.run(req);
+      expect(res2.hash).toBe(res1.hash);
+    });
   });
 
-  it("deve utilizar o plugin pdfkit-table para desenhar as tabelas de dados", async () => {
-    expect(true).toBe(true);
+  describe("IMP-REP-002: Relatórios Patrimoniais", () => {
+    it("TEST-INT-REP-PAT-001: deve gerar relatório filtrado por prédio e status", async () => {
+      const uidChefe = `chefe_pat_${Date.now()}`;
+      await criarUsuario(uidChefe, "Chefe_Geral");
+
+      const idBem = `bem_${Date.now()}`;
+      await db.collection("Bem_Patrimonial").doc(idBem).set({
+        numero_patrimonio: "PAT-99901",
+        nome_equipamento: "Espectrofotômetro",
+        predio: "CCT",
+        sala: "LAB-02",
+        andar: "1",
+        status: "BAIXADO",
+        estado_conservacao: "INSERVIVEL",
+        nome_responsavel_sei: "Prof. Alberto",
+      });
+
+      const req = mockRequest(
+        { predio: "CCT", status: "BAIXADO" },
+        uidChefe,
+        ["Chefe_Geral"]
+      );
+
+      const res = await gerarRelatorioBensPredio.run(req);
+      expect(res.base64).toBeDefined();
+      expect(res.hash).toBeDefined();
+      expect(res.totalBens).toBeGreaterThanOrEqual(1);
+    });
+
+    it("TEST-INT-REP-PERS-002: deve validar máximo de 31 dias no relatório personalizado", async () => {
+      const uidChefe = `chefe_pers_${Date.now()}`;
+      await criarUsuario(uidChefe, "Chefe_Geral");
+
+      const req = mockRequest(
+        {
+          dataInicio: "2025-01-01",
+          dataFim: "2025-03-01", // > 31 dias
+          entidade: "Reagentes",
+        },
+        uidChefe,
+        ["Chefe_Geral"]
+      );
+
+      await expect(gerarRelatorioPersonalizado.run(req)).rejects.toMatchObject({
+        code: "invalid-argument",
+      });
+    });
   });
 
-  it("deve renderizar o PDF inteiramente em um Buffer de memória (sem I/O local)", async () => {
-    expect(true).toBe(true);
+  describe("IMP-REP-003: Rate Limiting de Relatórios", () => {
+    it("TEST-INT-REP-RATE-001: deve aplicar limite de requisições por UID (máximo 10/min)", async () => {
+      const uidSpam = `chefe_spam_${Date.now()}`;
+      await criarUsuario(uidSpam, "Chefe_Geral");
+
+      const req = mockRequest(
+        { predio: "CCT" },
+        uidSpam,
+        ["Chefe_Geral"]
+      );
+
+      // Pré-popula 10 requisições recentes na coleção de rate limit
+      const agora = Date.now();
+      const requisicoes = Array(10).fill(agora - 1000);
+      await db.collection("Sistema_Rate_Limit_Relatorios").doc(uidSpam).set({
+        requisicoes,
+        ultimo_acesso: agora,
+      });
+
+      await expect(gerarRelatorioBensPredio.run(req)).rejects.toMatchObject({
+        code: "resource-exhausted",
+      });
+    });
   });
 
-  it("deve fazer o upload do Buffer para o Firebase Storage", async () => {
-    expect(true).toBe(true);
+  describe("IMP-LABEL-001: Etiquetas Virgens", () => {
+    it("TEST-INT-LABEL-001: deve rejeitar lote com quantidade inválida (< 1 ou > 50)", async () => {
+      const uidChefe = `chefe_etiq_${Date.now()}`;
+      await criarUsuario(uidChefe, "Chefe_Geral");
+
+      // Intervalo de 60 etiquetas (> 50)
+      const req = mockRequest(
+        { codigoInicial: 1, codigoFinal: 60 },
+        uidChefe,
+        ["Chefe_Geral"]
+      );
+
+      await expect(gerarPdfEtiquetasVirgens.run(req)).rejects.toMatchObject({
+        code: "invalid-argument",
+      });
+    });
+
+    it("TEST-INT-LABEL-IDEM-002: deve suportar idempotência M7 com idOperacao", async () => {
+      const uidChefe = `chefe_etiq_idem_${Date.now()}`;
+      await criarUsuario(uidChefe, "Chefe_Geral");
+
+      const idOperacao = `op_etiq_${Date.now()}`;
+      const req = mockRequest(
+        { codigoInicial: 100, codigoFinal: 105, idOperacao },
+        uidChefe,
+        ["Chefe_Geral"]
+      );
+
+      const res1 = await gerarPdfEtiquetasVirgens.run(req);
+      expect(res1.totalEtiquetas).toBe(6);
+      expect(res1.base64).toBeDefined();
+
+      // Chamada repetida com mesmo idOperacao deve dar replay
+      const res2 = await gerarPdfEtiquetasVirgens.run(req);
+      expect(res2.totalEtiquetas).toBe(6);
+      expect(res2.base64).toBe(res1.base64);
+    });
   });
 
-  it("deve retornar uma URL assinada (signed URL) temporária para o download", async () => {
-    expect(true).toBe(true);
-  });
+  describe("IMP-LABEL-002: Reimpressão e Ficha de Frascos (Fail-Closed)", () => {
+    it("TEST-INT-LABEL-REIMP-FAIL-CLOSED-001: deve falhar fechado se qualquer frasco não existir e NÃO criar auditoria", async () => {
+      const uidChefe = `chefe_reimp_fail_${Date.now()}`;
+      await criarUsuario(uidChefe, "Chefe_Geral");
 
-  it("deve validar se o papel do usuario permite gerar relatório de Bens Patrimoniais", async () => {
-    expect(true).toBe(true);
-  });
+      const idValido = `frasco_val_${Date.now()}`;
+      await db.collection("Frasco_Reagente").doc(idValido).set({
+        codigo_frasco: "LCQUI-001",
+        nome_reagente: "Acetona",
+        id_almoxarifado: "almox_1",
+      });
 
-  it("deve validar se o papel do usuario permite gerar relatório de Almoxarifado", async () => {
-    expect(true).toBe(true);
-  });
+      const auditCountBefore = (await db.collection("Registro_de_Auditoria").get()).size;
 
-  it("deve impedir Alunos e Professores de gerarem relatório de Baixa de Inservíveis", async () => {
-    expect(true).toBe(true);
-  });
+      const req = mockRequest(
+        { frascoIds: [idValido, "frasco_inexistente_999"] },
+        uidChefe,
+        ["Chefe_Geral"]
+      );
 
-  it("deve buscar dados da coleção Resumo_Almoxarifado_Diario para relatórios mensais", async () => {
-    expect(true).toBe(true);
-  });
+      await expect(gerarPdfReimpressaoFrascos.run(req)).rejects.toMatchObject({
+        code: "not-found",
+      });
 
-  it("deve buscar dados da coleção Atividade_Gestor_Almoxarifado_Mensal", async () => {
-    expect(true).toBe(true);
-  });
+      // Verifica que nenhuma auditoria foi gravada na falha
+      const auditCountAfter = (await db.collection("Registro_de_Auditoria").get()).size;
+      expect(auditCountAfter).toBe(auditCountBefore);
+    });
 
-  it("deve recalcular todas as datas de filtro pelo backend, ignorando restrições do cliente", async () => {
-    expect(true).toBe(true);
-  });
+    it("TEST-INT-LABEL-REIMP-SCOPE-002: Gestor deve ser impedido se frasco pertencer a outro almoxarifado", async () => {
+      const uidGestor = `gestor_reimp_scope_${Date.now()}`;
+      await criarUsuario(uidGestor, "Gestor_Almoxarifado");
+      await db.collection("Gestor_Almoxarifado").doc(uidGestor).set({
+        id_usuario: uidGestor,
+        almoxarifados_vinculados: ["almox_gestor_autorizado"],
+      });
 
-  it("deve gerar relatório de Bens Patrimoniais filtrado por Predio e Andar", async () => {
-    expect(true).toBe(true);
-  });
+      const idFrascoOutro = `frasco_outro_${Date.now()}`;
+      await db.collection("Frasco_Reagente").doc(idFrascoOutro).set({
+        codigo_frasco: "LCQUI-OUTRO",
+        nome_reagente: "Etanol",
+        id_almoxarifado: "almox_estranho",
+      });
 
-  it("deve gerar relatório de Baixa de Bens Inservíveis contendo os nomes dos responsáveis SEI", async () => {
-    expect(true).toBe(true);
-  });
+      const req = mockRequest(
+        { frascoIds: [idFrascoOutro] },
+        uidGestor,
+        ["Gestor_Almoxarifado"]
+      );
 
-  it("deve buscar os dados do Resumo_Reagente_Diario para relatórios de consumo de reagentes", async () => {
-    expect(true).toBe(true);
-  });
+      await expect(gerarPdfReimpressaoFrascos.run(req)).rejects.toMatchObject({
+        code: "permission-denied",
+      });
+    });
 
-  it("deve apresentar o volume total de reagentes líquidos em mL no PDF (estritamente mL)", async () => {
-    expect(true).toBe(true);
-  });
+    it("TEST-INT-LABEL-REIMP-SUCCESS-003: deve gerar ficha e registrar auditoria para cada frasco somente no sucesso", async () => {
+      const uidChefe = `chefe_reimp_ok_${Date.now()}`;
+      await criarUsuario(uidChefe, "Chefe_Geral");
 
-  it("deve apresentar a massa total de reagentes sólidos em g no PDF (estritamente g)", async () => {
-    expect(true).toBe(true);
-  });
+      const idFrasco1 = `frasco_ok_1_${Date.now()}`;
+      const idFrasco2 = `frasco_ok_2_${Date.now()}`;
 
-  it("deve consultar o Firestore usando as restrições de permissão (ex: gestor restrito a 1 almoxarifado)", async () => {
-    expect(true).toBe(true);
-  });
+      await db.collection("Frasco_Reagente").doc(idFrasco1).set({
+        codigo_frasco: "LCQUI-201",
+        nome_reagente: "Metanol P.A.",
+        id_almoxarifado: "almox_1",
+        peso_atual: 500,
+        estado_fisico_frasco: "DISPONIVEL",
+      });
 
-  it("deve compilar os dados da coleção Atividade_Gestor_Bens_Patrimoniais_Mensal", async () => {
-    expect(true).toBe(true);
-  });
+      await db.collection("Frasco_Reagente").doc(idFrasco2).set({
+        codigo_frasco: "LCQUI-202",
+        nome_reagente: "Clorofórmio",
+        id_almoxarifado: "almox_1",
+        peso_atual: 1200,
+        estado_fisico_frasco: "DISPONIVEL",
+      });
 
-  it("deve extrair a letra_inicial_nome do Bem_Patrimonial para ordenação no relatório", async () => {
-    expect(true).toBe(true);
-  });
+      const req = mockRequest(
+        { frascoIds: [idFrasco1, idFrasco2] },
+        uidChefe,
+        ["Chefe_Geral"]
+      );
 
-  it("deve retornar HttpError permission-denied se gestor tentar gerar PDF de almoxarifado não vinculado", async () => {
-    expect(true).toBe(true);
-  });
+      const res = await gerarPdfReimpressaoFrascos.run(req);
+      expect(res.totalFrascos).toBe(2);
+      expect(res.base64).toBeDefined();
 
-  it("deve registrar uma Notificacao (Unificada) caso o relatório demore e seja enviado assincronamente", async () => {
-    expect(true).toBe(true);
-  });
+      // Auditoria deve ter exatamente os 2 registros
+      const auditsSnap = await db.collection("Registro_de_Auditoria")
+        .where("id_usuario", "==", uidChefe)
+        .where("acao", "==", "REIMPRESSAO_ETIQUETA")
+        .get();
 
-  it("deve processar o Registro_de_Auditoria no PDF caso seja um relatório de auditoria", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve falhar de forma segura se o Firebase Storage estiver inacessível (emulador offline)", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve incluir no PDF a listagem de empréstimos em status ATRASADO", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve agrupar frascos FECHADOS e ABERTOS separadamente no PDF", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve exibir a densidade na tabela do PDF para reagentes LIQUIDOS, caso disponível", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve omitir a coluna densidade no PDF caso o relatório seja apenas de SÓLIDOS", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve exibir a justificativa do gestor no PDF para os Bens Patrimoniais Inservíveis", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve listar a localização denormalizada (predio, andar, sala) do Bem_Patrimonial no PDF", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve calcular o somatório da medida_utilizada apenas para os empréstimos DEVOLVIDOS", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve garantir que o documento de baixa PDF original é anexado ao relatorio geral se solicitado", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve validar o payload de entrada (mês/ano) garantindo ser tipo número, não string", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve truncar relatórios muito massivos para evitar timeout de 60s da Cloud Function", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve listar reagentes com uso_vencido_autorizado=true no relatorio de quarentena/vencidos", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve evitar N+1 queries utilizando as agregações diárias ao invés de ler Emprestimos crus", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve agrupar lotes do mesmo fornecedor baseados na UNIQUE(id_especificacao, fornecedor, lote)", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve exibir a data limite de validade recalculada considerando a data_abertura do frasco", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve renderizar a logomarca do LCQUI no cabeçalho usando pdfkit.image", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve adicionar numeração de páginas (Ex: 1 de N) no rodapé via pdfkit", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve não misturar gramas e mililitros no relatório de almoxarifado", async () => {
-    expect(true).toBe(true);
-  });
-
-  // --- Módulo de Etiquetas em PDF (Virgens e Reimpressão) ---
-  it("deve rejeitar a geração de etiquetas virgens se a quantidade for maior que 50 ou menor que 1", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve criar um registro na coleção Impressao_Etiqueta_Frasco ao gerar etiquetas virgens", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve desenhar os códigos de barras Code 128 usando bwip-js embutidos no buffer pdfkit", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve rejeitar a reimpressão de ficha de conferência se a quantidade de frascos for maior que 10", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve criar registros individuais na coleção Registro_de_Auditoria para cada frasco na reimpressão", async () => {
-    expect(true).toBe(true);
-  });
-
-  it("deve renderizar a Ficha de Conferência contendo as últimas 10 movimentações do frasco", async () => {
-    expect(true).toBe(true);
+      expect(auditsSnap.docs.length).toBe(2);
+    });
   });
 });

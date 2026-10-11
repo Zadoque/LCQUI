@@ -1,26 +1,46 @@
 "use client";
 
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { NotificacaoItem, buildDeepLink, mensagemContextual, filtrarNaoLidasAtivas, isNotificacaoExpirada, ROTULO_TIPO } from "@/components/layout/NotificacoesDropdown";
+import type { NotificacaoItem } from "@/types/notificacoes";
+import { ROTULO_TIPO_NOTIFICACAO as ROTULO_TIPO } from "@/types/notificacoes";
+import { buildDeepLink, mensagemContextual, filtrarNaoLidasAtivas, isNotificacaoExpirada } from "@/components/layout/NotificacoesDropdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase/config";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { Clock, CheckCircle2, XCircle, AlertCircle, Loader2 } from "lucide-react";
 
 export default function NotificacoesPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [abaAtiva, setAbaAtiva] = useState<"nao_lidas" | "todas">("nao_lidas");
   const [notificacoes, setNotificacoes] = useState<NotificacaoItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dadosDesatualizados, setDadosDesatualizados] = useState(false);
+  const [offline, setOffline] = useState(false);
   const [limparConfirmacao, setLimparConfirmacao] = useState(false);
   const [limparLoading, setLimparLoading] = useState(false);
 
   // Real-time subscription
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      setNotificacoes([]);
+      setLoading(false);
+      setDadosDesatualizados(false);
+      setOffline(false);
+      return;
+    }
+
+    setNotificacoes([]);
+    setLoading(true);
+    setDadosDesatualizados(false);
+    setOffline(typeof navigator !== "undefined" && !navigator.onLine);
+    const atualizarConectividade = () => setOffline(!navigator.onLine);
+    window.addEventListener("online", atualizarConectividade);
+    window.addEventListener("offline", atualizarConectividade);
 
     const colRef = collection(db, "Usuarios", user.uid, "Notificacoes");
     const notificacoesQuery = query(colRef, where("id_destinatario", "==", user.uid));
@@ -46,18 +66,29 @@ export default function NotificacoesPage() {
 
         setNotificacoes(itens);
         setLoading(false);
+        setDadosDesatualizados(snapshot.metadata.fromCache === true);
+        setOffline(!navigator.onLine);
       },
       (error) => {
         console.error("Erro ao ouvir notificações:", error);
-        setNotificacoes([]);
         setLoading(false);
+        setDadosDesatualizados(true);
+        setOffline(!navigator.onLine);
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      window.removeEventListener("online", atualizarConectividade);
+      window.removeEventListener("offline", atualizarConectividade);
+    };
   }, [user?.uid]);
 
-  const [agora] = useState(() => Date.now());
+  const [agora, setAgora] = useState(() => Date.now());
+  useEffect(() => {
+    const relogio = window.setInterval(() => setAgora(Date.now()), 30_000);
+    return () => window.clearInterval(relogio);
+  }, []);
   const naoLidasAtivas = filtrarNaoLidasAtivas(notificacoes, agora);
   const totalNaoLidas = naoLidasAtivas.length;
   const itensExibidos = abaAtiva === "nao_lidas" ? naoLidasAtivas : notificacoes;
@@ -87,6 +118,24 @@ export default function NotificacoesPage() {
     }
   };
 
+  const abrirNotificacao = async (event: React.MouseEvent, notif: NotificacaoItem) => {
+    event.preventDefault();
+    try {
+      const resolver = httpsCallable<{ idNotificacao: string }, { autorizado: boolean; url?: string }>(
+        getFunctions(), "resolverDestinoNotificacao",
+      );
+      const resultado = await resolver({ idNotificacao: notif.id });
+      if (resultado.data.autorizado && resultado.data.url) {
+        router.push(resultado.data.url);
+      } else {
+        setDadosDesatualizados(true);
+      }
+    } catch (error) {
+      console.error("Erro ao validar destino da notificação:", error);
+      setDadosDesatualizados(true);
+    }
+  };
+
   const marcarComoLida = async (notifId: string) => {
     try {
       const functions = getFunctions();
@@ -104,6 +153,19 @@ export default function NotificacoesPage() {
     <ProtectedRoute allowedRoles={["Chefe_Geral", "Professor", "Aluno", "Bolsista"]}>
       <div className="max-w-3xl mx-auto p-4 sm:p-6">
         <h1 className="text-2xl font-bold text-foreground mb-6">Notificações</h1>
+
+        {(offline || dadosDesatualizados) && (
+          <div
+            className="mb-4 px-3 py-2 text-xs text-amber-800 bg-amber-100/80 rounded-lg dark:text-amber-100 dark:bg-amber-950/50"
+            role="status"
+            data-testid="notificacoes-estado-offline"
+          >
+            {offline
+              ? "Você está offline. Exibindo notificações autorizadas anteriormente; ações serão validadas ao reconectar."
+              : "Notificações possivelmente desatualizadas. Aguarde a reconexão para confirmar mudanças."
+            }
+          </div>
+        )}
 
         {/* Abas */}
         <div className="flex border-b border-foreground/10 text-sm font-semibold mb-4">
@@ -185,7 +247,7 @@ export default function NotificacoesPage() {
                       <div className="mt-3 flex gap-2">
                         <Link
                           href={`/convite?id=${encodeURIComponent(notif.id_alvo)}&via=notificacao`}
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(event) => abrirNotificacao(event, notif)}
                           className="py-1.5 px-3 bg-primary text-primary-foreground text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-1"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
@@ -193,7 +255,7 @@ export default function NotificacoesPage() {
                         </Link>
                         <Link
                           href={`/convite?id=${encodeURIComponent(notif.id_alvo)}&via=notificacao`}
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(event) => abrirNotificacao(event, notif)}
                           className="py-1.5 px-3 bg-foreground/10 hover:bg-red-500/10 text-foreground/70 hover:text-red-500 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1"
                         >
                           <XCircle className="w-3.5 h-3.5" />
@@ -246,7 +308,7 @@ export default function NotificacoesPage() {
                   <Link
                     key={notif.id}
                     href={deepUrl}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(event) => abrirNotificacao(event, notif)}
                     data-testid={`notif-link-${notif.id}`}
                   >
                     {cardContent}

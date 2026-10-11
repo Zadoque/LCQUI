@@ -3,22 +3,180 @@ import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { validarPermissao, extrairClaimsAutoridade, resolverAutoridadePersistidaTx } from "./auth";
+import { extrairClaimsAutoridade, resolverAutoridadePersistidaTx } from "./auth";
 import { construirIdentidade, registrarOperacaoConcluidaTx, resolverOperacaoTx } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
-import { CriarRequisicaoEdicaoBemSchema, ResponderRequisicaoBemSchema, CriarRequisicaoAdicaoBemSchema, GerenciarLocalSchema } from "./schemas/patrimonio.schema";
+import { CriarRequisicaoEdicaoBemSchema, ResponderRequisicaoBemSchema, CriarRequisicaoAdicaoBemSchema, GerenciarLocalSchema, RegistrarBaixaBemPatrimonialSchema } from "./schemas/patrimonio.schema";
 import { adicionarNotificacaoTx } from "./notificacoes";
 import { chaveLocal as derivarChaveLocal } from "./chaves";
 
+const STATUS_BEM = ["Ativo", "Inservivel", "Ja_dado_baixa"] as const;
+const CONSERVACOES = ["BOM", "REGULAR", "RUIM"] as const;
+
+function normalizarPlaqueta(valor: string): string {
+  const normalizada = valor.trim().toUpperCase();
+  if (!normalizada || normalizada.length > 30) {
+    throw new HttpsError("invalid-argument", "Plaqueta vazia ou maior que 30 caracteres.");
+  }
+  return normalizada;
+}
+
+function chavePlaqueta(normalizada: string) {
+  return admin.firestore().collection("Chaves_Unicas").doc(`Bem_Patrimonial__${normalizada}`);
+}
+
+function validarConservacao(valor: unknown): typeof CONSERVACOES[number] {
+  if (!CONSERVACOES.includes(valor as typeof CONSERVACOES[number])) {
+    throw new HttpsError("invalid-argument", "Estado de conservação inválido.");
+  }
+  return valor as typeof CONSERVACOES[number];
+}
+
+function validarStatus(valor: unknown): typeof STATUS_BEM[number] {
+  if (!STATUS_BEM.includes(valor as typeof STATUS_BEM[number])) {
+    throw new HttpsError("invalid-argument", "Status patrimonial inválido.");
+  }
+  return valor as typeof STATUS_BEM[number];
+}
+
+async function validarFoto(storagePath: unknown, ownerUid?: string): Promise<string> {
+  if (typeof storagePath !== "string" || !storagePath) {
+    throw new HttpsError("failed-precondition", "Foto do bem é obrigatória.");
+  }
+  if (ownerUid && !storagePath.startsWith(`requisicoes/${ownerUid}/`)) {
+    throw new HttpsError("permission-denied", "A foto não pertence ao namespace do solicitante.");
+  }
+  const file = admin.storage().bucket().file(storagePath);
+  const [existe] = await file.exists();
+  if (!existe) throw new HttpsError("failed-precondition", "Foto do bem não encontrada.");
+  const [metadata] = await file.getMetadata();
+  const tamanho = Number(metadata.size ?? 0);
+  if (tamanho >= 5 * 1024 * 1024 || !String(metadata.contentType ?? "").startsWith("image/")) {
+    throw new HttpsError("failed-precondition", "Foto inválida: imagem inferior a 5 MiB é obrigatória.");
+  }
+  return storagePath;
+}
+
+async function validarComprovanteBaixaPdf(storagePath: unknown, itemId: string): Promise<string> {
+  if (typeof storagePath !== "string" || !storagePath.trim()) {
+    throw new HttpsError("invalid-argument", "Comprovante de baixa é obrigatório.");
+  }
+  const path = storagePath.trim();
+  if (!path.startsWith(`baixas_patrimoniais/${itemId}/`)) {
+    throw new HttpsError("invalid-argument", "O comprovante de baixa deve estar localizado no caminho normativo do bem.");
+  }
+  const file = admin.storage().bucket().file(path);
+  const [existe] = await file.exists();
+  if (!existe) throw new HttpsError("failed-precondition", "Arquivo do comprovante de baixa não encontrado no Storage.");
+  const [metadata] = await file.getMetadata();
+  const tamanho = Number(metadata.size ?? 0);
+  if (tamanho >= 10 * 1024 * 1024 || metadata.contentType !== "application/pdf") {
+    throw new HttpsError("failed-precondition", "Comprovante de baixa inválido: PDF inferior a 10 MiB é obrigatório.");
+  }
+  return path;
+}
+
+export const registrarBaixaBemPatrimonial = onCall(async (request) => {
+  const claims = extrairClaimsAutoridade(request);
+  const dados = validatePayload(RegistrarBaixaBemPatrimonialSchema, request.data);
+  const pathPdf = dados.documentoDadoBaixaPdfUrl.trim();
+  const justificativa = dados.justificativa.trim();
+
+  await validarComprovanteBaixaPdf(pathPdf, dados.idBemPatrimonial);
+
+  const db = admin.firestore();
+  const bemRef = db.collection("Bem_Patrimonial").doc(dados.idBemPatrimonial);
+  const identidade = construirIdentidade(claims.uid, "REGISTRAR_BAIXA_BEM_PATRIMONIAL", {
+    idBemPatrimonial: dados.idBemPatrimonial,
+    documentoDadoBaixaPdfUrl: pathPdf,
+    justificativa,
+  });
+
+  return db.runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
+
+    const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+    if (decisao.estado === "REPLAY") return decisao.resultado as { idBemPatrimonial: string; status: string };
+    if (decisao.estado !== "NOVA") {
+      throw new HttpsError("failed-precondition", "Operação de baixa patrimonial não concluída.");
+    }
+
+    const bemSnap = await tx.get(bemRef);
+    if (!bemSnap.exists) throw new HttpsError("not-found", "Bem patrimonial não encontrado.");
+    const bem = bemSnap.data()!;
+
+    if (bem.status === "Ja_dado_baixa") {
+      throw new HttpsError("failed-precondition", "Bem patrimonial já possui baixa definitiva.");
+    }
+
+    if (bem.status !== "Inservivel") {
+      throw new HttpsError("failed-precondition", "Apenas bens classificados como Inservível podem receber baixa patrimonial definitiva.");
+    }
+
+    const novaVersao = (bem.versao ?? 1) + 1;
+    tx.update(bemRef, {
+      status: "Ja_dado_baixa",
+      documento_dado_baixa_pdf_url: pathPdf,
+      justificativa_baixa: justificativa,
+      dado_baixa_em: FieldValue.serverTimestamp(),
+      dado_baixa_por: claims.uid,
+      versao: novaVersao,
+    });
+
+    tx.set(bemRef.collection("Historico_Patrimonio").doc(`baixa_${dados.idOperacao}`), {
+      id_bem_patrimonial: bemRef.id,
+      tipo: "baixa",
+      id_usuario: claims.uid,
+      timestamp: FieldValue.serverTimestamp(),
+      predio: bem.predio ?? null,
+      andar: bem.andar ?? null,
+      sala: bem.sala ?? null,
+      documento_dado_baixa_pdf_url: pathPdf,
+      justificativa,
+      alteracoes: [
+        { campo: "status", valor_anterior: "Inservivel", valor_novo: "Ja_dado_baixa" },
+        { campo: "documento_dado_baixa_pdf_url", valor_anterior: "", valor_novo: pathPdf },
+      ],
+    });
+
+    const resultado = { idBemPatrimonial: bemRef.id, status: "Ja_dado_baixa" };
+    registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+    return resultado;
+  });
+});
+
 export const criarRequisicaoEdicaoBem = onCall(async (request) => {
-  validarPermissao(request, ["Professor"]);
+  const claims = extrairClaimsAutoridade(request);
   const dados = validatePayload(CriarRequisicaoEdicaoBemSchema, request.data);
+  if (dados.novaPhotoUrl) await validarFoto(dados.novaPhotoUrl, claims.uid);
 
   const lockId = `bem_edicao_${dados.idBemPatrimonial}`;
   const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(lockId);
   const reqRef  = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc();
 
   return admin.firestore().runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Professor"]);
+    const identidade = construirIdentidade(claims.uid, "CRIAR_REQUISICAO_EDICAO_BEM", {
+      idBemPatrimonial: dados.idBemPatrimonial,
+      novoNome: dados.novoNome,
+      novaDescricaoResumo: dados.novaDescricaoResumo,
+      novoIdResumoBemPatrimonial: dados.novoIdResumoBemPatrimonial,
+      novoStatus: dados.novoStatus,
+      novoEstadoConservacao: dados.novoEstadoConservacao,
+      novoIdLocal: dados.novoIdLocal,
+      novaPhotoUrl: dados.novaPhotoUrl,
+      motivo: dados.motivo,
+    });
+    const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+    if (decisao.estado === "REPLAY") return decisao.resultado as { idRequisicao: string };
+    if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de criação não concluída.");
+    const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(dados.idBemPatrimonial);
+    const bemSnap = await tx.get(bemRef);
+    if (!bemSnap.exists) throw new HttpsError("not-found", "Bem patrimonial não encontrado.");
+    const versaoOrigem = bemSnap.data()?.versao;
+    if (!Number.isInteger(versaoOrigem) || versaoOrigem < 1) {
+      throw new HttpsError("failed-precondition", "Bem patrimonial sem versão válida.");
+    }
     const lockSnap = await tx.get(lockRef);
     if (lockSnap.exists) {
       throw new HttpsError("failed-precondition", "Já existe uma requisição de edição pendente para este bem.");
@@ -26,13 +184,22 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
 
     const gestoresSnap = await tx.get(admin.firestore().collection("Gestor_Bens_Patrimoniais"));
     
-    tx.set(lockRef, { criado_em: FieldValue.serverTimestamp() });
+    tx.set(lockRef, {
+      id_requisicao: reqRef.id,
+      tipo: "EDICAO",
+      chave_recurso: dados.idBemPatrimonial,
+      criado_em: FieldValue.serverTimestamp(),
+    });
     tx.set(reqRef, {
       id_bem_patrimonial: dados.idBemPatrimonial,
       novo_nome: dados.novoNome ?? null,
+      nova_descricao_resumo: dados.novaDescricaoResumo ?? null,
+      novo_id_resumo_bem_patrimonial: dados.novoIdResumoBemPatrimonial ?? null,
       novo_status: dados.novoStatus ?? null,
       novo_estado_conservacao: dados.novoEstadoConservacao ?? null,
       novo_id_local: dados.novoIdLocal ?? null,
+      nova_photo_url: dados.novaPhotoUrl ?? null,
+      versao_bem_origem: versaoOrigem,
       motivo: dados.motivo,
       status: "pendente",
       feita_em: FieldValue.serverTimestamp(),
@@ -47,19 +214,34 @@ export const criarRequisicaoEdicaoBem = onCall(async (request) => {
         id_quem_fez_acao: request.auth!.uid,
         entidade_alvo: "Bem_Patrimonial",
         id_alvo: dados.idBemPatrimonial,
-      });
+      }, `patrimonio_${dados.idOperacao}_${gestor.id}`);
     });
 
-    return { idRequisicao: reqRef.id };
+    const resultado = { idRequisicao: reqRef.id };
+    registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+    return resultado;
   });
 });
 
 export const responderRequisicaoEdicaoBem = onCall(async (request) => {
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
-  const { idRequisicao, aprovar, justificativa } = validatePayload(ResponderRequisicaoBemSchema, request.data);
+  const claims = extrairClaimsAutoridade(request);
+  const { idOperacao, idRequisicao, aprovar, justificativa } = validatePayload(ResponderRequisicaoBemSchema, request.data);
   const reqRef = admin.firestore().collection("Requisicao_Edicao_Bem_Patrimonial").doc(idRequisicao);
 
   return admin.firestore().runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
+    const identidade = idOperacao
+      ? construirIdentidade(claims.uid, "RESPONDER_REQUISICAO_EDICAO_BEM", {
+          idRequisicao,
+          aprovar,
+          justificativa,
+        })
+      : null;
+    if (idOperacao && identidade) {
+      const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+      if (decisao.estado === "REPLAY") return decisao.resultado;
+      if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de resposta não concluída.");
+    }
     const reqSnap = await tx.get(reqRef);
     if (!reqSnap.exists) throw new HttpsError("not-found", "Requisição não encontrada.");
     const req = reqSnap.data()!;
@@ -69,73 +251,192 @@ export const responderRequisicaoEdicaoBem = onCall(async (request) => {
 
     const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio")
       .doc(`bem_edicao_${req.id_bem_patrimonial}`);
-    tx.delete(lockRef);
-
-    tx.update(reqRef, {
-      status: aprovar ? "aprovada" : "rejeitada",
-      respondida_em: FieldValue.serverTimestamp(),
-      id_usuario_respondente: request.auth!.uid,
-      justificativa_resposta: justificativa,
-    });
-
-    adicionarNotificacaoTx(tx, admin.firestore(), {
-      id_destinatario: req.id_usuario_solicitante,
-      papel_destinatario: "Professor",
-      tipo: "REQUISICAO_EDICAO_BEM",
-      id_quem_fez_acao: request.auth!.uid,
-      entidade_alvo: "Requisicao_Bem",
-      id_alvo: idRequisicao,
-      mensagem_customizada: justificativa,
-    });
-
-    if (aprovar) {
-      const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(req.id_bem_patrimonial);
-      const bemSnap = await tx.get(bemRef);
-      if (!bemSnap.exists) throw new HttpsError("not-found", "Bem patrimonial não encontrado.");
-
-      const camposBem: Record<string, unknown> = {};
-      if (req.novo_status) camposBem.status = req.novo_status;
-      if (req.novo_estado_conservacao) camposBem.estado_conservacao = req.novo_estado_conservacao;
-      if (req.novo_id_local) camposBem.id_local = req.novo_id_local;
-
-      if (req.novo_nome) {
-        camposBem.nome_equipamento = req.novo_nome;
-      }
-
-      tx.update(bemRef, camposBem);
+    const lockSnap = await tx.get(lockRef);
+    if (!lockSnap.exists || lockSnap.data()?.id_requisicao !== idRequisicao || lockSnap.data()?.tipo !== "EDICAO" || lockSnap.data()?.chave_recurso !== req.id_bem_patrimonial) {
+      throw new HttpsError("failed-precondition", "Lock da requisição de edição ausente ou incompatível.");
     }
-    return { status: aprovar ? "aprovada" : "rejeitada" };
+
+    const finalizar = (
+      status: "aprovada" | "rejeitada",
+      mensagem: string,
+      idResumoResolvido?: string,
+      motivo?: string,
+    ) => {
+      tx.delete(lockRef);
+      tx.update(reqRef, {
+        status,
+        respondida_em: FieldValue.serverTimestamp(),
+        id_usuario_respondente: request.auth!.uid,
+        justificativa_resposta: mensagem,
+        ...(idResumoResolvido === undefined
+          ? {}
+          : { novo_id_resumo_bem_patrimonial: idResumoResolvido }),
+      });
+      adicionarNotificacaoTx(tx, admin.firestore(), {
+        id_destinatario: req.id_usuario_solicitante,
+        papel_destinatario: "Professor",
+        tipo: "REQUISICAO_EDICAO_BEM",
+        id_quem_fez_acao: request.auth!.uid,
+        entidade_alvo: "Requisicao_Bem",
+        id_alvo: idRequisicao,
+        mensagem_customizada: mensagem,
+      }, idOperacao ? `patrimonio_${idOperacao}_${req.id_usuario_solicitante}` : undefined);
+      const resultado = { status, ...(motivo ? { motivo } : {}) };
+      if (idOperacao && identidade) {
+        registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+      }
+      return resultado;
+    };
+
+    if (!aprovar) {
+      return finalizar("rejeitada", justificativa);
+    }
+
+    const bemRef = admin.firestore().collection("Bem_Patrimonial").doc(req.id_bem_patrimonial);
+    const bemSnap = await tx.get(bemRef);
+    if (!bemSnap.exists) {
+      return finalizar("rejeitada", "Conflito de versão: o bem não existe mais.", undefined, "CONFLITO_VERSAO");
+    }
+
+    const bem = bemSnap.data()!;
+    if (bem.versao !== req.versao_bem_origem || !Number.isInteger(bem.versao) || bem.versao < 1) {
+      return finalizar("rejeitada", "Conflito de versão: o bem foi alterado após a abertura desta requisição.", undefined, "CONFLITO_VERSAO");
+    }
+
+    const localSnap = req.novo_id_local
+      ? await tx.get(admin.firestore().collection("Local").doc(req.novo_id_local))
+      : null;
+    const resumoSnap = req.novo_id_resumo_bem_patrimonial
+      ? await tx.get(admin.firestore().collection("Resumo_Bem_Patrimonial").doc(req.novo_id_resumo_bem_patrimonial))
+      : null;
+
+    if (localSnap && !localSnap.exists) {
+      return finalizar("rejeitada", "Local referenciado na requisição não encontrado ou excluído.", undefined, "LOCAL_NAO_ENCONTRADO");
+    }
+    if (resumoSnap && !resumoSnap.exists) {
+      return finalizar("rejeitada", "Resumo alvo inexistente ou excluído.", undefined, "RESUMO_ALVO_NAO_ENCONTRADO");
+    }
+
+    const camposBem: Record<string, unknown> = {};
+    let idResumoResolvido: string | undefined;
+    const statusAtual = validarStatus(bem.status);
+    if (req.novo_status) {
+      const novoStatus = validarStatus(req.novo_status);
+      if (statusAtual === "Ja_dado_baixa" || (statusAtual === "Ativo" && novoStatus === "Ja_dado_baixa") || (statusAtual === "Inservivel" && novoStatus === "Ativo")) {
+        throw new HttpsError("failed-precondition", "Transição de status patrimonial inválida.");
+      }
+      camposBem.status = novoStatus;
+    }
+    if (req.novo_estado_conservacao) camposBem.estado_conservacao = validarConservacao(req.novo_estado_conservacao);
+    if (localSnap) {
+      const local = localSnap.data()!;
+      camposBem.id_local = req.novo_id_local;
+      camposBem.predio = local.predio;
+      camposBem.andar = local.andar;
+      camposBem.sala = local.sala;
+    }
+    if (req.nova_photo_url) camposBem.photo_url = req.nova_photo_url;
+    if (resumoSnap) {
+      const resumo = resumoSnap.data()!;
+      idResumoResolvido = req.novo_id_resumo_bem_patrimonial;
+      camposBem.id_resumo_bem_patrimonial = req.novo_id_resumo_bem_patrimonial;
+      camposBem.nome_equipamento = resumo.nome;
+      camposBem.letra_inicial_nome = String(resumo.nome).charAt(0).toUpperCase();
+    } else if (req.novo_nome) {
+      if (typeof req.nova_descricao_resumo !== "string" || !req.nova_descricao_resumo.trim()) {
+        throw new HttpsError("failed-precondition", "Novo resumo exige nome e descrição.");
+      }
+      const novoResumoRef = admin.firestore().collection("Resumo_Bem_Patrimonial").doc();
+      const nomeResumo = String(req.novo_nome).trim();
+      tx.create(novoResumoRef, {
+        nome: nomeResumo,
+        descricao: req.nova_descricao_resumo.trim(),
+        letra_inicial_nome: nomeResumo.charAt(0).toUpperCase(),
+        criado_em: FieldValue.serverTimestamp(),
+      });
+      idResumoResolvido = novoResumoRef.id;
+      camposBem.id_resumo_bem_patrimonial = novoResumoRef.id;
+      camposBem.nome_equipamento = nomeResumo;
+      camposBem.letra_inicial_nome = nomeResumo.charAt(0).toUpperCase();
+    }
+
+    const alteracoes = Object.keys(camposBem).map((campo) => ({ campo, valor_anterior: String(bem[campo] ?? ""), valor_novo: String(camposBem[campo] ?? "") }));
+    if (alteracoes.length === 0) throw new HttpsError("invalid-argument", "A edição não contém alterações.");
+    camposBem.versao = bem.versao + 1;
+    tx.update(bemRef, camposBem);
+    tx.set(bemRef.collection("Historico_Patrimonio").doc(`edicao_${idOperacao}`), {
+      id_bem_patrimonial: bemRef.id,
+      tipo: "edicao",
+      id_usuario: request.auth!.uid,
+      timestamp: FieldValue.serverTimestamp(),
+      predio: bem.predio ?? null,
+      andar: bem.andar ?? null,
+      sala: bem.sala ?? null,
+      alteracoes,
+    });
+    return finalizar("aprovada", justificativa, idResumoResolvido);
   });
 });
 
 export const criarRequisicaoAdicaoBem = onCall(async (request) => {
-  validarPermissao(request, ["Professor"]);
+  const claims = extrairClaimsAutoridade(request);
 
   const dados = validatePayload(CriarRequisicaoAdicaoBemSchema, request.data);
+  const numeroNormalizado = normalizarPlaqueta(dados.numeroPatrimonioProposto);
 
-  const checkBem = await admin.firestore().collection("Bem_Patrimonial")
-    .where("numero_patrimonio", "==", dados.numeroPatrimonioProposto)
-    .limit(1).get();
-  if (!checkBem.empty) {
-    throw new HttpsError("failed-precondition", "Já existe um bem cadastrado com este número de patrimônio.");
-  }
-
-  const lockId = `bem_adicao_${dados.numeroPatrimonioProposto}`;
+  const lockId = `bem_adicao_${numeroNormalizado}`;
   const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio").doc(lockId);
   const reqRef  = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc();
 
+  const identidade = dados.idOperacao
+    ? construirIdentidade(claims.uid, "CRIAR_REQUISICAO_ADICAO_BEM", {
+        numeroPatrimonioProposto: dados.numeroPatrimonioProposto,
+        estadoConservacaoProposto: dados.estadoConservacaoProposto,
+        idLocal: dados.idLocal,
+        photoUrlProposta: dados.photoUrlProposta,
+        nomeResponsavelProposto: dados.nomeResponsavelProposto,
+        idResumoBemPatrimonial: dados.idResumoBemPatrimonial,
+        nomeResumoProposto: dados.nomeResumoProposto,
+        descricaoResumoProposta: dados.descricaoResumoProposta,
+        motivo: dados.motivo,
+      })
+    : null;
+
   return admin.firestore().runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Professor"]);
+
+    if (dados.idOperacao && identidade) {
+      const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
+      if (decisao.estado === "REPLAY") return decisao.resultado as { idRequisicao: string };
+      if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de criação não concluída.");
+    }
+
     const lockSnap = await tx.get(lockRef);
+    const chaveSnap = await tx.get(chavePlaqueta(numeroNormalizado));
+    const bemSnap = await tx.get(admin.firestore().collection("Bem_Patrimonial")
+      .where("numero_patrimonio", "==", numeroNormalizado).limit(1));
+    if (!bemSnap.empty) {
+      throw new HttpsError("failed-precondition", "Já existe um bem cadastrado com este número de patrimônio.");
+    }
+    if (chaveSnap.exists) {
+      throw new HttpsError("already-exists", "A plaqueta já está reservada permanentemente.");
+    }
     if (lockSnap.exists) {
       throw new HttpsError("failed-precondition", "Já existe requisição pendente para este número de patrimônio.");
     }
     const gestoresSnap = await tx.get(admin.firestore().collection("Gestor_Bens_Patrimoniais"));
 
-    tx.set(lockRef, { criado_em: FieldValue.serverTimestamp() });
+    tx.set(lockRef, {
+      id_requisicao: reqRef.id,
+      tipo: "ADICAO",
+      chave_recurso: numeroNormalizado,
+      criado_em: FieldValue.serverTimestamp(),
+    });
     tx.set(reqRef, {
       numero_patrimonio_proposto: dados.numeroPatrimonioProposto,
+      numero_patrimonio_normalizado: numeroNormalizado,
       estado_conservacao_proposto: dados.estadoConservacaoProposto,
-      photo_url_proposta: null,
+      photo_url_proposta: dados.photoUrlProposta,
       nome_responsavel_proposto: dados.nomeResponsavelProposto,
       id_local: dados.idLocal,
       id_resumo_bem_patrimonial: dados.idResumoBemPatrimonial ?? null,
@@ -160,25 +461,58 @@ export const criarRequisicaoAdicaoBem = onCall(async (request) => {
       });
     });
 
-    return { idRequisicao: reqRef.id };
+    const resultado = { idRequisicao: reqRef.id };
+    if (dados.idOperacao && identidade) {
+      registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+    }
+    return resultado;
   });
 });
 
 export const responderRequisicaoAdicaoBem = onCall(async (request) => {
-  validarPermissao(request, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
-  const { idRequisicao, aprovar, justificativa } = validatePayload(ResponderRequisicaoBemSchema, request.data);
+  const claims = extrairClaimsAutoridade(request);
+  const { idOperacao, idRequisicao, aprovar, justificativa } = validatePayload(ResponderRequisicaoBemSchema, request.data);
   const reqRef = admin.firestore().collection("Requisicao_Adicao_Bem_Patrimonial").doc(idRequisicao);
 
+  if (aprovar) {
+    const reqPre = await reqRef.get();
+    await validarFoto(reqPre.data()?.photo_url_proposta, reqPre.data()?.id_usuario_solicitante);
+  }
+
+  const identidade = idOperacao
+    ? construirIdentidade(claims.uid, "RESPONDER_REQUISICAO_ADICAO_BEM", {
+        idRequisicao,
+        aprovar,
+        justificativa,
+      })
+    : null;
+
   return admin.firestore().runTransaction(async (tx) => {
+    await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]);
+
+    if (idOperacao && identidade) {
+      const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
+      if (decisao.estado === "REPLAY") return decisao.resultado as any;
+      if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de resposta não concluída.");
+    }
+
     const reqSnap = await tx.get(reqRef);
     if (!reqSnap.exists) throw new HttpsError("not-found", "Requisição não encontrada.");
     const req = reqSnap.data()!;
     if (req.status !== "pendente") throw new HttpsError("failed-precondition", "Requisição já respondida.");
 
+    const numeroNormalizado = typeof req.numero_patrimonio_normalizado === "string"
+      ? normalizarPlaqueta(req.numero_patrimonio_normalizado)
+      : normalizarPlaqueta(req.numero_patrimonio_proposto);
     const lockRef = admin.firestore().collection("Locks_Requisicao_Patrimonio")
-      .doc(`bem_adicao_${req.numero_patrimonio_proposto}`);
-    tx.delete(lockRef);
-
+      .doc(`bem_adicao_${numeroNormalizado}`);
+    const lockSnap = await tx.get(lockRef);
+    if (!lockSnap.exists || lockSnap.data()?.id_requisicao !== idRequisicao || lockSnap.data()?.tipo !== "ADICAO" || lockSnap.data()?.chave_recurso !== numeroNormalizado) {
+      throw new HttpsError("failed-precondition", "Lock da requisição de adição ausente ou incompatível.");
+    }
+    const chaveRef = chavePlaqueta(numeroNormalizado);
+    const chaveSnap = await tx.get(chaveRef);
+    if (aprovar && chaveSnap.exists) throw new HttpsError("already-exists", "A plaqueta já está reservada permanentemente.");
     let idBemCriado: string | null = null;
 
     if (aprovar) {
@@ -186,10 +520,14 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
       let nomeEquipamento = req.nome_resumo_proposto ?? "Equipamento";
 
       if (!idResumo && req.nome_resumo_proposto) {
+        if (typeof req.descricao_resumo_proposta !== "string" || !req.descricao_resumo_proposta.trim()) {
+          throw new HttpsError("failed-precondition", "Novo resumo exige descrição.");
+        }
         const novoResumoRef = admin.firestore().collection("Resumo_Bem_Patrimonial").doc();
         tx.set(novoResumoRef, {
           nome: req.nome_resumo_proposto,
-          descricao: req.descricao_resumo_proposta ?? "",
+          descricao: req.descricao_resumo_proposta,
+          letra_inicial_nome: String(req.nome_resumo_proposto).charAt(0).toUpperCase(),
           criado_em: FieldValue.serverTimestamp(),
         });
         idResumo = novoResumoRef.id;
@@ -209,27 +547,43 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
         nomeEquipamento = resumoSnap.data()!.nome;
       }
 
-      let letra = nomeEquipamento.charAt(0).toUpperCase();
-      if (!/[A-Z]/.test(letra)) letra = letra; // stays what it is
+      const letra = nomeEquipamento.charAt(0).toUpperCase();
 
       const bemRef = admin.firestore().collection("Bem_Patrimonial").doc();
       idBemCriado = bemRef.id;
 
       tx.set(bemRef, {
+        id: bemRef.id,
         id_resumo_bem_patrimonial: idResumo,
         nome_equipamento: nomeEquipamento,
         letra_inicial_nome: letra,
         predio: localData.predio,
-        numero_patrimonio: req.numero_patrimonio_proposto,
+        andar: localData.andar,
+        sala: localData.sala,
+        numero_patrimonio: numeroNormalizado,
         estado_conservacao: req.estado_conservacao_proposto,
         id_local: req.id_local,
-        photo_url: req.photo_url_proposta ?? "https://placeholder",
+        photo_url: req.photo_url_proposta,
         documento_dado_baixa_pdf_url: null,
         nome_responsavel_sei: req.nome_responsavel_proposto,
         status: "Ativo",
+        descricao_complementar: null,
+        versao: 1,
         cadastrado_em: FieldValue.serverTimestamp(),
       });
+      tx.set(chaveRef, { tipo: "Bem_Patrimonial", id_recurso: bemRef.id, chave_recurso: numeroNormalizado, criado_em: FieldValue.serverTimestamp() });
+      tx.set(bemRef.collection("Historico_Patrimonio").doc(), {
+        id_bem_patrimonial: bemRef.id,
+        tipo: "cadastro",
+        id_usuario: request.auth!.uid,
+        timestamp: FieldValue.serverTimestamp(),
+        predio: localData.predio,
+        andar: localData.andar,
+        sala: localData.sala,
+        alteracoes: [],
+      });
 
+      tx.delete(lockRef);
       tx.update(reqRef, {
         status: "aprovada",
         respondida_em: FieldValue.serverTimestamp(),
@@ -238,6 +592,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
         justificativa_resposta: justificativa,
       });
     } else {
+      tx.delete(lockRef);
       tx.update(reqRef, {
         status: "rejeitada",
         respondida_em: FieldValue.serverTimestamp(),
@@ -256,7 +611,11 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
       mensagem_customizada: justificativa,
     });
 
-    return { status: aprovar ? "aprovada" : "rejeitada", idBemCriado };
+    const resultado = { status: aprovar ? "aprovada" : "rejeitada", idBemCriado };
+    if (idOperacao && identidade) {
+      registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
+    }
+    return resultado;
   });
 });
 
@@ -405,7 +764,7 @@ export const onLocalAtualizado = onDocumentUpdated(
   }
 );
 
-export const limparLocksOrfaos = onSchedule("every 24 hours", async (event) => {
+export const limparLocksOrfaos = onSchedule("every 24 hours", async () => {
   const ontem = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const locks = await admin.firestore().collection("Locks_Requisicao_Patrimonio")
     .where("criado_em", "<", ontem)

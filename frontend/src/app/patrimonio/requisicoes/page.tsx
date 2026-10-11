@@ -11,6 +11,8 @@ export default function PatrimonioInbox() {
   const [requisicoes, setRequisicoes] = useState<RequisicaoProfessor[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [justificativas, setJustificativas] = useState<Record<string, string>>({});
+  const [feedback, setFeedback] = useState<{ tipo: "sucesso" | "erro"; texto: string } | null>(null);
 
   const fetchRequisicoes = async () => {
     setLoading(true);
@@ -31,22 +33,36 @@ export default function PatrimonioInbox() {
   };
 
   useEffect(() => {
-    fetchRequisicoes();
+    const carregamento = window.setTimeout(() => { void fetchRequisicoes(); }, 0);
+    return () => window.clearTimeout(carregamento);
   }, []);
 
   const handleDecisao = async (idRequisicao: string, aprovado: boolean) => {
+    const justificativa = (justificativas[idRequisicao] ?? "").trim();
+    if (!justificativa) {
+      setFeedback({ tipo: "erro", texto: "Informe uma justificativa para concluir a requisição." });
+      return;
+    }
     setProcessingId(idRequisicao);
+    setFeedback(null);
     try {
       const responder = httpsCallable(functions, 'responderRequisicaoEdicaoBem');
-      await responder({
-        id_requisicao: idRequisicao,
-        aprovado,
-        motivo_rejeicao: aprovado ? undefined : "Rejeitado pelo Gestor via Inbox." // Simplificado para UX rápida
+      const resultado = await responder({
+        idOperacao: crypto.randomUUID(),
+        idRequisicao,
+        aprovar: aprovado,
+        justificativa,
       });
-      // Remove da lista otimisticamente
       setRequisicoes(prev => prev.filter(r => r.id !== idRequisicao));
-    } catch (error: any) {
-      alert("Erro ao processar a requisição: " + error.message);
+      const dados = resultado.data as { status?: string; motivo?: string };
+      const conflito = dados.status === "rejeitada" && dados.motivo === "CONFLITO_VERSAO";
+      setFeedback({
+        tipo: "sucesso",
+        texto: conflito ? "Conflito de versão: o bem não foi sobrescrito." : (dados.status === "rejeitada" ? "Requisição rejeitada com sucesso." : "Requisição aprovada com sucesso."),
+      });
+    } catch (error: unknown) {
+      const mensagem = error instanceof Error ? error.message : "Não foi possível processar a requisição.";
+      setFeedback({ tipo: "erro", texto: mensagem.includes("Conflito") ? "Conflito de versão: o bem não foi sobrescrito." : mensagem });
     } finally {
       setProcessingId(null);
     }
@@ -71,6 +87,12 @@ export default function PatrimonioInbox() {
             </p>
           </header>
 
+          {feedback && (
+            <p role="alert" data-testid="feedback-requisicoes" className={feedback.tipo === "erro" ? "text-red-500" : "text-green-500"}>
+              {feedback.texto}
+            </p>
+          )}
+
           {loading ? (
             <div className="flex justify-center py-20">
               <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary"></div>
@@ -86,7 +108,7 @@ export default function PatrimonioInbox() {
           ) : (
             <div className="space-y-6">
               {requisicoes.map(req => (
-                <div key={req.id} className="glass-panel p-6 rounded-2xl border border-foreground/10 flex flex-col md:flex-row gap-6 relative overflow-hidden">
+                <div key={req.id} data-testid={`requisicao-edicao-${req.id}`} className="glass-panel p-6 rounded-2xl border border-foreground/10 flex flex-col md:flex-row gap-6 relative overflow-hidden">
                   
                   {processingId === req.id && (
                     <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex items-center justify-center">
@@ -100,7 +122,7 @@ export default function PatrimonioInbox() {
                       <p className="font-mono text-sm text-foreground/50">Plaqueta: {req.numero_patrimonio}</p>
                     </div>
 
-                    <div className="bg-foreground/5 p-4 rounded-xl border border-foreground/5">
+                      <div className="bg-foreground/5 p-4 rounded-xl border border-foreground/5">
                       <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground/50 mb-3">Mudanças Propostas</h4>
                       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {req.novo_status && (
@@ -113,16 +135,31 @@ export default function PatrimonioInbox() {
                         {req.novo_estado_conservacao && (
                           <div className="bg-background/50 p-3 rounded-lg border border-foreground/5 col-span-full">
                             <dt className="text-xs text-foreground/50">Novo Estado de Conservação</dt>
-                            <dd className="font-medium text-foreground">{req.novo_estado_conservacao}</dd>
+                        <dd className="font-medium text-foreground">{req.novo_estado_conservacao}</dd>
                           </div>
                         )}
                       </dl>
+                      <p className="text-sm mt-3" data-testid="comparacao-requisicao">
+                        Atual: versão {req.versao_bem_origem ?? "não informada"} · Proposta: {req.novo_nome ?? req.novo_id_resumo_bem_patrimonial ?? "manter resumo"}
+                      </p>
                     </div>
+                    <label className="block text-sm font-medium">
+                      Justificativa
+                      <textarea
+                        data-testid={`justificativa-requisicao-${req.id}`}
+                        aria-label={`Justificativa da requisição ${req.id}`}
+                        className="mt-1 w-full rounded-lg border border-foreground/20 bg-background p-2"
+                        rows={3}
+                        value={justificativas[req.id] ?? ""}
+                        onChange={(event) => setJustificativas(prev => ({ ...prev, [req.id]: event.target.value }))}
+                      />
+                    </label>
                   </div>
 
                   <div className="flex md:flex-col justify-center gap-3 min-w-[140px] border-t md:border-t-0 md:border-l border-foreground/10 pt-4 md:pt-0 md:pl-6">
                     <button 
                       onClick={() => handleDecisao(req.id, true)}
+                      data-testid={`aprovar-requisicao-${req.id}`}
                       disabled={!!processingId}
                       className="flex-1 py-3 px-4 bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white font-bold rounded-xl transition-all border border-green-500/20"
                     >
@@ -130,6 +167,7 @@ export default function PatrimonioInbox() {
                     </button>
                     <button 
                       onClick={() => handleDecisao(req.id, false)}
+                      data-testid={`rejeitar-requisicao-${req.id}`}
                       disabled={!!processingId}
                       className="flex-1 py-3 px-4 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white font-bold rounded-xl transition-all border border-red-500/20"
                     >

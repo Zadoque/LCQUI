@@ -6,7 +6,7 @@ process.env.FUNCTIONS_EMULATOR = "true";
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { CallableRequest } from "firebase-functions/v2/https";
-import { marcarNotificacaoComoLida, limparTudoNotificacoes, adicionarNotificacaoTx } from "../notificacoes";
+import { marcarNotificacaoComoLida, limparTudoNotificacoes, adicionarNotificacaoTx, resolverDestinoNotificacao } from "../notificacoes";
 import { CriarNotificacao } from "../schemas/notificacoes.schema";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
@@ -552,6 +552,54 @@ describe("Módulo de Notificações (M9 + server-owned)", () => {
       await expect(
         emitir(uid, { tipo: "ESCASSEZ_ESTOQUE", expira_em: new Date(Date.now() + 3600_000) })
       ).rejects.toMatchObject({ code: "invalid-argument" });
+    });
+  });
+
+  describe("Abertura com revalidação (RN-M13-03/04)", () => {
+    it("TEST-INT-NOTIF-M13-031 — relê autoridade, caixa e vínculo atual antes de devolver rota", async () => {
+      const uid = uidUnico("notif_alvo_membro");
+      await semear(uid);
+      await db.collection("Turma").doc("turma_alvo_membro").set({ id_professor: "professor_alvo", status: "Ativa" });
+      await db.collection("Turma").doc("turma_alvo_membro").collection("Alunos").doc(uid).set({ id_aluno: uid, id_turma: "turma_alvo_membro" });
+      await semearNotificacao(uid, "n_alvo_membro", {
+        entidade_alvo: "Turma", id_alvo: "turma_alvo_membro", id_turma: "turma_alvo_membro",
+        expira_em: admin.firestore.Timestamp.fromMillis(Date.now() + 60_000),
+      });
+
+      const wrapped = testEnv.wrap(resolverDestinoNotificacao);
+      await expect(wrapped(mockRequest({ idNotificacao: "n_alvo_membro" }, uid))).resolves.toEqual({
+        autorizado: true, url: "/turmas?turma=turma_alvo_membro",
+      });
+    });
+
+    it("TEST-INT-NOTIF-M13-032 — perda do vínculo atual retorna resposta neutra", async () => {
+      const uid = uidUnico("notif_alvo_sem_vinculo");
+      await semear(uid);
+      await db.collection("Turma").doc("turma_alvo_sem_vinculo").set({ id_professor: "professor_alvo", status: "Ativa" });
+      await semearNotificacao(uid, "n_alvo_sem_vinculo", {
+        entidade_alvo: "Turma", id_alvo: "turma_alvo_sem_vinculo", id_turma: "turma_alvo_sem_vinculo",
+      });
+
+      const wrapped = testEnv.wrap(resolverDestinoNotificacao);
+      await expect(wrapped(mockRequest({ idNotificacao: "n_alvo_sem_vinculo" }, uid))).resolves.toEqual({
+        autorizado: false, motivo: "sem_acesso",
+      });
+    });
+
+    it("TEST-INT-NOTIF-M13-033 — alvo expirado permanece no histórico e não navega", async () => {
+      const uid = uidUnico("notif_alvo_expirado");
+      await semear(uid);
+      await db.collection("Turma").doc("turma_alvo_expirada").set({ id_professor: "professor_alvo", status: "Ativa" });
+      await db.collection("Turma").doc("turma_alvo_expirada").collection("Alunos").doc(uid).set({ id_aluno: uid });
+      await semearNotificacao(uid, "n_alvo_expirado", {
+        entidade_alvo: "Turma", id_alvo: "turma_alvo_expirada", id_turma: "turma_alvo_expirada",
+        expira_em: admin.firestore.Timestamp.fromMillis(Date.now() - 1),
+      });
+
+      const wrapped = testEnv.wrap(resolverDestinoNotificacao);
+      await expect(wrapped(mockRequest({ idNotificacao: "n_alvo_expirado" }, uid))).resolves.toEqual({
+        autorizado: false, motivo: "expirada",
+      });
     });
   });
 });

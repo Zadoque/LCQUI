@@ -1,0 +1,32 @@
+\clearpage
+\section{IMP-PAT-003 — Requisição de adição e lock patrimonial}
+
+\textbf{Contrato verificado.} A criação foi comparada à Seção 5, à Seção 8
+(UI-09), à Seção 9 (PRO-10/PAT-03), ao CUE M10 e ao Alloy M10. A regra
+normativa exige uma reserva pendente inequívoca, lock pertencente à requisição,
+tipo da operação e chave de recurso canônica, sem corrida entre propostas
+equivalentes.
+
+\textbf{Evidência backend.} O callable normaliza a plaqueta por
+\texttt{trim().toUpperCase()} e lê, dentro da mesma transação, Bem,
+\texttt{Chaves\_Unicas} e o lock antes de escrever. Assim, bem já existente,
+reserva permanente ou lock pendente são rejeitados fail-closed. O lock grava
+\texttt{id\_requisicao}, \texttt{tipo=ADICAO}, \texttt{chave\_recurso} e
+timestamp; a reserva permanente só é criada na aprovação. A validação do
+arquivo de foto permanece no caminho de aprovação, antes da materialização.
+
+\begin{longtable}{p{0.28\textwidth}p{0.62\textwidth}}
+\toprule
+Teste & Resultado \\
+\midrule
+\endhead
+PAT-INT-011 & Reserva permanente rejeitada já na criação: PASS \\
+PAT-INT-012 & Duas plaquetas equivalentes serializam em um lock: PASS \\
+PAT-INT-001--010 & Regressão do ciclo patrimonial: PASS \\
+Build & TypeScript Node.js 20: PASS \\
+\bottomrule
+\end{longtable}
+
+\textbf{Estado da matriz:} \texttt{NÃO DIVERGENTE}. O seed patrimonial será
+incrementado antes da cobertura E2E desta onda; esta fatia backend não altera
+\texttt{functions/scripts/seed.ts}.

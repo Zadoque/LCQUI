@@ -15,3 +15,7 @@ export * from "./roteiros";
 export * from "./reagentes_base";
 export * from "./almoxarifados";
 export * from "./convites";
+export * from "./estoque";
+export * from "./catalogo";
+export * from "./jobs/notificacoesReagentes";
+export * from "./jobs/materializacoesFlow";

@@ -4,7 +4,8 @@
 \texttt{IMP-ROLE-002} (revogação e proteção dos últimos responsáveis), com
 progresso em \texttt{IMP-IDEM-001}.
 
-\textbf{Estado:} ambas permanecem \texttt{DIVERGENTE}; a evidência abaixo cobre
+\textbf{Estado:} \texttt{IMP-ROLE-001} e \texttt{IMP-ROLE-002} estão
+\texttt{NÃO DIVERGENTE}. A evidência abaixo cobre
 a migração das mutações de papel para M7 canônico e M9 transacional.
 
 \subsection{Contrato}
@@ -70,9 +71,10 @@ relação com esta fatia.
 
 \subsection{Pendências}
 
-As mutações de papel continuam com efeito externo de Auth antes do commit em
-\texttt{convidarUsuario}; a reconciliação e a revogação de refresh tokens
-ocorrem depois. A migração para outbox \texttt{PENDENTE}$\rightarrow$\texttt{CONCLUIDA}
-e o aceite de convite/autoatendimento ficam para rodada própria. Por isso
-\texttt{IMP-ROLE-001}, \texttt{IMP-ROLE-002} e \texttt{IMP-ROLE-003} seguem
-\texttt{DIVERGENTE}.
+Os witnesses de concorrência cobrem duas auto-revogações dos últimos Chefes e
+duas revogações dos últimos Gestores Patrimoniais: exatamente uma operação
+confirma em cada corrida. O último papel preserva identidade histórica,
+desativa a conta, recalcula claims vazias, revoga refresh tokens e audita o
+efeito; RN-ROLE-16 e a rejeição UI/E2E de revogar Aluno enquanto Bolsista está
+ativo também estão cobertos. A operação usa receipt M7 e autoridade M9; a
+tela UI-02 está em \texttt{frontend/src/app/pessoas}.

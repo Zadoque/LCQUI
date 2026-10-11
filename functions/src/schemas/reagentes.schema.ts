@@ -1,14 +1,18 @@
 import { z } from "zod";
+import { ID_OPERACAO_PATTERN } from "../idempotencia";
+
+const idOperacaoField = z.string().regex(ID_OPERACAO_PATTERN, "idOperacao inválido.");
 
 export const DecisaoFrascoVencidoSchema = z.enum(["QUARENTENA", "PENDENTE_DE_DESCARTE", "DISPONIVEL"]);
 
 export const CadastroFrascoFechadoSchema = z.object({
+  idOperacao: idOperacaoField,
   idResumoReagente: z.string().min(1, "O ID do resumo é obrigatório."),
   idEspecificacaoReagente: z.string().min(1, "A especificação do reagente é obrigatória."),
   idAlmoxarifado: z.string().min(1, "O almoxarifado é obrigatório."),
-  idLote: z.string().optional(),
+  idLote: z.string().nullable().optional(),
   pesoTotal: z.number().positive("O peso total deve ser positivo."),
-  volumeNominal: z.number().positive("O volume nominal deve ser positivo."),
+  volumeNominal: z.number().positive("O volume nominal deve ser positivo.").nullable().optional(),
   validadeFechado: z.string().optional(),
   validadeDesconhecida: z.boolean().optional(),
   decisaoSeJaVencido: DecisaoFrascoVencidoSchema.optional(),
@@ -16,15 +20,13 @@ export const CadastroFrascoFechadoSchema = z.object({
 });
 
 export const CadastroFrascoAbertoSchema = z.object({
+  idOperacao: idOperacaoField,
   idResumoReagente: z.string().min(1, "O ID do resumo é obrigatório."),
   idEspecificacaoReagente: z.string().min(1, "A especificação do reagente é obrigatória."),
   idAlmoxarifado: z.string().min(1, "O almoxarifado é obrigatório."),
-  idLote: z.string().optional(),
-  modalidade: z.enum(["CONHECE_TARA", "ESTIMA_VOLUME", "ESTIMA_MASSA"]),
+  idLote: z.string().nullable().optional(),
   pesoTotalBalanca: z.number().positive("O peso total deve ser positivo."),
-  pesoFrascoVazioInformado: z.number().positive("O peso do frasco vazio deve ser positivo.").optional(),
-  volumeAtualEstimado: z.number().positive("O volume atual estimado deve ser positivo.").optional(),
-  massaAtualEstimada: z.number().positive("A massa atual estimada deve ser positiva.").optional(),
+  volumeNominal: z.number().positive("O conteúdo nominal deve ser positivo.").nullable().optional(),
   validadeAberto: z.string().optional(),
   validadeDesconhecida: z.boolean().optional(),
   decisaoSeJaVencido: DecisaoFrascoVencidoSchema.optional(),
@@ -32,12 +34,14 @@ export const CadastroFrascoAbertoSchema = z.object({
 });
 
 export const AberturaFrascoSchema = z.object({
+  idOperacao: idOperacaoField,
   idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
   destinoSeVencerNaAbertura: DecisaoFrascoVencidoSchema.optional(),
   detalheStatus: z.string().optional(),
 });
 
 export const RetiradaFrascoSchema = z.object({
+  idOperacao: idOperacaoField,
   idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
   idUsuarioRetirou: z.string().min(1, "O ID do usuário é obrigatório."),
   idLocalUsado: z.string().min(1, "O ID do local é obrigatório."),
@@ -46,10 +50,79 @@ export const RetiradaFrascoSchema = z.object({
   confirmarUsoVencido: z.boolean().optional(),
   abrirNoEmprestimo: z.boolean().optional(),
   finalidadeUso: z.enum(["PESQUISA", "DIDATICO_DEMONSTRACAO", "OUTRO"]),
+  justificativaAutoAtendimento: z.string().trim().optional(),
 });
 
 export const DevolucaoFrascoSchema = z.object({
+  idOperacao: idOperacaoField,
   idEmprestimo: z.string().min(1, "O ID do empréstimo é obrigatório."),
-  pesoRetorno: z.number().min(0, "O peso de retorno não pode ser negativo."),
+  pesoRetorno: z.number().positive("O peso de retorno deve ser positivo."),
+  pesoPerdaEvaporacao: z.number().min(0, "A perda por evaporação não pode ser negativa.").optional(),
+  confirmarEsgotamento: z.boolean().optional(),
+  idUsuarioDevolveu: z.string().min(1).optional(),
   destinoPosDevolucao: DecisaoFrascoVencidoSchema.optional(),
 });
+
+export const RepetirPesagemDevolucaoAnomalaSchema = z.object({
+  idOperacao: idOperacaoField,
+  idEmprestimo: z.string().min(1, "O ID do empréstimo é obrigatório."),
+  pesoNovaMedicao: z.number().positive("O peso medido deve ser positivo."),
+  motivo: z.string().trim().min(20, "A justificativa deve conter pelo menos 20 caracteres."),
+});
+
+export const ConfirmarEsgotamentoAposInspecaoSchema = z.object({
+  idOperacao: idOperacaoField,
+  idEmprestimo: z.string().min(1, "O ID do empréstimo é obrigatório."),
+  pesoVazioRealMedido: z.number().positive("O peso do frasco vazio medido deve ser positivo."),
+  motivo: z.string().trim().min(20, "A justificativa deve conter pelo menos 20 caracteres."),
+});
+
+export const RecalibrarTaraFrascoEsgotadoSchema = z.object({
+  idOperacao: idOperacaoField,
+  idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
+  pesoVazioReal: z.number().positive("O peso do recipiente vazio deve ser positivo."),
+  motivo: z.string().trim().min(20, "A justificativa deve conter pelo menos 20 caracteres."),
+});
+
+export const RegistrarPesagemRotinaSchema = z.object({
+  idOperacao: idOperacaoField,
+  idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
+  pesoAtual: z.number().positive("O peso medido deve ser positivo."),
+  motivo: z.string().trim().optional(),
+});
+
+export const DescartarFrascoSchema = z.object({
+  idOperacao: idOperacaoField,
+  idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
+  motivo: z.string().trim().min(20, "A justificativa do descarte institucional deve conter pelo menos 20 caracteres."),
+});
+
+export const RegistrarExtravioOuReencontroSchema = z.discriminatedUnion("tipoAcao", [
+  z.object({
+    idOperacao: idOperacaoField,
+    idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
+    tipoAcao: z.literal("EXTRAVIAR"),
+    motivo: z.string().trim().min(5, "O motivo do extravio deve conter pelo menos 5 caracteres."),
+  }),
+  z.object({
+    idOperacao: idOperacaoField,
+    idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
+    tipoAcao: z.literal("REENCONTRAR"),
+    estadoFisicoConstatado: z.enum(["FECHADO", "ABERTO", "VAZIO", "QUEBRADO"]),
+    motivo: z.string().trim().min(5, "O laudo/motivo do reencontro deve conter pelo menos 5 caracteres."),
+  }),
+]);
+
+export const ColocarFrascoEmQuarentenaSchema = z.object({
+  idOperacao: idOperacaoField,
+  idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
+  motivo: z.string().trim().min(10, "O motivo da entrada em quarentena deve conter pelo menos 10 caracteres."),
+});
+
+export const ResolverQuarentenaFrascoSchema = z.object({
+  idOperacao: idOperacaoField,
+  idFrasco: z.string().min(1, "O ID do frasco é obrigatório."),
+  decisao: z.enum(["VOLTAR_A_DISPONIVEL", "PENDENTE_DE_DESCARTE"]),
+  motivo: z.string().trim().min(10, "A justificativa da decisão de quarentena deve conter pelo menos 10 caracteres."),
+});
+

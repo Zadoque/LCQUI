@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { FieldValue } from "firebase-admin/firestore";
 import * as admin from "firebase-admin";
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import {
   ClaimsAutoridade,
   PAPEIS_CONHECIDOS,
@@ -14,10 +14,12 @@ import {
 import {
   construirIdentidade,
   registrarOperacaoConcluidaTx,
+  registrarOperacaoPendenteTx,
+  concluirOperacaoPendenteTx,
   resolverOperacaoTx,
 } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
-import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema, BuscarAlunosSchema, BuscarProfessoresSchema, AtualizarPerfilSchema } from "./schemas/usuarios.schema";
+import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema, BuscarAlunosSchema, BuscarProfessoresSchema, BuscarGestoresAlmoxarifadoSchema, BuscarUsuariosPapelSchema, DetalhesUsuarioPapelSchema, AtualizarPerfilSchema } from "./schemas/usuarios.schema";
 
 const PAPEIS: string[] = [...PAPEIS_CONHECIDOS];
 
@@ -25,6 +27,7 @@ type Mutacao = {
   ator: string; uid: string; papel: string; conceder: boolean; motivo: string;
   idOperacao: string; perfil?: Record<string, unknown>; identidade?: { nome: string; email: string };
   materias?: string[];
+  etapaAuthPendente?: boolean;
 };
 
 /** Auth é externo à transação. Repetição reconcilia a versão corrente, sem repetir a mutação. */
@@ -96,6 +99,9 @@ async function alterarPapel(dados: Mutacao, claims: ClaimsAutoridade): Promise<{
       if (decisao.estado === "REPLAY") {
         return decisao.resultado as { uid: string; ativo: boolean };
       }
+      if (decisao.estado === "PENDENTE") {
+        return decisao.resultado as { uid: string; ativo: boolean };
+      }
       if (decisao.estado !== "NOVA") {
         throw new HttpsError("failed-precondition", "Operação de papel não concluída.");
       }
@@ -163,7 +169,11 @@ async function alterarPapel(dados: Mutacao, claims: ClaimsAutoridade): Promise<{
       tx.set(controleRef, { chefes_ativos: chefesDepois, gestores_patrimoniais_ativos: gestoresDepois,
         versao: (controle.data()?.versao ?? 0) + 1 }, { merge: true });
       const resultado = { uid: dados.uid, ativo };
-      registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+      if (dados.etapaAuthPendente) {
+        registrarOperacaoPendenteTx(tx, dados.idOperacao, identidade, resultado);
+      } else {
+        registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
+      }
       tx.set(auditRef, { id_usuario: dados.ator, acao: dados.conceder ? "CONCEDER_PAPEL" : "REVOGAR_PAPEL",
         tipo_entidade_sofre_acao: "USUARIO", id_do_objeto_da_entidade: dados.uid,
         acao_feita_em: FieldValue.serverTimestamp(), metadata: { papel: dados.papel, motivo: dados.motivo,
@@ -187,32 +197,129 @@ export const convidarUsuario = onCall(async request => {
   // Pré-checagem M9 antes de criar identidade Auth (efeito externo). A decisão
   // autoritativa é refeita por `alterarPapel` dentro da transação do efeito.
   await validarAutoridadePersistidaComClaims(claims, ["Chefe_Geral"]);
-  let user;
-  try { user = await admin.auth().getUserByEmail(dados.email); }
-  catch (error: any) {
-    if (error.code !== "auth/user-not-found") throw error;
-    try { user = await admin.auth().createUser({ email: dados.email, displayName: dados.nome }); }
-    catch (creation: any) {
-      if (creation.code !== "auth/email-already-exists") throw creation;
-      user = await admin.auth().getUserByEmail(dados.email);
+  const operacaoExistente = await admin.firestore().collection("Operacoes").doc(dados.idOperacao).get();
+  const resultadoExistente = operacaoExistente.data()?.resultado;
+  if (operacaoExistente.data()?.status === "CONCLUIDA" && resultadoExistente && typeof resultadoExistente === "object") {
+    return resultadoExistente;
+  }
+  let uid: string;
+  let identidadeAuth: admin.auth.UserRecord | undefined;
+  let contaAuthExistente = false;
+  if (operacaoExistente.data()?.status === "PENDENTE" && resultadoExistente && typeof resultadoExistente === "object"
+    && typeof (resultadoExistente as Record<string, unknown>).uid === "string") {
+    // Após qualquer falha pós-commit, o UID reservado no receipt é a identidade
+    // estável do retry, mesmo que a conta Auth ainda não exista.
+    uid = (resultadoExistente as Record<string, string>).uid;
+    try {
+      identidadeAuth = await admin.auth().getUser(uid);
+      contaAuthExistente = true;
+    } catch (error: any) {
+      if (error.code !== "auth/user-not-found") throw error;
+    }
+  } else {
+    try {
+      identidadeAuth = dados.uidAlvo
+        ? await admin.auth().getUser(dados.uidAlvo)
+        : await admin.auth().getUserByEmail(dados.email!);
+      uid = identidadeAuth.uid;
+      contaAuthExistente = true;
+    } catch (error: any) {
+      if (error.code !== "auth/user-not-found") throw error;
+      // UID reservado não é efeito externo: permite que o commit M9 aconteça
+      // antes do provisionamento Auth.
+      uid = randomUUID();
     }
   }
-  const perfil: Record<string, unknown> = { nome: dados.nome, email: dados.email };
-  if (dados.papel === "Aluno") perfil.letra_inicial = dados.nome.charAt(0).toUpperCase();
+  if (contaAuthExistente && !identidadeAuth) identidadeAuth = await admin.auth().getUser(uid);
+  const usuarioExistente = await admin.firestore().collection("Usuarios").doc(uid).get();
+  const nome = dados.nome ?? usuarioExistente.data()?.nome ?? identidadeAuth?.displayName;
+  const email = dados.email ?? identidadeAuth?.email;
+  if (typeof nome !== "string" || !nome.trim() || typeof email !== "string" || !email.trim()) {
+    throw new HttpsError("failed-precondition", "A identidade existente não possui nome e e-mail válidos.");
+  }
+  const perfil: Record<string, unknown> = { nome: nome.trim(), email: email.trim() };
+  if (dados.papel === "Aluno") perfil.letra_inicial = nome.trim().charAt(0).toUpperCase();
   if (dados.papel === "Professor") { perfil.centro = dados.centro ?? "N/A"; perfil.laboratorio = dados.laboratorio ?? "N/A"; }
-  const resultado = await alterarPapel({ ator: claims.uid, uid: user.uid, papel: dados.papel,
+  const resultado = await alterarPapel({ ator: claims.uid, uid, papel: dados.papel,
     conceder: true, motivo: dados.motivo ?? "Concessão solicitada pela chefia", idOperacao: dados.idOperacao,
-    perfil, identidade: { nome: dados.nome, email: dados.email }, materias: dados.materias ?? [] }, claims);
-  await reconciliarClaimsUsuario(user.uid);
-  const resetLink = await admin.auth().generatePasswordResetLink(dados.email);
+    perfil, identidade: { nome: nome.trim(), email: email.trim() }, materias: dados.materias ?? [], etapaAuthPendente: true }, claims);
+  if (!contaAuthExistente) {
+    try {
+      await admin.auth().createUser({ uid, email: email.trim(), displayName: nome.trim() });
+    } catch (error: any) {
+      // Corrida de e-mail deixa a operação PENDENTE; retry/reconciliação
+      // reconhece a intenção sem reaplicar o papel Firestore.
+      if (error.code !== "auth/email-already-exists") throw error;
+      throw new HttpsError("unavailable", "Provisionamento Auth pendente; repetir a mesma operação.");
+    }
+  }
+  await reconciliarClaimsUsuario(uid);
+  const resetLink = await admin.auth().generatePasswordResetLink(email.trim());
+  await admin.firestore().runTransaction(async tx => {
+    await concluirOperacaoPendenteTx(tx, dados.idOperacao, { ...resultado, resetLink });
+  });
   return { ...resultado, resetLink };
+});
+
+/** UI-02/M9: diretório mínimo para selecionar identidade já existente. */
+export const buscarUsuariosParaPapel = onCall(async request => {
+  const { termo } = validatePayload(BuscarUsuariosPapelSchema, request.data);
+  await validarAutoridadePersistida(request, ["Chefe_Geral"]);
+  const db = admin.firestore();
+  const usuarios = await db.collection("Usuarios").where("ativo", "==", true).limit(200).get();
+  const termoNormalizado = termo?.toLowerCase() ?? "";
+  const papeisPorUsuario = new Map<string, string[]>();
+  for (const papel of PAPEIS) {
+    const docs = await db.collection(papel).limit(200).get();
+    for (const doc of docs.docs) {
+      const papeis = papeisPorUsuario.get(doc.id) ?? [];
+      papeis.push(papel);
+      papeisPorUsuario.set(doc.id, papeis);
+    }
+  }
+  const resultado = usuarios.docs
+    .map(doc => {
+      const data = doc.data();
+      const nome = typeof data.nome === "string" && data.nome.trim() ? data.nome.trim() : "Sem nome";
+      return { id: doc.id, nome, papeis: papeisPorUsuario.get(doc.id) ?? [] };
+    })
+    .filter(usuario => !termoNormalizado || usuario.nome.toLowerCase().includes(termoNormalizado))
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR") || a.id.localeCompare(b.id))
+    .slice(0, 100);
+  return { usuarios: resultado };
+});
+
+/** UI-02: detalhes autorizados por abas, sem usar a lista para baixar identidades. */
+export const obterDetalhesUsuarioParaPapel = onCall(async request => {
+  const { uid } = validatePayload(DetalhesUsuarioPapelSchema, request.data);
+  await validarAutoridadePersistida(request, ["Chefe_Geral"]);
+  const db = admin.firestore();
+  const usuario = await db.collection("Usuarios").doc(uid).get();
+  if (!usuario.exists) throw new HttpsError("not-found", "Usuário não encontrado.");
+  const papeis = await Promise.all(PAPEIS.map(async papel => ({ papel, snap: await db.collection(papel).doc(uid).get() })));
+  const turmas = await db.collection("Usuarios").doc(uid).collection("Turmas").limit(100).get();
+  const atividade = await db.collection("Registro_de_Auditoria")
+    .where("id_do_objeto_da_entidade", "==", uid).limit(100).get();
+  const dados = usuario.data()!;
+  return {
+    dados: {
+      id: uid,
+      nome: typeof dados.nome === "string" ? dados.nome : "Sem nome",
+      email: typeof dados.email === "string" ? dados.email : null,
+      ativo: dados.ativo === true,
+      versao_permissoes: dados.versao_permissoes ?? 0,
+    },
+    papeis: papeis.filter(item => item.snap.exists).map(item => item.papel),
+    turmas: turmas.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+    atividade: atividade.docs.map(doc => ({ id: doc.id, acao: doc.data().acao, instante: doc.data().acao_feita_em ?? null })),
+  };
 });
 
 export const revogarUsuarioPapel = onCall(async request => {
   const claims = extrairClaimsAutoridade(request);
   const dados = validatePayload(RevogarUsuarioPapelSchema, request.data);
-  let user;
-  try { user = await admin.auth().getUserByEmail(dados.email); }
+  let user: admin.auth.UserRecord;
+  try { user = dados.uidAlvo ? await admin.auth().getUser(dados.uidAlvo) : await admin.auth().getUserByEmail(dados.email!); }
   catch { throw new HttpsError("not-found", "Usuário não encontrado."); }
   // A decisão autoritativa é tomada dentro da transação de `alterarPapel`.
   const resultado = await alterarPapel({ ator: claims.uid, uid: user.uid, papel: dados.papel,
@@ -305,6 +412,24 @@ export const buscarProfessores = onCall(async request => {
     .slice(0, 100);
 
   return { professores };
+});
+
+/** UI-03/M9: projeção mínima de gestores ativos de almoxarifado. */
+export const buscarGestoresAlmoxarifado = onCall(async request => {
+  const { termo } = validatePayload(BuscarGestoresAlmoxarifadoSchema, request.data);
+  await validarAutoridadePersistida(request, ["Chefe_Geral"]);
+  const db = admin.firestore();
+  const papeis = await db.collection("Gestor_Almoxarifado").limit(200).get();
+  if (papeis.empty) return { gestores: [] };
+  const usuarios = await db.getAll(...papeis.docs.map(d => db.collection("Usuarios").doc(d.id)));
+  const termoNorm = termo ? termo.toLowerCase() : "";
+  const gestores = papeis.docs.map((papel, i) => {
+    if (!usuarios[i].exists || usuarios[i].data()?.ativo !== true) return null;
+    const nome = usuarios[i].exists && typeof usuarios[i].data()?.nome === "string" && usuarios[i].data()?.nome.trim()
+      ? usuarios[i].data()!.nome.trim() : "Sem nome";
+    return { id: papel.id, nome };
+  }).filter((g): g is { id: string; nome: string } => g !== null && (!termoNorm || g.nome.toLowerCase().includes(termoNorm))).slice(0, 100);
+  return { gestores };
 });
 
 /**

@@ -36,4 +36,19 @@ describe("Domain: Matriz de Papéis", () => {
   it("Chefe Geral sozinho = sucesso", () => {
     expect(() => validarMatrizPapeis(["Chefe_Geral"])).not.toThrow();
   });
+
+  it("cobre exaustivamente as 63 combinações não vazias da matriz RN-ROLE", () => {
+    const papeis = ["Chefe_Geral", "Gestor_Almoxarifado", "Gestor_Bens_Patrimoniais", "Professor", "Aluno", "Bolsista"];
+    for (let mascara = 1; mascara < (1 << papeis.length); mascara++) {
+      const conjunto = papeis.filter((_, indice) => (mascara & (1 << indice)) !== 0);
+      const valido = !(
+        (conjunto.includes("Chefe_Geral") && conjunto.length > 1) ||
+        (conjunto.includes("Aluno") && conjunto.includes("Professor")) ||
+        (conjunto.includes("Bolsista") && !conjunto.includes("Aluno")) ||
+        (conjunto.includes("Bolsista") && conjunto.includes("Gestor_Almoxarifado"))
+      );
+      if (valido) expect(() => validarMatrizPapeis(conjunto)).not.toThrow();
+      else expect(() => validarMatrizPapeis(conjunto)).toThrow(HttpsError);
+    }
+  });
 });

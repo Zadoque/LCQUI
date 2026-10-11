@@ -5,10 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { useAuth } from "@/contexts/AuthContext";
 import { ResumoReagente, FrascoReagente } from "@/types/reagentes";
-import { ModalEntradaFrasco, ModalDevolucaoFrasco } from "@/components/reagentes/ModaisReagentes";
+import { ModalEntradaFrasco, ModalDevolucaoFrasco, ModalMetrologia } from "@/components/reagentes/ModaisReagentes";
 
 export default function ReagenteDetailsPage() {
+  const { roles } = useAuth();
   const { id } = useParams();
   const router = useRouter();
   
@@ -19,6 +21,9 @@ export default function ReagenteDetailsPage() {
   const [isModalEntradaOpen, setIsModalEntradaOpen] = useState(false);
   const [isModalDevolucaoOpen, setIsModalDevolucaoOpen] = useState(false);
   const [selectedFrascoId, setSelectedFrascoId] = useState("");
+  const [selectedEmprestimoId, setSelectedEmprestimoId] = useState("");
+  const [selectedFrascoMetrologia, setSelectedFrascoMetrologia] = useState<any>(null);
+  const [isMetrologiaOpen, setIsMetrologiaOpen] = useState(false);
 
   const fetchDados = async () => {
     setLoading(true);
@@ -36,7 +41,22 @@ export default function ReagenteDetailsPage() {
       const frascosSnap = await getDocs(
         query(collection(db, "Frasco_Reagente"), where("id_resumo_reagente", "==", id))
       );
-      const listaFrascos = frascosSnap.docs.map(d => ({ id: d.id, ...d.data() })) as FrascoReagente[];
+      const emprestimosSnap = await getDocs(collection(db, "Emprestimo_Reagente"));
+      const emprestimosPorFrasco = new Map<string, { id: string; data: any }>();
+      for (const emprestimo of emprestimosSnap.docs) {
+        const dados = emprestimo.data();
+        const anterior = emprestimosPorFrasco.get(dados.id_frasco_reagente);
+        const atual = dados.data_devolucao_efetuada?.toMillis?.() ?? dados.data_retirada?.toMillis?.() ?? 0;
+        const anteriorTempo = anterior?.data.data_devolucao_efetuada?.toMillis?.() ?? anterior?.data.data_retirada?.toMillis?.() ?? 0;
+        if (!anterior || atual >= anteriorTempo) emprestimosPorFrasco.set(dados.id_frasco_reagente, { id: emprestimo.id, data: dados });
+      }
+      const listaFrascos = frascosSnap.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+        idEmprestimoAtivo: emprestimosPorFrasco.get(d.id)?.data.status === "EM_USO" ? emprestimosPorFrasco.get(d.id)?.id : undefined,
+        id_ultimo_emprestimo: emprestimosPorFrasco.get(d.id)?.id,
+        ...emprestimosPorFrasco.get(d.id)?.data,
+      })) as (FrascoReagente & { idEmprestimoAtivo?: string })[];
       setFrascos(listaFrascos);
 
     } catch (error) {
@@ -50,9 +70,15 @@ export default function ReagenteDetailsPage() {
     fetchDados();
   }, [id, router]);
 
-  const handleDevolucao = (frascoId: string) => {
+  const handleDevolucao = (frascoId: string, idEmprestimo?: string) => {
     setSelectedFrascoId(frascoId);
+    setSelectedEmprestimoId(idEmprestimo ?? "");
     setIsModalDevolucaoOpen(true);
+  };
+
+  const handleMetrologia = (frasco: any) => {
+    setSelectedFrascoMetrologia(frasco);
+    setIsMetrologiaOpen(true);
   };
 
   if (loading) {
@@ -66,7 +92,7 @@ export default function ReagenteDetailsPage() {
   if (!reagente) return null;
 
   return (
-    <ProtectedRoute allowedRoles={["Chefe_Geral", "Gestor_Almoxarifado", "Professor", "Bolsista"]}>
+    <ProtectedRoute allowedRoles={["Chefe_Geral", "Gestor_Almoxarifado", "Professor", "Bolsista", "Aluno"]}>
       <main className="min-h-screen bg-background p-6">
         <div className="max-w-5xl mx-auto space-y-8">
           
@@ -87,12 +113,14 @@ export default function ReagenteDetailsPage() {
               </div>
             </div>
             
-            <button 
-              onClick={() => setIsModalEntradaOpen(true)}
-              className="px-5 py-2.5 bg-primary text-primary-foreground font-medium rounded-xl shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 transition-all"
-            >
-              + Novo Frasco
-            </button>
+            {(roles.includes("Chefe_Geral") || roles.includes("Gestor_Almoxarifado")) && (
+              <button 
+                onClick={() => setIsModalEntradaOpen(true)}
+                className="px-5 py-2.5 bg-primary text-primary-foreground font-medium rounded-xl shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 transition-all"
+              >
+                + Novo Frasco
+              </button>
+            )}
           </header>
 
           <section>
@@ -109,7 +137,7 @@ export default function ReagenteDetailsPage() {
                 </thead>
                 <tbody className="divide-y divide-foreground/10">
                   {frascos.map((f) => (
-                    <tr key={f.id} className="hover:bg-foreground/5 transition-colors">
+                    <tr key={f.id} data-testid={`frasco-row-${f.id}`} className="hover:bg-foreground/5 transition-colors">
                       <td className="p-4">
                         <div className="font-medium">{f.codigo_frasco}</div>
                         <div className="text-xs text-foreground/50">{f.id_lote ? "Lote Vinculado" : "Sem Lote"}</div>
@@ -147,12 +175,20 @@ export default function ReagenteDetailsPage() {
                       <td className="p-4 text-right">
                         {f.estado_fisico_frasco === 'ABERTO' && f.disponibilidade === 'EMPRESTADO' && !f.em_quarentena && (
                           <button 
-                            onClick={() => handleDevolucao(f.id)}
+                            onClick={() => handleDevolucao(f.id, (f as FrascoReagente & { idEmprestimoAtivo?: string }).idEmprestimoAtivo)}
                             className="text-xs font-semibold text-amber-500 hover:bg-amber-500/10 px-3 py-1 rounded"
                           >
                             Devolver
                           </button>
                         )}
+                        {(((f as any).status === "DEVOLVIDO_COM_ANOMALIA" && (f as any).consumo_validado === false) || f.estado_fisico_frasco === "VAZIO") ? (
+                          <button
+                            onClick={() => handleMetrologia(f)}
+                            className="text-xs font-semibold text-blue-500 hover:bg-blue-500/10 px-3 py-1 rounded"
+                          >
+                            Resolver Metrologia
+                          </button>
+                        ) : null}
                         {f.estado_fisico_frasco === 'FECHADO' && f.disponibilidade === 'DISPONIVEL' && !f.em_quarentena && (
                           <button className="text-xs font-semibold text-primary hover:bg-primary/10 px-3 py-1 rounded">
                             Retirar (Abrir)
@@ -187,6 +223,18 @@ export default function ReagenteDetailsPage() {
           isOpen={isModalDevolucaoOpen}
           onClose={() => setIsModalDevolucaoOpen(false)}
           frascoId={selectedFrascoId}
+          idEmprestimo={selectedEmprestimoId || undefined}
+          onSuccess={fetchDados}
+        />
+
+        <ModalMetrologia
+          isOpen={isMetrologiaOpen}
+          onClose={() => { setIsMetrologiaOpen(false); setSelectedFrascoMetrologia(null); }}
+          idFrasco={selectedFrascoMetrologia?.id}
+          idEmprestimo={selectedFrascoMetrologia?.id_ultimo_emprestimo}
+          pesoRetornoOriginal={selectedFrascoMetrologia?.peso_retorno}
+          pesoSaidaOriginal={selectedFrascoMetrologia?.peso_saida}
+          tara={selectedFrascoMetrologia?.peso_frasco_vazio}
           onSuccess={fetchDados}
         />
         

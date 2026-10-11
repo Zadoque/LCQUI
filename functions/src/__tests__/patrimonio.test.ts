@@ -4,12 +4,15 @@ process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
 process.env.FUNCTIONS_EMULATOR = "true";
 
 import * as admin from "firebase-admin";
+import { createHash } from "crypto";
 import fft from "firebase-functions-test";
+import type { CallableRequest } from "firebase-functions/v2/https";
 import { 
   criarRequisicaoEdicaoBem, 
   responderRequisicaoEdicaoBem, 
   criarRequisicaoAdicaoBem, 
-  responderRequisicaoAdicaoBem 
+  responderRequisicaoAdicaoBem,
+  registrarBaixaBemPatrimonial
 } from "../patrimonio";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
@@ -19,29 +22,52 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
 
   beforeAll(() => {
     if (!admin.apps.length) {
-      admin.initializeApp({ projectId: "lcqui-dev" });
+      admin.initializeApp({ projectId: "lcqui-dev", storageBucket: "lcqui-dev.appspot.com" });
     }
     db = admin.firestore();
+    const professores = ["prof1", "prof2", "prof3"];
+    const usuarios = professores.map(uid => db.collection("Usuarios").doc(uid).set({ ativo: true, versao_permissoes: 1 }));
+    const papeisProfessores = professores.map(uid => db.collection("Professor").doc(uid).set({ id_usuario: uid, ativo: true }));
+    usuarios.push(db.collection("Usuarios").doc("gestor_pat").set({ ativo: true, versao_permissoes: 1 }));
+    papeisProfessores.push(db.collection("Gestor_Bens_Patrimoniais").doc("gestor_pat").set({ id_usuario: "gestor_pat", ativo: true }));
+    return Promise.all([...usuarios, ...papeisProfessores]);
   });
 
   afterAll(() => {
     testEnv.cleanup();
   });
 
-  const mockRequest = (data: any, uid: string, roles: string[] = ["Professor"]): any => ({
-    data,
+  beforeEach(async () => {
+    await Promise.all([
+      "bem_adicao_123456",
+      "bem_adicao_654321",
+      "bem_adicao_888888",
+      "bem_edicao_bem_editar",
+    ].map(id => db.collection("Locks_Requisicao_Patrimonio").doc(id).delete()));
+  });
+
+  const mockRequest = (data: Record<string, unknown>, uid: string, roles: string[] = ["Professor"]) => ({
+    data: data.idBemPatrimonial || data.idRequisicao
+      ? { ...data, idOperacao: data.idOperacao ?? `test_${createHash("sha256").update(JSON.stringify({ uid, data })).digest("hex").slice(0, 24)}` }
+      : data,
     auth: {
       uid,
-      token: { roles }
+      token: {
+        roles, versao_permissoes: 1, uid, sub: uid,
+        aud: "lcqui-dev", iss: "https://securetoken.google.com/lcqui-dev",
+        auth_time: 1, iat: 1, exp: 4102444800,
+        firebase: { identities: {}, sign_in_provider: "custom" },
+      }
     },
-    rawRequest: {}
+    rawRequest: {} as CallableRequest["rawRequest"]
   });
 
   it("deve criar uma requisição de adição de bem com lock", async () => {
     const wrapped = testEnv.wrap(criarRequisicaoAdicaoBem);
     const req = mockRequest({
       numeroPatrimonioProposto: "123456",
-      estadoConservacaoProposto: "Novo",
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: "requisicoes/prof1/foto.png",
       idLocal: "local1",
       nomeResponsavelProposto: "João",
       motivo: "Novo equipamento"
@@ -58,7 +84,8 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
     const wrapped = testEnv.wrap(criarRequisicaoAdicaoBem);
     const req = mockRequest({
       numeroPatrimonioProposto: "654321",
-      estadoConservacaoProposto: "Novo",
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: "requisicoes/prof1/foto.png",
       idLocal: "local1",
       nomeResponsavelProposto: "Maria",
       motivo: "Equipamento duplicado req"
@@ -71,6 +98,59 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
     await expect(wrapped(req)).rejects.toThrow(/Já existe requisição pendente/i);
   });
 
+  it("deve rejeitar na criação uma plaqueta já reservada permanentemente", async () => {
+    await db.collection("Chaves_Unicas").doc("Bem_Patrimonial__PAT-CRIACAO-RESERVADA").set({
+      tipo: "Bem_Patrimonial",
+      id_recurso: "bem-existente",
+      chave_recurso: "PAT-CRIACAO-RESERVADA",
+    });
+
+    await expect(testEnv.wrap(criarRequisicaoAdicaoBem)(mockRequest({
+      numeroPatrimonioProposto: " pat-criacao-reservada ",
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: "requisicoes/prof1/foto.png",
+      idLocal: "local1",
+      nomeResponsavelProposto: "Maria",
+      motivo: "Colisão de reserva",
+    }, "prof1", ["Professor"]))).rejects.toThrow(/reservada permanentemente/i);
+  });
+
+  it("deve serializar duas requisições equivalentes no mesmo lock canônico", async () => {
+    const dados = {
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: "requisicoes/prof1/foto.png",
+      idLocal: "local1",
+      nomeResponsavelProposto: "Maria",
+      motivo: "Corrida de reserva",
+    };
+    const resultados = await Promise.allSettled([
+      testEnv.wrap(criarRequisicaoAdicaoBem)(mockRequest({ ...dados, numeroPatrimonioProposto: " pat-corrida " }, "prof1", ["Professor"])),
+      testEnv.wrap(criarRequisicaoAdicaoBem)(mockRequest({ ...dados, numeroPatrimonioProposto: "PAT-CORRIDA" }, "prof2", ["Professor"])),
+    ]);
+
+    expect(resultados.filter(resultado => resultado.status === "fulfilled")).toHaveLength(1);
+    expect(resultados.filter(resultado => resultado.status === "rejected")).toHaveLength(1);
+    expect((await db.collection("Locks_Requisicao_Patrimonio").doc("bem_adicao_PAT-CORRIDA").get()).data()).toMatchObject({
+      tipo: "ADICAO",
+      chave_recurso: "PAT-CORRIDA",
+    });
+  });
+
+  it("deve rejeitar requisição patrimonial quando a claim está com versão obsoleta", async () => {
+    const req = mockRequest({
+      numeroPatrimonioProposto: "777000",
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: "requisicoes/prof1/foto.png",
+      idLocal: "local1",
+      nomeResponsavelProposto: "Maria",
+      motivo: "Versão de autorização obsoleta",
+    }, "prof1", ["Professor"]);
+    req.auth.token.versao_permissoes = 2;
+
+    await expect(testEnv.wrap(criarRequisicaoAdicaoBem)(req))
+      .rejects.toThrow(/Permissões desatualizadas/i);
+  });
+
   it("deve rejeitar criação de bem se número de patrimônio já existir (validação Zod/base)", async () => {
     await db.collection("Bem_Patrimonial").doc("bem1").set({
       numero_patrimonio: "999999",
@@ -81,7 +161,8 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
     const wrapped = testEnv.wrap(criarRequisicaoAdicaoBem);
     const req = mockRequest({
       numeroPatrimonioProposto: "999999",
-      estadoConservacaoProposto: "Novo",
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: "requisicoes/prof1/foto.png",
       idLocal: "local1",
       nomeResponsavelProposto: "Maria",
       motivo: "Req"
@@ -94,27 +175,34 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
     const wrapped = testEnv.wrap(criarRequisicaoAdicaoBem);
     const req = mockRequest({
       numeroPatrimonioProposto: "111111",
-      estadoConservacaoProposto: "Novo",
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: "requisicoes/prof1/foto.png",
       nomeResponsavelProposto: "João",
       motivo: "Falta Local"
       // idLocal is missing
     }, "prof1", ["Professor"]);
 
-    await expect(wrapped(req)).rejects.toThrow(/ID do local é obrigatório/i);
+    await expect(wrapped(req)).rejects.toThrow(/idLocal.*(obrigatório|expected string)/i);
   });
 
   it("deve disparar notificação transacional ao aprovar requisição de edição", async () => {
-    await db.collection("Gestor_Bens_Patrimoniais").doc("gestor_pat").set({ nome: "Gestor" });
+    await db.collection("Gestor_Bens_Patrimoniais").doc("gestor_pat").set({ id_usuario: "gestor_pat", ativo: true, nome: "Gestor" });
     await db.collection("Bem_Patrimonial").doc("bem_editar").set({
       numero_patrimonio: "777777",
       nome_equipamento: "Antigo Nome",
-      status: "Ativo"
+      status: "Ativo",
+      versao: 1,
+      id_resumo_bem_patrimonial: "resumo-antigo",
+      id_local: "local1",
     });
+    await db.collection("Resumo_Bem_Patrimonial").doc("resumo-antigo").set({ nome: "Antigo Nome", descricao: "Resumo" });
+    await db.collection("Resumo_Bem_Patrimonial").doc("resumo-novo").set({ nome: "Novo Nome", descricao: "Resumo novo" });
 
     const wrappedReq = testEnv.wrap(criarRequisicaoEdicaoBem);
     const resultReq = await wrappedReq(mockRequest({
       idBemPatrimonial: "bem_editar",
-      novoNome: "Novo Nome",
+      novoEstadoConservacao: "REGULAR",
+      novoIdResumoBemPatrimonial: "resumo-novo",
       motivo: "Mudança de nome"
     }, "prof2", ["Professor"]));
 
@@ -144,7 +232,8 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
     const wrappedReq = testEnv.wrap(criarRequisicaoAdicaoBem);
     const resultReq = await wrappedReq(mockRequest({
       numeroPatrimonioProposto: "888888",
-      estadoConservacaoProposto: "Novo",
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: "requisicoes/prof3/foto.png",
       idLocal: "local1",
       nomeResponsavelProposto: "João",
       motivo: "Novo"
@@ -167,5 +256,427 @@ describe("Módulo de Patrimônio (Equipamentos, Locais e Requisições)", () => 
       .get();
       
     expect(notifSnap.empty).toBe(false);
+  });
+
+  it("deve materializar cadastro canônico com reserva permanente, versão 1 e histórico", async () => {
+    const numero = ` pat-${Date.now()} `;
+    const photoPath = `requisicoes/prof1/pat-${Date.now()}.png`;
+    await db.collection("Local").doc("local-pat-canonico").set({ predio: "P1", andar: "1", sala: "101" });
+    await db.collection("Resumo_Bem_Patrimonial").doc("resumo-pat-canonico").set({ nome: "Balança Analítica", descricao: "Balança de precisão" });
+    await admin.storage().bucket().file(photoPath).save(Buffer.from("fake-image"), { contentType: "image/png" });
+
+    const criado = await testEnv.wrap(criarRequisicaoAdicaoBem)(mockRequest({
+      numeroPatrimonioProposto: numero,
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: photoPath,
+      idLocal: "local-pat-canonico",
+      idResumoBemPatrimonial: "resumo-pat-canonico",
+      nomeResponsavelProposto: "Responsável SEI",
+      motivo: "Cadastro canônico",
+    }, "prof1", ["Professor"]));
+
+    const aprovado = await testEnv.wrap(responderRequisicaoAdicaoBem)(mockRequest({
+      idRequisicao: criado.idRequisicao,
+      aprovar: true,
+      justificativa: "Aprovado",
+    }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]));
+    const idBemCriado = aprovado.idBemCriado as string;
+    const bem = await db.collection("Bem_Patrimonial").doc(idBemCriado).get();
+    expect(bem.data()).toMatchObject({
+      id: idBemCriado,
+      numero_patrimonio: numero.trim().toUpperCase(),
+      versao: 1,
+      status: "Ativo",
+      id_resumo_bem_patrimonial: "resumo-pat-canonico",
+      predio: "P1",
+      andar: "1",
+      sala: "101",
+      photo_url: photoPath,
+    });
+    expect((await db.collection("Chaves_Unicas").doc(`Bem_Patrimonial__${numero.trim().toUpperCase()}`).get()).exists).toBe(true);
+    expect((await bem.ref.collection("Historico_Patrimonio").get()).size).toBe(1);
+  });
+
+  it("deve impedir reutilização de plaqueta já reservada por bem terminal", async () => {
+    const numero = "PAT-BAIXADO";
+    const photoPath = "requisicoes/prof1/pat-baixado.png";
+    await db.collection("Chaves_Unicas").doc(`Bem_Patrimonial__${numero}`).set({
+      tipo: "Bem_Patrimonial",
+      id_recurso: "bem-terminal",
+      chave_recurso: numero,
+    });
+    await admin.storage().bucket().file(photoPath).save(Buffer.from("fake-image"), { contentType: "image/png" });
+
+    await expect(testEnv.wrap(criarRequisicaoAdicaoBem)(mockRequest({
+      numeroPatrimonioProposto: ` ${numero.toLowerCase()} `,
+      estadoConservacaoProposto: "BOM",
+      photoUrlProposta: photoPath,
+      idLocal: "local1",
+      idResumoBemPatrimonial: "resumo-antigo",
+      nomeResponsavelProposto: "Responsável SEI",
+      motivo: "Tentativa de reutilização",
+    }, "prof1", ["Professor"]))).rejects.toThrow(/reservada permanentemente/i);
+    expect((await db.collection("Chaves_Unicas").doc(`Bem_Patrimonial__${numero}`).get()).data()?.id_recurso).toBe("bem-terminal");
+  });
+
+  it("deve rejeitar aprovação de edição quando a versão observada ficou obsoleta", async () => {
+    await db.collection("Locks_Requisicao_Patrimonio").doc("bem_edicao_bem-versao-pat").delete();
+    await db.collection("Bem_Patrimonial").doc("bem-versao-pat").set({
+      id: "bem-versao-pat",
+      numero_patrimonio: "PAT-VERSAO",
+      status: "Ativo",
+      versao: 1,
+      estado_conservacao: "BOM",
+      id_resumo_bem_patrimonial: "resumo-antigo",
+      id_local: "local1",
+      photo_url: "patrimonio/bem-versao-pat/foto.png",
+    });
+    const criado = await testEnv.wrap(criarRequisicaoEdicaoBem)(mockRequest({
+      idBemPatrimonial: "bem-versao-pat",
+      novoEstadoConservacao: "REGULAR",
+      motivo: "Teste de conflito",
+    }, "prof1", ["Professor"]));
+    await db.collection("Bem_Patrimonial").doc("bem-versao-pat").update({ versao: 2 });
+
+    await expect(testEnv.wrap(responderRequisicaoEdicaoBem)(mockRequest({
+      idRequisicao: criado.idRequisicao,
+      aprovar: true,
+      justificativa: "Não aprovar conflito",
+    }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]))).resolves.toEqual({ status: "rejeitada", motivo: "CONFLITO_VERSAO" });
+    expect((await db.collection("Bem_Patrimonial").doc("bem-versao-pat").get()).data()?.estado_conservacao).toBe("BOM");
+    expect((await db.collection("Bem_Patrimonial").doc("bem-versao-pat").get()).data()?.versao).toBe(2);
+    expect((await db.collection("Requisicao_Edicao_Bem_Patrimonial").doc(criado.idRequisicao).get()).data()?.status).toBe("rejeitada");
+    expect((await db.collection("Locks_Requisicao_Patrimonio").doc("bem_edicao_bem-versao-pat").get()).exists).toBe(false);
+    expect((await db.collection("Bem_Patrimonial").doc("bem-versao-pat").collection("Historico_Patrimonio").get()).empty).toBe(true);
+  });
+
+  describe("IMP-PAT-004 — desfechos normativos de edição (Seções 10.8, 7, 8 e M10)", () => {
+    // IDs exclusivos tornam cada cenário independente do restante da suíte.
+    async function preparar(proposta: Record<string, unknown> = {}) {
+      const bem = db.collection("Bem_Patrimonial").doc();
+      const resumo = db.collection("Resumo_Bem_Patrimonial").doc();
+      const local = db.collection("Local").doc();
+      await resumo.set({ nome: "Balança original", descricao: "Modelo original" });
+      await local.set({ predio: "P1", andar: "1", sala: "101" });
+      await bem.set({
+        id: bem.id, numero_patrimonio: bem.id, versao: 1, status: "Ativo",
+        estado_conservacao: "BOM", id_resumo_bem_patrimonial: resumo.id,
+        nome_equipamento: "Balança original", letra_inicial_nome: "B",
+        id_local: local.id, predio: "P1", andar: "1", sala: "101",
+        photo_url: `patrimonio/${bem.id}/foto.png`,
+      });
+      const criada = await testEnv.wrap(criarRequisicaoEdicaoBem)(mockRequest({
+        idOperacao: `criar_${bem.id}`, idBemPatrimonial: bem.id, novoEstadoConservacao: "REGULAR",
+        motivo: "Revisão patrimonial", ...proposta,
+      }, "prof1"));
+      const req = db.collection("Requisicao_Edicao_Bem_Patrimonial").doc(criada.idRequisicao);
+      const lock = db.collection("Locks_Requisicao_Patrimonio").doc(`bem_edicao_${bem.id}`);
+      // Lock de outra requisição: os desfechos desta resposta jamais podem removê-lo.
+      const lockSentinela = db.collection("Locks_Requisicao_Patrimonio").doc(`sentinela_${req.id}`);
+      const dadosLockSentinela = {
+        id_requisicao: `requisicao-sentinela-${req.id}`,
+        tipo: "EDICAO",
+        chave_recurso: `bem-sentinela-${req.id}`,
+      };
+      await lockSentinela.set(dadosLockSentinela);
+      const historico = bem.collection("Historico_Patrimonio");
+      const notificacoes = db.collection("Usuarios").doc("prof1").collection("Notificacoes")
+        .where("id_alvo", "==", req.id);
+      const responder = (aprovar = true, justificativa: unknown = "Decisão fundamentada") =>
+        testEnv.wrap(responderRequisicaoEdicaoBem)(mockRequest({
+          idOperacao: `responder_${req.id}`, idRequisicao: req.id, aprovar, justificativa,
+        }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]));
+      const estado = async () => ({
+        bem: (await bem.get()).data(), req: (await req.get()).data(),
+        lock: (await lock.get()).data(),
+        lockSentinela: (await lockSentinela.get()).data(),
+        historico: (await historico.get()).docs.map(doc => ({ id: doc.id, ...doc.data() })),
+        notificacoes: (await notificacoes.get()).docs.map(doc => ({ id: doc.id, ...doc.data() })),
+      });
+      expect((await req.get()).data()?.versao_bem_origem).toBe(1);
+      expect((await lock.get()).data()).toMatchObject({
+        id_requisicao: req.id, tipo: "EDICAO", chave_recurso: bem.id,
+      });
+      return { bem, resumo, local, req, lock, lockSentinela, dadosLockSentinela, historico, notificacoes, responder, estado };
+    }
+
+    it.each(["conflito", "rejeicao humana", "bem ausente", "local ausente", "resumo ausente"])(
+      "%s finaliza, libera somente o lock e não altera Bem/histórico", async (caso) => {
+        const alvo = db.collection(caso === "local ausente" ? "Local" : "Resumo_Bem_Patrimonial").doc();
+        await alvo.set(caso === "local ausente"
+          ? { predio: "P2", andar: "2", sala: "202" }
+          : { nome: "Novo modelo", descricao: "Descrição" });
+        const f = await preparar(caso === "local ausente" ? { novoIdLocal: alvo.id }
+          : caso === "resumo ausente" ? { novoIdResumoBemPatrimonial: alvo.id } : {});
+        if (caso === "conflito" || caso === "rejeicao humana") await f.bem.update({ versao: 2 });
+        if (caso === "bem ausente") await f.bem.delete();
+        if (caso === "local ausente" || caso === "resumo ausente") await alvo.delete();
+        const antes = await f.estado();
+        const resultado = await f.responder(caso !== "rejeicao humana");
+        expect(resultado).toMatchObject({ status: "rejeitada" });
+        if (caso !== "rejeicao humana") expect(resultado).toMatchObject({
+          motivo: caso === "local ausente" ? "LOCAL_NAO_ENCONTRADO"
+            : caso === "resumo ausente" ? "RESUMO_ALVO_NAO_ENCONTRADO" : "CONFLITO_VERSAO",
+        });
+        const depois = await f.estado();
+        expect(depois.bem).toEqual(antes.bem);
+        expect(depois.historico).toEqual(antes.historico);
+        expect(depois.lock).toBeUndefined();
+        expect(depois.lockSentinela).toEqual(f.dadosLockSentinela);
+        expect(depois.req).toMatchObject({
+          status: "rejeitada", id_usuario_respondente: "gestor_pat",
+          respondida_em: expect.any(admin.firestore.Timestamp),
+          justificativa_resposta: expect.stringMatching(/\S/),
+        });
+        if (caso === "rejeicao humana") expect(depois.req?.justificativa_resposta).toBe("Decisão fundamentada");
+        expect(depois.notificacoes).toHaveLength(1);
+        await expect(f.responder(caso === "rejeicao humana" ? false : true)).resolves.toMatchObject({ status: "rejeitada" });
+        expect(await f.estado()).toEqual(depois);
+      },
+    );
+
+    it.each(["ausente", "id_requisicao", "tipo", "chave_recurso"])(
+      "lock %s impede aprovação e rejeição sem qualquer mutação", async (campo) => {
+        const f = await preparar();
+        if (campo === "ausente") await f.lock.delete();
+        else await f.lock.update({ [campo]: campo === "tipo" ? "ADICAO" : "outro-recurso" });
+        const antes = await f.estado();
+        for (const aprovar of [true, false]) {
+          await expect(f.responder(aprovar)).rejects.toMatchObject({ code: "failed-precondition" });
+          expect(await f.estado()).toEqual(antes);
+        }
+      },
+    );
+
+    it.each([undefined, "", "   "])("justificativa inválida (%s) não produz fatos", async (justificativa) => {
+      const f = await preparar();
+      const antes = await f.estado();
+      for (const aprovar of [true, false]) {
+        const data = { idRequisicao: f.req.id, aprovar, ...(justificativa === undefined ? {} : { justificativa }) };
+        await expect(testEnv.wrap(responderRequisicaoEdicaoBem)(mockRequest(data, "gestor_pat", ["Gestor_Bens_Patrimoniais"])))
+          .rejects.toMatchObject({ code: "invalid-argument" });
+        expect(await f.estado()).toEqual(antes);
+      }
+    });
+
+    it.each(["existente", "novo"])("aprova Resumo %s com vínculo, versão e histórico únicos", async (tipo) => {
+      const alvo = db.collection("Resumo_Bem_Patrimonial").doc();
+      if (tipo === "existente") await alvo.set({ nome: "Microscópio", descricao: "Modelo óptico" });
+      const f = await preparar(tipo === "existente" ? { novoIdResumoBemPatrimonial: alvo.id }
+        : { novoNome: "Microscópio", novaDescricaoResumo: "Modelo óptico" });
+      const original = (await f.resumo.get()).data();
+      await expect(f.responder()).resolves.toEqual({ status: "aprovada" });
+      const depois = await f.estado();
+      const idResumo = depois.bem?.id_resumo_bem_patrimonial;
+      expect(typeof idResumo).toBe("string");
+      expect(idResumo).not.toBe(f.resumo.id);
+      if (tipo === "existente") expect(idResumo).toBe(alvo.id);
+      expect((await db.collection("Resumo_Bem_Patrimonial").doc(idResumo).get()).data())
+        .toMatchObject({ nome: "Microscópio", descricao: "Modelo óptico" });
+      expect((await f.resumo.get()).data()).toEqual(original);
+      expect(depois.bem).toMatchObject({ versao: 2, nome_equipamento: "Microscópio", estado_conservacao: "REGULAR" });
+      expect(depois.req).toMatchObject({ status: "aprovada", novo_id_resumo_bem_patrimonial: idResumo });
+      expect(depois.lock).toBeUndefined();
+      expect(depois.lockSentinela).toEqual(f.dadosLockSentinela);
+      expect(depois.notificacoes).toHaveLength(1);
+      expect(depois.historico).toHaveLength(1);
+      expect(depois.historico[0]).toMatchObject({
+        tipo: "edicao", id_bem_patrimonial: f.bem.id, id_usuario: "gestor_pat",
+        alteracoes: expect.arrayContaining([
+          { campo: "estado_conservacao", valor_anterior: "BOM", valor_novo: "REGULAR" },
+          { campo: "id_resumo_bem_patrimonial", valor_anterior: f.resumo.id, valor_novo: idResumo },
+        ]),
+      });
+      expect(depois.historico[0].id).toBe(`edicao_responder_${f.req.id}`);
+      expect((await db.collection("Operacoes").doc(`responder_${f.req.id}`).get()).data()).toMatchObject({
+        tipo_operacao: "RESPONDER_REQUISICAO_EDICAO_BEM",
+        status: "CONCLUIDA",
+        resultado: { status: "aprovada" },
+      });
+      await expect(f.responder()).resolves.toEqual({ status: "aprovada" });
+      expect(await f.estado()).toEqual(depois);
+    });
+
+    it("rejeita reuso incompatível do idOperacao sem tocar no estado terminal", async () => {
+      const f = await preparar();
+      await expect(f.responder()).resolves.toEqual({ status: "aprovada" });
+      await expect(testEnv.wrap(responderRequisicaoEdicaoBem)(mockRequest({
+        idOperacao: `responder_${f.req.id}`,
+        idRequisicao: f.req.id,
+        aprovar: true,
+        justificativa: "Payload divergente",
+      }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]))).rejects.toMatchObject({ code: "already-exists" });
+    });
+  });
+
+  describe("Baixa Patrimonial Comprovada e Histórico Auditável (IMP-PAT-005 e IMP-PAT-006)", () => {
+    it("deve registrar baixa de bem Inservivel com PDF no Storage, histórico único e plaqueta preservada", async () => {
+      const idBem = `bem_baixa_${Date.now()}`;
+      const plaqueta = `PLQ-BX-${Date.now()}`;
+      const bemRef = db.collection("Bem_Patrimonial").doc(idBem);
+      await bemRef.set({
+        id: idBem,
+        numero_patrimonio: plaqueta,
+        status: "Inservivel",
+        versao: 2,
+        predio: "Química",
+        andar: "1",
+        sala: "101",
+        cadastrado_em: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Chave única reservada permanentemente
+      await db.collection("Chaves_Unicas").doc(`Bem_Patrimonial__${plaqueta}`).set({
+        tipo: "Bem_Patrimonial",
+        id_recurso: idBem,
+        chave_recurso: plaqueta,
+      });
+
+      // Cria PDF no Storage Emulator
+      const storagePath = `baixas_patrimoniais/${idBem}/termo_baixa_sei.pdf`;
+      const file = admin.storage().bucket().file(storagePath);
+      await file.save(Buffer.from("%PDF-1.4 mock pdf"), { contentType: "application/pdf" });
+
+      const idOp = `op_baixa_${Date.now()}`;
+      const req = mockRequest({
+        idOperacao: idOp,
+        idBemPatrimonial: idBem,
+        documentoDadoBaixaPdfUrl: storagePath,
+        justificativa: "Equipamento obsoleto e sem condições de reparo conforme processo SEI 12345.",
+      }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]);
+
+      const res = await testEnv.wrap(registrarBaixaBemPatrimonial)(req);
+      expect(res).toEqual({ idBemPatrimonial: idBem, status: "Ja_dado_baixa" });
+
+      // Verifica atualização do bem
+      const bemAtualizado = await bemRef.get();
+      expect(bemAtualizado.data()).toMatchObject({
+        status: "Ja_dado_baixa",
+        versao: 3,
+        documento_dado_baixa_pdf_url: storagePath,
+        justificativa_baixa: "Equipamento obsoleto e sem condições de reparo conforme processo SEI 12345.",
+      });
+
+      // Verifica evento único no caminho normativo do histórico
+      const histSnap = await bemRef.collection("Historico_Patrimonio").get();
+      expect(histSnap.docs).toHaveLength(1);
+      expect(histSnap.docs[0].id).toBe(`baixa_${idOp}`);
+      expect(histSnap.docs[0].data()).toMatchObject({
+        id_bem_patrimonial: idBem,
+        tipo: "baixa",
+        documento_dado_baixa_pdf_url: storagePath,
+        alteracoes: [
+          { campo: "status", valor_anterior: "Inservivel", valor_novo: "Ja_dado_baixa" },
+          { campo: "documento_dado_baixa_pdf_url", valor_anterior: "", valor_novo: storagePath },
+        ],
+      });
+
+      // Verifica recuperação via collectionGroup
+      const cgSnap = await db.collectionGroup("Historico_Patrimonio")
+        .where("id_bem_patrimonial", "==", idBem)
+        .get();
+      expect(cgSnap.docs).toHaveLength(1);
+      expect(cgSnap.docs[0].data().tipo).toBe("baixa");
+
+      // Verifica que a plaqueta PERMANECE reservada (não liberada)
+      const chaveSnap = await db.collection("Chaves_Unicas").doc(`Bem_Patrimonial__${plaqueta}`).get();
+      expect(chaveSnap.exists).toBe(true);
+
+      // Replay idempotente com mesmo idOperacao
+      const replay = await testEnv.wrap(registrarBaixaBemPatrimonial)(req);
+      expect(replay).toEqual(res);
+
+      // Rejeita reuso incompatível com payload diferente
+      const reqIncompativel = mockRequest({
+        idOperacao: idOp,
+        idBemPatrimonial: idBem,
+        documentoDadoBaixaPdfUrl: storagePath,
+        justificativa: "Outra justificativa incompatível",
+      }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]);
+      await expect(testEnv.wrap(registrarBaixaBemPatrimonial)(reqIncompativel)).rejects.toMatchObject({ code: "already-exists" });
+    });
+
+    it("deve rejeitar baixa direta de bem com status Ativo (exige Inservível prévio)", async () => {
+      const idBem = `bem_ativo_${Date.now()}`;
+      const bemRef = db.collection("Bem_Patrimonial").doc(idBem);
+      await bemRef.set({
+        id: idBem,
+        numero_patrimonio: `PLQ-AT-${Date.now()}`,
+        status: "Ativo",
+        versao: 1,
+      });
+
+      const storagePath = `baixas_patrimoniais/${idBem}/termo.pdf`;
+      const file = admin.storage().bucket().file(storagePath);
+      await file.save(Buffer.from("%PDF-1.4 mock pdf"), { contentType: "application/pdf" });
+
+      const req = mockRequest({
+        idOperacao: `op_baixa_ativo_${Date.now()}`,
+        idBemPatrimonial: idBem,
+        documentoDadoBaixaPdfUrl: storagePath,
+        justificativa: "Tentativa de baixa direta",
+      }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]);
+
+      await expect(testEnv.wrap(registrarBaixaBemPatrimonial)(req)).rejects.toThrow(
+        /Apenas bens classificados como Inservível podem receber baixa patrimonial definitiva/i
+      );
+    });
+
+    it("deve rejeitar baixa se comprovante PDF não existir no Storage ou namespace for incorreto", async () => {
+      const idBem = `bem_sem_pdf_${Date.now()}`;
+      await db.collection("Bem_Patrimonial").doc(idBem).set({
+        id: idBem,
+        status: "Inservivel",
+        versao: 1,
+      });
+
+      // Path incorreto (fora de baixas_patrimoniais/{idBem}/)
+      const reqPathIncorreto = mockRequest({
+        idOperacao: `op_bx_err_${Date.now()}`,
+        idBemPatrimonial: idBem,
+        documentoDadoBaixaPdfUrl: "outro_lugar/comprovante.pdf",
+        justificativa: "Teste",
+      }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]);
+
+      await expect(testEnv.wrap(registrarBaixaBemPatrimonial)(reqPathIncorreto)).rejects.toThrow(
+        /caminho normativo do bem/i
+      );
+
+      // Arquivo inexistente no Storage
+      const reqArquivoInexistente = mockRequest({
+        idOperacao: `op_bx_err2_${Date.now()}`,
+        idBemPatrimonial: idBem,
+        documentoDadoBaixaPdfUrl: `baixas_patrimoniais/${idBem}/inexistente.pdf`,
+        justificativa: "Teste",
+      }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]);
+
+      await expect(testEnv.wrap(registrarBaixaBemPatrimonial)(reqArquivoInexistente)).rejects.toThrow(
+        /Arquivo do comprovante de baixa não encontrado/i
+      );
+    });
+
+    it("deve rejeitar nova baixa em bem que já possui baixa definitiva", async () => {
+      const idBem = `bem_ja_dado_baixa_${Date.now()}`;
+      await db.collection("Bem_Patrimonial").doc(idBem).set({
+        id: idBem,
+        status: "Ja_dado_baixa",
+        versao: 3,
+      });
+
+      const storagePath = `baixas_patrimoniais/${idBem}/termo.pdf`;
+      const file = admin.storage().bucket().file(storagePath);
+      await file.save(Buffer.from("%PDF-1.4 mock pdf"), { contentType: "application/pdf" });
+
+      const req = mockRequest({
+        idOperacao: `op_bx_rebaixa_${Date.now()}`,
+        idBemPatrimonial: idBem,
+        documentoDadoBaixaPdfUrl: storagePath,
+        justificativa: "Tentativa de rebaixa",
+      }, "gestor_pat", ["Gestor_Bens_Patrimoniais"]);
+
+      await expect(testEnv.wrap(registrarBaixaBemPatrimonial)(req)).rejects.toThrow(
+        /já possui baixa definitiva/i
+      );
+    });
   });
 });

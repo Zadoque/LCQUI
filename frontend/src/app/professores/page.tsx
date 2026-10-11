@@ -1,25 +1,17 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { collection, onSnapshot, query } from "firebase/firestore";
-import { db, functions } from "@/lib/firebase/config";
-import { httpsCallable } from "firebase/functions";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { useAuth } from "@/contexts/AuthContext";
 import { NovaMateriaModal } from "@/components/materias/NovaMateriaModal";
 import { ListaMaterias } from "@/components/materias/ListaMaterias";
-
-interface Professor {
-  id: string;
-  nome: string;
-  email: string;
-  ativo: boolean;
-  centro?: string;
-  laboratorio?: string;
-}
+import {
+  buscarProfessores,
+  buscarUsuariosSelecionaveis,
+  convidarProfessor,
+} from "@/services/usuarios/usuariosService";
+import type { Professor, UsuarioSelecionavel } from "@/types/usuarios";
 
 export default function ProfessoresDashboard() {
-  const { roles } = useAuth();
   const [professores, setProfessores] = useState<Professor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -33,26 +25,33 @@ export default function ProfessoresDashboard() {
   const [centro, setCentro] = useState("CCT");
   const [laboratorio, setLaboratorio] = useState("");
   const [selectedMaterias, setSelectedMaterias] = useState<string[]>([]);
+  const [usuariosSelecionaveis, setUsuariosSelecionaveis] = useState<UsuarioSelecionavel[]>([]);
+  const [uidAlvo, setUidAlvo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    // Section 5 Search Strategy for Professores:
-    const qProf = query(collection(db, "Professor"));
-    const unsubProf = onSnapshot(qProf, (querySnapshot) => {
-      const lista = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Professor[];
-      setProfessores(lista);
-      setLoading(false);
-    }, (error) => {
-      console.error("Erro ao buscar professores:", error);
-      setLoading(false);
-    });
+    if (!isModalOpen) return;
+    let cancelado = false;
+    buscarUsuariosSelecionaveis()
+      .then((usuarios) => {
+        if (!cancelado) setUsuariosSelecionaveis(usuarios);
+      })
+      .catch((error) => console.error("Erro ao buscar identidades existentes:", error));
+    return () => { cancelado = true; };
+  }, [isModalOpen]);
 
-    return () => {
-      unsubProf();
-    };
+  useEffect(() => {
+    let cancelado = false;
+    buscarProfessores()
+      .then((resultado) => {
+        if (!cancelado) setProfessores(resultado);
+      })
+      .catch((error) => console.error("Erro ao buscar professores:", error))
+      .finally(() => {
+        if (!cancelado) setLoading(false);
+      });
+
+    return () => { cancelado = true; };
   }, []);
 
   const handleConvidar = async (e: React.FormEvent) => {
@@ -61,21 +60,17 @@ export default function ProfessoresDashboard() {
     setToastMessage(null);
 
     try {
-      const convidarUsuario = httpsCallable(functions, "convidarUsuario");
-      const result = await convidarUsuario({ 
-        email, 
-        nome, 
-        papel: "Professor",
+      const data = await convidarProfessor({
+        ...(uidAlvo ? { uidAlvo } : { email, nome }),
         centro,
         laboratorio,
-        materias: selectedMaterias
+        materias: selectedMaterias,
       });
-      const data = result.data as { resetLink: string; uid: string };
       
       setToastMessage({
         type: "success",
         text: "Professor convidado com sucesso!",
-        link: data.resetLink
+        link: data.resetLink,
       });
       
       setIsModalOpen(false);
@@ -84,11 +79,13 @@ export default function ProfessoresDashboard() {
       setCentro("CCT");
       setLaboratorio("");
       setSelectedMaterias([]);
-    } catch (error: any) {
+      setUidAlvo("");
+    } catch (error: unknown) {
       console.error("Erro ao convidar professor:", error);
+      const msg = error instanceof Error ? error.message : "Erro ao convidar professor";
       setToastMessage({
         type: "error",
-        text: error.message || "Erro ao convidar professor"
+        text: msg,
       });
     } finally {
       setIsSubmitting(false);
@@ -106,7 +103,7 @@ export default function ProfessoresDashboard() {
     const term = searchQuery.toLowerCase();
     return (
       (p.nome && p.nome.toLowerCase().includes(term)) ||
-      (p.email && p.email.toLowerCase().includes(term))
+      p.nome.toLowerCase().includes(term)
     );
   });
 
@@ -161,7 +158,7 @@ export default function ProfessoresDashboard() {
             <div className="w-full sm:w-1/2">
               <input
                 type="text"
-                placeholder="Buscar por nome ou e-mail..."
+                placeholder="Buscar por nome..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary"
@@ -175,15 +172,12 @@ export default function ProfessoresDashboard() {
                 <thead className="bg-foreground/5 text-foreground/70 border-b border-foreground/10">
                   <tr>
                     <th className="px-5 py-4 font-medium uppercase tracking-wider text-xs">Nome</th>
-                    <th className="px-5 py-4 font-medium uppercase tracking-wider text-xs">E-mail</th>
-                    <th className="px-5 py-4 font-medium uppercase tracking-wider text-xs">Centro</th>
-                    <th className="px-5 py-4 font-medium uppercase tracking-wider text-xs">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-foreground/5">
                   {loading ? (
                     <tr>
-                      <td colSpan={4} className="px-6 py-16 text-center">
+                      <td colSpan={1} className="px-6 py-16 text-center">
                         <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-primary"></div>
                       </td>
                     </tr>
@@ -191,20 +185,11 @@ export default function ProfessoresDashboard() {
                     filteredProfessores.map((prof) => (
                       <tr key={prof.id} className="hover:bg-foreground/5 transition-colors">
                         <td className="px-5 py-4 font-semibold">{prof.nome}</td>
-                        <td className="px-5 py-4 text-foreground/70">{prof.email}</td>
-                        <td className="px-5 py-4 text-foreground/70">{prof.centro || "N/A"}</td>
-                        <td className="px-5 py-4">
-                          <span className={`px-2 py-1 rounded text-xs font-bold ${
-                            prof.ativo !== false ? "bg-green-500/15 text-green-500" : "bg-red-500/15 text-red-500"
-                          }`}>
-                            {prof.ativo !== false ? "Ativo" : "Inativo"}
-                          </span>
-                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={4} className="px-6 py-16 text-center text-foreground/50">
+                      <td colSpan={1} className="px-6 py-16 text-center text-foreground/50">
                         Nenhum professor encontrado.
                       </td>
                     </tr>
@@ -226,13 +211,38 @@ export default function ProfessoresDashboard() {
                 </div>
                 
                 <form onSubmit={handleConvidar} className="p-6 overflow-y-auto space-y-6 flex-1">
+                  <div>
+                    <label htmlFor="usuario-existente" className="block text-sm font-semibold mb-1 text-foreground/80">
+                      Usuário existente (opcional)
+                    </label>
+                    <select
+                      id="usuario-existente"
+                      value={uidAlvo}
+                      onChange={(e) => {
+                        const uid = e.target.value;
+                        const selecionado = usuariosSelecionaveis.find((usuario) => usuario.id === uid);
+                        setUidAlvo(uid);
+                        if (selecionado) setNome(selecionado.nome);
+                      }}
+                      className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Convidar por e-mail</option>
+                      {usuariosSelecionaveis.map((usuario) => (
+                        <option key={usuario.id} value={usuario.id}>
+                          {usuario.nome} — {usuario.papeis?.join(", ") || "sem papel"}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-foreground/60 mt-1">A lista contém somente identidades ativas autorizadas.</p>
+                  </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-semibold mb-1 text-foreground/80">Nome Completo</label>
                       <input
                         type="text"
-                        required
+                        required={!uidAlvo}
+                        disabled={Boolean(uidAlvo)}
                         value={nome}
                         onChange={(e) => setNome(e.target.value)}
                         className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary"
@@ -243,7 +253,8 @@ export default function ProfessoresDashboard() {
                       <label className="block text-sm font-semibold mb-1 text-foreground/80">E-mail (UFSC)</label>
                       <input
                         type="email"
-                        required
+                        required={!uidAlvo}
+                        disabled={Boolean(uidAlvo)}
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary"

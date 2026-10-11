@@ -21,6 +21,8 @@ import {
   assinaturaIntencaoEmitirUrl,
 } from "@/lib/intencaoOperacao";
 import { construirPayloadConvidarAluno } from "@/lib/convitesPayload.mjs";
+import type { RoteiroProjecao } from "@/types/turmas";
+import type { ProfessorProjecao } from "@/types/usuarios";
 
 interface ModalProps {
   isOpen: boolean;
@@ -738,20 +740,6 @@ export function NovoRoteiroModal({ isOpen, onClose }: ModalProps) {
   );
 }
 
-interface RoteiroProjecao {
-  id: string;
-  nome: string;
-  descricao: string;
-  file_url?: string | null;
-  status: string;
-  professores_compartilhados: string[];
-}
-
-interface ProfessorProjecao {
-  uid: string;
-  nome: string;
-  ativo: boolean;
-}
 
 export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
   const { user } = useAuth();
@@ -786,19 +774,14 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
   // Carrega lista de professores ativos ao abrir modal de compartilhamento
   useEffect(() => {
     if (!modalCompartilhamentoAberto || !user) return;
-    const q = query(collection(db, "Professor"), where("ativo", "==", true));
-    const unsub = onSnapshot(q, (snap) => {
-      const lista = snap.docs.map(doc => {
-        const data = doc.data();
-        return {
-          uid: doc.id,
-          nome: data.nome || doc.id,
-          ativo: data.ativo !== false,
-        };
-      });
-      setProfessores(lista);
-    });
-    return () => unsub();
+    let cancelado = false;
+    const buscarProfessores = httpsCallable(getFunctions(), "buscarProfessores");
+    buscarProfessores({}).then((resultado) => {
+      if (cancelado) return;
+      const lista = (resultado.data as { professores: { id: string; nome: string }[] }).professores;
+      setProfessores(lista.map(professor => ({ uid: professor.id, nome: professor.nome, ativo: true })));
+    }).catch((erro) => console.error("Erro ao buscar professores:", erro));
+    return () => { cancelado = true; };
   }, [modalCompartilhamentoAberto, user]);
 
   const handleExcluir = async (id: string) => {

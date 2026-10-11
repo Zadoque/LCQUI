@@ -63,6 +63,10 @@ describe("Cadastros base — Almoxarifado (M9 + M7)", () => {
     };
   }
 
+  function corpoStatus(idAlmoxarifado: string, acao: "ATIVAR" | "DESATIVAR") {
+    return { idOperacao: novaOperacao(), acao, idAlmoxarifado };
+  }
+
   it("TEST-INT-ALMOX-001 — cria ativo com gestor, vínculo e contador", async () => {
     const chefe = uidUnico("chefe_almox");
     const gestor = uidUnico("gestor_almox");
@@ -121,7 +125,7 @@ describe("Cadastros base — Almoxarifado (M9 + M7)", () => {
     const criado = await wrapped(mockRequest(corpo({ idLocal: "local_ativar", gestores: [gestor] }), chefe));
 
     await expect(
-      wrapped(mockRequest(corpo({ acao: "ATIVAR", idAlmoxarifado: criado.id, idLocal: "local_ativar" }), chefe))
+      wrapped(mockRequest(corpoStatus(criado.id, "ATIVAR"), chefe))
     ).resolves.toBeDefined();
     const doc = await db.collection("Almoxarifado").doc(criado.id).get();
     expect(doc.data()?.ativo).toBe(true);
@@ -136,7 +140,7 @@ describe("Cadastros base — Almoxarifado (M9 + M7)", () => {
     await semearLocal("local_des");
     const wrapped = testEnv.wrap(gerenciarAlmoxarifado);
     const criado = await wrapped(mockRequest(corpo({ idLocal: "local_des", gestores: [gestor], ativo: true }), chefe));
-    await wrapped(mockRequest(corpo({ acao: "DESATIVAR", idAlmoxarifado: criado.id, idLocal: "local_des" }), chefe));
+    await wrapped(mockRequest(corpoStatus(criado.id, "DESATIVAR"), chefe));
     const doc = await db.collection("Almoxarifado").doc(criado.id).get();
     expect(doc.data()?.ativo).toBe(false);
     expect((await db.collection("Gestor_Almoxarifado_x_Almoxarifado").doc(`${gestor}_${criado.id}`).get()).exists).toBe(true);
@@ -271,5 +275,39 @@ describe("Cadastros base — Almoxarifado (M9 + M7)", () => {
     await expect(
       wrapped(mockRequest(corpo({ idOperacao: op, idLocal: "local_conj", gestores: [g1, g2] }), chefe))
     ).rejects.toMatchObject({ code: "already-exists" });
+  });
+
+  it("TEST-INT-ALMOX-017 — CRIAR sem descrição é invalid-argument", async () => {
+    const chefe = uidUnico("chefe_almox_desc");
+    await semearChefe(chefe); await semearLocal("local_desc");
+    const wrapped = testEnv.wrap(gerenciarAlmoxarifado);
+    await expect(wrapped(mockRequest(corpo({ idLocal: "local_desc", descricao: undefined }), chefe))).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("TEST-INT-ALMOX-018 — ATIVAR com campo extra é invalid-argument", async () => {
+    const chefe = uidUnico("chefe_almox_extra"); await semearChefe(chefe);
+    const wrapped = testEnv.wrap(gerenciarAlmoxarifado);
+    await expect(wrapped(mockRequest({ ...corpoStatus("a", "ATIVAR"), idLocal: "extra" }, chefe))).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("TEST-INT-ALMOX-019 — busca gestores ativos retorna projeção mínima", async () => {
+    const chefe = uidUnico("chefe_almox_busca"); const gestor = uidUnico("gestor_almox_busca");
+    await semearChefe(chefe); await semearGestorAlmox(gestor); await db.collection("Usuarios").doc(gestor).update({ nome: "Gestor Teste" });
+    const { buscarGestoresAlmoxarifado } = await import("../usuarios");
+    const res = await testEnv.wrap(buscarGestoresAlmoxarifado)(mockRequest({}, chefe));
+    expect(res.gestores).toContainEqual({ id: gestor, nome: "Gestor Teste" });
+  });
+
+  it("TEST-INT-ALMOX-020 — busca não retorna gestor inativo", async () => {
+    const chefe = uidUnico("chefe_almox_inativo_busca"); const gestor = uidUnico("gestor_almox_inativo_busca");
+    await semearChefe(chefe); await semearGestorAlmox(gestor); await db.collection("Usuarios").doc(gestor).update({ ativo: false });
+    const { buscarGestoresAlmoxarifado } = await import("../usuarios");
+    const res = await testEnv.wrap(buscarGestoresAlmoxarifado)(mockRequest({}, chefe));
+    expect(res.gestores.map(g => g.id)).not.toContain(gestor);
+  });
+
+  it("TEST-INT-ALMOX-021 — busca sem Chefe é permission-denied", async () => {
+    const { buscarGestoresAlmoxarifado } = await import("../usuarios");
+    await expect(testEnv.wrap(buscarGestoresAlmoxarifado)(mockRequest({}, "sem_chefe_busca", ["Professor"]))).rejects.toMatchObject({ code: "permission-denied" });
   });
 });

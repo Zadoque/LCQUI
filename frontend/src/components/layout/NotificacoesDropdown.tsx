@@ -7,22 +7,12 @@ import { collection, onSnapshot, query, Timestamp, where } from "firebase/firest
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { Bell, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import type { NotificacaoItem } from "@/types/notificacoes";
+import { ROTULO_TIPO_NOTIFICACAO } from "@/types/notificacoes";
 
-export interface NotificacaoItem {
-  id: string;
-  tipo: string;
-  papel_destinatario: string;
-  id_destinatario: string;
-  id_alvo: string;
-  entidade_alvo?: string | null;
-  id_turma?: string | null;
-  id_quem_fez_acao?: string | null;
-  lida: boolean;
-  lida_em?: Timestamp | null;
-  emitida_em?: Timestamp | null;
-  expira_em?: Timestamp | null;
-  mensagem_customizada?: string | null;
-}
+export type { NotificacaoItem };
+export const ROTULO_TIPO = ROTULO_TIPO_NOTIFICACAO;
 
 // Tipos acadêmicos V1 com mensagem contextual (RN-M13-07: exigem id_turma)
 const TIPOS_ACADEMICOS_V1 = new Set([
@@ -34,31 +24,6 @@ const TIPOS_ACADEMICOS_V1 = new Set([
   "TURMA_DESARQUIVADA",
   "CONVITE_PARA_TURMA",
 ]);
-
-/** Rótulos legíveis para os tipos V1 ativos. */
-export const ROTULO_TIPO: Record<string, string> = {
-  POST: "Nova postagem",
-  COMENTARIO: "Novo comentário",
-  ADICIONADO: "Adicionado à turma",
-  REMOVIDO: "Removido da turma",
-  TURMA_ARQUIVADA: "Turma arquivada",
-  TURMA_DESARQUIVADA: "Turma desarquivada",
-  ROTEIRO_COMPARTILHADO: "Roteiro compartilhado",
-  CONVITE_PARA_TURMA: "Convite para turma",
-  REQUISICAO_EDICAO_BEM: "Requisição de edição de bem",
-  REQUISICAO_ADICAO_BEM: "Requisição de adição de bem",
-  REQUISICAO_BEM: "Requisição de bem",
-  BEM_INSERVIVEL: "Bem inservível",
-  DATA_DEVOLUCAO_REAGENTE: "Data de devolução",
-  ENTREGA_ATRASADA: "Entrega atrasada",
-  FRASCOS_VAZIOS: "Frascos vazios",
-  FRASCOS_QUEBRADOS: "Frascos quebrados",
-  FRASCOS_VENCIDOS: "Frascos vencidos",
-  FRASCOS_A_SEREM_PESADOS: "Frascos a serem pesados",
-  FRASCOS_EM_QUARENTENA: "Frascos em quarentena",
-  ESCASSEZ_ESTOQUE: "Escassez no estoque",
-  AUTO_ATENDIMENTO_RETIRADA: "Autoatendimento — retirada",
-};
 
 export function isNotificacaoExpirada(expira_em_ms: number | null | undefined, agora_ms: number): boolean {
   if (!expira_em_ms) return false;
@@ -100,6 +65,14 @@ export function buildDeepLink(notif: NotificacaoItem): string | null {
         : null;
     case "Roteiro":
       return "/turmas?roteiros=1";
+    case "Almoxarifado":
+      // A tela revalida o escopo do usuário antes de exibir operações do almoxarifado.
+      return `/reagentes?almoxarifado=${encodeURIComponent(notif.id_alvo)}&via=notificacao`;
+    case "Emprestimo":
+      // O alvo é resolvido pela tela operacional; o ID não concede acesso por si só.
+      return `/reagentes?emprestimo=${encodeURIComponent(notif.id_alvo)}&via=notificacao`;
+    case "Usuario":
+      return `/alunos?usuario=${encodeURIComponent(notif.id_alvo)}&via=notificacao`;
     default:
       return null;
   }
@@ -143,8 +116,11 @@ export function NotificacoesDropdown() {
   const [abaAtiva, setAbaAtiva] = useState<"nao_lidas" | "todas">("nao_lidas");
   const [notificacoes, setNotificacoes] = useState<NotificacaoItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [agora, setAgora] = useState(0);
+  const [agora, setAgora] = useState(() => Date.now());
+  const [dadosDesatualizados, setDadosDesatualizados] = useState(false);
+  const [offline, setOffline] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   // "Limpar tudo" state
   const [limparConfirmacao, setLimparConfirmacao] = useState(false);
@@ -160,12 +136,48 @@ export function NotificacoesDropdown() {
     setLimparConfirmacao(false);
   };
 
+  const abrirNotificacao = useCallback(async (event: React.MouseEvent, notif: NotificacaoItem) => {
+    event.preventDefault();
+    try {
+      const resolver = httpsCallable<{ idNotificacao: string }, { autorizado: boolean; url?: string }>(
+        getFunctions(), "resolverDestinoNotificacao",
+      );
+      const resultado = await resolver({ idNotificacao: notif.id });
+      if (resultado.data.autorizado && resultado.data.url) {
+        setIsOpen(false);
+        router.push(resultado.data.url);
+      } else {
+        setDadosDesatualizados(true);
+      }
+    } catch (error) {
+      console.error("Erro ao validar destino da notificação:", error);
+      setDadosDesatualizados(true);
+    }
+  }, [router]);
+
   const permissionDeniedRef = useRef(false);
 
   useEffect(() => {
+    const relogio = window.setInterval(() => setAgora(Date.now()), 30_000);
+    return () => window.clearInterval(relogio);
+  }, []);
+
+  useEffect(() => {
     if (!user?.uid) {
+      setNotificacoes([]);
+      setDadosDesatualizados(false);
+      setOffline(false);
       return;
     }
+
+    setNotificacoes([]);
+    setLoading(true);
+    setDadosDesatualizados(false);
+    setOffline(typeof navigator !== "undefined" && !navigator.onLine);
+
+    const atualizarConectividade = () => setOffline(!navigator.onLine);
+    window.addEventListener("online", atualizarConectividade);
+    window.addEventListener("offline", atualizarConectividade);
 
     // Reset permission-denied state on user change
     permissionDeniedRef.current = false;
@@ -195,6 +207,8 @@ export function NotificacoesDropdown() {
 
         setNotificacoes(itens);
         setLoading(false);
+        setDadosDesatualizados(snapshot.metadata.fromCache === true);
+        setOffline(!navigator.onLine);
       },
       (error) => {
         // permission-denied em cenários legítimos (conta sem papel
@@ -210,12 +224,17 @@ export function NotificacoesDropdown() {
         } else {
           console.error("Erro ao ouvir notificações:", error);
         }
-        setNotificacoes([]);
         setLoading(false);
+        setDadosDesatualizados(true);
+        setOffline(!navigator.onLine);
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      window.removeEventListener("online", atualizarConectividade);
+      window.removeEventListener("offline", atualizarConectividade);
+    };
   }, [user?.uid]);
 
   // Fechar dropdown ao clicar fora
@@ -362,6 +381,20 @@ export function NotificacoesDropdown() {
           </div>
 
           {/* Abas de filtro */}
+          {(offline || dadosDesatualizados) && (
+            <div
+              className="px-3 py-2 text-xs text-amber-800 bg-amber-100/80 dark:text-amber-100 dark:bg-amber-950/50"
+              role="status"
+              data-testid="notificacoes-estado-offline"
+            >
+              {offline
+                ? "Você está offline. Exibindo notificações autorizadas anteriormente; ações serão validadas ao reconectar."
+                : "Notificações possivelmente desatualizadas. Aguarde a reconexão para confirmar mudanças."
+              }
+            </div>
+          )}
+
+          {/* Abas de filtro */}
           <div className="flex border-b border-foreground/10 text-xs font-semibold">
             <button
               onClick={() => setAbaAtiva("nao_lidas")}
@@ -449,7 +482,7 @@ export function NotificacoesDropdown() {
                         <div className="mt-3 flex gap-2">
                           <Link
                             href={`/convite?id=${encodeURIComponent(notif.id_alvo)}&via=notificacao`}
-                            onClick={() => setIsOpen(false)}
+                            onClick={(event) => abrirNotificacao(event, notif)}
                             className="flex-1 py-1.5 px-3 bg-primary text-primary-foreground text-center text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-1"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
@@ -457,7 +490,7 @@ export function NotificacoesDropdown() {
                           </Link>
                           <Link
                             href={`/convite?id=${encodeURIComponent(notif.id_alvo)}&via=notificacao`}
-                            onClick={() => setIsOpen(false)}
+                            onClick={(event) => abrirNotificacao(event, notif)}
                             className="py-1.5 px-3 bg-foreground/10 hover:bg-red-500/10 text-foreground/70 hover:text-red-500 text-center text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1"
                           >
                             <XCircle className="w-3.5 h-3.5" />
@@ -513,7 +546,7 @@ export function NotificacoesDropdown() {
                     <Link
                       key={notif.id}
                       href={deepUrl}
-                      onClick={() => setIsOpen(false)}
+                      onClick={(event) => abrirNotificacao(event, notif)}
                       data-testid={`notif-link-${notif.id}`}
                     >
                       {cardContent}

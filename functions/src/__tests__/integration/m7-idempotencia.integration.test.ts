@@ -14,6 +14,8 @@ import {
   registrarOperacaoPendenteTx,
   resolverOperacaoTx,
 } from "../../idempotencia";
+import { gerenciarMateria } from "../../materias";
+import { criarRequisicaoAdicaoBem } from "../../patrimonio";
 
 const COLECAO_EFEITOS = "_M7_Teste_Efeitos";
 
@@ -190,5 +192,73 @@ describe("TEST-INT-M7-RECEIPT — receipt e replay canônicos (Seção 5/7 M7)",
 
     const receipt = await db.collection("Operacoes").doc(id).get();
     expect(receipt.data()?.status).toBe("FALHOU");
+  });
+
+  it("TEST-INT-M7-RECEIPT-013 — gerenciarMateria replay com idOperacao e rejeição em reuso incompatível", async () => {
+    const uid = idUnico("prof");
+    await db.collection("Usuarios").doc(uid).set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Professor").doc(uid).set({ id_usuario: uid });
+
+    const idOp = idUnico("op_mat");
+    const codigo = idUnico("MAT").substring(0, 10).toUpperCase();
+    const req = {
+      data: {
+        acao: "CRIAR",
+        nome: "Química Orgânica I",
+        codigoMateria: codigo,
+        idOperacao: idOp,
+      },
+      auth: { uid, token: { roles: ["Professor"], versao_permissoes: 1 } },
+      rawRequest: {},
+    } as any;
+
+    const res1 = await gerenciarMateria.run(req);
+    expect(res1.id).toBeDefined();
+
+    // Replay com o mesmo idOperacao
+    const res2 = await gerenciarMateria.run(req);
+    expect(res2.id).toBe(res1.id);
+
+    // Reuso incompatível com outro payload
+    const reqIncompativel = {
+      ...req,
+      data: { ...req.data, nome: "Nome Completamente Diferente" },
+    };
+    await expect(gerenciarMateria.run(reqIncompativel)).rejects.toMatchObject({
+      code: "already-exists",
+    });
+  });
+
+  it("TEST-INT-M7-RECEIPT-014 — criarRequisicaoAdicaoBem replay com idOperacao sem colisão de lock", async () => {
+    const uid = idUnico("prof");
+    await db.collection("Usuarios").doc(uid).set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Professor").doc(uid).set({ id_usuario: uid });
+
+    const idLocal = idUnico("local");
+    await db.collection("Local").doc(idLocal).set({ predio: "CCT", andar: "1", sala: "101" });
+
+    const numPat = idUnico("PAT").substring(0, 20).toUpperCase();
+    const idOp = idUnico("op_adicao");
+
+    const req = {
+      data: {
+        numeroPatrimonioProposto: numPat,
+        estadoConservacaoProposto: "BOM",
+        photoUrlProposta: "requisicoes/prof/foto.png",
+        idLocal,
+        nomeResponsavelProposto: "Prof. Teste",
+        motivo: "Equipamento novo para laboratório",
+        idOperacao: idOp,
+      },
+      auth: { uid, token: { roles: ["Professor"], versao_permissoes: 1 } },
+      rawRequest: {},
+    } as any;
+
+    const res1 = await criarRequisicaoAdicaoBem.run(req);
+    expect(res1.idRequisicao).toBeDefined();
+
+    // Replay não deve falhar com colisão de lock
+    const res2 = await criarRequisicaoAdicaoBem.run(req);
+    expect(res2.idRequisicao).toBe(res1.idRequisicao);
   });
 });

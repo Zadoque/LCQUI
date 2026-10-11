@@ -15,27 +15,58 @@ export const GerenciarLocalSchema = z.object({
 });
 
 export const CriarRequisicaoEdicaoBemSchema = z.object({
+  idOperacao: IdOperacaoPatrimonioSchema,
   idBemPatrimonial: z.string().min(1, "ID do bem patrimonial é obrigatório."),
-  novoNome: z.string().optional(),
-  novoStatus: z.string().optional(),
-  novoEstadoConservacao: z.string().optional(),
+  novoNome: z.string().trim().min(1).max(150).optional(),
+  novaDescricaoResumo: z.string().trim().min(1, "A descrição do novo resumo é obrigatória.").optional(),
+  novoIdResumoBemPatrimonial: z.string().min(1).optional(),
+  novoStatus: z.enum(["Ativo", "Inservivel"]).nullable().optional(),
+  novoEstadoConservacao: z.enum(["BOM", "REGULAR", "RUIM"]).optional(),
   novoIdLocal: z.string().optional(),
-  motivo: z.string().min(1, "Motivo é obrigatório.")
+  novaPhotoUrl: z.string().min(1).optional(),
+  motivo: z.string().trim().min(1, "Motivo é obrigatório.")
+}).superRefine((dados, ctx) => {
+  const criaResumo = dados.novoNome !== undefined || dados.novaDescricaoResumo !== undefined;
+  if (criaResumo && (dados.novoNome === undefined || dados.novaDescricaoResumo === undefined)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: dados.novoNome === undefined ? ["novoNome"] : ["novaDescricaoResumo"],
+      message: "Nome e descrição são obrigatórios para criar um novo resumo.",
+    });
+  }
+  if (criaResumo && dados.novoIdResumoBemPatrimonial !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["novoIdResumoBemPatrimonial"],
+      message: "Informe um resumo existente ou os dados de um novo resumo, não ambos.",
+    });
+  }
 });
 
 export const ResponderRequisicaoBemSchema = z.object({
+  idOperacao: IdOperacaoPatrimonioSchema.optional(),
   idRequisicao: z.string().min(1, "ID da requisição é obrigatório."),
   aprovar: z.boolean(),
-  justificativa: z.string().optional().default("")
+  justificativa: z.string().trim().min(1, "Justificativa é obrigatória.")
 });
 
 export const CriarRequisicaoAdicaoBemSchema = z.object({
-  numeroPatrimonioProposto: z.string().min(1, "O número de patrimônio proposto é obrigatório."),
-  estadoConservacaoProposto: z.string().min(1, "O estado de conservação é obrigatório."),
+  idOperacao: IdOperacaoPatrimonioSchema.optional(),
+  numeroPatrimonioProposto: z.string().trim().min(1, "O número de patrimônio proposto é obrigatório.").max(30),
+  estadoConservacaoProposto: z.enum(["BOM", "REGULAR", "RUIM"]),
   idLocal: z.string().min(1, "O ID do local é obrigatório."),
-  nomeResponsavelProposto: z.string().min(1, "O nome do responsável é obrigatório."),
+  photoUrlProposta: z.string().min(1, "A foto do bem é obrigatória."),
+  nomeResponsavelProposto: z.string().trim().min(1, "O nome do responsável é obrigatório.").max(150),
   idResumoBemPatrimonial: z.string().optional(),
-  nomeResumoProposto: z.string().optional(),
-  descricaoResumoProposta: z.string().optional(),
+  nomeResumoProposto: z.string().trim().min(1).max(150).optional(),
+  descricaoResumoProposta: z.string().trim().min(1).optional(),
   motivo: z.string().min(1, "Motivo é obrigatório.")
 });
+
+export const RegistrarBaixaBemPatrimonialSchema = z.object({
+  idOperacao: IdOperacaoPatrimonioSchema,
+  idBemPatrimonial: z.string().min(1, "ID do bem patrimonial é obrigatório."),
+  documentoDadoBaixaPdfUrl: z.string().trim().min(1, "URL ou caminho do comprovante de baixa é obrigatório."),
+  justificativa: z.string().trim().min(1, "Justificativa da baixa é obrigatória.").max(500),
+});
+

@@ -4,7 +4,9 @@ import React, { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import SidebarTurmas, { Turma } from "@/components/turmas/SidebarTurmas";
+import SidebarTurmas from "@/components/turmas/SidebarTurmas";
+import type { Turma } from "@/types/turmas";
+import type { MateriaItem } from "@/types/cadastros";
 import FeedTurma from "@/components/turmas/FeedTurma";
 import { NovaTurmaModal, IngressarTurmaModal } from "@/components/turmas/ModaisAcademico";
 import { NovoAlunoModal, NovoRoteiroModal, GerenciarRoteirosModal } from "@/components/turmas/ProfessorModais";
@@ -33,11 +35,7 @@ function TurmasConteudo() {
 
   // Matéria modal state (para criar/editar via overlay de matérias)
   const [materiaModalOpen, setMateriaModalOpen] = useState(false);
-  const [materiaEditando, setMateriaEditando] = useState<{
-    id: string;
-    nome: string;
-    codigo: string;
-  } | null>(null);
+  const [materiaEditando, setMateriaEditando] = useState<MateriaItem | null>(null);
 
   // RN-M13-04: deep link ?roteiros=1 abre GerenciarRoteirosModal uma única vez
   const abrirRoteiros = searchParams.get("roteiros") === "1";

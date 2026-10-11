@@ -8,21 +8,7 @@ import {
   renovarEstadoAutenticacao,
 } from "@/lib/authBootstrap.mjs";
 import { resolverPapelAtivo, CHAVE_PAPEL_ATIVO } from "@/lib/papelAtivo.mjs";
-
-interface EstadoAutenticacao {
-  roles: string[];
-  ativo: boolean;
-}
-
-interface AuthContextType {
-  user: User | null;
-  roles: string[];
-  ativo: boolean;
-  papelAtivo: string | null;
-  isLoading: boolean;
-  refreshSession: () => Promise<EstadoAutenticacao>;
-  setPapelAtivo: (role: string) => void;
-}
+import type { EstadoAutenticacao, AuthContextType } from "@/types/usuarios";
 
 const AuthContext = createContext<AuthContextType>({
   user: null,

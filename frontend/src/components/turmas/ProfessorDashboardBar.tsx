@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Bell, Plus, FileText } from "lucide-react";
-import { Turma } from "./SidebarTurmas";
+import type { Turma } from "@/types/turmas";
 
 interface ProfessorDashboardBarProps {
   turmasCount: number;

@@ -1,0 +1,38 @@
+\section{Evidência de IMP-ROLE-004 (diretório mínimo e gestão de usuários)}
+
+\textbf{Feature:} \texttt{IMP-ROLE-004} --- diretório mínimo, seleção de
+professores e feedback acessível nos fluxos de usuários.
+
+\textbf{Estado anterior:} \texttt{DIVERGENTE}. Consumidores da UI liam a
+coleção administrativa \texttt{Professor} diretamente, a Rule permitia
+listagem ao Chefe e a tela de alunos usava diálogos nativos.
+
+\textbf{Mudança:} a callable \texttt{buscarProfessores} é agora o único canal
+dos três consumidores de diretório/seleção. Ela retorna somente
+\texttt{\{id,nome\}}, sem e-mail, centro ou laboratório. A coleção
+\texttt{Professor} aceita apenas \texttt{get} do próprio documento ou do Chefe;
+listagem é negada. O fluxo de alunos apresenta mensagens em elementos
+\texttt{role=alert/status}, sem \texttt{alert()} nativo. O seletor de professor
+recebe nome acessível para locators semânticos.
+
+\subsection{Testes}
+
+\begin{longtable}{@{}p{0.30\textwidth}p{0.52\textwidth}@{}}
+\toprule
+ID & Resultado \\
+\midrule
+\endhead
+S8-BUSCAPROF-INT-001 & Projeção mínima sem e-mail, centro ou laboratório \\
+S8-BUSCAPROF-INT-002 & Filtro por termo no nome \\
+S8-BUSCAPROF-INT-003 & Chamada sem autenticação rejeitada \\
+Rules Professor & Documento próprio/Chefe podem obter; listagem é negada \\
+ROLE-004-E2E-001 & Tela de professores exibe somente a projeção mínima \\
+ROLE-004-E2E-002 & Nova Turma consulta professores pelo endpoint \\
+\bottomrule
+\end{longtable}
+
+Integração de usuários: 14/14; Rules: 163/163; TypeScript frontend:
+\texttt{tsc --noEmit} PASS; E2E: 2/2. Todos os testes foram executados sob
+Node.js 20 e Firebase Emulator Suite.
+
+\textbf{Estado final:} \texttt{IMP-ROLE-004} = \texttt{NÃO DIVERGENTE}.

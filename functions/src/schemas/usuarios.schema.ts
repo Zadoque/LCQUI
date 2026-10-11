@@ -18,19 +18,29 @@ export const IdOperacaoSchema = z
 export const ConvidarUsuarioSchema = z.object({
   idOperacao: IdOperacaoSchema,
   motivo: z.string().trim().min(1).max(2000).optional(),
-  email: z.string().email("O e-mail fornecido não é válido."),
-  nome: z.string().min(1, "O nome é obrigatório."),
+  uidAlvo: z.string().trim().min(1).optional(),
+  email: z.string().email("O e-mail fornecido não é válido.").optional(),
+  nome: z.string().min(1, "O nome é obrigatório.").optional(),
   papel: PapeisUsuariosSchema,
   centro: z.string().optional(),
   laboratorio: z.string().optional(),
   materias: z.array(z.string()).optional()
+}).superRefine((dados, contexto) => {
+  if (!dados.uidAlvo && (!dados.email || !dados.nome)) {
+    contexto.addIssue({ code: z.ZodIssueCode.custom, message: "Informe uidAlvo ou e-mail e nome para convidar." });
+  }
 });
 
 export const RevogarUsuarioPapelSchema = z.object({
   idOperacao: IdOperacaoSchema,
-  email: z.string().email("O e-mail fornecido não é válido."),
+  uidAlvo: z.string().trim().min(1).optional(),
+  email: z.string().email("O e-mail fornecido não é válido.").optional(),
   papel: PapeisUsuariosSchema,
   motivo: z.string().trim().min(1, "Justificativa obrigatória.").max(2000)
+}).superRefine((dados, contexto) => {
+  if (!dados.uidAlvo && !dados.email) {
+    contexto.addIssue({ code: z.ZodIssueCode.custom, message: "Informe uidAlvo ou e-mail para revogar o papel." });
+  }
 });
 
 // S11: busca server-side de alunos por Professor/Chefe, retornando apenas
@@ -44,6 +54,20 @@ export const BuscarAlunosSchema = z.object({
 // retornando projeção mínima { id, nome }. Nunca expõe e-mail, centro ou laboratório.
 export const BuscarProfessoresSchema = z.object({
   termo: z.string().trim().max(150).optional(),
+});
+
+export const BuscarGestoresAlmoxarifadoSchema = z.object({
+  termo: z.string().trim().max(150).optional(),
+});
+
+// UI-02: seleção autorizada de uma identidade já existente, sem expor e-mail,
+// matrícula ou dados de contato na listagem.
+export const BuscarUsuariosPapelSchema = z.object({
+  termo: z.string().trim().max(150).optional(),
+});
+
+export const DetalhesUsuarioPapelSchema = z.object({
+  uid: z.string().trim().min(1),
 });
 
 // S8 UI-01 L191: atualização do próprio perfil (self-service).

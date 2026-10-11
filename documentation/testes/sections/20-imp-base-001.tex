@@ -7,8 +7,8 @@ almoxarifado.
 Rules permitiam \texttt{write} de admin ao cliente e nenhum fluxo impunha Local
 existente, vínculo válido e ao menos um gestor para ativação.
 
-\textbf{Estado depois:} backend e Rules convergidos; permanece
-\texttt{DIVERGENTE} pela UI de gestão (UI-03) e E2E.
+\textbf{Estado depois:} backend, Rules, UI-03 e E2E convergidos:
+\texttt{NÃO DIVERGENTE}.
 
 \subsection{Contrato}
 
@@ -54,16 +54,24 @@ TEST-INT-ALMOX-009 & Replay do mesmo \texttt{idOperacao} não duplica \\
 TEST-INT-ALMOX-010 & Sem Chefe\_Geral é \texttt{permission-denied} (M9) \\
 TEST-INT-ALMOX-011 & Gestor inexistente/sem papel é \texttt{failed-precondition} \\
 TEST-INT-ALMOX-012 & Limites de nome/descrição são aplicados \\
+TEST-INT-ALMOX-013 & Mesmo \texttt{idOperacao} com \texttt{ativo} diferente é rejeitado \\
+TEST-INT-ALMOX-014 & Gestores em ordem diferente são replay semântico \\
+TEST-INT-ALMOX-015 & Conjunto de gestores diferente é rejeitado \\
+TEST-INT-ALMOX-017 & Criação sem descrição é \texttt{invalid-argument} \\
+TEST-INT-ALMOX-018 & Ativação com campo extra é \texttt{invalid-argument} \\
+TEST-INT-ALMOX-019 & Busca retorna projeção mínima de gestores ativos \\
+TEST-INT-ALMOX-020 & Busca não retorna gestor inativo \\
+TEST-INT-ALMOX-021 & Busca sem Chefe é \texttt{permission-denied} \\
 TEST-RULES-Almoxarifado & Nenhum cliente escreve Almoxarifado/vínculo diretamente \\
 \bottomrule
 \end{longtable}
 \normalsize
 
-GREEN sob Node 20.19.6: \texttt{almoxarifados.test.ts} 12/12; Rules 79/79;
-unit 71/71; integração completa 194 passam / 14 falham (legadas); \texttt{build}
-PASS.
+GREEN sob Node.js 20: \texttt{almoxarifados.test.ts} 20/20; regras aplicáveis
+PASS; build PASS; TypeScript frontend PASS; E2E
+\texttt{ALMOX-E2E-001--010} 10/10, executados em grupos de até três testes com
+reset da seed apenas no início de cada invocação.
 
-\textbf{Estado final:} \texttt{IMP-BASE-001} = \texttt{DIVERGENTE} apenas pela
-UI-03/E2E; backend e Rules convergidos. Observação: o contador
-\texttt{qtd\_gestores\_ativos} é mantido por esta callable; a revogação global do
-papel deve reconciliá-lo (permanece sob \texttt{IMP-ROLE-002}).
+\textbf{Estado final:} \texttt{IMP-BASE-001} = \texttt{NÃO DIVERGENTE}. A
+revogação global de papel e a reconciliação de seu contador permanecem sob
+\texttt{IMP-ROLE-002}, sem divergência residual nesta feature.

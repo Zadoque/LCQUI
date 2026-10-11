@@ -2,6 +2,9 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { httpsCallable } from "firebase/functions";
+import { ref, uploadBytes } from "firebase/storage";
+import { functions, storage } from "@/lib/firebase/config";
 import { ListaLocais } from "@/components/patrimonio/ListaLocais";
 import { NovaLocalModal } from "@/components/patrimonio/NovaLocalModal";
 
@@ -9,13 +12,17 @@ interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  uid?: string;
 }
 
-export function ModalNovoBem({ isOpen, onClose, onSuccess }: ModalProps) {
+export function ModalNovoBem({ isOpen, onClose, onSuccess, uid }: ModalProps) {
   const [nome, setNome] = useState("");
   const [numeroPatrimonio, setNumeroPatrimonio] = useState("");
   const [selectedLocalId, setSelectedLocalId] = useState<string | undefined>(undefined);
-  const [status, setStatus] = useState("Ativo");
+  const [estadoConservacao, setEstadoConservacao] = useState<"BOM" | "REGULAR" | "RUIM">("BOM");
+  const [nomeResponsavel, setNomeResponsavel] = useState("");
+  const [motivo, setMotivo] = useState("");
+  const [foto, setFoto] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -29,11 +36,31 @@ export function ModalNovoBem({ isOpen, onClose, onSuccess }: ModalProps) {
     setLoading(true);
     setErrorMsg("");
     try {
-      setTimeout(() => {
-        if (onSuccess) onSuccess();
-        onClose();
-        setLoading(false);
-      }, 1000);
+      if (!uid) throw new Error("Sessão autenticada necessária.");
+      if (!selectedLocalId) throw new Error("Selecione o local do bem.");
+      if (!foto) throw new Error("A foto do bem é obrigatória.");
+      if (!foto.type.startsWith("image/")) throw new Error("A foto deve ser uma imagem.");
+      if (foto.size >= 5 * 1024 * 1024) throw new Error("A foto deve ter menos de 5 MiB.");
+      const nomeSeguro = foto.name.replace(/[^A-Za-z0-9._-]/g, "_");
+      const caminhoFoto = `requisicoes/${uid}/${crypto.randomUUID()}-${nomeSeguro}`;
+      await uploadBytes(ref(storage, caminhoFoto), foto, {
+        contentType: foto.type,
+        customMetadata: { owner: uid },
+      });
+      const criar = httpsCallable(functions, "criarRequisicaoAdicaoBem");
+      await criar({
+        idOperacao: crypto.randomUUID(),
+        numeroPatrimonioProposto: numeroPatrimonio,
+        estadoConservacaoProposto: estadoConservacao,
+        idLocal: selectedLocalId,
+        photoUrlProposta: caminhoFoto,
+        nomeResponsavelProposto: nomeResponsavel,
+        nomeResumoProposto: nome,
+        descricaoResumoProposta: `Resumo proposto para ${nome}.`,
+        motivo,
+      });
+      onSuccess?.();
+      onClose();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Erro interno.";
       setErrorMsg(message);
@@ -50,12 +77,12 @@ export function ModalNovoBem({ isOpen, onClose, onSuccess }: ModalProps) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Nome do Equipamento</label>
-              <input type="text" required value={nome} onChange={(e) => setNome(e.target.value)} 
+              <input aria-label="Nome do Equipamento" type="text" required value={nome} onChange={(e) => setNome(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-blue-500 outline-none" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Nº Patrimônio</label>
-              <input type="text" required value={numeroPatrimonio} onChange={(e) => setNumeroPatrimonio(e.target.value)} 
+              <input aria-label="Nº Patrimônio" type="text" required value={numeroPatrimonio} onChange={(e) => setNumeroPatrimonio(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-blue-500 outline-none" />
             </div>
           </div>
@@ -74,20 +101,37 @@ export function ModalNovoBem({ isOpen, onClose, onSuccess }: ModalProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Status</label>
-              <select value={status} onChange={(e) => setStatus(e.target.value)}
+              <label className="block text-sm font-medium mb-1">Estado de conservação</label>
+              <select aria-label="Estado de conservação" value={estadoConservacao} onChange={(e) => setEstadoConservacao(e.target.value as typeof estadoConservacao)}
                 className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-blue-500 outline-none">
-                <option value="Ativo">Ativo</option>
-                <option value="Inservivel">Inservível</option>
+                <option value="BOM">Bom</option>
+                <option value="REGULAR">Regular</option>
+                <option value="RUIM">Ruim</option>
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Responsável proposto</label>
+              <input aria-label="Responsável proposto" type="text" required value={nomeResponsavel} onChange={(e) => setNomeResponsavel(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 outline-none" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Foto do bem (imagem menor que 5 MiB)</label>
+            <input aria-label="Foto do bem" type="file" accept="image/*" required onChange={(e) => setFoto(e.target.files?.[0] ?? null)}
+              className="w-full text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Motivo da requisição</label>
+            <textarea aria-label="Motivo da requisição" required value={motivo} onChange={(e) => setMotivo(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 outline-none" />
           </div>
 
           {errorMsg && <div className="text-red-500 text-sm bg-red-500/10 p-2 rounded">{errorMsg}</div>}
 
           <div className="flex justify-end gap-3 mt-6">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg hover:bg-foreground/5 transition-colors">Cancelar</button>
-            <button type="submit" disabled={loading || !selectedLocalId} className="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50">
+            <button type="submit" disabled={loading || !selectedLocalId || !foto} className="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50">
               {loading ? "Salvando..." : "Salvar Bem"}
             </button>
           </div>

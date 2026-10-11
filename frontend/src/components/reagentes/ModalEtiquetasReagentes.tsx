@@ -24,6 +24,7 @@ export default function ModalEtiquetasReagentes({ isOpen, onClose }: ModalEtique
   const [searchCode, setSearchCode] = useState("");
   const [searching, setSearching] = useState(false);
   const [selectedFrascos, setSelectedFrascos] = useState<{ id: string, codigo: string, reagente: string }[]>([]);
+  const [errorMsg, setErrorMsg] = useState("");
 
   if (!isOpen) return null;
 
@@ -74,6 +75,7 @@ export default function ModalEtiquetasReagentes({ isOpen, onClose }: ModalEtique
   const handleBuscarFrasco = async () => {
     if (!searchCode.trim()) return;
     setSearching(true);
+    setErrorMsg("");
     try {
       // Ajuste para adicionar LCQUI- se o usuário digitar apenas o número
       const formattedCode = searchCode.toUpperCase().startsWith("LCQUI-") 
@@ -84,7 +86,7 @@ export default function ModalEtiquetasReagentes({ isOpen, onClose }: ModalEtique
       const snap = await getDocs(q);
       
       if (snap.empty) {
-        alert("Nenhum frasco encontrado com esse código.");
+        setErrorMsg("Nenhum frasco encontrado com esse código.");
         return;
       }
 
@@ -92,12 +94,12 @@ export default function ModalEtiquetasReagentes({ isOpen, onClose }: ModalEtique
       const data = doc.data();
 
       if (selectedFrascos.find(f => f.id === doc.id)) {
-        alert("Este frasco já foi adicionado.");
+        setErrorMsg("Este frasco já foi adicionado.");
         return;
       }
 
       if (selectedFrascos.length >= 10) {
-        alert("Você só pode selecionar até 10 frascos por vez.");
+        setErrorMsg("Você só pode selecionar até 10 frascos por vez.");
         return;
       }
 
@@ -105,7 +107,7 @@ export default function ModalEtiquetasReagentes({ isOpen, onClose }: ModalEtique
       setSearchCode("");
     } catch (err) {
       console.error(err);
-      alert("Erro ao buscar frasco.");
+      setErrorMsg("Erro ao buscar frasco.");
     } finally {
       setSearching(false);
     }
@@ -113,10 +115,11 @@ export default function ModalEtiquetasReagentes({ isOpen, onClose }: ModalEtique
 
   const handleGerar = async () => {
     setLoading(true);
+    setErrorMsg("");
     try {
       if (activeTab === "virgens") {
         if (totalVirgens < 1 || totalVirgens > 50) {
-          alert("O intervalo deve gerar entre 1 e 50 etiquetas.");
+          setErrorMsg("O intervalo deve gerar entre 1 e 50 etiquetas.");
           setLoading(false);
           return;
         }
@@ -131,7 +134,7 @@ export default function ModalEtiquetasReagentes({ isOpen, onClose }: ModalEtique
         openPdfFromBase64(data.base64);
       } else {
         if (selectedFrascos.length === 0) {
-          alert("Adicione pelo menos um frasco.");
+          setErrorMsg("Adicione pelo menos um frasco.");
           setLoading(false);
           return;
         }
@@ -142,7 +145,7 @@ export default function ModalEtiquetasReagentes({ isOpen, onClose }: ModalEtique
       }
     } catch (error: any) {
       console.error(error);
-      alert("Erro ao gerar PDF: " + error.message);
+      setErrorMsg("Erro ao gerar PDF: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -281,6 +284,12 @@ export default function ModalEtiquetasReagentes({ isOpen, onClose }: ModalEtique
               <div className="bg-primary/5 text-primary p-3 rounded-lg text-sm border border-primary/20">
                 A reimpressão de etiquetas para frascos já cadastrados gerará uma <strong>Ficha de Conferência</strong> individual (A4) para cada frasco selecionado.
               </div>
+            </div>
+          )}
+
+          {errorMsg && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg text-xs mt-3">
+              {errorMsg}
             </div>
           )}
         </div>

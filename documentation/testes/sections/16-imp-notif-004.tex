@@ -8,9 +8,8 @@ atribui duração arbitrária aos demais tipos'' e \texttt{ESCASSEZ\_ESTOQUE} n�
 expira). O enum do schema também divergia (\texttt{REAGENTE\_ESCASSO}; sem
 \texttt{Bolsista}/\texttt{Chefe\_Geral}; sem \texttt{expira\_em}).
 
-\textbf{Estado depois:} backend de emissão convergido; a feature permanece
-\texttt{DIVERGENTE} pelo filtro de conjunto ativo na leitura da caixa
-(\texttt{IMP-NOTIF-001}/UI-12) e pelo enum legado residual.
+\textbf{Estado depois:} emissão, conjunto ativo e abertura revalidada do alvo
+estão convergidos; a feature passa a \texttt{NÃO DIVERGENTE}.
 
 \subsection{Contrato}
 
@@ -34,6 +33,12 @@ prazo explícito da fonte é preservado; \texttt{ESCASSEZ\_ESTOQUE} grava
   \texttt{expira\_em}; \texttt{REAGENTE\_ESCASSO} $\rightarrow$
   \texttt{ESCASSEZ\_ESTOQUE}; adicionados \texttt{Bolsista} e
   \texttt{Chefe\_Geral} ao papel destinatário.
+  \item \path{functions/src/notificacoes.ts}: \texttt{resolverDestinoNotificacao}
+  relê autoridade M9, destinatário, expiração e ACL corrente do alvo antes de
+  devolver rota; perda de vínculo ou alvo expirado retorna resposta neutra.
+  \item \path{frontend/src/components/layout/NotificacoesDropdown.tsx} e
+  \path{frontend/src/app/notificacoes/page.tsx}: abertura aguarda a validação
+  server-side e o relógio do conjunto ativo é atualizado a cada 30 segundos.
 \end{itemize}
 
 \subsection{Testes}
@@ -48,6 +53,7 @@ TEST-INT-NOTIF-M13-027 & Sem prazo de fonte grava \texttt{expira\_em=null} \\
 TEST-INT-NOTIF-M13-028 & Prazo determinado da fonte é preservado \\
 TEST-INT-NOTIF-M13-029 & \texttt{ESCASSEZ\_ESTOQUE} grava \texttt{expira\_em=null} \\
 TEST-INT-NOTIF-M13-030 & \texttt{ESCASSEZ\_ESTOQUE} com prazo é rejeitada \\
+TEST-INT-NOTIF-M13-031--033 & abertura revalida vínculo atual e mantém alvo expirado neutro \\
 \bottomrule
 \end{longtable}
 \normalsize
@@ -56,5 +62,5 @@ RED: os quatro casos falharam contra a emissão anterior (30 dias universal).
 GREEN sob Node 20.19.6: notificações 41/41 (integração 30/30 e Rules 11/11);
 unit 71/71; Rules 77/77; integração completa 160 passam / 14 falham (legadas).
 
-\textbf{Estado final:} \texttt{IMP-NOTIF-004} = \texttt{DIVERGENTE} apenas pelo
-filtro de ativo na caixa UI-12 e pelo enum legado residual; emissão convergida.
+\textbf{Estado final:} \texttt{IMP-NOTIF-004} = \texttt{NÃO DIVERGENTE};
+backend, caixa UI-12 e revalidação server-side passaram sob Node 20.
