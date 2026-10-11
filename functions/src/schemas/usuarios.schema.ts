@@ -72,6 +72,7 @@ export const BuscarUsuariosRetiradaSchema = z.object({
 // matrícula ou dados de contato na listagem.
 export const BuscarUsuariosPapelSchema = z.object({
   termo: z.string().trim().max(150).optional(),
+  papel: PapeisUsuariosSchema.optional(),
 });
 
 export const DetalhesUsuarioPapelSchema = z.object({

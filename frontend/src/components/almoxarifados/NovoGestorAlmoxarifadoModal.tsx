@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "@/lib/firebase/config";
 import {
   buscarUsuarios,
   concederPapel,
@@ -36,7 +34,10 @@ export function NovoGestorAlmoxarifadoModal({
     // diretamente o ciclo desta operação externa.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCarregandoBusca(true);
-    buscarUsuarios(termo.trim() ? { termo: termo.trim() } : undefined)
+    buscarUsuarios({
+      ...(termo.trim() ? { termo: termo.trim() } : {}),
+      papel: "Gestor_Almoxarifado",
+    })
       .then((resultado) => { if (!cancelado) setUsuarios(resultado); })
       .catch(() => { if (!cancelado) setErro("Não foi possível buscar usuários existentes."); })
       .finally(() => { if (!cancelado) setCarregandoBusca(false); });
@@ -62,10 +63,7 @@ export function NovoGestorAlmoxarifadoModal({
         ...(modo === "existente" ? { uidAlvo } : { nome: nome.trim(), email: email.trim() }),
       });
 
-      if (modo === "novo" && resultado.contaAuthCriada) {
-        await sendPasswordResetEmail(auth, email.trim());
-      }
-      setMensagem(modo === "novo"
+      setMensagem(modo === "novo" && resultado.emailEnviado
         ? "Gestor criado. O e-mail oficial do Firebase Authentication foi enviado para definir a senha."
         : "Gestor de almoxarifado adicionado com sucesso.");
       // Mantém o modal aberto para que a confirmação normativa permaneça visível;

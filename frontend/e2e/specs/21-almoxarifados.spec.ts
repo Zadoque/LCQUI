@@ -174,6 +174,7 @@ test.describe("ALMOX-E2E — UI-03", () => {
     await page.getByTestId("gestor-existente-tab").click();
     await page.getByTestId("buscar-gestor-almoxarifado").fill("Aluno Normal");
     await expect(page.getByText("Aluno Normal", { exact: true })).toBeVisible();
+    await expect(page.getByText("Chefe Geral (Seed)", { exact: true })).toHaveCount(0);
     const resposta = esperarCallable(page, "convidarUsuario");
     await page.getByText("Aluno Normal", { exact: true }).click();
     await page.getByTestId("btn-salvar-novo-gestor-almoxarifado").click();
@@ -183,5 +184,19 @@ test.describe("ALMOX-E2E — UI-03", () => {
     expect((await lerDocumento("Gestor_Almoxarifado/seed-aluno-normal"))?.data.id_usuario).toBe("seed-aluno-normal");
     await expect(page.getByTestId("status-novo-gestor-almoxarifado")).toContainText("adicionado");
     await page.getByRole("button", { name: "Fechar" }).click();
+  });
+
+  test("ALMOX-E2E-016: convite novo rejeita e-mail já pertencente a usuário", async ({ page, guardaConsole }) => {
+    guardaConsole.permitir(/status 400|status 409|status of 409|already-exists|já pertence/);
+    await page.goto("/reagentes");
+    await page.getByTestId("btn-novo-gestor-almoxarifado").click();
+    await page.getByTestId("gestor-novo-tab").click();
+    await page.getByTestId("input-nome-novo-gestor-almoxarifado").fill("Tentativa Duplicada");
+    await page.getByTestId("input-email-novo-gestor-almoxarifado").fill("chefe.seed@lcqui.local");
+    const resposta = esperarCallable(page, "convidarUsuario");
+    await page.getByTestId("btn-salvar-novo-gestor-almoxarifado").click();
+    await resposta;
+    await expect(page.getByTestId("erro-novo-gestor-almoxarifado")).toContainText("já pertence");
+    expect((await lerDocumento("Gestor_Almoxarifado/seed-chefe-geral"))?.data).toBeUndefined();
   });
 });

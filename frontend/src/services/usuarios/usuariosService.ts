@@ -27,6 +27,7 @@ import type {
 
 export interface BuscarUsuariosParams {
   termo?: string;
+  papel?: Papel;
 }
 
 export interface ConcederPapelParams {
@@ -42,6 +43,7 @@ export interface ConcederPapelResult {
   ativo: boolean;
   resetLink?: string;
   contaAuthCriada?: boolean;
+  emailEnviado?: boolean;
 }
 
 export interface RevogarPapelParams {
@@ -68,7 +70,10 @@ export async function buscarUsuarios(params?: BuscarUsuariosParams): Promise<Pes
     functions,
     "buscarUsuariosParaPapel"
   );
-  const res = await fn(params?.termo ? { termo: params.termo } : {});
+  const res = await fn({
+    ...(params?.termo ? { termo: params.termo } : {}),
+    ...(params?.papel ? { papel: params.papel } : {}),
+  });
   return res.data.usuarios;
 }
 

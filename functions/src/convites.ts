@@ -1,5 +1,5 @@
 import { onCall, HttpsError, CallableRequest } from "firebase-functions/v2/https";
-import { defineSecret, defineString } from "firebase-functions/params";
+import { defineSecret } from "firebase-functions/params";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import * as admin from "firebase-admin";
 import {
@@ -39,66 +39,16 @@ import {
 } from "./chaves";
 import { reconciliarClaimsUsuario } from "./usuarios";
 import { adicionarNotificacaoTx } from "./notificacoes";
+import {
+  dispararPasswordResetFirebaseAuth,
+} from "./firebaseAuthEmail";
 
 export const conviteHmacSecret = defineSecret("CONVITE_HMAC_SECRET");
 // `FIREBASE_*` é prefixo reservado pelo firebase-tools para variáveis internas.
 // O nome do parâmetro precisa permanecer fora desse namespace, inclusive no
 // Emulator Suite.
-export const firebaseWebApiKey = defineString("LCQUI_WEB_API_KEY", { default: "demo-api-key" });
-
 export type CanalEntregaConvite = "notificacao_interna" | "firebase_auth";
 export type StatusEntregaConvite = "ENVIADO" | "FALHOU";
-
-export function obterFirebaseWebApiKey(): string {
-  if (process.env.LCQUI_WEB_API_KEY) return process.env.LCQUI_WEB_API_KEY;
-  if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY) return process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-  try {
-    const val = firebaseWebApiKey.value();
-    if (val) return val;
-  } catch {
-    // Fora do runtime de Functions v2 (ex: testes)
-  }
-  return "demo-api-key";
-}
-
-/**
- * Dispara envio real de e-mail de definição/redefinição de senha via Firebase Auth (Identity Toolkit).
- * Não utiliza provedores externos (SMTP, SendGrid, etc.).
- * No emulador, emite OOB code inspecionável na API do emulador.
- */
-export async function dispararPasswordResetFirebaseAuth(
-  email: string,
-  continueUrl: string,
-  apiKeyParam?: string
-): Promise<{ ok: boolean; oobLink?: string; error?: string }> {
-  const apiKey = apiKeyParam || obterFirebaseWebApiKey();
-  const emulatorHost = process.env.FIREBASE_AUTH_EMULATOR_HOST;
-  const url = emulatorHost
-    ? `http://${emulatorHost}/identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${encodeURIComponent(apiKey)}`
-    : `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${encodeURIComponent(apiKey)}`;
-
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        requestType: "PASSWORD_RESET",
-        email,
-        continueUrl,
-      }),
-    });
-
-    if (!res.ok) {
-      const errBody = await res.text();
-      return { ok: false, error: errBody };
-    }
-
-    const data = (await res.json()) as { oobLink?: string; email?: string };
-    return { ok: true, oobLink: data.oobLink };
-  } catch (err: unknown) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
-  }
-}
 
 /**
  * Obtém o segredo do servidor para HMAC de pendência de convite.
