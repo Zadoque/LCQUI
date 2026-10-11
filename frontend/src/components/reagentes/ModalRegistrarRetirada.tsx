@@ -3,11 +3,10 @@
 import React, { useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/lib/firebase/config";
-import { useAuth } from "@/contexts/AuthContext";
 import { ModalProps } from "./types";
+import { SeletorUsuarioReagente } from "./SeletorUsuarioReagente";
 
 export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProps) {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [frascoId, setFrascoId] = useState("");
   const [usuarioRetirou, setUsuarioRetirou] = useState("");
@@ -31,7 +30,7 @@ export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProp
       await registrarRetirada({
         idOperacao: crypto.randomUUID(),
         idFrasco: frascoId.trim(),
-        idUsuarioRetirou: (usuarioRetirou.trim() || user?.uid || ""),
+        idUsuarioRetirou: usuarioRetirou,
         idLocalUsado: localUsado.trim(),
         pesoSaida: Number(pesoSaida),
         dataDevolucaoPrevista: dataDevolucao,
@@ -42,8 +41,8 @@ export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProp
       });
       if (onSuccess) onSuccess();
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro ao registrar retirada.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro ao registrar retirada.");
     } finally {
       setLoading(false);
     }
@@ -55,18 +54,20 @@ export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProp
         <h2 className="text-xl font-bold mb-4 text-orange-500">Registrar Retirada</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">ID do Frasco / QR Code</label>
-            <input type="text" required placeholder="Ex: F-12345" value={frascoId} onChange={(e) => setFrascoId(e.target.value)}
+            <label htmlFor="retirada-frasco-id" className="block text-sm font-medium mb-1">ID do Frasco / QR Code</label>
+            <input id="retirada-frasco-id" type="text" required placeholder="Ex: F-12345" value={frascoId} onChange={(e) => setFrascoId(e.target.value)}
               className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-orange-500 outline-none" />
           </div>
           <div className="grid grid-cols-2 gap-3">
+            <SeletorUsuarioReagente
+              label="Usuário retirante"
+              value={usuarioRetirou}
+              onChange={(usuario) => setUsuarioRetirou(usuario?.id ?? "")}
+              testIdPrefix="retirada"
+            />
             <div>
-              <label className="block text-sm font-medium mb-1">UID do retirante (vazio = usuário atual)</label>
-              <input type="text" value={usuarioRetirou} onChange={(e) => setUsuarioRetirou(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">ID do local usado</label>
-              <input type="text" required value={localUsado} onChange={(e) => setLocalUsado(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10" />
+              <label htmlFor="retirada-local-id" className="block text-sm font-medium mb-1">ID do local usado</label>
+              <input id="retirada-local-id" type="text" required value={localUsado} onChange={(e) => setLocalUsado(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Peso de saída (g)</label>

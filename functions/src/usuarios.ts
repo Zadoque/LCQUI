@@ -19,7 +19,7 @@ import {
   resolverOperacaoTx,
 } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
-import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema, BuscarAlunosSchema, BuscarProfessoresSchema, BuscarGestoresAlmoxarifadoSchema, BuscarUsuariosPapelSchema, DetalhesUsuarioPapelSchema, AtualizarPerfilSchema } from "./schemas/usuarios.schema";
+import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema, BuscarAlunosSchema, BuscarProfessoresSchema, BuscarGestoresAlmoxarifadoSchema, BuscarUsuariosPapelSchema, BuscarUsuariosRetiradaSchema, DetalhesUsuarioPapelSchema, AtualizarPerfilSchema } from "./schemas/usuarios.schema";
 
 const PAPEIS: string[] = [...PAPEIS_CONHECIDOS];
 
@@ -151,7 +151,11 @@ async function alterarPapel(dados: Mutacao, claims: ClaimsAutoridade): Promise<{
       const mudou = atuais.includes(dados.papel) !== dados.conceder || usuario.data()?.ativo !== ativo;
       const versao = (usuario.data()?.versao_permissoes ?? 0) + (mudou ? 1 : 0);
       tx.set(usuarioRef, {
-        ...(!usuario.exists ? dados.identidade : {}), ativo, versao_permissoes: versao,
+        ...(!usuario.exists ? dados.identidade : {}),
+        ...(dados.identidade?.nome || usuario.data()?.nome
+          ? { letra_inicial: String(dados.identidade?.nome ?? usuario.data()?.nome).trim().charAt(0).toUpperCase() }
+          : {}),
+        ativo, versao_permissoes: versao,
         claims_pendentes: true, atualizado_em: FieldValue.serverTimestamp(),
       }, { merge: true });
       if (dados.conceder && !atuais.includes(dados.papel)) {
@@ -433,6 +437,57 @@ export const buscarGestoresAlmoxarifado = onCall(async request => {
 });
 
 /**
+ * UI-07/ALM-04/05: diretório mínimo do portador físico do reagente.
+ *
+ * O gestor do almoxarifado é o operador da retirada/devolução; o destinatário
+ * continua restrito a Professor ou Bolsista. A consulta começa pela inicial
+ * denormalizada em Usuarios e só então verifica os papéis elegíveis, evitando
+ * baixar o diretório inteiro e evitando confiar em papel enviado pelo cliente.
+ */
+export const buscarUsuariosParaRetirada = onCall(async request => {
+  const { letra, termo } = validatePayload(BuscarUsuariosRetiradaSchema, request.data);
+  await validarAutoridadePersistida(request, ["Gestor_Almoxarifado"]);
+
+  const db = admin.firestore();
+  const usuariosSnap = await db.collection("Usuarios")
+    .where("ativo", "==", true)
+    .where("letra_inicial", "==", letra)
+    .limit(200)
+    .get();
+  if (usuariosSnap.empty) return { usuarios: [] };
+
+  const candidatos = usuariosSnap.docs;
+  const papeisPorUsuario = new Map<string, string[]>();
+  const perfilSnaps = await Promise.all(candidatos.flatMap(doc => [
+    db.collection("Professor").doc(doc.id).get(),
+    db.collection("Bolsista").doc(doc.id).get(),
+    db.collection("Gestor_Almoxarifado").doc(doc.id).get(),
+  ]));
+  for (let i = 0; i < candidatos.length; i++) {
+    const papeis: string[] = [];
+    if (perfilSnaps[i * 3].exists) papeis.push("Professor");
+    if (perfilSnaps[i * 3 + 1].exists) papeis.push("Bolsista");
+    if (perfilSnaps[i * 3 + 2].exists) papeis.push("Gestor_Almoxarifado");
+    // Gestor puro é operador, não portador elegível. Só retorna quando também
+    // possui Professor/Bolsista, caso de autoatendimento normativo.
+    if (papeis.includes("Professor") || papeis.includes("Bolsista")) papeisPorUsuario.set(candidatos[i].id, papeis);
+  }
+
+  const termoNormalizado = termo?.toLowerCase() ?? "";
+  const usuarios = candidatos
+    .map(doc => {
+      const data = doc.data();
+      return { id: doc.id, nome: typeof data.nome === "string" && data.nome.trim() ? data.nome.trim() : "Sem nome", papeis: papeisPorUsuario.get(doc.id) };
+    })
+    .filter((usuario): usuario is { id: string; nome: string; papeis: string[] } =>
+      Boolean(usuario.papeis) && (!termoNormalizado || usuario.nome.toLowerCase().includes(termoNormalizado)))
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR") || a.id.localeCompare(b.id))
+    .slice(0, 100);
+
+  return { usuarios };
+});
+
+/**
  * S8 UI-01 L191: atualiza o nome do próprio usuário (self-service).
  * Propaga a projeção de nome para perfis de papel e vínculos canônicos de turma.
  * Preserva eventos históricos (HistoricoAlunos, Posts, Comentários).
@@ -478,6 +533,7 @@ export const atualizarPerfil = onCall(async (request) => {
     // 1. Usuarios/{uid}
     tx.update(usuarioRef, {
       nome,
+      letra_inicial: nome.trim().charAt(0).toUpperCase(),
       atualizado_em: FieldValue.serverTimestamp(),
     });
 

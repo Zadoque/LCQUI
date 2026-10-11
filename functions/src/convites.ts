@@ -883,6 +883,7 @@ export async function executarAceitarConviteAluno(
         id_usuario: authUser.uid,
         nome: nomeUsuario,
         email: emailAuthNormalizado,
+        letra_inicial: nomeUsuario.trim().charAt(0).toUpperCase(),
         ativo: true,
         versao_permissoes: versaoPermissoes,
         claims_pendentes: true,

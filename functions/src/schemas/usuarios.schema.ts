@@ -60,6 +60,14 @@ export const BuscarGestoresAlmoxarifadoSchema = z.object({
   termo: z.string().trim().max(150).optional(),
 });
 
+// UI-07: busca incremental do portador físico do reagente. A letra é
+// obrigatória para impedir listagem ampla; o termo opcional refina o resultado
+// já limitado pela inicial no servidor.
+export const BuscarUsuariosRetiradaSchema = z.object({
+  letra: z.string().trim().length(1).regex(/^[A-Z]$/, "Letra deve ser uma letra maiúscula de A a Z."),
+  termo: z.string().trim().max(100).optional(),
+});
+
 // UI-02: seleção autorizada de uma identidade já existente, sem expor e-mail,
 // matrícula ou dados de contato na listagem.
 export const BuscarUsuariosPapelSchema = z.object({
