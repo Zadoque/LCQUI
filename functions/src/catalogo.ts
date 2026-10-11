@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { extrairClaimsAutoridade } from "./auth";
+import { extrairClaimsAutoridade, validarAutoridadePersistida } from "./auth";
 import { validatePayload } from "./utils/validation";
 import { ResolverCatalogoPorIdsSchema } from "./schemas/catalogo.schema";
 
@@ -92,8 +92,10 @@ export async function montarEGravarCatalogoReagentes(): Promise<CatalogoReagente
       },
     });
   } catch (err) {
-    // Se storage não estiver acessível, prossegue registrando o estado para ambientes sem bucket
-    console.warn("Storage upload não concluído ou ambiente sem bucket configurado:", err);
+    // O estado publicado só pode apontar para um artefato que existe no Storage.
+    // Falhar fechado evita anunciar uma versão inexistente após erro de upload.
+    console.error("Storage upload do catálogo não concluído:", err);
+    throw new HttpsError("unavailable", "Não foi possível publicar o catálogo no Storage.");
   }
 
   await estadoRef.set({
@@ -109,13 +111,7 @@ export async function montarEGravarCatalogoReagentes(): Promise<CatalogoReagente
 }
 
 export const gerarCatalogoReagentes = onCall(async (request) => {
-  const claims = extrairClaimsAutoridade(request);
-  const ehChefe = claims.papeis.includes("Chefe_Geral");
-  const ehGestor = claims.papeis.includes("Gestor_Almoxarifado");
-
-  if (!ehChefe && !ehGestor) {
-    throw new HttpsError("permission-denied", "Apenas gestores ou chefes podem gerar o catálogo de reagentes.");
-  }
+  await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
 
   const catalogo = await montarEGravarCatalogoReagentes();
   return {

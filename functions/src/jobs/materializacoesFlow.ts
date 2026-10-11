@@ -2,9 +2,25 @@ import * as admin from "firebase-admin";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
-import { extrairClaimsAutoridade } from "../auth";
+import { validarAutoridadePersistida } from "../auth";
 
 const TIME_ZONE = "America/Sao_Paulo";
+
+export function validarDataAlvo(dataAlvo: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataAlvo)) {
+    throw new HttpsError("invalid-argument", "dataAlvo deve estar no formato YYYY-MM-DD.");
+  }
+  const [ano, mes, dia] = dataAlvo.split("-").map(Number);
+  const data = new Date(Date.UTC(ano, mes - 1, dia));
+  if (
+    data.getUTCFullYear() !== ano ||
+    data.getUTCMonth() !== mes - 1 ||
+    data.getUTCDate() !== dia
+  ) {
+    throw new HttpsError("invalid-argument", "dataAlvo não representa uma data civil válida.");
+  }
+  return dataAlvo;
+}
 
 export function obterJanelaDiaSaoPaulo(dataCivil: string): { inicio: Date; fim: Date } {
   // dataCivil no formato YYYY-MM-DD
@@ -195,17 +211,12 @@ export async function processarMaterializacaoDiariaFlow(dataAlvo: string): Promi
 }
 
 export const consolidarResumosDiariosCallable = onCall(async (request) => {
-  const claims = extrairClaimsAutoridade(request);
-  const ehChefe = claims.papeis.includes("Chefe_Geral");
-  const ehGestor = claims.papeis.includes("Gestor_Almoxarifado");
+  await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
 
-  if (!ehChefe && !ehGestor) {
-    throw new HttpsError("permission-denied", "Acesso não autorizado para acionar materializações.");
-  }
-
-  const dataAlvo = (request.data && typeof request.data.dataAlvo === "string" && request.data.dataAlvo.trim())
+  const dataAlvoBruta = (request.data && typeof request.data.dataAlvo === "string" && request.data.dataAlvo.trim())
     ? request.data.dataAlvo.trim()
     : obterDataOntemSaoPaulo();
+  const dataAlvo = validarDataAlvo(dataAlvoBruta);
 
   const resultado = await processarMaterializacaoDiariaFlow(dataAlvo);
   return { status: "OK", ...resultado };
