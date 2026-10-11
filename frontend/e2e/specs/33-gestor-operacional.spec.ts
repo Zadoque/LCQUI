@@ -7,15 +7,17 @@ test("ALM-OPERACIONAL-E2E-001: gestor acessa movimentações, quarentena e alert
   await page.goto("/reagentes");
   await expect(page.getByRole("heading", { name: "Catálogo de Reagentes", exact: true })).toBeVisible();
   expect(guardaConsole.erros().some((mensagem) => mensagem.includes("false for 'list'"))).toBe(false);
+  await expect(page.locator("aside").getByRole("link", { name: "Movimentações", exact: true })).toHaveCount(0);
+  await expect(page.locator("aside").getByRole("link", { name: "Quarentena / Alertas", exact: true })).toHaveCount(0);
 
-  await page.getByRole("link", { name: "Movimentações", exact: true }).click();
-  await expect(page).toHaveURL(/\/reagentes\?aba=movimentacoes$/);
+  await page.getByRole("button", { name: "Movimentações", exact: true }).click();
+  await expect(page).toHaveURL(/\/reagentes$/);
   await expect(page.getByTestId("painel-operacional-movimentacoes")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Movimentações", exact: true })).toBeVisible();
   await expect(page.getByText("Histórico físico do almoxarifado, ordenado pelo instante do servidor.")).toBeVisible();
 
-  await page.getByRole("link", { name: "Quarentena \/ Alertas", exact: true }).click();
-  await expect(page).toHaveURL(/\/reagentes\?aba=alertas$/);
+  await page.getByRole("button", { name: "Quarentena \/ Alertas", exact: true }).click();
+  await expect(page).toHaveURL(/\/reagentes$/);
   await expect(page.getByTestId("painel-operacional-alertas")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Quarentena", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Alertas operacionais", exact: true })).toBeVisible();
@@ -86,4 +88,37 @@ test("ALM-OPERACIONAL-E2E-005: gestor acessa a caixa completa de notificações"
   await expect(page).toHaveURL(/\/notificacoes$/);
   await expect(page.getByTestId("pagina-notificacoes")).toBeVisible();
   await expect(page.getByText("Acesso restrito", { exact: true })).toHaveCount(0);
+});
+
+test("ALM-OPERACIONAL-E2E-007: professor consulta somente seus empréstimos no detalhe do reagente", async ({ page, guardaConsole }) => {
+  await login(page, "professor.alpha@lcqui.local");
+  await page.goto("/reagentes/seed-resumo-reagente-frascos");
+
+  await expect(page.getByRole("heading", { name: "Reagente Seed", exact: true })).toBeVisible();
+  await expect(page.getByTestId("frasco-row-seed-frasco-historico-professor")).toBeVisible();
+  await expect(page.getByTestId("meus-reagentes-historico")).toContainText("LCQUI-9001");
+  await expect(page.getByTestId("meus-reagentes-historico")).not.toContainText("LCQUI-9002");
+  expect(guardaConsole.erros().some((mensagem) => mensagem.includes("false for 'list'"))).toBe(false);
+});
+
+test("PAT-E2E-009: requisições não ativa simultaneamente Patrimônio Geral", async ({ page }) => {
+  await login(page, "gestor.patrimonial@lcqui.local");
+  await page.goto("/patrimonio/requisicoes");
+
+  const patrimonioGeral = page.locator('aside a[href="/patrimonio"]');
+  const requisicoes = page.locator('aside a[href="/patrimonio/requisicoes"]');
+  await expect(patrimonioGeral).toHaveCount(1);
+  await expect(requisicoes).toHaveCount(1);
+  await expect(requisicoes).toHaveClass(/bg-primary\/10/);
+  await expect(patrimonioGeral).not.toHaveClass(/bg-primary\/10/);
+});
+
+test("PAT-E2E-010: alerta de inservíveis abre o patrimônio já filtrado", async ({ page }) => {
+  await login(page, "gestor.patrimonial@lcqui.local");
+  await page.goto("/patrimonio?status=Inservivel");
+
+  await expect(page.getByRole("heading", { name: "Bens Patrimoniais", exact: true })).toBeVisible();
+  await expect(page.getByTestId("filtro-status-patrimonio")).toHaveValue("Inservivel");
+  await expect(page.getByText("PAT-SEED-004", { exact: true })).toBeVisible();
+  await expect(page.locator("aside").getByRole("link", { name: "Alertas (Inservíveis)", exact: true })).toHaveCount(0);
 });

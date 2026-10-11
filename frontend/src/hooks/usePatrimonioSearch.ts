@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { collection, getDocs, query, where, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import type { BemPatrimonial } from "@/types/patrimonio";
@@ -18,9 +18,10 @@ export function usePatrimonioSearch() {
   const [filtroLetraInicial, setFiltroLetraInicial] = useState("");
   const [filtroConservacao, setFiltroConservacao] = useState("");
 
-  const searchFirestore = async () => {
+  const searchFirestore = async (statusOverride?: string) => {
+    const statusBusca = statusOverride ?? filtroStatus;
     // Seção 5.2: pelo menos Prédio, Letra inicial OU Status
-    if (!filtroPredio && !filtroLetraInicial && !filtroStatus) {
+    if (!filtroPredio && !filtroLetraInicial && !statusBusca) {
       setSearchError(
         "Selecione ao menos um filtro obrigatório: Prédio, Letra Inicial ou Status. (Regra de performance do Firestore — Seção 5.2 do projeto)"
       );
@@ -35,7 +36,7 @@ export function usePatrimonioSearch() {
       if (filtroPredio) constraints.push(where("predio", "==", filtroPredio));
       if (filtroAndar) constraints.push(where("andar", "==", filtroAndar));
       if (filtroSala) constraints.push(where("sala", "==", filtroSala));
-      if (filtroStatus) constraints.push(where("status", "==", filtroStatus));
+      if (statusBusca) constraints.push(where("status", "==", statusBusca));
       if (filtroLetraInicial) constraints.push(where("letra_inicial_nome", "==", filtroLetraInicial));
       if (filtroConservacao) constraints.push(where("estado_conservacao", "==", filtroConservacao));
 
@@ -53,6 +54,20 @@ export function usePatrimonioSearch() {
       setLoading(false);
     }
   };
+
+  // O link de alerta é um deep link para a mesma UI-04, não uma tela separada.
+  // Carrega o filtro pela URL para que /patrimonio?status=Inservivel tenha
+  // efeito observável ao ser aberto pelo menu, notificação ou link externo.
+  useEffect(() => {
+    const statusDaUrl = new URLSearchParams(window.location.search).get("status");
+    if (!statusDaUrl) return;
+
+    setFiltroStatus(statusDaUrl);
+    const carregamento = window.setTimeout(() => {
+      void searchFirestore(statusDaUrl);
+    }, 0);
+    return () => window.clearTimeout(carregamento);
+  }, []);
 
   // Filtro local por substring (Seção 5.2)
   const filteredBens = bens.filter((b) => {

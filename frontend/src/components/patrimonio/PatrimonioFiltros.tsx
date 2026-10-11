@@ -90,6 +90,7 @@ export function PatrimonioFiltros({
           <div className="w-full">
             <label className="block text-xs font-semibold mb-1 text-foreground/70">Status</label>
             <select
+              data-testid="filtro-status-patrimonio"
               className="w-full bg-background border border-foreground/10 rounded-lg px-3 py-3 outline-none focus:ring-2 focus:ring-primary text-sm shadow-sm"
               value={filtroStatus}
               onChange={(e) => onStatusChange(e.target.value)}
