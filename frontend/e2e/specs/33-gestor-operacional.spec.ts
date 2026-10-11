@@ -60,3 +60,14 @@ test("ALM-OPERACIONAL-E2E-004: resumo cadastrado aparece com natureza no catálo
   const linha = page.locator("tr").filter({ hasText: nome });
   await expect(linha).toContainText("INORGANICO");
 });
+
+test("ALM-OPERACIONAL-E2E-005: gestor acessa a caixa completa de notificações", async ({ page }) => {
+  await login(page, "gestor.almoxarifado@lcqui.local");
+  await page.goto("/reagentes");
+  await page.getByRole("button", { name: "Notificações" }).click();
+  await page.getByTestId("link-ver-todas").click();
+
+  await expect(page).toHaveURL(/\/notificacoes$/);
+  await expect(page.getByTestId("pagina-notificacoes")).toBeVisible();
+  await expect(page.getByText("Acesso restrito", { exact: true })).toHaveCount(0);
+});
