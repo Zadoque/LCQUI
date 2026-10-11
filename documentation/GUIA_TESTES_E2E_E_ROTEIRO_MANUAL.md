@@ -59,6 +59,9 @@ exigir os três filtros simultaneamente.
 Nos fluxos de retirada e devolução, `24-retirada.spec.ts` também verifica que
 o retirante/devolvente é pesquisado em modal separado e que a devolução expõe
 o campo obrigatório do identificador do frasco/empréstimo.
+O local de uso da retirada também é selecionado em modal por prédio, andar ou
+sala; a callable retorna somente locais cadastrados e autorizados para o
+operador.
 
 ## 2. Como rodar
 

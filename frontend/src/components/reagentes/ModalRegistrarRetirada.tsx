@@ -6,6 +6,8 @@ import { functions } from "@/lib/firebase/config";
 import { ModalProps } from "./types";
 import { ModalBuscaUsuarioReagente, SeletorUsuarioReagente } from "./SeletorUsuarioReagente";
 import type { UsuarioRetirada } from "@/services/usuarios/usuariosService";
+import { ModalBuscaLocalReagente, SeletorLocalReagente } from "./ModalBuscaLocalReagente";
+import type { LocalRetirada } from "@/services/reagentes/reagentesService";
 
 export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProps) {
   const [loading, setLoading] = useState(false);
@@ -14,6 +16,8 @@ export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProp
   const [usuarioSelecionado, setUsuarioSelecionado] = useState<UsuarioRetirada | null>(null);
   const [buscaUsuarioAberta, setBuscaUsuarioAberta] = useState(false);
   const [localUsado, setLocalUsado] = useState("");
+  const [localSelecionado, setLocalSelecionado] = useState<LocalRetirada | null>(null);
+  const [buscaLocalAberta, setBuscaLocalAberta] = useState(false);
   const [pesoSaida, setPesoSaida] = useState("");
   const [dataDevolucao, setDataDevolucao] = useState("");
   const [finalidade, setFinalidade] = useState<"PESQUISA" | "DIDATICO_DEMONSTRACAO" | "OUTRO">("PESQUISA");
@@ -29,6 +33,7 @@ export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProp
     setLoading(true);
     setErrorMsg("");
     try {
+      if (!localUsado) throw new Error("Selecione um local de uso cadastrado.");
       const registrarRetirada = httpsCallable(functions, "registrarRetirada");
       await registrarRetirada({
         idOperacao: crypto.randomUUID(),
@@ -69,10 +74,7 @@ export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProp
               onAbrir={() => setBuscaUsuarioAberta(true)}
               testIdPrefix="retirada"
             />
-            <div>
-              <label htmlFor="retirada-local-id" className="block text-sm font-medium mb-1">ID do local usado</label>
-              <input id="retirada-local-id" type="text" required value={localUsado} onChange={(e) => setLocalUsado(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10" />
-            </div>
+            <SeletorLocalReagente value={localUsado} local={localSelecionado} onAbrir={() => setBuscaLocalAberta(true)} />
             <div>
               <label className="block text-sm font-medium mb-1">Peso de saída (g)</label>
               <input type="number" min="0.01" step="0.01" required value={pesoSaida} onChange={(e) => setPesoSaida(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10" />
@@ -121,6 +123,15 @@ export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProp
           setUsuarioRetirou(usuario?.id ?? "");
         }}
         testIdPrefix="retirada"
+      />
+      <ModalBuscaLocalReagente
+        isOpen={buscaLocalAberta}
+        onClose={() => setBuscaLocalAberta(false)}
+        value={localUsado}
+        onChange={(local) => {
+          setLocalSelecionado(local);
+          setLocalUsado(local?.id ?? "");
+        }}
       />
     </div>
   );

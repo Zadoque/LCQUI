@@ -3,10 +3,10 @@ import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { extrairClaimsAutoridade, resolverAutoridadePersistidaTx } from "./auth";
+import { extrairClaimsAutoridade, resolverAutoridadePersistidaTx, validarAutoridadePersistida } from "./auth";
 import { construirIdentidade, registrarOperacaoConcluidaTx, resolverOperacaoTx } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
-import { CriarRequisicaoEdicaoBemSchema, ResponderRequisicaoBemSchema, CriarRequisicaoAdicaoBemSchema, GerenciarLocalSchema, RegistrarBaixaBemPatrimonialSchema } from "./schemas/patrimonio.schema";
+import { CriarRequisicaoEdicaoBemSchema, ResponderRequisicaoBemSchema, CriarRequisicaoAdicaoBemSchema, GerenciarLocalSchema, BuscarLocaisParaRetiradaSchema, RegistrarBaixaBemPatrimonialSchema } from "./schemas/patrimonio.schema";
 import { adicionarNotificacaoTx } from "./notificacoes";
 import { chaveLocal as derivarChaveLocal } from "./chaves";
 
@@ -646,6 +646,33 @@ export const onResumoBemPatrimonialNomeAtualizado = onDocumentUpdated(
 function chaveLocal(predio: string, andar: string, sala: string) {
   return admin.firestore().collection("Chaves_Unicas").doc(derivarChaveLocal(predio, andar, sala));
 }
+
+/** UI-07: diretório mínimo de locais; não expõe a coleção diretamente ao gestor de almoxarifado. */
+export const buscarLocaisParaRetirada = onCall(async (request) => {
+  const dados = validatePayload(BuscarLocaisParaRetiradaSchema, request.data);
+  await validarAutoridadePersistida(request, ["Gestor_Almoxarifado"]);
+
+  const db = admin.firestore();
+  const predio = dados.predio ?? "";
+  let query = db.collection("Local").limit(100);
+  if (predio) {
+    query = db.collection("Local")
+      .where("predio", ">=", predio)
+      .where("predio", "<=", `${predio}\uf8ff`)
+      .limit(100);
+  }
+  const snap = await query.get();
+  const andar = dados.andar ?? "";
+  const sala = dados.sala ?? "";
+  const locais = snap.docs.map((doc) => {
+    const data = doc.data() as { predio?: string; andar?: string; sala?: string };
+    return { id: doc.id, predio: data.predio ?? "", andar: data.andar ?? "", sala: data.sala ?? "" };
+  })
+    .filter((local) => (!andar || local.andar === andar) && (!sala || local.sala === sala))
+    .sort((a, b) => `${a.predio} ${a.andar} ${a.sala}`.localeCompare(`${b.predio} ${b.andar} ${b.sala}`, "pt-BR"))
+    .slice(0, 50);
+  return { locais };
+});
 
 // UI-03: criação/edição server-owned de Local com unicidade (prédio, andar, sala),
 // M9 persistido e M7. A propagação para Bem_Patrimonial é feita pelo trigger

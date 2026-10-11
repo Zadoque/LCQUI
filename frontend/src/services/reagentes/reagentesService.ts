@@ -22,6 +22,20 @@ export interface ObterEstoqueParams {
   idAlmoxarifado: string;
 }
 
+export interface LocalRetirada {
+  id: string;
+  predio: string;
+  andar: string;
+  sala: string;
+}
+
+export async function buscarLocaisParaRetirada(params: { predio?: string; andar?: string; sala?: string }): Promise<LocalRetirada[]> {
+  const fn = httpsCallable<typeof params, { locais: LocalRetirada[] }>(functions, "buscarLocaisParaRetirada");
+  const payload = Object.fromEntries(Object.entries(params).filter(([, valor]) => valor !== undefined && valor !== ""));
+  const res = await fn(payload);
+  return res.data.locais;
+}
+
 export async function gerarCatalogoReagentes(): Promise<void> {
   const fn = httpsCallable(functions, "gerarCatalogoReagentes");
   await fn({});
