@@ -5,9 +5,11 @@ import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   getRedirectResult,
+  linkWithCredential,
   signInWithRedirect,
   sendPasswordResetEmail,
 } from "firebase/auth";
+import type { AuthCredential } from "firebase/auth";
 import { auth } from "@/lib/firebase/config";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,7 +28,7 @@ function isNetworkError(error: unknown): boolean {
 function googleErrorMessage(error: unknown): string {
   switch (authErrorCode(error)) {
     case "auth/account-exists-with-different-credential":
-      return "Esta conta já existe com login por e-mail e senha. Entre por e-mail e senha antes de vincular o Google.";
+      return "Esta conta já existe com login por e-mail e senha. Entre por e-mail e senha para concluir o vínculo com o Google.";
     case "auth/unauthorized-domain":
       return "Este domínio ainda não está autorizado no Firebase Authentication.";
     case "auth/operation-not-allowed":
@@ -49,6 +51,7 @@ export default function LoginPage() {
   const [isLoadingForm, setIsLoadingForm] = useState(false);
   const [isNetworkErrorState, setIsNetworkErrorState] = useState(false);
   const [lastAction, setLastAction] = useState<"email" | "google" | "reset" | null>(null);
+  const [pendingGoogleCredential, setPendingGoogleCredential] = useState<AuthCredential | null>(null);
 
   const router = useRouter();
   const { user, isLoading } = useAuth();
@@ -67,6 +70,16 @@ export default function LoginPage() {
       setIsLoadingForm(false);
       setErrorMsg(googleErrorMessage(error));
       setIsNetworkErrorState(isNetworkError(error));
+      const credential = GoogleAuthProvider.credentialFromError(
+        error as Parameters<typeof GoogleAuthProvider.credentialFromError>[0],
+      );
+      if (credential) {
+        setPendingGoogleCredential(credential);
+        const emailFromError = typeof error === "object" && error !== null && "customData" in error
+          ? (error as { customData?: { email?: unknown } }).customData?.email
+          : undefined;
+        if (typeof emailFromError === "string") setEmail(emailFromError);
+      }
     });
     return () => {
       mounted = false;
@@ -83,6 +96,11 @@ export default function LoginPage() {
 
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
+      if (pendingGoogleCredential && auth.currentUser) {
+        await linkWithCredential(auth.currentUser, pendingGoogleCredential);
+        setPendingGoogleCredential(null);
+        setSuccessMsg("Login Google vinculado com sucesso. Você será redirecionado.");
+      }
       router.push(destinoSeguroAposLogin(window.location.search));
     } catch (error: unknown) {
       if (isNetworkError(error)) {
