@@ -20,7 +20,7 @@ test("RET-E2E-001: registra retirada com contrato completo", async ({ page, guar
 
   await page.getByRole("button", { name: "Registrar Retirada" }).click();
   const formulario = page.locator("form").filter({ has: page.getByRole("button", { name: "Confirmar" }) });
-  await formulario.getByLabel("ID do Frasco / QR Code").fill(chave!.data.id_recurso as string);
+  await formulario.getByLabel("ID do frasco (LCQUI-)").fill(chave!.data.id_recurso as string);
   await formulario.getByTestId("retirada-abrir-seletor").click();
   await page.getByTestId("retirada-modal-seletor").getByLabel("Letra inicial do nome").fill("P");
   const buscaRetirante = esperarCallable(page, "buscarUsuariosParaRetirada");
@@ -52,7 +52,7 @@ test("RET-E2E-001: registra retirada com contrato completo", async ({ page, guar
   guardaConsole.permitir(/400/);
   await page.getByRole("button", { name: "Registrar Retirada" }).click();
   const segunda = page.locator("form").filter({ has: page.getByRole("button", { name: "Confirmar" }) });
-  await segunda.getByLabel("ID do Frasco / QR Code").fill(chave!.data.id_recurso as string);
+  await segunda.getByLabel("ID do frasco (LCQUI-)").fill(chave!.data.id_recurso as string);
   await segunda.getByTestId("retirada-abrir-seletor").click();
   await page.getByTestId("retirada-modal-seletor").getByLabel("Letra inicial do nome").fill("P");
   const segundaBusca = esperarCallable(page, "buscarUsuariosParaRetirada");
@@ -97,7 +97,7 @@ test("DEV-001-E2E-002: conclui retirada e devolução com pesagens concordantes"
 
   await page.getByRole("button", { name: "Registrar Retirada" }).click();
   const retirada = page.locator("form").filter({ has: page.getByRole("button", { name: "Confirmar" }) });
-  await retirada.getByLabel("ID do Frasco / QR Code").fill(frascoId);
+  await retirada.getByLabel("ID do frasco (LCQUI-)").fill(frascoId);
   await retirada.getByTestId("retirada-abrir-seletor").click();
   await page.getByTestId("retirada-modal-seletor").getByLabel("Letra inicial do nome").fill("P");
   const buscaRetirante = esperarCallable(page, "buscarUsuariosParaRetirada");
