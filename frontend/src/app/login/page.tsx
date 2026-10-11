@@ -4,7 +4,8 @@ import React, { useState, useEffect } from "react";
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
-  signInWithPopup,
+  getRedirectResult,
+  signInWithRedirect,
   sendPasswordResetEmail,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase/config";
@@ -12,8 +13,31 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { destinoSeguroAposLogin } from "@/lib/authBootstrap.mjs";
 
+function authErrorCode(error: unknown): string | undefined {
+  return typeof error === "object" && error !== null && "code" in error
+    ? String((error as { code?: unknown }).code)
+    : undefined;
+}
+
 function isNetworkError(error: unknown): boolean {
-  return error instanceof Error && "code" in error && (error as { code: string }).code === "auth/network-request-failed";
+  return authErrorCode(error) === "auth/network-request-failed";
+}
+
+function googleErrorMessage(error: unknown): string {
+  switch (authErrorCode(error)) {
+    case "auth/account-exists-with-different-credential":
+      return "Esta conta já existe com login por e-mail e senha. Entre por e-mail e senha antes de vincular o Google.";
+    case "auth/unauthorized-domain":
+      return "Este domínio ainda não está autorizado no Firebase Authentication.";
+    case "auth/operation-not-allowed":
+      return "O login com Google ainda não está habilitado no Firebase Authentication.";
+    case "auth/popup-blocked":
+      return "O navegador bloqueou a janela do Google. Tente novamente ou permita redirecionamentos para este site.";
+    case "auth/popup-closed-by-user":
+      return "A janela de autenticação do Google foi fechada antes da conclusão.";
+    default:
+      return "Falha ao autenticar com o Google. Tente novamente.";
+  }
 }
 
 export default function LoginPage() {
@@ -34,6 +58,20 @@ export default function LoginPage() {
       router.replace(destinoSeguroAposLogin(window.location.search));
     }
   }, [user, isLoading, router]);
+
+  useEffect(() => {
+    let mounted = true;
+    void getRedirectResult(auth).catch((error: unknown) => {
+      if (!mounted || authErrorCode(error) === "auth/no-auth-event") return;
+      setLastAction("google");
+      setIsLoadingForm(false);
+      setErrorMsg(googleErrorMessage(error));
+      setIsNetworkErrorState(isNetworkError(error));
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,14 +106,13 @@ export default function LoginPage() {
     const provider = new GoogleAuthProvider();
 
     try {
-      await signInWithPopup(auth, provider);
-      router.push(destinoSeguroAposLogin(window.location.search));
+      await signInWithRedirect(auth, provider);
     } catch (error: unknown) {
       if (isNetworkError(error)) {
         setErrorMsg("Erro de conexão. Verifique sua internet e tente novamente.");
         setIsNetworkErrorState(true);
       } else {
-        setErrorMsg("Falha ao autenticar com o Google. Tente novamente.");
+        setErrorMsg(googleErrorMessage(error));
         setIsNetworkErrorState(false);
       }
     } finally {
@@ -241,6 +278,7 @@ export default function LoginPage() {
         </div>
 
         <button
+          type="button"
           onClick={handleGoogleLogin}
           disabled={isLoadingForm}
           className="mt-6 w-full py-3 px-4 rounded-xl bg-foreground/5 text-foreground font-semibold hover:bg-foreground/10 focus:ring-2 focus:ring-foreground/20 transition-all border border-foreground/10 flex justify-center items-center gap-3 disabled:opacity-50"
