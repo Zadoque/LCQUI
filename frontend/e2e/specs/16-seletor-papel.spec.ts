@@ -23,7 +23,7 @@ test.describe('AUTH-SEL-E2E-001: Seletor de papel ativo', () => {
     await expect(page.getByTestId("papel-opcao-Bolsista")).toHaveAttribute("aria-pressed", "false");
 
     // 6. Sidebar do Aluno NÃO tem "Reagentes"
-    await expect(page.locator("aside").getByRole("link", { name: "Reagentes" })).toHaveCount(0);
+    await expect(page.locator("aside").getByRole("link", { name: "Reagentes", exact: true })).toHaveCount(0);
 
     // 7. Clicar em "Bolsista"
     await page.getByTestId("papel-opcao-Bolsista").click();
@@ -34,6 +34,15 @@ test.describe('AUTH-SEL-E2E-001: Seletor de papel ativo', () => {
 
     // 9. Sidebar do Bolsista TEM "Reagentes"
     await expect(page.locator("aside").getByRole("link", { name: "Reagentes" })).toBeVisible();
+    await expect(page.locator("aside").getByRole("link", { name: "Bens Patrimoniais" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Patrimônio", exact: true })).toHaveCount(0);
+
+    // O bolsista não possui autorização normativa para abrir Patrimônio,
+    // inclusive por navegação direta.
+    await page.goto("/patrimonio");
+    await expect(page.getByRole("heading", { name: "Acesso restrito" })).toBeVisible();
+    await page.goto("/patrimonio/seed-bem-edicao-aprovacao");
+    await expect(page.getByRole("heading", { name: "Acesso restrito" })).toBeVisible();
 
     // 10. Recarregar e confirmar persistência
     await page.reload();

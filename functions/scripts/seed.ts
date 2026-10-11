@@ -391,6 +391,188 @@ async function writeFixture(): Promise<void> {
   batch.set(firestore.collection("Contador_Codigo_Frasco").doc("singleton"), {
     ultimo_codigo_gerado: 0,
   });
+
+  // Fixtures normativas de movimentação M3/M5/M6/UI-07. Os códigos são
+  // identificadores canônicos de dados de teste e não participam do contador
+  // de novos cadastros, que permanece em zero para que a primeira criação
+  // operacional gere LCQUI-1.
+  const historicoProfessorFrascoId = "seed-frasco-historico-professor";
+  const historicoProfessorEmprestimoId = "seed-emprestimo-historico-professor";
+  const historicoBolsistaFrascoId = "seed-frasco-historico-bolsista";
+  const historicoBolsistaEmprestimoId = "seed-emprestimo-historico-bolsista";
+  const localUsoSeedId = localAlmoxId;
+  const retiradaProfessorEm = Timestamp.fromDate(new Date("2026-01-20T12:00:00.000Z"));
+  const devolucaoProfessorEm = Timestamp.fromDate(new Date("2026-01-22T12:00:00.000Z"));
+  const retiradaBolsistaEm = Timestamp.fromDate(new Date("2026-01-23T12:00:00.000Z"));
+
+  batch.set(firestore.collection("Frasco_Reagente").doc(historicoProfessorFrascoId), {
+    id: historicoProfessorFrascoId,
+    id_almoxarifado: "seed-almox-frascos",
+    id_lote: null,
+    id_resumo_reagente: reagenteSeed.id,
+    id_especificacao_reagente: especSeed.id,
+    codigo_frasco: "LCQUI-9001",
+    conteudo_nominal: 1000,
+    peso_no_cadastrado: 1200,
+    peso_atual: 1100,
+    peso_frasco_vazio: 200,
+    origem_tara: "MEDIDA_REAL",
+    saldo_aferido_g: 900,
+    saldo_aferido_ml: 900,
+    saldo_desconhecido: false,
+    medida_usada: 100,
+    data_abertura: "2026-01-20",
+    validade_fechado: "2027-01-20",
+    validade_efetiva: "2027-01-20",
+    validade_desconhecida: false,
+    validade_apos_aberto_dias: 365,
+    estado_fisico_frasco: "ABERTO",
+    situacao_localizacao: "LOCALIZADO",
+    disponibilidade: "DISPONIVEL",
+    vencido: false,
+    em_quarentena: false,
+    uso_vencido_autorizado: false,
+    detalhe_status: null,
+    cadastrado_em: FIXTURE_TIME,
+    cadastrado_por: byId("gestor.almoxarifado").uid,
+    eh_higroscopico: false,
+    abertura_historica_desconhecida: false,
+    condicao_inicial_cadastro: "FECHADO",
+  });
+  batch.set(firestore.collection("Emprestimo_Reagente").doc(historicoProfessorEmprestimoId), {
+    id_frasco_reagente: historicoProfessorFrascoId,
+    id_usuario_retirou: byId("professor.owner").uid,
+    id_gestor_retirada: byId("gestor.almoxarifado").uid,
+    id_almoxarifado: "seed-almox-frascos",
+    status: "DEVOLVIDO",
+    data_retirada: retiradaProfessorEm,
+    data_devolucao_prevista: "2026-01-22",
+    data_devolucao_efetuada: devolucaoProfessorEm,
+    id_local_usado: localUsoSeedId,
+    id_usuario_devolveu: byId("professor.owner").uid,
+    id_gestor_devolucao: byId("gestor.almoxarifado").uid,
+    peso_saida: 1200,
+    peso_retorno: 1100,
+    medida_utilizada: 100,
+    consumo_validado: true,
+    anomalia_metrologica: null,
+    peso_retorno_efetivo: 1100,
+    id_resolucao_metrologica: null,
+    unidade_medida_utilizada: "ml",
+    densidade_aplicada: 1,
+    peso_perda_evaporacao: 0,
+    uso_vencido_aceito: false,
+    vencido_na_retirada: false,
+    finalidade_uso: "AULA_PRATICA",
+    auto_atendimento: false,
+    justificativa_metodologica: null,
+    tcr_versao: null,
+    tcr_aceito_em: null,
+    tcr_aceito_por: null,
+    tcr_auditoria_id: null,
+    tipo_encerramento_excepcional: null,
+    motivo_encerramento_excepcional: null,
+    id_gestor_encerramento: null,
+    massa_perda_estimada_g: null,
+  });
+  for (const [id, tipo, timestamp, extras] of [
+    [`${historicoProfessorEmprestimoId}-cadastro`, "CADASTRO", FIXTURE_TIME, {}],
+    [`${historicoProfessorEmprestimoId}-saiu`, "SAIU", retiradaProfessorEm, { id_emprestimo_reagente: historicoProfessorEmprestimoId }],
+    [`${historicoProfessorEmprestimoId}-entrou`, "ENTROU", devolucaoProfessorEm, { id_emprestimo_reagente: historicoProfessorEmprestimoId }],
+  ] as const) {
+    batch.set(firestore.collection("Historico_Frasco_Reagente").doc(id), {
+      id_frasco_reagente: historicoProfessorFrascoId,
+      id_almoxarifado: "seed-almox-frascos",
+      id_gestor: byId("gestor.almoxarifado").uid,
+      tipo,
+      timestamp,
+      ...extras,
+    });
+  }
+
+  batch.set(firestore.collection("Frasco_Reagente").doc(historicoBolsistaFrascoId), {
+    id: historicoBolsistaFrascoId,
+    id_almoxarifado: "seed-almox-frascos",
+    id_lote: null,
+    id_resumo_reagente: reagenteSeed.id,
+    id_especificacao_reagente: especSeed.id,
+    codigo_frasco: "LCQUI-9002",
+    condicao_inicial_cadastro: "FECHADO",
+    conteudo_nominal: 1000,
+    peso_no_cadastrado: 1200,
+    peso_atual: 1150,
+    peso_frasco_vazio: 200,
+    origem_tara: "REFERENCIA_TEORICA",
+    saldo_aferido_g: 950,
+    saldo_aferido_ml: 950,
+    saldo_desconhecido: false,
+    medida_usada: 50,
+    data_abertura: "2026-01-23",
+    validade_fechado: "2027-01-23",
+    validade_efetiva: "2027-01-23",
+    validade_desconhecida: false,
+    validade_apos_aberto_dias: 365,
+    estado_fisico_frasco: "ABERTO",
+    situacao_localizacao: "LOCALIZADO",
+    disponibilidade: "EMPRESTADO",
+    vencido: false,
+    em_quarentena: false,
+    uso_vencido_autorizado: false,
+    detalhe_status: null,
+    cadastrado_em: FIXTURE_TIME,
+    cadastrado_por: byId("gestor.almoxarifado").uid,
+    eh_higroscopico: false,
+    abertura_historica_desconhecida: false,
+  });
+  batch.set(firestore.collection("Emprestimo_Reagente").doc(historicoBolsistaEmprestimoId), {
+    id_frasco_reagente: historicoBolsistaFrascoId,
+    id_usuario_retirou: byId("bolsista").uid,
+    id_gestor_retirada: byId("gestor.almoxarifado").uid,
+    id_almoxarifado: "seed-almox-frascos",
+    status: "EM_USO",
+    data_retirada: retiradaBolsistaEm,
+    data_devolucao_prevista: "2026-01-30",
+    data_devolucao_efetuada: null,
+    id_local_usado: localUsoSeedId,
+    id_usuario_devolveu: null,
+    id_gestor_devolucao: null,
+    peso_saida: 1150,
+    peso_retorno: null,
+    medida_utilizada: null,
+    consumo_validado: false,
+    anomalia_metrologica: null,
+    peso_retorno_efetivo: null,
+    id_resolucao_metrologica: null,
+    unidade_medida_utilizada: "ml",
+    densidade_aplicada: 1,
+    peso_perda_evaporacao: 0,
+    uso_vencido_aceito: false,
+    vencido_na_retirada: false,
+    finalidade_uso: "PESQUISA_TCC_POS",
+    auto_atendimento: false,
+    justificativa_metodologica: null,
+    tcr_versao: null,
+    tcr_aceito_em: null,
+    tcr_aceito_por: null,
+    tcr_auditoria_id: null,
+    tipo_encerramento_excepcional: null,
+    motivo_encerramento_excepcional: null,
+    id_gestor_encerramento: null,
+    massa_perda_estimada_g: null,
+  });
+  for (const [id, tipo, timestamp, extras] of [
+    [`${historicoBolsistaEmprestimoId}-cadastro`, "CADASTRO", FIXTURE_TIME, {}],
+    [`${historicoBolsistaEmprestimoId}-saiu`, "SAIU", retiradaBolsistaEm, { id_emprestimo_reagente: historicoBolsistaEmprestimoId }],
+  ] as const) {
+    batch.set(firestore.collection("Historico_Frasco_Reagente").doc(id), {
+      id_frasco_reagente: historicoBolsistaFrascoId,
+      id_almoxarifado: "seed-almox-frascos",
+      id_gestor: byId("gestor.almoxarifado").uid,
+      tipo,
+      timestamp,
+      ...extras,
+    });
+  }
   await batch.commit();
 
   // Roteiro canônico M12.2 (PDF público de seed-professor-alpha)
@@ -474,6 +656,15 @@ async function verify(): Promise<void> {
   assert.equal(especSeed.data()?.classe_inflamabilidade, "NAO_INFLAMAVEL");
   assert.equal(especSeed.data()?.eh_controlado_pf, false);
   assert.equal(especSeed.data()?.eh_controlado_eb, false);
+  const emprestimoProfessor = await firestore.collection("Emprestimo_Reagente").doc("seed-emprestimo-historico-professor").get();
+  assert.equal(emprestimoProfessor.data()?.id_usuario_retirou, byId("professor.owner").uid);
+  assert.equal(emprestimoProfessor.data()?.status, "DEVOLVIDO");
+  assert.equal(emprestimoProfessor.data()?.consumo_validado, true);
+  const emprestimoBolsista = await firestore.collection("Emprestimo_Reagente").doc("seed-emprestimo-historico-bolsista").get();
+  assert.equal(emprestimoBolsista.data()?.id_usuario_retirou, byId("bolsista").uid);
+  assert.equal(emprestimoBolsista.data()?.status, "EM_USO");
+  assert.equal((await firestore.collection("Historico_Frasco_Reagente").where("id_frasco_reagente", "==", "seed-frasco-historico-professor").get()).size, 3);
+  assert.equal((await firestore.collection("Historico_Frasco_Reagente").where("id_frasco_reagente", "==", "seed-frasco-historico-bolsista").get()).size, 2);
   assert.equal((await firestore.collection("Resumo_Bem_Patrimonial").doc("seed-resumo-bem-aprovacao-alvo").get()).data()?.descricao, "Resumo alvo para reclassificação no cenário de aprovação.");
   console.log("SEED INVARIANTS OK: M9, papéis/claims/versões, matrículas, Chaves_Unicas, turmas, vínculos, espelhos, histórico, contadores, baseline sem convites/notificações/receipts e roteiro canônico M12.2.");
 }

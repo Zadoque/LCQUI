@@ -22,6 +22,7 @@ const LEGACY_AUTHORITIES: Record<string, KnownRole[]> = {
   alice: ["Aluno"],
   boss: ["Chefe_Geral"],
   aluno1: ["Aluno"],
+  bolsista1: ["Aluno", "Bolsista"],
   aluno2: ["Aluno"],
   prof1: ["Professor"],
   prof2: ["Professor"],
@@ -388,6 +389,13 @@ describe("Firestore Security Rules", () => {
       await assertFails(db.collection("Bem_Patrimonial").get());
     });
 
+    it("não deve permitir que um bolsista leia patrimônio", async () => {
+      const db = authedDb("bolsista1", ["Aluno", "Bolsista"]);
+      await assertFails(db.collection("Bem_Patrimonial").get());
+      await assertFails(db.collection("Resumo_Bem_Patrimonial").get());
+      await assertFails(db.collection("Local").get());
+    });
+
     it("deve permitir que um professor leia patrimônio, mas não crie diretamente", async () => {
       const db = authedDb("prof1", ["Professor"]);
       await assertSucceeds(db.collection("Bem_Patrimonial").get());
@@ -542,11 +550,43 @@ describe("Firestore Security Rules", () => {
       const dbTerceiro = authedDb("aluno2", ["Aluno"]);
       // Retirante lê o próprio
       await assertSucceeds(dbRetirante.collection("Emprestimo_Reagente").doc("emp1").get());
+      // A consulta precisa declarar o escopo do proprietário; Rules não filtra
+      // uma consulta ampla em nome do cliente.
+      await assertSucceeds(
+        dbRetirante.collection("Emprestimo_Reagente")
+          .where("id_usuario_retirou", "==", "aluno1")
+          .get()
+      );
+      await assertFails(dbRetirante.collection("Emprestimo_Reagente").get());
       // Terceiro não lê
       await assertFails(dbTerceiro.collection("Emprestimo_Reagente").doc("emp1").get());
       // Gestor_Almox lê qualquer
       const dbGestor = authedDb("gestorAlm", ["Gestor_Almoxarifado"]);
       await assertSucceeds(dbGestor.collection("Emprestimo_Reagente").doc("emp1").get());
+    });
+
+    it("S11: Historico_Frasco_Reagente restrito ao Chefe e Gestor de Almoxarifado", async () => {
+      await testEnv.withSecurityRulesDisabled(async ctx => {
+        await ctx.firestore().collection("Historico_Frasco_Reagente").doc("hist1").set({
+          id_frasco_reagente: "frasco1",
+          id_almoxarifado: "alm1",
+          id_gestor: "gestorAlm",
+          tipo: "SAIU",
+          id_emprestimo_reagente: "emp1",
+        });
+      });
+
+      const dbChefe = authedDb("boss", ["Chefe_Geral"]);
+      const dbGestor = authedDb("gestorAlm", ["Gestor_Almoxarifado"]);
+      const dbProfessor = authedDb("prof1", ["Professor"]);
+      const dbBolsista = authedDb("bolsista1", ["Aluno", "Bolsista"]);
+      const dbPatrimonio = authedDb("gestor1", ["Gestor_Bens_Patrimoniais"]);
+
+      await assertSucceeds(dbChefe.collection("Historico_Frasco_Reagente").doc("hist1").get());
+      await assertSucceeds(dbGestor.collection("Historico_Frasco_Reagente").doc("hist1").get());
+      await assertFails(dbProfessor.collection("Historico_Frasco_Reagente").doc("hist1").get());
+      await assertFails(dbBolsista.collection("Historico_Frasco_Reagente").doc("hist1").get());
+      await assertFails(dbPatrimonio.collection("Historico_Frasco_Reagente").doc("hist1").get());
     });
 
     it("S11: Estoques_Configurados lido por Gestor_Almoxarifado PASS; Aluno DENY", async () => {

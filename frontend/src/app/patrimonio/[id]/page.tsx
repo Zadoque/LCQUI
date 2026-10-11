@@ -11,7 +11,17 @@ import { ModalBaixaPatrimonial } from "@/components/patrimonio/ModalBaixaPatrimo
 import { HistoricoPatrimonioList } from "@/components/patrimonio/HistoricoPatrimonioList";
 import { ModalPropostaAlteracaoBem } from "@/components/patrimonio/ModalPropostaAlteracaoBem";
 
+const PAPEIS_PATRIMONIO = ["Chefe_Geral", "Gestor_Bens_Patrimoniais", "Professor"];
+
 export default function BemPatrimonialDetails() {
+  return (
+    <ProtectedRoute allowedRoles={PAPEIS_PATRIMONIO}>
+      <BemPatrimonialDetailsContent />
+    </ProtectedRoute>
+  );
+}
+
+function BemPatrimonialDetailsContent() {
   const { id } = useParams();
   const router = useRouter();
   const { roles } = useAuth();
@@ -62,7 +72,6 @@ export default function BemPatrimonialDetails() {
   if (!bem) return null;
 
   return (
-    <ProtectedRoute allowedRoles={["Chefe_Geral", "Gestor_Bens_Patrimoniais", "Professor", "Bolsista", "Aluno"]}>
       <main className="min-h-screen bg-background p-6">
         <div className="max-w-4xl mx-auto space-y-6">
           <button onClick={() => router.back()} className="text-sm font-medium text-primary hover:underline">
@@ -191,6 +200,5 @@ export default function BemPatrimonialDetails() {
           onSuccess={fetchBem}
         />
       </main>
-    </ProtectedRoute>
   );
 }
