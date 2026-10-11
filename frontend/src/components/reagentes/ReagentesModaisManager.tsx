@@ -153,6 +153,7 @@ export function ReagentesModaisManager({
         onClose={() => setIsNovaEspecOpen(false)}
         onSuccess={() => {}}
         idResumoReagente={selectedResumo?.id}
+        resumoSelecionado={selectedResumo}
       />
       <ModalNovoLote
         isOpen={isNovoLoteOpen}

@@ -6,7 +6,7 @@ import { collection, getDocs, query, limit, where } from "firebase/firestore";
 import { functions, db } from "@/lib/firebase/config";
 import { ModalProps } from "./types";
 
-export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSuccess }: ModalProps) {
+export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resumoSelecionado, onSuccess }: ModalProps) {
   const [resumos, setResumos] = useState<any[]>([]);
   const [substancias, setSubstancias] = useState<any[]>([]);
   
@@ -68,10 +68,12 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSu
 
   if (!isOpen) return null;
 
-  const selectedResumoData = resumos.find(r => r.id === selectedResumoId) || (idResumoReagente ? { tipo_substancia: "PURA", estado_fisico: "SOLIDO" } : null);
+  const selectedResumoData = resumos.find(r => r.id === selectedResumoId) || resumoSelecionado || (idResumoReagente ? { tipo_substancia: "PURA", estado_fisico: "SOLIDO" } : null);
   
   const isMistura = selectedResumoData?.tipo_substancia === "MISTURA";
-  const estadoFisico = selectedResumoData?.estado_fisico || "SOLIDO";
+  const estadoFisico = selectedResumoData?.estado_fisico === "LIQUIDO" || selectedResumoData?.estado_fisico === "Líquido"
+    ? "LIQUIDO"
+    : "SOLIDO";
   const unidadeDeMedida = estadoFisico === "LIQUIDO" ? "ml" : "g";
 
   const handleAddComposicao = () => {
@@ -187,12 +189,12 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, onSu
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1 text-foreground/50">Estado Físico (Herdado)</label>
-              <input type="text" disabled value={selectedResumoId ? estadoFisico : ""}
+              <input data-testid="especificacao-estado-fisico" type="text" disabled value={selectedResumoId ? estadoFisico : ""}
                 className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 outline-none opacity-50 font-bold" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1 text-foreground/50">Unidade (Herdada)</label>
-              <input type="text" disabled value={selectedResumoId ? unidadeDeMedida : ""}
+              <input data-testid="especificacao-unidade-medida" type="text" disabled value={selectedResumoId ? unidadeDeMedida : ""}
                 className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 outline-none opacity-50 font-bold" />
             </div>
             <div>

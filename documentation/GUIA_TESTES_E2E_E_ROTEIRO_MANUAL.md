@@ -48,6 +48,8 @@ alertas operacionais no escopo do almoxarifado vinculado. O cenário
 `ALM-OPERACIONAL-E2E-002` autentica `chefe.seed@lcqui.local`, lista o
 almoxarifado seed e verifica que não ocorre `false for 'list'` durante o
 bootstrap da sessão.
+O cenário `ALM-OPERACIONAL-E2E-003` abre a especificação comercial do reagente
+seed e verifica que os campos herdados exibem `LIQUIDO` e `ml`.
 
 ## 2. Como rodar
 

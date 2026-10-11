@@ -5,4 +5,8 @@ export interface ModalProps {
   idEspecificacaoReagente?: string;
   idAlmoxarifado?: string;
   onSuccess?: () => void;
+  resumoSelecionado?: {
+    tipo_substancia?: string;
+    estado_fisico?: string;
+  };
 }

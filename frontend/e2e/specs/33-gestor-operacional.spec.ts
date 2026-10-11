@@ -30,3 +30,14 @@ test("ALM-OPERACIONAL-E2E-002: chefe lista almoxarifados após autenticação", 
   await expect(page.getByTestId("almox-item-seed-almox-frascos")).toBeVisible();
   expect(guardaConsole.erros().some((mensagem) => mensagem.includes("false for 'list'"))).toBe(false);
 });
+
+test("ALM-OPERACIONAL-E2E-003: especificação herda líquido e ml do reagente selecionado", async ({ page }) => {
+  await login(page, "gestor.almoxarifado@lcqui.local");
+  await page.goto("/reagentes");
+  await page.getByText("Reagente Seed", { exact: true }).click();
+  await page.getByRole("button", { name: "+ Nova Especificação", exact: true }).click();
+
+  await expect(page.getByRole("heading", { name: "Nova Especificação Comercial" })).toBeVisible();
+  await expect(page.getByTestId("especificacao-estado-fisico")).toHaveValue("LIQUIDO");
+  await expect(page.getByTestId("especificacao-unidade-medida")).toHaveValue("ml");
+});
