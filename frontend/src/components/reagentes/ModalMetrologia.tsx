@@ -36,14 +36,14 @@ export function ModalMetrologia({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (motivo.trim().length < 20) {
-      setErrorMsg("A justificativa técnica deve conter pelo menos 20 caracteres (exigência normativa M6).");
+      setErrorMsg("Explique a decisão com pelo menos 20 caracteres.");
       return;
     }
     setLoading(true);
     setErrorMsg("");
     try {
       if (rota === "REPETIR") {
-        if (!idEmprestimo) throw new Error("ID do empréstimo obrigatório para repetir pesagem.");
+        if (!idEmprestimo) throw new Error("Não foi possível identificar o empréstimo para repetir a pesagem.");
         const fn = httpsCallable(functions, "repetirPesagemDevolucaoAnomala");
         await fn({
           idOperacao: crypto.randomUUID(),
@@ -52,7 +52,7 @@ export function ModalMetrologia({
           motivo: motivo.trim(),
         });
       } else if (rota === "ESGOTAMENTO") {
-        if (!idEmprestimo) throw new Error("ID do empréstimo obrigatório para confirmar esgotamento.");
+        if (!idEmprestimo) throw new Error("Não foi possível identificar o empréstimo para confirmar o esgotamento.");
         const fn = httpsCallable(functions, "confirmarEsgotamentoAposInspecao");
         await fn({
           idOperacao: crypto.randomUUID(),
@@ -61,7 +61,7 @@ export function ModalMetrologia({
           motivo: motivo.trim(),
         });
       } else {
-        if (!idFrasco) throw new Error("ID do frasco obrigatório para recalibrar tara.");
+        if (!idFrasco) throw new Error("Não foi possível identificar o frasco para recalibrar a tara.");
         const fn = httpsCallable(functions, "recalibrarTaraFrascoEsgotado");
         await fn({
           idOperacao: crypto.randomUUID(),
@@ -82,19 +82,20 @@ export function ModalMetrologia({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="glass-panel w-full max-w-lg p-6 rounded-2xl shadow-xl border-blue-500/20">
-        <h2 className="text-xl font-bold mb-2 text-blue-500">Resolução Metrológica (UI-17)</h2>
+        {/* UI-17/M6: três ações tipadas para resolver uma pendência de pesagem. */}
+        <h2 className="text-xl font-bold mb-2 text-blue-500">Resolver pendência de pesagem</h2>
         <div className="mb-4 text-xs text-foreground/60 bg-foreground/5 p-3 rounded-lg border border-foreground/10 space-y-1">
           <div><span className="font-semibold">Peso Saída Original:</span> {pesoSaidaOriginal ?? "N/A"} g</div>
           <div><span className="font-semibold">Leitura Retorno Original:</span> {pesoRetornoOriginal ?? "N/A"} g (preservada)</div>
           <div><span className="font-semibold">Tara de Referência:</span> {tara ?? "Não informada"} g</div>
           <div className="text-amber-500 font-semibold mt-1">
-            UI-17: Três rotas tipadas. Resolver a inconsistência quantitativa não libera automaticamente a quarentena.
+            Escolha uma ação para resolver a pendência. Resolver a diferença de peso não libera automaticamente o frasco da quarentena.
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Rota Metrológica Tipada *</label>
+            <label className="block text-sm font-medium mb-1">Ação para resolver a pendência *</label>
             <select
               value={rota}
               onChange={(e) => setRota(e.target.value as typeof rota)}
@@ -127,7 +128,7 @@ export function ModalMetrologia({
               rows={3}
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
-              placeholder="Descreva a fundamentação técnica conforme UI-17..."
+              placeholder="Explique o motivo da decisão..."
               className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 outline-none"
             />
           </div>

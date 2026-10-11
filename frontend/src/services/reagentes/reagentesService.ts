@@ -134,8 +134,9 @@ export async function obterEstoqueAtual(params: ObterEstoqueParams): Promise<Obt
     return {
       ok: false,
       rateLimit: isRateLimit,
+      // UI-19: o limite protege a consulta do estoque contra abuso.
       message: isRateLimit
-        ? "Limite de 5 consultas/minuto por usuário atingido (UI-19). Aguarde um instante."
+        ? "Você atingiu o limite de consultas por minuto. Aguarde um instante e tente novamente."
         : (errObj?.message ?? "Não foi possível calcular o estoque atual."),
     };
   }

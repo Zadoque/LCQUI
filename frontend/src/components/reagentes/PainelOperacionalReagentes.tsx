@@ -124,7 +124,8 @@ export function PainelOperacionalReagentes({
         <>
           <div className="glass-panel p-6 rounded-2xl border border-red-500/20">
             <h2 className="text-lg font-bold">Quarentena</h2>
-            <p className="text-xs text-foreground/60 mb-4">Frascos indisponíveis que exigem decisão humana conforme M5/Q06.</p>
+            {/* M5/Q06: frascos indisponíveis aguardando decisão humana. */}
+            <p className="text-xs text-foreground/60 mb-4">Frascos indisponíveis que precisam de uma decisão.</p>
             {dados.quarentena.length === 0 ? (
               <p className="text-sm text-foreground/60">{estadoVazio(aba)}</p>
             ) : (

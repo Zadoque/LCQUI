@@ -11,7 +11,7 @@ test.describe("Smoke E2E de contratos transversais", () => {
     await login(page, "gestor.almoxarifado@lcqui.local");
     await page.goto("/reagentes");
     await expect(page.getByText(/Olá, Gestor de Almoxarifado/)).toBeVisible();
-    await expect(page.getByText("Estoque Atual (Fotografia Corrente — M8)")).toBeVisible();
+    await expect(page.getByText("Estoque atual")).toBeVisible();
     await expect(page.getByRole("button", { name: "Atualizar Estoque" })).toBeVisible();
     await expect(page.getByText("Frascos Aptos")).toBeVisible();
   });

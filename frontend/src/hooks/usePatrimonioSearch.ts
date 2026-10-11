@@ -23,7 +23,7 @@ export function usePatrimonioSearch() {
     // Seção 5.2: pelo menos Prédio, Letra inicial OU Status
     if (!filtroPredio && !filtroLetraInicial && !statusBusca) {
       setSearchError(
-        "Selecione ao menos um filtro obrigatório: Prédio, Letra Inicial ou Status. (Regra de performance do Firestore — Seção 5.2 do projeto)"
+        "Selecione pelo menos um filtro: prédio, letra inicial ou situação."
       );
       return;
     }

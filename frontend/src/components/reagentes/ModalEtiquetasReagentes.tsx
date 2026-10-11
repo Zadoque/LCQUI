@@ -268,7 +268,7 @@ export default function ModalEtiquetasReagentes({ isOpen, onClose }: ModalEtique
                       <div key={f.id} className="flex items-center justify-between p-3 bg-foreground/5 rounded-lg border border-foreground/10">
                         <div>
                           <p className="font-bold text-sm text-foreground">{f.codigo}</p>
-                          <p className="text-xs text-foreground/60 truncate max-w-[200px]">Reagente ID: {f.reagente}</p>
+                          <p className="text-xs text-foreground/60 truncate max-w-[200px]">Reagente: {f.reagente}</p>
                         </div>
                         <button 
                           onClick={() => setSelectedFrascos(prev => prev.filter(x => x.id !== f.id))}

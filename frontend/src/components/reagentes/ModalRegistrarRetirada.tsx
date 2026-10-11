@@ -62,7 +62,7 @@ export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProp
         <h2 className="text-xl font-bold mb-4 text-orange-500">Registrar Retirada</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="retirada-frasco-id" className="block text-sm font-medium mb-1">ID do frasco (LCQUI-)</label>
+            <label htmlFor="retirada-frasco-id" className="block text-sm font-medium mb-1">Código do frasco (LCQUI-)</label>
             <input id="retirada-frasco-id" type="text" required placeholder="Ex: LCQUI-12345" value={frascoId} onChange={(e) => setFrascoId(e.target.value)}
               className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-orange-500 outline-none" />
           </div>

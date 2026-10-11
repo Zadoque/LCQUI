@@ -39,7 +39,7 @@ export function ReagentesFiltros({
         <div>
           <h2 className="text-lg font-bold">Catálogo de Reagentes</h2>
           <p className="text-xs text-foreground/60">
-            Busca textual local com normalização de diacríticos e caixa (UI-04). Filtros são opcionais.
+            Pesquise por nome ou use os filtros opcionais.
           </p>
         </div>
 

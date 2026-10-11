@@ -63,8 +63,9 @@ export function ModalQuarentena({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="glass-panel w-full max-w-md p-6 rounded-2xl shadow-xl border-red-500/20">
+        {/* UI-14: entrada e decisão de saída da quarentena. */}
         <h2 className="text-xl font-bold mb-4 text-red-500">
-          {emQuarentena ? "Decisão de Saída da Quarentena (UI-14)" : "Colocar Frasco em Quarentena (UI-14)"}
+          {emQuarentena ? "Decidir saída da quarentena" : "Colocar frasco em quarentena"}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           {emQuarentena ? (

@@ -35,7 +35,7 @@ export function ModalBaixaPatrimonial({
       return;
     }
     if (!pdfPath.trim()) {
-      setErrorMsg("O caminho do comprovante PDF no Storage é obrigatório.");
+      setErrorMsg("Informe onde está o comprovante PDF do bem.");
       return;
     }
     setLoading(true);
@@ -61,17 +61,18 @@ export function ModalBaixaPatrimonial({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
       <div className="glass-panel w-full max-w-lg p-6 rounded-3xl shadow-2xl border border-red-500/30">
         <h2 className="text-xl font-bold text-red-500 mb-1">
-          Registrar Baixa Patrimonial Definitiva (SEI)
+          Registrar baixa patrimonial definitiva
         </h2>
+        {/* M10/UI-12: baixa patrimonial definitiva com comprovante obrigatório. */}
         <p className="text-xs text-foreground/60 mb-4">
           Equipamento: <span className="font-semibold text-foreground">{nomeEquipamento}</span> (Plaqueta: {numeroPatrimonio}).
-          Esta operação é terminal e irreversível conforme a norma M10 (UI-12).
+          Esta baixa é definitiva e não poderá ser desfeita.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">
-              Caminho do Termo de Baixa (PDF &le; 10 MiB) *
+              Comprovante de baixa (PDF até 10 MiB) *
             </label>
             <input
               type="text"
@@ -82,7 +83,7 @@ export function ModalBaixaPatrimonial({
               className="w-full px-3 py-2 rounded-xl bg-foreground/5 border border-foreground/10 text-xs font-mono outline-none"
             />
             <p className="text-[10px] text-foreground/50 mt-1">
-              O arquivo deve estar previamente enviado ao Storage no namespace normativo do bem.
+              O comprovante deve estar disponível no armazenamento de arquivos do bem antes de continuar.
             </p>
           </div>
 

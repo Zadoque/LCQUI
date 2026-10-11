@@ -28,7 +28,7 @@ export function ModalPesagemRotina({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (Number(peso1) !== Number(peso2)) {
-      setErrorMsg("A 2ª pesagem não confere com a 1ª (Dupla digitação independente exigida por UI-18).");
+      setErrorMsg("As duas pesagens precisam ser iguais. Confira os valores digitados.");
       return;
     }
     setLoading(true);
@@ -53,10 +53,11 @@ export function ModalPesagemRotina({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="glass-panel w-full max-w-md p-6 rounded-2xl shadow-xl border-cyan-500/20">
-        <h2 className="text-xl font-bold mb-4 text-cyan-500">Pesagem de Rotina / Inventário (UI-06, UI-18)</h2>
+        {/* UI-06/UI-18: pesagem de rotina com dupla conferência independente. */}
+        <h2 className="text-xl font-bold mb-4 text-cyan-500">Pesagem de rotina / inventário</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-xs text-cyan-600 dark:text-cyan-400">
-            UI-18: Dupla digitação independente da massa em gramas (g).
+            Digite o peso duas vezes para confirmar o valor.
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">1ª Leitura da Balança (g) *</label>

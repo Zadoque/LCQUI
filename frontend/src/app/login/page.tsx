@@ -26,13 +26,14 @@ function isNetworkError(error: unknown): boolean {
 }
 
 function googleErrorMessage(error: unknown): string {
+  // Firebase Authentication: estes códigos técnicos são traduzidos para mensagens amigáveis.
   switch (authErrorCode(error)) {
     case "auth/account-exists-with-different-credential":
       return "Esta conta já existe com login por e-mail e senha. Entre por e-mail e senha para concluir o vínculo com o Google.";
     case "auth/unauthorized-domain":
-      return "Este domínio ainda não está autorizado no Firebase Authentication.";
+      return "Este endereço ainda não está autorizado para entrar no sistema.";
     case "auth/operation-not-allowed":
-      return "O login com Google ainda não está habilitado no Firebase Authentication.";
+      return "O acesso com Google ainda não está disponível. Tente entrar com e-mail e senha ou avise a administração.";
     case "auth/popup-blocked":
       return "O navegador bloqueou a janela do Google. Tente novamente ou permita redirecionamentos para este site.";
     case "auth/popup-closed-by-user":

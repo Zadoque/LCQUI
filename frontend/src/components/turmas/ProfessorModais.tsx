@@ -303,11 +303,11 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
 
         if (statusEntrega === "FALHOU") {
           statusItem = "erro";
-          msgCanal = "Convite registrado, mas houve falha no envio das instruções pelo Firebase Auth. Reenvie o convite.";
+          msgCanal = "Convite registrado, mas não foi possível enviar as instruções de acesso. Tente reenviar o convite.";
         } else if (canal === "notificacao_interna") {
           msgCanal = "Convite registrado via notificação interna do aluno.";
         } else {
-          msgCanal = "Convite registrado; fluxo de acesso enviado via Firebase Auth.";
+          msgCanal = "Convite registrado; as instruções de acesso foram enviadas.";
         }
 
         const idx = novosResultados.findIndex((r) => r.email === em);

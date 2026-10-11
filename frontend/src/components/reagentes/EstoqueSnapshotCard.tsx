@@ -26,10 +26,11 @@ export function EstoqueSnapshotCard({
       <div className="flex justify-between items-center flex-wrap gap-2">
         <div>
           <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-            Estoque Atual (Fotografia Corrente — M8)
+            {/* M8/UI-19: fotografia corrente protegida do estoque. */}
+            Estoque atual
           </h2>
           <p className="text-xs text-foreground/60">
-            Cálculo transacional protegido sobre Frasco_Reagente. Não é resumo diário nem posição histórica.
+            Valores calculados com segurança a partir dos frascos disponíveis. Eles mostram a situação atual, não um resumo de dias anteriores.
           </p>
         </div>
         <div className="flex items-center gap-3">

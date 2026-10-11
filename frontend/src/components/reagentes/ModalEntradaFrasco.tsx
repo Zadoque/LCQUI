@@ -96,15 +96,16 @@ export function ModalEntradaFrasco({
                 Já Aberto (Em Uso)
               </button>
             </div>
+            {/* UI-06: frasco já aberto sem tara e saldo inicial conhecidos. */}
             {condicaoInicial === "JA_ABERTO" && (
               <p className="text-xs text-foreground/60 mt-1">
-                Conforme UI-06: tara não conhecida e saldo inicial desconhecido até esgotamento.
+                Como o peso do frasco e o saldo inicial ainda não são conhecidos, o sistema acompanhará o consumo até o esgotamento.
               </p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">ID do Lote (opcional)</label>
+            <label className="block text-sm font-medium mb-1">Código do lote (opcional)</label>
             <input
               type="text"
               value={lote}
