@@ -1,10 +1,11 @@
 "use client";
 
 import React from "react";
+import type { FrascoOperacional } from "@/types/reagentes";
 
 export interface FrascoCardProps {
-  frasco: any;
-  onAction?: (action: string, payload: any) => void;
+  frasco: FrascoOperacional;
+  onAction?: (action: "quarentena" | "extravio" | "pesagem_rotina" | "descarte", payload: FrascoOperacional) => void;
   readOnly?: boolean;
 }
 

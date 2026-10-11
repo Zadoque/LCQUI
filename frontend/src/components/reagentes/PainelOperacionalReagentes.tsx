@@ -7,15 +7,17 @@ import {
   type HistoricoOperacional,
   type PainelOperacionalData,
 } from "@/services/reagentes/reagentesService";
+import type { FrascoOperacional } from "@/types/reagentes";
 import { ROTULO_TIPO_NOTIFICACAO } from "@/types/notificacoes";
 
 type AbaOperacional = "movimentacoes" | "alertas";
+type AcaoOperacional = "quarentena" | "extravio" | "pesagem_rotina" | "descarte";
 
 interface PainelOperacionalReagentesProps {
   aba: AbaOperacional;
   idAlmoxarifado?: string;
   uid?: string;
-  onAction: (action: string, payload: unknown) => void;
+  onAction: (action: AcaoOperacional, payload: FrascoOperacional) => void;
   refreshToken: number;
 }
 

@@ -21,12 +21,52 @@ import {
   assinaturaIntencaoEmitirUrl,
 } from "@/lib/intencaoOperacao";
 import { construirPayloadConvidarAluno } from "@/lib/convitesPayload.mjs";
-import type { RoteiroProjecao } from "@/types/turmas";
-import type { Turma } from "@/types/turmas";
+import type { Aluno } from "@/types/usuarios";
+import type { RoteiroProjecao, Turma } from "@/types/turmas";
 import type { ProfessorProjecao } from "@/types/usuarios";
 
 type TurmaLista = Pick<Turma, "id" | "nome_turma" | "codigo_turma" | "ano" | "semestre" | "nome_materia" | "nome_professor" | "status" | "id_professor">;
-type AlunoEncontrado = { id: string; nome: string; email?: string };
+type AlunoEncontrado = Pick<Aluno, "id" | "nome">;
+
+function objeto(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null ? value as Record<string, unknown> : null;
+}
+
+function stringOpcional(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function numeroOpcional(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizarTurma(id: string, value: unknown): TurmaLista | null {
+  const data = objeto(value);
+  const nome = stringOpcional(data?.nome_turma);
+  if (!nome) return null;
+  return {
+    id,
+    nome_turma: nome,
+    codigo_turma: stringOpcional(data?.codigo_turma),
+    ano: numeroOpcional(data?.ano),
+    semestre: data?.semestre === 1 || data?.semestre === 2 ? data.semestre : undefined,
+    nome_materia: stringOpcional(data?.nome_materia),
+    nome_professor: stringOpcional(data?.nome_professor),
+    status: stringOpcional(data?.status),
+    id_professor: stringOpcional(data?.id_professor),
+  };
+}
+
+function normalizarAlunos(value: unknown): AlunoEncontrado[] {
+  const data = objeto(value);
+  if (!Array.isArray(data?.alunos)) return [];
+  return data.alunos.flatMap((item) => {
+    const aluno = objeto(item);
+    return typeof aluno?.id === "string" && typeof aluno.nome === "string"
+      ? [{ id: aluno.id, nome: aluno.nome }]
+      : [];
+  });
+}
 
 interface ModalProps {
   isOpen: boolean;
@@ -49,7 +89,10 @@ export function TurmasArquivadasModal({ isOpen, onClose }: ModalProps) {
     );
 
     const unsub = onSnapshot(q, (snap) => {
-      const lista = snap.docs.map(d => ({ id: d.id, ...d.data() })) as TurmaLista[];
+      const lista = snap.docs.flatMap(d => {
+        const turma = normalizarTurma(d.id, d.data());
+        return turma ? [turma] : [];
+      });
       setArquivadas(lista);
     });
     return () => unsub();
@@ -173,7 +216,10 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
       q = query(collection(db, "Turma"), where("id_professor", "==", user.uid), where("status", "==", "Ativo"));
     }
     const unsub = onSnapshot(q, snap => {
-      setTurmas(snap.docs.map(d => ({ id: d.id, ...d.data() })) as TurmaLista[]);
+      setTurmas(snap.docs.flatMap(d => {
+        const turma = normalizarTurma(d.id, d.data());
+        return turma ? [turma] : [];
+      }));
     });
     return () => unsub();
   }, [isOpen, user, isGestorGeral]);
@@ -189,10 +235,9 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
   const handleBuscar = async () => {
     setLoadingBusca(true);
     try {
-      const buscarAlunos = httpsCallable(functions, "buscarAlunos");
+      const buscarAlunos = httpsCallable<{ letra: string; termo: string }, unknown>(functions, "buscarAlunos");
       const res = await buscarAlunos({ letra: letraInicial, termo: filtroTexto });
-      const data = res.data as { alunos: { id: string; nome: string }[] };
-      setAlunosEncontrados(data.alunos);
+      setAlunosEncontrados(normalizarAlunos(res.data));
     } catch (error) {
       console.error("Erro na busca:", error);
     } finally {
