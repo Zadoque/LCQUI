@@ -58,6 +58,7 @@ function ReagentesContent() {
   const [isDevolucaoOpen, setIsDevolucaoOpen] = useState(false);
   const [isAlmoxOpen, setIsAlmoxOpen] = useState(false);
   const [isGestoresAlmoxOpen, setIsGestoresAlmoxOpen] = useState(false);
+  const [isNovoGestorAlmoxOpen, setIsNovoGestorAlmoxOpen] = useState(false);
   const [almoxSelecionado, setAlmoxSelecionado] = useState<AlmoxarifadoItem | undefined>();
 
   // Estados dos modais de hierarquia
@@ -163,6 +164,7 @@ function ReagentesContent() {
             onNovoAlmoxarifado={() => { setAlmoxSelecionado(undefined); setIsAlmoxOpen(true); }}
             onNovaMateria={() => setIsMateriaModalOpen(true)}
             onGerenciarGestores={() => setIsGestoresAlmoxOpen(true)}
+            onNovoGestor={() => setIsNovoGestorAlmoxOpen(true)}
             onNovaSubstancia={() => setIsNovaSubstanciaOpen(true)}
             onNovoReagente={() => setIsNovoReagenteOpen(true)}
             onNovaEspecificacao={() => { setSelectedResumo(null); setIsNovaEspecOpen(true); }}
@@ -256,6 +258,8 @@ function ReagentesContent() {
             setIsAlmoxOpen={setIsAlmoxOpen}
             isGestoresAlmoxOpen={isGestoresAlmoxOpen}
             setIsGestoresAlmoxOpen={setIsGestoresAlmoxOpen}
+            isNovoGestorAlmoxOpen={isNovoGestorAlmoxOpen}
+            setIsNovoGestorAlmoxOpen={setIsNovoGestorAlmoxOpen}
             almoxSelecionado={almoxSelecionado}
             selectedResumo={selectedResumo}
             selectedEspec={selectedEspec}

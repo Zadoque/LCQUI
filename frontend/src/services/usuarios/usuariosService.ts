@@ -37,6 +37,13 @@ export interface ConcederPapelParams {
   email?: string;
 }
 
+export interface ConcederPapelResult {
+  uid: string;
+  ativo: boolean;
+  resetLink?: string;
+  contaAuthCriada?: boolean;
+}
+
 export interface RevogarPapelParams {
   idOperacao: string;
   uidAlvo: string;
@@ -69,13 +76,14 @@ export async function buscarUsuarios(params?: BuscarUsuariosParams): Promise<Pes
  * Concede um papel a um usuário existente ou a uma nova identidade.
  * Mapa 1:1 com Cloud Function `convidarUsuario`.
  */
-export async function concederPapel(params: ConcederPapelParams): Promise<void> {
-  const fn = httpsCallable(functions, "convidarUsuario");
-  await fn({
+export async function concederPapel(params: ConcederPapelParams): Promise<ConcederPapelResult> {
+  const fn = httpsCallable<ConcederPapelParams, ConcederPapelResult>(functions, "convidarUsuario");
+  const res = await fn({
     idOperacao: params.idOperacao,
     papel: params.papel,
     ...(params.uidAlvo ? { uidAlvo: params.uidAlvo } : { nome: params.nome, email: params.email }),
   });
+  return res.data;
 }
 
 /**
