@@ -71,8 +71,9 @@ export function ModalDevolucaoFrasco({
             <input id="devolucao-frasco-id" type="text" required value={frascoOuEmprestimo} onChange={(e) => setFrascoOuEmprestimo(e.target.value)} placeholder="Ex.: LCQUI-12345" className="w-full rounded-lg border border-foreground/10 bg-foreground/5 px-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none" />
             <p className="mt-1 text-xs text-foreground/50">Informe o identificador exibido no empréstimo ativo do frasco.</p>
           </div>
+          {/* UI-18: a devolução exige duas digitações independentes da mesma massa em gramas antes do envio. */}
           <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-400">
-            Digite o peso de retorno duas vezes para confirmar o valor.
+            Para conferir a medida, informe novamente o peso mostrado pela balança. Os dois valores devem ser iguais.
           </div>
           <div>
             <SeletorUsuarioReagente
