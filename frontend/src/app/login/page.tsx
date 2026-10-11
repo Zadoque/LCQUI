@@ -42,6 +42,19 @@ function googleErrorMessage(error: unknown): string {
   }
 }
 
+function googleLinkErrorMessage(error: unknown): string {
+  switch (authErrorCode(error)) {
+    case "auth/credential-already-in-use":
+      return "Esta conta Google já está vinculada a outro usuário do LCQUI.";
+    case "auth/provider-already-linked":
+      return "Esta conta já possui um login Google vinculado.";
+    case "auth/invalid-credential":
+      return "A autorização do Google expirou. Clique novamente em Continuar com Google.";
+    default:
+      return "O login por senha foi concluído, mas não foi possível vincular o Google. Tente novamente.";
+  }
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -52,20 +65,24 @@ export default function LoginPage() {
   const [isNetworkErrorState, setIsNetworkErrorState] = useState(false);
   const [lastAction, setLastAction] = useState<"email" | "google" | "reset" | null>(null);
   const [pendingGoogleCredential, setPendingGoogleCredential] = useState<AuthCredential | null>(null);
+  const [isCompletingGoogleLink, setIsCompletingGoogleLink] = useState(false);
 
   const router = useRouter();
   const { user, isLoading } = useAuth();
 
   useEffect(() => {
-    if (!isLoading && user) {
+    if (!isLoading && user && !isCompletingGoogleLink) {
       router.replace(destinoSeguroAposLogin(window.location.search));
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, isCompletingGoogleLink, router]);
 
   useEffect(() => {
     let mounted = true;
     void getRedirectResult(auth).catch((error: unknown) => {
       if (!mounted || authErrorCode(error) === "auth/no-auth-event") return;
+      console.error("[auth/google] falha no retorno do redirecionamento", {
+        code: authErrorCode(error),
+      });
       setLastAction("google");
       setIsLoadingForm(false);
       setErrorMsg(googleErrorMessage(error));
@@ -93,16 +110,13 @@ export default function LoginPage() {
     setSuccessMsg("");
     setIsNetworkErrorState(false);
     setLastAction("email");
+    const shouldLinkGoogle = Boolean(pendingGoogleCredential);
+    setIsCompletingGoogleLink(shouldLinkGoogle);
 
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
-      if (pendingGoogleCredential && auth.currentUser) {
-        await linkWithCredential(auth.currentUser, pendingGoogleCredential);
-        setPendingGoogleCredential(null);
-        setSuccessMsg("Login Google vinculado com sucesso. Você será redirecionado.");
-      }
-      router.push(destinoSeguroAposLogin(window.location.search));
     } catch (error: unknown) {
+      setIsCompletingGoogleLink(false);
       if (isNetworkError(error)) {
         setErrorMsg("Erro de conexão. Verifique sua internet e tente novamente.");
         setIsNetworkErrorState(true);
@@ -110,9 +124,33 @@ export default function LoginPage() {
         setErrorMsg("Credenciais inválidas. Verifique seu e-mail e senha.");
         setIsNetworkErrorState(false);
       }
-    } finally {
       setIsLoadingForm(false);
+      return;
     }
+
+    if (pendingGoogleCredential && auth.currentUser) {
+      try {
+        await linkWithCredential(auth.currentUser, pendingGoogleCredential);
+        setPendingGoogleCredential(null);
+        setSuccessMsg("Login Google vinculado com sucesso. Você será redirecionado.");
+      } catch (error: unknown) {
+        console.error("[auth/google] falha ao vincular credencial", {
+          code: authErrorCode(error),
+        });
+        setIsCompletingGoogleLink(false);
+        setErrorMsg(googleLinkErrorMessage(error));
+        setIsNetworkErrorState(isNetworkError(error));
+        setIsLoadingForm(false);
+        return;
+      }
+    }
+
+    try {
+      router.push(destinoSeguroAposLogin(window.location.search));
+    } finally {
+      setIsCompletingGoogleLink(false);
+    }
+    setIsLoadingForm(false);
   };
 
   const handleGoogleLogin = async () => {
