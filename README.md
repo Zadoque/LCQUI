@@ -85,7 +85,7 @@ Três planos convivem no mesmo repositório:
   `lucide-react`, `next-themes`, SDK `firebase` 12.
 - **Backend:** Firebase Cloud Functions, `firebase-admin` 12,
   `firebase-functions` 5, `zod` 4, `pdfkit`/`pdfkit-table` e `bwip-js` para
-  relatórios e etiquetas. Engine Node 20.
+  relatórios e etiquetas. Engine Node 22.
 - **Testes:** Jest 29 + `ts-jest` e `@firebase/rules-unit-testing` no backend
   (`functions/`), além de Playwright Test em `frontend/e2e/specs/`.
 - **Emuladores:** Firebase Local Emulator Suite (Auth, Functions, Firestore,
@@ -236,7 +236,7 @@ editados manualmente.
 
 ## Próximos gates
 
-1. Executar a regressão backend/frontend e as specs E2E com Node.js 20.
+1. Executar a regressão backend/frontend e as specs E2E com Node.js 22.
 2. Atualizar a matriz somente quando houver evidência correspondente ao
    contrato normativo.
 3. Após deploy, executar os cenários que o Emulator Suite não consegue

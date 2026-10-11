@@ -33,7 +33,7 @@ As specs de hardening da matriz incluem
 reprodutíveis no Emulator Suite: retry de recuperação de senha, foto de perfil,
 lote inválido, notificações operacionais com deep links, limpeza paginada de
 105 notificações e validação do magic header \texttt{\%PDF-} de relatórios e
-etiquetas. A rodada deve ser executada com Node.js 20 e um worker.
+etiquetas. A rodada deve ser executada com Node.js 22 e um worker.
 
 Essa cobertura local não prova Scheduler, transporte/Storage publicados,
 índices compostos de produção ou provedores externos; tais verificações são
@@ -51,6 +51,9 @@ e prova a herança de \texttt{LIQUIDO} e \texttt{ml}.
 O cenário \texttt{ALM-OPERACIONAL-E2E-004} cadastra um novo resumo e prova
 que a natureza química persiste e aparece no catálogo após a regeneração da
 materialização.
+O cenário \texttt{ALM-OPERACIONAL-E2E-006} abre a especificação sem resumo
+pré-selecionado e prova a busca textual opcional no catálogo JSON, sem exigir
+a seleção simultânea dos três filtros.
 
 A retirada e a devolução usam o diretório mínimo normativo de UI-07: o operador
 informa uma letra inicial, pesquisa opcionalmente por nome e seleciona um
@@ -62,6 +65,16 @@ almoxarifado sem papel de portador. Os fluxos permanentes estão em
 emulável está em
 \texttt{functions/src/__tests__/integration/usuarios.integration.test.ts}
 (`RET-USUARIO-INT-001--003`).
+Os campos de retirante e devolvente abrem um modal de pesquisa independente;
+a devolução também exibe o identificador do frasco/empréstimo enviado ao
+contrato \texttt{registrarDevolucao}.
+O local de uso segue o mesmo princípio: o formulário abre um modal que
+consulta a callable autorizada por prédio, andar ou sala e só permite
+selecionar um documento \texttt{Local} existente.
+
+O cenário \texttt{ALM-OPERACIONAL-E2E-005} autentica o Gestor de Almoxarifado,
+abre ``Ver todas'' no sino e comprova a página UI-12 sem o placeholder de
+acesso restrito. Os cartões da caixa usam fundo opaco do tema.
 
 Nenhum schema, backend ou Rule foi relaxado para satisfazer a UI. Consultas
 diretas ao Firestore/Auth Emulator apenas confirmam efeitos de backend

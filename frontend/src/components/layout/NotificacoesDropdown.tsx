@@ -329,7 +329,7 @@ export function NotificacoesDropdown() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-popover border border-foreground/10 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in slide-in-from-top-2">
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-background border border-foreground/10 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in slide-in-from-top-2">
           {/* Cabeçalho */}
           <div className="p-4 border-b border-foreground/10 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -441,7 +441,7 @@ export function NotificacoesDropdown() {
                       className={`p-3 rounded-xl border transition-all ${
                         naoLidaAtiva
                           ? "bg-primary/5 border-primary/20"
-                          : "bg-muted/50 border-foreground/5 opacity-80"
+                          : "bg-background border-foreground/5 opacity-80"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -512,7 +512,7 @@ export function NotificacoesDropdown() {
                     className={`p-3 rounded-xl border transition-all text-xs space-y-1 ${
                       naoLidaAtiva
                         ? "bg-primary/5 border-primary/20"
-                        : "bg-muted/50 border-foreground/5"
+                        : "bg-background border-foreground/5"
                     } ${deepUrl ? "cursor-pointer hover:bg-primary/10" : ""}`}
                   >
                     <div className="flex items-start justify-between gap-2">

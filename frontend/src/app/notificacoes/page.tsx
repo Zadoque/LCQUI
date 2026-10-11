@@ -150,7 +150,7 @@ export default function NotificacoesPage() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={["Chefe_Geral", "Professor", "Aluno", "Bolsista"]}>
+    <ProtectedRoute allowedRoles={["Chefe_Geral", "Gestor_Almoxarifado", "Gestor_Bens_Patrimoniais", "Professor", "Aluno", "Bolsista"]}>
       <div className="max-w-3xl mx-auto p-4 sm:p-6">
         <h1 className="text-2xl font-bold text-foreground mb-6">Notificações</h1>
 
@@ -223,7 +223,7 @@ export default function NotificacoesPage() {
               // Renderização especial para CONVITE_PARA_TURMA
               if (notif.tipo === "CONVITE_PARA_TURMA") {
                 return (
-                  <div key={notif.id} className="p-4 rounded-xl border border-foreground/10 bg-muted/50">
+                  <div key={notif.id} className="p-4 rounded-xl border border-foreground/10 bg-background shadow-sm">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-1.5 text-sm font-bold text-foreground">
                         <AlertCircle className="w-4 h-4 text-primary" />
@@ -269,7 +269,7 @@ export default function NotificacoesPage() {
 
               // Normal notification item
               const cardContent = (
-                <div className="p-4 rounded-xl border border-foreground/10 bg-muted/50">
+                <div className="p-4 rounded-xl border border-foreground/10 bg-background shadow-sm">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="font-semibold text-foreground">
@@ -352,7 +352,7 @@ export default function NotificacoesPage() {
                 <button
                   onClick={() => setLimparConfirmacao(false)}
                   disabled={limparLoading}
-                  className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-foreground/5 transition-colors text-sm font-semibold"
+                  className="px-4 py-2 bg-background text-foreground border border-foreground/10 rounded-lg hover:bg-foreground/5 transition-colors text-sm font-semibold"
                 >
                   Cancelar
                 </button>

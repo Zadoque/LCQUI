@@ -344,7 +344,10 @@ service cloud.firestore {
     }
 
     match /Historico_Frasco_Reagente/{histId} {
-      allow read: if isAuthenticated();
+      // O histórico operacional é uma visão de almoxarifado. Professor/Bolsista
+      // consultam o próprio histórico por Emprestimo_Reagente, que já é
+      // restringido por id_usuario_retirou.
+      allow read: if hasRole('Chefe_Geral') || hasRole('Gestor_Almoxarifado');
       allow write: if false; // Cloud Function
     }
 

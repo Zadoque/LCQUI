@@ -4,13 +4,20 @@ import React, { useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/lib/firebase/config";
 import { ModalProps } from "./types";
-import { SeletorUsuarioReagente } from "./SeletorUsuarioReagente";
+import { ModalBuscaUsuarioReagente, SeletorUsuarioReagente } from "./SeletorUsuarioReagente";
+import type { UsuarioRetirada } from "@/services/usuarios/usuariosService";
+import { ModalBuscaLocalReagente, SeletorLocalReagente } from "./ModalBuscaLocalReagente";
+import type { LocalRetirada } from "@/services/reagentes/reagentesService";
 
 export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProps) {
   const [loading, setLoading] = useState(false);
   const [frascoId, setFrascoId] = useState("");
   const [usuarioRetirou, setUsuarioRetirou] = useState("");
+  const [usuarioSelecionado, setUsuarioSelecionado] = useState<UsuarioRetirada | null>(null);
+  const [buscaUsuarioAberta, setBuscaUsuarioAberta] = useState(false);
   const [localUsado, setLocalUsado] = useState("");
+  const [localSelecionado, setLocalSelecionado] = useState<LocalRetirada | null>(null);
+  const [buscaLocalAberta, setBuscaLocalAberta] = useState(false);
   const [pesoSaida, setPesoSaida] = useState("");
   const [dataDevolucao, setDataDevolucao] = useState("");
   const [finalidade, setFinalidade] = useState<"PESQUISA" | "DIDATICO_DEMONSTRACAO" | "OUTRO">("PESQUISA");
@@ -26,6 +33,7 @@ export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProp
     setLoading(true);
     setErrorMsg("");
     try {
+      if (!localUsado) throw new Error("Selecione um local de uso cadastrado.");
       const registrarRetirada = httpsCallable(functions, "registrarRetirada");
       await registrarRetirada({
         idOperacao: crypto.randomUUID(),
@@ -54,21 +62,19 @@ export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProp
         <h2 className="text-xl font-bold mb-4 text-orange-500">Registrar Retirada</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="retirada-frasco-id" className="block text-sm font-medium mb-1">ID do Frasco / QR Code</label>
-            <input id="retirada-frasco-id" type="text" required placeholder="Ex: F-12345" value={frascoId} onChange={(e) => setFrascoId(e.target.value)}
+            <label htmlFor="retirada-frasco-id" className="block text-sm font-medium mb-1">ID do frasco (LCQUI-)</label>
+            <input id="retirada-frasco-id" type="text" required placeholder="Ex: LCQUI-12345" value={frascoId} onChange={(e) => setFrascoId(e.target.value)}
               className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-orange-500 outline-none" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <SeletorUsuarioReagente
               label="Usuário retirante"
               value={usuarioRetirou}
-              onChange={(usuario) => setUsuarioRetirou(usuario?.id ?? "")}
+              usuario={usuarioSelecionado}
+              onAbrir={() => setBuscaUsuarioAberta(true)}
               testIdPrefix="retirada"
             />
-            <div>
-              <label htmlFor="retirada-local-id" className="block text-sm font-medium mb-1">ID do local usado</label>
-              <input id="retirada-local-id" type="text" required value={localUsado} onChange={(e) => setLocalUsado(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10" />
-            </div>
+            <SeletorLocalReagente value={localUsado} local={localSelecionado} onAbrir={() => setBuscaLocalAberta(true)} />
             <div>
               <label className="block text-sm font-medium mb-1">Peso de saída (g)</label>
               <input type="number" min="0.01" step="0.01" required value={pesoSaida} onChange={(e) => setPesoSaida(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10" />
@@ -107,6 +113,26 @@ export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProp
           </div>
         </form>
       </div>
+      <ModalBuscaUsuarioReagente
+        isOpen={buscaUsuarioAberta}
+        onClose={() => setBuscaUsuarioAberta(false)}
+        label="Selecionar usuário retirante"
+        value={usuarioRetirou}
+        onChange={(usuario) => {
+          setUsuarioSelecionado(usuario);
+          setUsuarioRetirou(usuario?.id ?? "");
+        }}
+        testIdPrefix="retirada"
+      />
+      <ModalBuscaLocalReagente
+        isOpen={buscaLocalAberta}
+        onClose={() => setBuscaLocalAberta(false)}
+        value={localUsado}
+        onChange={(local) => {
+          setLocalSelecionado(local);
+          setLocalUsado(local?.id ?? "");
+        }}
+      />
     </div>
   );
 }

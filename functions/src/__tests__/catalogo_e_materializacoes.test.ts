@@ -14,6 +14,7 @@ import {
 import {
   processarMaterializacaoDiariaFlow,
   obterJanelaDiaSaoPaulo,
+  consolidarResumosDiariosCallable,
 } from "../jobs/materializacoesFlow";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
@@ -81,6 +82,16 @@ describe("Catálogo JSON (IMP-BASE-004) e Materializações FLOW (IMP-MVIEW-001)
       expect(estadoDoc.data()?.storage_path).toContain(`catalogo/reagentes_v${res.versaoPublicada}.json`);
     });
 
+    it("deve rejeitar geração com claim antiga após revogação persistida", async () => {
+      const uidGestor = `gestor_cat_revogado_${Date.now()}`;
+      await db.collection("Usuarios").doc(uidGestor).set({ ativo: true, versao_permissoes: 2 });
+      await db.collection("Gestor_Almoxarifado").doc(uidGestor).set({ id_usuario: uidGestor });
+
+      await expect(
+        testEnv.wrap(gerarCatalogoReagentes)(mockRequest({}, uidGestor, ["Gestor_Almoxarifado"]))
+      ).rejects.toThrow(/permissões desatualizadas/i);
+    });
+
     it("deve permitir download do catálogo para papéis autorizados (incluindo Aluno) e rejeitar não autorizados", async () => {
       const uidAluno = `aluno_cat_${Date.now()}`;
       await db.collection("Usuarios").doc(uidAluno).set({ ativo: true, versao_permissoes: 1 });
@@ -133,6 +144,24 @@ describe("Catálogo JSON (IMP-BASE-004) e Materializações FLOW (IMP-MVIEW-001)
   });
 
   describe("Materializações Diárias FLOW (IMP-MVIEW-001)", () => {
+    it("deve validar a autoridade persistida e a data civil antes do reprocessamento", async () => {
+      const uidGestor = `gestor_mview_validacao_${Date.now()}`;
+      await db.collection("Usuarios").doc(uidGestor).set({ ativo: true, versao_permissoes: 1 });
+      await db.collection("Gestor_Almoxarifado").doc(uidGestor).set({ id_usuario: uidGestor });
+
+      await expect(
+        testEnv.wrap(consolidarResumosDiariosCallable)(mockRequest({ dataAlvo: "2026-02-30" }, uidGestor))
+      ).rejects.toThrow(/data civil válida/i);
+
+      await expect(
+        testEnv.wrap(consolidarResumosDiariosCallable)(mockRequest({ dataAlvo: "15-06-2026" }, uidGestor))
+      ).rejects.toThrow(/YYYY-MM-DD/i);
+
+      await expect(
+        testEnv.wrap(consolidarResumosDiariosCallable)(mockRequest({ dataAlvo: "2026-06-15" }, uidGestor, ["Gestor_Almoxarifado"]))
+      ).resolves.toMatchObject({ status: "OK", dataAlvo: "2026-06-15" });
+    });
+
     it("deve consolidar Resumo_Almoxarifado_Diario e Resumo_Reagente_Diario com substituição absoluta idempotente", async () => {
       const idAlmox = `almox_mview_${Date.now()}`;
       await db.collection("Almoxarifado").doc(idAlmox).set({ nome: "Almox MView", ativo: true });

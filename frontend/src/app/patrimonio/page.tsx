@@ -52,7 +52,7 @@ export default function PatrimonioDashboard() {
   } = usePatrimonioSearch();
 
   return (
-    <ProtectedRoute allowedRoles={["Chefe_Geral", "Gestor_Bens_Patrimoniais", "Professor", "Bolsista", "Aluno"]}>
+    <ProtectedRoute allowedRoles={["Chefe_Geral", "Gestor_Bens_Patrimoniais", "Professor"]}>
       <main className="min-h-screen bg-background p-6">
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Barra de Ações Superior */}

@@ -10,12 +10,13 @@ import { ResumoReagente, FrascoReagente } from "@/types/reagentes";
 import { ModalEntradaFrasco, ModalDevolucaoFrasco, ModalMetrologia } from "@/components/reagentes/ModaisReagentes";
 
 export default function ReagenteDetailsPage() {
-  const { roles } = useAuth();
+  const { roles, user, isLoading: authLoading } = useAuth();
   const { id } = useParams();
   const router = useRouter();
   
   const [reagente, setReagente] = useState<ResumoReagente | null>(null);
   const [frascos, setFrascos] = useState<FrascoReagente[]>([]);
+  const [emprestimosProprios, setEmprestimosProprios] = useState<Array<{ id: string; data: any }>>([]);
   const [loading, setLoading] = useState(true);
 
   const [isModalEntradaOpen, setIsModalEntradaOpen] = useState(false);
@@ -41,7 +42,25 @@ export default function ReagenteDetailsPage() {
       const frascosSnap = await getDocs(
         query(collection(db, "Frasco_Reagente"), where("id_resumo_reagente", "==", id))
       );
-      const emprestimosSnap = await getDocs(collection(db, "Emprestimo_Reagente"));
+      const podeConsultarTodosEmprestimos = roles.includes("Chefe_Geral") || roles.includes("Gestor_Almoxarifado");
+      const emprestimosQuery = podeConsultarTodosEmprestimos
+        ? query(collection(db, "Emprestimo_Reagente"))
+        : query(
+            collection(db, "Emprestimo_Reagente"),
+            where("id_usuario_retirou", "==", user!.uid),
+          );
+      const emprestimosSnap = await getDocs(emprestimosQuery);
+      const idsFrascosDoReagente = new Set(frascosSnap.docs.map((frasco) => frasco.id));
+      setEmprestimosProprios(
+        emprestimosSnap.docs
+          .map((emprestimo) => ({ id: emprestimo.id, data: emprestimo.data() }))
+          .filter((emprestimo) => idsFrascosDoReagente.has(emprestimo.data.id_frasco_reagente))
+          .sort((a, b) => {
+            const instanteA = a.data.data_retirada?.toMillis?.() ?? 0;
+            const instanteB = b.data.data_retirada?.toMillis?.() ?? 0;
+            return instanteB - instanteA;
+          })
+      );
       const emprestimosPorFrasco = new Map<string, { id: string; data: any }>();
       for (const emprestimo of emprestimosSnap.docs) {
         const dados = emprestimo.data();
@@ -67,8 +86,9 @@ export default function ReagenteDetailsPage() {
   };
 
   useEffect(() => {
+    if (authLoading || !user?.uid) return;
     fetchDados();
-  }, [id, router]);
+  }, [authLoading, id, router, user?.uid, roles]);
 
   const handleDevolucao = (frascoId: string, idEmprestimo?: string) => {
     setSelectedFrascoId(frascoId);
@@ -208,6 +228,41 @@ export default function ReagenteDetailsPage() {
               </table>
             </div>
           </section>
+
+          {(roles.includes("Professor") || roles.includes("Bolsista")) && (
+            <section data-testid="meus-reagentes-historico">
+              <h2 className="text-xl font-bold mb-4">Meus Reagentes</h2>
+              <div className="glass-panel rounded-2xl border border-foreground/10 p-5 space-y-3">
+                <p className="text-sm text-foreground/60">
+                  Empréstimos próprios e consumo histórico. Outros usuários não são exibidos.
+                </p>
+                {emprestimosProprios.length === 0 ? (
+                  <p className="text-sm text-foreground/50">Nenhum empréstimo próprio para este reagente.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {emprestimosProprios.map((emprestimo) => {
+                      const frasco = frascos.find((item) => item.id === emprestimo.data.id_frasco_reagente);
+                      const formatarInstante = (valor: any) => valor?.toDate?.().toLocaleString("pt-BR") ?? "—";
+                      return (
+                        <article key={emprestimo.id} className="rounded-xl bg-foreground/5 p-4 text-sm">
+                          <div className="flex flex-wrap justify-between gap-2 font-medium">
+                            <span>{frasco?.codigo_frasco ?? emprestimo.data.id_frasco_reagente}</span>
+                            <span>{emprestimo.data.status}</span>
+                          </div>
+                          <div className="mt-2 grid gap-1 text-foreground/70 sm:grid-cols-2">
+                            <span>Retirada: {formatarInstante(emprestimo.data.data_retirada)}</span>
+                            <span>Devolução: {formatarInstante(emprestimo.data.data_devolucao_efetuada)}</span>
+                            <span>Consumo: {emprestimo.data.medida_utilizada ?? "—"} {emprestimo.data.unidade_medida_utilizada ?? ""}</span>
+                            <span>Frasco: {emprestimo.data.id_frasco_reagente}</span>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
 
         </div>
 

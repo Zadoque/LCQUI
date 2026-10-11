@@ -14,6 +14,15 @@ export const GerenciarLocalSchema = z.object({
   sala: z.string().trim().min(1, "Sala é obrigatória.").max(30, "Sala excede 30 caracteres."),
 });
 
+/** UI-07: busca textual restrita de locais para registrar o uso do frasco. */
+export const BuscarLocaisParaRetiradaSchema = z.object({
+  predio: z.string().trim().max(30).optional(),
+  andar: z.string().trim().max(10).optional(),
+  sala: z.string().trim().max(30).optional(),
+}).strict().refine((dados) => Boolean(dados.predio || dados.andar || dados.sala), {
+  message: "Informe prédio, andar ou sala para pesquisar o local.",
+});
+
 export const CriarRequisicaoEdicaoBemSchema = z.object({
   idOperacao: IdOperacaoPatrimonioSchema,
   idBemPatrimonial: z.string().min(1, "ID do bem patrimonial é obrigatório."),
@@ -69,4 +78,3 @@ export const RegistrarBaixaBemPatrimonialSchema = z.object({
   documentoDadoBaixaPdfUrl: z.string().trim().min(1, "URL ou caminho do comprovante de baixa é obrigatório."),
   justificativa: z.string().trim().min(1, "Justificativa da baixa é obrigatória.").max(500),
 });
-

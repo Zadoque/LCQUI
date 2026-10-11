@@ -70,7 +70,7 @@ export default function Header() {
             Reagentes
           </Link>
         )}
-        {(roles.includes("Chefe_Geral") || roles.includes("Gestor_Bens_Patrimoniais") || roles.includes("Professor") || roles.includes("Bolsista")) && (
+        {(roles.includes("Chefe_Geral") || roles.includes("Gestor_Bens_Patrimoniais") || roles.includes("Professor")) && (
           <Link href="/patrimonio" className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors">
             Patrimônio
           </Link>
