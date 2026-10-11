@@ -1,2 +1,3 @@
 .emulator-service-account.json
 .emulator-private-key.pem
+.env.lcqui-dev
