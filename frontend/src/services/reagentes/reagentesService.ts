@@ -22,6 +22,11 @@ export interface ObterEstoqueParams {
   idAlmoxarifado: string;
 }
 
+export async function gerarCatalogoReagentes(): Promise<void> {
+  const fn = httpsCallable(functions, "gerarCatalogoReagentes");
+  await fn({});
+}
+
 export interface EstoqueRateError {
   isRateLimit: true;
   message: string;

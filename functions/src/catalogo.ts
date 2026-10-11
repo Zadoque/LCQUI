@@ -17,6 +17,7 @@ export interface CatalogoResumoJSON {
   id: string;
   nome: string;
   tipo_substancia?: string;
+  natureza_quimica?: string;
   estado_fisico?: string;
   eh_higroscopico?: boolean;
   especificacoes: Record<string, CatalogoEspecificacaoJSON>;
@@ -63,6 +64,7 @@ export async function montarEGravarCatalogoReagentes(): Promise<CatalogoReagente
       id: doc.id,
       nome: data.nome ?? "",
       tipo_substancia: data.tipo_substancia ?? "PURA",
+      natureza_quimica: data.natureza_quimica ?? "INORGANICO",
       estado_fisico: data.estado_fisico ?? "SOLIDO",
       eh_higroscopico: Boolean(data.eh_higroscopico),
       especificacoes: especsMap,

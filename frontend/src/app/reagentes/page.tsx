@@ -12,6 +12,7 @@ import { CatalogoReagentesTable } from "@/components/reagentes/CatalogoReagentes
 import { ReagentesModaisManager } from "@/components/reagentes/ReagentesModaisManager";
 import { PainelOperacionalReagentes } from "@/components/reagentes/PainelOperacionalReagentes";
 import { useReagentesData } from "@/hooks/useReagentesData";
+import { gerarCatalogoReagentes } from "@/services/reagentes/reagentesService";
 
 function ReagentesContent() {
   const searchParams = useSearchParams();
@@ -127,8 +128,12 @@ function ReagentesContent() {
   const abaVisivel = hasManagementAccess && (abaAtiva === "movimentacoes" || abaAtiva === "alertas")
     ? abaAtiva
     : "catalogo";
-  const atualizarCatalogoEOperacao = () => {
-    void carregarCatalogo();
+  const atualizarCatalogoEOperacao = async () => {
+    // O catálogo é uma materialização versionada. Regenerá-lo após uma
+    // mutação garante que o resumo recém-cadastrado apareça na UI e preserve
+    // seus campos normativos, incluindo natureza_quimica.
+    await gerarCatalogoReagentes();
+    await carregarCatalogo();
     setPainelRefreshToken((valor) => valor + 1);
   };
 

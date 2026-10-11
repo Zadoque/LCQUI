@@ -50,6 +50,8 @@ almoxarifado seed e verifica que não ocorre `false for 'list'` durante o
 bootstrap da sessão.
 O cenário `ALM-OPERACIONAL-E2E-003` abre a especificação comercial do reagente
 seed e verifica que os campos herdados exibem `LIQUIDO` e `ml`.
+O cenário `ALM-OPERACIONAL-E2E-004` cadastra um novo resumo, regenera a
+materialização e verifica sua natureza química no catálogo.
 
 ## 2. Como rodar
 

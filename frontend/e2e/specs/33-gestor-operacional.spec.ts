@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures";
-import { login } from "../helpers/ui";
+import { login, esperarCallable } from "../helpers/ui";
 
 test("ALM-OPERACIONAL-E2E-001: gestor acessa movimentações, quarentena e alertas", async ({ page, guardaConsole }) => {
   await login(page, "gestor.almoxarifado@lcqui.local");
@@ -40,4 +40,23 @@ test("ALM-OPERACIONAL-E2E-003: especificação herda líquido e ml do reagente s
   await expect(page.getByRole("heading", { name: "Nova Especificação Comercial" })).toBeVisible();
   await expect(page.getByTestId("especificacao-estado-fisico")).toHaveValue("LIQUIDO");
   await expect(page.getByTestId("especificacao-unidade-medida")).toHaveValue("ml");
+});
+
+test("ALM-OPERACIONAL-E2E-004: resumo cadastrado aparece com natureza no catálogo", async ({ page }) => {
+  await login(page, "gestor.almoxarifado@lcqui.local");
+  await page.goto("/reagentes");
+  await page.getByRole("button", { name: /Cadastrar Reagente/ }).click();
+  await page.getByRole("button", { name: /Resumo de Reagente/ }).click();
+
+  const nome = `Reagente E2E Natureza ${Date.now()}`;
+  await page.getByTestId("novo-resumo-nome").fill(nome);
+  await page.getByTestId("novo-resumo-natureza").selectOption("INORGANICO");
+  await page.getByTestId("novo-resumo-limiar-escassez").fill("2");
+  const chamada = esperarCallable(page, "cadastrarResumoReagente");
+  await page.getByRole("button", { name: "Salvar Resumo" }).click();
+  expect((await chamada).status()).toBe(200);
+
+  await expect(page.getByText(nome, { exact: true })).toBeVisible();
+  const linha = page.locator("tr").filter({ hasText: nome });
+  await expect(linha).toContainText("INORGANICO");
 });
