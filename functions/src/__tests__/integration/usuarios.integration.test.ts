@@ -70,8 +70,7 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
 
     const req = mockRequest({
       idOperacao: "op-multi-professor-1",
-      email: userEmail,
-      nome: "Aluno Teste Multi",
+      uidAlvo: userRecord.uid,
       papel: "Professor",
       centro: "CCT",
       laboratorio: "Lab 1"

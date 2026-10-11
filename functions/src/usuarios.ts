@@ -20,6 +20,7 @@ import {
 } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
 import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema, BuscarAlunosSchema, BuscarProfessoresSchema, BuscarGestoresAlmoxarifadoSchema, BuscarUsuariosPapelSchema, BuscarUsuariosRetiradaSchema, DetalhesUsuarioPapelSchema, AtualizarPerfilSchema } from "./schemas/usuarios.schema";
+import { dispararPasswordResetFirebaseAuth } from "./firebaseAuthEmail";
 
 const PAPEIS: string[] = [...PAPEIS_CONHECIDOS];
 
@@ -108,6 +109,15 @@ async function alterarPapel(dados: Mutacao, claims: ClaimsAutoridade): Promise<{
       // M9: autoridade persistida relida na MESMA transação do efeito (fecha TOCTOU).
       await resolverAutoridadePersistidaTx(tx, claims, ["Chefe_Geral"]);
       const usuario = await tx.get(usuarioRef);
+      if (dados.conceder && !usuario.exists && dados.identidade?.email) {
+        const emailNormalizado = dados.identidade.email.trim().toLowerCase();
+        const duplicados = await tx.get(
+          db.collection("Usuarios").where("email", "==", emailNormalizado).limit(2)
+        );
+        if (duplicados.docs.some(doc => doc.id !== dados.uid)) {
+          throw new HttpsError("already-exists", "Já existe um usuário cadastrado com este e-mail.");
+        }
+      }
       const perfis = await tx.getAll(...PAPEIS.map(p => db.collection(p).doc(dados.uid)));
       const atuais = PAPEIS.filter((_, i) => perfis[i].exists);
       if (!dados.conceder && dados.papel === "Chefe_Geral" && dados.ator !== dados.uid)
@@ -233,6 +243,9 @@ export const convidarUsuario = onCall(async request => {
       // antes do provisionamento Auth.
       uid = randomUUID();
     }
+    if (identidadeAuth && !dados.uidAlvo) {
+      throw new HttpsError("already-exists", "Este e-mail já pertence a um usuário. Selecione a identidade existente.");
+    }
   }
   if (contaAuthExistente && !identidadeAuth) identidadeAuth = await admin.auth().getUser(uid);
   const usuarioExistente = await admin.firestore().collection("Usuarios").doc(uid).get();
@@ -241,15 +254,16 @@ export const convidarUsuario = onCall(async request => {
   if (typeof nome !== "string" || !nome.trim() || typeof email !== "string" || !email.trim()) {
     throw new HttpsError("failed-precondition", "A identidade existente não possui nome e e-mail válidos.");
   }
-  const perfil: Record<string, unknown> = { nome: nome.trim(), email: email.trim() };
+  const emailNormalizado = email.trim().toLowerCase();
+  const perfil: Record<string, unknown> = { nome: nome.trim(), email: emailNormalizado };
   if (dados.papel === "Aluno") perfil.letra_inicial = nome.trim().charAt(0).toUpperCase();
   if (dados.papel === "Professor") { perfil.centro = dados.centro ?? "N/A"; perfil.laboratorio = dados.laboratorio ?? "N/A"; }
   const resultado = await alterarPapel({ ator: claims.uid, uid, papel: dados.papel,
     conceder: true, motivo: dados.motivo ?? "Concessão solicitada pela chefia", idOperacao: dados.idOperacao,
-    perfil, identidade: { nome: nome.trim(), email: email.trim() }, materias: dados.materias ?? [], etapaAuthPendente: true }, claims);
+    perfil, identidade: { nome: nome.trim(), email: emailNormalizado }, materias: dados.materias ?? [], etapaAuthPendente: true }, claims);
   if (!contaAuthExistente) {
     try {
-      await admin.auth().createUser({ uid, email: email.trim(), displayName: nome.trim() });
+      await admin.auth().createUser({ uid, email: emailNormalizado, displayName: nome.trim() });
     } catch (error: any) {
       // Corrida de e-mail deixa a operação PENDENTE; retry/reconciliação
       // reconhece a intenção sem reaplicar o papel Firestore.
@@ -258,8 +272,22 @@ export const convidarUsuario = onCall(async request => {
     }
   }
   await reconciliarClaimsUsuario(uid);
-  const resetLink = await admin.auth().generatePasswordResetLink(email.trim());
-  const resultadoFinal = { ...resultado, resetLink, contaAuthCriada: !contaAuthExistente };
+  const operacaoPendente = operacaoExistente.data()?.status === "PENDENTE";
+  const contaAuthCriada = !contaAuthExistente || operacaoPendente;
+  let emailEnviado = false;
+  let resetLink: string | undefined;
+  if (contaAuthCriada) {
+    const baseUrl = (process.env.APP_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
+    const envio = await dispararPasswordResetFirebaseAuth(emailNormalizado, `${baseUrl}/login`);
+    if (!envio.ok) {
+      // Mantém o receipt PENDENTE para que a mesma operação possa reenviar
+      // o e-mail após corrigir a configuração do Firebase/URL pública.
+      throw new HttpsError("unavailable", "A conta foi criada, mas o Firebase não confirmou o envio do e-mail. Tente novamente.");
+    }
+    emailEnviado = true;
+    resetLink = envio.oobLink;
+  }
+  const resultadoFinal = { ...resultado, contaAuthCriada, emailEnviado, ...(resetLink ? { resetLink } : {}) };
   await admin.firestore().runTransaction(async tx => {
     await concluirOperacaoPendenteTx(tx, dados.idOperacao, resultadoFinal);
   });
@@ -268,7 +296,7 @@ export const convidarUsuario = onCall(async request => {
 
 /** UI-02/M9: diretório mínimo para selecionar identidade já existente. */
 export const buscarUsuariosParaPapel = onCall(async request => {
-  const { termo } = validatePayload(BuscarUsuariosPapelSchema, request.data);
+  const { termo, papel } = validatePayload(BuscarUsuariosPapelSchema, request.data);
   await validarAutoridadePersistida(request, ["Chefe_Geral"]);
   const db = admin.firestore();
   const usuarios = await db.collection("Usuarios").where("ativo", "==", true).limit(200).get();
@@ -289,6 +317,15 @@ export const buscarUsuariosParaPapel = onCall(async request => {
       return { id: doc.id, nome, papeis: papeisPorUsuario.get(doc.id) ?? [] };
     })
     .filter(usuario => !termoNormalizado || usuario.nome.toLowerCase().includes(termoNormalizado))
+    .filter(usuario => {
+      if (!papel) return true;
+      try {
+        validarMatrizPapeis([...usuario.papeis, papel]);
+        return true;
+      } catch {
+        return false;
+      }
+    })
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR") || a.id.localeCompare(b.id))
     .slice(0, 100);
   return { usuarios: resultado };
