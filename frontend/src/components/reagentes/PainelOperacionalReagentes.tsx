@@ -21,7 +21,7 @@ interface PainelOperacionalReagentesProps {
   refreshToken: number;
 }
 
-function formatarData(value: HistoricoOperacional["timestamp"] | unknown): string {
+function formatarData(value: HistoricoOperacional["timestamp"]): string {
   const data = value && typeof (value as { toDate?: () => Date }).toDate === "function"
     ? (value as { toDate: () => Date }).toDate()
     : value instanceof Date ? value : null;

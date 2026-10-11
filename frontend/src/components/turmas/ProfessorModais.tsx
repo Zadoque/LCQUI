@@ -27,6 +27,9 @@ import type { ProfessorProjecao } from "@/types/usuarios";
 
 type TurmaLista = Pick<Turma, "id" | "nome_turma" | "codigo_turma" | "ano" | "semestre" | "nome_materia" | "nome_professor" | "status" | "id_professor">;
 type AlunoEncontrado = Pick<Aluno, "id" | "nome">;
+interface BuscarAlunosResposta {
+  alunos: AlunoEncontrado[];
+}
 
 function objeto(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? value as Record<string, unknown> : null;
@@ -235,7 +238,7 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
   const handleBuscar = async () => {
     setLoadingBusca(true);
     try {
-      const buscarAlunos = httpsCallable<{ letra: string; termo: string }, unknown>(functions, "buscarAlunos");
+      const buscarAlunos = httpsCallable<{ letra: string; termo: string }, BuscarAlunosResposta>(functions, "buscarAlunos");
       const res = await buscarAlunos({ letra: letraInicial, termo: filtroTexto });
       setAlunosEncontrados(normalizarAlunos(res.data));
     } catch (error) {

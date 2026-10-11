@@ -9,6 +9,14 @@ import { obterCatalogoReagentes } from "@/services/reagentes/reagentesService";
 import type { ResumoReagente } from "@/types/reagentes";
 
 type SubstanciaCatalogo = { id: string; nome: string; cas_number?: string };
+type ComposicaoForm = {
+  idSubstanciaQuimica: string;
+  valorMin: string;
+  valorMax: string;
+  tipoConcentracao: string;
+  notacaoOriginalFabricante: string;
+};
+type CampoComposicao = keyof ComposicaoForm;
 
 export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resumoSelecionado, onSuccess }: ModalProps) {
   const [resumos, setResumos] = useState<ResumoReagente[]>([]);
@@ -24,7 +32,7 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resu
   const [ehControladoEb, setEhControladoEb] = useState(false);
   
   const [idSubstanciaPura, setIdSubstanciaPura] = useState("");
-  const [composicoes, setComposicoes] = useState([{ idSubstanciaQuimica: "", valorMin: "", valorMax: "", tipoConcentracao: "M_M", notacaoOriginalFabricante: "" }]);
+  const [composicoes, setComposicoes] = useState<ComposicaoForm[]>([{ idSubstanciaQuimica: "", valorMin: "", valorMax: "", tipoConcentracao: "M_M", notacaoOriginalFabricante: "" }]);
   
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroNatureza, setFiltroNatureza] = useState("");
@@ -81,12 +89,10 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resu
     setComposicoes([...composicoes, { idSubstanciaQuimica: "", valorMin: "", valorMax: "", tipoConcentracao: "M_M", notacaoOriginalFabricante: "" }]);
   };
 
-  const handleComposicaoChange = (index: number, field: string, value: string) => {
-    const newComp = [...composicoes];
-    if (field in newComp[index]) {
-      (newComp[index] as unknown as Record<string, string>)[field] = value;
-    }
-    setComposicoes(newComp);
+  const handleComposicaoChange = (index: number, field: CampoComposicao, value: string) => {
+    setComposicoes((atual) => atual.map((composicao, composicaoIndex) => (
+      composicaoIndex === index ? { ...composicao, [field]: value } : composicao
+    )));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -249,7 +249,7 @@ export async function obterPainelOperacional(
     getDocs(notificacoesQuery),
   ]);
 
-  const timestampMillis = (value: unknown): number => {
+  const timestampMillis = (value: HistoricoOperacional["timestamp"]): number => {
     if (value && typeof (value as { toMillis?: () => number }).toMillis === "function") {
       return (value as { toMillis: () => number }).toMillis();
     }
