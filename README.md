@@ -56,14 +56,15 @@ Existe uma distinção deliberada entre **especificação** e **implementação*
   `frontend/`, Storage real, relógio de produção, paginação/concorrência real
   nem entrega externa.
 
-**Implementação — em desenvolvimento.**
+**Implementação — em reconciliação contínua.**
 
-- O código existente (Next.js + Firebase) ainda **não** foi auditado
-  sistematicamente contra o contrato formal. Há dívidas de implementação
-  registradas por fatia nos worklogs.
-- Portanto, este repositório **não** deve ser lido como um sistema homologado,
-  completo ou integralmente conforme à especificação. A fase de reconciliação
-  sistemática ainda será executada.
+- A matriz corrente registra a situação de cada fatia e deve ser lida junto
+  com a evidência de backend, Rules e Playwright correspondente.
+- A cobertura local usa o Firebase Emulator Suite. Ela não homologa produção:
+  Scheduler, URLs/Storage publicados, índices compostos efetivamente
+  publicados e provedores externos continuam dependentes de deploy.
+- Portanto, este repositório não deve ser lido como um sistema homologado ou
+  integralmente certificado em produção.
 
 ## Arquitetura
 
@@ -85,8 +86,8 @@ Três planos convivem no mesmo repositório:
 - **Backend:** Firebase Cloud Functions, `firebase-admin` 12,
   `firebase-functions` 5, `zod` 4, `pdfkit`/`pdfkit-table` e `bwip-js` para
   relatórios e etiquetas. Engine Node 20.
-- **Testes (hoje):** Jest 29 + `ts-jest` e `@firebase/rules-unit-testing` no
-  backend (`functions/`).
+- **Testes:** Jest 29 + `ts-jest` e `@firebase/rules-unit-testing` no backend
+  (`functions/`), além de Playwright Test em `frontend/e2e/specs/`.
 - **Emuladores:** Firebase Local Emulator Suite (Auth, Functions, Firestore,
   Storage, UI).
 
@@ -129,25 +130,25 @@ modelos e resultados a hashes, e os validadores Rust rejeitam adulteração.
 
 > A matriz antiga de implementação foi movida para o arquivo histórico
 > [`documentation/archive/pre-formal/MATRIZ_IMPLEMENTACAO_LCQUI_2026-09-13.md`](documentation/archive/pre-formal/MATRIZ_IMPLEMENTACAO_LCQUI_2026-09-13.md).
-> Uma nova matriz de implementação, baseada na especificação formal encerrada,
-> será construída na fase de reconciliação em
-> `documentation/MATRIZ_IMPLEMENTACAO_LCQUI.md` (ainda inexistente). A versão
-> antiga **não** é a matriz normativa corrente.
+> A matriz corrente de implementação, baseada na especificação formal
+> encerrada, está em
+> [`documentation/MATRIZ_IMPLEMENTACAO_LCQUI.md`](documentation/MATRIZ_IMPLEMENTACAO_LCQUI.md).
+> A matriz histórica acima não é a matriz normativa corrente.
 
 ## Implementação
 
 **Já existe no repositório:** frontend Next.js, Cloud Functions, Security Rules
-de Firestore e Storage, scripts de seed e uma suíte Jest de backend (domínio,
-integração e testes de Rules).
+de Firestore e Storage, scripts de seed, suíte Jest de backend e suíte
+Playwright E2E contra o Firebase Emulator Suite.
 
-**Ainda será verificado/reconciliado:** conformidade da implementação com a
-especificação M0–M13, incluindo divergências já registradas como dívida de
-implementação nos worklogs. Nenhuma homologação é presumida.
+**Ainda será verificado/reconciliado em produção:** Scheduler, Storage/URLs
+publicados, transporte/download publicado, índices compostos efetivamente
+publicados e provedores externos. Nenhuma homologação é presumida.
 
 ## Testes
 
-Hoje o repositório possui **backend com Jest** e infraestrutura Firebase
-relevante:
+O repositório possui backend com Jest, Rules e integração no Firebase Emulator
+Suite, além de E2E Playwright dirigidos pela UI real:
 
 ```bash
 cd functions
@@ -155,14 +156,25 @@ npm test
 ```
 
 Os testes de Rules (`functions/src/__tests__/security/`) usam
-`@firebase/rules-unit-testing` e exigem o Firebase Emulator Suite em execução.
+`@firebase/rules-unit-testing`. Os E2E usam Auth, Firestore, Functions e
+Storage Emulator, com um worker por padrão para preservar o estado do seed.
 
-**Próxima fase / planejado** (ainda não implementado nesta rodada):
+Para executar a rodada de hardening que cobre lacunas simuláveis da matriz:
 
-- **Backend:** Jest + Firebase Emulator Suite.
-- **Frontend/E2E:** Playwright Test.
+```bash
+nix shell github:nixos/nixpkgs/nixos-25.05#nodejs_20 -c zsh -lc \
+  'cd frontend && npm run test:e2e -- e2e/specs/32-simulator-hardening.spec.ts --workers=1'
+```
 
-A suíte Playwright **não existe** hoje e não é uma dependência atual.
+A spec `32-simulator-hardening.spec.ts` cobre retry de recuperação de senha,
+upload/remoção imediata de foto de perfil, lote inválido, notificações
+operacionais e deep links, limpeza paginada acima de 100 itens e payload PDF
+de relatório/etiquetas. As specs `29`, `30` e `31` cobrem os fluxos de UI,
+Q06/metrologia e escassez, respectivamente.
+
+Essa evidência local não substitui os testes pós-deploy de Scheduler,
+transporte/download publicado, Storage publicado, índices compostos de
+produção ou provedores externos.
 
 ## Como executar
 
@@ -222,11 +234,11 @@ just formal-check   # rust-check + docs-check + docs-build + gates de diffs
 da especificação. Os fragmentos gerados são determinísticos e **não** devem ser
 editados manualmente.
 
-## Roadmap imediato
+## Próximos gates
 
-1. **Reconciliação sistemática** da implementação (`frontend/`, `functions/`,
-   Rules) conforme a nova matriz derivada da especificação formal encerrada.
-2. **Testes backend:** derivar contratos da matriz e consolidar Jest + Firebase
-   Emulator Suite.
-3. **Testes frontend/E2E:** derivar os fluxos da Seção 9 e introduzir
-   Playwright para frontend/E2E.
+1. Executar a regressão backend/frontend e as specs E2E com Node.js 20.
+2. Atualizar a matriz somente quando houver evidência correspondente ao
+   contrato normativo.
+3. Após deploy, executar os cenários que o Emulator Suite não consegue
+   provar: Scheduler, Storage/URLs publicados, download/transporte, índices
+   compostos de produção e provedores externos.

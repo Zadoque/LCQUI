@@ -24,6 +24,23 @@ Os fixtures do seed incluem exemplos como:
 
 A senha padrão para todos os usuários do seed é `Test123456!`.
 
+### Suíte de hardening do simulador
+
+`frontend/e2e/specs/32-simulator-hardening.spec.ts` concentra as lacunas que
+podem ser provadas antes do deploy, sempre contra os emuladores reais:
+
+- `AUTH-003-E2E-003`: erro de rede e retry na recuperação de senha;
+- `AUTH-004-E2E-002`: upload e remoção imediata da foto do perfil;
+- `FRASC-002-E2E-002`: rejeição de referência de lote inválida pela UI;
+- `NOTIF-001-E2E-005`: notificações operacionais e deep links;
+- `NOTIF-003-E2E-005`: limpeza paginada de 105 notificações;
+- `REP/LABEL-E2E-004`: payloads de relatório e etiqueta iniciando com `%PDF-`.
+
+As specs `29-matriz-ui-smoke.spec.ts`, `30-metrologia-q06.spec.ts` e
+`31-escassez.spec.ts` complementam essa rodada com adição patrimonial,
+devolução anômala Q06, as três rotas metrológicas e configuração/alerta de
+escassez.
+
 ## 2. Como rodar
 
 Existem diferentes formas de executar os testes E2E:
@@ -33,6 +50,18 @@ Existem diferentes formas de executar os testes E2E:
 - Recomendação: Rodar **de 3 em 3 testes** (por exemplo, `--grep "COMMENT-E2E-00[1-3]"`), não a suíte inteira de uma vez. Isso reduz o tempo de execução e ajuda a detectar deadlocks ou travamentos mais rapidamente.
 - Caso um teste demore muito além do tempo normal, suspeite de um deadlock operacional (como espera por um elemento que nunca aparece ou requisição abortada).
 - Os emuladores usam 1 worker do Playwright por padrão; evite paralelizar suites que compartilham o mesmo banco de dados para evitar conflitos.
+
+Para reproduzir a suíte de hardening com a versão suportada do runtime:
+
+```bash
+nix shell github:nixos/nixpkgs/nixos-25.05#nodejs_20 -c zsh -lc \
+  'cd frontend && npm run test:e2e -- e2e/specs/32-simulator-hardening.spec.ts --workers=1'
+```
+
+Na última execução registrada, os seis cenários passaram. Isso não cobre
+Scheduler, Storage/URLs publicados, download/transporte em produção, índices
+compostos efetivamente publicados nem provedores externos; esses cenários
+devem ser executados após o deploy.
 
 ## 3. Como montar um roteiro manual a partir dos testes que falharam
 

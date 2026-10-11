@@ -26,6 +26,19 @@ comentários (\texttt{frontend/e2e/specs/05-posts.spec.ts} e
 estado entre usuários. Detalhes e evidências estão na
 Seção~\ref{sec:e2e-posts-comentarios}.
 
+As specs de hardening da matriz incluem
+\texttt{29-matriz-ui-smoke.spec.ts}, \texttt{30-metrologia-q06.spec.ts},
+\texttt{31-escassez.spec.ts} e
+\texttt{32-simulator-hardening.spec.ts}. A última possui seis cenários
+reprodutíveis no Emulator Suite: retry de recuperação de senha, foto de perfil,
+lote inválido, notificações operacionais com deep links, limpeza paginada de
+105 notificações e validação do magic header \texttt{\%PDF-} de relatórios e
+etiquetas. A rodada deve ser executada com Node.js 20 e um worker.
+
+Essa cobertura local não prova Scheduler, transporte/Storage publicados,
+índices compostos de produção ou provedores externos; tais verificações são
+explicitamente pós-deploy.
+
 Nenhum schema, backend ou Rule foi relaxado para satisfazer a UI. Consultas
 diretas ao Firestore/Auth Emulator apenas confirmam efeitos de backend
 (vínculos, matrícula, notificação, OOB, Post, Comentário); a jornada continua

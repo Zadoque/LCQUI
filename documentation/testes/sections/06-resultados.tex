@@ -48,6 +48,20 @@ duas em compartilhamento de roteiro executam leitura depois de escrita na mesma
 transação Firestore. As áreas correspondentes já estão DIVERGENTES na matriz.
 Nenhuma causa foi corrigida nesta rodada.
 
+\subsection{Hardening E2E no Emulator Suite}
+
+Em uma rodada posterior, executada com Node.js 20 e um worker, a spec
+\texttt{frontend/e2e/specs/32-simulator-hardening.spec.ts} passou em 6/6
+cenários. Foram exercitados retry de recuperação de senha, upload/remoção
+imediata de foto de perfil, rejeição de lote inválido, notificações
+operacionais com deep links, limpeza paginada de 105 notificações e payloads
+PDF de relatório e etiquetas. As specs 29--31 cobrem adicionalmente UI
+patrimonial, Q06/metrologia e escassez.
+
+Essa evidência é limitada ao Emulator Suite. Scheduler, URLs e downloads
+publicados, Storage publicado, índices compostos de produção e provedores
+externos permanecem como verificações dependentes de deploy.
+
 Não houve \texttt{INFRA\_FAILURE} após a instalação local do ESLint e a criação
 dos wrappers. A baseline vermelha representa código/expectativas existentes e
 continua visível pelos exit codes.
