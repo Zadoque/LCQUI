@@ -129,6 +129,17 @@ export interface BuscarAlunosParams {
   termo?: string;
 }
 
+export interface UsuarioRetirada {
+  id: string;
+  nome: string;
+  papeis: string[];
+}
+
+export interface BuscarUsuariosRetiradaParams {
+  letra: string;
+  termo?: string;
+}
+
 /**
  * Busca a lista de professores ativos cadastrados no sistema.
  */
@@ -181,6 +192,24 @@ export async function buscarAlunosPorLetraETermo(
     functions,
     "buscarAlunos"
   );
-  const res = await fn(params);
+  const res = await fn({
+    letra: params.letra,
+    ...(params.termo?.trim() ? { termo: params.termo.trim() } : {}),
+  });
   return res.data.alunos.map((a) => ({ ...a, ativo: true }));
+}
+
+/** Busca somente portadores elegíveis da inicial informada, sem listar o diretório. */
+export async function buscarUsuariosParaRetirada(
+  params: BuscarUsuariosRetiradaParams
+): Promise<UsuarioRetirada[]> {
+  const fn = httpsCallable<BuscarUsuariosRetiradaParams, { usuarios: UsuarioRetirada[] }>(
+    functions,
+    "buscarUsuariosParaRetirada"
+  );
+  const res = await fn({
+    letra: params.letra,
+    ...(params.termo?.trim() ? { termo: params.termo.trim() } : {}),
+  });
+  return res.data.usuarios;
 }

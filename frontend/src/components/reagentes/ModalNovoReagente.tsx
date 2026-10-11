@@ -36,7 +36,7 @@ export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
         ehHigroscopico,
         qtdEmQueEConsideradoEscasso: Number(qtdEscasso),
       });
-      if (onSuccess) onSuccess();
+      if (onSuccess) await onSuccess();
       onClose();
     } catch (err: any) {
       setErrorMsg(err.message || "Erro interno ao cadastrar resumo.");
@@ -53,6 +53,7 @@ export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
           <div>
             <label className="block text-sm font-medium mb-1">Nome do Reagente *</label>
             <input
+              data-testid="novo-resumo-nome"
               type="text"
               required
               value={nome}
@@ -75,6 +76,7 @@ export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
             <div>
               <label className="block text-sm font-medium mb-1">Natureza Química</label>
               <select
+                data-testid="novo-resumo-natureza"
                 value={naturezaQuimica}
                 onChange={(e) => setNaturezaQuimica(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none"
@@ -137,6 +139,7 @@ export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
           <div>
             <label className="block text-sm font-medium mb-1">Limiar de Escassez (frascos aptos) *</label>
             <input
+              data-testid="novo-resumo-limiar-escassez"
               type="number"
               required
               value={qtdEscasso}

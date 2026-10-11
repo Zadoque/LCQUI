@@ -83,7 +83,7 @@ async function ensureAuth(user: FixtureUser): Promise<UserRecord> {
     assert.equal(found.uid, user.uid, `${user.id}: UID divergente; use --reset`); assert.equal(found.disabled, user.disabled, `${user.id}: disabled divergente; use --reset`); assert.equal(found.emailVerified, user.emailVerified, `${user.id}: emailVerified divergente; use --reset`); return found;
   } catch (error: unknown) { if ((error as { code?: string }).code !== "auth/user-not-found") throw error; return getAuth().createUser(authInput(user)); }
 }
-const usuarioData = (user: FixtureUser) => ({ nome: user.name, email: user.email, ativo: true, versao_permissoes: 1, claims_pendentes: false, atualizado_em: FIXTURE_TIME });
+const usuarioData = (user: FixtureUser) => ({ nome: user.name, email: user.email, letra_inicial: user.name.trim().charAt(0).toUpperCase(), ativo: true, versao_permissoes: 1, claims_pendentes: false, atualizado_em: FIXTURE_TIME });
 
 async function writeFixture(): Promise<void> {
   const firestore = getFirestore(); const batch = firestore.batch();

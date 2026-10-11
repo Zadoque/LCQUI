@@ -10,7 +10,9 @@ import { ReagentesActionBar } from "@/components/reagentes/ReagentesActionBar";
 import { ReagentesFiltros } from "@/components/reagentes/ReagentesFiltros";
 import { CatalogoReagentesTable } from "@/components/reagentes/CatalogoReagentesTable";
 import { ReagentesModaisManager } from "@/components/reagentes/ReagentesModaisManager";
+import { PainelOperacionalReagentes } from "@/components/reagentes/PainelOperacionalReagentes";
 import { useReagentesData } from "@/hooks/useReagentesData";
+import { gerarCatalogoReagentes } from "@/services/reagentes/reagentesService";
 
 function ReagentesContent() {
   const searchParams = useSearchParams();
@@ -71,6 +73,7 @@ function ReagentesContent() {
   const [isDescarteModalOpen, setIsDescarteModalOpen] = useState(false);
   const [isEscassezModalOpen, setIsEscassezModalOpen] = useState(false);
   const [frascoSelecionado, setFrascoSelecionado] = useState<any>(null);
+  const [painelRefreshToken, setPainelRefreshToken] = useState(0);
 
   // Seleções de contexto
   const [selectedResumo, setSelectedResumo] = useState<any>(null);
@@ -120,6 +123,18 @@ function ReagentesContent() {
         setIsDescarteModalOpen(true);
         break;
     }
+  };
+
+  const abaVisivel = hasManagementAccess && (abaAtiva === "movimentacoes" || abaAtiva === "alertas")
+    ? abaAtiva
+    : "catalogo";
+  const atualizarCatalogoEOperacao = async () => {
+    // O catálogo é uma materialização versionada. Regenerá-lo após uma
+    // mutação garante que o resumo recém-cadastrado apareça na UI e preserve
+    // seus campos normativos, incluindo natureza_quimica.
+    await gerarCatalogoReagentes();
+    await carregarCatalogo();
+    setPainelRefreshToken((valor) => valor + 1);
   };
 
   return (
@@ -178,7 +193,7 @@ function ReagentesContent() {
 
           {/* Filtros e Abas do Catálogo (UI-04) */}
           <ReagentesFiltros
-            abaAtiva={abaAtiva}
+            abaAtiva={abaVisivel}
             onSelectAba={setAbaAtiva}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
@@ -189,18 +204,28 @@ function ReagentesContent() {
             filtroLetra={filtroLetra}
             onLetraChange={setFiltroLetra}
             onLimparFiltros={limparFiltros}
+            mostrarOperacional={hasManagementAccess}
           />
 
-          {/* Tabela do Catálogo */}
-          <CatalogoReagentesTable
-            loading={loading}
-            displayedReagentes={displayedReagentes}
-            filteredReagentesCount={filteredReagentes.length}
-            limiteExibicao={limiteExibicao}
-            onExibirMais={() => setLimiteExibicao((prev) => prev + 50)}
-            onAction={handleAction}
-            readOnly={isPureAluno}
-          />
+          {abaVisivel === "catalogo" ? (
+            <CatalogoReagentesTable
+              loading={loading}
+              displayedReagentes={displayedReagentes}
+              filteredReagentesCount={filteredReagentes.length}
+              limiteExibicao={limiteExibicao}
+              onExibirMais={() => setLimiteExibicao((prev) => prev + 50)}
+              onAction={handleAction}
+              readOnly={isPureAluno}
+            />
+          ) : (
+            <PainelOperacionalReagentes
+              aba={abaVisivel}
+              idAlmoxarifado={idAlmoxarifado}
+              uid={user?.uid}
+              onAction={handleAction}
+              refreshToken={painelRefreshToken}
+            />
+          )}
 
           {/* Gestor Centralizado de Modais */}
           <ReagentesModaisManager
@@ -249,7 +274,7 @@ function ReagentesContent() {
             setIsEscassezModalOpen={setIsEscassezModalOpen}
             frascoSelecionado={frascoSelecionado}
             setFrascoSelecionado={setFrascoSelecionado}
-            onSuccessCatalogo={carregarCatalogo}
+            onSuccessCatalogo={atualizarCatalogoEOperacao}
           />
         </div>
       </main>

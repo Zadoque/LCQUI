@@ -22,6 +22,11 @@ export interface ObterEstoqueParams {
   idAlmoxarifado: string;
 }
 
+export async function gerarCatalogoReagentes(): Promise<void> {
+  const fn = httpsCallable(functions, "gerarCatalogoReagentes");
+  await fn({});
+}
+
 export interface EstoqueRateError {
   isRateLimit: true;
   message: string;
@@ -30,6 +35,24 @@ export interface EstoqueRateError {
 export type ObterEstoqueResult =
   | { ok: true; data: EstoqueSnapshot }
   | { ok: false; rateLimit: boolean; message: string };
+
+export interface HistoricoOperacional {
+  id: string;
+  id_frasco_reagente?: string;
+  id_emprestimo_reagente?: string;
+  tipo: string;
+  motivo?: string | null;
+  timestamp?: { toMillis?: () => number; toDate?: () => Date } | Date | null;
+  peso_anterior?: number | null;
+  peso_novo?: number | null;
+  medida_ajustada?: number | null;
+}
+
+export interface PainelOperacionalData {
+  movimentacoes: HistoricoOperacional[];
+  quarentena: Array<Record<string, unknown> & { id: string }>;
+  alertas: Array<Record<string, unknown> & { id: string; tipo: string }>;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Implementação
@@ -117,4 +140,70 @@ export async function buscarAlmoxarifadoDoGestor(
   );
   const snap = await getDocs(q);
   return snap.docs[0]?.data().id_almoxarifado as string | undefined;
+}
+
+/**
+ * Carrega as três visões operacionais do gestor no escopo do almoxarifado
+ * vinculado. As coleções server-owned são somente leitura no cliente; as
+ * mutações continuam exclusivamente nos callables normativos.
+ */
+export async function obterPainelOperacional(
+  idAlmoxarifado: string,
+  uidGestor: string,
+): Promise<PainelOperacionalData> {
+  const historicoQuery = query(
+    collection(db, "Historico_Frasco_Reagente"),
+    where("id_almoxarifado", "==", idAlmoxarifado),
+    limit(100),
+  );
+  const frascosQuery = query(
+    collection(db, "Frasco_Reagente"),
+    where("id_almoxarifado", "==", idAlmoxarifado),
+    limit(200),
+  );
+  const notificacoesQuery = query(
+    collection(db, "Usuarios", uidGestor, "Notificacoes"),
+    where("id_destinatario", "==", uidGestor),
+    limit(200),
+  );
+
+  const [historico, frascos, notificacoes] = await Promise.all([
+    getDocs(historicoQuery),
+    getDocs(frascosQuery),
+    getDocs(notificacoesQuery),
+  ]);
+
+  const timestampMillis = (value: unknown): number => {
+    if (value && typeof (value as { toMillis?: () => number }).toMillis === "function") {
+      return (value as { toMillis: () => number }).toMillis();
+    }
+    if (value instanceof Date) return value.getTime();
+    return 0;
+  };
+
+  const movimentacoes = historico.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() }) as HistoricoOperacional)
+    .sort((a, b) => timestampMillis(b.timestamp) - timestampMillis(a.timestamp));
+
+  const quarentena = frascos.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() }) as Record<string, unknown> & { id: string })
+    .filter((frasco) => frasco.em_quarentena === true) as PainelOperacionalData["quarentena"];
+
+  const tiposOperacionais = new Set([
+    "DATA_DEVOLUCAO_REAGENTE",
+    "ENTREGA_ATRASADA",
+    "ESCASSEZ_ESTOQUE",
+    "FRASCOS_A_SEREM_PESADOS",
+    "FRASCOS_EM_QUARENTENA",
+    "FRASCOS_VENCIDOS",
+    "FRASCOS_VAZIOS",
+    "FRASCOS_QUEBRADOS",
+    "AUTO_ATENDIMENTO_RETIRADA",
+  ]);
+  const alertas = notificacoes.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() }) as PainelOperacionalData["alertas"][number])
+    .filter((notificacao) => tiposOperacionais.has(notificacao.tipo))
+    .sort((a, b) => timestampMillis(b.emitida_em) - timestampMillis(a.emitida_em));
+
+  return { movimentacoes, quarentena, alertas };
 }

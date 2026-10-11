@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "@/lib/firebase/config";
+import { useAuth } from "@/contexts/AuthContext";
 import { obterIntencaoPersistida, limparIntencao, chaveIntencaoAlmoxarifado, assinaturaIntencaoAlmoxarifado, type AcaoAlmoxarifado } from "@/lib/intencaoOperacao";
 import type { AlmoxarifadoItem } from "@/types/cadastros";
 
@@ -11,12 +12,18 @@ export type { AlmoxarifadoItem };
 interface Props { onNovo: () => void; onEditar: (item: AlmoxarifadoItem) => void; onGerenciar: (item: AlmoxarifadoItem) => void; }
 
 export function ListaAlmoxarifados({ onNovo, onEditar, onGerenciar }: Props) {
+  const { user, isLoading: authLoading } = useAuth();
   const [items, setItems] = useState<AlmoxarifadoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  useEffect(() => onSnapshot(query(collection(db, "Almoxarifado"), orderBy("nome")), s => {
-    setItems(s.docs.map(d => ({ id: d.id, ...d.data() } as AlmoxarifadoItem))); setLoading(false);
-  }, e => { setError(e.message); setLoading(false); }), []);
+  useEffect(() => {
+    // A página é avaliada antes de ProtectedRoute terminar o bootstrap da
+    // sessão. Nunca iniciar um listener protegido sem request.auth.
+    if (authLoading || !user?.uid) return;
+    return onSnapshot(query(collection(db, "Almoxarifado"), orderBy("nome")), s => {
+      setItems(s.docs.map(d => ({ id: d.id, ...d.data() } as AlmoxarifadoItem))); setLoading(false);
+    }, e => { setError(e.message); setLoading(false); });
+  }, [authLoading, user?.uid]);
   async function alterar(item: AlmoxarifadoItem, acao: AcaoAlmoxarifado) {
     const campos = { acao, idAlmoxarifado: item.id } as const;
     const chave = chaveIntencaoAlmoxarifado(acao, item.id);

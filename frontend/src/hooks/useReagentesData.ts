@@ -8,11 +8,21 @@ import {
 import type { ResumoReagente, EstoqueSnapshot } from "@/types/reagentes";
 
 export function useReagentesData(abaParam: string = "catalogo") {
-  const { roles, user } = useAuth();
+  const { roles, user, isLoading: authLoading } = useAuth();
 
   const [abaAtiva, setAbaAtiva] = useState<"catalogo" | "movimentacoes" | "alertas">(
     abaParam === "movimentacoes" ? "movimentacoes" : abaParam === "alertas" ? "alertas" : "catalogo"
   );
+
+  // A navegação pelo Sidebar altera apenas a query string e preserva a
+  // instância desta página. A query precisa continuar sendo a fonte do estado
+  // da aba; inicializá-la apenas no useState deixa a tela presa no catálogo.
+  useEffect(() => {
+    const proximaAba = abaParam === "movimentacoes" || abaParam === "alertas"
+      ? abaParam
+      : "catalogo";
+    setAbaAtiva(proximaAba);
+  }, [abaParam]);
 
   const [reagentes, setReagentes] = useState<ResumoReagente[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -61,8 +71,12 @@ export function useReagentesData(abaParam: string = "catalogo") {
   }, []);
 
   useEffect(() => {
+    // ReagentesContent é avaliado antes de ProtectedRoute decidir se mostra o
+    // spinner. Sem esta guarda, a primeira renderização lista Firestore sem
+    // request.auth e dispara o deny-all antes do bootstrap do token.
+    if (authLoading || !user) return;
     void Promise.resolve().then(() => carregarCatalogo());
-  }, [carregarCatalogo]);
+  }, [authLoading, user, carregarCatalogo]);
 
   // Carrega snapshot de estoque atual M8 (UI-19)
   const carregarEstoqueAtual = useCallback(async () => {

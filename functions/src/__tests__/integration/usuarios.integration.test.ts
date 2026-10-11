@@ -6,7 +6,7 @@ process.env.FUNCTIONS_EMULATOR = "true";
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { CallableRequest } from "firebase-functions/v2/https";
-import { convidarUsuario, revogarUsuarioPapel, atualizarPerfil, buscarProfessores, buscarUsuariosParaPapel, obterDetalhesUsuarioParaPapel } from "../../usuarios";
+import { convidarUsuario, revogarUsuarioPapel, atualizarPerfil, buscarProfessores, buscarUsuariosParaPapel, buscarUsuariosParaRetirada, obterDetalhesUsuarioParaPapel } from "../../usuarios";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -34,7 +34,7 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
   });
 
   // M9: o ator exige autoridade persistida (Usuarios ativo + documento de papel).
-  beforeEach(async () => {
+  beforeAll(async () => {
     await db.collection("Usuarios").doc("chefe123").set({ ativo: true, versao_permissoes: 1 });
     await db.collection("Chefe_Geral").doc("chefe123").set({ id_usuario: "chefe123" });
     await Promise.all([
@@ -509,5 +509,69 @@ describe("Integração: buscarProfessores (S8 UI-02/UI-13)", () => {
     const wrapped = testEnv.wrap(buscarProfessores);
     const req = { data: {}, auth: undefined, rawRequest: {} } as unknown as CallableRequest;
     await expect(wrapped(req)).rejects.toMatchObject({ code: "unauthenticated" });
+  });
+});
+
+describe("Integração: buscarUsuariosParaRetirada (S8 UI-07 / ALM-04/05)", () => {
+  jest.setTimeout(30000);
+  let db: admin.firestore.Firestore;
+
+  beforeAll(() => {
+    if (!admin.apps.length) admin.initializeApp({ projectId: "lcqui-dev" });
+    db = admin.firestore();
+  });
+
+  afterAll(async () => {
+    testEnv.cleanup();
+  });
+
+  const mockRequest = (data: unknown, uid: string, roles: string[] = ["Gestor_Almoxarifado"]): CallableRequest =>
+    ({ data, auth: { uid, token: { roles, versao_permissoes: 1 } }, rawRequest: {} }) as unknown as CallableRequest;
+
+  const gestor = "gestor_buscaretirada_001";
+  const professor = "prof_buscaretirada_001";
+  const bolsista = "bolsista_buscaretirada_001";
+  const gestorPuro = "gestor_puro_buscaretirada_001";
+  const professorInativo = "prof_inativo_buscaretirada_001";
+
+  beforeAll(async () => {
+    await Promise.all([
+      gestor, professor, bolsista, gestorPuro, professorInativo,
+    ].flatMap(uid => [
+      db.collection("Usuarios").doc(uid).delete(),
+      db.collection("Professor").doc(uid).delete(),
+      db.collection("Bolsista").doc(uid).delete(),
+      db.collection("Gestor_Almoxarifado").doc(uid).delete(),
+    ]));
+    await db.collection("Usuarios").doc(gestor).set({ ativo: true, versao_permissoes: 1, nome: "Gestor Operador", letra_inicial: "G" });
+    await db.collection("Gestor_Almoxarifado").doc(gestor).set({ id_usuario: gestor });
+    await db.collection("Usuarios").doc(professor).set({ ativo: true, versao_permissoes: 1, nome: "Ana Professora", letra_inicial: "A" });
+    await db.collection("Professor").doc(professor).set({ id_usuario: professor });
+    await db.collection("Usuarios").doc(bolsista).set({ ativo: true, versao_permissoes: 1, nome: "Ana Bolsista", letra_inicial: "A" });
+    await db.collection("Bolsista").doc(bolsista).set({ id_usuario: bolsista });
+    await db.collection("Usuarios").doc(gestorPuro).set({ ativo: true, versao_permissoes: 1, nome: "Ana Gestora Pura", letra_inicial: "A" });
+    await db.collection("Gestor_Almoxarifado").doc(gestorPuro).set({ id_usuario: gestorPuro });
+    await db.collection("Usuarios").doc(professorInativo).set({ ativo: false, versao_permissoes: 1, nome: "Ana Inativa", letra_inicial: "A" });
+    await db.collection("Professor").doc(professorInativo).set({ id_usuario: professorInativo });
+  });
+
+  it("RET-USUARIO-INT-001 — retorna Professor/Bolsista ativos da inicial e não retorna gestor puro", async () => {
+    const result = await testEnv.wrap(buscarUsuariosParaRetirada)(mockRequest({ letra: "A" }, gestor));
+    expect(result.usuarios).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: bolsista, nome: "Ana Bolsista", papeis: ["Bolsista"] }),
+      expect.objectContaining({ id: professor, nome: "Ana Professora", papeis: ["Professor"] }),
+    ]));
+    expect(result.usuarios.map((item: { id: string }) => item.id)).not.toContain(gestorPuro);
+    expect(result.usuarios.map((item: { id: string }) => item.id)).not.toContain(professorInativo);
+  });
+
+  it("RET-USUARIO-INT-002 — refina por nome sem baixar diretório amplo", async () => {
+    const result = await testEnv.wrap(buscarUsuariosParaRetirada)(mockRequest({ letra: "A", termo: "Bols" }, gestor));
+    expect(result.usuarios).toEqual([expect.objectContaining({ id: bolsista, nome: "Ana Bolsista" })]);
+  });
+
+  it("RET-USUARIO-INT-003 — exige papel persistido de gestor de almoxarifado", async () => {
+    await expect(testEnv.wrap(buscarUsuariosParaRetirada)(mockRequest({ letra: "A" }, professor, ["Professor"])))
+      .rejects.toMatchObject({ code: "permission-denied" });
   });
 });

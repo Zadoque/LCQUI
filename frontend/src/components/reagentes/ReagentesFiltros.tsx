@@ -14,6 +14,7 @@ export interface ReagentesFiltrosProps {
   filtroLetra: string;
   onLetraChange: (letra: string) => void;
   onLimparFiltros: () => void;
+  mostrarOperacional?: boolean;
 }
 
 export function ReagentesFiltros({
@@ -28,6 +29,7 @@ export function ReagentesFiltros({
   filtroLetra,
   onLetraChange,
   onLimparFiltros,
+  mostrarOperacional = false,
 }: ReagentesFiltrosProps) {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
@@ -50,20 +52,24 @@ export function ReagentesFiltros({
           >
             Catálogo
           </button>
-          <button
-            type="button"
-            onClick={() => onSelectAba("movimentacoes")}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${abaAtiva === "movimentacoes" ? "bg-primary text-primary-foreground border-primary" : "bg-foreground/5 border-foreground/10"}`}
-          >
-            Movimentações
-          </button>
-          <button
-            type="button"
-            onClick={() => onSelectAba("alertas")}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${abaAtiva === "alertas" ? "bg-primary text-primary-foreground border-primary" : "bg-foreground/5 border-foreground/10"}`}
-          >
-            Quarentena / Alertas
-          </button>
+          {mostrarOperacional && (
+            <>
+              <button
+                type="button"
+                onClick={() => onSelectAba("movimentacoes")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${abaAtiva === "movimentacoes" ? "bg-primary text-primary-foreground border-primary" : "bg-foreground/5 border-foreground/10"}`}
+              >
+                Movimentações
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectAba("alertas")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${abaAtiva === "alertas" ? "bg-primary text-primary-foreground border-primary" : "bg-foreground/5 border-foreground/10"}`}
+              >
+                Quarentena / Alertas
+              </button>
+            </>
+          )}
         </div>
       </div>
 

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/lib/firebase/config";
 import { ModalProps } from "./types";
+import { SeletorUsuarioReagente } from "./SeletorUsuarioReagente";
 
 export function ModalDevolucaoFrasco({
   isOpen,
@@ -18,6 +19,7 @@ export function ModalDevolucaoFrasco({
   const [ficouVazio, setFicouVazio] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [usuarioDevolveu, setUsuarioDevolveu] = useState("");
 
   if (!isOpen) return null;
 
@@ -36,6 +38,7 @@ export function ModalDevolucaoFrasco({
         idEmprestimo: idEmprestimo || frascoId,
         pesoRetorno: Number(pesoRetorno1),
         confirmarEsgotamento: ficouVazio,
+        idUsuarioDevolveu: usuarioDevolveu || undefined,
         ...(evaporacao.trim() ? { pesoPerdaEvaporacao: Number(evaporacao) } : {}),
       };
       await registrarDevolucao({
@@ -43,8 +46,8 @@ export function ModalDevolucaoFrasco({
       });
       if (onSuccess) onSuccess();
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro na validação da devolução.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro na validação da devolução.");
     } finally {
       setLoading(false);
     }
@@ -57,6 +60,14 @@ export function ModalDevolucaoFrasco({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-400">
             UI-18: Prevenção de erro em pesagens exige dupla digitação independente da massa em gramas (g).
+          </div>
+          <div>
+            <SeletorUsuarioReagente
+              label="Usuário que devolveu"
+              value={usuarioDevolveu}
+              onChange={(usuario) => setUsuarioDevolveu(usuario?.id ?? "")}
+              testIdPrefix="devolucao"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">1ª Leitura da Balança (g) *</label>
