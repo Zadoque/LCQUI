@@ -8,7 +8,7 @@ import {
 import type { ResumoReagente, EstoqueSnapshot } from "@/types/reagentes";
 
 export function useReagentesData(abaParam: string = "catalogo") {
-  const { roles, user } = useAuth();
+  const { roles, user, isLoading: authLoading } = useAuth();
 
   const [abaAtiva, setAbaAtiva] = useState<"catalogo" | "movimentacoes" | "alertas">(
     abaParam === "movimentacoes" ? "movimentacoes" : abaParam === "alertas" ? "alertas" : "catalogo"
@@ -61,8 +61,12 @@ export function useReagentesData(abaParam: string = "catalogo") {
   }, []);
 
   useEffect(() => {
+    // ReagentesContent é avaliado antes de ProtectedRoute decidir se mostra o
+    // spinner. Sem esta guarda, a primeira renderização lista Firestore sem
+    // request.auth e dispara o deny-all antes do bootstrap do token.
+    if (authLoading || !user) return;
     void Promise.resolve().then(() => carregarCatalogo());
-  }, [carregarCatalogo]);
+  }, [authLoading, user, carregarCatalogo]);
 
   // Carrega snapshot de estoque atual M8 (UI-19)
   const carregarEstoqueAtual = useCallback(async () => {
