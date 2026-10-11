@@ -8,12 +8,14 @@ test("ALM-OPERACIONAL-E2E-001: gestor acessa movimentações, quarentena e alert
   await expect(page.getByRole("heading", { name: "Catálogo de Reagentes", exact: true })).toBeVisible();
   expect(guardaConsole.erros().some((mensagem) => mensagem.includes("false for 'list'"))).toBe(false);
 
-  await page.goto("/reagentes?aba=movimentacoes");
+  await page.getByRole("link", { name: "Movimentações", exact: true }).click();
+  await expect(page).toHaveURL(/\/reagentes\?aba=movimentacoes$/);
   await expect(page.getByTestId("painel-operacional-movimentacoes")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Movimentações", exact: true })).toBeVisible();
   await expect(page.getByText("Histórico físico do almoxarifado, ordenado pelo instante do servidor.")).toBeVisible();
 
-  await page.goto("/reagentes?aba=alertas");
+  await page.getByRole("link", { name: "Quarentena \/ Alertas", exact: true }).click();
+  await expect(page).toHaveURL(/\/reagentes\?aba=alertas$/);
   await expect(page.getByTestId("painel-operacional-alertas")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Quarentena", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Alertas operacionais", exact: true })).toBeVisible();

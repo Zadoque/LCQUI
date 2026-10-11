@@ -14,6 +14,16 @@ export function useReagentesData(abaParam: string = "catalogo") {
     abaParam === "movimentacoes" ? "movimentacoes" : abaParam === "alertas" ? "alertas" : "catalogo"
   );
 
+  // A navegação pelo Sidebar altera apenas a query string e preserva a
+  // instância desta página. A query precisa continuar sendo a fonte do estado
+  // da aba; inicializá-la apenas no useState deixa a tela presa no catálogo.
+  useEffect(() => {
+    const proximaAba = abaParam === "movimentacoes" || abaParam === "alertas"
+      ? abaParam
+      : "catalogo";
+    setAbaAtiva(proximaAba);
+  }, [abaParam]);
+
   const [reagentes, setReagentes] = useState<ResumoReagente[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
