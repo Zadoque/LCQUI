@@ -78,3 +78,12 @@ desativa a conta, recalcula claims vazias, revoga refresh tokens e audita o
 efeito; RN-ROLE-16 e a rejeição UI/E2E de revogar Aluno enquanto Bolsista está
 ativo também estão cobertos. A operação usa receipt M7 e autoridade M9; a
 tela UI-02 está em \texttt{frontend/src/app/pessoas}.
+
+\subsection{Convite de Gestor de Almoxarifado}
+
+O fluxo normativo de UI-02/UI-03 também é exercitado por
+\path{frontend/e2e/specs/21-almoxarifados.spec.ts}: \texttt{ALMOX-E2E-014}
+convida uma identidade sem conta Auth, verifica o papel persistido e o OOB
+\texttt{PASSWORD\_RESET} emitido pelo Auth Emulator; \texttt{ALMOX-E2E-015}
+seleciona uma identidade existente e verifica a concessão do papel. Ambos
+passaram sob Node.js 20 com o projeto \texttt{lcqui-dev} emulado.

@@ -259,10 +259,11 @@ export const convidarUsuario = onCall(async request => {
   }
   await reconciliarClaimsUsuario(uid);
   const resetLink = await admin.auth().generatePasswordResetLink(email.trim());
+  const resultadoFinal = { ...resultado, resetLink, contaAuthCriada: !contaAuthExistente };
   await admin.firestore().runTransaction(async tx => {
-    await concluirOperacaoPendenteTx(tx, dados.idOperacao, { ...resultado, resetLink });
+    await concluirOperacaoPendenteTx(tx, dados.idOperacao, resultadoFinal);
   });
-  return { ...resultado, resetLink };
+  return resultadoFinal;
 });
 
 /** UI-02/M9: diretório mínimo para selecionar identidade já existente. */

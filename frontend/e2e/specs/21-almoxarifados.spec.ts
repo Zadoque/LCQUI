@@ -1,6 +1,6 @@
 import { test, expect } from "../fixtures";
 import { login, esperarCallable, lerResultadoCallable } from "../helpers/ui";
-import { listarColecao, lerDocumento } from "../helpers/emulator";
+import { listarColecao, lerDocumento, ultimoOobPara } from "../helpers/emulator";
 
 const gestorNome = "Gestor de Almoxarifado (Seed)";
 let sequencia = 0;
@@ -143,5 +143,45 @@ test.describe("ALMOX-E2E — UI-03", () => {
   test("ALMOX-E2E-013: bolsista não aparece como gestor elegível", async ({ page }) => {
     await abrirNovo(page);
     await expect(page.getByRole("checkbox", { name: "Bolsista (Seed)" })).toHaveCount(0);
+  });
+
+  test("ALMOX-E2E-014: chefe convida novo gestor sem conta Auth e emite e-mail oficial", async ({ page }) => {
+    await page.goto("/reagentes");
+    await page.getByTestId("btn-novo-gestor-almoxarifado").click();
+    await expect(page.getByTestId("modal-novo-gestor-almoxarifado")).toBeVisible();
+    await page.getByTestId("gestor-novo-tab").click();
+
+    const email = `gestor-e2e-${Date.now()}@lcqui.local`;
+    await page.getByTestId("input-nome-novo-gestor-almoxarifado").fill("Gestor Convidado E2E");
+    await page.getByTestId("input-email-novo-gestor-almoxarifado").fill(email);
+    const resposta = esperarCallable(page, "convidarUsuario");
+    await page.getByTestId("btn-salvar-novo-gestor-almoxarifado").click();
+    const resultado = await lerResultadoCallable(await resposta);
+
+    expect(resultado.uid).toBeTruthy();
+    expect(resultado.contaAuthCriada).toBe(true);
+    const uid = resultado.uid as string;
+    const papel = await lerDocumento(`Gestor_Almoxarifado/${uid}`);
+    expect(papel?.data.id_usuario).toBe(uid);
+    await expect(page.getByTestId("status-novo-gestor-almoxarifado")).toContainText("e-mail oficial");
+    await page.getByRole("button", { name: "Fechar" }).click();
+    await ultimoOobPara(email, "PASSWORD_RESET");
+  });
+
+  test("ALMOX-E2E-015: novo gestor seleciona identidade existente", async ({ page }) => {
+    await page.goto("/reagentes");
+    await page.getByTestId("btn-novo-gestor-almoxarifado").click();
+    await page.getByTestId("gestor-existente-tab").click();
+    await page.getByTestId("buscar-gestor-almoxarifado").fill("Aluno Normal");
+    await expect(page.getByText("Aluno Normal", { exact: true })).toBeVisible();
+    const resposta = esperarCallable(page, "convidarUsuario");
+    await page.getByText("Aluno Normal", { exact: true }).click();
+    await page.getByTestId("btn-salvar-novo-gestor-almoxarifado").click();
+    const resultado = await lerResultadoCallable(await resposta);
+    expect(resultado.uid).toBe("seed-aluno-normal");
+    expect(resultado.contaAuthCriada).toBe(false);
+    expect((await lerDocumento("Gestor_Almoxarifado/seed-aluno-normal"))?.data.id_usuario).toBe("seed-aluno-normal");
+    await expect(page.getByTestId("status-novo-gestor-almoxarifado")).toContainText("adicionado");
+    await page.getByRole("button", { name: "Fechar" }).click();
   });
 });

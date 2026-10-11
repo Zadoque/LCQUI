@@ -19,6 +19,7 @@ import {
 import { NovaMateriaModal } from "@/components/materias/NovaMateriaModal";
 import { ModalAlmoxarifado } from "@/components/almoxarifados/ModalAlmoxarifado";
 import { GerenciarGestoresAlmoxarifadoModal } from "@/components/almoxarifados/GerenciarGestoresAlmoxarifadoModal";
+import { NovoGestorAlmoxarifadoModal } from "@/components/almoxarifados/NovoGestorAlmoxarifadoModal";
 import type { AlmoxarifadoItem } from "@/types/cadastros";
 
 interface ReagentesModaisManagerProps {
@@ -49,6 +50,8 @@ interface ReagentesModaisManagerProps {
   setIsAlmoxOpen: (v: boolean) => void;
   isGestoresAlmoxOpen: boolean;
   setIsGestoresAlmoxOpen: (v: boolean) => void;
+  isNovoGestorAlmoxOpen: boolean;
+  setIsNovoGestorAlmoxOpen: (v: boolean) => void;
   almoxSelecionado?: AlmoxarifadoItem;
   selectedResumo: any;
   selectedEspec: any;
@@ -98,6 +101,8 @@ export function ReagentesModaisManager({
   setIsAlmoxOpen,
   isGestoresAlmoxOpen,
   setIsGestoresAlmoxOpen,
+  isNovoGestorAlmoxOpen,
+  setIsNovoGestorAlmoxOpen,
   almoxSelecionado,
   selectedResumo,
   selectedEspec,
@@ -192,6 +197,10 @@ export function ReagentesModaisManager({
         onClose={() => setIsGestoresAlmoxOpen(false)}
         onSuccess={() => setIsGestoresAlmoxOpen(false)}
         item={almoxSelecionado}
+      />
+      <NovoGestorAlmoxarifadoModal
+        isOpen={isNovoGestorAlmoxOpen}
+        onClose={() => setIsNovoGestorAlmoxOpen(false)}
       />
 
       {frascoSelecionado && (
