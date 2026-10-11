@@ -6,7 +6,7 @@ import {
   GoogleAuthProvider,
   getRedirectResult,
   linkWithCredential,
-  signInWithRedirect,
+  signInWithPopup,
   sendPasswordResetEmail,
 } from "firebase/auth";
 import type { AuthCredential } from "firebase/auth";
@@ -162,8 +162,21 @@ export default function LoginPage() {
     const provider = new GoogleAuthProvider();
 
     try {
-      await signInWithRedirect(auth, provider);
+      await signInWithPopup(auth, provider);
     } catch (error: unknown) {
+      console.error("[auth/google] falha no login Google", {
+        code: authErrorCode(error),
+      });
+      const credential = GoogleAuthProvider.credentialFromError(
+        error as Parameters<typeof GoogleAuthProvider.credentialFromError>[0],
+      );
+      if (credential) {
+        setPendingGoogleCredential(credential);
+        const emailFromError = typeof error === "object" && error !== null && "customData" in error
+          ? (error as { customData?: { email?: unknown } }).customData?.email
+          : undefined;
+        if (typeof emailFromError === "string") setEmail(emailFromError);
+      }
       if (isNetworkError(error)) {
         setErrorMsg("Erro de conexão. Verifique sua internet e tente novamente.");
         setIsNetworkErrorState(true);
