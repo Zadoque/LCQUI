@@ -94,6 +94,7 @@ export async function criarNotificacaoEmulada(
     idAlvo: string;
     entidadeAlvo: string;
     mensagem: string;
+    papelDestinatario?: string;
   }
 ): Promise<void> {
   const resposta = await fetch(
@@ -107,7 +108,7 @@ export async function criarNotificacaoEmulada(
       body: JSON.stringify({
         fields: {
           tipo: { stringValue: dados.tipo },
-          papel_destinatario: { stringValue: "Professor" },
+          papel_destinatario: { stringValue: dados.papelDestinatario ?? "Professor" },
           id_destinatario: { stringValue: uid },
           id_alvo: { stringValue: dados.idAlvo },
           entidade_alvo: { stringValue: dados.entidadeAlvo },

@@ -10,6 +10,24 @@ import { lerDocumento, listarColecao } from "../helpers/emulator";
  */
 
 test.describe.serial("Turmas", () => {
+  test("TURMA-E2E-002 capacidade zero permanece bloqueada pela UI", async ({ page }) => {
+    await login(page, "professor.alpha@lcqui.local");
+    await page.goto("/turmas");
+    await page.getByTestId("botao-nova-turma").click();
+    await expect(page.getByRole("heading", { name: "Nova Turma" })).toBeVisible();
+
+    await page.getByLabel("Matéria").selectOption("materia-quimica-geral");
+    await page.getByLabel("Nome da Turma").fill("Turma E2E-CAPACIDADE-INVALIDA");
+    await page.getByLabel("Ano").fill("2026");
+    await page.getByLabel("Semestre").selectOption("1");
+    const capacidade = page.getByLabel("Capacidade de Alunos");
+    await capacidade.fill("0");
+    await page.getByRole("button", { name: "Criar Turma" }).click();
+
+    await expect(page.getByRole("heading", { name: "Nova Turma" })).toBeVisible();
+    await expect(capacidade).toHaveValue("0");
+  });
+
   test("TURMA-E2E-001 professor cria turma e documento canônico é persistido", async ({ page }) => {
     await login(page, "professor.alpha@lcqui.local");
     await criarTurma(page, {

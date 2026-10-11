@@ -24,6 +24,39 @@ const TURMA_ID = "seed-turma-ultima-vaga";
 const ROTEIRO_ID = "seed-roteiro-m12";
 
 test.describe("Roteiros em Posts", () => {
+  test("RTR-E2E-004 uploada PDF, valida bytes e publica pela UI", async ({ page }) => {
+    await login(page, "professor.alpha@lcqui.local");
+    await page.goto("/turmas");
+    await page.getByRole("button", { name: "Ações", exact: true }).click();
+    await page.getByRole("button", { name: /Novo Roteiro de Experimento/ }).click();
+    await expect(page.getByRole("heading", { name: "Novo Roteiro" })).toBeVisible();
+    const modalNovo = page.getByRole("heading", { name: "Novo Roteiro" }).locator("..").locator("..");
+    await modalNovo.locator('input[type="text"]').fill("Roteiro E2E de validação");
+    await modalNovo.locator("textarea").fill("Arquivo PDF válido para o fluxo M12.2.");
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "roteiro-e2e.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4\n% E2E LCQUI\n"),
+    });
+    await page.getByRole("button", { name: "Adicionar Roteiro" }).click();
+    await expect(page.getByText("Roteiro adicionado com sucesso!")).toBeVisible({ timeout: 30_000 });
+  });
+
+  test("RTR-E2E-005 compartilha e revoga roteiro por UID pela UI", async ({ page }) => {
+    await login(page, "professor.alpha@lcqui.local");
+    await page.goto("/turmas?roteiros=1");
+    const roteiro = page.getByRole("listitem").filter({ hasText: "Roteiro M12.2" });
+    await expect(roteiro).toBeVisible();
+    await roteiro.getByRole("button", { name: "Compartilhar" }).click();
+    await expect(page.getByRole("heading", { name: /Compartilhar:/ })).toBeVisible();
+    const professor = page.getByText("Professor Beta", { exact: true }).locator("..").locator("..");
+    await professor.getByRole("button", { name: "Compartilhar" }).click();
+    await expect(page.getByText("Roteiro compartilhado com sucesso.")).toBeVisible();
+    await roteiro.getByRole("button", { name: "Compartilhar" }).click();
+    const professorCompartilhado = page.getByText("Professor Beta", { exact: true }).locator("..").locator("..");
+    await professorCompartilhado.getByRole("button", { name: "Revogar" }).click();
+    await expect(page.getByText("Compartilhamento revogado.")).toBeVisible();
+  });
   test("RTR-E2E-001 professor dono anexa roteiro publicável ao criar Post", async ({ page }) => {
     const titulo = "Post RTR-E2E-001 — Anexo de roteiro";
     const descricao = "Post criado com roteiro anexado no E2E-001.";

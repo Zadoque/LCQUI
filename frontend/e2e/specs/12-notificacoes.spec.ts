@@ -9,7 +9,7 @@ import {
   login,
   logout,
 } from "../helpers/ui";
-import { listarColecao } from "../helpers/emulator";
+import { criarNotificacaoEmulada, listarColecao, removerDocumentoEmulado } from "../helpers/emulator";
 
 /**
  * Vertical de notificações (M13, UI-12).
@@ -219,5 +219,34 @@ test.describe.serial("Notificações UI-12", () => {
     expect(desarquivadaNotif).toBeTruthy();
     expect(desarquivadaNotif!.data.lida).toBe(true);
     expect(desarquivadaNotif!.data.lida_em).not.toBeNull();
+  });
+
+  test("E2E-NOTIF-004 limpar corte com múltiplas notificações e preservar histórico", async ({ page }) => {
+    const uid = "seed-professor-alpha";
+    const ids = Array.from({ length: 25 }, (_, index) => "e2e-m13-pagina-" + String(index).padStart(2, "0"));
+    for (const id of ids) {
+      await criarNotificacaoEmulada(uid, id, {
+        tipo: "TURMA_ARQUIVADA",
+        idAlvo: "seed-turma-vazia",
+        entidadeAlvo: "Turma",
+        mensagem: "Notificação paginada " + id,
+      });
+    }
+    try {
+      await login(page, "professor.alpha@lcqui.local");
+      await page.goto("/turmas");
+      await abrirNotificacoes(page);
+      await page.getByTestId("botao-limpar-tudo").click();
+      const limpar = esperarCallable(page, "limparTudoNotificacoes");
+      await page.getByTestId("confirmar-limpar-tudo").click();
+      await limpar;
+
+      const notificacoes = await listarColecao("Usuarios/" + uid + "/Notificacoes");
+      const criadas = notificacoes.filter((item) => ids.includes(item.id));
+      expect(criadas).toHaveLength(ids.length);
+      expect(criadas.every((item) => item.data.lida === true && item.data.lida_em)).toBe(true);
+    } finally {
+      for (const id of ids) await removerDocumentoEmulado("Usuarios/" + uid + "/Notificacoes/" + id);
+    }
   });
 });

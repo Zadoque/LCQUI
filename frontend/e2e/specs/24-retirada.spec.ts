@@ -1,13 +1,12 @@
 import { test, expect } from "../fixtures";
-import { login, esperarCallable } from "../helpers/ui";
+import { login, esperarCallable, lerResultadoCallable } from "../helpers/ui";
 import { lerDocumento, listarColecao } from "../helpers/emulator";
 
 test("RET-E2E-001: registra retirada com contrato completo", async ({ page, guardaConsole }) => {
   await login(page, "gestor.almoxarifado@lcqui.local");
   await page.goto("/reagentes");
-  await page.locator("select").first().selectOption("Líquido");
-  await page.getByRole("button", { name: "Buscar no Banco" }).click();
-  await page.getByText("Reagente Seed").click();
+  await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
+  await page.getByText("Reagente Seed", { exact: true }).first().click();
   await page.getByRole("button", { name: "+ Frasco S/ Lote" }).click();
   const entrada = page.locator("form").filter({ hasText: "Salvar Frasco" });
   const entradaNumeros = entrada.locator('input[type="number"]');
@@ -27,13 +26,17 @@ test("RET-E2E-001: registra retirada com contrato completo", async ({ page, guar
   await textos.nth(2).fill("local1");
   await formulario.locator('input[type="number"]').fill("500");
   await formulario.locator('input[type="date"]').fill("2099-01-01");
+  await formulario.getByLabel("Abrir o frasco no empréstimo").check();
   const chamada = esperarCallable(page, "registrarRetirada");
   await formulario.getByRole("button", { name: "Confirmar" }).click();
   const retorno = await chamada;
   expect(retorno.status()).toBe(200);
-  await expect(page.getByRole("heading", { name: "Estoque (Reagentes)" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Catálogo de Reagentes" })).toBeVisible();
   const emprestimos = await listarColecao("Emprestimo_Reagente");
   expect(emprestimos.some((item) => item.data.id_frasco_reagente === chave!.data.id_recurso && item.data.status === "EM_USO")).toBe(true);
+  const frascoAberto = await lerDocumento(`Frasco_Reagente/${chave!.data.id_recurso}`);
+  expect(frascoAberto?.data.estado_fisico_frasco).toBe("ABERTO");
+  expect(frascoAberto?.data.data_abertura).toBeTruthy();
 
   guardaConsole.permitir(/400/);
   await page.getByRole("button", { name: "Registrar Retirada" }).click();
@@ -49,4 +52,54 @@ test("RET-E2E-001: registra retirada com contrato completo", async ({ page, guar
   const segundaResposta = await segundaChamada;
   expect(segundaResposta.status()).toBe(400);
   await expect(page.getByText(/não está disponível/i)).toBeVisible();
+});
+
+test("DEV-001-E2E-002: conclui retirada e devolução com pesagens concordantes", async ({ page }) => {
+  await login(page, "gestor.almoxarifado@lcqui.local");
+  await page.goto("/reagentes");
+  await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
+  await page.getByText("Reagente Seed", { exact: true }).first().click();
+  await page.getByRole("button", { name: "+ Frasco S/ Lote" }).click();
+  const entrada = page.locator("form").filter({ hasText: "Salvar Frasco" });
+  const entradaNumeros = entrada.locator('input[type="number"]');
+  await entradaNumeros.nth(0).fill("500");
+  await entradaNumeros.nth(1).fill("250");
+  const criar = esperarCallable(page, "cadastrarFrascoFechado");
+  await entrada.getByRole("button", { name: "Salvar Frasco" }).click();
+  const resultado = await lerResultadoCallable(await criar);
+  const frascoId = resultado.idFrasco as string;
+  expect(frascoId).toBeTruthy();
+  const frascoCriado = await lerDocumento(`Frasco_Reagente/${frascoId}`);
+  expect(frascoCriado).toBeTruthy();
+  const codigoFrasco = frascoCriado!.data.codigo_frasco as string;
+
+  await page.getByRole("button", { name: "Registrar Retirada" }).click();
+  const retirada = page.locator("form").filter({ has: page.getByRole("button", { name: "Confirmar" }) });
+  const textos = retirada.locator('input[type="text"]');
+  await textos.nth(0).fill(frascoId);
+  await textos.nth(1).fill("seed-professor-alpha");
+  await textos.nth(2).fill("local1");
+  await retirada.locator('input[type="number"]').fill("500");
+  await retirada.locator('input[type="date"]').fill("2099-01-01");
+  await retirada.getByLabel("Abrir o frasco no empréstimo").check();
+  const retiradaCall = esperarCallable(page, "registrarRetirada");
+  await retirada.getByRole("button", { name: "Confirmar" }).click();
+  await retiradaCall;
+
+  await page.goto("/reagentes/seed-resumo-reagente-frascos");
+  const linhaFrasco = page.locator("tbody tr").filter({ hasText: codigoFrasco }).last();
+  await expect(linhaFrasco.getByRole("button", { name: "Devolver" }).last()).toBeVisible();
+  await linhaFrasco.getByRole("button", { name: "Devolver" }).last().click();
+  const devolucao = page.getByRole("heading", { name: "Registrar Devolução" }).locator("..");
+  const pesos = devolucao.locator('input[type="number"]');
+  await pesos.nth(0).fill("500");
+  await pesos.nth(1).fill("500");
+  const devolucaoCall = esperarCallable(page, "registrarDevolucao");
+  await devolucao.getByRole("button", { name: "Confirmar Devolução" }).click();
+  const resposta = await devolucaoCall;
+  expect(resposta.status()).toBe(200);
+  await expect.poll(async () => (await lerDocumento(`Frasco_Reagente/${frascoId}`))?.data.disponibilidade).toBe("DISPONIVEL");
+  const linhaAtualizada = page.locator("tbody tr").filter({ hasText: codigoFrasco }).last();
+  await expect(linhaAtualizada.getByText("ABERTO", { exact: true })).toBeVisible();
+  await expect(linhaAtualizada.getByRole("button", { name: "Devolver" })).toHaveCount(0);
 });
