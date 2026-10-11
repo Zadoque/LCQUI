@@ -50,6 +50,7 @@ export async function processarMaterializacaoDiariaFlow(dataAlvo: string): Promi
   totalAlmoxarifados: number;
   totalResumos: number;
 }> {
+  validarDataAlvo(dataAlvo);
   const db = admin.firestore();
   const { inicio, fim } = obterJanelaDiaSaoPaulo(dataAlvo);
   const inicioTs = Timestamp.fromDate(inicio);
