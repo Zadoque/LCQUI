@@ -52,6 +52,17 @@ O cenário \texttt{ALM-OPERACIONAL-E2E-004} cadastra um novo resumo e prova
 que a natureza química persiste e aparece no catálogo após a regeneração da
 materialização.
 
+A retirada e a devolução usam o diretório mínimo normativo de UI-07: o operador
+informa uma letra inicial, pesquisa opcionalmente por nome e seleciona um
+Professor ou Bolsista ativo; o UID não é digitado na interface. O callable
+\texttt{buscarUsuariosParaRetirada} consulta apenas usuários ativos daquela
+inicial, verifica os papéis persistidos no servidor e rejeita gestor de
+almoxarifado sem papel de portador. Os fluxos permanentes estão em
+\texttt{24-retirada.spec.ts} (retirada e devolução) e a prova de autorização
+emulável está em
+\texttt{functions/src/__tests__/integration/usuarios.integration.test.ts}
+(`RET-USUARIO-INT-001--003`).
+
 Nenhum schema, backend ou Rule foi relaxado para satisfazer a UI. Consultas
 diretas ao Firestore/Auth Emulator apenas confirmam efeitos de backend
 (vínculos, matrícula, notificação, OOB, Post, Comentário); a jornada continua
