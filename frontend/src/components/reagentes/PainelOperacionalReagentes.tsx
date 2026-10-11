@@ -7,19 +7,21 @@ import {
   type HistoricoOperacional,
   type PainelOperacionalData,
 } from "@/services/reagentes/reagentesService";
+import type { FrascoOperacional } from "@/types/reagentes";
 import { ROTULO_TIPO_NOTIFICACAO } from "@/types/notificacoes";
 
 type AbaOperacional = "movimentacoes" | "alertas";
+type AcaoOperacional = "quarentena" | "extravio" | "pesagem_rotina" | "descarte";
 
 interface PainelOperacionalReagentesProps {
   aba: AbaOperacional;
   idAlmoxarifado?: string;
   uid?: string;
-  onAction: (action: string, payload: any) => void;
+  onAction: (action: AcaoOperacional, payload: FrascoOperacional) => void;
   refreshToken: number;
 }
 
-function formatarData(value: HistoricoOperacional["timestamp"] | unknown): string {
+function formatarData(value: HistoricoOperacional["timestamp"]): string {
   const data = value && typeof (value as { toDate?: () => Date }).toDate === "function"
     ? (value as { toDate: () => Date }).toDate()
     : value instanceof Date ? value : null;
@@ -62,7 +64,8 @@ export function PainelOperacionalReagentes({
   }, [idAlmoxarifado, uid]);
 
   useEffect(() => {
-    void carregar();
+    const carregamento = window.setTimeout(() => void carregar(), 0);
+    return () => window.clearTimeout(carregamento);
   }, [carregar, refreshToken]);
 
   if (!idAlmoxarifado || !uid) {
@@ -124,7 +127,8 @@ export function PainelOperacionalReagentes({
         <>
           <div className="glass-panel p-6 rounded-2xl border border-red-500/20">
             <h2 className="text-lg font-bold">Quarentena</h2>
-            <p className="text-xs text-foreground/60 mb-4">Frascos indisponíveis que exigem decisão humana conforme M5/Q06.</p>
+            {/* M5/Q06: frascos indisponíveis aguardando decisão humana. */}
+            <p className="text-xs text-foreground/60 mb-4">Frascos indisponíveis que precisam de uma decisão.</p>
             {dados.quarentena.length === 0 ? (
               <p className="text-sm text-foreground/60">{estadoVazio(aba)}</p>
             ) : (

@@ -101,6 +101,24 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
     expect((await db.collection("Operacoes").doc(idOperacao).get()).data()?.status).toBe("CONCLUIDA");
   });
 
+  it("TEST-INT-ROLE-PROF-INVITE-001 — novo professor recebe e-mail sem devolver link OOB ao cliente", async () => {
+    const email = `professor_outbox_${Date.now()}@example.com`;
+    const resultado = await testEnv.wrap(convidarUsuario)(mockRequest({
+      idOperacao: `op-professor-outbox-${Date.now()}`,
+      email,
+      nome: "Professor Outbox",
+      papel: "Professor",
+      centro: "CCT",
+      laboratorio: "Laboratório de Teste",
+      materias: [],
+    }, "chefe123"));
+
+    expect(resultado.emailEnviado).toBe(true);
+    expect(resultado.contaAuthCriada).toBe(true);
+    expect(resultado).not.toHaveProperty("resetLink");
+    expect((await db.collection("Professor").doc(resultado.uid).get()).exists).toBe(true);
+  });
+
   it("TEST-INT-ROLE-UI02-001 — seleciona identidade existente por UID e conserva projeção mínima", async () => {
     const email = `role_existente_${Date.now()}@example.com`;
     const authUser = await admin.auth().createUser({ email, displayName: "Alvo Existente" });

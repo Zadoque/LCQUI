@@ -81,6 +81,19 @@ export interface FrascoReagente {
   cadastrado_por: string;
 }
 
+/** Projeção validada usada pelos cards de quarentena e ações operacionais. */
+export interface FrascoOperacional {
+  id: string;
+  codigo_frasco: string;
+  estado_fisico_frasco: FrascoReagente["estado_fisico_frasco"];
+  peso_atual?: number | null;
+  peso_no_cadastrado?: number | null;
+  em_quarentena: boolean;
+  situacao_localizacao?: string | null;
+  disponibilidade?: FrascoReagente["disponibilidade"] | string | null;
+  vencido: boolean;
+}
+
 /**
  * Snapshot de Estoque Atual calculado pelo backend M8 (UI-19 / obterEstoqueAtual).
  */

@@ -52,7 +52,7 @@ test.describe.serial("Convites externos", () => {
     await convidarAluno(page, { turmaId: "seed-turma-vazia", emails: EMAIL_EXTERNO });
 
     await expect(
-      page.getByText("Convite registrado; fluxo de acesso enviado via Firebase Auth.")
+      page.getByText("Convite registrado; as instruções de acesso foram enviadas.")
     ).toBeVisible();
 
     const dados = chamadas[0].payload.data as Record<string, unknown>;

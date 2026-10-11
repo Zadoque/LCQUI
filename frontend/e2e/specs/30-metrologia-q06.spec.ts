@@ -69,7 +69,7 @@ test("MET-E2E-001: repetir pesagem resolve pendência Q06 com justificativa", as
   const { frascoId } = await criarPendenciaQ06(page);
   const linha = page.getByTestId(`frasco-row-${frascoId}`);
   await linha.getByRole("button", { name: "Resolver Metrologia" }).click();
-  const modal = page.getByRole("heading", { name: "Resolução Metrológica" }).locator("..");
+  const modal = page.getByRole("heading", { name: "Resolver pendência de pesagem" }).locator("..");
   await modal.locator("select").selectOption("REPETIR");
   await modal.locator('input[type="number"]').fill("500");
   await modal.locator("textarea").fill("Repetição conferida em balança homologada com evidência técnica.");
@@ -86,7 +86,7 @@ test("MET-E2E-002/003: confirmar esgotamento e recalibrar tara após pendência 
   const { frascoId } = await criarPendenciaQ06(page);
   let linha = page.getByTestId(`frasco-row-${frascoId}`);
   await linha.getByRole("button", { name: "Resolver Metrologia" }).click();
-  let modal = page.getByRole("heading", { name: "Resolução Metrológica" }).locator("..");
+  let modal = page.getByRole("heading", { name: "Resolver pendência de pesagem" }).locator("..");
   await modal.locator("select").selectOption("ESGOTAMENTO");
   await modal.locator('input[type="number"]').fill("250");
   await modal.locator("textarea").fill("Inspeção física confirmou esgotamento e tara real do recipiente.");
@@ -98,7 +98,7 @@ test("MET-E2E-002/003: confirmar esgotamento e recalibrar tara após pendência 
   await page.reload();
   linha = page.getByTestId(`frasco-row-${frascoId}`);
   await linha.getByRole("button", { name: "Resolver Metrologia" }).click();
-  modal = page.getByRole("heading", { name: "Resolução Metrológica" }).locator("..");
+  modal = page.getByRole("heading", { name: "Resolver pendência de pesagem" }).locator("..");
   await modal.locator("select").selectOption("RECALIBRAR");
   await modal.locator('input[type="number"]').fill("251");
   await modal.locator("textarea").fill("Nova tara aferida em balança calibrada após esgotamento confirmado.");

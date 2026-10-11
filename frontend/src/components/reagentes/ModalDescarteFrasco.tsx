@@ -40,8 +40,8 @@ export function ModalDescarteFrasco({
       });
       if (onSuccess) onSuccess();
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro ao descartar frasco.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro ao descartar frasco.");
     } finally {
       setLoading(false);
     }
@@ -50,9 +50,10 @@ export function ModalDescarteFrasco({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="glass-panel w-full max-w-md p-6 rounded-2xl shadow-xl border-red-500/30">
-        <h2 className="text-xl font-bold mb-2 text-red-500">Descarte Terminal de Frasco (UI-07)</h2>
+        {/* UI-07: descarte físico terminal do frasco. */}
+        <h2 className="text-xl font-bold mb-2 text-red-500">Descarte definitivo de frasco</h2>
         <p className="text-xs text-foreground/60 mb-4">
-          Atenção: o descarte físico é estritamente terminal e absorvente. O frasco ficará indisponível permanentemente.
+          Atenção: o descarte físico é definitivo. O frasco ficará indisponível permanentemente.
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

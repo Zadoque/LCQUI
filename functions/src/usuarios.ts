@@ -275,7 +275,6 @@ export const convidarUsuario = onCall(async request => {
   const operacaoPendente = operacaoExistente.data()?.status === "PENDENTE";
   const contaAuthCriada = !contaAuthExistente || operacaoPendente;
   let emailEnviado = false;
-  let resetLink: string | undefined;
   if (contaAuthCriada) {
     const baseUrl = (process.env.APP_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
     const envio = await dispararPasswordResetFirebaseAuth(emailNormalizado, `${baseUrl}/login`);
@@ -285,9 +284,10 @@ export const convidarUsuario = onCall(async request => {
       throw new HttpsError("unavailable", "A conta foi criada, mas o Firebase não confirmou o envio do e-mail. Tente novamente.");
     }
     emailEnviado = true;
-    resetLink = envio.oobLink;
   }
-  const resultadoFinal = { ...resultado, contaAuthCriada, emailEnviado, ...(resetLink ? { resetLink } : {}) };
+  // O link OOB é um segredo de recuperação e nunca deve ser devolvido ao cliente.
+  // O Firebase Auth já enviou as instruções ao endereço cadastrado.
+  const resultadoFinal = { ...resultado, contaAuthCriada, emailEnviado };
   await admin.firestore().runTransaction(async tx => {
     await concluirOperacaoPendenteTx(tx, dados.idOperacao, resultadoFinal);
   });

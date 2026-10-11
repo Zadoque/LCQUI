@@ -12,7 +12,7 @@
 import { collection, getDocs, query, where, limit } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "@/lib/firebase/config";
-import type { ResumoReagente, EstoqueSnapshot } from "@/types/reagentes";
+import type { FrascoOperacional, ResumoReagente, EstoqueSnapshot } from "@/types/reagentes";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos de payload / resposta
@@ -64,8 +64,69 @@ export interface HistoricoOperacional {
 
 export interface PainelOperacionalData {
   movimentacoes: HistoricoOperacional[];
-  quarentena: Array<Record<string, unknown> & { id: string }>;
-  alertas: Array<Record<string, unknown> & { id: string; tipo: string }>;
+  quarentena: FrascoOperacional[];
+  alertas: AlertaOperacional[];
+}
+
+export interface AlertaOperacional {
+  id: string;
+  tipo: string;
+  quantidade?: number;
+  mensagem_customizada?: string;
+  emitida_em?: HistoricoOperacional["timestamp"];
+}
+
+function registro(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null ? value as Record<string, unknown> : null;
+}
+
+function texto(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function numeroOuNulo(value: unknown): number | null | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : value === null ? null : undefined;
+}
+
+function timestampOuNulo(value: unknown): HistoricoOperacional["timestamp"] {
+  if (value instanceof Date) return value;
+  const data = registro(value);
+  return data && (typeof data.toDate === "function" || typeof data.toMillis === "function")
+    ? value as HistoricoOperacional["timestamp"]
+    : null;
+}
+
+function normalizarFrascoOperacional(id: string, value: unknown): FrascoOperacional | null {
+  const data = registro(value);
+  const codigo = texto(data?.codigo_frasco);
+  const estado = data?.estado_fisico_frasco;
+  if (!codigo || !["FECHADO", "ABERTO", "VAZIO", "QUEBRADO", "DESCARTADO"].includes(String(estado))) return null;
+  if (typeof data?.em_quarentena !== "boolean" || typeof data?.vencido !== "boolean") return null;
+  const disponibilidade = data.disponibilidade;
+  return {
+    id,
+    codigo_frasco: codigo,
+    estado_fisico_frasco: estado as FrascoOperacional["estado_fisico_frasco"],
+    peso_atual: numeroOuNulo(data.peso_atual),
+    peso_no_cadastrado: numeroOuNulo(data.peso_no_cadastrado),
+    em_quarentena: data.em_quarentena,
+    situacao_localizacao: texto(data.situacao_localizacao),
+    disponibilidade: typeof disponibilidade === "string" ? disponibilidade : null,
+    vencido: data.vencido,
+  };
+}
+
+function normalizarAlertaOperacional(id: string, value: unknown): AlertaOperacional | null {
+  const data = registro(value);
+  const tipo = texto(data?.tipo);
+  if (!tipo) return null;
+  return {
+    id,
+    tipo,
+    quantidade: typeof data?.quantidade === "number" ? data.quantidade : undefined,
+    mensagem_customizada: texto(data?.mensagem_customizada) ?? undefined,
+    emitida_em: timestampOuNulo(data?.emitida_em),
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -134,8 +195,9 @@ export async function obterEstoqueAtual(params: ObterEstoqueParams): Promise<Obt
     return {
       ok: false,
       rateLimit: isRateLimit,
+      // UI-19: o limite protege a consulta do estoque contra abuso.
       message: isRateLimit
-        ? "Limite de 5 consultas/minuto por usuário atingido (UI-19). Aguarde um instante."
+        ? "Você atingiu o limite de consultas por minuto. Aguarde um instante e tente novamente."
         : (errObj?.message ?? "Não foi possível calcular o estoque atual."),
     };
   }
@@ -187,7 +249,7 @@ export async function obterPainelOperacional(
     getDocs(notificacoesQuery),
   ]);
 
-  const timestampMillis = (value: unknown): number => {
+  const timestampMillis = (value: HistoricoOperacional["timestamp"]): number => {
     if (value && typeof (value as { toMillis?: () => number }).toMillis === "function") {
       return (value as { toMillis: () => number }).toMillis();
     }
@@ -196,12 +258,17 @@ export async function obterPainelOperacional(
   };
 
   const movimentacoes = historico.docs
-    .map((doc) => ({ id: doc.id, ...doc.data() }) as HistoricoOperacional)
+    .map((doc) => {
+      const data = registro(doc.data());
+      const tipo = texto(data?.tipo);
+      return tipo ? { id: doc.id, ...data, tipo } as HistoricoOperacional : null;
+    })
+    .filter((item): item is HistoricoOperacional => item !== null)
     .sort((a, b) => timestampMillis(b.timestamp) - timestampMillis(a.timestamp));
 
   const quarentena = frascos.docs
-    .map((doc) => ({ id: doc.id, ...doc.data() }) as Record<string, unknown> & { id: string })
-    .filter((frasco) => frasco.em_quarentena === true) as PainelOperacionalData["quarentena"];
+    .map((doc) => normalizarFrascoOperacional(doc.id, doc.data()))
+    .filter((frasco): frasco is FrascoOperacional => frasco?.em_quarentena === true);
 
   const tiposOperacionais = new Set([
     "DATA_DEVOLUCAO_REAGENTE",
@@ -215,7 +282,8 @@ export async function obterPainelOperacional(
     "AUTO_ATENDIMENTO_RETIRADA",
   ]);
   const alertas = notificacoes.docs
-    .map((doc) => ({ id: doc.id, ...doc.data() }) as PainelOperacionalData["alertas"][number])
+    .map((doc) => normalizarAlertaOperacional(doc.id, doc.data()))
+    .filter((alerta): alerta is AlertaOperacional => alerta !== null)
     .filter((notificacao) => tiposOperacionais.has(notificacao.tipo))
     .sort((a, b) => timestampMillis(b.emitida_em) - timestampMillis(a.emitida_em));
 

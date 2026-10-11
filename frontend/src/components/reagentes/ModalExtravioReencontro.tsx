@@ -55,8 +55,8 @@ export function ModalExtravioReencontro({
       }
       if (onSuccess) onSuccess();
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro ao registrar extravio/reencontro.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro ao registrar extravio/reencontro.");
     } finally {
       setLoading(false);
     }
@@ -65,8 +65,9 @@ export function ModalExtravioReencontro({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="glass-panel w-full max-w-md p-6 rounded-2xl shadow-xl border-purple-500/20">
+        {/* UI-16: registro de extravio e reencontro de frasco. */}
         <h2 className="text-xl font-bold mb-4 text-purple-500">
-          {tipoAcao === "EXTRAVIAR" ? "Registrar Extravio (UI-16)" : "Registrar Reencontro (UI-16)"}
+          {tipoAcao === "EXTRAVIAR" ? "Registrar extravio" : "Registrar reencontro"}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           {tipoAcao === "EXTRAVIAR" ? (

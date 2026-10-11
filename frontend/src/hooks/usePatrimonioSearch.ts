@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { collection, getDocs, query, where, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import type { BemPatrimonial } from "@/types/patrimonio";
@@ -17,13 +17,14 @@ export function usePatrimonioSearch() {
   const [filtroStatus, setFiltroStatus] = useState("");
   const [filtroLetraInicial, setFiltroLetraInicial] = useState("");
   const [filtroConservacao, setFiltroConservacao] = useState("");
+  const deepLinkProcessado = useRef(false);
 
-  const searchFirestore = async (statusOverride?: string) => {
+  const searchFirestore = useCallback(async (statusOverride?: string) => {
     const statusBusca = statusOverride ?? filtroStatus;
     // Seção 5.2: pelo menos Prédio, Letra inicial OU Status
     if (!filtroPredio && !filtroLetraInicial && !statusBusca) {
       setSearchError(
-        "Selecione ao menos um filtro obrigatório: Prédio, Letra Inicial ou Status. (Regra de performance do Firestore — Seção 5.2 do projeto)"
+        "Selecione pelo menos um filtro: prédio, letra inicial ou situação."
       );
       return;
     }
@@ -53,21 +54,23 @@ export function usePatrimonioSearch() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filtroAndar, filtroConservacao, filtroLetraInicial, filtroPredio, filtroSala, filtroStatus]);
 
   // O link de alerta é um deep link para a mesma UI-04, não uma tela separada.
   // Carrega o filtro pela URL para que /patrimonio?status=Inservivel tenha
   // efeito observável ao ser aberto pelo menu, notificação ou link externo.
   useEffect(() => {
+    if (deepLinkProcessado.current) return;
+    deepLinkProcessado.current = true;
     const statusDaUrl = new URLSearchParams(window.location.search).get("status");
     if (!statusDaUrl) return;
 
-    setFiltroStatus(statusDaUrl);
     const carregamento = window.setTimeout(() => {
+      setFiltroStatus(statusDaUrl);
       void searchFirestore(statusDaUrl);
     }, 0);
     return () => window.clearTimeout(carregamento);
-  }, []);
+  }, [searchFirestore]);
 
   // Filtro local por substring (Seção 5.2)
   const filteredBens = bens.filter((b) => {

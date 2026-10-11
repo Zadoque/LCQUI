@@ -88,7 +88,8 @@ export default function PessoasPage() {
     <ProtectedRoute allowedRoles={["Chefe_Geral"]}>
       <main className="min-h-screen bg-background p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          <header><h1 className="text-3xl font-bold">Pessoas e papéis</h1><p className="text-foreground/60 mt-1">UI-02 — concessão, revogação e diretório mínimo.</p></header>
+          {/* UI-02: diretório mínimo e administração de papéis. */}
+          <header><h1 className="text-3xl font-bold">Pessoas e papéis</h1><p className="text-foreground/60 mt-1">Gerencie as pessoas e os acessos do sistema.</p></header>
           {mensagem && <p role="status" className="p-3 rounded-lg bg-green-500/10 text-green-700">{mensagem}</p>}
           {erro && <p role="alert" className="p-3 rounded-lg bg-red-500/10 text-red-700">{erro}</p>}
           <section className="glass-panel rounded-2xl p-6 space-y-4">

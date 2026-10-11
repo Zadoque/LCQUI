@@ -41,7 +41,6 @@ export interface ConcederPapelParams {
 export interface ConcederPapelResult {
   uid: string;
   ativo: boolean;
-  resetLink?: string;
   contaAuthCriada?: boolean;
   emailEnviado?: boolean;
 }
@@ -133,8 +132,14 @@ export interface ConvidarProfessorParams {
 }
 
 export interface ConvidarProfessorResult {
-  resetLink?: string;
-  uid?: string;
+  uid: string;
+  ativo: boolean;
+  contaAuthCriada?: boolean;
+  emailEnviado?: boolean;
+}
+
+interface ConvidarProfessorRequest extends ConvidarProfessorParams {
+  papel: "Professor";
 }
 
 export interface BuscarAlunosParams {
@@ -183,7 +188,7 @@ export async function buscarUsuariosSelecionaveis(): Promise<UsuarioSelecionavel
 export async function convidarProfessor(
   params: ConvidarProfessorParams
 ): Promise<ConvidarProfessorResult> {
-  const fn = httpsCallable(functions, "convidarUsuario");
+  const fn = httpsCallable<ConvidarProfessorRequest, ConvidarProfessorResult>(functions, "convidarUsuario");
   const res = await fn({
     idOperacao: params.idOperacao ?? crypto.randomUUID(),
     ...(params.uidAlvo ? { uidAlvo: params.uidAlvo } : { email: params.email, nome: params.nome }),
@@ -192,7 +197,7 @@ export async function convidarProfessor(
     laboratorio: params.laboratorio,
     materias: params.materias,
   });
-  return res.data as ConvidarProfessorResult;
+  return res.data;
 }
 
 /**

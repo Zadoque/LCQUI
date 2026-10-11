@@ -34,7 +34,7 @@ export function ModalDevolucaoFrasco({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (Number(pesoRetorno1) !== Number(pesoRetorno2)) {
-      setErrorMsg("A 2ª pesagem não confere com a 1ª (Dupla digitação independente exigida por UI-18).");
+      setErrorMsg("As duas pesagens precisam ser iguais. Confira os valores digitados.");
       return;
     }
     setLoading(true);
@@ -67,12 +67,12 @@ export function ModalDevolucaoFrasco({
         <h2 className="text-xl font-bold mb-4 text-amber-500">Registrar Devolução</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="devolucao-frasco-id" className="block text-sm font-medium mb-1">Frasco / empréstimo a devolver *</label>
-            <input id="devolucao-frasco-id" type="text" required value={frascoOuEmprestimo} onChange={(e) => setFrascoOuEmprestimo(e.target.value)} placeholder="ID do frasco ou do empréstimo" className="w-full rounded-lg border border-foreground/10 bg-foreground/5 px-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none" />
+            <label htmlFor="devolucao-frasco-id" className="block text-sm font-medium mb-1">Código do frasco ou empréstimo *</label>
+            <input id="devolucao-frasco-id" type="text" required value={frascoOuEmprestimo} onChange={(e) => setFrascoOuEmprestimo(e.target.value)} placeholder="Ex.: LCQUI-12345" className="w-full rounded-lg border border-foreground/10 bg-foreground/5 px-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none" />
             <p className="mt-1 text-xs text-foreground/50">Informe o identificador exibido no empréstimo ativo do frasco.</p>
           </div>
           <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-400">
-            UI-18: Prevenção de erro em pesagens exige dupla digitação independente da massa em gramas (g).
+            Digite o peso de retorno duas vezes para confirmar o valor.
           </div>
           <div>
             <SeletorUsuarioReagente
@@ -122,7 +122,7 @@ export function ModalDevolucaoFrasco({
               O frasco ficou vazio nesta devolução? (Esgotamento)
             </label>
             <p className="text-xs text-foreground/50 mt-1">
-              Conforme UI-07: a confirmação do gestor é a autoridade do esgotamento; o retorno vira a tara real e o saldo torna-se 0.
+              Ao confirmar o frasco esgotado, o sistema registra o retorno como a tara real e zera o saldo.
             </p>
           </div>
           {errorMsg && <div className="text-amber-500 text-sm bg-amber-500/10 p-3 rounded-lg border border-amber-500/20">{errorMsg}</div>}

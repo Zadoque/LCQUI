@@ -17,7 +17,7 @@ export default function ProfessoresDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMateriaModalOpen, setIsMateriaModalOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<{ type: "success" | "error"; text: string; link?: string } | null>(null);
+  const [toastMessage, setToastMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Form states
   const [nome, setNome] = useState("");
@@ -69,8 +69,9 @@ export default function ProfessoresDashboard() {
       
       setToastMessage({
         type: "success",
-        text: "Professor convidado com sucesso!",
-        link: data.resetLink,
+        text: data.emailEnviado
+          ? "Professor convidado com sucesso. As instruções de acesso foram enviadas por e-mail."
+          : "Professor adicionado com sucesso.",
       });
       
       setIsModalOpen(false);
@@ -143,14 +144,6 @@ export default function ProfessoresDashboard() {
                 )}
                 {toastMessage.text}
               </div>
-              {toastMessage.link && (
-                <div className="mt-1 bg-background/50 p-3 rounded-lg border border-green-500/10 break-all text-sm">
-                  <span className="font-semibold block mb-1">Link de Configuração de Senha:</span>
-                  <a href={toastMessage.link} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono">
-                    {toastMessage.link}
-                  </a>
-                </div>
-              )}
             </div>
           )}
 
@@ -238,8 +231,9 @@ export default function ProfessoresDashboard() {
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-semibold mb-1 text-foreground/80">Nome Completo</label>
+                      <label htmlFor="professor-nome" className="block text-sm font-semibold mb-1 text-foreground/80">Nome Completo</label>
                       <input
+                        id="professor-nome"
                         type="text"
                         required={!uidAlvo}
                         disabled={Boolean(uidAlvo)}
@@ -250,8 +244,9 @@ export default function ProfessoresDashboard() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold mb-1 text-foreground/80">E-mail (UFSC)</label>
+                      <label htmlFor="professor-email" className="block text-sm font-semibold mb-1 text-foreground/80">E-mail (UFSC)</label>
                       <input
+                        id="professor-email"
                         type="email"
                         required={!uidAlvo}
                         disabled={Boolean(uidAlvo)}
@@ -265,8 +260,9 @@ export default function ProfessoresDashboard() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-semibold mb-1 text-foreground/80">Centro</label>
+                      <label htmlFor="professor-centro" className="block text-sm font-semibold mb-1 text-foreground/80">Centro</label>
                       <select
+                        id="professor-centro"
                         required
                         value={centro}
                         onChange={(e) => setCentro(e.target.value)}
@@ -279,8 +275,9 @@ export default function ProfessoresDashboard() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold mb-1 text-foreground/80">Laboratório</label>
+                      <label htmlFor="professor-laboratorio" className="block text-sm font-semibold mb-1 text-foreground/80">Laboratório</label>
                       <input
+                        id="professor-laboratorio"
                         type="text"
                         required
                         value={laboratorio}

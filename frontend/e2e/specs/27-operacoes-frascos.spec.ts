@@ -71,7 +71,7 @@ test.describe("Operações de frascos UI-06/07/14/16/17/18", () => {
     guardaConsole.permitir(/status of 429/);
     const frasco = await abrirFrascoSeed(page);
     await cardDoFrasco(page, frasco.codigo).getByRole("button", { name: "Pesar", exact: true }).click();
-    await expect(page.getByRole("heading", { name: /Pesagem de Rotina \/ Inventário/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Pesagem de rotina \/ inventário/ })).toBeVisible();
     await page.locator('input[type="number"]').nth(0).fill("10");
     await page.locator('input[type="number"]').nth(1).fill("11");
     await page.getByRole("button", { name: "Salvar Pesagem" }).click();
@@ -83,7 +83,7 @@ test.describe("Operações de frascos UI-06/07/14/16/17/18", () => {
   const frasco = await abrirFrascoSeed(page);
 
     await cardDoFrasco(page, frasco.codigo).getByRole("button", { name: "Pesar", exact: true }).click();
-    await expect(page.getByRole("heading", { name: /Pesagem de Rotina \/ Inventário/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Pesagem de rotina \/ inventário/ })).toBeVisible();
     const leituras = page.locator('input[type="number"]');
     await leituras.nth(0).fill("225");
     await leituras.nth(1).fill("225");
@@ -100,7 +100,7 @@ test.describe("Operações de frascos UI-06/07/14/16/17/18", () => {
     guardaConsole.permitir(/status of 429/);
     const frasco = await abrirFrascoSeed(page);
     await cardDoFrasco(page, frasco.codigo).getByRole("button", { name: "Descartar", exact: true }).click();
-    await expect(page.getByRole("heading", { name: /Descarte Terminal de Frasco/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Descarte definitivo de frasco/ })).toBeVisible();
     await page.getByPlaceholder(/motivo do descarte/).fill("curto");
     await page.getByRole("button", { name: "Confirmar Descarte" }).click();
     await expect(page.getByText("O laudo/motivo do descarte deve conter pelo menos 20 caracteres.")).toBeVisible();

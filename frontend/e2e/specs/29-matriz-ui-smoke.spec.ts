@@ -7,7 +7,7 @@ test.describe("Cobertura transversal da matriz", () => {
     await login(page, "gestor.almoxarifado@lcqui.local");
     await page.goto("/reagentes");
     await expect(page.getByRole("heading", { name: "Catálogo de Reagentes" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Estoque Atual/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Estoque atual/i })).toBeVisible();
     await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
     await expect(page.getByText("Reagente Seed", { exact: true })).toBeVisible();
     await expect(page.getByText("Frascos Aptos", { exact: true })).toBeVisible();

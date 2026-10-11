@@ -63,8 +63,9 @@ export function NovoGestorAlmoxarifadoModal({
         ...(modo === "existente" ? { uidAlvo } : { nome: nome.trim(), email: email.trim() }),
       });
 
+      // UI-02/UI-03: convite administrativo e definição posterior da senha.
       setMensagem(modo === "novo" && resultado.emailEnviado
-        ? "Gestor criado. O e-mail oficial do Firebase Authentication foi enviado para definir a senha."
+        ? "Gestor criado. Enviamos um e-mail para definir a senha."
         : "Gestor de almoxarifado adicionado com sucesso.");
       // Mantém o modal aberto para que a confirmação normativa permaneça visível;
       // o fechamento é uma ação explícita do usuário.
