@@ -187,7 +187,7 @@ export function ReagentesModaisManager({
         item={almoxSelecionado}
       />
       <GerenciarGestoresAlmoxarifadoModal
-        key={`gestores-almox-${almoxSelecionado?.id ?? "gestores"}`}
+        key={`gestores-almox-${almoxSelecionado?.id ?? "gestores"}-${isGestoresAlmoxOpen ? "aberto" : "fechado"}`}
         isOpen={isGestoresAlmoxOpen}
         onClose={() => setIsGestoresAlmoxOpen(false)}
         onSuccess={() => setIsGestoresAlmoxOpen(false)}

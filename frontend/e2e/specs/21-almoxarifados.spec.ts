@@ -98,8 +98,8 @@ test.describe("ALMOX-E2E — UI-03", () => {
 
   test("ALMOX-E2E-008: ativo não remove último gestor", async ({ page, guardaConsole }) => {
     guardaConsole.permitir(/status 400|400|failed-precondition|Gestor informado/);
-    const id = await criar(page, true, true); await page.getByTestId(`almox-btn-gerenciar-${id}`).click(); await page.getByRole("checkbox", { name: gestorNome }).uncheck();
-    const resposta = esperarCallable(page, "gerenciarAlmoxarifado"); await page.getByTestId("btn-salvar-almoxarifado").click(); await resposta; await expect(page.getByTestId("erro-campo-almoxarifado")).toContainText("gestor");
+    const id = await criar(page, true, true); await page.getByTestId(`almox-btn-gerenciar-${id}`).click(); await expect(page.getByTestId("modal-gerenciar-gestores-almoxarifado")).toBeVisible(); await page.getByRole("checkbox", { name: gestorNome }).uncheck();
+    const resposta = esperarCallable(page, "gerenciarAlmoxarifado"); await page.getByTestId("btn-salvar-gestores-almoxarifado").click(); await resposta; await expect(page.getByTestId("erro-gerenciar-gestores-almoxarifado")).toContainText("gestor");
   });
 
   test("ALMOX-E2E-009: opções exibem somente gestor ativo", async ({ page }) => {
@@ -108,5 +108,40 @@ test.describe("ALMOX-E2E — UI-03", () => {
 
   test("ALMOX-E2E-010: criar Local inline seleciona o retorno", async ({ page }) => {
     await abrirNovo(page); await preencher(page, false, true); await expect(page.getByTestId("btn-salvar-almoxarifado")).toBeEnabled();
+  });
+
+  test("ALMOX-E2E-011: gerenciar gestores abre modal próprio e permite escolher almoxarifado", async ({ page }) => {
+    await page.getByRole("button", { name: "Gerenciar Gestores de Almoxarifado" }).click();
+    await expect(page.getByTestId("modal-gerenciar-gestores-almoxarifado")).toBeVisible();
+    await expect(page.getByTestId("modal-almoxarifado")).toHaveCount(0);
+    await expect(page.getByTestId("seletor-almoxarifado-gestores")).toBeVisible();
+  });
+
+  test("ALMOX-E2E-012: aluno não bolsista pode receber e ser vinculado como gestor", async ({ page }) => {
+    await page.goto("/pessoas");
+    await page.getByLabel("Buscar pessoa").fill("Aluno Normal");
+    const linha = page.getByRole("row").filter({ hasText: "Aluno Normal" }).first();
+    await expect(linha).toBeVisible();
+    await linha.getByRole("button", { name: "Selecionar" }).click();
+    await page.getByLabel("Papel").selectOption("Gestor_Almoxarifado");
+    const respostaPapel = esperarCallable(page, "convidarUsuario");
+    await page.getByRole("button", { name: "Conceder papel" }).click();
+    await respostaPapel;
+    await expect(page.getByRole("status")).toContainText("Papel concedido");
+
+    await abrirNovo(page);
+    await preencher(page, true, true);
+    await expect(page.getByRole("checkbox", { name: "Aluno Normal" })).toBeVisible();
+    await page.getByRole("checkbox", { name: "Aluno Normal" }).check();
+    const respostaAlmox = esperarCallable(page, "gerenciarAlmoxarifado");
+    await page.getByTestId("btn-salvar-almoxarifado").click();
+    const resultado = await lerResultadoCallable(await respostaAlmox);
+    expect(resultado.id).toBeTruthy();
+    await expect(page.getByTestId("modal-almoxarifado")).toHaveCount(0);
+  });
+
+  test("ALMOX-E2E-013: bolsista não aparece como gestor elegível", async ({ page }) => {
+    await abrirNovo(page);
+    await expect(page.getByRole("checkbox", { name: "Bolsista (Seed)" })).toHaveCount(0);
   });
 });
