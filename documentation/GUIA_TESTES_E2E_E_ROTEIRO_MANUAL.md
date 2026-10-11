@@ -41,6 +41,11 @@ As specs `29-matriz-ui-smoke.spec.ts`, `30-metrologia-q06.spec.ts` e
 devolução anômala Q06, as três rotas metrológicas e configuração/alerta de
 escassez.
 
+`33-gestor-operacional.spec.ts` comprova `ALM-OPERACIONAL-E2E-001`: o usuário
+`gestor.almoxarifado@lcqui.local` acessa `/reagentes?aba=movimentacoes` e
+`/reagentes?aba=alertas`, visualizando o histórico físico, a quarentena e os
+alertas operacionais no escopo do almoxarifado vinculado.
+
 ## 2. Como rodar
 
 Existem diferentes formas de executar os testes E2E:

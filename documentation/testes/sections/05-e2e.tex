@@ -39,6 +39,12 @@ Essa cobertura local não prova Scheduler, transporte/Storage publicados,
 índices compostos de produção ou provedores externos; tais verificações são
 explicitamente pós-deploy.
 
+A spec \texttt{33-gestor-operacional.spec.ts} prova
+\texttt{ALM-OPERACIONAL-E2E-001}: o Gestor de Almoxarifado navega para as
+abas de movimentações e quarentena/alertas, e cada URL renderiza seu painel
+operacional real no escopo do almoxarifado vinculado. As abas não são apenas
+estado visual do catálogo.
+
 Nenhum schema, backend ou Rule foi relaxado para satisfazer a UI. Consultas
 diretas ao Firestore/Auth Emulator apenas confirmam efeitos de backend
 (vínculos, matrícula, notificação, OOB, Post, Comentário); a jornada continua
