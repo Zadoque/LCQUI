@@ -40,8 +40,8 @@ export function ModalDescarteFrasco({
       });
       if (onSuccess) onSuccess();
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro ao descartar frasco.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro ao descartar frasco.");
     } finally {
       setLoading(false);
     }

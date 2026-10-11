@@ -55,8 +55,8 @@ export function ModalExtravioReencontro({
       }
       if (onSuccess) onSuccess();
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro ao registrar extravio/reencontro.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro ao registrar extravio/reencontro.");
     } finally {
       setLoading(false);
     }

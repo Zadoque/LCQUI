@@ -43,8 +43,8 @@ export function ModalPesagemRotina({
       });
       if (onSuccess) onSuccess();
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro ao registrar pesagem.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro ao registrar pesagem.");
     } finally {
       setLoading(false);
     }

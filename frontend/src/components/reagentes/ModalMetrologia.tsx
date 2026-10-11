@@ -72,8 +72,8 @@ export function ModalMetrologia({
       }
       if (onSuccess) onSuccess();
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro na resolução metrológica.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro na resolução metrológica.");
     } finally {
       setLoading(false);
     }

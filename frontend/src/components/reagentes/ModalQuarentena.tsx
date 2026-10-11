@@ -53,8 +53,8 @@ export function ModalQuarentena({
       }
       if (onSuccess) onSuccess();
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro na operação de quarentena.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro na operação de quarentena.");
     } finally {
       setLoading(false);
     }

@@ -50,8 +50,8 @@ export function ModalBaixaPatrimonial({
       });
       if (onSuccess) onSuccess();
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro ao registrar baixa patrimonial.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro ao registrar baixa patrimonial.");
     } finally {
       setLoading(false);
     }

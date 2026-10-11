@@ -3,7 +3,7 @@ import { httpsCallable } from "firebase/functions";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { functions, db } from "@/lib/firebase/config";
 import { openPdfFromBase64 } from "@/lib/pdf";
-import { Printer, Loader2, X, Plus, Trash2, Search } from "lucide-react";
+import { Printer, Loader2, X, Trash2, Search } from "lucide-react";
 
 interface ModalEtiquetasProps {
   isOpen: boolean;
@@ -143,9 +143,9 @@ export default function ModalEtiquetasReagentes({ isOpen, onClose }: ModalEtique
         const data = res.data as { base64: string };
         openPdfFromBase64(data.base64);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      setErrorMsg("Erro ao gerar PDF: " + error.message);
+      setErrorMsg(`Erro ao gerar PDF: ${error instanceof Error ? error.message : "tente novamente."}`);
     } finally {
       setLoading(false);
     }

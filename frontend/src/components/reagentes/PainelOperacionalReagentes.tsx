@@ -15,7 +15,7 @@ interface PainelOperacionalReagentesProps {
   aba: AbaOperacional;
   idAlmoxarifado?: string;
   uid?: string;
-  onAction: (action: string, payload: any) => void;
+  onAction: (action: string, payload: unknown) => void;
   refreshToken: number;
 }
 
@@ -62,7 +62,8 @@ export function PainelOperacionalReagentes({
   }, [idAlmoxarifado, uid]);
 
   useEffect(() => {
-    void carregar();
+    const carregamento = window.setTimeout(() => void carregar(), 0);
+    return () => window.clearTimeout(carregamento);
   }, [carregar, refreshToken]);
 
   if (!idAlmoxarifado || !uid) {

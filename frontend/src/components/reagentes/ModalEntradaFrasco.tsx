@@ -65,8 +65,8 @@ export function ModalEntradaFrasco({
       }
       if (onSuccess) onSuccess();
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro interno ao cadastrar o frasco.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro interno ao cadastrar o frasco.");
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase/config";
 import { useAuth } from "@/contexts/AuthContext";
 import { X } from "lucide-react";
@@ -22,7 +22,11 @@ import {
 } from "@/lib/intencaoOperacao";
 import { construirPayloadConvidarAluno } from "@/lib/convitesPayload.mjs";
 import type { RoteiroProjecao } from "@/types/turmas";
+import type { Turma } from "@/types/turmas";
 import type { ProfessorProjecao } from "@/types/usuarios";
+
+type TurmaLista = Pick<Turma, "id" | "nome_turma" | "codigo_turma" | "ano" | "semestre" | "nome_materia" | "nome_professor" | "status" | "id_professor">;
+type AlunoEncontrado = { id: string; nome: string; email?: string };
 
 interface ModalProps {
   isOpen: boolean;
@@ -31,7 +35,7 @@ interface ModalProps {
 
 export function TurmasArquivadasModal({ isOpen, onClose }: ModalProps) {
   const { user } = useAuth();
-  const [arquivadas, setArquivadas] = useState<any[]>([]);
+  const [arquivadas, setArquivadas] = useState<TurmaLista[]>([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
@@ -45,7 +49,7 @@ export function TurmasArquivadasModal({ isOpen, onClose }: ModalProps) {
     );
 
     const unsub = onSnapshot(q, (snap) => {
-      const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const lista = snap.docs.map(d => ({ id: d.id, ...d.data() })) as TurmaLista[];
       setArquivadas(lista);
     });
     return () => unsub();
@@ -126,7 +130,7 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
   const { user, roles } = useAuth();
   const [idTurma, setIdTurma] = useState(turmaPreSelecionadaId || "");
   const [toast, setToast] = useState<{ type: "success" | "error", msg: string } | null>(null);
-  const [turmas, setTurmas] = useState<any[]>([]);
+  const [turmas, setTurmas] = useState<TurmaLista[]>([]);
   const [activeTab, setActiveTab] = useState<"buscar" | "convidar">("buscar");
   const [matriculados, setMatriculados] = useState<Set<string>>(new Set());
 
@@ -147,7 +151,7 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
   const [letraInicial, setLetraInicial] = useState("A");
   const [filtroTexto, setFiltroTexto] = useState("");
   const [loadingBusca, setLoadingBusca] = useState(false);
-  const [alunosEncontrados, setAlunosEncontrados] = useState<any[]>([]);
+  const [alunosEncontrados, setAlunosEncontrados] = useState<AlunoEncontrado[]>([]);
   const [loadingAdicao, setLoadingAdicao] = useState<string | null>(null);
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
@@ -155,7 +159,9 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
   const functions = getFunctions();
 
   useEffect(() => {
-    if (isOpen && turmaPreSelecionadaId) setIdTurma(turmaPreSelecionadaId);
+    if (!isOpen || !turmaPreSelecionadaId) return;
+    const sincronizacao = window.setTimeout(() => setIdTurma(turmaPreSelecionadaId), 0);
+    return () => window.clearTimeout(sincronizacao);
   }, [isOpen, turmaPreSelecionadaId]);
 
   useEffect(() => {
@@ -167,16 +173,13 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
       q = query(collection(db, "Turma"), where("id_professor", "==", user.uid), where("status", "==", "Ativo"));
     }
     const unsub = onSnapshot(q, snap => {
-      setTurmas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setTurmas(snap.docs.map(d => ({ id: d.id, ...d.data() })) as TurmaLista[]);
     });
     return () => unsub();
   }, [isOpen, user, isGestorGeral]);
 
   useEffect(() => {
-    if (!isOpen || !idTurma) {
-      setMatriculados(new Set());
-      return;
-    }
+    if (!isOpen || !idTurma) return;
     const unsub = onSnapshot(collection(db, "Turma", idTurma, "Alunos"), snap => {
       setMatriculados(new Set(snap.docs.map(d => d.id)));
     });
@@ -215,9 +218,9 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
       await adicionar({ idOperacao: intencao.idOperacao, idTurma, idAluno });
       if (session) limparIntencao(session, chave);
       setToast({ type: "success", msg: "Aluno adicionado com sucesso!" });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao adicionar aluno:", error);
-      setToast({ type: "error", msg: error.message || "Erro ao adicionar aluno." });
+      setToast({ type: "error", msg: error instanceof Error ? error.message : "Erro ao adicionar aluno." });
     } finally {
       setLoadingAdicao(null);
     }
