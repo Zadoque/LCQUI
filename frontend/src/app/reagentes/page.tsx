@@ -69,6 +69,7 @@ function ReagentesContent() {
   const [isMetrologiaModalOpen, setIsMetrologiaModalOpen] = useState(false);
   const [isPesagemRotinaModalOpen, setIsPesagemRotinaModalOpen] = useState(false);
   const [isDescarteModalOpen, setIsDescarteModalOpen] = useState(false);
+  const [isEscassezModalOpen, setIsEscassezModalOpen] = useState(false);
   const [frascoSelecionado, setFrascoSelecionado] = useState<any>(null);
 
   // Seleções de contexto
@@ -104,6 +105,11 @@ function ReagentesContent() {
       case "metrologia":
         setFrascoSelecionado(payload);
         setIsMetrologiaModalOpen(true);
+        break;
+      case "configurar_escassez":
+        setSelectedResumo(payload.reagente);
+        setSelectedEspec(payload.espec);
+        setIsEscassezModalOpen(true);
         break;
       case "pesagem_rotina":
         setFrascoSelecionado(payload);
@@ -239,6 +245,8 @@ function ReagentesContent() {
             setIsPesagemRotinaModalOpen={setIsPesagemRotinaModalOpen}
             isDescarteModalOpen={isDescarteModalOpen}
             setIsDescarteModalOpen={setIsDescarteModalOpen}
+            isEscassezModalOpen={isEscassezModalOpen}
+            setIsEscassezModalOpen={setIsEscassezModalOpen}
             frascoSelecionado={frascoSelecionado}
             setFrascoSelecionado={setFrascoSelecionado}
             onSuccessCatalogo={carregarCatalogo}

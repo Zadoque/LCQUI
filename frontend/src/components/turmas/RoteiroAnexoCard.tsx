@@ -1,12 +1,6 @@
 import React, { useState } from "react";
-import { getFunctions, httpsCallable } from "firebase/functions";
 import { FileText } from "lucide-react";
-import {
-  limparIntencao,
-  obterIntencaoPersistida,
-  chaveIntencaoEmitirUrl,
-  assinaturaIntencaoEmitirUrl,
-} from "@/lib/intencaoOperacao";
+import { emitirUrlDownloadRoteiro } from "@/services/turmas/turmasService";
 import type { RoteiroAnexo } from "@/types/turmas";
 
 export type { RoteiroAnexo };
@@ -32,31 +26,13 @@ export function RoteiroAnexoCard({
   const handleDownload = async () => {
     setLoading(true);
     try {
-      const fn = getFunctions();
-      const emitir = httpsCallable(fn, "emitirUrlDownloadRoteiro");
-
-      const idTurmaParaIntencao = isAlunoBolsista ? idTurma : null;
-      const idPostParaIntencao = isAlunoBolsista ? idPost : null;
-      const session = typeof window !== "undefined" ? window.sessionStorage : null;
-      const chave = chaveIntencaoEmitirUrl(anexo.id_roteiro, idTurmaParaIntencao, idPostParaIntencao);
-      const assinatura = assinaturaIntencaoEmitirUrl(anexo.id_roteiro, idTurmaParaIntencao, idPostParaIntencao);
-      const intencao = session
-        ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
-        : { idOperacao: crypto.randomUUID(), assinatura };
-
-      const payload: Record<string, string> = {
-        idOperacao: intencao.idOperacao,
+      const url = await emitirUrlDownloadRoteiro({
         idRoteiro: anexo.id_roteiro,
-      };
-      if (isAlunoBolsista) {
-        payload.idTurma = idTurma;
-        payload.idPost = idPost;
-      }
-
-      const res = await emitir(payload);
-      const data = res.data as { url: string };
-      window.open(data.url, "_blank");
-      if (session) limparIntencao(session, chave);
+        idTurma,
+        idPost,
+        isAlunoBolsista,
+      });
+      window.open(url, "_blank");
     } catch (err) {
       console.error("Erro ao emitir URL de download:", err);
       onErro("Erro ao gerar link de download do roteiro.");

@@ -1,16 +1,17 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { functions } from "@/lib/firebase/config";
-import { httpsCallable } from "firebase/functions";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { useAuth } from "@/contexts/AuthContext";
 import { NovaMateriaModal } from "@/components/materias/NovaMateriaModal";
 import { ListaMaterias } from "@/components/materias/ListaMaterias";
+import {
+  buscarProfessores,
+  buscarUsuariosSelecionaveis,
+  convidarProfessor,
+} from "@/services/usuarios/usuariosService";
 import type { Professor, UsuarioSelecionavel } from "@/types/usuarios";
 
 export default function ProfessoresDashboard() {
-  const { roles } = useAuth();
   const [professores, setProfessores] = useState<Professor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -30,19 +31,20 @@ export default function ProfessoresDashboard() {
 
   useEffect(() => {
     if (!isModalOpen) return;
-    const buscarUsuarios = httpsCallable(functions, "buscarUsuariosParaPapel");
-    buscarUsuarios({})
-      .then((resultado) => setUsuariosSelecionaveis((resultado.data as { usuarios: UsuarioSelecionavel[] }).usuarios))
+    let cancelado = false;
+    buscarUsuariosSelecionaveis()
+      .then((usuarios) => {
+        if (!cancelado) setUsuariosSelecionaveis(usuarios);
+      })
       .catch((error) => console.error("Erro ao buscar identidades existentes:", error));
+    return () => { cancelado = true; };
   }, [isModalOpen]);
 
   useEffect(() => {
     let cancelado = false;
-    const buscarProfessores = httpsCallable(functions, "buscarProfessores");
-    buscarProfessores({})
+    buscarProfessores()
       .then((resultado) => {
-        if (cancelado) return;
-        setProfessores((resultado.data as { professores: Professor[] }).professores);
+        if (!cancelado) setProfessores(resultado);
       })
       .catch((error) => console.error("Erro ao buscar professores:", error))
       .finally(() => {
@@ -58,21 +60,17 @@ export default function ProfessoresDashboard() {
     setToastMessage(null);
 
     try {
-      const convidarUsuario = httpsCallable(functions, "convidarUsuario");
-      const result = await convidarUsuario({ 
-        idOperacao: crypto.randomUUID(),
+      const data = await convidarProfessor({
         ...(uidAlvo ? { uidAlvo } : { email, nome }),
-        papel: "Professor",
         centro,
         laboratorio,
-        materias: selectedMaterias
+        materias: selectedMaterias,
       });
-      const data = result.data as { resetLink: string; uid: string };
       
       setToastMessage({
         type: "success",
         text: "Professor convidado com sucesso!",
-        link: data.resetLink
+        link: data.resetLink,
       });
       
       setIsModalOpen(false);
@@ -82,11 +80,12 @@ export default function ProfessoresDashboard() {
       setLaboratorio("");
       setSelectedMaterias([]);
       setUidAlvo("");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao convidar professor:", error);
+      const msg = error instanceof Error ? error.message : "Erro ao convidar professor";
       setToastMessage({
         type: "error",
-        text: error.message || "Erro ao convidar professor"
+        text: msg,
       });
     } finally {
       setIsSubmitting(false);

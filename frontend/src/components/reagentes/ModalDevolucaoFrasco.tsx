@@ -31,12 +31,15 @@ export function ModalDevolucaoFrasco({
     setErrorMsg("");
     try {
       const registrarDevolucao = httpsCallable(functions, "registrarDevolucao");
-      await registrarDevolucao({
+      const payload = {
         idOperacao: crypto.randomUUID(),
         idEmprestimo: idEmprestimo || frascoId,
         pesoRetorno: Number(pesoRetorno1),
-        pesoPerdaEvaporacao: evaporacao ? Number(evaporacao) : undefined,
         confirmarEsgotamento: ficouVazio,
+        ...(evaporacao.trim() ? { pesoPerdaEvaporacao: Number(evaporacao) } : {}),
+      };
+      await registrarDevolucao({
+        ...payload,
       });
       if (onSuccess) onSuccess();
       onClose();

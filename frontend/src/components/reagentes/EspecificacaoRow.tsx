@@ -47,7 +47,7 @@ export function EspecificacaoRow({ espec, reagente, onAction, readOnly }: Especi
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
           </svg>
           <span className="font-semibold text-sm">{espec.descricao} {espec.fabricante ? `(${espec.fabricante})` : ''}</span>
-          <span className="text-xs text-foreground/50 border border-foreground/10 px-2 rounded">{espec.estado_fisico}</span>
+          <span className="text-xs text-foreground/50 border border-foreground/10 px-2 rounded">{reagente.estado_fisico}</span>
         </div>
         {!readOnly && (
           <div className="flex gap-2">
@@ -63,6 +63,7 @@ export function EspecificacaoRow({ espec, reagente, onAction, readOnly }: Especi
             >
               + Frasco S/ Lote
             </button>
+            <button onClick={(e) => { e.stopPropagation(); onAction("configurar_escassez", { reagente, espec }); }} className="text-xs font-semibold text-amber-600 hover:bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">Configurar escassez</button>
           </div>
         )}
       </div>

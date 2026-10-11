@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { getFunctions, httpsCallable } from "firebase/functions";
 import { useAuth } from "@/contexts/AuthContext";
-import { ComentarioItemRow, type ComentarioItem } from "@/components/turmas/ComentarioItemRow";
+import { ComentarioItemRow } from "@/components/turmas/ComentarioItemRow";
+import {
+  listarComentariosPost,
+  adicionarComentario,
+  moderarComentario,
+  editarComentario,
+} from "@/services/turmas/turmasService";
+import type { ComentarioItem, VisaoComentario } from "@/types/turmas";
 
 interface ComentariosPostProps {
   turmaId: string;
@@ -18,7 +24,7 @@ export default function ComentariosPost({ turmaId, postId, readOnly }: Comentari
   const [loadingEdicao, setLoadingEdicao] = useState<string | null>(null);
   const [comentarioEditando, setComentarioEditando] = useState<string | null>(null);
   const [textoEditando, setTextoEditando] = useState("");
-  const [visao, setVisao] = useState<"AUTOR" | "COLEGA" | "AUDITOR" | null>(null);
+  const [visao, setVisao] = useState<VisaoComentario | null>(null);
   const [moderandoId, setModerandoId] = useState<string | null>(null);
   const [motivoModeracao, setMotivoModeracao] = useState("");
   const [erro, setErro] = useState<string | null>(null);
@@ -27,21 +33,30 @@ export default function ComentariosPost({ turmaId, postId, readOnly }: Comentari
 
   const carregar = useCallback(async () => {
     try {
-      const functions = getFunctions();
-      const listar = httpsCallable(functions, "listarComentariosPost");
-      const idOp = `listar-${turmaId}-${postId}-${Date.now()}`;
-      const resp = await listar({ idOperacao: idOp, idTurma: turmaId, idPost: postId });
-      const dados = resp.data as { comentarios: ComentarioItem[]; visao: string };
+      const dados = await listarComentariosPost({ idTurma: turmaId, idPost: postId });
       setComentarios(dados.comentarios);
-      setVisao(dados.visao as "AUTOR" | "COLEGA" | "AUDITOR");
+      setVisao(dados.visao);
     } catch (erro: unknown) {
       console.error("Erro ao listar comentários:", erro);
     }
   }, [turmaId, postId]);
 
   useEffect(() => {
-    carregar();
-  }, [carregar]);
+    let cancelado = false;
+    listarComentariosPost({ idTurma: turmaId, idPost: postId })
+      .then((dados) => {
+        if (!cancelado) {
+          setComentarios(dados.comentarios);
+          setVisao(dados.visao);
+        }
+      })
+      .catch((erro: unknown) => {
+        console.error("Erro ao listar comentários:", erro);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [turmaId, postId]);
 
   const handleComentar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,11 +64,7 @@ export default function ComentariosPost({ turmaId, postId, readOnly }: Comentari
     setLoading(true);
     setErro(null);
     try {
-      const functions = getFunctions();
-      const adicionarComentario = httpsCallable(functions, "adicionarComentario");
-      const idOp = `coment-${turmaId}-${postId}-${Date.now()}`;
       await adicionarComentario({
-        idOperacao: idOp,
         idTurma: turmaId,
         idPost: postId,
         texto: novoComentario,
@@ -84,11 +95,7 @@ export default function ComentariosPost({ turmaId, postId, readOnly }: Comentari
     setLoadingMod(idComentario);
     setErro(null);
     try {
-      const functions = getFunctions();
-      const moderar = httpsCallable(functions, "moderarComentario");
-      const idOp = `mod-${turmaId}-${postId}-${idComentario}-${Date.now()}`;
-      await moderar({
-        idOperacao: idOp,
+      await moderarComentario({
         idTurma: turmaId,
         idPost: postId,
         idComentario,
@@ -122,12 +129,7 @@ export default function ComentariosPost({ turmaId, postId, readOnly }: Comentari
     setLoadingEdicao(idComentario);
     setErro(null);
     try {
-      const functions = getFunctions();
-      const editarComentario = httpsCallable(functions, "editarComentario");
-      const idOp = `editar-comentario-${turmaId}-${postId}-${idComentario}-${Date.now()}`;
-
       await editarComentario({
-        idOperacao: idOp,
         idTurma: turmaId,
         idPost: postId,
         idComentario,

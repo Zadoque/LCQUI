@@ -14,5 +14,6 @@ export { ModalExtravioReencontro } from "./ModalExtravioReencontro";
 export { ModalMetrologia } from "./ModalMetrologia";
 export { ModalPesagemRotina } from "./ModalPesagemRotina";
 export { ModalDescarteFrasco } from "./ModalDescarteFrasco";
+export { ModalConfigurarEscassez } from "./ModalConfigurarEscassez";
 export { default as ModalRelatoriosReagentes } from "./ModalRelatoriosReagentes";
 export { default as ModalEtiquetasReagentes } from "./ModalEtiquetasReagentes";

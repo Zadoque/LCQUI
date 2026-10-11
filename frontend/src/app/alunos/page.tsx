@@ -1,20 +1,18 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
-import { db, functions } from "@/lib/firebase/config";
-import { httpsCallable } from "firebase/functions";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { NovoAlunoModal } from "@/components/turmas/ProfessorModais";
 import { HistoricoAlunoTurmaModal } from "@/components/turmas/HistoricoAlunoTurmaModal";
+import { buscarAlunosPorLetraETermo } from "@/services/usuarios/usuariosService";
 import {
-  obterIntencaoPersistida,
-  chaveIntencaoMembro,
-  assinaturaMembro,
-  limparIntencao,
-} from "@/lib/intencaoOperacao";
+  assinarTurmasAtivasDoProfessor,
+  assinarMembrosTurma,
+  removerAlunoTurma,
+} from "@/services/turmas/turmasService";
 import type { Aluno } from "@/types/usuarios";
+import type { Turma } from "@/types/turmas";
 
 export default function AlunosDashboard() {
   const { user, roles } = useAuth();
@@ -29,7 +27,7 @@ export default function AlunosDashboard() {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
   // Estados do Professor
-  const [turmas, setTurmas] = useState<any[]>([]);
+  const [turmas, setTurmas] = useState<Turma[]>([]);
   const [selectedTurma, setSelectedTurma] = useState<string>("");
   const [historicoModal, setHistoricoModal] = useState<{ isOpen: boolean, idAluno: string, nomeAluno: string, idTurma: string }>({ isOpen: false, idAluno: "", nomeAluno: "", idTurma: "" });
   const [loadingAcao, setLoadingAcao] = useState<string | null>(null);
@@ -41,34 +39,22 @@ export default function AlunosDashboard() {
   // Busca as turmas se for professor
   useEffect(() => {
     if (isChefeGeral || !user) return;
-    const q = query(
-      collection(db, "Turma"),
-      where("id_professor", "==", user.uid),
-      where("status", "==", "Ativo")
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      setTurmas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const unsub = assinarTurmasAtivasDoProfessor(user.uid, (turmasData) => {
+      setTurmas(turmasData);
     });
     return () => unsub();
   }, [user, isChefeGeral]);
 
   // Listener para alunos da turma selecionada (Professor)
   useEffect(() => {
-    if (isChefeGeral || !selectedTurma) {
-      if (!isChefeGeral) setAlunos([]);
-      return;
-    }
+    if (isChefeGeral || !selectedTurma) return;
     
-    setLoading(true);
-    const unsubAlunos = onSnapshot(collection(db, "Turma", selectedTurma, "Alunos"), (snap) => {
-      const listaAlunos: Aluno[] = snap.docs.map(d => {
-        const data = d.data();
-        return {
-          id: d.id,
-          nome: data.nome || "Sem nome",
-          ativo: true // Assume ativo se está na turma
-        };
-      });
+    const unsubAlunos = assinarMembrosTurma(selectedTurma, (membros) => {
+      const listaAlunos: Aluno[] = membros.map((m) => ({
+        id: m.id,
+        nome: m.nome,
+        ativo: true,
+      }));
       setAlunos(listaAlunos);
       setLoading(false);
       setHasSearched(true);
@@ -86,9 +72,10 @@ export default function AlunosDashboard() {
     setLoading(true);
     setHasSearched(true);
     try {
-      const buscarAlunos = httpsCallable(functions, "buscarAlunos");
-      const res = await buscarAlunos({ letra: filtroLetraInicial, termo: searchQuery.trim() || undefined });
-      const lista = (res.data as { alunos: Aluno[] }).alunos.map(a => ({ ...a, ativo: true }));
+      const lista = await buscarAlunosPorLetraETermo({
+        letra: filtroLetraInicial,
+        termo: searchQuery.trim() || undefined,
+      });
       setAlunos(lista);
     } catch (error) {
       console.error("Erro ao buscar alunos:", error);
@@ -107,15 +94,7 @@ export default function AlunosDashboard() {
     setLoadingAcao(idAluno);
     setConfirmarRemocao(null);
     try {
-      const session = typeof window !== "undefined" ? window.sessionStorage : null;
-      const chave = chaveIntencaoMembro(selectedTurma, idAluno, "REMOVER");
-      const assinatura = assinaturaMembro(selectedTurma, idAluno, "REMOVER");
-      const intencao = session
-        ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
-        : { idOperacao: crypto.randomUUID(), assinatura };
-      const removerAlunoTurma = httpsCallable(functions, "removerAlunoTurma");
-      await removerAlunoTurma({ idOperacao: intencao.idOperacao, idTurma: selectedTurma, idAluno });
-      if (session) limparIntencao(session, chave);
+      await removerAlunoTurma({ idTurma: selectedTurma, idAluno });
       setFeedback({ tipo: "sucesso", texto: "Aluno removido com sucesso!" });
     } catch (error: unknown) {
       console.error("Erro ao remover aluno:", error);
@@ -221,7 +200,15 @@ export default function AlunosDashboard() {
                   <select
                     className="w-full bg-background border border-foreground/10 rounded-lg px-3 py-3 outline-none focus:ring-2 focus:ring-primary text-sm shadow-sm"
                     value={selectedTurma}
-                    onChange={(e) => setSelectedTurma(e.target.value)}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setSelectedTurma(id);
+                      if (id) {
+                        setLoading(true);
+                      } else {
+                        setAlunos([]);
+                      }
+                    }}
                   >
                     <option value="">Selecione uma turma...</option>
                     {turmas.map(t => (

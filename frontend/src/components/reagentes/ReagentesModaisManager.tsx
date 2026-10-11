@@ -14,6 +14,7 @@ import {
   ModalMetrologia,
   ModalPesagemRotina,
   ModalDescarteFrasco,
+  ModalConfigurarEscassez,
 } from "@/components/reagentes/ModaisReagentes";
 import { NovaMateriaModal } from "@/components/materias/NovaMateriaModal";
 import { ModalAlmoxarifado } from "@/components/almoxarifados/ModalAlmoxarifado";
@@ -62,6 +63,8 @@ interface ReagentesModaisManagerProps {
   setIsPesagemRotinaModalOpen: (v: boolean) => void;
   isDescarteModalOpen: boolean;
   setIsDescarteModalOpen: (v: boolean) => void;
+  isEscassezModalOpen: boolean;
+  setIsEscassezModalOpen: (v: boolean) => void;
   frascoSelecionado: any;
   setFrascoSelecionado: (v: any) => void;
   onSuccessCatalogo: () => void;
@@ -109,6 +112,8 @@ export function ReagentesModaisManager({
   setIsPesagemRotinaModalOpen,
   isDescarteModalOpen,
   setIsDescarteModalOpen,
+  isEscassezModalOpen,
+  setIsEscassezModalOpen,
   frascoSelecionado,
   setFrascoSelecionado,
   onSuccessCatalogo,
@@ -207,7 +212,7 @@ export function ReagentesModaisManager({
               setFrascoSelecionado(null);
             }}
             frascoId={frascoSelecionado.id}
-            isExtraviado={frascoSelecionado.localizacao === "EXTRAVIADO"}
+            isExtraviado={frascoSelecionado.situacao_localizacao === "EXTRAVIADO"}
             onSuccess={onSuccessCatalogo}
           />
           <ModalMetrologia
@@ -232,17 +237,26 @@ export function ReagentesModaisManager({
             frascoId={frascoSelecionado.id}
             onSuccess={onSuccessCatalogo}
           />
-          <ModalDescarteFrasco
+      <ModalDescarteFrasco
             isOpen={isDescarteModalOpen}
             onClose={() => {
               setIsDescarteModalOpen(false);
               setFrascoSelecionado(null);
             }}
             frascoId={frascoSelecionado.id}
-            onSuccess={onSuccessCatalogo}
-          />
+        onSuccess={onSuccessCatalogo}
+      />
         </>
       )}
+      <ModalConfigurarEscassez
+        isOpen={isEscassezModalOpen}
+        onClose={() => setIsEscassezModalOpen(false)}
+        idAlmoxarifado={idAlmoxarifado}
+        idResumoReagente={selectedResumo?.id}
+        idEspecificacaoReagente={selectedEspec?.id}
+        descricao={selectedEspec?.descricao}
+        onSuccess={onSuccessCatalogo}
+      />
     </>
   );
 }

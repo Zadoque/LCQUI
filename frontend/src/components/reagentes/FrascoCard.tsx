@@ -29,7 +29,7 @@ export function FrascoCard({ frasco, onAction, readOnly }: FrascoCardProps) {
               Quarentena
             </span>
           )}
-          {frasco.localizacao === 'EXTRAVIADO' && (
+          {frasco.situacao_localizacao === 'EXTRAVIADO' && (
             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-500">
               Extraviado
             </span>
@@ -52,7 +52,7 @@ export function FrascoCard({ frasco, onAction, readOnly }: FrascoCardProps) {
             {frasco.em_quarentena ? "Decisão Quarentena" : "Quarentena"}
           </button>
           <button onClick={() => onAction("extravio", frasco)} className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-500 hover:bg-purple-500/20">
-            {frasco.localizacao === "EXTRAVIADO" ? "Reencontrar" : "Extraviar"}
+            {frasco.situacao_localizacao === "EXTRAVIADO" ? "Reencontrar" : "Extraviar"}
           </button>
           <button onClick={() => onAction("pesagem_rotina", frasco)} className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-500 hover:bg-cyan-500/20">
             Pesar

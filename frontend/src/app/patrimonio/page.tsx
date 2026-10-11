@@ -26,6 +26,7 @@ export default function PatrimonioDashboard() {
   const isChefe = roles.includes("Chefe_Geral");
   const isGestorPatrimonio = roles.includes("Gestor_Bens_Patrimoniais");
   const hasManagementAccess = isChefe || isGestorPatrimonio;
+  const canRequestAddition = roles.includes("Professor");
 
   const {
     bens,
@@ -58,6 +59,7 @@ export default function PatrimonioDashboard() {
           <PatrimonioActionBar
             isChefe={isChefe}
             hasManagementAccess={hasManagementAccess}
+            canRequestAddition={canRequestAddition}
             onNovoBem={() => setIsNovoBemOpen(true)}
             onNotificacoes={() => setIsNotificacoesOpen(true)}
             onRelatorios={() => setIsRelatoriosOpen(true)}
@@ -143,6 +145,7 @@ export default function PatrimonioDashboard() {
             isOpen={isNovoBemOpen}
             onClose={() => setIsNovoBemOpen(false)}
             onSuccess={searchFirestore}
+            uid={user?.uid}
           />
 
           <ModalNotificacoesPatrimonio

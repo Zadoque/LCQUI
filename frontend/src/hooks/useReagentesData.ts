@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { collection, getDocs, query, where, limit } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
-import { db, functions } from "@/lib/firebase/config";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  obterCatalogoReagentes,
+  obterEstoqueAtual,
+  buscarAlmoxarifadoDoGestor,
+} from "@/services/reagentes/reagentesService";
 import type { ResumoReagente, EstoqueSnapshot } from "@/types/reagentes";
 
 export function useReagentesData(abaParam: string = "catalogo") {
@@ -40,14 +42,8 @@ export function useReagentesData(abaParam: string = "catalogo") {
   // Busca o almoxarifado vinculado
   useEffect(() => {
     if (!user || !isGestorAlmox) return;
-    void getDocs(
-      query(
-        collection(db, "Gestor_Almoxarifado_x_Almoxarifado"),
-        where("id_gestor_almoxarifado", "==", user.uid),
-        limit(1)
-      )
-    )
-      .then((snapshot) => setIdAlmoxarifado(snapshot.docs[0]?.data().id_almoxarifado as string | undefined))
+    void buscarAlmoxarifadoDoGestor(user.uid)
+      .then((id) => setIdAlmoxarifado(id))
       .catch(() => setIdAlmoxarifado(undefined));
   }, [user, isGestorAlmox]);
 
@@ -55,23 +51,8 @@ export function useReagentesData(abaParam: string = "catalogo") {
   const carregarCatalogo = useCallback(async () => {
     setLoading(true);
     try {
-      const obterCat = httpsCallable(functions, "obterCatalogoReagentes");
-      try {
-        const res = await obterCat();
-        const data = res.data as { catalogo?: { resumos?: Record<string, ResumoReagente> } };
-        if (data?.catalogo?.resumos) {
-          const lista = Object.values(data.catalogo.resumos);
-          setReagentes(lista.sort((a, b) => (a.nome || "").localeCompare(b.nome || "")));
-          return;
-        }
-      } catch {
-        // Fallback para Firestore direto
-      }
-
-      const q = query(collection(db, "Resumo_Reagente"), limit(200));
-      const snap = await getDocs(q);
-      const lista = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as ResumoReagente[];
-      setReagentes(lista.sort((a, b) => (a.nome || "").localeCompare(b.nome || "")));
+      const lista = await obterCatalogoReagentes();
+      setReagentes(lista);
     } catch (error) {
       console.error("Erro ao carregar catálogo:", error);
     } finally {
@@ -90,32 +71,14 @@ export function useReagentesData(abaParam: string = "catalogo") {
     setLoadingEstoque(true);
     setErroEstoque("");
     setRateLimited(false);
-    try {
-      const obterEstoque = httpsCallable(functions, "obterEstoqueAtual");
-      const res = await obterEstoque({ idAlmoxarifado: almoxTarget });
-      const data = res.data as Partial<EstoqueSnapshot>;
-      setEstoqueSnapshot({
-        qtd_aptos: data.qtd_aptos ?? 0,
-        qtd_total: data.qtd_total ?? 0,
-        qtd_emprestados: data.qtd_emprestados ?? 0,
-        qtd_saldo_desconhecido: data.qtd_saldo_desconhecido ?? 0,
-        massa_aferida_g: data.massa_aferida_g ?? null,
-        volume_aferido_ml: data.volume_aferido_ml ?? null,
-        idadeMs: data.idadeMs,
-        fonte: data.fonte,
-        calculadoEm: new Date(),
-      });
-    } catch (err: unknown) {
-      const errObj = err as { code?: string; message?: string };
-      if (errObj?.code === "resource-exhausted" || errObj?.message?.includes("Rate limit")) {
-        setRateLimited(true);
-        setErroEstoque("Limite de 5 consultas/minuto por usuário atingido (UI-19). Aguarde um instante.");
-      } else {
-        setErroEstoque(errObj?.message || "Não foi possível calcular o estoque atual.");
-      }
-    } finally {
-      setLoadingEstoque(false);
+    const resultado = await obterEstoqueAtual({ idAlmoxarifado: almoxTarget });
+    if (resultado.ok) {
+      setEstoqueSnapshot(resultado.data);
+    } else {
+      if (resultado.rateLimit) setRateLimited(true);
+      setErroEstoque(resultado.message);
     }
+    setLoadingEstoque(false);
   }, [idAlmoxarifado, isChefe]);
 
   useEffect(() => {

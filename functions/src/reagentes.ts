@@ -60,7 +60,7 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
     if (!resumoSnap.exists || !especSnap.exists) throw new HttpsError("not-found", "Resumo ou especificação de reagente não encontrada.");
     const especData = especSnap.data()!;
     const densidade = especData.densidade;
-    const estadoFisico = especData.estado_fisico;
+    const estadoFisico = resumoSnap.data()?.estado_fisico;
     if (estadoFisico !== "LIQUIDO" && estadoFisico !== "SOLIDO") throw new HttpsError("failed-precondition", "Estado físico da especificação inválido.");
 
     if (dados.idLote) {

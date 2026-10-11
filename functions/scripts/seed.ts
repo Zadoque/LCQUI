@@ -3,6 +3,7 @@ import { getAuth, UserRecord } from "firebase-admin/auth";
 import { Timestamp, getFirestore } from "firebase-admin/firestore";
 import * as admin from "firebase-admin";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { chaveAlunoMatricula, chaveLocal, chaveMateria, chaveTurmaCodigo, normalizarCodigoMateria } from "../src/chaves";
 
 /** Fixture manual canônica M9/M11/M13. Recusa qualquer execução fora dos emuladores. */
@@ -88,12 +89,17 @@ async function writeFixture(): Promise<void> {
   const firestore = getFirestore(); const batch = firestore.batch();
   for (const user of users.filter((item) => item.activeDocument)) {
     batch.set(firestore.collection("Usuarios").doc(user.uid), usuarioData(user));
-    for (const role of user.roles) batch.set(firestore.collection(role).doc(user.uid), role === "Professor" ? { id_usuario: user.uid, centro: "CCT", laboratorio: "Laboratório de Química" } : { id_usuario: user.uid });
+    for (const role of user.roles) batch.set(firestore.collection(role).doc(user.uid), role === "Professor" ? { id_usuario: user.uid, ativo: true, centro: "CCT", laboratorio: "Laboratório de Química" } : { id_usuario: user.uid });
     if (user.matricula) { batch.set(firestore.collection("Aluno").doc(user.uid), { id_usuario: user.uid, numero_matricula: user.matricula, nome: user.name, letra_inicial: user.name.charAt(0).toUpperCase() }); batch.set(firestore.collection("Chaves_Unicas").doc(chaveAlunoMatricula(user.matricula)), { tipo: "Aluno", id_recurso: user.uid, matricula: user.matricula, criado_em: FIXTURE_TIME }); }
   }
+  batch.set(firestore.collection("Controle_Papeis").doc("singleton"), {
+    chefes_ativos: 1,
+    gestores_patrimoniais_ativos: 1,
+    versao: 1,
+  });
   const materias = [{ id: "materia-quimica-geral", nome: "Química Geral", codigo: "QUI101" }, { id: "materia-quimica-analitica", nome: "Química Analítica", codigo: "QUI202" }];
   for (const materia of materias) { const codigo = normalizarCodigoMateria(materia.codigo); batch.set(firestore.collection("Materia").doc(materia.id), { nome: materia.nome, codigo_materia: codigo }); batch.set(firestore.collection("Chaves_Unicas").doc(chaveMateria(codigo)), { tipo: "Materia", id_recurso: materia.id, codigo, criado_em: FIXTURE_TIME }); }
-  for (const pm of profMaterias) { batch.set(firestore.collection("Professor_x_Materia").doc(`${pm.professor}__${pm.materia}`), { id_usuario: pm.professor, id_professor: pm.professor, id_materia: pm.materia }); }
+  for (const pm of profMaterias) { batch.set(firestore.collection("Professor_x_Materia").doc(`${pm.professor}__${pm.materia}`), { id_professor: pm.professor, id_materia: pm.materia }); }
   const turmas = [
     { id: "seed-turma-vazia", materia: "materia-quimica-geral", professor: alpha, status: "Ativo", nome: "Química Geral — T1 Vazia", ano: 2026, semestre: 1, capacidade: 5, codigo: "QGV101", members: [] as FixtureUser[] },
     { id: "seed-turma-ultima-vaga", materia: "materia-quimica-geral", professor: alpha, status: "Ativo", nome: "Química Geral — T2 Última Vaga", ano: 2026, semestre: 1, capacidade: 2, codigo: "QGV102", members: [byId("aluno.enrolled")] },
@@ -193,6 +199,7 @@ async function writeFixture(): Promise<void> {
       nome: fixture.nome,
       descricao: fixture.descricao,
       letra_inicial_nome: fixture.nome.charAt(0).toUpperCase(),
+      cadastrado_em: FIXTURE_TIME,
       criado_em: FIXTURE_TIME,
     });
     if (fixture.novoResumoId) {
@@ -233,7 +240,6 @@ async function writeFixture(): Promise<void> {
       id_usuario_solicitante: alpha,
       id_usuario_respondente: null,
       novo_nome: fixture.novoNome,
-      nova_descricao_resumo: null,
       novo_status: null,
       novo_estado_conservacao: null,
       novo_id_local: null,
@@ -252,22 +258,136 @@ async function writeFixture(): Promise<void> {
       criado_em: FIXTURE_TIME,
     });
   }
+  // Fixture M10/PAT-006: bem já classificado como Inservivel para o rito
+  // terminal de baixa com comprovante PDF no Storage.
+  const baixaBemId = "seed-bem-baixa-terminal";
+  const baixaNumero = "PAT-SEED-004";
+  const baixaLocalId = "seed-local-patrimonio-baixa";
+  const baixaResumoId = "seed-resumo-bem-baixa";
+  batch.set(firestore.collection("Local").doc(baixaLocalId), {
+    predio: "Bloco Patrimonial D",
+    andar: "4",
+    sala: "Sala 404",
+    criado_por: byId("chefe").uid,
+    criado_em: FIXTURE_TIME,
+    atualizado_em: FIXTURE_TIME,
+  });
+  batch.set(firestore.collection("Chaves_Unicas").doc(chaveLocal("Bloco Patrimonial D", "4", "Sala 404")), {
+    tipo: "Local",
+    id_recurso: baixaLocalId,
+    criado_em: FIXTURE_TIME,
+  });
+  batch.set(firestore.collection("Resumo_Bem_Patrimonial").doc(baixaResumoId), {
+    nome: "Banho-Maria Inservível Seed",
+    descricao: "Fixture M10 para baixa patrimonial terminal.",
+    letra_inicial_nome: "B",
+    criado_em: FIXTURE_TIME,
+  });
+  batch.set(firestore.collection("Bem_Patrimonial").doc(baixaBemId), {
+    id_resumo_bem_patrimonial: baixaResumoId,
+    numero_patrimonio: baixaNumero,
+    estado_conservacao: "RUIM",
+    id_local: baixaLocalId,
+    photo_url: null,
+    documento_dado_baixa_pdf_url: null,
+    nome_responsavel_sei: "Responsável Patrimonial Seed",
+    status: "Inservivel",
+    descricao_complementar: "Fixture M10 de baixa terminal.",
+    versao: 1,
+    nome_equipamento: "Banho-Maria Inservível Seed",
+    predio: "Bloco Patrimonial D",
+    andar: "4",
+    sala: "Sala 404",
+    letra_inicial_nome: "B",
+    cadastrado_em: FIXTURE_TIME,
+  });
+  batch.set(firestore.collection("Chaves_Unicas").doc(`Bem_Patrimonial__${baixaNumero}`), {
+    tipo: "Bem_Patrimonial",
+    id_recurso: baixaBemId,
+    criado_em: FIXTURE_TIME,
+  });
   // Fixture de cadastro fechado M2/M7 para UI-06 e regressão do código atômico.
+  const localAlmoxId = "seed-local-almox-frascos";
+  batch.set(firestore.collection("Local").doc(localAlmoxId), {
+    predio: "Bloco de Química",
+    andar: "1",
+    sala: "Almoxarifado de Frascos",
+    criado_por: byId("chefe").uid,
+    criado_em: FIXTURE_TIME,
+    atualizado_em: FIXTURE_TIME,
+  });
+  batch.set(firestore.collection("Chaves_Unicas").doc(chaveLocal("Bloco de Química", "1", "Almoxarifado de Frascos")), {
+    tipo: "Local",
+    id_recurso: localAlmoxId,
+    criado_em: FIXTURE_TIME,
+  });
   const reagenteSeed = firestore.collection("Resumo_Reagente").doc("seed-resumo-reagente-frascos");
   const especSeed = reagenteSeed.collection("Especificacoes").doc("seed-especificacao-frascos");
-  batch.set(firestore.collection("Almoxarifado").doc("seed-almox-frascos"), { nome: "Almoxarifado de Frascos Seed", ativo: true });
-  batch.set(firestore.collection("Gestor_Almoxarifado_x_Almoxarifado").doc(`${byId("gestor.almoxarifado").uid}_seed-almox-frascos`), {
+  batch.set(firestore.collection("Almoxarifado").doc("seed-almox-frascos"), {
+    id_local: localAlmoxId,
+    nome: "Almoxarifado de Frascos Seed",
+    descricao: "Almoxarifado principal para testes de reagentes e movimentações.",
+    ativo: true,
+    qtd_gestores_ativos: 1,
+  });
+  const vinculoGestorAlmoxId = createHash("sha256").update(JSON.stringify([byId("gestor.almoxarifado").uid, "seed-almox-frascos"])).digest("hex");
+  batch.set(firestore.collection("Gestor_Almoxarifado_x_Almoxarifado").doc(vinculoGestorAlmoxId), {
     id_gestor_almoxarifado: byId("gestor.almoxarifado").uid,
     id_almoxarifado: "seed-almox-frascos",
   });
   batch.set(reagenteSeed, {
-    id: reagenteSeed.id, nome: "Reagente Seed", letra_inicial: "R", estado_fisico: "Líquido",
-    natureza_quimica: "INORGANICO", eh_higroscopico: false,
+    id: reagenteSeed.id,
+    nome: "Reagente Seed",
+    letra_inicial: "R",
+    tipo_substancia: "PURA",
+    natureza_quimica: "INORGANICO",
+    requer_pesagem_frequente: false,
+    frequencia_pesagem_dias: null,
+    estado_fisico: "LIQUIDO",
+    eh_higroscopico: false,
+    qtd_em_que_e_considerado_escasso: 5,
   });
-  batch.set(especSeed, {
-    id: especSeed.id, estado_fisico: "LIQUIDO", densidade: 1,
-    unidade_de_medida: "ml", eh_higroscopico: false,
+  const substanciaSeed = firestore.collection("Substancia_Quimica").doc("seed-substancia-reagente");
+  batch.set(substanciaSeed, {
+    id: substanciaSeed.id,
+    nome: "Substância Seed",
+    cas_number: "7732-18-5",
+    formula_quimica: "H2O",
+    ativo: true,
+    criado_em: FIXTURE_TIME,
+    criado_por: byId("gestor.almoxarifado").uid,
   });
+  batch.set(firestore.collection("Chaves_Unicas").doc("Substancia_Quimica__CAS__7732-18-5"), {
+    tipo: "Substancia_Quimica_CAS",
+    id_recurso: substanciaSeed.id,
+    chave_recurso: "7732-18-5",
+    criado_em: FIXTURE_TIME,
+  });
+  const especificacaoSeed = {
+    id: especSeed.id,
+    id_resumo_reagente: reagenteSeed.id,
+    descricao: "Reagente Analítico 1L",
+    fabricante: "Fabricante Seed",
+    codigo_produto_fabricante: "SEED-1L",
+    grau_pureza: "PA",
+    densidade: 1,
+    unidade_de_medida: "ml",
+    classe_inflamabilidade: "NAO_INFLAMAVEL",
+    eh_controlado_pf: false,
+    eh_controlado_eb: false,
+    link_fds_fispq: null,
+    composicao: [{
+      id_substancia_quimica: substanciaSeed.id,
+      valor_min: null,
+      valor_max: null,
+      tipo_concentracao: "M_M",
+      notacao_original_fabricante: null,
+    }],
+    criado_em: FIXTURE_TIME,
+    criado_por: byId("gestor.almoxarifado").uid,
+  };
+  batch.set(especSeed, especificacaoSeed);
+  batch.set(firestore.collection("Especificacao_Reagente").doc(especSeed.id), especificacaoSeed);
   batch.set(firestore.collection("Contador_Codigo_Frasco").doc("singleton"), {
     ultimo_codigo_gerado: 0,
   });
@@ -301,6 +421,12 @@ async function writeFixture(): Promise<void> {
     file_url: null,
     criado_em: FIXTURE_TIME,
   });
+  const baixaPdfPath = `baixas_patrimoniais/${baixaBemId}/termo_baixa.pdf`;
+  const baixaPdfBuffer = Buffer.from("%PDF-1.4\nfixture comprovante baixa patrimonial\n%%EOF\n");
+  for (const bucket of [admin.storage().bucket(), admin.storage().bucket(`${projectId()}.firebasestorage.app`)]) {
+    const baixaPdf = bucket.file(baixaPdfPath);
+    await baixaPdf.save(baixaPdfBuffer, { contentType: "application/pdf" });
+  }
 }
 
 async function verify(): Promise<void> {
@@ -312,8 +438,10 @@ async function verify(): Promise<void> {
   }
   for (const user of users.filter((item) => !item.activeDocument && item.id !== "aluno.noAuth")) { const authUser = await auth.getUser(user.uid); assert.equal(authUser.disabled, user.disabled); assert.equal((await firestore.collection("Usuarios").doc(user.uid).get()).exists, false); assert.equal((await firestore.collection("Aluno").doc(user.uid).get()).exists, false); }
   await assert.rejects(() => auth.getUserByEmail(byId("aluno.noAuth").email), { code: "auth/user-not-found" });
+  const controlePapeis = await firestore.collection("Controle_Papeis").doc("singleton").get();
+  assert.deepEqual(controlePapeis.data(), { chefes_ativos: 1, gestores_patrimoniais_ativos: 1, versao: 1 });
   for (const [id, codigo] of [["materia-quimica-geral", "QUI101"], ["materia-quimica-analitica", "QUI202"]] as const) { const materia = await firestore.collection("Materia").doc(id).get(); assert.equal(materia.data()?.codigo_materia, codigo); const key = await firestore.collection("Chaves_Unicas").doc(chaveMateria(codigo)).get(); assert.equal(key.data()?.tipo, "Materia"); assert.equal(key.data()?.id_recurso, id); }
-  for (const pm of profMaterias) { const rel = await firestore.collection("Professor_x_Materia").doc(`${pm.professor}__${pm.materia}`).get(); assert.equal(rel.exists, true); assert.equal(rel.data()?.id_usuario, pm.professor); assert.equal(rel.data()?.id_materia, pm.materia); }
+  for (const pm of profMaterias) { const rel = await firestore.collection("Professor_x_Materia").doc(`${pm.professor}__${pm.materia}`).get(); assert.equal(rel.exists, true); assert.equal(rel.data()?.id_professor, pm.professor); assert.equal(rel.data()?.id_materia, pm.materia); assert.equal("id_usuario" in (rel.data() ?? {}), false); }
   for (const turmaDoc of (await firestore.collection("Turma").get()).docs) { const turma = turmaDoc.data(); assert.ok(["Ativo", "Arquivada"].includes(turma.status)); assert.ok([1, 2].includes(turma.semestre)); assert.ok(Number.isInteger(turma.capacidade) && turma.capacidade >= 1); assert.ok(Number.isInteger(turma.qtd_alunos) && turma.qtd_alunos >= 0); assert.ok(Number.isInteger(turma.versao) && turma.versao >= 1); assert.equal((await firestore.collection("Materia").doc(turma.id_materia).get()).exists, true); assert.equal((await firestore.collection("Professor").doc(turma.id_professor).get()).exists, true); const key = await firestore.collection("Chaves_Unicas").doc(chaveTurmaCodigo(turma.codigo_turma)).get(); assert.equal(key.data()?.id_recurso, turmaDoc.id); const links = await turmaDoc.ref.collection("Alunos").get(); assert.equal(turma.qtd_alunos, links.size, `${turmaDoc.id}: contador divergente`); for (const link of links.docs) { const value = link.data(); assert.equal(link.id, value.id_aluno); assert.equal(value.id_turma, turmaDoc.id); assert.ok(value.ingressou_em); assert.equal("email" in value, false); assert.equal("numero_matricula" in value, false); assert.equal((await firestore.collection("Usuarios").doc(link.id).collection("Turmas").doc(turmaDoc.id).get()).exists, true); } }
   const removed = byId("aluno.removed"); assert.equal((await firestore.collection("Turma").doc("seed-turma-vazia").collection("Alunos").doc(removed.uid).get()).exists, false); assert.equal((await firestore.collection("Usuarios").doc(removed.uid).collection("Turmas").doc("seed-turma-vazia").get()).exists, false); const history = await firestore.collection("Turma").doc("seed-turma-vazia").collection("HistoricoAlunos").where("id_aluno", "==", removed.uid).where("tipo", "==", "exclusao_aluno").get(); assert.equal(history.size, 1);
   assert.equal((await firestore.collection("Convite_Aluno").get()).empty, true); for (const user of users.filter((item) => item.activeDocument)) assert.equal((await firestore.collection("Usuarios").doc(user.uid).collection("Notificacoes").get()).empty, true); assert.equal((await firestore.collection("Chaves_Unicas").get()).docs.some((doc) => doc.id.startsWith("ConvitePendente__")), false);
@@ -332,10 +460,24 @@ async function verify(): Promise<void> {
     assert.equal((await firestore.collection("Locks_Requisicao_Patrimonio").doc(`bem_edicao_seed-bem-edicao-${id}`).get()).data()?.tipo, "EDICAO");
   }
   assert.equal((await firestore.collection("Bem_Patrimonial").doc("seed-bem-edicao-conflito").get()).data()?.versao, 2);
+  assert.equal((await firestore.collection("Bem_Patrimonial").doc("seed-bem-baixa-terminal").get()).data()?.status, "Inservivel");
+  const baixaPdf = admin.storage().bucket().file("baixas_patrimoniais/seed-bem-baixa-terminal/termo_baixa.pdf");
+  assert.equal((await baixaPdf.exists())[0], true);
+  const resumoSeed = await firestore.collection("Resumo_Reagente").doc("seed-resumo-reagente-frascos").get();
+  assert.equal(resumoSeed.data()?.estado_fisico, "LIQUIDO");
+  assert.equal(resumoSeed.data()?.tipo_substancia, "PURA");
+  assert.equal(resumoSeed.data()?.requer_pesagem_frequente, false);
+  assert.equal(resumoSeed.data()?.frequencia_pesagem_dias, null);
+  assert.equal(resumoSeed.data()?.qtd_em_que_e_considerado_escasso, 5);
+  const especSeed = await firestore.collection("Especificacao_Reagente").doc("seed-especificacao-frascos").get();
+  assert.equal(especSeed.data()?.id_resumo_reagente, "seed-resumo-reagente-frascos");
+  assert.equal(especSeed.data()?.classe_inflamabilidade, "NAO_INFLAMAVEL");
+  assert.equal(especSeed.data()?.eh_controlado_pf, false);
+  assert.equal(especSeed.data()?.eh_controlado_eb, false);
   assert.equal((await firestore.collection("Resumo_Bem_Patrimonial").doc("seed-resumo-bem-aprovacao-alvo").get()).data()?.descricao, "Resumo alvo para reclassificação no cenário de aprovação.");
   console.log("SEED INVARIANTS OK: M9, papéis/claims/versões, matrículas, Chaves_Unicas, turmas, vínculos, espelhos, histórico, contadores, baseline sem convites/notificações/receipts e roteiro canônico M12.2.");
 }
-function manifest(): void { console.log("\n=== LCQUI MANUAL TEST SEED ===\n[FIXTURES]"); for (const user of users) console.log(`${user.id.padEnd(24)} ${user.email.padEnd(38)} senha=${user.id === "aluno.noAuth" ? "—" : PASSWORD} uid=${user.uid} roles=${user.roles.join(",") || "—"} verified=${user.emailVerified} ativo=${user.activeDocument} | ${user.note}`); console.log("\n[TURMAS]\nTURMA_VAZIA=seed-turma-vazia/QGV101 | TURMA_ULTIMA_VAGA=seed-turma-ultima-vaga/QGV102 | TURMA_CHEIA=seed-turma-cheia/QAN201 | TURMA_ARQUIVADA=seed-turma-arquivada/QAN202 | TURMA_PROF_BETA=seed-turma-beta/QGB103 | TURMA_COLEGAS=seed-turma-colegas/QGV103"); console.log("[PATRIMÔNIO]\nAPROVACAO=seed-bem-edicao-aprovacao / seed-req-edicao-aprovacao\nREJEICAO=seed-bem-edicao-rejeicao / seed-req-edicao-rejeicao\nCONFLITO=seed-bem-edicao-conflito / seed-req-edicao-conflito (versao do bem=2, origem=1)"); console.log("Roteiro canônico M12.2: Roteiro_Experimento/seed-roteiro-m12 (PUBLICAVEL)"); console.log("Baseline sem Convite_Aluno pendente, CONVITE_PARA_TURMA, receipt M7 ou segredo/token."); }
+function manifest(): void { console.log("\n=== LCQUI MANUAL TEST SEED ===\n[FIXTURES]"); for (const user of users) console.log(`${user.id.padEnd(24)} ${user.email.padEnd(38)} senha=${user.id === "aluno.noAuth" ? "—" : PASSWORD} uid=${user.uid} roles=${user.roles.join(",") || "—"} verified=${user.emailVerified} ativo=${user.activeDocument} | ${user.note}`); console.log("\n[TURMAS]\nTURMA_VAZIA=seed-turma-vazia/QGV101 | TURMA_ULTIMA_VAGA=seed-turma-ultima-vaga/QGV102 | TURMA_CHEIA=seed-turma-cheia/QAN201 | TURMA_ARQUIVADA=seed-turma-arquivada/QAN202 | TURMA_PROF_BETA=seed-turma-beta/QGB103 | TURMA_COLEGAS=seed-turma-colegas/QGV103"); console.log("[PATRIMÔNIO]\nAPROVACAO=seed-bem-edicao-aprovacao / seed-req-edicao-aprovacao\nREJEICAO=seed-bem-edicao-rejeicao / seed-req-edicao-rejeicao\nCONFLITO=seed-bem-edicao-conflito / seed-req-edicao-conflito (versao do bem=2, origem=1)\nBAIXA=seed-bem-baixa-terminal / baixas_patrimoniais/seed-bem-baixa-terminal/termo_baixa.pdf"); console.log("Roteiro canônico M12.2: Roteiro_Experimento/seed-roteiro-m12 (PUBLICAVEL)"); console.log("Baseline sem Convite_Aluno pendente, CONVITE_PARA_TURMA, receipt M7 ou segredo/token."); }
 
 async function main(): Promise<void> { const args = new Set(process.argv.slice(2)); if ([...args].some((arg) => !["--reset", "--verify-only"].includes(arg)) || (args.has("--reset") && args.has("--verify-only"))) throw new Error("Uso: tsx scripts/seed.ts [--reset|--verify-only]"); const id = projectId(); const { firestoreHost } = assertEmulatorOnly(id); dbApp(id); if (args.has("--verify-only")) { await verify(); manifest(); return; } if (args.has("--reset")) await reset(firestoreHost, id); for (const user of users.filter((item) => item.id !== "aluno.noAuth")) { await ensureAuth(user);       if (user.activeDocument) await getAuth().setCustomUserClaims(user.uid, { roles: [...user.roles], versao_permissoes: 1, ativo: true }); } await writeFixture(); await verify(); manifest(); }
 main().catch((error: unknown) => { console.error("SEED FAILURE", error instanceof Error ? error.message : String(error)); process.exitCode = 1; });

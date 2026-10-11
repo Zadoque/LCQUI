@@ -134,7 +134,27 @@ export const resolverDestinoNotificacao = onCall(async (request) => {
   const agora = Timestamp.now();
 
   return db.runTransaction(async (tx) => {
-    const autoridade = await resolverAutoridadePersistidaTx(tx, claims, PAPEIS_CONHECIDOS);
+    // Uma conta Auth ativa sem papel ainda pode receber e abrir o próprio
+    // convite interno. Para os demais destinos, a autorização continua
+    // exigindo a resolução M9 com papel persistido.
+    const autoridade = claims.papeis.length > 0
+      ? await resolverAutoridadePersistidaTx(tx, claims, PAPEIS_CONHECIDOS)
+      : await (async () => {
+          const usuario = await tx.get(db.collection("Usuarios").doc(claims.uid));
+          if (!usuario.exists || usuario.data()?.ativo !== true) {
+            throw new HttpsError("permission-denied", "Usuário não habilitado.");
+          }
+          if (usuario.data()?.versao_permissoes !== claims.versaoPermissoes) {
+            throw new HttpsError("permission-denied", "Permissões desatualizadas. Faça login novamente.");
+          }
+          const papeisPersistidos = await tx.getAll(
+            ...PAPEIS_CONHECIDOS.map((papel) => db.collection(papel).doc(claims.uid)),
+          );
+          if (papeisPersistidos.some((papel) => papel.exists)) {
+            throw new HttpsError("permission-denied", "Claims de papel inconsistentes com o estado persistido.");
+          }
+          return { uid: claims.uid, papeis: [], versaoPermissoes: claims.versaoPermissoes };
+        })();
     const notificacaoRef = db.collection("Usuarios").doc(claims.uid).collection("Notificacoes").doc(idNotificacao);
     const notificacaoSnap = await tx.get(notificacaoRef);
     if (!notificacaoSnap.exists || notificacaoSnap.data()?.id_destinatario !== claims.uid) {

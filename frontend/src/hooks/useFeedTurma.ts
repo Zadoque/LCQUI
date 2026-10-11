@@ -1,16 +1,13 @@
 import { useState, useEffect } from "react";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
-import { getFunctions, httpsCallable } from "firebase/functions";
-import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  resolverIdOperacao,
-  lerIntencao,
-  gravarIntencao,
-  limparIntencao,
-  chaveIntencaoStatusTurma,
-  assinaturaStatusTurma,
-} from "@/lib/intencaoOperacao";
+  assinarFeedPosts,
+  listarRoteirosProfessor,
+  criarPost,
+  editarPost,
+  removerPost,
+  arquivarTurma,
+} from "@/services/turmas/turmasService";
 import type { Turma, Post, RoteiroProjecao } from "@/types/turmas";
 
 export function useFeedTurma(turma: Turma | null) {
@@ -39,31 +36,24 @@ export function useFeedTurma(turma: Turma | null) {
   const isProfessor = roles.includes("Professor") || roles.includes("Chefe_Geral");
 
   useEffect(() => {
-    if (!turma) return;
-    const q = query(
-      collection(db, "Turma", turma.id, "Posts"),
-      orderBy("criado_em", "desc")
+    if (!turma || !user) return;
+    const isAuditor = roles.includes("Chefe_Geral") || roles.includes("Professor");
+    const unsubscribe = assinarFeedPosts(
+      turma.id,
+      setPosts,
+      user.uid,
+      isAuditor
     );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const postsData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Post[];
-      const postsVisiveis = postsData.filter((p) => {
-        if (!p.removido_da_apresentacao) return true;
-        return user?.uid === p.id_professor || roles.includes("Chefe_Geral");
-      });
-      setPosts(postsVisiveis);
-    });
     return () => unsubscribe();
   }, [turma, user, roles]);
 
   useEffect(() => {
     if (!user || !isProfessor) return;
-    const fn = getFunctions();
-    const listar = httpsCallable(fn, "listarRoteirosProfessor");
     let cancelado = false;
-    listar({})
-      .then((res) => {
+    listarRoteirosProfessor()
+      .then((roteiros) => {
         if (cancelado) return;
-        setRoteiros((res.data as { roteiros: RoteiroProjecao[] }).roteiros);
+        setRoteiros(roteiros);
       })
       .catch((err) => {
         console.error("Erro ao listar roteiros:", err);
@@ -79,17 +69,14 @@ export function useFeedTurma(turma: Turma | null) {
     setLoading(true);
     setErro(null);
     try {
-      const functions = getFunctions();
-      const criarPost = httpsCallable(functions, "criarPost");
       const idOp = `criar-${turma.id}-${Date.now()}`;
-      const payload: Record<string, string> = {
+      await criarPost({
         idOperacao: idOp,
         idTurma: turma.id,
         titulo,
         descricao,
-      };
-      if (idRoteiro) payload.idRoteiroExperimento = idRoteiro;
-      await criarPost(payload);
+        ...(idRoteiro ? { idRoteiroExperimento: idRoteiro } : {}),
+      });
       setTitulo("");
       setDescricao("");
       setIdRoteiro("");
@@ -113,8 +100,6 @@ export function useFeedTurma(turma: Turma | null) {
     setLoadingExclusao(idPost);
     setErro(null);
     try {
-      const functions = getFunctions();
-      const removerPost = httpsCallable(functions, "removerPost");
       const idOp = `remover-${turma.id}-${idPost}-${Date.now()}`;
       await removerPost({ idOperacao: idOp, idTurma: turma.id, idPost, motivo: motivoRemocaoPost.trim() });
       setModalRemoverPost(null);
@@ -152,23 +137,18 @@ export function useFeedTurma(turma: Turma | null) {
     setLoadingEdicao(idPost);
     setErro(null);
     try {
-      const functions = getFunctions();
-      const editarPost = httpsCallable(functions, "editarPost");
       const idOp = `editar-${turma.id}-${idPost}-${Date.now()}`;
 
-      const payload: Record<string, string | null | undefined> = {
+      await editarPost({
         idOperacao: idOp,
         idTurma: turma.id,
         idPost,
         titulo: tituloEditando,
         descricao: descricaoEditando,
-      };
-
-      if (idRoteiroEditando !== (idRoteiroOriginal || "")) {
-        payload.idRoteiroExperimento = idRoteiroEditando || null;
-      }
-
-      await editarPost(payload);
+        ...(idRoteiroEditando !== (idRoteiroOriginal || "")
+          ? { idRoteiroExperimento: idRoteiroEditando || null }
+          : {}),
+      });
       setPostEditando(null);
       setTituloEditando("");
       setDescricaoEditando("");
@@ -199,17 +179,7 @@ export function useFeedTurma(turma: Turma | null) {
     if (!turma) return;
     setArquivando(true);
     try {
-      const status = "Arquivada";
-      const session = typeof window !== "undefined" ? window.sessionStorage : null;
-      const chave = chaveIntencaoStatusTurma(turma.id, status);
-      const assinatura = assinaturaStatusTurma(turma.id, status);
-      const atual = session ? lerIntencao(session, chave) : null;
-      const intencao = resolverIdOperacao(atual, assinatura, () => crypto.randomUUID());
-      if (session) gravarIntencao(session, chave, intencao);
-
-      const alterarStatusFn = httpsCallable(getFunctions(), "alterarStatusTurma");
-      await alterarStatusFn({ idOperacao: intencao.idOperacao, idTurma: turma.id, status });
-      if (session) limparIntencao(session, chave);
+      await arquivarTurma({ idTurma: turma.id });
       setModalArquivar(false);
     } catch (err) {
       console.error("Erro ao arquivar turma:", err);

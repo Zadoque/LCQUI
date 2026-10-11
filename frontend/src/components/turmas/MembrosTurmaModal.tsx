@@ -1,15 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { db } from "@/lib/firebase/config";
-import { collection, onSnapshot, doc } from "firebase/firestore";
-import { getFunctions, httpsCallable } from "firebase/functions";
 import { X } from "lucide-react";
 import {
-  obterIntencaoPersistida,
-  chaveIntencaoMembro,
-  assinaturaMembro,
-  limparIntencao,
-} from "@/lib/intencaoOperacao";
+  assinarProfessorDonoTurma,
+  assinarMembrosTurma,
+  removerAlunoTurma,
+} from "@/services/turmas/turmasService";
 import type { MembroTurma as Membro } from "@/types/turmas";
 
 interface MembrosTurmaModalProps {
@@ -33,20 +29,11 @@ export function MembrosTurmaModal({ isOpen, onClose, idTurma }: MembrosTurmaModa
   useEffect(() => {
     if (!isOpen || !idTurma) return;
 
-    const unsubTurma = onSnapshot(doc(db, "Turma", idTurma), (snap) => {
-      setIdProfessorDono(snap.exists() ? (snap.data()?.id_professor ?? null) : null);
+    const unsubTurma = assinarProfessorDonoTurma(idTurma, (idProf) => {
+      setIdProfessorDono(idProf);
     });
 
-    const unsubAlunos = onSnapshot(collection(db, "Turma", idTurma, "Alunos"), (snap) => {
-      const lista = snap.docs
-        .map((d) => {
-          const data = d.data();
-          return {
-            id: d.id,
-            nome: typeof data.nome === "string" ? data.nome : "Sem nome",
-          };
-        })
-        .sort((a, b) => a.nome.localeCompare(b.nome));
+    const unsubAlunos = assinarMembrosTurma(idTurma, (lista) => {
       setMembros(lista);
       setLoading(false);
     });
@@ -63,21 +50,11 @@ export function MembrosTurmaModal({ isOpen, onClose, idTurma }: MembrosTurmaModa
     setRemovendoId(membroParaRemover.id);
     setToast(null);
     try {
-      const session = typeof window !== "undefined" ? window.sessionStorage : null;
-      const chave = chaveIntencaoMembro(idTurma, membroParaRemover.id, "REMOVER");
-      const assinatura = assinaturaMembro(idTurma, membroParaRemover.id, "REMOVER");
-      const intencao = session
-        ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
-        : { idOperacao: crypto.randomUUID(), assinatura };
-
-      const removerAlunoTurma = httpsCallable(getFunctions(), "removerAlunoTurma");
       await removerAlunoTurma({
-        idOperacao: intencao.idOperacao,
-        idTurma: idTurma,
+        idTurma,
         idAluno: membroParaRemover.id,
       });
 
-      if (session) limparIntencao(session, chave);
       setMembroParaRemover(null);
       setToast({ type: "success", msg: "Aluno removido com sucesso!" });
     } catch (err) {

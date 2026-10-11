@@ -11,7 +11,6 @@ export interface CatalogoEspecificacaoJSON {
   fabricante?: string;
   densidade?: number;
   unidade_de_medida?: string;
-  estado_fisico?: string;
 }
 
 export interface CatalogoResumoJSON {
@@ -55,9 +54,8 @@ export async function montarEGravarCatalogoReagentes(): Promise<CatalogoReagente
         id: eDoc.id,
         descricao: eData.descricao ?? "",
         fabricante: eData.fabricante ?? "",
-        densidade: typeof eData.densidade === "number" ? eData.densidade : undefined,
-        unidade_de_medida: eData.unidade_de_medida ?? undefined,
-        estado_fisico: eData.estado_fisico ?? undefined,
+        ...(typeof eData.densidade === "number" ? { densidade: eData.densidade } : {}),
+        ...(eData.unidade_de_medida ? { unidade_de_medida: eData.unidade_de_medida } : {}),
       };
     }
 

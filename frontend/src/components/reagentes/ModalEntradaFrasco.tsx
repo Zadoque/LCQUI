@@ -17,6 +17,10 @@ export function ModalEntradaFrasco({
   const [lote, setLote] = useState("");
   const [pesoCheio, setPesoCheio] = useState("");
   const [volumeNominal, setVolumeNominal] = useState("");
+  const [validade, setValidade] = useState("");
+  const [validadeDesconhecida, setValidadeDesconhecida] = useState(false);
+  const [decisaoSeJaVencido, setDecisaoSeJaVencido] = useState<"QUARENTENA" | "PENDENTE_DE_DESCARTE" | "DISPONIVEL">("QUARENTENA");
+  const [detalheStatus, setDetalheStatus] = useState("");
   const [unidade] = useState<"mg" | "ml">("mg");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -40,6 +44,9 @@ export function ModalEntradaFrasco({
           idLote: lote || undefined,
           pesoTotal: Number(pesoCheio),
           volumeNominal: volumeNominal ? Number(volumeNominal) : null,
+          ...(validade ? { validadeFechado: validade } : {}),
+          validadeDesconhecida,
+          ...((validade || validadeDesconhecida) ? { decisaoSeJaVencido, ...(detalheStatus ? { detalheStatus } : {}) } : {}),
         });
       } else {
         const cadastrarFrascoAberto = httpsCallable(functions, "cadastrarFrascoAberto");
@@ -51,6 +58,9 @@ export function ModalEntradaFrasco({
           idLote: lote || undefined,
           pesoTotalBalanca: Number(pesoCheio),
           volumeNominal: volumeNominal ? Number(volumeNominal) : null,
+          ...(validade ? { validadeAberto: validade } : {}),
+          validadeDesconhecida,
+          ...((validade || validadeDesconhecida) ? { decisaoSeJaVencido, ...(detalheStatus ? { detalheStatus } : {}) } : {}),
         });
       }
       if (onSuccess) onSuccess();
@@ -126,6 +136,34 @@ export function ModalEntradaFrasco({
                 className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none"
               />
             </div>
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-foreground/10 p-3">
+            <label className="block text-sm font-medium">Validade efetiva conhecida</label>
+            <input aria-label="Validade do frasco" type="date" value={validade} disabled={validadeDesconhecida}
+              onChange={(e) => setValidade(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 outline-none" />
+            <label className="flex items-center gap-2 text-sm">
+              <input aria-label="Validade desconhecida" type="checkbox" checked={validadeDesconhecida}
+                onChange={(e) => setValidadeDesconhecida(e.target.checked)} />
+              Validade desconhecida
+            </label>
+            {(validade || validadeDesconhecida) && (
+              <>
+                <label className="block text-sm font-medium">Destino se já estiver vencido</label>
+                <select aria-label="Destino do frasco vencido" value={decisaoSeJaVencido}
+                  onChange={(e) => setDecisaoSeJaVencido(e.target.value as typeof decisaoSeJaVencido)}
+                  className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 outline-none">
+                  <option value="QUARENTENA">Quarentena</option>
+                  <option value="PENDENTE_DE_DESCARTE">Pendente de descarte</option>
+                  <option value="DISPONIVEL">Disponível com autorização</option>
+                </select>
+                <textarea aria-label="Detalhe da decisão de validade" value={detalheStatus}
+                  onChange={(e) => setDetalheStatus(e.target.value)}
+                  placeholder="Justificativa da decisão de validade..."
+                  className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 outline-none" />
+              </>
+            )}
           </div>
 
           {errorMsg && <div className="text-red-500 text-sm bg-red-500/10 p-2 rounded">{errorMsg}</div>}

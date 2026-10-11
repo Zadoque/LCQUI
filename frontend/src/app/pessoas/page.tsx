@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { httpsCallable } from "firebase/functions";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { functions } from "@/lib/firebase/config";
+import { buscarUsuarios, concederPapel, revogarPapel, obterDetalhesUsuario } from "@/services/usuarios/usuariosService";
 import type { Pessoa, DetalhesUsuario as Detalhes, Papel } from "@/types/usuarios";
 
 const PAPEIS = ["Aluno", "Bolsista", "Professor", "Gestor_Almoxarifado", "Gestor_Bens_Patrimoniais"] as const;
@@ -24,26 +23,40 @@ export default function PessoasPage() {
   const [confirmacao, setConfirmacao] = useState(false);
 
   const carregar = useCallback(async () => {
-    const buscar = httpsCallable(functions, "buscarUsuariosParaPapel");
-    const resposta = await buscar(busca ? { termo: busca } : {});
-    setPessoas((resposta.data as { usuarios: Pessoa[] }).usuarios);
+    try {
+      const lista = await buscarUsuarios(busca ? { termo: busca } : undefined);
+      setPessoas(lista);
+    } catch {
+      setErro("Não foi possível carregar as pessoas.");
+    }
   }, [busca]);
 
-  useEffect(() => { void carregar().catch(() => setErro("Não foi possível carregar as pessoas.")); }, [carregar]);
+  useEffect(() => {
+    let cancelado = false;
+    buscarUsuarios(busca ? { termo: busca } : undefined)
+      .then((lista) => {
+        if (!cancelado) setPessoas(lista);
+      })
+      .catch(() => {
+        if (!cancelado) setErro("Não foi possível carregar as pessoas.");
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [busca]);
 
   const executar = async (acao: "conceder" | "revogar") => {
     setCarregando(true); setErro(""); setMensagem("");
     try {
       if (acao === "conceder") {
-        const conceder = httpsCallable(functions, "convidarUsuario");
-        await conceder({
-          idOperacao: crypto.randomUUID(), papel,
+        await concederPapel({
+          idOperacao: crypto.randomUUID(),
+          papel,
           ...(alvo ? { uidAlvo: alvo } : { nome, email }),
         });
         setMensagem("Papel concedido; a sessão será sincronizada após o commit.");
       } else {
-        const revogar = httpsCallable(functions, "revogarUsuarioPapel");
-        await revogar({ idOperacao: crypto.randomUUID(), uidAlvo: alvo, papel, motivo });
+        await revogarPapel({ idOperacao: crypto.randomUUID(), uidAlvo: alvo, papel, motivo });
         setMensagem("Papel revogado e a alteração foi auditada.");
       }
       setAlvo(""); setNome(""); setEmail(""); setMotivo(""); await carregar();
@@ -68,8 +81,7 @@ export default function PessoasPage() {
   const abrirDetalhes = async (uid: string) => {
     setAlvo(uid); setAba("dados"); setErro("");
     try {
-      const obter = httpsCallable(functions, "obterDetalhesUsuarioParaPapel");
-      setDetalhes((await obter({ uid })).data as Detalhes);
+      setDetalhes(await obterDetalhesUsuario({ uid }));
     } catch { setErro("Não foi possível carregar os detalhes autorizados."); }
   };
   return (

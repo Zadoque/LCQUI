@@ -4,6 +4,7 @@ import Link from "next/link";
 interface PatrimonioActionBarProps {
   isChefe: boolean;
   hasManagementAccess: boolean;
+  canRequestAddition: boolean;
   onNovoBem: () => void;
   onNotificacoes: () => void;
   onRelatorios: () => void;
@@ -12,6 +13,7 @@ interface PatrimonioActionBarProps {
 export function PatrimonioActionBar({
   isChefe,
   hasManagementAccess,
+  canRequestAddition,
   onNovoBem,
   onNotificacoes,
   onRelatorios,
@@ -43,7 +45,7 @@ export function PatrimonioActionBar({
       )}
 
       {/* Visão do Gestor de Bens Patrimoniais (Seção 6.8) */}
-      {hasManagementAccess && (
+      {(hasManagementAccess || canRequestAddition) && (
         <div className="flex flex-col lg:flex-row gap-4 items-center justify-between p-5 bg-foreground/5 rounded-2xl border border-foreground/10">
           <div className="flex items-center gap-3 flex-wrap">
             <button
@@ -57,15 +59,17 @@ export function PatrimonioActionBar({
               <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-background animate-pulse" />
             </button>
             <div className="h-10 w-px bg-foreground/20 hidden sm:block" />
-            <button
-              onClick={onNovoBem}
-              className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 transition-colors flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-              </svg>
-              Adicionar Bem (+)
-            </button>
+            {canRequestAddition && (
+              <button
+                onClick={onNovoBem}
+                className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" d="M12 4v16m8-8H4" />
+                </svg>
+                Requisitar Adição de Bem
+              </button>
+            )}
             <button
               onClick={onRelatorios}
               className="px-4 py-2 rounded-lg bg-foreground/10 text-sm font-medium hover:bg-foreground/20 transition-colors flex items-center gap-2"
