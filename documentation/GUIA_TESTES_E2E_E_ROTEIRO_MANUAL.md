@@ -52,6 +52,13 @@ O cenário `ALM-OPERACIONAL-E2E-003` abre a especificação comercial do reagent
 seed e verifica que os campos herdados exibem `LIQUIDO` e `ml`.
 O cenário `ALM-OPERACIONAL-E2E-004` cadastra um novo resumo, regenera a
 materialização e verifica sua natureza química no catálogo.
+O cenário `ALM-OPERACIONAL-E2E-006` abre a especificação sem resumo
+pré-selecionado e verifica a busca textual opcional no catálogo JSON, sem
+exigir os três filtros simultaneamente.
+
+Nos fluxos de retirada e devolução, `24-retirada.spec.ts` também verifica que
+o retirante/devolvente é pesquisado em modal separado e que a devolução expõe
+o campo obrigatório do identificador do frasco/empréstimo.
 
 ## 2. Como rodar
 

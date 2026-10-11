@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/lib/firebase/config";
 import { ModalProps } from "./types";
-import { SeletorUsuarioReagente } from "./SeletorUsuarioReagente";
+import { ModalBuscaUsuarioReagente, SeletorUsuarioReagente } from "./SeletorUsuarioReagente";
+import type { UsuarioRetirada } from "@/services/usuarios/usuariosService";
 
 export function ModalDevolucaoFrasco({
   isOpen,
@@ -20,6 +21,13 @@ export function ModalDevolucaoFrasco({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [usuarioDevolveu, setUsuarioDevolveu] = useState("");
+  const [usuarioSelecionado, setUsuarioSelecionado] = useState<UsuarioRetirada | null>(null);
+  const [buscaUsuarioAberta, setBuscaUsuarioAberta] = useState(false);
+  const [frascoOuEmprestimo, setFrascoOuEmprestimo] = useState(idEmprestimo || frascoId);
+
+  useEffect(() => {
+    if (isOpen) void Promise.resolve().then(() => setFrascoOuEmprestimo(idEmprestimo || frascoId));
+  }, [isOpen, idEmprestimo, frascoId]);
 
   if (!isOpen) return null;
 
@@ -35,7 +43,7 @@ export function ModalDevolucaoFrasco({
       const registrarDevolucao = httpsCallable(functions, "registrarDevolucao");
       const payload = {
         idOperacao: crypto.randomUUID(),
-        idEmprestimo: idEmprestimo || frascoId,
+        idEmprestimo: frascoOuEmprestimo.trim(),
         pesoRetorno: Number(pesoRetorno1),
         confirmarEsgotamento: ficouVazio,
         idUsuarioDevolveu: usuarioDevolveu || undefined,
@@ -58,6 +66,11 @@ export function ModalDevolucaoFrasco({
       <div className="glass-panel w-full max-w-md p-6 rounded-2xl shadow-xl border-amber-500/20">
         <h2 className="text-xl font-bold mb-4 text-amber-500">Registrar Devolução</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="devolucao-frasco-id" className="block text-sm font-medium mb-1">Frasco / empréstimo a devolver *</label>
+            <input id="devolucao-frasco-id" type="text" required value={frascoOuEmprestimo} onChange={(e) => setFrascoOuEmprestimo(e.target.value)} placeholder="ID do frasco ou do empréstimo" className="w-full rounded-lg border border-foreground/10 bg-foreground/5 px-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none" />
+            <p className="mt-1 text-xs text-foreground/50">Informe o identificador exibido no empréstimo ativo do frasco.</p>
+          </div>
           <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-400">
             UI-18: Prevenção de erro em pesagens exige dupla digitação independente da massa em gramas (g).
           </div>
@@ -65,7 +78,8 @@ export function ModalDevolucaoFrasco({
             <SeletorUsuarioReagente
               label="Usuário que devolveu"
               value={usuarioDevolveu}
-              onChange={(usuario) => setUsuarioDevolveu(usuario?.id ?? "")}
+              usuario={usuarioSelecionado}
+              onAbrir={() => setBuscaUsuarioAberta(true)}
               testIdPrefix="devolucao"
             />
           </div>
@@ -120,6 +134,17 @@ export function ModalDevolucaoFrasco({
           </div>
         </form>
       </div>
+      <ModalBuscaUsuarioReagente
+        isOpen={buscaUsuarioAberta}
+        onClose={() => setBuscaUsuarioAberta(false)}
+        label="Selecionar usuário que devolveu"
+        value={usuarioDevolveu}
+        onChange={(usuario) => {
+          setUsuarioSelecionado(usuario);
+          setUsuarioDevolveu(usuario?.id ?? "");
+        }}
+        testIdPrefix="devolucao"
+      />
     </div>
   );
 }

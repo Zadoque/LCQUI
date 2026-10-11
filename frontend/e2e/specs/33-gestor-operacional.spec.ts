@@ -42,6 +42,22 @@ test("ALM-OPERACIONAL-E2E-003: especificação herda líquido e ml do reagente s
   await expect(page.getByTestId("especificacao-unidade-medida")).toHaveValue("ml");
 });
 
+test("ALM-OPERACIONAL-E2E-006: especificação pesquisa resumo por texto no catálogo JSON", async ({ page }) => {
+  await login(page, "gestor.almoxarifado@lcqui.local");
+  await page.goto("/reagentes");
+  await page.getByRole("button", { name: "Cadastrar Reagente" }).click();
+  await page.getByText("Especificação Comercial", { exact: true }).click();
+
+  await expect(page.getByRole("heading", { name: "Nova Especificação Comercial" })).toBeVisible();
+  const busca = page.getByLabel("Buscar no catálogo por texto");
+  await expect(busca).toBeVisible();
+  await busca.fill("Reagente Seed");
+  const resultados = page.getByTestId("especificacao-resumo-catalogo");
+  await expect(resultados).toContainText("Reagente Seed");
+  await resultados.selectOption("seed-resumo-reagente-frascos");
+  await expect(page.getByTestId("especificacao-estado-fisico")).toHaveValue("LIQUIDO");
+});
+
 test("ALM-OPERACIONAL-E2E-004: resumo cadastrado aparece com natureza no catálogo", async ({ page }) => {
   await login(page, "gestor.almoxarifado@lcqui.local");
   await page.goto("/reagentes");

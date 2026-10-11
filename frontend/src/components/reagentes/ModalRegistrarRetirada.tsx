@@ -4,12 +4,15 @@ import React, { useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/lib/firebase/config";
 import { ModalProps } from "./types";
-import { SeletorUsuarioReagente } from "./SeletorUsuarioReagente";
+import { ModalBuscaUsuarioReagente, SeletorUsuarioReagente } from "./SeletorUsuarioReagente";
+import type { UsuarioRetirada } from "@/services/usuarios/usuariosService";
 
 export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProps) {
   const [loading, setLoading] = useState(false);
   const [frascoId, setFrascoId] = useState("");
   const [usuarioRetirou, setUsuarioRetirou] = useState("");
+  const [usuarioSelecionado, setUsuarioSelecionado] = useState<UsuarioRetirada | null>(null);
+  const [buscaUsuarioAberta, setBuscaUsuarioAberta] = useState(false);
   const [localUsado, setLocalUsado] = useState("");
   const [pesoSaida, setPesoSaida] = useState("");
   const [dataDevolucao, setDataDevolucao] = useState("");
@@ -62,7 +65,8 @@ export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProp
             <SeletorUsuarioReagente
               label="Usuário retirante"
               value={usuarioRetirou}
-              onChange={(usuario) => setUsuarioRetirou(usuario?.id ?? "")}
+              usuario={usuarioSelecionado}
+              onAbrir={() => setBuscaUsuarioAberta(true)}
               testIdPrefix="retirada"
             />
             <div>
@@ -107,6 +111,17 @@ export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProp
           </div>
         </form>
       </div>
+      <ModalBuscaUsuarioReagente
+        isOpen={buscaUsuarioAberta}
+        onClose={() => setBuscaUsuarioAberta(false)}
+        label="Selecionar usuário retirante"
+        value={usuarioRetirou}
+        onChange={(usuario) => {
+          setUsuarioSelecionado(usuario);
+          setUsuarioRetirou(usuario?.id ?? "");
+        }}
+        testIdPrefix="retirada"
+      />
     </div>
   );
 }

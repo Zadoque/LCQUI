@@ -2,13 +2,17 @@
 
 import React, { useState, useEffect } from "react";
 import { httpsCallable } from "firebase/functions";
-import { collection, getDocs, query, limit, where } from "firebase/firestore";
+import { collection, getDocs, query, limit } from "firebase/firestore";
 import { functions, db } from "@/lib/firebase/config";
 import { ModalProps } from "./types";
+import { obterCatalogoReagentes } from "@/services/reagentes/reagentesService";
+import type { ResumoReagente } from "@/types/reagentes";
+
+type SubstanciaCatalogo = { id: string; nome: string; cas_number?: string };
 
 export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resumoSelecionado, onSuccess }: ModalProps) {
-  const [resumos, setResumos] = useState<any[]>([]);
-  const [substancias, setSubstancias] = useState<any[]>([]);
+  const [resumos, setResumos] = useState<ResumoReagente[]>([]);
+  const [substancias, setSubstancias] = useState<SubstanciaCatalogo[]>([]);
   
   const [selectedResumoId, setSelectedResumoId] = useState(idResumoReagente || "");
   
@@ -25,49 +29,46 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resu
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroNatureza, setFiltroNatureza] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
+  const [textoBusca, setTextoBusca] = useState("");
   const [loadingBusca, setLoadingBusca] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const handleBuscarResumos = async () => {
-    if (!filtroEstado || !filtroNatureza || !filtroTipo) {
-      setErrorMsg("Por favor, selecione Estado Físico, Natureza e Tipo para buscar.");
-      return;
-    }
-    setErrorMsg("");
-    setLoadingBusca(true);
-    try {
-      let q = query(collection(db, "Resumo_Reagente"), limit(50));
-      if (filtroEstado) q = query(q, where("estado_fisico", "==", filtroEstado));
-      if (filtroNatureza) q = query(q, where("natureza_quimica", "==", filtroNatureza));
-      if (filtroTipo) q = query(q, where("tipo_substancia", "==", filtroTipo));
-      
-      const snap = await getDocs(q);
-      setResumos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingBusca(false);
-    }
-  };
+  useEffect(() => {
+    if (!isOpen || idResumoReagente) return;
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) { setLoadingBusca(true); setErrorMsg(""); }
+      return obterCatalogoReagentes();
+    }).then((catalogo) => { if (!cancelled) setResumos(catalogo); })
+      .catch((err: unknown) => { if (!cancelled) setErrorMsg(err instanceof Error ? err.message : "Não foi possível carregar o catálogo de reagentes."); })
+      .finally(() => { if (!cancelled) setLoadingBusca(false); });
+    return () => { cancelled = true; };
+  }, [isOpen, idResumoReagente]);
 
   useEffect(() => {
     if (isOpen) {
       getDocs(query(collection(db, "Substancia_Quimica"), limit(200))).then(snap => {
-        setSubstancias(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setSubstancias(snap.docs.map(d => ({ id: d.id, ...d.data() })) as SubstanciaCatalogo[]);
       });
     }
   }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && idResumoReagente) {
-      setSelectedResumoId(idResumoReagente);
+      void Promise.resolve().then(() => setSelectedResumoId(idResumoReagente));
     }
   }, [isOpen, idResumoReagente]);
 
   if (!isOpen) return null;
 
+  const normalizar = (valor: string) => valor.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const termoNormalizado = normalizar(textoBusca.trim());
+  const resumosFiltrados = resumos.filter((resumo) => {
+    const correspondeTexto = !termoNormalizado || [resumo.id, resumo.nome, resumo.natureza_quimica, resumo.tipo_substancia, resumo.estado_fisico].some((valor) => normalizar(String(valor ?? "")).includes(termoNormalizado));
+    return correspondeTexto && (!filtroEstado || resumo.estado_fisico === filtroEstado) && (!filtroNatureza || resumo.natureza_quimica === filtroNatureza) && (!filtroTipo || resumo.tipo_substancia === filtroTipo);
+  });
   const selectedResumoData = resumos.find(r => r.id === selectedResumoId) || resumoSelecionado || (idResumoReagente ? { tipo_substancia: "PURA", estado_fisico: "SOLIDO" } : null);
   
   const isMistura = selectedResumoData?.tipo_substancia === "MISTURA";
@@ -82,7 +83,9 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resu
 
   const handleComposicaoChange = (index: number, field: string, value: string) => {
     const newComp = [...composicoes];
-    (newComp[index] as any)[field] = value;
+    if (field in newComp[index]) {
+      (newComp[index] as unknown as Record<string, string>)[field] = value;
+    }
     setComposicoes(newComp);
   };
 
@@ -116,8 +119,8 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resu
       });
       if (onSuccess) onSuccess();
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro interno.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro interno.");
     } finally {
       setLoading(false);
     }
@@ -133,7 +136,11 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resu
             <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl mb-4 space-y-3">
               <label className="block text-sm font-bold text-primary">Buscar Resumo de Reagente (Catálogo)</label>
               
-              <div className="flex gap-2">
+              <div className="mb-2">
+                <label htmlFor="busca-resumo-catalogo" className="sr-only">Buscar no catálogo por texto</label>
+                <input id="busca-resumo-catalogo" type="search" value={textoBusca} onChange={(e) => setTextoBusca(e.target.value)} placeholder="Buscar por nome, natureza, tipo ou estado…" className="w-full rounded-lg border border-primary/20 bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+              <div className="flex flex-wrap gap-2">
                 <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="w-1/3 px-2 py-1.5 text-sm rounded bg-background border border-primary/20 outline-none">
                   <option value="">Qualquer Estado Físico</option>
                   <option value="SOLIDO">Sólido</option>
@@ -152,21 +159,13 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resu
                   <option value="PURA">Pura</option>
                   <option value="MISTURA">Mistura</option>
                 </select>
-                <button type="button" onClick={handleBuscarResumos} disabled={loadingBusca || !filtroEstado || !filtroNatureza || !filtroTipo} className="px-3 py-1.5 bg-primary text-white text-sm font-medium rounded hover:bg-primary/90 disabled:opacity-50 transition-opacity">
-                  {loadingBusca ? "Buscando..." : "Buscar"}
-                </button>
               </div>
+              <div className="text-[10px] text-foreground/50 italic">A busca consulta o catálogo JSON; os filtros são opcionais e podem ser combinados com o texto.</div>
 
-              {(!filtroEstado || !filtroNatureza || !filtroTipo) && (
-                <div className="text-[10px] text-foreground/50 italic">
-                  * Selecione os 3 filtros acima para habilitar a busca de resumos.
-                </div>
-              )}
-
-              <select required value={selectedResumoId} onChange={(e) => setSelectedResumoId(e.target.value)}
+              <select data-testid="especificacao-resumo-catalogo" required value={selectedResumoId} onChange={(e) => setSelectedResumoId(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-background border border-primary/20 focus:ring-2 focus:ring-primary outline-none mt-2">
-                <option value="">{resumos.length === 0 ? "(Realize uma busca acima primeiro)" : "(Selecione o Reagente)"}</option>
-                {resumos.map(r => (
+                <option value="">{loadingBusca ? "(Carregando catálogo…)" : resumosFiltrados.length === 0 ? "(Nenhum resumo encontrado)" : "(Selecione o Reagente)"}</option>
+                {resumosFiltrados.map(r => (
                   <option key={r.id} value={r.id}>{r.nome} ({r.estado_fisico}) - {r.tipo_substancia}</option>
                 ))}
               </select>
