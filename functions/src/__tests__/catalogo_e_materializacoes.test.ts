@@ -11,6 +11,7 @@ import {
   obterCatalogoReagentes,
   resolverCatalogoPorIds,
 } from "../catalogo";
+import { cadastrarEspecificacao, cadastrarResumoReagente } from "../reagentes_base";
 import {
   processarMaterializacaoDiariaFlow,
   obterJanelaDiaSaoPaulo,
@@ -79,7 +80,12 @@ describe("Catálogo JSON (IMP-BASE-004) e Materializações FLOW (IMP-MVIEW-001)
       const estadoDoc = await db.collection("Sistema_Catalogo_Reagentes").doc("estado").get();
       expect(estadoDoc.exists).toBe(true);
       expect(estadoDoc.data()?.versao_publicada).toBe(res.versaoPublicada);
-      expect(estadoDoc.data()?.storage_path).toContain(`catalogo/reagentes_v${res.versaoPublicada}.json`);
+      expect(estadoDoc.data()?.versao_fonte).toBeGreaterThanOrEqual(res.versaoPublicada);
+      expect(estadoDoc.data()?.storage_path).toMatch(
+        new RegExp(`^catalogo-reagentes/v${res.versaoPublicada}-[a-f0-9]{64}\\.json$`),
+      );
+      expect(estadoDoc.data()?.sha256).toMatch(/^[a-f0-9]{64}$/);
+      expect(estadoDoc.data()?.gerado_em).toBeDefined();
     });
 
     it("deve rejeitar geração com claim antiga após revogação persistida", async () => {
@@ -90,9 +96,71 @@ describe("Catálogo JSON (IMP-BASE-004) e Materializações FLOW (IMP-MVIEW-001)
       await expect(
         testEnv.wrap(gerarCatalogoReagentes)(mockRequest({}, uidGestor, ["Gestor_Almoxarifado"]))
       ).rejects.toThrow(/permissões desatualizadas/i);
+      await expect(
+        testEnv.wrap(obterCatalogoReagentes)(mockRequest({}, uidGestor, ["Gestor_Almoxarifado"]))
+      ).rejects.toThrow(/permissões desatualizadas/i);
+      await expect(
+        testEnv.wrap(resolverCatalogoPorIds)(mockRequest({
+          idResumo: "resumo_inexistente",
+          idEspecificacao: "especificacao_inexistente",
+        }, uidGestor, ["Gestor_Almoxarifado"]))
+      ).rejects.toThrow(/permissões desatualizadas/i);
+    });
+
+    it("deve incrementar versao_fonte atomicamente ao criar resumo e especificação", async () => {
+      const uidGestor = `gestor_cat_mutacao_${Date.now()}`;
+      await db.collection("Usuarios").doc(uidGestor).set({ ativo: true, versao_permissoes: 1 });
+      await db.collection("Gestor_Almoxarifado").doc(uidGestor).set({ id_usuario: uidGestor });
+
+      const estadoRef = db.collection("Sistema_Catalogo_Reagentes").doc("estado");
+      const antesResumo = Number((await estadoRef.get()).data()?.versao_fonte ?? 0);
+      const resumo = await testEnv.wrap(cadastrarResumoReagente)({
+        data: {
+          idOperacao: `op_cat_resumo_${Date.now()}`,
+          nome: "Reagente de prova do catálogo",
+          tipoSubstancia: "PURA",
+          naturezaQuimica: "INORGANICO",
+          estadoFisico: "SOLIDO",
+          requerPesagemFrequente: false,
+          frequenciaPesagemDias: null,
+          ehHigroscopico: false,
+          qtdEmQueEConsideradoEscasso: 1,
+        },
+        auth: { uid: uidGestor, token: { roles: ["Gestor_Almoxarifado"], versao_permissoes: 1 } },
+        rawRequest: {},
+      } as any);
+      const depoisResumo = Number((await estadoRef.get()).data()?.versao_fonte);
+      expect(depoisResumo).toBe(antesResumo + 1);
+
+      const substanciaRef = db.collection("Substancia_Quimica").doc(`sub_cat_${Date.now()}`);
+      await substanciaRef.set({ nome: "Substância de prova", ativo: true });
+      await testEnv.wrap(cadastrarEspecificacao)({
+        data: {
+          idOperacao: `op_cat_espec_${Date.now()}`,
+          idResumoReagente: resumo.idResumoReagente,
+          descricao: "Especificação de prova",
+          fabricante: "Fabricante de prova",
+          classeInflamabilidade: "NAO_INFLAMAVEL",
+          ehControladoPf: false,
+          ehControladoEb: false,
+          idSubstanciaQuimica: substanciaRef.id,
+        },
+        auth: { uid: uidGestor, token: { roles: ["Gestor_Almoxarifado"], versao_permissoes: 1 } },
+        rawRequest: {},
+      } as any);
+      const depoisEspecificacao = Number((await estadoRef.get()).data()?.versao_fonte);
+      expect(depoisEspecificacao).toBe(depoisResumo + 1);
     });
 
     it("deve permitir download do catálogo para papéis autorizados (incluindo Aluno) e rejeitar não autorizados", async () => {
+      await db.collection("Sistema_Catalogo_Reagentes").doc("estado").set({
+        versao_fonte: 99,
+        versao_publicada: 0,
+        catalogo_embutido: null,
+        storage_path: null,
+        sha256: null,
+        schema_version: 1,
+      });
       const uidAluno = `aluno_cat_${Date.now()}`;
       await db.collection("Usuarios").doc(uidAluno).set({ ativo: true, versao_permissoes: 1 });
       await db.collection("Aluno").doc(uidAluno).set({ id_usuario: uidAluno });
@@ -101,10 +169,13 @@ describe("Catálogo JSON (IMP-BASE-004) e Materializações FLOW (IMP-MVIEW-001)
       const resAluno = await testEnv.wrap(obterCatalogoReagentes)(mockRequest({}, uidAluno, ["Aluno"]));
       expect(resAluno.versaoPublicada).toBeDefined();
       expect(resAluno.schemaVersion).toBe(1);
+      expect(resAluno.storagePath).toMatch(/^catalogo-reagentes\/v99-[a-f0-9]{64}\.json$/);
+      expect(resAluno.catalogo?.resumos).toBeDefined();
 
       // Usuário sem papel autorizado deve falhar fechado
       const uidSemPapel = `user_nopaper_${Date.now()}`;
-      await expect(testEnv.wrap(obterCatalogoReagentes)(mockRequest({}, uidSemPapel, []))).rejects.toThrow(/permissão negada|não possui autoridade/i);
+      await expect(testEnv.wrap(obterCatalogoReagentes)(mockRequest({}, uidSemPapel, [])))
+        .rejects.toThrow(/permissão negada|não possui autoridade|usuário não habilitado/i);
     });
 
     it("deve resolver catálogo por IDs com fallback canônico e falhar com erro de integridade referencial se ID não existir", async () => {

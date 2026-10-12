@@ -63,14 +63,21 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
   };
 
   async function seedEspecificacao(id: string, densidade: number | null, estadoFisico: "LIQUIDO" | "SOLIDO") {
-    const dados = {
-      densidade,
-      estado_fisico: estadoFisico
+    const resumoDados = {
+      nome: `Reagente ${id}`,
+      tipo_substancia: "PURA",
+      natureza_quimica: "INORGANICO",
+      estado_fisico: estadoFisico,
+      requer_pesagem_frequente: false,
+      frequencia_pesagem_dias: null,
+      qtd_em_que_e_considerado_escasso: 1,
+      eh_higroscopico: false,
     };
-    await db.collection("Resumo_Reagente").doc(`resumo_${id}`).set({ nome: `Reagente ${id}`, eh_higroscopico: false });
-    await db.collection("Especificacao_Reagente").doc(id).set(dados);
+    const especificacaoDados = { densidade };
+    await db.collection("Resumo_Reagente").doc(`resumo_${id}`).set(resumoDados);
+    await db.collection("Especificacao_Reagente").doc(id).set(especificacaoDados);
     await db.collection("Resumo_Reagente").doc(`resumo_${id}`)
-      .collection("Especificacoes").doc(id).set(dados);
+      .collection("Especificacoes").doc(id).set(especificacaoDados);
   }
 
   it("deve cadastrar lote com referência imutável, chave atômica e replay idempotente", async () => {

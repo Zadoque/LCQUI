@@ -5,6 +5,7 @@ import * as admin from "firebase-admin";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { chaveAlunoMatricula, chaveLocal, chaveMateria, chaveTurmaCodigo, normalizarCodigoMateria } from "../src/chaves";
+import { importedReagents } from "./reagentesSeedData";
 
 /** Fixture manual canônica M9/M11/M13. Recusa qualquer execução fora dos emuladores. */
 const ALLOWED_PROJECT_IDS = new Set(["lcqui-uenf", "lcqui-dev"]);
@@ -85,6 +86,97 @@ async function ensureAuth(user: FixtureUser): Promise<UserRecord> {
 }
 const usuarioData = (user: FixtureUser) => ({ nome: user.name, email: user.email, letra_inicial: user.name.trim().charAt(0).toUpperCase(), ativo: true, versao_permissoes: 1, claims_pendentes: false, atualizado_em: FIXTURE_TIME });
 
+async function writeImportedReagents(firestore: FirebaseFirestore.Firestore): Promise<void> {
+  // O Firestore limita um WriteBatch a 500 operações. Mantemos margem para
+  // futuras colunas do contrato e gravamos os espelhos nested/top-level juntos.
+  let batch = firestore.batch();
+  let pending = 0;
+  const set = (ref: FirebaseFirestore.DocumentReference, data: FirebaseFirestore.DocumentData): void => {
+    batch.set(ref, data);
+    pending += 1;
+  };
+  const flush = async (): Promise<void> => {
+    if (!pending) return;
+    await batch.commit();
+    batch = firestore.batch();
+    pending = 0;
+  };
+
+  for (const reagent of importedReagents) {
+    const resumoRef = firestore.collection("Resumo_Reagente").doc(reagent.id);
+    const substanciaRef = firestore.collection("Substancia_Quimica").doc(`${reagent.id}-substancia`);
+    const especificacaoRef = resumoRef.collection("Especificacoes").doc(`${reagent.id}-especificacao`);
+    const resumoData = {
+      id: resumoRef.id,
+      nome: reagent.nome,
+      letra_inicial: reagent.nome.trim().charAt(0).toUpperCase(),
+      tipo_substancia: reagent.tipo_substancia,
+      natureza_quimica: reagent.natureza_quimica,
+      requer_pesagem_frequente: false,
+      frequencia_pesagem_dias: null,
+      estado_fisico: reagent.estado_fisico,
+      eh_higroscopico: false,
+      qtd_em_que_e_considerado_escasso: 1,
+      rotulos_origem: reagent.rotulos_origem,
+      consulta_quimica: reagent.query,
+      criado_em: FIXTURE_TIME,
+      criado_por: byId("gestor.almoxarifado").uid,
+    };
+    set(resumoRef, resumoData);
+    set(substanciaRef, {
+      id: substanciaRef.id,
+      nome: reagent.nome,
+      cas_number: reagent.cas_number,
+      formula_quimica: reagent.formula_quimica,
+      ativo: true,
+      criado_em: FIXTURE_TIME,
+      criado_por: byId("gestor.almoxarifado").uid,
+    });
+    if (reagent.cas_number) {
+      set(firestore.collection("Chaves_Unicas").doc(`Substancia_Quimica__CAS__${reagent.cas_number}`), {
+        tipo: "Substancia_Quimica_CAS",
+        id_recurso: substanciaRef.id,
+        chave_recurso: reagent.cas_number,
+        criado_em: FIXTURE_TIME,
+      });
+    }
+
+    // O par normativo exige densidade para qualquer resumo LIQUIDO. Rótulos
+    // de soluções/produtos sem densidade documental não são transformados em
+    // uma especificação inventada; o resumo permanece disponível para revisão.
+    if (reagent.estado_fisico === "LIQUIDO" && reagent.densidade === null) {
+      continue;
+    }
+    const especificacaoData = {
+      id: especificacaoRef.id,
+      id_resumo_reagente: resumoRef.id,
+      descricao: reagent.rotulos_origem.join("; ").slice(0, 150),
+      fabricante: null,
+      codigo_produto_fabricante: null,
+      grau_pureza: reagent.grau_pureza,
+      densidade: reagent.densidade,
+      unidade_de_medida: reagent.estado_fisico === "LIQUIDO" ? "ml" : "g",
+      classe_inflamabilidade: reagent.classe_inflamabilidade,
+      eh_controlado_pf: false,
+      eh_controlado_eb: false,
+      link_fds_fispq: null,
+      composicao: [{
+        id_substancia_quimica: substanciaRef.id,
+        valor_min: null,
+        valor_max: null,
+        tipo_concentracao: "M_M",
+        notacao_original_fabricante: null,
+      }],
+      criado_em: FIXTURE_TIME,
+      criado_por: byId("gestor.almoxarifado").uid,
+    };
+    set(especificacaoRef, especificacaoData);
+    set(firestore.collection("Especificacao_Reagente").doc(especificacaoRef.id), especificacaoData);
+    if (pending >= 400) await flush();
+  }
+  await flush();
+}
+
 async function writeFixture(): Promise<void> {
   const firestore = getFirestore(); const batch = firestore.batch();
   for (const user of users.filter((item) => item.activeDocument)) {
@@ -97,7 +189,84 @@ async function writeFixture(): Promise<void> {
     gestores_patrimoniais_ativos: 1,
     versao: 1,
   });
-  const materias = [{ id: "materia-quimica-geral", nome: "Química Geral", codigo: "QUI101" }, { id: "materia-quimica-analitica", nome: "Química Analítica", codigo: "QUI202" }];
+  const materias = [
+    { id: "materia-quimica-geral", nome: "Química Geral", codigo: "QUI101" },
+    { id: "materia-quimica-analitica", nome: "Química Analítica", codigo: "QUI202" },
+    { id: "materia-ead07144", nome: "Química Orgânica I (2021)", codigo: "EAD07144" },
+    { id: "materia-ead07146", nome: "Química Orgânica II (2021)", codigo: "EAD07146" },
+    { id: "materia-ead07156", nome: "Química Ambiental", codigo: "EAD07156" },
+    { id: "materia-ead07157", nome: "Físico Química I", codigo: "EAD07157" },
+    { id: "materia-ead07158", nome: "Físico Química II", codigo: "EAD07158" },
+    { id: "materia-int10521", nome: "Filosofia da Educação", codigo: "INT10521" },
+    { id: "materia-int10522", nome: "Química Teórica e Estrutural", codigo: "INT10522" },
+    { id: "materia-int10523", nome: "Síntese Química", codigo: "INT10523" },
+    { id: "materia-int10524", nome: "Teoria e Desenvolvimento Curricular", codigo: "INT10524" },
+    { id: "materia-int10525", nome: "Tratamento de Águas e Efluentes", codigo: "INT10525" },
+    { id: "materia-qui01102", nome: "Química Geral I (2016)", codigo: "QUI01102" },
+    { id: "materia-qui01103", nome: "Laboratório de Química Geral I (2006)", codigo: "QUI01103" },
+    { id: "materia-qui01108", nome: "Laboratório de Química Analítica", codigo: "QUI01108" },
+    { id: "materia-qui01109", nome: "Química Analítica", codigo: "QUI01109" },
+    { id: "materia-qui01203", nome: "Química Geral II (2003)", codigo: "QUI01203" },
+    { id: "materia-qui01206", nome: "Química Orgânica", codigo: "QUI01206" },
+    { id: "materia-qui01217", nome: "Laboratório de Química", codigo: "QUI01217" },
+    { id: "materia-qui012689", nome: "Linguagem da Natureza: Integração de Saberes e Práticas", codigo: "QUI012689" },
+    { id: "materia-qui01314", nome: "Introdução Aos Processos da Indústria Química", codigo: "QUI01314" },
+    { id: "materia-qui013232", nome: "Laboratório de Química Orgânica I (2026)", codigo: "QUI013232" },
+    { id: "materia-qui013371", nome: "Química Inorgânica II", codigo: "QUI013371" },
+    { id: "materia-qui013372", nome: "Laboratório de Química Inorgânica I", codigo: "QUI013372" },
+    { id: "materia-qui013453", nome: "Laboratório de Química Analítica II", codigo: "QUI013453" },
+    { id: "materia-qui013552", nome: "Laboratório de Físico-Química II", codigo: "QUI013552" },
+    { id: "materia-qui01410", nome: "Metodos Fisicos de Analise II (2003)", codigo: "QUI01410" },
+    { id: "materia-qui01411", nome: "Atividades Acadêmico-Científico-Culturais", codigo: "QUI01411" },
+    { id: "materia-qui01412", nome: "Metodos Fisicos de Analise II (2004)", codigo: "QUI01412" },
+    { id: "materia-qui014242", nome: "Laboratório de Química Orgânica II (2026)", codigo: "QUI014242" },
+    { id: "materia-qui014441", nome: "Química Analítica I (2026)", codigo: "QUI014441" },
+    { id: "materia-qui014442", nome: "Laboratório de Química Analítica I (2026)", codigo: "QUI014442" },
+    { id: "materia-qui014542", nome: "Laboratório de Físico-Química I", codigo: "QUI014542" },
+    { id: "materia-qui014688", nome: "Análise Instrumental", codigo: "QUI014688" },
+    { id: "materia-qui01501", nome: "Quimica Bioorganica", codigo: "QUI01501" },
+    { id: "materia-qui01504", nome: "Quimica Bioinorganica", codigo: "QUI01504" },
+    { id: "materia-qui01506", nome: "Teatro de Divulgação Científica", codigo: "QUI01506" },
+    { id: "materia-qui01507", nome: "Teatro de Divulgação Científica II", codigo: "QUI01507" },
+    { id: "materia-qui01588", nome: "Eletroquímica Aplicada", codigo: "QUI01588" },
+    { id: "materia-qui11011", nome: "Metodologia Científica", codigo: "QUI11011" },
+    { id: "materia-qui11012", nome: "Introdução a Metrologia Científica", codigo: "QUI11012" },
+    { id: "materia-qui11111", nome: "Química Geral I (2013)", codigo: "QUI11111" },
+    { id: "materia-qui11112", nome: "Laboratório de Química Geral I (2013)", codigo: "QUI11112" },
+    { id: "materia-qui11121", nome: "Química Geral II (2020)", codigo: "QUI11121" },
+    { id: "materia-qui11122", nome: "Laboratório de Química Geral II", codigo: "QUI11122" },
+    { id: "materia-qui11231", nome: "Química Orgânica I (2013)", codigo: "QUI11231" },
+    { id: "materia-qui11232", nome: "Laboratório de Química Orgânica I (2013)", codigo: "QUI11232" },
+    { id: "materia-qui11241", nome: "Química Orgânica II (2013)", codigo: "QUI11241" },
+    { id: "materia-qui11242", nome: "Laboratório de Química Orgânica II (2013)", codigo: "QUI11242" },
+    { id: "materia-qui11251", nome: "Química Orgânica III", codigo: "QUI11251" },
+    { id: "materia-qui11341", nome: "Química Inorgânica I", codigo: "QUI11341" },
+    { id: "materia-qui11441", nome: "Química Analítica I (2024)", codigo: "QUI11441" },
+    { id: "materia-qui11442", nome: "Laboratório de Química Analítica I (2012)", codigo: "QUI11442" },
+    { id: "materia-qui11443", nome: "Laboratório de Química Analítica I (2024)", codigo: "QUI11443" },
+    { id: "materia-qui11611", nome: "Ensino e Aprendizagem de Química I", codigo: "QUI11611" },
+    { id: "materia-qui11621", nome: "Ensino e Aprendizagem de Química II", codigo: "QUI11621" },
+    { id: "materia-qui11631", nome: "Ensino e Aprendizagem de Química III", codigo: "QUI11631" },
+    { id: "materia-qui12653", nome: "Ensino e Aprendizagem de Química V", codigo: "QUI12653" },
+    { id: "materia-qui12654", nome: "Seminários de Práticas Educativas em Química II", codigo: "QUI12654" },
+    { id: "materia-qui12655", nome: "Estágio Supervisionado Licenciatura I", codigo: "QUI12655" },
+    { id: "materia-qui12661", nome: "Estágio Supervisionado Licenciatura II (2013)", codigo: "QUI12661" },
+    { id: "materia-qui12662", nome: "Ensino e Aprendizagem de Química VI", codigo: "QUI12662" },
+    { id: "materia-qui12663", nome: "Estágio Supervisionado Licenciatura II (2024)", codigo: "QUI12663" },
+    { id: "materia-qui12671", nome: "Estágio Supervisionado Licenciatura III (2013)", codigo: "QUI12671" },
+    { id: "materia-qui12672", nome: "História e Filosofia da Ciência", codigo: "QUI12672" },
+    { id: "materia-qui12673", nome: "Tecnologia da Informação e Comunicação na Educação", codigo: "QUI12673" },
+    { id: "materia-qui12674", nome: "Ensino e Aprendizagem de Química VII", codigo: "QUI12674" },
+    { id: "materia-qui12675", nome: "Seminários de Práticas Educativas em Química III", codigo: "QUI12675" },
+    { id: "materia-qui12676", nome: "Estágio Supervisionado Licenciatura III (2024)", codigo: "QUI12676" },
+    { id: "materia-qui12681", nome: "Estágio Supervisionado Licenciatura IV (2013)", codigo: "QUI12681" },
+    { id: "materia-qui12682", nome: "Prática de Ensino de Química II", codigo: "QUI12682" },
+    { id: "materia-qui12683", nome: "Trabalho de Conclusão de Curso", codigo: "QUI12683" },
+    { id: "materia-qui12684", nome: "Elementos de Química Geral (Eletiva)", codigo: "QUI12684" },
+    { id: "materia-qui12685", nome: "Introdução ao Cálculo", codigo: "QUI12685" },
+    { id: "materia-qui12686", nome: "Ensino e Aprendizagem de Química VIII", codigo: "QUI12686" },
+    { id: "materia-qui12687", nome: "Estágio Supervisionado Licenciatura IV (2024)", codigo: "QUI12687" },
+  ];
   for (const materia of materias) { const codigo = normalizarCodigoMateria(materia.codigo); batch.set(firestore.collection("Materia").doc(materia.id), { nome: materia.nome, codigo_materia: codigo }); batch.set(firestore.collection("Chaves_Unicas").doc(chaveMateria(codigo)), { tipo: "Materia", id_recurso: materia.id, codigo, criado_em: FIXTURE_TIME }); }
   for (const pm of profMaterias) { batch.set(firestore.collection("Professor_x_Materia").doc(`${pm.professor}__${pm.materia}`), { id_professor: pm.professor, id_materia: pm.materia }); }
   const turmas = [
@@ -574,6 +743,17 @@ async function writeFixture(): Promise<void> {
     });
   }
   await batch.commit();
+  await writeImportedReagents(firestore);
+  // O seed instala a fotografia canônica; a publicação JSON continua sendo
+  // responsabilidade da Cloud Function e começa com a fonte pendente.
+  await firestore.collection("Sistema_Catalogo_Reagentes").doc("estado").set({
+    versao_fonte: 1,
+    versao_publicada: 0,
+    storage_path: null,
+    sha256: null,
+    gerado_em: null,
+    schema_version: 1,
+  });
 
   // Roteiro canônico M12.2 (PDF público de seed-professor-alpha)
   const storagePath = `roteiros/${alpha}/seed-roteiro-m12.pdf`;
@@ -623,6 +803,25 @@ async function verify(): Promise<void> {
   const controlePapeis = await firestore.collection("Controle_Papeis").doc("singleton").get();
   assert.deepEqual(controlePapeis.data(), { chefes_ativos: 1, gestores_patrimoniais_ativos: 1, versao: 1 });
   for (const [id, codigo] of [["materia-quimica-geral", "QUI101"], ["materia-quimica-analitica", "QUI202"]] as const) { const materia = await firestore.collection("Materia").doc(id).get(); assert.equal(materia.data()?.codigo_materia, codigo); const key = await firestore.collection("Chaves_Unicas").doc(chaveMateria(codigo)).get(); assert.equal(key.data()?.tipo, "Materia"); assert.equal(key.data()?.id_recurso, id); }
+  assert.equal((await firestore.collection("Materia").get()).size, 76, "A carga canônica deve conter as 74 disciplinas importadas e os 2 fixtures históricos.");
+  const importedSpecCount = importedReagents.filter((reagent) => reagent.estado_fisico !== "LIQUIDO" || reagent.densidade !== null).length;
+  for (const reagent of importedReagents) {
+    const resumo = await firestore.collection("Resumo_Reagente").doc(reagent.id).get();
+    assert.equal(resumo.exists, true, `Resumo importado ausente: ${reagent.nome}`);
+    assert.equal(resumo.data()?.estado_fisico, reagent.estado_fisico);
+    const substancia = await firestore.collection("Substancia_Quimica").doc(`${reagent.id}-substancia`).get();
+    assert.equal(substancia.exists, true, `Substância importada ausente: ${reagent.nome}`);
+    if (reagent.cas_number) assert.equal((await firestore.collection("Chaves_Unicas").doc(`Substancia_Quimica__CAS__${reagent.cas_number}`).get()).data()?.id_recurso, substancia.id);
+    const especificacoes = await resumo.ref.collection("Especificacoes").get();
+    assert.equal(especificacoes.size, reagent.estado_fisico === "LIQUIDO" && reagent.densidade === null ? 0 : 1, `Especificação importada divergente: ${reagent.nome}`);
+  }
+  assert.equal((await firestore.collection("Resumo_Reagente").get()).size, importedReagents.length + 1);
+  assert.equal((await firestore.collection("Substancia_Quimica").get()).size, importedReagents.length + 1);
+  assert.equal((await firestore.collection("Especificacao_Reagente").get()).size, importedSpecCount + 1);
+  const estadoCatalogo = await firestore.collection("Sistema_Catalogo_Reagentes").doc("estado").get();
+  assert.equal(estadoCatalogo.data()?.versao_fonte, 1);
+  assert.equal(estadoCatalogo.data()?.versao_publicada, 0);
+  assert.equal(estadoCatalogo.data()?.schema_version, 1);
   for (const pm of profMaterias) { const rel = await firestore.collection("Professor_x_Materia").doc(`${pm.professor}__${pm.materia}`).get(); assert.equal(rel.exists, true); assert.equal(rel.data()?.id_professor, pm.professor); assert.equal(rel.data()?.id_materia, pm.materia); assert.equal("id_usuario" in (rel.data() ?? {}), false); }
   for (const turmaDoc of (await firestore.collection("Turma").get()).docs) { const turma = turmaDoc.data(); assert.ok(["Ativo", "Arquivada"].includes(turma.status)); assert.ok([1, 2].includes(turma.semestre)); assert.ok(Number.isInteger(turma.capacidade) && turma.capacidade >= 1); assert.ok(Number.isInteger(turma.qtd_alunos) && turma.qtd_alunos >= 0); assert.ok(Number.isInteger(turma.versao) && turma.versao >= 1); assert.equal((await firestore.collection("Materia").doc(turma.id_materia).get()).exists, true); assert.equal((await firestore.collection("Professor").doc(turma.id_professor).get()).exists, true); const key = await firestore.collection("Chaves_Unicas").doc(chaveTurmaCodigo(turma.codigo_turma)).get(); assert.equal(key.data()?.id_recurso, turmaDoc.id); const links = await turmaDoc.ref.collection("Alunos").get(); assert.equal(turma.qtd_alunos, links.size, `${turmaDoc.id}: contador divergente`); for (const link of links.docs) { const value = link.data(); assert.equal(link.id, value.id_aluno); assert.equal(value.id_turma, turmaDoc.id); assert.ok(value.ingressou_em); assert.equal("email" in value, false); assert.equal("numero_matricula" in value, false); assert.equal((await firestore.collection("Usuarios").doc(link.id).collection("Turmas").doc(turmaDoc.id).get()).exists, true); } }
   const removed = byId("aluno.removed"); assert.equal((await firestore.collection("Turma").doc("seed-turma-vazia").collection("Alunos").doc(removed.uid).get()).exists, false); assert.equal((await firestore.collection("Usuarios").doc(removed.uid).collection("Turmas").doc("seed-turma-vazia").get()).exists, false); const history = await firestore.collection("Turma").doc("seed-turma-vazia").collection("HistoricoAlunos").where("id_aluno", "==", removed.uid).where("tipo", "==", "exclusao_aluno").get(); assert.equal(history.size, 1);

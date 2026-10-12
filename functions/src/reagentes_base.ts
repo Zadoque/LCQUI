@@ -5,6 +5,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { extrairClaimsAutoridade, resolverAutoridadePersistidaTx } from "./auth";
 import { validatePayload } from "./utils/validation";
 import { construirIdentidade, registrarOperacaoConcluidaTx, resolverOperacaoTx } from "./idempotencia";
+import { incrementarVersaoFonteTx } from "./catalogo";
 import {
   CadastroSubstanciaQuimicaSchema,
   CadastroResumoReagenteSchema,
@@ -85,6 +86,7 @@ export const cadastrarResumoReagente = onCall(async (request) => {
     if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de cadastro de resumo de reagente não concluída.");
 
     const resumoRef = admin.firestore().collection("Resumo_Reagente").doc();
+    await incrementarVersaoFonteTx(tx);
     tx.set(resumoRef, {
       id: resumoRef.id,
       nome,
@@ -206,6 +208,7 @@ export const cadastrarEspecificacao = onCall(async (request) => {
       criado_por: claims.uid,
     };
 
+    await incrementarVersaoFonteTx(tx);
     tx.set(especRef, especDoc);
     tx.set(admin.firestore().collection("Especificacao_Reagente").doc(especRef.id), especDoc);
 

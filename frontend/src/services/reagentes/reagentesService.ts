@@ -135,29 +135,16 @@ function normalizarAlertaOperacional(id: string, value: unknown): AlertaOperacio
 
 /**
  * Busca o catálogo de reagentes.
- * Primeiro tenta a Cloud Function `obterCatalogoReagentes`;
- * em caso de falha, faz fallback para leitura direta da coleção Firestore.
+ * A Cloud Function é a única porta de leitura do catálogo: ela aplica M9,
+ * publica somente a versão autorizada e preserva Firestore como fonte canônica.
  */
 export async function obterCatalogoReagentes(): Promise<ResumoReagente[]> {
-  // Tentativa via callable
-  try {
-    const fn = httpsCallable<
-      Record<string, never>,
-      { catalogo?: { resumos?: Record<string, ResumoReagente> } }
-    >(functions, "obterCatalogoReagentes");
-    const res = await fn({});
-    if (res.data?.catalogo?.resumos) {
-      const lista = Object.values(res.data.catalogo.resumos);
-      return lista.sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
-    }
-  } catch {
-    // Fallback intencional — a função pode estar indisponível em dev sem emulador completo
-  }
-
-  // Fallback: Firestore direto
-  const q = query(collection(db, "Resumo_Reagente"), limit(200));
-  const snap = await getDocs(q);
-  const lista = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as ResumoReagente[];
+  const fn = httpsCallable<
+    Record<string, never>,
+    { catalogo?: { resumos?: Record<string, ResumoReagente> } }
+  >(functions, "obterCatalogoReagentes");
+  const res = await fn({});
+  const lista = Object.values(res.data.catalogo?.resumos ?? {});
   return lista.sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
 }
 
