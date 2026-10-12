@@ -5,13 +5,21 @@ import { FieldValue } from "firebase-admin/firestore";
 import { extrairClaimsAutoridade, resolverAutoridadePersistidaTx } from "./auth";
 import { validatePayload } from "./utils/validation";
 import { construirIdentidade, registrarOperacaoConcluidaTx, resolverOperacaoTx } from "./idempotencia";
-import { incrementarVersaoFonteTx } from "./catalogo";
+import { incrementarVersaoCatalogoTx } from "./catalogo";
 import {
   CadastroSubstanciaQuimicaSchema,
   CadastroResumoReagenteSchema,
   CadastroEspecificacaoSchema,
   CadastroLoteSchema,
 } from "./schemas/reagentes_base.schema";
+
+interface ComposicaoPersistida {
+  id_substancia_quimica: string;
+  valor_min: number | null;
+  valor_max: number | null;
+  tipo_concentracao: string;
+  notacao_original_fabricante: string | null;
+}
 
 export const cadastrarSubstanciaQuimica = onCall(async (request) => {
   const dados = validatePayload(CadastroSubstanciaQuimicaSchema, request.data);
@@ -31,13 +39,18 @@ export const cadastrarSubstanciaQuimica = onCall(async (request) => {
     if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de cadastro de substância química não concluída.");
 
     const substanciaRef = admin.firestore().collection("Substancia_Quimica").doc();
+    let chaveCasRef: admin.firestore.DocumentReference | null = null;
 
     if (casNorm) {
-      const chaveCasRef = admin.firestore().collection("Chaves_Unicas").doc(`Substancia_Quimica__CAS__${casNorm}`);
+      chaveCasRef = admin.firestore().collection("Chaves_Unicas").doc(`Substancia_Quimica__CAS__${casNorm}`);
       const chaveCasSnap = await tx.get(chaveCasRef);
       if (chaveCasSnap.exists) {
         throw new HttpsError("already-exists", `Já existe uma substância química cadastrada com o número CAS ${casNorm}.`);
       }
+    }
+
+    await incrementarVersaoCatalogoTx(tx, "substancias");
+    if (chaveCasRef) {
       tx.set(chaveCasRef, {
         tipo: "Substancia_Quimica_CAS",
         id_recurso: substanciaRef.id,
@@ -45,7 +58,6 @@ export const cadastrarSubstanciaQuimica = onCall(async (request) => {
         criado_em: FieldValue.serverTimestamp(),
       });
     }
-
     tx.set(substanciaRef, {
       id: substanciaRef.id,
       nome: dados.nome.trim(),
@@ -55,7 +67,6 @@ export const cadastrarSubstanciaQuimica = onCall(async (request) => {
       criado_em: FieldValue.serverTimestamp(),
       criado_por: claims.uid,
     });
-
     const resultado = { idSubstanciaQuimica: substanciaRef.id };
     registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
     return resultado;
@@ -86,7 +97,7 @@ export const cadastrarResumoReagente = onCall(async (request) => {
     if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de cadastro de resumo de reagente não concluída.");
 
     const resumoRef = admin.firestore().collection("Resumo_Reagente").doc();
-    await incrementarVersaoFonteTx(tx);
+    await incrementarVersaoCatalogoTx(tx, "resumos");
     tx.set(resumoRef, {
       id: resumoRef.id,
       nome,
@@ -151,7 +162,7 @@ export const cadastrarEspecificacao = onCall(async (request) => {
       throw new HttpsError("invalid-argument", "Densidade é obrigatória para reagentes líquidos.");
     }
 
-    let composicao: any[] = [];
+    let composicao: ComposicaoPersistida[] = [];
     if (resumoData.tipo_substancia === "PURA") {
       const subRef = admin.firestore().collection("Substancia_Quimica").doc(dados.idSubstanciaQuimica!);
       const subSnap = await tx.get(subRef);
@@ -159,7 +170,7 @@ export const cadastrarEspecificacao = onCall(async (request) => {
         throw new HttpsError("not-found", "Substância química base não encontrada ou inativa.");
       }
       composicao.push({
-        id_substancia_quimica: dados.idSubstanciaQuimica,
+        id_substancia_quimica: dados.idSubstanciaQuimica!,
         valor_min: null,
         valor_max: null,
         tipo_concentracao: "M_M",
@@ -207,7 +218,7 @@ export const cadastrarEspecificacao = onCall(async (request) => {
       criado_por: claims.uid,
     };
 
-    await incrementarVersaoFonteTx(tx);
+    await incrementarVersaoCatalogoTx(tx, "especificacoes");
     tx.set(especRef, especDoc);
     tx.set(admin.firestore().collection("Especificacao_Reagente").doc(especRef.id), especDoc);
 

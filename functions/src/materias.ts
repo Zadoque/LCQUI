@@ -10,6 +10,7 @@ import {
   registrarOperacaoConcluidaTx,
   resolverOperacaoTx,
 } from "./idempotencia";
+import { incrementarVersaoCatalogoTx } from "./catalogo";
 
 /** N(s) = s.trim().toUpperCase(): canonicalização única do código de matéria. */
 function normalizarCodigo(codigo: string): string {
@@ -66,6 +67,7 @@ export const gerenciarMateria = onCall(async (request) => {
         throw new HttpsError("already-exists", "Código de matéria já cadastrado.");
       }
       const materiaRef = db.collection("Materia").doc();
+      await incrementarVersaoCatalogoTx(tx, "materias");
       tx.set(materiaRef, {
         nome,
         codigo_materia: codigoNormalizado,
@@ -104,6 +106,7 @@ export const gerenciarMateria = onCall(async (request) => {
       }
     }
     // Escritas
+    await incrementarVersaoCatalogoTx(tx, "materias");
     if (trocaCodigo) {
       tx.delete(chaveMateria(codigoAtual));
       tx.set(chaveRef, {

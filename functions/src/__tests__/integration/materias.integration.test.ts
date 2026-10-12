@@ -148,4 +148,29 @@ describe("Integração: Matérias (M9 + unicidade transacional + projeção)", (
       wrapped(mockRequest({ acao: "CRIAR", nome: "Z", codigoMateria: "Z1" }, uid))
     ).rejects.toMatchObject({ code: "permission-denied" });
   });
+
+  it("TEST-INT-MAT-009 — criação e edição incrementam somente o catálogo de matérias", async () => {
+    const estadoRef = db.collection("Sistema_Catalogo_Reagentes").doc("estado");
+    await estadoRef.set({
+      schema_version: 2,
+      catalogos: {
+        resumos: { versao_fonte: 7, versao_publicada: 7, storage_path: "catalogo-resumos/v7-fixture.json", sha256: "fixture" },
+        materias: { versao_fonte: 4, versao_publicada: 4, storage_path: "catalogo-materias/v4-fixture.json", sha256: "fixture" },
+      },
+    }, { merge: true });
+    const uid = uidUnico("prof_catalogo_materia");
+    await semearProfessor(uid);
+    const wrapped = testEnv.wrap(gerenciarMateria);
+
+    await wrapped(mockRequest({ acao: "CRIAR", nome: "Química de Catálogo", codigoMateria: "CAT1" }, uid));
+    let estado = (await estadoRef.get()).data() ?? {};
+    expect(estado.catalogos.materias.versao_fonte).toBe(5);
+    expect(estado.catalogos.resumos.versao_fonte).toBe(7);
+
+    const materia = (await db.collection("Materia").where("codigo_materia", "==", "CAT1").limit(1).get()).docs[0];
+    await wrapped(mockRequest({ acao: "EDITAR", idMateria: materia.id, nome: "Química de Catálogo Editada", codigoMateria: "CAT1" }, uid));
+    estado = (await estadoRef.get()).data() ?? {};
+    expect(estado.catalogos.materias.versao_fonte).toBe(6);
+    expect(estado.catalogos.resumos.versao_fonte).toBe(7);
+  });
 });
