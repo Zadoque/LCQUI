@@ -20,7 +20,7 @@ const hash = data => crypto.createHash('sha256').update(data).digest('hex');
 function write(file, data) { fs.mkdirSync(path.dirname(file), {recursive:true}); fs.writeFileSync(file,data); }
 function specCheck() {
   run('cue',['vet','./...'],cueDir);
-  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/frasco-completo', '#FrascoCompleto'], ['tests/emprestimo', '#EmprestimoReagente'], ['tests/m5', '#M5Operacao'], ['tests/m6', '#M6Metrologia'], ['tests/m7', '#M7Operacao'], ['tests/m8', '#M8Contrato'], ['tests/m9', '#M9Contrato'], ['tests/m10', '#M10Contrato'], ['tests/m11', '#M11Contrato'], ['tests/m12_1', '#M12_1Contrato'], ['tests/m12_2', '#M12_2Contrato'], ['tests/m13', '#M13Contrato']];
+  const groups = [['tests', '#Frasco'], ['tests/catalogo/resumo', '#ResumoReagente'], ['tests/catalogo/especificacao', '#EspecificacaoReagente'], ['tests/catalogo/par', '#ParCatalogo'], ['tests/catalogos', '#CatalogosContrato'], ['tests/frasco-completo', '#FrascoCompleto'], ['tests/emprestimo', '#EmprestimoReagente'], ['tests/m5', '#M5Operacao'], ['tests/m6', '#M6Metrologia'], ['tests/m7', '#M7Operacao'], ['tests/m8', '#M8Contrato'], ['tests/m9', '#M9Contrato'], ['tests/m10', '#M10Contrato'], ['tests/m11', '#M11Contrato'], ['tests/m12_1', '#M12_1Contrato'], ['tests/m12_2', '#M12_2Contrato'], ['tests/m13', '#M13Contrato']];
   for (const [directory, definition] of groups) for (const kind of ['valid','invalid']) {
     const files = fs.readdirSync(`${cueDir}/${directory}/${kind}`).sort();
     if (!files.length) throw new Error(`Sem fixtures ${kind}`);
@@ -59,10 +59,10 @@ function specExport() {
   specCheck();
   write('build/spec-ir.json',run('cue',['export','./docs','-e','ir'],cueDir));
 }
-function execAlloy(model, expected) {
+function execAlloy(model, expected, solver = 'sat4j') {
   const source=fs.readFileSync(model);
   const temp=fs.mkdtempSync(path.join(os.tmpdir(),'lcqui-alloy-'));
-  run('alloy6',['exec','-q','-c','*','-s','sat4j','-t','json','-o',path.join(temp,'result'),model]);
+  run('alloy6',['exec','-q','-c','*','-s',solver,'-t','json','-o',path.join(temp,'result'),model]);
   const receipt=JSON.parse(fs.readFileSync(path.join(temp,'result/receipt.json')));
   if(Object.keys(receipt.commands).sort().join()!==expected.map(x=>x.name).sort().join())
     throw new Error(`Comandos Alloy divergentes em ${model}; evidência ${temp}`);
@@ -217,17 +217,27 @@ function alloyCheck() {
   checkWithdrawalReturnTrace(file => fs.readFileSync(file));
   const m4run=execAlloy(withdrawalReturnModel, withdrawalReturnExpected);
   write('build/formal-validation-m4.json',JSON.stringify({versao:1,alloy:version,solver:m4run.solver,spec_ir_sha256:hash(ir),model:withdrawalReturnModel,model_sha256:hash(m4run.source),origens:withdrawalReturnOrigins.map(model=>({model,model_sha256:hash(fs.readFileSync(model))})),resultados:m4run.results},null,2)+'\n');
-  const runMilestone = (model, entries, file, milestone) => {
+  const runMilestone = (model, entries, file, milestone, solver = 'sat4j') => {
     const expected = entries.map(([name,type,scope], i) => ({
       id: `${milestone}-${type === 'check' ? 'INV' : 'WIT'}-${String(i + 1).padStart(3, '0')}`,
       name, type, scope,
       overall: scope.includes('for 8') ? 8 : scope.includes('for 7') ? 7 : scope.includes('for 6') ? 6 : scope.includes('for 5') ? 5 : 4,
     }));
-    const result = execAlloy(model, expected);
+    const result = execAlloy(model, expected, solver);
     write(file, JSON.stringify({versao: 1, alloy: version, solver: result.solver,
       spec_ir_sha256: hash(ir), model, model_sha256: hash(result.source),
       resultados: result.results}, null, 2) + '\n');
   };
+  runMilestone('specification/alloy/operations/catalogos_v2.als', [
+    ['ManifestoRefletePublicadas', 'check', 'check ManifestoRefletePublicadas for 6'],
+    ['MutacaoNaoVazaParaOutroCatalogo', 'check', 'check MutacaoNaoVazaParaOutroCatalogo for 6'],
+    ['EdicaoDeMateriaNaoMexeNosDemais', 'check', 'check EdicaoDeMateriaNaoMexeNosDemais for 6'],
+    ['PublicacaoNaoRegride', 'check', 'check PublicacaoNaoRegride for 6'],
+    ['WitnessMutacaoSomenteResumo', 'run', 'run WitnessMutacaoSomenteResumo for 6 but exactly 2 Estado'],
+    ['WitnessMutacaoSomenteSubstancia', 'run', 'run WitnessMutacaoSomenteSubstancia for 6 but exactly 2 Estado'],
+    ['WitnessEdicaoSomenteMateria', 'run', 'run WitnessEdicaoSomenteMateria for 6 but exactly 2 Estado'],
+    ['WitnessPublicacaoEspecificacaoSemReleitura', 'run', 'run WitnessPublicacaoEspecificacaoSemReleitura for 6 but exactly 2 Estado'],
+  ], 'build/formal-validation-catalogos.json', 'CATALOGOS', 'minisat');
   runMilestone('specification/alloy/reagents/loss_found_quarantine_m5.als', [
     ['ExtravioPreservaFisico','check','check ExtravioPreservaFisico for 4'],
     ['ExtravioMarcaLocalizacao','check','check ExtravioMarcaLocalizacao for 4'],

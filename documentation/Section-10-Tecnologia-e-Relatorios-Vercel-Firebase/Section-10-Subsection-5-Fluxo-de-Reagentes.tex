@@ -1773,48 +1773,45 @@ Os auxiliares de saldo e cache são contratos documentais, não implementação 
 \subsubsection{Catálogo JSON de Resumos e Especificações para pesquisa client-side}
 \label{sec:catalogo-json-reagentes}
 
-\begin{regra}[Papel do catálogo JSON]
-A V1 possui uma projeção materializada em JSON com o objetivo exclusivo de \textbf{buscar, filtrar, listar e apresentar} \textit{Resumo\_Reagente} e \textit{Especificacao\_Reagente} no cliente. A autoridade é explícita: \textbf{Firestore é a fonte canônica}; o \textbf{catálogo JSON é uma projeção materializada de busca/apresentação}; o \textbf{cache local é uma cópia descartável} dessa projeção. O JSON \textbf{não} é fonte canônica e não transporta como autoridade operacional \textit{Frasco\_Reagente}, empréstimos, saldo, disponibilidade de frascos, quarentena, peso corrente nem qualquer estado operacional de estoque. Operações físicas de cadastro, retirada e devolução continuam consultando o estado canônico. Se o cliente enviar \texttt{idResumo}, \texttt{idEspecificacao}, \texttt{nome}, \texttt{densidade} ou semelhantes, o backend não confia em campos derivados do JSON para executar operação crítica: IDs podem identificar a entidade, mas dados críticos são revalidados na fonte canônica quando necessário.
+\begin{regra}[Papel dos catálogos JSON]
+A V1 possui projeções materializadas independentes em JSON para \textbf{buscar, filtrar, listar e apresentar} quatro conjuntos: \textit{Resumo\_Reagente}, \textit{Especificacao\_Reagente}, \textit{Substancia\_Quimica} e \textit{Materia}. A autoridade é explícita: \textbf{Firestore é a fonte canônica}; os \textbf{catálogos JSON são projeções materializadas de busca/apresentação}; e o \textbf{cache local é uma cópia descartável}. O catálogo de resumos não aninha especificações: cada especificação pertence ao arquivo próprio e referencia \texttt{id\_resumo\_reagente}. O JSON \textbf{não} é fonte canônica e não transporta como autoridade operacional frascos, empréstimos, saldo, disponibilidade, quarentena, peso corrente ou estado de estoque. Operações críticas revalidam IDs e dados na fonte canônica; nome, densidade, unidade e composição recebidos do cliente nunca substituem essa revalidação.
 \end{regra}
 
 \begin{regra}[Pesquisa client-side]
 Depois que o JSON está carregado, a busca textual ocorre localmente e nenhuma consulta Firestore é disparada por tecla digitada; a pesquisa pode começar a partir do primeiro caractere, normalizando caixa e acentos. Filtros de estado físico, tipo, natureza e similares tornam-se filtros client-side opcionais, não pré-condições obrigatórias de consulta. A denormalização \texttt{letra\_inicial} não deve ser mantida apenas para viabilizar a antiga estratégia de consulta; antes de remover qualquer campo, auditar todas as referências e provar que ele não serve a outro contrato.
 \end{regra}
 
-\begin{regra}[Estado e versionamento do catálogo]
-Não existe \texttt{Usuarios/\{uid\}.catalogo\_version}: a versão armazenada no usuário não representa múltiplos navegadores/dispositivos. A versão efetivamente armazenada pelo cliente pertence ao cache local daquele dispositivo. Existe uma única autoridade server-owned, \texttt{Sistema\_Catalogo\_Reagentes/estado} (nome ajustável à nomenclatura existente, mantendo a unicidade), que separa obrigatoriamente \texttt{versao\_fonte} de \texttt{versao\_publicada}. \texttt{versao\_fonte} aumenta quando uma mutação canônica que afeta o catálogo é commitada; \texttt{versao\_publicada} aumenta somente depois que o JSON correspondente foi gerado, gravado e considerado publicável. Nunca fazer o cliente observar \texttt{versao = 8} com o caminho de um arquivo que ainda não existe. O documento contém, no mínimo, \texttt{versao\_fonte}, \texttt{versao\_publicada}, \texttt{storage\_path}, \texttt{sha256}, \texttt{gerado\_em} e \texttt{schema\_version}. Não é exposta URL pública permanente que contorne a autorização da Cloud Function: o conceito de URL é substituído por um \textbf{locator seguro} (\texttt{storage\_path}, resolvido por acesso temporário autorizado), decidido para que o cliente não receba um \texttt{downloadURL} permanente que torne a validação irrelevante.
+\begin{regra}[Estado, manifesto e versionamento independente]
+Não existe \texttt{Usuarios/\{uid\}.catalogo\_version}: a versão armazenada no usuário não representa múltiplos navegadores/dispositivos. A versão efetivamente armazenada pelo cliente pertence ao cache local daquele dispositivo. \texttt{Sistema\_Catalogo\_Reagentes/estado} é a autoridade server-owned e mantém, para cada catálogo, \texttt{versao\_fonte}, \texttt{versao\_publicada}, \texttt{storage\_path} e \texttt{sha256}. Um \textbf{manifesto versionado} registra as quatro versões publicadas compatíveis e seus locators. Uma mutação de substância não incrementa resumos, especificações ou matérias; edição de matéria incrementa somente a versão de matérias. \texttt{versao\_publicada} só avança depois que o arquivo correspondente foi gerado e gravado com sucesso. Nunca fazer o cliente observar uma versão com caminho inexistente. Não é exposta URL pública permanente que contorne a autorização da Cloud Function: o locator seguro é resolvido server-side.
 \end{regra}
 
-\begin{regra}[Quando a versão da fonte aumenta]
-Na V1 não há edição de Resumo/Especificação; as operações suportadas que alteram o catálogo são principalmente a criação de \textit{Resumo\_Reagente} e de \textit{Especificacao\_Reagente}. A criação e o incremento de \texttt{versao\_fonte} ocorrem atomicamente na mesma transação Firestore da mutação canônica, quando isso for técnicamente compatível com o fluxo documentado. O frontend nunca incrementa a versão, e a escrita do cliente em \texttt{Sistema\_Catalogo\_Reagentes} é negada.
+\begin{regra}[Quando cada versão da fonte aumenta]
+A criação ou edição canônica de um resumo incrementa somente \texttt{catalogos.resumos.versao\_fonte}; a criação ou edição de uma especificação incrementa somente \texttt{catalogos.especificacoes.versao\_fonte}; a criação ou edição de substância incrementa somente \texttt{catalogos.substancias.versao\_fonte}; e a criação ou edição de matéria incrementa somente \texttt{catalogos.materias.versao\_fonte}. A mutação e o incremento correspondente ocorrem atomicamente na mesma transação Firestore. O frontend nunca incrementa versões, e a escrita do cliente em \texttt{Sistema\_Catalogo\_Reagentes} é negada. A V1 não oferece edição destrutiva de identidade química; correções cadastrais devem preservar os IDs e atualizar apenas o catálogo afetado.
 \end{regra}
 
-\begin{regra}[Geração do JSON]
-Uma Cloud Function/worker server-side gera a projeção. Para a escala prevista da V1, preferir a reconstrução integral da projeção a patch manual: a criação de Resumo/Especificação commitada na transação incrementa \texttt{versao\_fonte}; o gerador observa \texttt{versao\_fonte > versao\_publicada}, lê Resumos e Especificações canônicas, gera JSON determinístico, calcula SHA-256, publica um objeto imutável no Storage (conceitualmente \texttt{catalogo-reagentes/v8-<hash>.json}) e só então avança \texttt{versao\_publicada}, \texttt{storage\_path}, \texttt{sha256} e \texttt{gerado\_em}. Não sobrescrever silenciosamente um arquivo que representa outra versão.
+\begin{regra}[Geração dos JSONs]
+Uma Cloud Function/worker server-side gera as projeções. Quando somente um catálogo está pendente, o gerador lê somente sua coleção canônica, reconstrói integralmente aquele JSON determinístico, calcula SHA-256 e publica um objeto imutável no Storage (por exemplo, \texttt{catalogo-substancias/v2-<hash>.json}); não relê nem recria os demais JSONs. O manifesto pequeno é regenerado para apontar as versões compatíveis. Não sobrescrever silenciosamente um arquivo que representa outra versão. Na carga inicial, os quatro catálogos podem ser publicados em uma única execução, mas suas versões e objetos continuam independentes.
 
 \textbf{Concorrência.} Múltiplos cadastros próximos são tratados sem fila adicional. Uma execução antiga jamais pode regredir \texttt{versao\_publicada} (por exemplo, 9 para 8); antes de publicar, verificar a monotonicidade. Se a fonte mudar durante a construção (\texttt{vStart != vEnd}), a execução não afirma que aquele resultado é um snapshot exato da versão inicialmente lida: reconcilia/reconstrói contra a versão corrente. É permitido coalescer mudanças e saltar versões publicadas intermediárias (4 para 7), desde que o JSON publicado represente corretamente o estado canônico correspondente e o estado publicado permaneça monotônico.
 \end{regra}
 
-\begin{regra}[Formato canônico do JSON]
-Para permitir lookup direto por \texttt{id\_resumo\_reagente} e \texttt{id\_especificacao\_reagente}, o formato canônico do JSON usa \textbf{objetos indexados por ID}, e não arrays. Cada resumo carrega suas especificações também indexadas por ID:
+\begin{regra}[Formato canônico dos JSONs]
+Para permitir lookup direto, todos os arquivos usam \textbf{objetos indexados por ID}, e não arrays. O manifesto tem a forma:
 \begin{lstlisting}[language=TypeScript, title={Formato canônico do catálogo JSON}]
 {
-  "schema_version": 1,
-  "catalog_version": 8,
-  "resumos": {
-    "123": {
-      "id": "123",
-      "nome": "Acido Cloridrico",
-      "tipo_substancia": "PURA",
-      "estado_fisico": "LIQUIDO",
-      "especificacoes": {
-        "456": { "id": "456", "descricao": "37% P.A.", "fabricante": "Merck" }
-      }
-    }
+  "schema_version": 2,
+  "manifesto_version": 4,
+  "compatibilidade": { "resumos": 3, "especificacoes": 7,
+    "substancias": 2, "materias": 1 },
+  "catalogos": {
+    "resumos": { "versao_publicada": 3, "storage_path": "catalogo-resumos/v3-...json" },
+    "especificacoes": { "versao_publicada": 7, "storage_path": "catalogo-especificacoes/v7-...json" },
+    "substancias": { "versao_publicada": 2, "storage_path": "catalogo-substancias/v2-...json" },
+    "materias": { "versao_publicada": 1, "storage_path": "catalogo-materias/v1-...json" }
   }
 }
 \end{lstlisting}
-Com isso, dado um frasco com \texttt{id\_resumo\_reagente = 123} e \texttt{id\_especificacao\_reagente = 456}, o frontend resolve diretamente \texttt{catalogo.resumos[frasco.id\_resumo\_reagente]} e \texttt{resumo.especificacoes[frasco.id\_especificacao\_reagente]}, sem \texttt{array.find(...)} e com lookup conceitualmente $O(1)$. Para pesquisa textual, filtros e ordenação, o cliente deriva arrays em memória (\texttt{Object.values(catalogo.resumos)} e, quando necessário, \texttt{Object.values(resumo.especificacoes)}). O JSON possui uma única representação canônica: não duplicar a mesma informação simultaneamente em array e mapa (por exemplo, \texttt{resumos} e \texttt{resumosPorId}); arrays para pesquisa são derivados em memória pelo cliente.
+Os quatro objetos são publicados separadamente: \texttt{resumos[id]}, \texttt{especificacoes[id]} com \texttt{id\_resumo\_reagente}, \texttt{substancias[id]} e \texttt{materias[id]}. O frontend deriva arrays em memória para busca e, quando precisa apresentar uma especificação dentro de um resumo, faz um índice local por \texttt{id\_resumo\_reagente}; não há consulta Firestore por tecla nem duplicação estrutural no arquivo canônico.
 \end{regra}
 
 \begin{regra}[Cloud Function de download do catálogo]

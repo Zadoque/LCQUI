@@ -1,0 +1,14 @@
+{
+  "manifesto": {
+    "schema_version": 2,
+    "manifesto_version": 1,
+    "compatibilidade": {"resumos": 0, "especificacoes": 1, "substancias": 1, "materias": 1},
+    "catalogos": {
+      "resumos": {"versao_fonte": 1, "versao_publicada": 0, "storage_path": null, "sha256": null},
+      "especificacoes": {"versao_fonte": 1, "versao_publicada": 1, "storage_path": "catalogo-especificacoes/v1-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.json", "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"},
+      "substancias": {"versao_fonte": 1, "versao_publicada": 1, "storage_path": "catalogo-substancias/v1-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.json", "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"},
+      "materias": {"versao_fonte": 1, "versao_publicada": 1, "storage_path": "catalogo-materias/v1-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.json", "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}
+    }
+  },
+  "fontes": {"resumos": 1, "especificacoes": 1, "substancias": 1, "materias": 1}
+}

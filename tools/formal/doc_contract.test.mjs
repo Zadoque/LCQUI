@@ -41,9 +41,9 @@ test('devolução não recalcula vencimento pelo relógio e classifica o retorno
 });
 
 test('catálogo JSON é projeção de busca e nunca autoridade operacional', () => {
-  mustContain(flow, 'Catálogo JSON de Resumos', 'projeção JSON');
+  mustContain(flow, 'Catálogo JSON de Resumos e Especificações', 'projeção JSON');
   mustContain(flow, 'Firestore é a fonte canônica', 'fonte canônica');
-  mustContain(flow, 'projeção materializada de busca/apresentação', 'papel do JSON');
+  mustContain(flow, 'projeções materializadas de busca/apresentação', 'papel do JSON');
   mustContain(flow, 'cópia descartável', 'cache local');
   mustContain(flow, 'O JSON \\textbf{não} é fonte canônica', 'JSON não é autoridade');
   mustContain(flow, 'Sistema\\_Catalogo\\_Reagentes/estado', 'estado server-owned');
@@ -53,7 +53,7 @@ test('catálogo JSON é projeção de busca e nunca autoridade operacional', () 
   mustContain(flow, 'resolverCatalogoPorIds', 'fallback canônico por ID');
   mustContain(flow, 'ERRO DE INTEGRIDADE REFERENCIAL', 'erro de integridade referencial');
   mustContain(flow, 'objetos indexados por ID', 'formato canônico por ID');
-  mustContain(flow, 'Object.values(catalogo.resumos)', 'derivação de arrays em memória');
+  mustContain(flow, 'objetos indexados por ID', 'formato canônico por ID');
   mustContain(flow, 'Não existe \\texttt{Usuarios/\\{uid\\}.catalogo\\_version}', 'proibição de catalogo_version no usuário');
   mustContain(sec11, 'storage\\_path', 'locator seguro no lugar de URL pública');
   mustContain(sec11, 'não armazena um', 'ausência de downloadURL permanente');

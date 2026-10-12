@@ -9,8 +9,8 @@ A modelagem da seção anterior é deliberadamente relacional e normalizada (3FN
 \textit{letra\_inicial} de \textit{Resumo\_Reagente} foi reintroduzido como
 denormalização para viabilizar um filtro de igualdade na antiga estratégia de
 busca no Firestore. A estratégia vigente de reagentes é a busca em memória sobre
-o catálogo JSON materializado (Seção~\ref{sec:catalogo-json-reagentes}): o catálogo inteiro é carregado no
-cliente e filtrado localmente, sem consulta Firestore por tecla e sem filtro
+as projeções JSON independentes (Seção~\ref{sec:catalogo-json-reagentes}): o
+cliente carrega a fotografia dos catálogos necessários e filtra localmente, sem consulta Firestore por tecla e sem filtro
 prévio obrigatório. Portanto \textit{letra\_inicial} \textbf{não é requisito da
 busca atual} e não deve ser mantido apenas para viabilizá-la.
 
@@ -140,7 +140,7 @@ Impressao\_Etiqueta\_Frasco & Coleção raiz & Refere-se a impressão em lote (v
 Contador\_Codigo\_Frasco & Documento singleton em \nolinkurl{Contador\_Codigo\_Frasco/singleton} & Sequenciador atômico operado via \texttt{runTransaction} para gerar o \texttt{LCQUI-X}.\\
 Substancia\_Quimica & Coleção raiz & Catálogo global; raramente alterado.\\
 Resumo\_Reagente & Coleção raiz. Denorm: \texttt{letra\_inicial} (legado) & Catálogo de reagentes; a busca vigente é em memória sobre o catálogo JSON (Seção~\ref{sec:catalogo-json-reagentes}) e não exige \texttt{letra\_inicial}. Campo mantido como legado; depreciação proposta em rodada formal própria.\\
-Especificacao\_Reagente & Sub-coleção \nolinkurl{Resumo\_Reagente/\{id\}/Especificacoes} & Sempre acessada a partir do resumo; nunca consultada globalmente.\\
+Especificacao\_Reagente & Sub-coleção canônica \nolinkurl{Resumo\_Reagente/\{id\}/Especificacoes} e projeção raiz server-owned & A sub-coleção preserva o vínculo canônico; a projeção raiz, com \texttt{id\_resumo\_reagente}, alimenta exclusivamente o catálogo JSON independente e consultas administrativas autorizadas.\\
 Composicao\_Reagente & Array de maps embutido no documento de \texttt{Especificacao\_Reagente} & N pequeno e fixo (poucas substâncias por especificação); não cresce sem limite.\\
 Lote & Coleção raiz. Denorm: \texttt{id\_especificacao\_reagente}, \texttt{nome\_reagente} & Relatórios consultam todos os lotes de um período sem partir de uma especificação conhecida.\\
 Frasco\_Reagente & Coleção raiz. Denorm: \texttt{id\_especificacao\_reagente}, \texttt{id\_resumo\_reagente}, \texttt{nome\_reagente}, \texttt{unidade\_medida}, \texttt{id\_almoxarifado} & Entidade central; queries cruzadas constantes por almoxarifado, status e vencimento.\\
@@ -159,7 +159,7 @@ Roteiro\_Experimento & Coleção raiz & Compartilhamento cross-professor exige a
 Convite\_Aluno & Coleção raiz & Identidade histórica preservada do convite (\texttt{Convite\_Aluno/\{idConvite\}}), com ID imutável. Unicidade transacional de convite \texttt{pendente} por contexto (turma ou global) e e-mail normalizado, validada em \texttt{Chaves\_Unicas} por chave HMAC distinta do docId (derivada no servidor sobre serialização canônica), sem e-mail em claro; enquanto pendente, reenvio substitui apenas campos transitórios (hash, expiração e operador); terminalidade (aceite, rejeição ou expiração) libera a pendência e preserva o documento do convite.\\
 Notificacao & Sub-coleção \nolinkurl{Usuarios/\{uid\}/Notificacoes} & Query natural por usuário; funciona automaticamente para usuários multi-role sem necessidade de multiple reads.\\
 Registro\_de\_Auditoria & Coleção raiz & Log global queryável por tipo de entidade e período.\\
-Lote\_Materializado & Coleção raiz (docId = id do lote) & Atualizada por trigger \texttt{onFrascoCriado}/\texttt{onFrascoRemovido}.\\
+Lote\_Materializado & Coleção raiz (docId = id do lote) & Atualizada por trigger \texttt{onFrascoCriado}\allowbreak/\allowbreak\texttt{onFrascoRemovido}.\\
 Resumo\_Almoxarifado\_Diario & Coleção raiz & Job agendado diário.\\
 Resumo\_Reagente\_Diario & Coleção raiz & Job agendado diário.\\
 Resumo\_Bem\_Patrimonial\_Diario & Coleção raiz & Job agendado diário.\\
@@ -553,7 +553,8 @@ Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}/HistoricoPosts/\{eventoId\}}.
 \end{description}
 
 \paragraph{Historico\_Comentario}\mbox{}\par
-Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}/Comentarios/\{id\}/HistoricoComentarios/\{eventoId\}}.
+Caminho: \texttt{Turma/\{id\}/Posts/\{postId\}/Comentarios/\{id\}/}
+\texttt{HistoricoComentarios/\{eventoId\}}.
 \begin{description}
 \item[\texttt{id}] docId string; O. Chave do documento, gerada pelo servidor; não duplicar como contador relacional.
 \item[\texttt{id\_comentario}] string; O. Identificador da entidade comentario, cuja existência e escopo são verificados no servidor.

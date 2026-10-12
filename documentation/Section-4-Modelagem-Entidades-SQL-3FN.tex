@@ -497,7 +497,8 @@ O histórico registra as transições que sustentam a reconstrução auditável 
 \campo{id\_frasco\_reagente}{INTEGER}{FK, NOT NULL}
 \campo{id\_usuario\_retirou}{INTEGER}{FK, NOT NULL}
 \campo{id\_gestor\_retirada}{INTEGER}{FK, NOT NULL}
-\campo{status}{ENUM}{EM\_USO,ATRASADO,DEVOLVIDO,DEVOLVIDO\_COM\_ATRASO,DEVOLVIDO\_COM\_ANOMALIA,ENCERRADO\_EXTRAORDINARIO, NOT NULL}
+\campo{status}{ENUM}{NOT NULL}
+\subcampo{\parbox{\dimexpr\linewidth-4mm\relax}{Valores: \texttt{EM\_USO}, \texttt{ATRASADO}, \texttt{DEVOLVIDO}, \texttt{DEVOLVIDO\_COM\_ATRASO}, \texttt{DEVOLVIDO\_COM\_ANOMALIA} e \texttt{ENCERRADO\_EXTRAORDINARIO}.}}
 \campo{data\_retirada}{TIMESTAMP}{NOT NULL}
 \campo{data\_devolucao\_prevista}{DATE}{NOT NULL}
 \campo{data\_devolucao\_efetuada}{TIMESTAMP}{NULL}
