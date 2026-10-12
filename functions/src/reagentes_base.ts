@@ -197,7 +197,6 @@ export const cadastrarEspecificacao = onCall(async (request) => {
       codigo_produto_fabricante: dados.codigoProdutoFabricante?.trim() ?? null,
       grau_pureza: dados.grauPureza?.trim() ?? null,
       densidade: dados.densidade ?? null,
-      estado_fisico: resumoData.estado_fisico,
       unidade_de_medida: unidadeDeMedida,
       classe_inflamabilidade: dados.classeInflamabilidade,
       eh_controlado_pf: dados.ehControladoPf,

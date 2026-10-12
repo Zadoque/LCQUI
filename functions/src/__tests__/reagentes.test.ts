@@ -714,9 +714,9 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
       expect(especDoc.data()).toMatchObject({
         densidade: 0.789,
         unidade_de_medida: "ml",
-        estado_fisico: "LIQUIDO",
         composicao: [{ id_substancia_quimica: subRef.id, tipo_concentracao: "M_M" }],
       });
+      expect(especDoc.data()).not.toHaveProperty("estado_fisico");
     });
   });
 
