@@ -1,7 +1,8 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { extrairClaimsAutoridade, validarAutoridadePersistida } from "./auth";
+import { createHash } from "node:crypto";
+import { validarAutoridadePersistida } from "./auth";
 import { validatePayload } from "./utils/validation";
 import { ResolverCatalogoPorIdsSchema } from "./schemas/catalogo.schema";
 
@@ -26,8 +27,26 @@ export interface CatalogoResumoJSON {
 export interface CatalogoReagentesJSON {
   schema_version: number;
   catalog_version: number;
-  gerado_em?: string;
   resumos: Record<string, CatalogoResumoJSON>;
+}
+
+const estadoCatalogoRef = () => admin.firestore().collection("Sistema_Catalogo_Reagentes").doc("estado");
+
+/** Incrementa a fonte na mesma transação da mutação canônica do catálogo. */
+export async function incrementarVersaoFonteTx(tx: admin.firestore.Transaction): Promise<void> {
+  const ref = estadoCatalogoRef();
+  const snap = await tx.get(ref);
+  const atual = snap.data() ?? {};
+  const versaoFonte = Number.isInteger(atual?.versao_fonte) ? Number(atual.versao_fonte) : 0;
+  tx.set(ref, {
+    versao_fonte: versaoFonte + 1,
+    versao_publicada: Number.isInteger(atual?.versao_publicada) ? Number(atual.versao_publicada) : 0,
+    schema_version: 1,
+  }, { merge: true });
+}
+
+function jsonDeterministico(catalogo: CatalogoReagentesJSON): string {
+  return JSON.stringify(catalogo, null, 2);
 }
 
 /**
@@ -35,79 +54,99 @@ export interface CatalogoReagentesJSON {
  */
 export async function montarEGravarCatalogoReagentes(): Promise<CatalogoReagentesJSON> {
   const db = admin.firestore();
-  const estadoRef = db.collection("Sistema_Catalogo_Reagentes").doc("estado");
+  for (let tentativa = 0; tentativa < 3; tentativa += 1) {
+    const estadoRef = estadoCatalogoRef();
+    const estadoSnap = await estadoRef.get();
+    const estadoAtual = estadoSnap.data() ?? {};
+    const versaoFonte = Number.isInteger(estadoAtual.versao_fonte)
+      ? Number(estadoAtual.versao_fonte)
+      : Math.max(Number(estadoAtual.versao_publicada ?? 0), 1);
+    const versaoPublicada = Number(estadoAtual.versao_publicada ?? 0);
 
-  const estadoSnap = await estadoRef.get();
-  const versaoAtual = estadoSnap.exists ? (estadoSnap.data()?.versao_publicada ?? 0) : 0;
-  const novaVersao = versaoAtual + 1;
+    if (estadoAtual.catalogo_embutido && versaoPublicada >= versaoFonte && estadoAtual.sha256 && estadoAtual.storage_path) {
+      return estadoAtual.catalogo_embutido as CatalogoReagentesJSON;
+    }
 
-  const resumosSnap = await db.collection("Resumo_Reagente").get();
-  const resumosMap: Record<string, CatalogoResumoJSON> = {};
-
-  for (const doc of resumosSnap.docs) {
-    const data = doc.data();
-    const especsSnap = await doc.ref.collection("Especificacoes").get();
-    const especsMap: Record<string, CatalogoEspecificacaoJSON> = {};
-
-    for (const eDoc of especsSnap.docs) {
-      const eData = eDoc.data();
-      especsMap[eDoc.id] = {
-        id: eDoc.id,
-        descricao: eData.descricao ?? "",
-        fabricante: eData.fabricante ?? "",
-        ...(typeof eData.densidade === "number" ? { densidade: eData.densidade } : {}),
-        ...(eData.unidade_de_medida ? { unidade_de_medida: eData.unidade_de_medida } : {}),
+    const resumosSnap = await db.collection("Resumo_Reagente").get();
+    const resumosMap: Record<string, CatalogoResumoJSON> = {};
+    for (const doc of [...resumosSnap.docs].sort((a, b) => a.id.localeCompare(b.id))) {
+      const data = doc.data();
+      const especsSnap = await doc.ref.collection("Especificacoes").get();
+      const especsMap: Record<string, CatalogoEspecificacaoJSON> = {};
+      for (const eDoc of [...especsSnap.docs].sort((a, b) => a.id.localeCompare(b.id))) {
+        const eData = eDoc.data();
+        especsMap[eDoc.id] = {
+          id: eDoc.id,
+          descricao: eData.descricao ?? "",
+          fabricante: eData.fabricante ?? "",
+          ...(typeof eData.densidade === "number" ? { densidade: eData.densidade } : {}),
+          ...(eData.unidade_de_medida ? { unidade_de_medida: eData.unidade_de_medida } : {}),
+        };
+      }
+      resumosMap[doc.id] = {
+        id: doc.id,
+        nome: data.nome ?? "",
+        tipo_substancia: data.tipo_substancia ?? "PURA",
+        natureza_quimica: data.natureza_quimica ?? "INORGANICO",
+        estado_fisico: data.estado_fisico ?? "SOLIDO",
+        eh_higroscopico: Boolean(data.eh_higroscopico),
+        especificacoes: especsMap,
       };
     }
 
-    resumosMap[doc.id] = {
-      id: doc.id,
-      nome: data.nome ?? "",
-      tipo_substancia: data.tipo_substancia ?? "PURA",
-      natureza_quimica: data.natureza_quimica ?? "INORGANICO",
-      estado_fisico: data.estado_fisico ?? "SOLIDO",
-      eh_higroscopico: Boolean(data.eh_higroscopico),
-      especificacoes: especsMap,
+    const catalogo: CatalogoReagentesJSON = {
+      schema_version: 1,
+      catalog_version: versaoFonte,
+      resumos: resumosMap,
     };
+    const payload = jsonDeterministico(catalogo);
+    const sha256 = createHash("sha256").update(payload).digest("hex");
+    const storagePath = `catalogo-reagentes/v${versaoFonte}-${sha256}.json`;
+
+    try {
+      const bucketName = process.env.STORAGE_BUCKET || admin.app().options.storageBucket || "lcqui-dev.appspot.com";
+      const file = admin.storage().bucket(bucketName).file(storagePath);
+      const [exists] = await file.exists();
+      if (!exists) {
+        await file.save(payload, {
+          resumable: false,
+          contentType: "application/json",
+          metadata: { metadata: { schema_version: "1", catalog_version: String(versaoFonte), sha256 } },
+        });
+      }
+    } catch (err) {
+      console.error("Storage upload do catálogo não concluído:", err);
+      throw new HttpsError("unavailable", "Não foi possível publicar o catálogo no Storage.");
+    }
+
+    let publicado = false;
+    try {
+      await db.runTransaction(async (tx) => {
+        const atualSnap = await tx.get(estadoRef);
+        const atual = atualSnap.data() ?? {};
+        const fonteCorrente = Number(atual.versao_fonte ?? versaoFonte);
+        if (fonteCorrente !== versaoFonte) throw new Error("CATALOGO_SOURCE_CHANGED");
+        const publicadaCorrente = Number(atual.versao_publicada ?? 0);
+        if (publicadaCorrente > versaoFonte) return;
+        tx.set(estadoRef, {
+          versao_fonte: versaoFonte,
+          versao_publicada: versaoFonte,
+          storage_path: storagePath,
+          sha256,
+          gerado_em: FieldValue.serverTimestamp(),
+          publicado_em: FieldValue.serverTimestamp(),
+          schema_version: 1,
+          catalogo_embutido: catalogo,
+        }, { merge: true });
+        publicado = true;
+      });
+    } catch (err) {
+      if (err instanceof Error && err.message === "CATALOGO_SOURCE_CHANGED") continue;
+      throw err;
+    }
+    if (publicado) return catalogo;
   }
-
-  const catalogo: CatalogoReagentesJSON = {
-    schema_version: 1,
-    catalog_version: novaVersao,
-    gerado_em: new Date().toISOString(),
-    resumos: resumosMap,
-  };
-
-  const storagePath = `catalogo/reagentes_v${novaVersao}.json`;
-
-  try {
-    const bucketName = process.env.STORAGE_BUCKET || admin.app().options.storageBucket || "lcqui-dev.appspot.com";
-    const bucket = admin.storage().bucket(bucketName);
-    const file = bucket.file(storagePath);
-    await file.save(JSON.stringify(catalogo, null, 2), {
-      contentType: "application/json",
-      metadata: {
-        schema_version: "1",
-        catalog_version: String(novaVersao),
-      },
-    });
-  } catch (err) {
-    // O estado publicado só pode apontar para um artefato que existe no Storage.
-    // Falhar fechado evita anunciar uma versão inexistente após erro de upload.
-    console.error("Storage upload do catálogo não concluído:", err);
-    throw new HttpsError("unavailable", "Não foi possível publicar o catálogo no Storage.");
-  }
-
-  await estadoRef.set({
-    versao_publicada: novaVersao,
-    versao_fonte: novaVersao,
-    schema_version: 1,
-    storage_path: storagePath,
-    catalogo_embutido: catalogo,
-    publicado_em: FieldValue.serverTimestamp(),
-  });
-
-  return catalogo;
+  throw new HttpsError("aborted", "O catálogo mudou durante a publicação; tente novamente.");
 }
 
 export const gerarCatalogoReagentes = onCall(async (request) => {
@@ -123,27 +162,27 @@ export const gerarCatalogoReagentes = onCall(async (request) => {
 });
 
 export const obterCatalogoReagentes = onCall(async (request) => {
-  const claims = extrairClaimsAutoridade(request);
-
   // Papéis permitidos conforme matriz da Seção 3 e M9: Chefe_Geral, Gestor_Almoxarifado, Professor, Aluno, Bolsista
-  const papeisPermitidos = ["Chefe_Geral", "Gestor_Almoxarifado", "Professor", "Aluno", "Bolsista"];
-  const autorizado = claims.papeis.some((p) => papeisPermitidos.includes(p));
-
-  if (!autorizado) {
-    throw new HttpsError("permission-denied", "Usuário não possui autoridade para consultar o catálogo de reagentes.");
-  }
+  await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado", "Professor", "Aluno", "Bolsista"]);
 
   const db = admin.firestore();
   const estadoRef = db.collection("Sistema_Catalogo_Reagentes").doc("estado");
   const estadoSnap = await estadoRef.get();
 
-  if (!estadoSnap.exists) {
-    // Se o catálogo ainda não foi gerado, compila na primeira chamada
+  const estadoAtual = estadoSnap.data() ?? {};
+  const necessitaPublicacao = !estadoSnap.exists
+    || !estadoAtual.catalogo_embutido
+    || Number(estadoAtual.versao_publicada ?? 0) < Number(estadoAtual.versao_fonte ?? 0);
+
+  if (necessitaPublicacao) {
+    // Se o seed ou uma mutação deixou a fonte pendente, compila na primeira leitura autorizada.
     const catalogo = await montarEGravarCatalogoReagentes();
+    const estadoAtualizado = await estadoRef.get();
+    const estadoPublicado = estadoAtualizado.data() ?? {};
     return {
       versaoPublicada: catalogo.catalog_version,
       schemaVersion: catalogo.schema_version,
-      storagePath: `catalogo/reagentes_v${catalogo.catalog_version}.json`,
+      storagePath: estadoPublicado.storage_path,
       catalogo,
     };
   }
@@ -158,15 +197,9 @@ export const obterCatalogoReagentes = onCall(async (request) => {
 });
 
 export const resolverCatalogoPorIds = onCall(async (request) => {
-  const claims = extrairClaimsAutoridade(request);
   const dados = validatePayload(ResolverCatalogoPorIdsSchema, request.data);
 
-  const papeisPermitidos = ["Chefe_Geral", "Gestor_Almoxarifado", "Professor", "Aluno", "Bolsista"];
-  const autorizado = claims.papeis.some((p) => papeisPermitidos.includes(p));
-
-  if (!autorizado) {
-    throw new HttpsError("permission-denied", "Usuário não possui autoridade para consultar o catálogo de reagentes.");
-  }
+  await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado", "Professor", "Aluno", "Bolsista"]);
 
   const db = admin.firestore();
   const resumoRef = db.collection("Resumo_Reagente").doc(dados.idResumo);
