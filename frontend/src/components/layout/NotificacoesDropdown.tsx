@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { db } from "@/lib/firebase/config";
-import { collection, onSnapshot, query, Timestamp, where } from "firebase/firestore";
+import { useNotificacoes } from "@/contexts/NotificacoesContext";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { Bell, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -112,13 +111,10 @@ export function mensagemContextual(notif: NotificacaoItem): string {
 
 export function NotificacoesDropdown() {
   const { user } = useAuth();
+  const { notificacoes, loading, dadosDesatualizados, offline, marcarDadosDesatualizados } = useNotificacoes();
   const [isOpen, setIsOpen] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState<"nao_lidas" | "todas">("nao_lidas");
-  const [notificacoes, setNotificacoes] = useState<NotificacaoItem[]>([]);
-  const [loading, setLoading] = useState(false);
   const [agora, setAgora] = useState(() => Date.now());
-  const [dadosDesatualizados, setDadosDesatualizados] = useState(false);
-  const [offline, setOffline] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -147,95 +143,18 @@ export function NotificacoesDropdown() {
         setIsOpen(false);
         router.push(resultado.data.url);
       } else {
-        setDadosDesatualizados(true);
+        marcarDadosDesatualizados();
       }
     } catch (error) {
       console.error("Erro ao validar destino da notificação:", error);
-      setDadosDesatualizados(true);
+      marcarDadosDesatualizados();
     }
-  }, [router]);
-
-  const permissionDeniedRef = useRef(false);
+  }, [marcarDadosDesatualizados, router]);
 
   useEffect(() => {
     const relogio = window.setInterval(() => setAgora(Date.now()), 30_000);
     return () => window.clearInterval(relogio);
   }, []);
-
-  useEffect(() => {
-    if (!user?.uid) {
-      setNotificacoes([]);
-      setDadosDesatualizados(false);
-      setOffline(false);
-      return;
-    }
-
-    setNotificacoes([]);
-    setLoading(true);
-    setDadosDesatualizados(false);
-    setOffline(typeof navigator !== "undefined" && !navigator.onLine);
-
-    const atualizarConectividade = () => setOffline(!navigator.onLine);
-    window.addEventListener("online", atualizarConectividade);
-    window.addEventListener("offline", atualizarConectividade);
-
-    // Reset permission-denied state on user change
-    permissionDeniedRef.current = false;
-
-    const colRef = collection(db, "Usuarios", user.uid, "Notificacoes");
-    // A Rule de M13 exige que listagens provem a coerência entre o caminho da
-    // caixa e `id_destinatario`; sem este filtro o Firestore nega a query.
-    const notificacoesQuery = query(colRef, where("id_destinatario", "==", user.uid));
-    const unsubscribe = onSnapshot(
-      notificacoesQuery,
-      (snapshot) => {
-        const itens: NotificacaoItem[] = [];
-        snapshot.forEach((doc) => {
-          const d = doc.data() as Omit<NotificacaoItem, "id">;
-          itens.push({
-            id: doc.id,
-            ...d,
-          });
-        });
-
-        // Ordenação em memória por emitida_em descrescente
-        itens.sort((a, b) => {
-          const tA = a.emitida_em?.toMillis ? a.emitida_em.toMillis() : 0;
-          const tB = b.emitida_em?.toMillis ? b.emitida_em.toMillis() : 0;
-          return tB - tA;
-        });
-
-        setNotificacoes(itens);
-        setLoading(false);
-        setDadosDesatualizados(snapshot.metadata.fromCache === true);
-        setOffline(!navigator.onLine);
-      },
-      (error) => {
-        // permission-denied em cenários legítimos (conta sem papel
-        // persistido antes da correção da Rule, ou listener órfão) não é
-        // erro fatal — apenas encerra o listener e exibe caixa vazia.
-        // Outros erros continuam registrados normalmente.
-        if (error.code === "permission-denied") {
-          if (!permissionDeniedRef.current) {
-            permissionDeniedRef.current = true;
-            console.warn("Notificações: leitura negada (caixa própria) — verifique autenticação/vínculo.");
-            // Registra apenas uma vez; não polui o console em reconexões.
-          }
-        } else {
-          console.error("Erro ao ouvir notificações:", error);
-        }
-        setLoading(false);
-        setDadosDesatualizados(true);
-        setOffline(!navigator.onLine);
-      }
-    );
-
-    return () => {
-      unsubscribe();
-      window.removeEventListener("online", atualizarConectividade);
-      window.removeEventListener("offline", atualizarConectividade);
-    };
-  }, [user?.uid]);
 
   // Fechar dropdown ao clicar fora
   useEffect(() => {

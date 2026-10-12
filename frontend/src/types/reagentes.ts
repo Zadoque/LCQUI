@@ -25,6 +25,30 @@ export interface ResumoReagente {
   // Denormalizados para pesquisa no frontend / Firestore (UI-04)
   estado_fisico?: "Sólido" | "Líquido" | "SOLIDO" | "LIQUIDO";
   riscos?: string[];
+  especificacoes?: Record<string, CatalogoEspecificacao>;
+}
+
+/** Projeção da especificação comercial publicada no catálogo JSON. */
+export interface CatalogoEspecificacao {
+  id: string;
+  descricao?: string;
+  fabricante?: string;
+  codigo_produto_fabricante?: string;
+  grau_pureza?: string;
+  densidade?: number;
+  unidade_de_medida?: "ml" | "g" | string;
+  classe_inflamabilidade?: string;
+  eh_controlado_pf?: boolean;
+  eh_controlado_eb?: boolean;
+  link_fds_fispq?: string;
+  id_substancia_quimica?: string;
+  composicao?: Array<{
+    id_substancia_quimica: string;
+    valor_min: number | null;
+    valor_max: number | null;
+    tipo_concentracao: string;
+    notacao_original_fabricante: string | null;
+  }>;
 }
 
 export interface EspecificacaoReagente {

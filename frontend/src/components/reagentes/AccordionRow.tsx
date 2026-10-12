@@ -2,34 +2,20 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
-import { ResumoReagente } from "@/types/reagentes";
+import type { ResumoReagente, CatalogoEspecificacao } from "@/types/reagentes";
 import { EspecificacaoRow } from "./EspecificacaoRow";
 
 export interface AccordionRowProps {
   reagente: ResumoReagente;
-  onAction: (action: string, payload: any) => void;
+  onAction: (action: string, payload: unknown) => void;
   readOnly?: boolean;
 }
 
 export function AccordionRow({ reagente, onAction, readOnly }: AccordionRowProps) {
   const [expanded, setExpanded] = useState(false);
-  const [especificacoes, setEspecificacoes] = useState<any[]>([]);
-  const [loadingEspec, setLoadingEspec] = useState(false);
+  const especificacoes = Object.values(reagente.especificacoes ?? {});
 
-  const toggleExpand = async () => {
-    if (!expanded) {
-      setLoadingEspec(true);
-      try {
-        const snap = await getDocs(collection(db, "Resumo_Reagente", reagente.id, "Especificacoes"));
-        setEspecificacoes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoadingEspec(false);
-      }
-    }
+  const toggleExpand = () => {
     setExpanded(!expanded);
   };
 
@@ -45,7 +31,7 @@ export function AccordionRow({ reagente, onAction, readOnly }: AccordionRowProps
         <td className="px-6 py-4"><span className="px-2 py-1 rounded bg-foreground/10 text-xs">{reagente.tipo_substancia || "N/A"}</span></td>
         <td className="px-6 py-4">{reagente.natureza_quimica}</td>
         <td className="px-6 py-4">
-          <span className={`px-2 py-1 rounded text-xs ${reagente.estado_fisico === 'Líquido' ? 'bg-blue-500/20 text-blue-500' : 'bg-amber-500/20 text-amber-500'}`}>
+          <span className={`px-2 py-1 rounded text-xs ${reagente.estado_fisico === 'LIQUIDO' || reagente.estado_fisico === 'Líquido' ? 'bg-blue-500/20 text-blue-500' : 'bg-amber-500/20 text-amber-500'}`}>
             {reagente.estado_fisico || "N/A"}
           </span>
         </td>
@@ -69,13 +55,11 @@ export function AccordionRow({ reagente, onAction, readOnly }: AccordionRowProps
         <tr>
           <td colSpan={5} className="p-0 bg-foreground/5">
             <div className="p-4 pl-12">
-              {loadingEspec ? (
-                <div className="text-sm text-foreground/50">Carregando especificações...</div>
-              ) : especificacoes.length === 0 ? (
+              {especificacoes.length === 0 ? (
                 <div className="text-sm text-foreground/50">Nenhuma especificação cadastrada.</div>
               ) : (
                 <div className="space-y-4">
-                  {especificacoes.map(espec => (
+                  {especificacoes.map((espec: CatalogoEspecificacao) => (
                     <EspecificacaoRow key={espec.id} espec={espec} reagente={reagente} onAction={onAction} readOnly={readOnly} />
                   ))}
                 </div>

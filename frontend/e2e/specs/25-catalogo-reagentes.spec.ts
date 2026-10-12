@@ -32,6 +32,18 @@ test.describe("Catálogo e cadastro de reagentes", () => {
     await expect(celulasEstado().filter({ hasText: "LIQUIDO" })).toHaveCount(0);
   });
 
+  test("REAG-001-E2E-003 exibe especificações e densidade líquida a partir do catálogo JSON", async ({ page }) => {
+    await login(page, "gestor.almoxarifado@lcqui.local");
+    await page.goto("/reagentes");
+    await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
+
+    const linha = page.locator("tbody > tr").filter({ hasText: "Reagente Seed" }).first();
+    await linha.getByRole("button", { name: "Detalhes", exact: true }).click();
+    await expect(page).toHaveURL(/\/reagentes\/seed-resumo-reagente-frascos$/);
+    await expect(page.getByTestId("reagente-especificacoes")).toContainText("Reagente Analítico 1L");
+    await expect(page.getByTestId("reagente-especificacoes")).toContainText("Densidade: 1 g/mL");
+  });
+
   test("REAG-001-E2E-001 cadastra substância química pela UI-05", async ({ page }) => {
     await login(page, "gestor.almoxarifado@lcqui.local");
     await page.goto("/reagentes");

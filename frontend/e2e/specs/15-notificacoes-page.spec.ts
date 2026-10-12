@@ -85,8 +85,8 @@ test.describe.serial("Notificações UI-12 — página dedicada", () => {
     await expect(page.getByTestId("aba-nao-lidas")).toBeVisible();
     await expect(page.getByTestId("aba-todas")).toBeVisible();
 
-    await expect(pagina.getByText("Turma arquivada", { exact: true })).toBeVisible();
-    await expect(pagina.getByText("Aluno", { exact: true })).toBeVisible();
+    await expect(pagina.getByText("Turma arquivada", { exact: true }).first()).toBeVisible();
+    await expect(pagina.getByText("Aluno", { exact: true }).first()).toBeVisible();
 
     await expect(pagina.getByTestId(/notif-link-/).first()).toBeVisible();
 

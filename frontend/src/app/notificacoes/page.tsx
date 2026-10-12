@@ -1,12 +1,10 @@
 "use client";
 
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { useNotificacoes } from "@/contexts/NotificacoesContext";
 import type { NotificacaoItem } from "@/types/notificacoes";
 import { ROTULO_TIPO_NOTIFICACAO as ROTULO_TIPO } from "@/types/notificacoes";
 import { buildDeepLink, mensagemContextual, filtrarNaoLidasAtivas, isNotificacaoExpirada } from "@/components/layout/NotificacoesDropdown";
-import { useAuth } from "@/contexts/AuthContext";
-import { db } from "@/lib/firebase/config";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -14,75 +12,11 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import { Clock, CheckCircle2, XCircle, AlertCircle, Loader2 } from "lucide-react";
 
 export default function NotificacoesPage() {
-  const { user } = useAuth();
+  const { notificacoes, loading, dadosDesatualizados, offline, marcarDadosDesatualizados } = useNotificacoes();
   const router = useRouter();
   const [abaAtiva, setAbaAtiva] = useState<"nao_lidas" | "todas">("nao_lidas");
-  const [notificacoes, setNotificacoes] = useState<NotificacaoItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [dadosDesatualizados, setDadosDesatualizados] = useState(false);
-  const [offline, setOffline] = useState(false);
   const [limparConfirmacao, setLimparConfirmacao] = useState(false);
   const [limparLoading, setLimparLoading] = useState(false);
-
-  // Real-time subscription
-  useEffect(() => {
-    if (!user?.uid) {
-      setNotificacoes([]);
-      setLoading(false);
-      setDadosDesatualizados(false);
-      setOffline(false);
-      return;
-    }
-
-    setNotificacoes([]);
-    setLoading(true);
-    setDadosDesatualizados(false);
-    setOffline(typeof navigator !== "undefined" && !navigator.onLine);
-    const atualizarConectividade = () => setOffline(!navigator.onLine);
-    window.addEventListener("online", atualizarConectividade);
-    window.addEventListener("offline", atualizarConectividade);
-
-    const colRef = collection(db, "Usuarios", user.uid, "Notificacoes");
-    const notificacoesQuery = query(colRef, where("id_destinatario", "==", user.uid));
-
-    const unsubscribe = onSnapshot(
-      notificacoesQuery,
-      (snapshot) => {
-        const itens: NotificacaoItem[] = [];
-        snapshot.forEach((doc) => {
-          const d = doc.data() as Omit<NotificacaoItem, "id">;
-          itens.push({
-            id: doc.id,
-            ...d,
-          });
-        });
-
-        // Sort descending by emitida_em
-        itens.sort((a, b) => {
-          const tA = a.emitida_em?.toMillis ? a.emitida_em.toMillis() : 0;
-          const tB = b.emitida_em?.toMillis ? b.emitida_em.toMillis() : 0;
-          return tB - tA;
-        });
-
-        setNotificacoes(itens);
-        setLoading(false);
-        setDadosDesatualizados(snapshot.metadata.fromCache === true);
-        setOffline(!navigator.onLine);
-      },
-      (error) => {
-        console.error("Erro ao ouvir notificações:", error);
-        setLoading(false);
-        setDadosDesatualizados(true);
-        setOffline(!navigator.onLine);
-      }
-    );
-
-    return () => {
-      unsubscribe();
-      window.removeEventListener("online", atualizarConectividade);
-      window.removeEventListener("offline", atualizarConectividade);
-    };
-  }, [user?.uid]);
 
   const [agora, setAgora] = useState(() => Date.now());
   useEffect(() => {
@@ -128,11 +62,11 @@ export default function NotificacoesPage() {
       if (resultado.data.autorizado && resultado.data.url) {
         router.push(resultado.data.url);
       } else {
-        setDadosDesatualizados(true);
+        marcarDadosDesatualizados();
       }
     } catch (error) {
       console.error("Erro ao validar destino da notificação:", error);
-      setDadosDesatualizados(true);
+      marcarDadosDesatualizados();
     }
   };
 

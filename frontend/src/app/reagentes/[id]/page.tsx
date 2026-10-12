@@ -1,42 +1,77 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
-import { ResumoReagente, FrascoReagente } from "@/types/reagentes";
+import type { ResumoReagente, FrascoReagente, CatalogoEspecificacao } from "@/types/reagentes";
+import { obterCatalogoReagentes } from "@/services/reagentes/reagentesService";
 import { ModalEntradaFrasco, ModalDevolucaoFrasco, ModalMetrologia } from "@/components/reagentes/ModaisReagentes";
+
+type FirestoreTimestampLike = {
+  toMillis?: () => number;
+  toDate?: () => Date;
+};
+
+type EmprestimoReagenteDetalhe = {
+  id_frasco_reagente: string;
+  data_retirada?: FirestoreTimestampLike;
+  data_devolucao_efetuada?: FirestoreTimestampLike;
+  status?: string;
+  consumo_validado?: boolean;
+  medida_utilizada?: number | null;
+  unidade_medida_utilizada?: string | null;
+  peso_retorno?: number;
+  peso_saida?: number;
+};
+
+type FrascoDetalhe = FrascoReagente & {
+  idEmprestimoAtivo?: string;
+  id_ultimo_emprestimo?: string;
+  status?: string;
+  consumo_validado?: boolean;
+  peso_retorno?: number;
+  peso_saida?: number;
+};
 
 export default function ReagenteDetailsPage() {
   const { roles, user, isLoading: authLoading } = useAuth();
+  const userUid = user?.uid;
   const { id } = useParams();
   const router = useRouter();
   
   const [reagente, setReagente] = useState<ResumoReagente | null>(null);
-  const [frascos, setFrascos] = useState<FrascoReagente[]>([]);
-  const [emprestimosProprios, setEmprestimosProprios] = useState<Array<{ id: string; data: any }>>([]);
+  const [frascos, setFrascos] = useState<FrascoDetalhe[]>([]);
+  const [emprestimosProprios, setEmprestimosProprios] = useState<Array<{ id: string; data: EmprestimoReagenteDetalhe }>>([]);
   const [loading, setLoading] = useState(true);
 
   const [isModalEntradaOpen, setIsModalEntradaOpen] = useState(false);
   const [isModalDevolucaoOpen, setIsModalDevolucaoOpen] = useState(false);
   const [selectedFrascoId, setSelectedFrascoId] = useState("");
   const [selectedEmprestimoId, setSelectedEmprestimoId] = useState("");
-  const [selectedFrascoMetrologia, setSelectedFrascoMetrologia] = useState<any>(null);
+  const [selectedFrascoMetrologia, setSelectedFrascoMetrologia] = useState<FrascoDetalhe | null>(null);
   const [isMetrologiaOpen, setIsMetrologiaOpen] = useState(false);
 
-  const fetchDados = async () => {
+  const fetchDados = useCallback(async () => {
     setLoading(true);
     try {
-      if (typeof id !== "string") return;
+      if (typeof id !== "string" || !userUid) return;
 
-      const docSnap = await getDoc(doc(db, "Resumo_Reagente", id));
-      if (docSnap.exists()) {
-        setReagente({ id: docSnap.id, ...docSnap.data() } as ResumoReagente);
+      // O catálogo JSON é a fonte de leitura das especificações comerciais.
+      // A consulta do resumo é apenas um fallback para catálogo ainda não publicado.
+      const catalogo = await obterCatalogoReagentes();
+      const resumoDoCatalogo = catalogo.find((item) => item.id === id);
+      if (resumoDoCatalogo) {
+        setReagente(resumoDoCatalogo);
       } else {
-        router.replace("/reagentes");
-        return;
+        const docSnap = await getDoc(doc(db, "Resumo_Reagente", id));
+        if (!docSnap.exists()) {
+          router.replace("/reagentes");
+          return;
+        }
+        setReagente({ id: docSnap.id, ...docSnap.data() } as ResumoReagente);
       }
 
       const frascosSnap = await getDocs(
@@ -47,13 +82,13 @@ export default function ReagenteDetailsPage() {
         ? query(collection(db, "Emprestimo_Reagente"))
         : query(
             collection(db, "Emprestimo_Reagente"),
-            where("id_usuario_retirou", "==", user!.uid),
+            where("id_usuario_retirou", "==", userUid),
           );
       const emprestimosSnap = await getDocs(emprestimosQuery);
       const idsFrascosDoReagente = new Set(frascosSnap.docs.map((frasco) => frasco.id));
       setEmprestimosProprios(
         emprestimosSnap.docs
-          .map((emprestimo) => ({ id: emprestimo.id, data: emprestimo.data() }))
+          .map((emprestimo) => ({ id: emprestimo.id, data: emprestimo.data() as EmprestimoReagenteDetalhe }))
           .filter((emprestimo) => idsFrascosDoReagente.has(emprestimo.data.id_frasco_reagente))
           .sort((a, b) => {
             const instanteA = a.data.data_retirada?.toMillis?.() ?? 0;
@@ -61,9 +96,9 @@ export default function ReagenteDetailsPage() {
             return instanteB - instanteA;
           })
       );
-      const emprestimosPorFrasco = new Map<string, { id: string; data: any }>();
+      const emprestimosPorFrasco = new Map<string, { id: string; data: EmprestimoReagenteDetalhe }>();
       for (const emprestimo of emprestimosSnap.docs) {
-        const dados = emprestimo.data();
+        const dados = emprestimo.data() as EmprestimoReagenteDetalhe;
         const anterior = emprestimosPorFrasco.get(dados.id_frasco_reagente);
         const atual = dados.data_devolucao_efetuada?.toMillis?.() ?? dados.data_retirada?.toMillis?.() ?? 0;
         const anteriorTempo = anterior?.data.data_devolucao_efetuada?.toMillis?.() ?? anterior?.data.data_retirada?.toMillis?.() ?? 0;
@@ -75,7 +110,7 @@ export default function ReagenteDetailsPage() {
         idEmprestimoAtivo: emprestimosPorFrasco.get(d.id)?.data.status === "EM_USO" ? emprestimosPorFrasco.get(d.id)?.id : undefined,
         id_ultimo_emprestimo: emprestimosPorFrasco.get(d.id)?.id,
         ...emprestimosPorFrasco.get(d.id)?.data,
-      })) as (FrascoReagente & { idEmprestimoAtivo?: string })[];
+      })) as FrascoDetalhe[];
       setFrascos(listaFrascos);
 
     } catch (error) {
@@ -83,12 +118,12 @@ export default function ReagenteDetailsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, roles, router, userUid]);
 
   useEffect(() => {
-    if (authLoading || !user?.uid) return;
-    fetchDados();
-  }, [authLoading, id, router, user?.uid, roles]);
+    if (authLoading || !userUid) return;
+    void Promise.resolve().then(() => fetchDados());
+  }, [authLoading, fetchDados, userUid]);
 
   const handleDevolucao = (frascoId: string, idEmprestimo?: string) => {
     setSelectedFrascoId(frascoId);
@@ -96,7 +131,7 @@ export default function ReagenteDetailsPage() {
     setIsModalDevolucaoOpen(true);
   };
 
-  const handleMetrologia = (frasco: any) => {
+  const handleMetrologia = (frasco: FrascoDetalhe) => {
     setSelectedFrascoMetrologia(frasco);
     setIsMetrologiaOpen(true);
   };
@@ -142,6 +177,30 @@ export default function ReagenteDetailsPage() {
               </button>
             )}
           </header>
+
+          <section data-testid="reagente-especificacoes">
+            <h2 className="text-xl font-bold mb-4">Especificações comerciais</h2>
+            <div className="glass-panel rounded-2xl border border-foreground/10 p-5">
+              {Object.values(reagente.especificacoes ?? {}).length === 0 ? (
+                <p className="text-sm text-foreground/50">Nenhuma especificação comercial publicada no catálogo.</p>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {Object.values(reagente.especificacoes ?? {}).map((especificacao: CatalogoEspecificacao) => (
+                    <article key={especificacao.id} className="rounded-xl bg-foreground/5 p-4 text-sm">
+                      <h3 className="font-semibold">{especificacao.descricao || "Especificação sem descrição"}</h3>
+                      {especificacao.fabricante && <p className="text-foreground/70">Fabricante: {especificacao.fabricante}</p>}
+                      {especificacao.grau_pureza && <p className="text-foreground/70">Grau de pureza: {especificacao.grau_pureza}</p>}
+                      {reagente.estado_fisico === "LIQUIDO" && (
+                        <p data-testid={`densidade-${especificacao.id}`} className="mt-2 font-medium text-primary">
+                          Densidade: {typeof especificacao.densidade === "number" ? `${especificacao.densidade} g/mL` : "não informada"}
+                        </p>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
 
           <section>
             <h2 className="text-xl font-bold mb-4">Estoque e Frascos</h2>
@@ -201,7 +260,7 @@ export default function ReagenteDetailsPage() {
                             Devolver
                           </button>
                         )}
-                        {(((f as any).status === "DEVOLVIDO_COM_ANOMALIA" && (f as any).consumo_validado === false) || f.estado_fisico_frasco === "VAZIO") ? (
+                        {(((f.status === "DEVOLVIDO_COM_ANOMALIA" && f.consumo_validado === false) || f.estado_fisico_frasco === "VAZIO")) ? (
                           <button
                             onClick={() => handleMetrologia(f)}
                             className="text-xs font-semibold text-blue-500 hover:bg-blue-500/10 px-3 py-1 rounded"
@@ -242,7 +301,7 @@ export default function ReagenteDetailsPage() {
                   <div className="space-y-3">
                     {emprestimosProprios.map((emprestimo) => {
                       const frasco = frascos.find((item) => item.id === emprestimo.data.id_frasco_reagente);
-                      const formatarInstante = (valor: any) => valor?.toDate?.().toLocaleString("pt-BR") ?? "—";
+                      const formatarInstante = (valor: FirestoreTimestampLike | undefined) => valor?.toDate?.().toLocaleString("pt-BR") ?? "—";
                       return (
                         <article key={emprestimo.id} className="rounded-xl bg-foreground/5 p-4 text-sm">
                           <div className="flex flex-wrap justify-between gap-2 font-medium">

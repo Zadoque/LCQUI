@@ -10,8 +10,22 @@ export interface CatalogoEspecificacaoJSON {
   id: string;
   descricao?: string;
   fabricante?: string;
+  codigo_produto_fabricante?: string;
+  grau_pureza?: string;
   densidade?: number;
   unidade_de_medida?: string;
+  classe_inflamabilidade?: string;
+  eh_controlado_pf?: boolean;
+  eh_controlado_eb?: boolean;
+  link_fds_fispq?: string;
+  id_substancia_quimica?: string;
+  composicao?: Array<{
+    id_substancia_quimica: string;
+    valor_min: number | null;
+    valor_max: number | null;
+    tipo_concentracao: string;
+    notacao_original_fabricante: string | null;
+  }>;
 }
 
 export interface CatalogoResumoJSON {
@@ -79,8 +93,16 @@ export async function montarEGravarCatalogoReagentes(): Promise<CatalogoReagente
           id: eDoc.id,
           descricao: eData.descricao ?? "",
           fabricante: eData.fabricante ?? "",
+          ...(eData.codigo_produto_fabricante ? { codigo_produto_fabricante: eData.codigo_produto_fabricante } : {}),
+          ...(eData.grau_pureza ? { grau_pureza: eData.grau_pureza } : {}),
           ...(typeof eData.densidade === "number" ? { densidade: eData.densidade } : {}),
           ...(eData.unidade_de_medida ? { unidade_de_medida: eData.unidade_de_medida } : {}),
+          ...(eData.classe_inflamabilidade ? { classe_inflamabilidade: eData.classe_inflamabilidade } : {}),
+          ...(typeof eData.eh_controlado_pf === "boolean" ? { eh_controlado_pf: eData.eh_controlado_pf } : {}),
+          ...(typeof eData.eh_controlado_eb === "boolean" ? { eh_controlado_eb: eData.eh_controlado_eb } : {}),
+          ...(eData.link_fds_fispq ? { link_fds_fispq: eData.link_fds_fispq } : {}),
+          ...(eData.id_substancia_quimica ? { id_substancia_quimica: eData.id_substancia_quimica } : {}),
+          ...(Array.isArray(eData.composicao) ? { composicao: eData.composicao } : {}),
         };
       }
       resumosMap[doc.id] = {
