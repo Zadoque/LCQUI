@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebase/config";
 import { ModalProps } from "./types";
+import { cadastrarLote } from "@/services/reagentes/reagentesService";
 
 export function ModalNovoLote({ isOpen, onClose, idResumoReagente, idEspecificacaoReagente, onSuccess }: ModalProps) {
   const [numeroLote, setNumeroLote] = useState("");
@@ -23,7 +22,9 @@ export function ModalNovoLote({ isOpen, onClose, idResumoReagente, idEspecificac
     setLoading(true);
     setErrorMsg("");
     try {
-      const cadastrarLote = httpsCallable(functions, 'cadastrarLote');
+      if (!idResumoReagente || !idEspecificacaoReagente) {
+        throw new Error("O resumo e a especificação do reagente são obrigatórios.");
+      }
       await cadastrarLote({
         idOperacao: crypto.randomUUID(),
         idResumoReagente,
@@ -38,8 +39,8 @@ export function ModalNovoLote({ isOpen, onClose, idResumoReagente, idEspecificac
       });
       if (onSuccess) onSuccess();
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro interno.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro interno.");
     } finally {
       setLoading(false);
     }

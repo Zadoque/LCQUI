@@ -2,12 +2,12 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import type { ResumoReagente, CatalogoEspecificacao } from "@/types/reagentes";
+import type { ResumoReagente, CatalogoEspecificacao, ReagenteActionPayload } from "@/types/reagentes";
 import { EspecificacaoRow } from "./EspecificacaoRow";
 
 export interface AccordionRowProps {
   reagente: ResumoReagente;
-  onAction: (action: string, payload: unknown) => void;
+  onAction: (action: string, payload: ReagenteActionPayload) => void;
   readOnly?: boolean;
 }
 
@@ -31,7 +31,7 @@ export function AccordionRow({ reagente, onAction, readOnly }: AccordionRowProps
         <td className="px-6 py-4"><span className="px-2 py-1 rounded bg-foreground/10 text-xs">{reagente.tipo_substancia || "N/A"}</span></td>
         <td className="px-6 py-4">{reagente.natureza_quimica}</td>
         <td className="px-6 py-4">
-          <span className={`px-2 py-1 rounded text-xs ${reagente.estado_fisico === 'LIQUIDO' || reagente.estado_fisico === 'Líquido' ? 'bg-blue-500/20 text-blue-500' : 'bg-amber-500/20 text-amber-500'}`}>
+          <span className={`px-2 py-1 rounded text-xs ${reagente.estado_fisico === 'LIQUIDO' ? 'bg-blue-500/20 text-blue-500' : 'bg-amber-500/20 text-amber-500'}`}>
             {reagente.estado_fisico || "N/A"}
           </span>
         </td>

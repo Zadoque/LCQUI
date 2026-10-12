@@ -15,46 +15,28 @@ import { functions } from "@/lib/firebase/config";
 import type {
   Pessoa,
   DetalhesUsuario,
-  Papel,
   Professor,
   UsuarioSelecionavel,
   Aluno,
 } from "@/types/usuarios";
+import type {
+  BuscarAlunosParams,
+  BuscarUsuariosParams,
+  BuscarUsuariosRetiradaParams,
+  ConcederPapelParams,
+  ConcederPapelResult,
+  ConvidarProfessorParams,
+  ConvidarProfessorRequest,
+  ConvidarProfessorResult,
+  ObterDetalhesParams,
+  RevogarPapelParams,
+  UsuarioRetirada,
+} from "@/types/usuariosApi";
+export type { BuscarUsuariosRetiradaParams, UsuarioRetirada } from "@/types/usuariosApi";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos de payload / resposta
 // ─────────────────────────────────────────────────────────────────────────────
-
-export interface BuscarUsuariosParams {
-  termo?: string;
-  papel?: Papel;
-}
-
-export interface ConcederPapelParams {
-  idOperacao: string;
-  papel: Papel;
-  uidAlvo?: string;
-  nome?: string;
-  email?: string;
-}
-
-export interface ConcederPapelResult {
-  uid: string;
-  ativo: boolean;
-  contaAuthCriada?: boolean;
-  emailEnviado?: boolean;
-}
-
-export interface RevogarPapelParams {
-  idOperacao: string;
-  uidAlvo: string;
-  papel: Papel;
-  motivo: string;
-}
-
-export interface ObterDetalhesParams {
-  uid: string;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Implementação
@@ -120,43 +102,6 @@ export async function obterDetalhesUsuario(params: ObterDetalhesParams): Promise
 // ─────────────────────────────────────────────────────────────────────────────
 // Professores e Alunos
 // ─────────────────────────────────────────────────────────────────────────────
-
-export interface ConvidarProfessorParams {
-  idOperacao?: string;
-  uidAlvo?: string;
-  email?: string;
-  nome?: string;
-  centro: string;
-  laboratorio: string;
-  materias: string[];
-}
-
-export interface ConvidarProfessorResult {
-  uid: string;
-  ativo: boolean;
-  contaAuthCriada?: boolean;
-  emailEnviado?: boolean;
-}
-
-interface ConvidarProfessorRequest extends ConvidarProfessorParams {
-  papel: "Professor";
-}
-
-export interface BuscarAlunosParams {
-  letra: string;
-  termo?: string;
-}
-
-export interface UsuarioRetirada {
-  id: string;
-  nome: string;
-  papeis: string[];
-}
-
-export interface BuscarUsuariosRetiradaParams {
-  letra: string;
-  termo?: string;
-}
 
 /**
  * Busca a lista de professores ativos cadastrados no sistema.

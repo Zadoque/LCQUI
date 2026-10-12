@@ -1,17 +1,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebase/config";
 import { ModalProps } from "./types";
-import { obterCatalogoReagentes } from "@/services/reagentes/reagentesService";
+import { cadastrarFrascoAberto, cadastrarFrascoFechado, obterCatalogoReagentes } from "@/services/reagentes/reagentesService";
 import type { CatalogoEspecificacao, ResumoReagente } from "@/types/reagentes";
-
-interface CadastroFrascoResult {
-  idFrasco: string;
-  codigoFrasco: string;
-  venceuNoCadastro: boolean;
-}
+import type { CadastroFrascoResult } from "@/types/reagentesApi";
 
 interface OpcaoEspecificacao {
   resumo: ResumoReagente;
@@ -22,8 +15,8 @@ function normalizarBusca(valor: string): string {
   return valor.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
 
-function rotuloEstado(estado?: string): string {
-  return estado === "LIQUIDO" || estado === "Líquido" ? "Líquido" : "Sólido";
+function rotuloEstado(estado?: ResumoReagente["estado_fisico"]): string {
+  return estado === "LIQUIDO" ? "Líquido" : "Sólido";
 }
 
 export function ModalEntradaFrasco({
@@ -104,7 +97,7 @@ export function ModalEntradaFrasco({
   const especificacaoAtual = opcoesEspecificacao.find(({ resumo, especificacao }) => (
     resumo.id === resumoSelecionadoId && especificacao.id === especificacaoSelecionadaId
   ));
-  const estadoFisico = resumoAtual?.estado_fisico === "LIQUIDO" || resumoAtual?.estado_fisico === "Líquido"
+  const estadoFisico = resumoAtual?.estado_fisico === "LIQUIDO"
     ? "LIQUIDO"
     : "SOLIDO";
   const unidade = estadoFisico === "LIQUIDO" ? "ml" : "g";
@@ -123,7 +116,6 @@ export function ModalEntradaFrasco({
       }
       let resultado: CadastroFrascoResult;
       if (condicaoInicial === "FECHADO") {
-        const cadastrarFrascoFechado = httpsCallable<Record<string, unknown>, CadastroFrascoResult>(functions, "cadastrarFrascoFechado");
         const resposta = await cadastrarFrascoFechado({
           idOperacao: crypto.randomUUID(),
           idResumoReagente: resumoSelecionadoId,
@@ -136,9 +128,8 @@ export function ModalEntradaFrasco({
           validadeDesconhecida,
           ...((validade || validadeDesconhecida) ? { decisaoSeJaVencido, ...(detalheStatus ? { detalheStatus } : {}) } : {}),
         });
-        resultado = resposta.data;
+        resultado = resposta;
       } else {
-        const cadastrarFrascoAberto = httpsCallable<Record<string, unknown>, CadastroFrascoResult>(functions, "cadastrarFrascoAberto");
         const resposta = await cadastrarFrascoAberto({
           idOperacao: crypto.randomUUID(),
           idResumoReagente: resumoSelecionadoId,
@@ -151,7 +142,7 @@ export function ModalEntradaFrasco({
           validadeDesconhecida,
           ...((validade || validadeDesconhecida) ? { decisaoSeJaVencido, ...(detalheStatus ? { detalheStatus } : {}) } : {}),
         });
-        resultado = resposta.data;
+        resultado = resposta;
       }
       setCodigoGerado(resultado.codigoFrasco);
       await onSuccess?.();

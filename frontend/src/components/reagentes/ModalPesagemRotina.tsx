@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebase/config";
+import { registrarPesagemRotina } from "@/services/reagentes/reagentesService";
 
 export interface ModalPesagemRotinaProps {
   isOpen: boolean;
@@ -34,8 +33,7 @@ export function ModalPesagemRotina({
     setLoading(true);
     setErrorMsg("");
     try {
-      const registrar = httpsCallable(functions, "registrarPesagemRotina");
-      await registrar({
+      await registrarPesagemRotina({
         idOperacao: crypto.randomUUID(),
         idFrasco: frascoId,
         pesoAtual: Number(peso1),

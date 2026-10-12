@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
-import { db, functions } from "@/lib/firebase/config";
+import { buscarGestoresAlmoxarifado, buscarVinculosGestoresAlmoxarifado, gerenciarAlmoxarifado, listarAlmoxarifados } from "@/services/cadastros/cadastrosService";
 import { useAuth } from "@/contexts/AuthContext";
 import { assinaturaIntencaoAlmoxarifado, chaveIntencaoAlmoxarifado, limparIntencao, obterIntencaoPersistida } from "@/lib/intencaoOperacao";
 import type { AlmoxarifadoItem, GestorAlmoxarifado as Gestor } from "@/types/cadastros";
@@ -26,12 +24,12 @@ export function GerenciarGestoresAlmoxarifadoModal({ isOpen, onClose, item, onSu
     (async () => {
       await user.getIdToken();
       const [gestoresResult, almoxResult] = await Promise.all([
-        httpsCallable<unknown, { gestores: Gestor[] }>(functions, "buscarGestoresAlmoxarifado")({}),
-        item ? Promise.resolve(null) : getDocs(collection(db, "Almoxarifado")),
+        buscarGestoresAlmoxarifado(),
+        item ? Promise.resolve(null) : listarAlmoxarifados(),
       ]);
       if (cancelado) return;
-      setOpcoes(gestoresResult.data.gestores);
-      if (almoxResult) setAlmoxarifados(almoxResult.docs.map((doc) => ({ id: doc.id, ...doc.data() } as AlmoxarifadoItem)));
+      setOpcoes(gestoresResult);
+      if (almoxResult) setAlmoxarifados(almoxResult);
       setCarregando(false);
     })().catch((error: unknown) => {
       if (!cancelado) {
@@ -45,8 +43,8 @@ export function GerenciarGestoresAlmoxarifadoModal({ isOpen, onClose, item, onSu
   useEffect(() => {
     if (!isOpen || !selecionado) return;
     let cancelado = false;
-    getDocs(query(collection(db, "Gestor_Almoxarifado_x_Almoxarifado"), where("id_almoxarifado", "==", selecionado.id)))
-      .then((snapshot) => { if (!cancelado) setGestores(snapshot.docs.map((doc) => doc.data().id_gestor_almoxarifado as string)); })
+    buscarVinculosGestoresAlmoxarifado(selecionado.id)
+      .then((vinculos) => { if (!cancelado) setGestores(vinculos); })
       .catch((error: unknown) => { if (!cancelado) setErro(error instanceof Error ? error.message : "Falha ao carregar vínculos."); });
     return () => { cancelado = true; };
   }, [isOpen, selecionado]);
@@ -61,7 +59,7 @@ export function GerenciarGestoresAlmoxarifadoModal({ isOpen, onClose, item, onSu
     const chave = chaveIntencaoAlmoxarifado("EDITAR", selecionado.id);
     const intencao = obterIntencaoPersistida(sessionStorage, chave, assinaturaIntencaoAlmoxarifado(campos), () => crypto.randomUUID());
     try {
-      await httpsCallable(functions, "gerenciarAlmoxarifado")({ ...campos, idOperacao: intencao.idOperacao });
+      await gerenciarAlmoxarifado({ ...campos, idOperacao: intencao.idOperacao });
       limparIntencao(sessionStorage, chave);
       onSuccess();
       onClose();

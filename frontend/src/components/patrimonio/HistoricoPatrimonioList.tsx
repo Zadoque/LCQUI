@@ -52,7 +52,7 @@ export function HistoricoPatrimonioList({ idBemPatrimonial }: { idBemPatrimonial
             </span>
           </div>
           {item.justificativa && (
-            <p className="text-foreground/80 italic">"{item.justificativa}"</p>
+            <p className="text-foreground/80 italic">&quot;{item.justificativa}&quot;</p>
           )}
           {item.documento_dado_baixa_pdf_url && (
             <div className="text-[10px] text-red-400 font-mono">

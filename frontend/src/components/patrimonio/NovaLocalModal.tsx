@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { httpsCallable } from "firebase/functions";
 import { X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { functions } from "@/lib/firebase/config";
+import { gerenciarLocal } from "@/services/cadastros/cadastrosService";
 import {
   obterIntencaoPersistida,
   limparIntencao,
@@ -118,9 +117,7 @@ function NovaLocalModalConteudo({
         () => crypto.randomUUID()
       );
 
-      const gerenciarLocalFn = httpsCallable(functions, "gerenciarLocal");
-
-      const result = await gerenciarLocalFn({
+      const result = await gerenciarLocal({
         acao: isEdit ? "EDITAR" : "CRIAR",
         predio: predioTrim,
         andar: andarTrim,
@@ -129,9 +126,8 @@ function NovaLocalModalConteudo({
         ...(isEdit ? { idLocal: localEditavel.id } : {}),
       });
 
-      const data = result.data as { id?: string } | undefined;
       limparIntencao(sessionStorage, CHAVE_INTENCAO_LOCAL);
-      onSucesso(data?.id ?? localEditavel?.id ?? "");
+      onSucesso(result.id ?? localEditavel?.id ?? "");
     } catch (err) {
       const falha = err as { code?: string; message?: string };
       const codigo = typeof falha?.code === "string" ? falha.code : "";

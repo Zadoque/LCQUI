@@ -1,14 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { httpsCallable } from "firebase/functions";
-import { collection, getDocs, query, limit } from "firebase/firestore";
-import { functions, db } from "@/lib/firebase/config";
 import { ModalProps } from "./types";
-import { obterCatalogoReagentes } from "@/services/reagentes/reagentesService";
-import type { ResumoReagente } from "@/types/reagentes";
+import { cadastrarEspecificacao, obterCatalogoReagentes, obterCatalogoSubstancias } from "@/services/reagentes/reagentesService";
+import type { CatalogoSubstancia, ResumoReagente } from "@/types/reagentes";
 
-type SubstanciaCatalogo = { id: string; nome: string; cas_number?: string };
 type ComposicaoForm = {
   idSubstanciaQuimica: string;
   valorMin: string;
@@ -20,14 +16,14 @@ type CampoComposicao = keyof ComposicaoForm;
 
 export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resumoSelecionado, onSuccess }: ModalProps) {
   const [resumos, setResumos] = useState<ResumoReagente[]>([]);
-  const [substancias, setSubstancias] = useState<SubstanciaCatalogo[]>([]);
+  const [substancias, setSubstancias] = useState<CatalogoSubstancia[]>([]);
   
   const [selectedResumoId, setSelectedResumoId] = useState(idResumoReagente || "");
   
   const [descricao, setDescricao] = useState("");
   const [fabricante, setFabricante] = useState("");
   const [densidade, setDensidade] = useState("");
-  const [classeInflamabilidade, setClasseInflamabilidade] = useState("NAO_INFLAMAVEL");
+  const [classeInflamabilidade, setClasseInflamabilidade] = useState<"NAO_INFLAMAVEL" | "CLASSE_1" | "CLASSE_2" | "CLASSE_3">("NAO_INFLAMAVEL");
   const [ehControladoPf, setEhControladoPf] = useState(false);
   const [ehControladoEb, setEhControladoEb] = useState(false);
   
@@ -38,6 +34,7 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resu
   const [filtroNatureza, setFiltroNatureza] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [textoBusca, setTextoBusca] = useState("");
+  const [buscaSubstancia, setBuscaSubstancia] = useState("");
   const [loadingBusca, setLoadingBusca] = useState(false);
   
   const [loading, setLoading] = useState(false);
@@ -56,11 +53,14 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resu
   }, [isOpen, idResumoReagente]);
 
   useEffect(() => {
-    if (isOpen) {
-      getDocs(query(collection(db, "Substancia_Quimica"), limit(200))).then(snap => {
-        setSubstancias(snap.docs.map(d => ({ id: d.id, ...d.data() })) as SubstanciaCatalogo[]);
+    if (!isOpen) return;
+    let cancelled = false;
+    void obterCatalogoSubstancias()
+      .then((catalogo) => { if (!cancelled) setSubstancias(catalogo); })
+      .catch((err: unknown) => {
+        if (!cancelled) setErrorMsg(err instanceof Error ? err.message : "Não foi possível carregar o catálogo de substâncias.");
       });
-    }
+    return () => { cancelled = true; };
   }, [isOpen]);
 
   useEffect(() => {
@@ -80,10 +80,25 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resu
   const selectedResumoData = resumos.find(r => r.id === selectedResumoId) || resumoSelecionado || (idResumoReagente ? { tipo_substancia: "PURA", estado_fisico: "SOLIDO" } : null);
   
   const isMistura = selectedResumoData?.tipo_substancia === "MISTURA";
-  const estadoFisico = selectedResumoData?.estado_fisico === "LIQUIDO" || selectedResumoData?.estado_fisico === "Líquido"
+  const estadoFisico = selectedResumoData?.estado_fisico === "LIQUIDO"
     ? "LIQUIDO"
     : "SOLIDO";
   const unidadeDeMedida = estadoFisico === "LIQUIDO" ? "ml" : "g";
+  const substanciasFiltradas = substancias.filter((substancia) => {
+    const termo = normalizar(buscaSubstancia.trim());
+    if (!termo) return true;
+    return [substancia.nome, substancia.cas_number, substancia.formula_quimica]
+      .some((valor) => normalizar(String(valor ?? "")).includes(termo));
+  });
+  const substanciaObrigatoriaSelecionada = isMistura
+    ? composicoes.length > 0 && composicoes.every((composicao) => Boolean(composicao.idSubstanciaQuimica))
+    : Boolean(idSubstanciaPura);
+  const podeSalvar = Boolean(
+    selectedResumoId
+      && descricao.trim()
+      && substanciaObrigatoriaSelecionada
+      && (estadoFisico !== "LIQUIDO" || Number(densidade) > 0),
+  );
 
   const handleAddComposicao = () => {
     setComposicoes([...composicoes, { idSubstanciaQuimica: "", valorMin: "", valorMax: "", tipoConcentracao: "M_M", notacaoOriginalFabricante: "" }]);
@@ -102,7 +117,6 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resu
     try {
       if (!selectedResumoId) throw new Error("Selecione um Resumo de Reagente.");
       
-      const cadastrarEspecificacao = httpsCallable(functions, 'cadastrarEspecificacao');
       const compData = isMistura ? composicoes.map(c => ({
         idSubstanciaQuimica: c.idSubstanciaQuimica,
         valorMin: c.valorMin ? Number(c.valorMin) : undefined,
@@ -180,13 +194,13 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resu
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Descrição Comercial</label>
-              <input type="text" required value={descricao} onChange={(e) => setDescricao(e.target.value)}
+              <label htmlFor="descricao-especificacao" className="block text-sm font-medium mb-1">Descrição Comercial</label>
+              <input id="descricao-especificacao" type="text" required value={descricao} onChange={(e) => setDescricao(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Fabricante (Opcional)</label>
-              <input type="text" value={fabricante} onChange={(e) => setFabricante(e.target.value)}
+              <label htmlFor="fabricante-especificacao" className="block text-sm font-medium mb-1">Fabricante (Opcional)</label>
+              <input id="fabricante-especificacao" type="text" value={fabricante} onChange={(e) => setFabricante(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none" />
             </div>
           </div>
@@ -203,8 +217,8 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resu
                 className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 outline-none opacity-50 font-bold" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Densidade (g/ml)</label>
-              <input type="number" step="0.0001" required={estadoFisico === "LIQUIDO"} disabled={estadoFisico !== "LIQUIDO" || !selectedResumoId} value={densidade} onChange={(e) => setDensidade(e.target.value)}
+              <label htmlFor="densidade-especificacao" className="block text-sm font-medium mb-1">Densidade (g/ml)</label>
+              <input id="densidade-especificacao" type="number" step="0.0001" required={estadoFisico === "LIQUIDO"} disabled={estadoFisico !== "LIQUIDO" || !selectedResumoId} value={densidade} onChange={(e) => setDensidade(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none disabled:opacity-50" />
             </div>
           </div>
@@ -212,7 +226,7 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resu
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Classe Inflamabilidade</label>
-              <select value={classeInflamabilidade} onChange={(e) => setClasseInflamabilidade(e.target.value)}
+              <select value={classeInflamabilidade} onChange={(e) => setClasseInflamabilidade(e.target.value as typeof classeInflamabilidade)}
                 className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none">
                 <option value="NAO_INFLAMAVEL">Não Inflamável</option>
                 <option value="CLASSE_1">Classe 1</option>
@@ -237,14 +251,24 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resu
           {selectedResumoId && (
             <div className="mt-4 p-4 border border-foreground/10 rounded-xl bg-foreground/5">
               <h3 className="font-bold mb-2 text-primary">{isMistura ? "Composição (Mistura)" : "Substância Química Base (Pura)"}</h3>
+              <label htmlFor="busca-substancia-especificacao" className="block text-xs font-medium mb-1">Pesquisar substância por nome, CAS ou fórmula</label>
+              <input
+                id="busca-substancia-especificacao"
+                data-testid="busca-substancia-especificacao"
+                type="search"
+                value={buscaSubstancia}
+                onChange={(e) => setBuscaSubstancia(e.target.value)}
+                placeholder="Nome, número CAS ou fórmula..."
+                className="w-full mb-3 px-3 py-2 rounded-lg bg-background border border-foreground/10 focus:ring-2 focus:ring-primary outline-none text-sm"
+              />
               
               {!isMistura ? (
                 <div>
-                  <select required value={idSubstanciaPura} onChange={(e) => setIdSubstanciaPura(e.target.value)}
+                  <select data-testid="substancia-pura-especificacao" required value={idSubstanciaPura} onChange={(e) => setIdSubstanciaPura(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg bg-background border border-foreground/10 focus:ring-2 focus:ring-primary outline-none text-sm">
                     <option value="">(Selecione a Substância Base)</option>
-                    {substancias.map(s => (
-                      <option key={s.id} value={s.id}>{s.nome} {s.cas_number ? `(CAS: ${s.cas_number})` : ''}</option>
+                    {substanciasFiltradas.map(s => (
+                      <option key={s.id} value={s.id}>{s.nome} {s.cas_number ? `(CAS: ${s.cas_number})` : ''}{s.formula_quimica ? ` — ${s.formula_quimica}` : ""}</option>
                     ))}
                   </select>
                 </div>
@@ -252,11 +276,11 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resu
                 <div>
                   {composicoes.map((comp, idx) => (
                     <div key={idx} className="grid grid-cols-4 gap-2 mb-2">
-                      <select required value={comp.idSubstanciaQuimica} onChange={(e) => handleComposicaoChange(idx, "idSubstanciaQuimica", e.target.value)} 
+                      <select data-testid={`substancia-mistura-${idx}`} required value={comp.idSubstanciaQuimica} onChange={(e) => handleComposicaoChange(idx, "idSubstanciaQuimica", e.target.value)}
                         className="px-2 py-1 text-xs rounded bg-background border border-foreground/10 w-full col-span-2">
                         <option value="">(Selecione a Substância)</option>
-                        {substancias.map(s => (
-                          <option key={s.id} value={s.id}>{s.nome}</option>
+                        {substanciasFiltradas.map(s => (
+                          <option key={s.id} value={s.id}>{s.nome}{s.cas_number ? ` — CAS ${s.cas_number}` : ""}</option>
                         ))}
                       </select>
                       <input type="number" step="0.01" placeholder="Mín" value={comp.valorMin} onChange={(e) => handleComposicaoChange(idx, "valorMin", e.target.value)} className="px-2 py-1 text-xs rounded bg-background border border-foreground/10" />
@@ -281,7 +305,7 @@ export function ModalNovaEspecificacao({ isOpen, onClose, idResumoReagente, resu
           {errorMsg && <div className="text-red-500 text-sm bg-red-500/10 p-2 rounded">{errorMsg}</div>}
           <div className="flex justify-end gap-3 mt-6">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg hover:bg-foreground/5 transition-colors">Cancelar</button>
-            <button type="submit" disabled={loading || !selectedResumoId} className="px-4 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 disabled:opacity-50">
+            <button type="submit" disabled={loading || !podeSalvar} className="px-4 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 disabled:opacity-50">
               {loading ? "Salvando..." : "Salvar Especificação"}
             </button>
           </div>

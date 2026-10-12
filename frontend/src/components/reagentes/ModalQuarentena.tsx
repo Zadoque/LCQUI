@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebase/config";
+import { colocarFrascoEmQuarentena, resolverQuarentenaFrasco } from "@/services/reagentes/reagentesService";
 
 export interface ModalQuarentenaProps {
   isOpen: boolean;
@@ -36,16 +35,14 @@ export function ModalQuarentena({
     setErrorMsg("");
     try {
       if (emQuarentena) {
-        const resolver = httpsCallable(functions, "resolverQuarentenaFrasco");
-        await resolver({
+        await resolverQuarentenaFrasco({
           idOperacao: crypto.randomUUID(),
           idFrasco: frascoId,
           decisao,
           motivo: motivo.trim(),
         });
       } else {
-        const colocar = httpsCallable(functions, "colocarFrascoEmQuarentena");
-        await colocar({
+        await colocarFrascoEmQuarentena({
           idOperacao: crypto.randomUUID(),
           idFrasco: frascoId,
           motivo: motivo.trim(),

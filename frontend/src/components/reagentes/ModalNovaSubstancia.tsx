@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebase/config";
 import { ModalProps } from "./types";
+import { cadastrarSubstanciaQuimica } from "@/services/reagentes/reagentesService";
 
 export function ModalNovaSubstancia({ isOpen, onClose, onSuccess }: ModalProps) {
   const [nome, setNome] = useState("");
@@ -20,7 +19,6 @@ export function ModalNovaSubstancia({ isOpen, onClose, onSuccess }: ModalProps) 
     setLoading(true);
     setErrorMsg("");
     try {
-      const cadastrarSubstanciaQuimica = httpsCallable(functions, "cadastrarSubstanciaQuimica");
       await cadastrarSubstanciaQuimica({
         idOperacao: crypto.randomUUID(),
         nome,
@@ -30,8 +28,8 @@ export function ModalNovaSubstancia({ isOpen, onClose, onSuccess }: ModalProps) 
       });
       if (onSuccess) onSuccess();
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro interno ao cadastrar substância.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro interno ao cadastrar substância.");
     } finally {
       setLoading(false);
     }

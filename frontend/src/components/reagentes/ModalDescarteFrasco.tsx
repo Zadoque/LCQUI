@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebase/config";
+import { descartarFrasco } from "@/services/reagentes/reagentesService";
 
 export interface ModalDescarteFrascoProps {
   isOpen: boolean;
@@ -32,8 +31,7 @@ export function ModalDescarteFrasco({
     setLoading(true);
     setErrorMsg("");
     try {
-      const descartar = httpsCallable(functions, "descartarFrasco");
-      await descartar({
+      await descartarFrasco({
         idOperacao: crypto.randomUUID(),
         idFrasco: frascoId,
         motivo: motivo.trim(),

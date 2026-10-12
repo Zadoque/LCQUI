@@ -1,8 +1,6 @@
 import React, { useState } from "react";
-import { httpsCallable } from "firebase/functions";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { functions, db } from "@/lib/firebase/config";
 import { openPdfFromBase64 } from "@/lib/pdf";
+import { buscarFrascoPorCodigo, gerarPdfEtiquetasVirgens, gerarPdfReimpressaoFrascos } from "@/services/reagentes/reagentesService";
 import { Printer, Loader2, X, Trash2, Search } from "lucide-react";
 
 interface ModalEtiquetasProps {
@@ -82,18 +80,13 @@ export default function ModalEtiquetasReagentes({ isOpen, onClose }: ModalEtique
         ? searchCode.toUpperCase() 
         : `LCQUI-${searchCode}`;
 
-      const q = query(collection(db, "Frasco_Reagente"), where("codigo_frasco", "==", formattedCode));
-      const snap = await getDocs(q);
-      
-      if (snap.empty) {
+      const frasco = await buscarFrascoPorCodigo(formattedCode);
+      if (!frasco) {
         setErrorMsg("Nenhum frasco encontrado com esse código.");
         return;
       }
 
-      const doc = snap.docs[0];
-      const data = doc.data();
-
-      if (selectedFrascos.find(f => f.id === doc.id)) {
+      if (selectedFrascos.find(f => f.id === frasco.id)) {
         setErrorMsg("Este frasco já foi adicionado.");
         return;
       }
@@ -103,7 +96,7 @@ export default function ModalEtiquetasReagentes({ isOpen, onClose }: ModalEtique
         return;
       }
 
-      setSelectedFrascos(prev => [...prev, { id: doc.id, codigo: data.codigo_frasco, reagente: data.id_reagente }]);
+      setSelectedFrascos(prev => [...prev, { id: frasco.id, codigo: frasco.codigo_frasco, reagente: frasco.id_reagente ?? "" }]);
       setSearchCode("");
     } catch (err) {
       console.error(err);
@@ -123,25 +116,20 @@ export default function ModalEtiquetasReagentes({ isOpen, onClose }: ModalEtique
           setLoading(false);
           return;
         }
-        const gerarPdfEtiquetasVirgens = httpsCallable(functions, "gerarPdfEtiquetasVirgens");
-        const res = await gerarPdfEtiquetasVirgens({ 
+        const base64 = await gerarPdfEtiquetasVirgens({
           codigoInicial: Number(codigoInicial), 
           codigoFinal: Number(codigoFinal),
           startRow,
           startCol
         });
-        const data = res.data as { base64: string };
-        openPdfFromBase64(data.base64);
+        openPdfFromBase64(base64);
       } else {
         if (selectedFrascos.length === 0) {
           setErrorMsg("Adicione pelo menos um frasco.");
           setLoading(false);
           return;
         }
-        const gerarPdfReimpressaoFrascos = httpsCallable(functions, "gerarPdfReimpressaoFrascos");
-        const res = await gerarPdfReimpressaoFrascos({ frascoIds: selectedFrascos.map(f => f.id) });
-        const data = res.data as { base64: string };
-        openPdfFromBase64(data.base64);
+        openPdfFromBase64(await gerarPdfReimpressaoFrascos({ frascoIds: selectedFrascos.map(f => f.id) }));
       }
     } catch (error: unknown) {
       console.error(error);

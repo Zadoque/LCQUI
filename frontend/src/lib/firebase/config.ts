@@ -28,7 +28,9 @@ const firebaseRuntime = globalThis as typeof globalThis & {
 };
 
 if (useEmulators && !firebaseRuntime.__lcquiFirebaseEmulatorsConnected) {
-  connectAuthEmulator(auth, "http://127.0.0.1:9099");
+  // O aviso visual padrão do SDK fica sobre a interface e intercepta cliques
+  // em modais; o modo de emulador já é indicado pelo ambiente de testes.
+  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   connectFirestoreEmulator(db, "127.0.0.1", 8080);
   connectStorageEmulator(storage, "127.0.0.1", 9199);
   connectFunctionsEmulator(functions, "127.0.0.1", 5001);

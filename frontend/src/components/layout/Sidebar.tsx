@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -69,13 +69,12 @@ interface NavGroup {
 export default function Sidebar() {
   const { papelAtivo } = useAuth();
   const pathname = usePathname();
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const saved = window.localStorage.getItem("sidebarCollapsed");
+    return saved === null ? true : saved === "true";
+  });
   const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("sidebarCollapsed");
-    if (saved !== null) setIsCollapsed(saved === "true");
-  }, []);
 
   const toggleSidebar = () => {
     setIsCollapsed(prev => {

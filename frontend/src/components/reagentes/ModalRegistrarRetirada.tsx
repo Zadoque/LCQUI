@@ -1,13 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebase/config";
 import { ModalProps } from "./types";
+import { registrarRetirada } from "@/services/reagentes/reagentesService";
 import { ModalBuscaUsuarioReagente, SeletorUsuarioReagente } from "./SeletorUsuarioReagente";
-import type { UsuarioRetirada } from "@/services/usuarios/usuariosService";
+import type { UsuarioRetirada } from "@/types/usuariosApi";
 import { ModalBuscaLocalReagente, SeletorLocalReagente } from "./ModalBuscaLocalReagente";
-import type { LocalRetirada } from "@/services/reagentes/reagentesService";
+import type { LocalRetirada } from "@/types/reagentesApi";
 
 export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProps) {
   const [loading, setLoading] = useState(false);
@@ -34,7 +33,6 @@ export function ModalRegistrarRetirada({ isOpen, onClose, onSuccess }: ModalProp
     setErrorMsg("");
     try {
       if (!localUsado) throw new Error("Selecione um local de uso cadastrado.");
-      const registrarRetirada = httpsCallable(functions, "registrarRetirada");
       await registrarRetirada({
         idOperacao: crypto.randomUUID(),
         idFrasco: frascoId.trim(),

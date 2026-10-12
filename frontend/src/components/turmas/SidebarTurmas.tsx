@@ -63,7 +63,7 @@ export default function SidebarTurmas({
     }
 
     return () => unsubscribe();
-  }, [user, isProfessor, isAluno]);
+  }, [user, roles, isProfessor, isAluno]);
 
   // Auto-selecionar turma via deep link (uma única vez)
   useEffect(() => {

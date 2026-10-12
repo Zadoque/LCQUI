@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getFunctions, httpsCallable } from "firebase/functions";
-import { collection, onSnapshot, query, where, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
+import { assinarMaterias, assinarMateriasDoProfessor, buscarProfessoresAcademicos, criarTurma, ingressarEmTurmaPorCodigo } from "@/services/turmas/turmasService";
 import { X } from "lucide-react";
 import {
   assinaturaIntencaoTurma,
@@ -51,21 +49,12 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
 
     let cancelado = false;
     if (isChefeGeral) {
-      const buscarProfessores = httpsCallable(getFunctions(), "buscarProfessores");
-      buscarProfessores({}).then((resultado) => {
-        if (!cancelado) setProfessores((resultado.data as { professores: { id: string; nome: string }[] }).professores);
+      buscarProfessoresAcademicos().then((lista) => {
+        if (!cancelado) setProfessores(lista);
       }).catch((erro) => setError(erro instanceof Error ? erro.message : "Não foi possível carregar os professores."));
     }
 
-    const qMat = query(collection(db, "Materia"), orderBy("nome", "asc"));
-    const unsubMat = onSnapshot(qMat, (snap) => {
-      const lista = snap.docs.map(doc => ({
-        id: doc.id,
-        nome: doc.data().nome,
-        codigo: doc.data().codigo_materia
-      }));
-      setMateriasDb(lista);
-    });
+    const unsubMat = assinarMaterias(setMateriasDb);
 
     return () => {
       cancelado = true;
@@ -81,18 +70,10 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
     const profIdToLookup = isChefeGeral ? selectedProfId : user?.uid;
     
     if (!profIdToLookup) {
-      setProfMateriasRel([]);
-      setIdMateria("");
       return;
     }
 
-    const qRel = query(
-      collection(db, "Professor_x_Materia"), 
-      where("id_usuario", "==", profIdToLookup)
-    );
-    
-    const unsubRel = onSnapshot(qRel, (snap) => {
-      const rels = snap.docs.map(doc => ({ id_materia: doc.data().id_materia }));
+    const unsubRel = assinarMateriasDoProfessor(profIdToLookup, (rels) => {
       setProfMateriasRel(rels);
       
       // Auto-select first materia if none selected or if current is invalid
@@ -112,7 +93,7 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
   if (!isOpen) return null;
 
   // Filter matters that the selected professor actually teaches
-  const allowedMateriaIds = profMateriasRel.map(r => r.id_materia);
+  const allowedMateriaIds = (isChefeGeral && !selectedProfId ? [] : profMateriasRel).map(r => r.id_materia);
   const selectableMaterias = materiasDb.filter(m => allowedMateriaIds.includes(m.id));
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -133,9 +114,6 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
     setError("");
 
     try {
-      const functions = getFunctions();
-      const criarTurmaFn = httpsCallable(functions, "criarTurma");
-
       const idProfessorAlvo = isChefeGeral ? selectedProfId : undefined;
       const assinatura = assinaturaIntencaoTurma({
         idMateria,
@@ -152,26 +130,22 @@ export function NovaTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
       const intencao = resolverIdOperacao(atual, assinatura, () => crypto.randomUUID());
       if (storage) gravarIntencao(storage, CHAVE_INTENCAO_CRIAR_TURMA, intencao);
 
-      const payload: any = {
+      const payload = {
         idOperacao: intencao.idOperacao,
         idMateria,
         nomeTurma: nome,
         ano,
         semestre,
         capacidade,
+        ...(isChefeGeral ? { idProfessor: selectedProfId } : {}),
       };
-
-      if (isChefeGeral) {
-        payload.idProfessor = selectedProfId;
-      }
-
-      await criarTurmaFn(payload);
+      await criarTurma(payload);
 
       // Resultado conclusivo: a intenção foi consumida.
       if (storage) limparIntencao(storage, CHAVE_INTENCAO_CRIAR_TURMA);
       onClose();
-    } catch (err: any) {
-      setError(err.message || "Erro ao criar turma.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erro ao criar turma.");
     } finally {
       setLoading(false);
     }
@@ -322,9 +296,6 @@ export function IngressarTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
     setError("");
 
     try {
-      const functions = getFunctions();
-      const ingressarFn = httpsCallable(functions, "ingressarEmTurmaPorCodigo");
-
       const session = typeof window !== "undefined" ? window.sessionStorage : null;
       const chave = chaveIntencaoIngressar(codigo);
       const assinatura = assinaturaIngressar(codigo);
@@ -332,11 +303,11 @@ export function IngressarTurmaModal({ isOpen, onClose }: NovaTurmaModalProps) {
       const intencao = resolverIdOperacao(atual, assinatura, () => crypto.randomUUID());
       if (session) gravarIntencao(session, chave, intencao);
 
-      await ingressarFn({ idOperacao: intencao.idOperacao, codigoTurma: codigo });
+      await ingressarEmTurmaPorCodigo({ idOperacao: intencao.idOperacao, codigoTurma: codigo });
       if (session) limparIntencao(session, chave);
       onClose();
-    } catch (err: any) {
-      setError(err.message || "Erro ao ingressar na turma.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erro ao ingressar na turma.");
     } finally {
       setLoading(false);
     }

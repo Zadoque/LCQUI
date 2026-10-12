@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { ListaAlmoxarifados } from "@/components/almoxarifados/ListaAlmoxarifados";
 import { EstoqueSnapshotCard } from "@/components/reagentes/EstoqueSnapshotCard";
 import type { AlmoxarifadoItem } from "@/types/cadastros";
+import type { CatalogoEspecificacao, FrascoOperacional, ReagenteActionPayload, ResumoReagente } from "@/types/reagentes";
 import { ReagentesActionBar } from "@/components/reagentes/ReagentesActionBar";
 import { ReagentesFiltros } from "@/components/reagentes/ReagentesFiltros";
 import { CatalogoReagentesTable } from "@/components/reagentes/CatalogoReagentesTable";
@@ -73,54 +74,63 @@ function ReagentesContent() {
   const [isPesagemRotinaModalOpen, setIsPesagemRotinaModalOpen] = useState(false);
   const [isDescarteModalOpen, setIsDescarteModalOpen] = useState(false);
   const [isEscassezModalOpen, setIsEscassezModalOpen] = useState(false);
-  const [frascoSelecionado, setFrascoSelecionado] = useState<any>(null);
+  const [frascoSelecionado, setFrascoSelecionado] = useState<FrascoOperacional | null>(null);
   const [painelRefreshToken, setPainelRefreshToken] = useState(0);
 
   // Seleções de contexto
-  const [selectedResumo, setSelectedResumo] = useState<any>(null);
-  const [selectedEspec, setSelectedEspec] = useState<any>(null);
-  const [selectedLote, setSelectedLote] = useState<any>(null);
+  const [selectedResumo, setSelectedResumo] = useState<ResumoReagente | null>(null);
+  const [selectedEspec, setSelectedEspec] = useState<CatalogoEspecificacao | null>(null);
 
-  const handleAction = (action: string, payload: any) => {
+  const isContextoEspecificacao = (payload: ReagenteActionPayload): payload is Extract<ReagenteActionPayload, { reagente: ResumoReagente }> =>
+    "reagente" in payload && "espec" in payload;
+  const isFrasco = (payload: ReagenteActionPayload): payload is FrascoOperacional =>
+    "codigo_frasco" in payload;
+
+  const handleAction = (action: string, payload: ReagenteActionPayload) => {
     switch (action) {
       case "nova_especificacao":
-        setSelectedResumo(payload);
+        if (!isFrasco(payload) && !isContextoEspecificacao(payload)) setSelectedResumo(payload);
         setIsNovaEspecOpen(true);
         break;
       case "novo_lote":
-        setSelectedResumo(payload.reagente);
-        setSelectedEspec(payload.espec);
+        if (isContextoEspecificacao(payload)) {
+          setSelectedResumo(payload.reagente);
+          setSelectedEspec(payload.espec);
+        }
         setIsNovoLoteOpen(true);
         break;
       case "novo_frasco":
-        setSelectedResumo(payload.reagente);
-        setSelectedEspec(payload.espec);
-        setSelectedLote(payload.lote);
+        if (isContextoEspecificacao(payload)) {
+          setSelectedResumo(payload.reagente);
+          setSelectedEspec(payload.espec);
+        }
         setIsAdicionarFrascoOpen(true);
         break;
       case "quarentena":
-        setFrascoSelecionado(payload);
+        if (isFrasco(payload)) setFrascoSelecionado(payload);
         setIsQuarentenaModalOpen(true);
         break;
       case "extravio":
-        setFrascoSelecionado(payload);
+        if (isFrasco(payload)) setFrascoSelecionado(payload);
         setIsExtravioModalOpen(true);
         break;
       case "metrologia":
-        setFrascoSelecionado(payload);
+        if (isFrasco(payload)) setFrascoSelecionado(payload);
         setIsMetrologiaModalOpen(true);
         break;
       case "configurar_escassez":
-        setSelectedResumo(payload.reagente);
-        setSelectedEspec(payload.espec);
+        if (isContextoEspecificacao(payload)) {
+          setSelectedResumo(payload.reagente);
+          setSelectedEspec(payload.espec);
+        }
         setIsEscassezModalOpen(true);
         break;
       case "pesagem_rotina":
-        setFrascoSelecionado(payload);
+        if (isFrasco(payload)) setFrascoSelecionado(payload);
         setIsPesagemRotinaModalOpen(true);
         break;
       case "descarte":
-        setFrascoSelecionado(payload);
+        if (isFrasco(payload)) setFrascoSelecionado(payload);
         setIsDescarteModalOpen(true);
         break;
     }
@@ -263,7 +273,6 @@ function ReagentesContent() {
             almoxSelecionado={almoxSelecionado}
             selectedResumo={selectedResumo}
             selectedEspec={selectedEspec}
-            selectedLote={selectedLote}
             isQuarentenaModalOpen={isQuarentenaModalOpen}
             setIsQuarentenaModalOpen={setIsQuarentenaModalOpen}
             isExtravioModalOpen={isExtravioModalOpen}

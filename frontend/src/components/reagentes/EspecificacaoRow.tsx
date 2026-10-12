@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
+import { buscarFrascosDaEspecificacaoSemLote, buscarLotesDaEspecificacao } from "@/services/reagentes/reagentesService";
 import type { ResumoReagente, CatalogoEspecificacao, FrascoOperacional } from "@/types/reagentes";
+import type { LoteCatalogo } from "@/types/reagentesApi";
 import { LoteRow } from "./LoteRow";
 import { FrascoCard } from "./FrascoCard";
 
@@ -13,7 +13,7 @@ export interface EspecificacaoRowProps {
   onAction: (action: string, payload: {
     reagente: ResumoReagente;
     espec: CatalogoEspecificacao;
-    lote?: null;
+    lote?: LoteCatalogo | null;
   } | FrascoOperacional) => void;
   readOnly?: boolean;
 }
@@ -35,11 +35,10 @@ export function EspecificacaoRow({ espec, reagente, onAction, readOnly }: Especi
     if (!expanded) {
       setLoading(true);
       try {
-        const lotesSnap = await getDocs(query(collection(db, "Lote"), where("id_especificacao_reagente", "==", espec.id)));
-        const lotes = lotesSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Array<{ id: string; numero_lote?: string; nome_fornecedor?: string }>;
-
-        const frascosAvulsosSnap = await getDocs(query(collection(db, "Frasco_Reagente"), where("id_especificacao_reagente", "==", espec.id), where("id_lote", "==", null)));
-        const frascosAvulsos = frascosAvulsosSnap.docs.map(d => ({ id: d.id, ...d.data() })) as FrascoOperacional[];
+        const [lotes, frascosAvulsos] = await Promise.all([
+          buscarLotesDaEspecificacao(espec.id),
+          buscarFrascosDaEspecificacaoSemLote(espec.id),
+        ]);
 
         setLotesEFrascos({ lotes, frascosAvulsos });
       } catch (err) {

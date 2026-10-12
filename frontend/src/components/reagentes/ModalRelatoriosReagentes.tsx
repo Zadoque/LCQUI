@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { httpsCallable } from "firebase/functions";
-import { collection, getDocs, query, where, documentId } from "firebase/firestore";
-import { functions, db } from "@/lib/firebase/config";
 import { openPdfFromBase64 } from "@/lib/pdf";
+import { buscarAlmoxarifadosDoGestor, listarAlmoxarifados, listarAlmoxarifadosPorIds } from "@/services/cadastros/cadastrosService";
+import { gerarRelatorioAlmoxarifado, gerarRelatorioPersonalizado } from "@/services/reagentes/reagentesService";
 import { FileText, Loader2, X, Download } from "lucide-react";
 
 interface ModalRelatoriosProps {
@@ -28,29 +27,20 @@ export default function ModalRelatoriosReagentes({ isOpen, onClose, uid, isChefe
 
   useEffect(() => {
     if (isOpen) {
-      setErrorMsg("");
       if (isChefe) {
-        getDocs(collection(db, "Almoxarifado")).then(snap => {
-          const alms = snap.docs.map(doc => ({ id: doc.id, nome: doc.data().nome_almoxarifado || "Sem Nome" }));
+        listarAlmoxarifados().then(items => {
+          const alms = items.map(item => ({ id: item.id, nome: item.nome || "Sem Nome" }));
           setAlmoxarifados(alms);
           if (alms.length > 0) setIdAlmoxarifado(alms[0].id);
         }).catch(err => console.error(err));
       } else {
-        const q = query(collection(db, "Gestor_Almoxarifado_x_Almoxarifado"), where("id_gestor_almoxarifado", "==", uid));
-        getDocs(q).then(async snap => {
-          const ids = snap.docs.map(doc => doc.data().id_almoxarifado);
+        buscarAlmoxarifadosDoGestor(uid).then(async (ids) => {
           if (ids.length === 0) {
             setAlmoxarifados([]);
             return;
           }
           
-          const alms: any[] = [];
-          for (let i = 0; i < ids.length; i += 30) {
-            const chunk = ids.slice(i, i + 30);
-            const qAlm = query(collection(db, "Almoxarifado"), where(documentId(), "in", chunk));
-            const snapAlm = await getDocs(qAlm);
-            alms.push(...snapAlm.docs.map(doc => ({ id: doc.id, nome: doc.data().nome_almoxarifado || "Sem Nome" })));
-          }
+          const alms = (await listarAlmoxarifadosPorIds(ids)).map(item => ({ id: item.id, nome: item.nome || "Sem Nome" }));
           setAlmoxarifados(alms);
           if (alms.length > 0) setIdAlmoxarifado(alms[0].id);
         }).catch(err => console.error(err));
@@ -107,23 +97,17 @@ export default function ModalRelatoriosReagentes({ isOpen, onClose, uid, isChefe
     setLoading(true);
     try {
       if (activeTab === "mensal") {
-        const gerarRelatorioAlmoxarifado = httpsCallable(functions, "gerarRelatorioAlmoxarifado");
-        const res = await gerarRelatorioAlmoxarifado({ idAlmoxarifado, mes: Number(mes), ano: Number(ano) });
-        const data = res.data as { base64: string };
-        openPdfFromBase64(data.base64);
+        openPdfFromBase64(await gerarRelatorioAlmoxarifado({ idAlmoxarifado, mes: Number(mes), ano: Number(ano) }));
       } else {
-        const gerarRelatorioPersonalizado = httpsCallable(functions, "gerarRelatorioPersonalizado");
-        const res = await gerarRelatorioPersonalizado({ 
+        openPdfFromBase64(await gerarRelatorioPersonalizado({
           dataInicio: dataInicio + "T00:00:00", 
           dataFim: dataFim + "T23:59:59", 
           entidade: "Reagentes" 
-        });
-        const data = res.data as { base64: string };
-        openPdfFromBase64(data.base64);
+        }));
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      setErrorMsg("Erro ao gerar relatório: " + error.message);
+      setErrorMsg("Erro ao gerar relatório: " + (error instanceof Error ? error.message : "falha na operação"));
     } finally {
       setLoading(false);
     }

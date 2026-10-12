@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { getFunctions, httpsCallable } from "firebase/functions";
 import { X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { gerenciarMateria } from "@/services/cadastros/cadastrosService";
 
 interface NovaMateriaModalProps {
   isOpen: boolean;
@@ -94,9 +94,6 @@ function NovaMateriaModalConteudo({
     const codigoNormalizado = codigoMateria.trim().toUpperCase();
 
     try {
-      const functions = getFunctions();
-      const gerenciarMateria = httpsCallable(functions, "gerenciarMateria");
-
       await gerenciarMateria({
         acao: isEdit ? "EDITAR" : "CRIAR",
         ...(isEdit ? { idMateria } : {}),
@@ -107,15 +104,15 @@ function NovaMateriaModalConteudo({
       onClose();
       setNome("");
       setCodigoMateria("");
-    } catch (err) {
-      const falha = err as { code?: string; message?: string };
-      const codigo = typeof falha?.code === "string" ? falha.code : "";
+    } catch (err: unknown) {
+      const falha = err instanceof Error ? err : new Error("Erro ao salvar matéria.");
+      const codigo = typeof (err as { code?: unknown })?.code === "string" ? (err as { code: string }).code : "";
     if (codigo.includes("already-exists")) {
         setCodigoError("Código de matéria já cadastrado");
         // Foco no campo de código com erro
         codigoInputRef.current?.focus();
       } else {
-        setError(falha?.message ?? "Erro ao salvar matéria.");
+        setError(falha.message);
       }
     } finally {
       setLoading(false);

@@ -4,6 +4,9 @@ import { db } from "@/lib/firebase/config";
 import type { BemPatrimonial } from "@/types/patrimonio";
 
 export function usePatrimonioSearch() {
+  const statusInicial = typeof window === "undefined"
+    ? ""
+    : new URLSearchParams(window.location.search).get("status") ?? "";
   const [bens, setBens] = useState<BemPatrimonial[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -14,7 +17,7 @@ export function usePatrimonioSearch() {
   const [filtroPredio, setFiltroPredio] = useState("");
   const [filtroAndar, setFiltroAndar] = useState("");
   const [filtroSala, setFiltroSala] = useState("");
-  const [filtroStatus, setFiltroStatus] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState(statusInicial);
   const [filtroLetraInicial, setFiltroLetraInicial] = useState("");
   const [filtroConservacao, setFiltroConservacao] = useState("");
   const deepLinkProcessado = useRef(false);
@@ -62,15 +65,11 @@ export function usePatrimonioSearch() {
   useEffect(() => {
     if (deepLinkProcessado.current) return;
     deepLinkProcessado.current = true;
-    const statusDaUrl = new URLSearchParams(window.location.search).get("status");
+    const statusDaUrl = statusInicial;
     if (!statusDaUrl) return;
 
-    const carregamento = window.setTimeout(() => {
-      setFiltroStatus(statusDaUrl);
-      void searchFirestore(statusDaUrl);
-    }, 0);
-    return () => window.clearTimeout(carregamento);
-  }, [searchFirestore]);
+    void Promise.resolve().then(() => searchFirestore(statusDaUrl));
+  }, [searchFirestore, statusInicial]);
 
   // Filtro local por substring (Seção 5.2)
   const filteredBens = bens.filter((b) => {

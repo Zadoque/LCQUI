@@ -17,7 +17,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ProfessorDashboardBar from "@/components/turmas/ProfessorDashboardBar";
 
 function TurmasConteudo() {
-  const { user, roles, isLoading } = useAuth();
+  const { roles } = useAuth();
   const searchParams = useSearchParams();
   const turmaInicialId = searchParams.get("turma") ?? undefined;
   const [turmaSelecionada, setTurmaSelecionada] = useState<Turma | null>(null);

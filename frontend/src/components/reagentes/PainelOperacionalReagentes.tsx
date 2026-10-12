@@ -4,10 +4,9 @@ import React, { useCallback, useEffect, useState } from "react";
 import { FrascoCard } from "@/components/reagentes/FrascoCard";
 import {
   obterPainelOperacional,
-  type HistoricoOperacional,
-  type PainelOperacionalData,
 } from "@/services/reagentes/reagentesService";
 import type { FrascoOperacional } from "@/types/reagentes";
+import type { HistoricoOperacional, PainelOperacionalData } from "@/types/reagentesApi";
 import { ROTULO_TIPO_NOTIFICACAO } from "@/types/notificacoes";
 
 type AbaOperacional = "movimentacoes" | "alertas";

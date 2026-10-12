@@ -137,7 +137,6 @@ export default function PatrimonioDashboard() {
             <ModalRelatoriosPatrimonio
               isOpen={isRelatoriosOpen}
               onClose={() => setIsRelatoriosOpen(false)}
-              uid={user.uid}
             />
           )}
 

@@ -1,15 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebase/config";
 import { ModalProps } from "./types";
+import { cadastrarResumoReagente } from "@/services/reagentes/reagentesService";
 
 export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
   const [nome, setNome] = useState("");
-  const [tipoSubstancia, setTipoSubstancia] = useState("PURA");
-  const [naturezaQuimica, setNaturezaQuimica] = useState("ORGANICO");
-  const [estadoFisico, setEstadoFisico] = useState("SOLIDO");
+  const [tipoSubstancia, setTipoSubstancia] = useState<"PURA" | "MISTURA">("PURA");
+  const [naturezaQuimica, setNaturezaQuimica] = useState<"ORGANICO" | "INORGANICO" | "ELEMENTO" | "HIBRIDO">("ORGANICO");
+  const [estadoFisico, setEstadoFisico] = useState<"SOLIDO" | "LIQUIDO">("SOLIDO");
   const [requerPesagemFrequente, setRequerPesagemFrequente] = useState(false);
   const [ehHigroscopico, setEhHigroscopico] = useState(false);
   const [frequenciaPesagemDias, setFrequenciaPesagemDias] = useState("");
@@ -24,7 +23,6 @@ export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
     setLoading(true);
     setErrorMsg("");
     try {
-      const cadastrarResumoReagente = httpsCallable(functions, "cadastrarResumoReagente");
       await cadastrarResumoReagente({
         idOperacao: crypto.randomUUID(),
         nome,
@@ -32,14 +30,14 @@ export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
         naturezaQuimica,
         estadoFisico,
         requerPesagemFrequente,
-        frequenciaPesagemDias: requerPesagemFrequente && frequenciaPesagemDias ? Number(frequenciaPesagemDias) : undefined,
+        frequenciaPesagemDias: requerPesagemFrequente && frequenciaPesagemDias ? Number(frequenciaPesagemDias) : null,
         ehHigroscopico,
         qtdEmQueEConsideradoEscasso: Number(qtdEscasso),
       });
       if (onSuccess) await onSuccess();
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro interno ao cadastrar resumo.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro interno ao cadastrar resumo.");
     } finally {
       setLoading(false);
     }
@@ -66,7 +64,7 @@ export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
               <label className="block text-sm font-medium mb-1">Tipo de Substância</label>
               <select
                 value={tipoSubstancia}
-                onChange={(e) => setTipoSubstancia(e.target.value)}
+                onChange={(e) => setTipoSubstancia(e.target.value as typeof tipoSubstancia)}
                 className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none"
               >
                 <option value="PURA">Pura</option>
@@ -78,7 +76,7 @@ export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
               <select
                 data-testid="novo-resumo-natureza"
                 value={naturezaQuimica}
-                onChange={(e) => setNaturezaQuimica(e.target.value)}
+                onChange={(e) => setNaturezaQuimica(e.target.value as typeof naturezaQuimica)}
                 className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none"
               >
                 <option value="ORGANICO">Orgânico</option>
@@ -93,7 +91,7 @@ export function ModalNovoReagente({ isOpen, onClose, onSuccess }: ModalProps) {
             <label className="block text-sm font-medium mb-1">Estado Físico</label>
             <select
               value={estadoFisico}
-              onChange={(e) => setEstadoFisico(e.target.value)}
+              onChange={(e) => setEstadoFisico(e.target.value as typeof estadoFisico)}
               className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none"
             >
               <option value="SOLIDO">Sólido</option>

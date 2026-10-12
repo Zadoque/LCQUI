@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { buscarUsuariosParaRetirada, type UsuarioRetirada } from "@/services/usuarios/usuariosService";
+import { buscarUsuariosParaRetirada } from "@/services/usuarios/usuariosService";
+import type { UsuarioRetirada } from "@/types/usuariosApi";
 
 interface SeletorUsuarioReagenteProps {
   label: string;

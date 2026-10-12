@@ -21,6 +21,7 @@ import { ModalAlmoxarifado } from "@/components/almoxarifados/ModalAlmoxarifado"
 import { GerenciarGestoresAlmoxarifadoModal } from "@/components/almoxarifados/GerenciarGestoresAlmoxarifadoModal";
 import { NovoGestorAlmoxarifadoModal } from "@/components/almoxarifados/NovoGestorAlmoxarifadoModal";
 import type { AlmoxarifadoItem } from "@/types/cadastros";
+import type { CatalogoEspecificacao, FrascoOperacional, ResumoReagente } from "@/types/reagentes";
 
 interface ReagentesModaisManagerProps {
   uid?: string;
@@ -53,9 +54,8 @@ interface ReagentesModaisManagerProps {
   isNovoGestorAlmoxOpen: boolean;
   setIsNovoGestorAlmoxOpen: (v: boolean) => void;
   almoxSelecionado?: AlmoxarifadoItem;
-  selectedResumo: any;
-  selectedEspec: any;
-  selectedLote: any;
+  selectedResumo: ResumoReagente | null;
+  selectedEspec: CatalogoEspecificacao | null;
   isQuarentenaModalOpen: boolean;
   setIsQuarentenaModalOpen: (v: boolean) => void;
   isExtravioModalOpen: boolean;
@@ -68,8 +68,8 @@ interface ReagentesModaisManagerProps {
   setIsDescarteModalOpen: (v: boolean) => void;
   isEscassezModalOpen: boolean;
   setIsEscassezModalOpen: (v: boolean) => void;
-  frascoSelecionado: any;
-  setFrascoSelecionado: (v: any) => void;
+  frascoSelecionado: FrascoOperacional | null;
+  setFrascoSelecionado: (v: FrascoOperacional | null) => void;
   onSuccessCatalogo: () => void;
 }
 
@@ -106,7 +106,6 @@ export function ReagentesModaisManager({
   almoxSelecionado,
   selectedResumo,
   selectedEspec,
-  selectedLote,
   isQuarentenaModalOpen,
   setIsQuarentenaModalOpen,
   isExtravioModalOpen,
@@ -158,7 +157,7 @@ export function ReagentesModaisManager({
         onClose={() => setIsNovaEspecOpen(false)}
         onSuccess={() => {}}
         idResumoReagente={selectedResumo?.id}
-        resumoSelecionado={selectedResumo}
+        resumoSelecionado={selectedResumo ?? undefined}
       />
       <ModalNovoLote
         isOpen={isNovoLoteOpen}
@@ -232,10 +231,10 @@ export function ReagentesModaisManager({
               setFrascoSelecionado(null);
             }}
             idFrasco={frascoSelecionado.id}
-            idEmprestimo={frascoSelecionado.id_ultimo_emprestimo}
-            pesoRetornoOriginal={frascoSelecionado.peso_retorno}
-            pesoSaidaOriginal={frascoSelecionado.peso_saida}
-            tara={frascoSelecionado.peso_frasco_vazio}
+            idEmprestimo={frascoSelecionado.id_ultimo_emprestimo ?? undefined}
+            pesoRetornoOriginal={frascoSelecionado.peso_retorno ?? undefined}
+            pesoSaidaOriginal={frascoSelecionado.peso_saida ?? undefined}
+            tara={frascoSelecionado.peso_frasco_vazio ?? undefined}
             onSuccess={onSuccessCatalogo}
           />
           <ModalPesagemRotina

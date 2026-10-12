@@ -1,5 +1,5 @@
 import React from "react";
-import { ResumoReagente } from "@/types/reagentes";
+import type { ResumoReagente, ReagenteActionPayload } from "@/types/reagentes";
 import { AccordionRow } from "@/components/reagentes/AccordionRow";
 
 interface CatalogoReagentesTableProps {
@@ -8,7 +8,7 @@ interface CatalogoReagentesTableProps {
   filteredReagentesCount: number;
   limiteExibicao: number;
   onExibirMais: () => void;
-  onAction: (action: string, payload: any) => void;
+  onAction: (action: string, payload: ReagenteActionPayload) => void;
   readOnly: boolean;
 }
 

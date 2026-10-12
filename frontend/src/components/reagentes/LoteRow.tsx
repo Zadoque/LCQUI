@@ -1,30 +1,29 @@
 "use client";
 
 import React, { useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
-import { ResumoReagente } from "@/types/reagentes";
+import { buscarFrascosDoLote } from "@/services/reagentes/reagentesService";
+import type { CatalogoEspecificacao, FrascoOperacional, ResumoReagente } from "@/types/reagentes";
+import type { LoteCatalogo } from "@/types/reagentesApi";
 import { FrascoCard } from "./FrascoCard";
 
 export interface LoteRowProps {
-  lote: any;
-  espec: any;
+  lote: LoteCatalogo;
+  espec: CatalogoEspecificacao;
   reagente: ResumoReagente;
-  onAction: (action: string, payload: any) => void;
+  onAction: (action: string, payload: { reagente: ResumoReagente; espec: CatalogoEspecificacao; lote?: LoteCatalogo } | FrascoOperacional) => void;
   readOnly?: boolean;
 }
 
 export function LoteRow({ lote, espec, reagente, onAction, readOnly }: LoteRowProps) {
   const [expanded, setExpanded] = useState(false);
-  const [frascos, setFrascos] = useState<any[]>([]);
+  const [frascos, setFrascos] = useState<FrascoOperacional[]>([]);
   const [loading, setLoading] = useState(false);
 
   const toggleExpand = async () => {
     if (!expanded) {
       setLoading(true);
       try {
-        const snap = await getDocs(query(collection(db, "Frasco_Reagente"), where("id_lote", "==", lote.id)));
-        setFrascos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setFrascos(await buscarFrascosDoLote(lote.id));
       } catch (err) {
         console.error(err);
       } finally {
