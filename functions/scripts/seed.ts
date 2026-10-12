@@ -123,6 +123,14 @@ async function writeImportedReagents(firestore: FirebaseFirestore.Firestore): Pr
       criado_por: byId("gestor.almoxarifado").uid,
     };
     set(resumoRef, resumoData);
+
+    // A mistura não é uma substância química única. Sua especificação só
+    // pode ser materializada quando houver componentes reais em composicao[];
+    // o seed não inventa um componente com o nome comercial da mistura.
+    if (reagent.tipo_substancia === "MISTURA") {
+      continue;
+    }
+
     set(substanciaRef, {
       id: substanciaRef.id,
       nome: reagent.nome,
@@ -141,9 +149,9 @@ async function writeImportedReagents(firestore: FirebaseFirestore.Firestore): Pr
       });
     }
 
-    // O par normativo exige densidade para qualquer resumo LIQUIDO. Rótulos
-    // de soluções/produtos sem densidade documental não são transformados em
-    // uma especificação inventada; o resumo permanece disponível para revisão.
+    // O par normativo exige densidade positiva para qualquer resumo LIQUIDO.
+    // Rótulos sem densidade documental não são transformados em especificação
+    // inventada; o resumo permanece disponível para reconciliação.
     if (reagent.estado_fisico === "LIQUIDO" && reagent.densidade === null) {
       continue;
     }
@@ -804,19 +812,21 @@ async function verify(): Promise<void> {
   assert.deepEqual(controlePapeis.data(), { chefes_ativos: 1, gestores_patrimoniais_ativos: 1, versao: 1 });
   for (const [id, codigo] of [["materia-quimica-geral", "QUI101"], ["materia-quimica-analitica", "QUI202"]] as const) { const materia = await firestore.collection("Materia").doc(id).get(); assert.equal(materia.data()?.codigo_materia, codigo); const key = await firestore.collection("Chaves_Unicas").doc(chaveMateria(codigo)).get(); assert.equal(key.data()?.tipo, "Materia"); assert.equal(key.data()?.id_recurso, id); }
   assert.equal((await firestore.collection("Materia").get()).size, 76, "A carga canônica deve conter as 74 disciplinas importadas e os 2 fixtures históricos.");
-  const importedSpecCount = importedReagents.filter((reagent) => reagent.estado_fisico !== "LIQUIDO" || reagent.densidade !== null).length;
+  const importedSubstanceCount = importedReagents.filter((reagent) => reagent.tipo_substancia === "PURA").length;
+  const importedSpecCount = importedReagents.filter((reagent) => reagent.tipo_substancia === "PURA" && (reagent.estado_fisico !== "LIQUIDO" || reagent.densidade !== null)).length;
   for (const reagent of importedReagents) {
     const resumo = await firestore.collection("Resumo_Reagente").doc(reagent.id).get();
     assert.equal(resumo.exists, true, `Resumo importado ausente: ${reagent.nome}`);
     assert.equal(resumo.data()?.estado_fisico, reagent.estado_fisico);
     const substancia = await firestore.collection("Substancia_Quimica").doc(`${reagent.id}-substancia`).get();
-    assert.equal(substancia.exists, true, `Substância importada ausente: ${reagent.nome}`);
-    if (reagent.cas_number) assert.equal((await firestore.collection("Chaves_Unicas").doc(`Substancia_Quimica__CAS__${reagent.cas_number}`).get()).data()?.id_recurso, substancia.id);
+    assert.equal(substancia.exists, reagent.tipo_substancia === "PURA", `Substância indevida/ausente: ${reagent.nome}`);
+    if (reagent.tipo_substancia === "PURA" && reagent.cas_number) assert.equal((await firestore.collection("Chaves_Unicas").doc(`Substancia_Quimica__CAS__${reagent.cas_number}`).get()).data()?.id_recurso, substancia.id);
     const especificacoes = await resumo.ref.collection("Especificacoes").get();
-    assert.equal(especificacoes.size, reagent.estado_fisico === "LIQUIDO" && reagent.densidade === null ? 0 : 1, `Especificação importada divergente: ${reagent.nome}`);
+    const expectedSpecification = reagent.tipo_substancia === "PURA" && (reagent.estado_fisico !== "LIQUIDO" || reagent.densidade !== null) ? 1 : 0;
+    assert.equal(especificacoes.size, expectedSpecification, `Especificação importada divergente: ${reagent.nome}`);
   }
   assert.equal((await firestore.collection("Resumo_Reagente").get()).size, importedReagents.length + 1);
-  assert.equal((await firestore.collection("Substancia_Quimica").get()).size, importedReagents.length + 1);
+  assert.equal((await firestore.collection("Substancia_Quimica").get()).size, importedSubstanceCount + 1);
   assert.equal((await firestore.collection("Especificacao_Reagente").get()).size, importedSpecCount + 1);
   const estadoCatalogo = await firestore.collection("Sistema_Catalogo_Reagentes").doc("estado").get();
   assert.equal(estadoCatalogo.data()?.versao_fonte, 1);
