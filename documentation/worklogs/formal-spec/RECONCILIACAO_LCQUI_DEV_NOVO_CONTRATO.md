@@ -134,10 +134,41 @@ coleções do Firestore. Uma repetição sem mudança não deve criar novos obje
 o caminho contém a versão e o hash do conteúdo. Alterações futuras devem
 incrementar somente o catálogo afetado.
 
+## Execução realizada em homologação
+
+Em 2026-10-12, como `lcqui-dev` não possui usuários reais dependentes da
+versão legada, foi aplicada a reconstrução controlada:
+
+1. as Functions V2 foram publicadas no projeto `lcqui-dev`;
+2. foram removidos somente `catalogo/reagentes_v1.json`,
+   `catalogo-reagentes/v2-...json` e o documento legado
+   `Sistema_Catalogo_Reagentes/estado`;
+3. as coleções canônicas do Firestore não foram removidas nem alteradas;
+4. a rotina de publicação V2 foi executada com o SDK Admin;
+5. os quatro objetos e o manifesto foram conferidos por SHA-256.
+
+Resultado observado:
+
+- `resumos`: 273 registros;
+- `especificacoes`: 247 registros;
+- `substancias`: 250 registros;
+- `materias`: 75 registros;
+- manifesto V2 na versão 1, com os quatro catálogos em
+  `versao_fonte == versao_publicada == 1`;
+- documento de estado com `schema_version: 2` e 273/247/250/75 itens
+  embutidos como fotografia de leitura autorizada;
+- todos os hashes declarados no manifesto coincidem com os bytes publicados
+  no Storage;
+- os dois objetos legados foram confirmados ausentes.
+
+Assim, a projeção V2 do ambiente de homologação está conciliada. Ainda falta
+validar o frontend publicado contra esse projeto; isso é uma etapa de
+homologação externa e não uma migração adicional do Firestore.
+
 ## Critério de liberação
 
-A conciliação real só pode ser considerada concluída quando houver, no projeto
-`lcqui-dev`:
+A conciliação de dados do projeto `lcqui-dev` foi concluída quando os itens
+abaixo foram comprovados:
 
 - quatro objetos V2 válidos no Storage;
 - um manifesto V2 apontando para os quatro objetos;
@@ -145,8 +176,10 @@ A conciliação real só pode ser considerada concluída quando houver, no proje
 - comparação top-level/subcoleção sem conflitos;
 - validação CUE e Alloy verde para o manifesto produzido;
 - E2E publicado verificando busca local, seleção de IDs e criação de frasco;
-- preservação comprovada dos objetos legados e possibilidade de rollback.
+- preservação comprovada das coleções canônicas e possibilidade de rollback
+  pelo estado versionado.
 
-Até que esses itens sejam comprovados, o estado real deve ser descrito como
-**dados canônicos presentes, projeção V2 ainda não conciliada**, e não como
-catálogo V2 publicado.
+Os objetos legados não foram preservados porque o ambiente foi explicitamente
+tratado como descartável. Em produção, a política deve ser diferente: manter
+os objetos antigos durante a janela de rollback e removê-los somente após a
+homologação da nova versão.
