@@ -186,12 +186,11 @@ describe("Módulo de Roteiros", () => {
       const data = roteiroSnap.data()!;
       expect(data.id_professor_upload).toBe(uid);
       expect(data.nome).toBe("Roteiro de Titulação");
-      expect(data.status).toBe("PROVISORIO");
-      expect(data.nome_arquivo).toBe("roteiro.pdf");
+      expect(data.status_roteiro).toBe("PROVISORIO");
       expect(data.professores_compartilhados).toEqual([]);
-      expect(data.referencia.storage_path).toBe(storagePath);
-      expect(data.referencia.owner_uid).toBe(uid);
-      expect(data.referencia.geracao).toBeUndefined();
+      expect(data.storage_path).toBe(storagePath);
+      expect(data.owner_uid).toBe(uid);
+      expect(data.geracao).toBeNull();
     });
 
     it("deve rejeitar storagePath fora do namespace do dono (H02)", async () => {
@@ -312,11 +311,11 @@ describe("Módulo de Roteiros", () => {
 
       const roteiroSnap = await db.collection("Roteiro_Experimento").doc(resultReg.idRoteiro).get();
       const data = roteiroSnap.data()!;
-      expect(data.status).toBe("VALIDADO");
-      expect(data.referencia.geracao).toBe(geracao);
-      expect(data.referencia.content_type).toBe("application/pdf");
-      expect(data.referencia.tamanho_bytes).toBeGreaterThan(0);
-      expect(data.referencia.owner_uid).toBe(uid);
+      expect(data.status_roteiro).toBe("VALIDADO");
+      expect(data.geracao).toBe(geracao);
+      expect(data.content_type).toBe("application/pdf");
+      expect(data.tamanho_bytes).toBeGreaterThan(0);
+      expect(data.owner_uid).toBe(uid);
     });
 
     it("deve rejeitar validacao por nao-dono", async () => {
@@ -543,7 +542,7 @@ describe("Módulo de Roteiros", () => {
       expect(result.idRoteiro).toBe(resultReg.idRoteiro);
 
       const roteiroSnap = await db.collection("Roteiro_Experimento").doc(resultReg.idRoteiro).get();
-      expect(roteiroSnap.data()?.status).toBe("PUBLICAVEL");
+      expect(roteiroSnap.data()?.status_roteiro).toBe("PUBLICAVEL");
     });
 
     it("deve rejeitar publicacao de PROVISORIO", async () => {
@@ -1214,15 +1213,12 @@ describe("Módulo de Roteiros", () => {
         id_professor_upload: dono,
         nome: "Roteiro Nao Publicavel",
         descricao: "...",
-        nome_arquivo: "nao_publicavel.pdf",
-        referencia: {
-          storage_path: "roteiros/x/nao_publicavel.pdf",
-          tamanho_bytes: 1035,
-          geracao: "123",
-          owner_uid: dono,
-          content_type: "application/pdf",
-        },
-        status: "PROVISORIO",
+        storage_path: "roteiros/x/nao_publicavel.pdf",
+        tamanho_bytes: 1035,
+        geracao: "123",
+        owner_uid: dono,
+        content_type: "application/pdf",
+        status_roteiro: "PROVISORIO",
         professores_compartilhados: [],
       });
 
