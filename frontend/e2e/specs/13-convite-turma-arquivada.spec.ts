@@ -11,7 +11,6 @@ import {
   FIRESTORE_EMULATOR,
   PROJECT_ID,
   lerDocumento,
-  listarColecao,
 } from "../helpers/emulator";
 
 const TURMA_ID = "seed-turma-vazia";

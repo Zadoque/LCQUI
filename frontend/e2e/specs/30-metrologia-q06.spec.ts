@@ -1,8 +1,9 @@
+import type { Page } from "@playwright/test";
 import { test, expect } from "../fixtures";
 import { login, esperarCallable, lerResultadoCallable } from "../helpers/ui";
 import { lerDocumento, listarColecao } from "../helpers/emulator";
 
-async function criarPendenciaQ06(page: any) {
+async function criarPendenciaQ06(page: Page) {
   await login(page, "gestor.almoxarifado@lcqui.local");
   await page.goto("/reagentes");
   await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
@@ -17,19 +18,25 @@ async function criarPendenciaQ06(page: any) {
   const criado = await lerResultadoCallable(await criar);
   const frascoId = criado.idFrasco as string;
   expect(frascoId).toBeTruthy();
-  const frasco = await expect.poll(async () => {
+  await expect(page.getByTestId("frasco-cadastro-sucesso")).toBeVisible();
+  await page.getByRole("button", { name: "Concluir" }).click();
+  await expect.poll(async () => {
     const docs = await listarColecao("Frasco_Reagente");
     return docs.find((doc) => doc.id === frascoId) ?? null;
   }).not.toBeNull();
-  const frascoDoc = await lerDocumento(`Frasco_Reagente/${frascoId}`);
-  const codigo = frascoDoc!.data.codigo_frasco as string;
 
   await page.getByRole("button", { name: "Registrar Retirada" }).click();
   const retirada = page.locator("form").filter({ has: page.getByRole("button", { name: "Confirmar" }) });
-  const textos = retirada.locator('input[type="text"]');
-  await textos.nth(0).fill(frascoId);
-  await textos.nth(1).fill("seed-professor-alpha");
-  await textos.nth(2).fill("local1");
+  await retirada.getByLabel("Código do frasco (LCQUI-)").fill(frascoId);
+  await retirada.getByTestId("retirada-abrir-seletor").click();
+  await page.getByTestId("retirada-letra").fill("P");
+  await page.getByTestId("retirada-termo").fill("Alpha");
+  await page.getByTestId("retirada-buscar").click();
+  await page.getByTestId("retirada-usuario-seed-professor-alpha").click();
+  await retirada.getByTestId("retirada-abrir-local").click();
+  await page.getByLabel("Prédio do local").fill("Bloco de Química");
+  await page.getByTestId("retirada-buscar-local").click();
+  await page.getByTestId("retirada-local-seed-local-almox-frascos").click();
   await retirada.locator('input[type="number"]').fill("500");
   await retirada.locator('input[type="date"]').fill("2099-01-01");
   await retirada.getByLabel("Abrir o frasco no empréstimo").check();
@@ -42,6 +49,11 @@ async function criarPendenciaQ06(page: any) {
   await expect(linha.getByRole("button", { name: "Devolver" })).toBeVisible();
   await linha.getByRole("button", { name: "Devolver" }).click();
   const devolucao = page.getByRole("heading", { name: "Registrar Devolução" }).locator("..");
+  await devolucao.getByTestId("devolucao-abrir-seletor").click();
+  await page.getByTestId("devolucao-letra").fill("P");
+  await page.getByTestId("devolucao-termo").fill("Alpha");
+  await page.getByTestId("devolucao-buscar").click();
+  await page.getByTestId("devolucao-usuario-seed-professor-alpha").click();
   const pesos = devolucao.locator('input[type="number"]');
   await pesos.nth(0).fill("510");
   await pesos.nth(1).fill("510");
@@ -50,7 +62,7 @@ async function criarPendenciaQ06(page: any) {
   const resposta = await devolucaoCall;
   expect(resposta.status()).toBe(200);
   await expect.poll(async () => (await listarColecao("Emprestimo_Reagente")).some((item) => item.data.id_frasco_reagente === frascoId && item.data.status === "DEVOLVIDO_COM_ANOMALIA")).toBe(true);
-  return { frascoId, codigo };
+  return { frascoId };
 }
 
 test("DEV-001-E2E-003: devolução anômala Q06 cria pendência real e retém o frasco", async ({ page }) => {
@@ -76,7 +88,6 @@ test("MET-E2E-001: repetir pesagem resolve pendência Q06 com justificativa", as
   const chamada = esperarCallable(page, "repetirPesagemDevolucaoAnomala");
   await modal.getByRole("button", { name: "Confirmar Resolução" }).click();
   await chamada;
-  const frasco = await lerDocumento(`Frasco_Reagente/${frascoId}`);
   const emprestimo = (await listarColecao("Emprestimo_Reagente")).find((item) => item.data.id_frasco_reagente === frascoId);
   expect(emprestimo?.data.consumo_validado).toBe(true);
   expect(emprestimo?.data.id_resolucao_metrologica).toBeTruthy();

@@ -25,6 +25,10 @@ function escaparRegex(texto: string): string {
  */
 const PERMITIDOS_POR_PADRAO: RegExp[] = [
   /@firebase\/firestore: Firestore \([\d.]+\): Could not reach Cloud Firestore backend/,
+  // O snapshot de estoque responde 429 quando a suíte abre várias telas de
+  // gestão dentro da janela de limitação; a UI converte isso em banner e
+  // continua funcional. O cenário específico ainda pode testar esse banner.
+  /Failed to load resource: the server responded with a status of 429 \(Too Many Requests\)/,
 ];
 
 export const test = base.extend<{ guardaConsole: GuardaConsole }>({

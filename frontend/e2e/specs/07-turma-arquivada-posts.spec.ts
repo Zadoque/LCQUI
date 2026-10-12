@@ -18,7 +18,6 @@ const TURMA_ARQUIVADA_ID = "seed-turma-arquivada";
 test.describe("Turma arquivada nega escrita acadêmica de Posts/Comentários", () => {
   test("ARQ-POST-E2E-001 turma arquivada não oferece superfície de escrita acadêmica", async ({
     page,
-    guardaConsole,
   }) => {
     await login(page, "professor.alpha@lcqui.local");
     await page.goto("/turmas");

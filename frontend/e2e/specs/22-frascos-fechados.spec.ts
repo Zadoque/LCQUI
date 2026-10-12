@@ -45,7 +45,11 @@ test("FRASC-E2E-002: cadastra frasco já aberto sem inventar tara ou saldo", asy
   await numeros.nth(0).fill("250");
   const resposta = esperarCallable(page, "cadastrarFrascoAberto");
   await page.getByRole("button", { name: "Salvar Frasco" }).click();
-  await resposta;
+  const respostaReal = await resposta;
+  expect(respostaReal.status()).toBe(200);
+  const resultado = await lerResultadoCallable(respostaReal);
+  expect(resultado.codigoFrasco).toMatch(/^LCQUI-\d+$/);
+  await expect(page.getByTestId("frasco-cadastro-sucesso")).toContainText(`Código do frasco: ${resultado.codigoFrasco}`);
 
   const depois = await listarColecao("Frasco_Reagente");
   const novo = depois.find((doc) => !antes.some((anterior) => anterior.id === doc.id));
