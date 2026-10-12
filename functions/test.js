@@ -1,5 +1,5 @@
 const admin = require('firebase-admin');
-admin.initializeApp({ projectId: 'lcqui-uenf' });
+admin.initializeApp({ projectId: 'lcqui-dev' });
 async function main() {
   const db = admin.firestore();
   const col = await db.collection('Usuarios').limit(1).get();

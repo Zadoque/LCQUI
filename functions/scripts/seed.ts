@@ -8,7 +8,7 @@ import { chaveAlunoMatricula, chaveLocal, chaveMateria, chaveTurmaCodigo, normal
 import { importedReagents } from "./reagentesSeedData";
 
 /** Fixture manual canônica M9/M11/M13. Recusa qualquer execução fora dos emuladores. */
-const ALLOWED_PROJECT_IDS = new Set(["lcqui-uenf", "lcqui-dev"]);
+const ALLOWED_PROJECT_IDS = new Set(["lcqui-dev"]);
 const PASSWORD = "Test123456!";
 const FIXTURE_TIME = Timestamp.fromDate(new Date("2026-01-15T12:00:00.000Z"));
 type Role = "Chefe_Geral" | "Gestor_Almoxarifado" | "Gestor_Bens_Patrimoniais" | "Professor" | "Aluno" | "Bolsista";
@@ -38,7 +38,7 @@ const beta = byId("professor.outsider").uid;
 const profMaterias = [{ professor: alpha, materia: "materia-quimica-geral" }, { professor: alpha, materia: "materia-quimica-analitica" }, { professor: beta, materia: "materia-quimica-geral" }];
 
 function projectId(): string {
-  const value = process.env.GCLOUD_PROJECT ?? process.env.GOOGLE_CLOUD_PROJECT ?? "lcqui-uenf";
+  const value = process.env.GCLOUD_PROJECT ?? process.env.GOOGLE_CLOUD_PROJECT ?? "lcqui-dev";
   if (!ALLOWED_PROJECT_IDS.has(value)) throw new Error(`SEED ABORTADO: projectId não permitido: ${value}`);
   return value;
 }

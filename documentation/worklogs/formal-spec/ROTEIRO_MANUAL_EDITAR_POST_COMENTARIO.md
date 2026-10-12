@@ -15,7 +15,7 @@ Este roteiro cobre cenários críticos da fatia `editarPost`/`editarComentario` 
 ```bash
 # Terminal 1
 cd /home/dock/dev/LCQUI
-./functions/node_modules/.bin/firebase emulators:start --project lcqui-uenf --only auth,firestore,functions,storage
+./functions/node_modules/.bin/firebase emulators:start --project lcqui-dev --only auth,firestore,functions,storage
 
 # Terminal 2
 cd frontend && npm run dev

@@ -8,7 +8,7 @@
  * validações de domínio exercitadas via callables/UI.
  */
 
-export const PROJECT_ID = process.env.LCQUI_E2E_PROJECT_ID ?? "lcqui-uenf";
+export const PROJECT_ID = process.env.LCQUI_E2E_PROJECT_ID ?? "lcqui-dev";
 export const AUTH_EMULATOR = process.env.LCQUI_E2E_AUTH_EMULATOR ?? "http://127.0.0.1:9099";
 export const FIRESTORE_EMULATOR =
   process.env.LCQUI_E2E_FIRESTORE_EMULATOR ?? "http://127.0.0.1:8080";

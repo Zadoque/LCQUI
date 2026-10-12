@@ -28,7 +28,15 @@ export default defineConfig({
   webServer: {
     command: "npm run dev",
     url: `${BASE_URL}/login`,
-    reuseExistingServer: true,
+    // O servidor dos testes sempre recebe a flag explícita do Emulator.
+    // Não reutilizar um Next já iniciado evita que um processo de homologação
+    // seja confundido com a aplicação isolada dos testes.
+    reuseExistingServer: false,
+    env: {
+      ...process.env,
+      NEXT_PUBLIC_FIREBASE_USE_EMULATORS: "true",
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.LCQUI_E2E_PROJECT_ID ?? "lcqui-dev",
+    },
     timeout: 120_000,
   },
 });

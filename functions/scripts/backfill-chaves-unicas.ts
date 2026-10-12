@@ -22,7 +22,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  initializeApp({ projectId: process.env.GCLOUD_PROJECT ?? "lcqui-uenf" });
+  initializeApp({ projectId: process.env.GCLOUD_PROJECT ?? "lcqui-dev" });
   const db = getFirestore();
 
   const resultado = await backfillChavesUnicas(db, { apply });

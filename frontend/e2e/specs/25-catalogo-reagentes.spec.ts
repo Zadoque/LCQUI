@@ -14,6 +14,24 @@ test.describe("Catálogo e cadastro de reagentes", () => {
     await expect(page.getByText("Total de Frascos")).toBeVisible();
   });
 
+  test("REAG-001-E2E-002 filtra o catálogo por estado físico líquido e sólido", async ({ page }) => {
+    await login(page, "gestor.almoxarifado@lcqui.local");
+    await page.goto("/reagentes");
+    const filtroEstado = page.getByLabel("Estado Físico");
+    const linhas = page.locator("tbody > tr");
+    const celulasEstado = () => linhas.locator("td:nth-child(4) span");
+
+    await filtroEstado.selectOption("LIQUIDO");
+    await expect(linhas.first()).toBeVisible();
+    await expect(celulasEstado().first()).toHaveText("LIQUIDO");
+    await expect(celulasEstado().filter({ hasText: "SOLIDO" })).toHaveCount(0);
+
+    await filtroEstado.selectOption("SOLIDO");
+    await expect(linhas.first()).toBeVisible();
+    await expect(celulasEstado().first()).toHaveText("SOLIDO");
+    await expect(celulasEstado().filter({ hasText: "LIQUIDO" })).toHaveCount(0);
+  });
+
   test("REAG-001-E2E-001 cadastra substância química pela UI-05", async ({ page }) => {
     await login(page, "gestor.almoxarifado@lcqui.local");
     await page.goto("/reagentes");

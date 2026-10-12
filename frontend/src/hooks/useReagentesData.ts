@@ -111,7 +111,9 @@ export function useReagentesData(abaParam: string = "catalogo") {
       const matchTipo = norm(r.tipo_substancia || "").includes(q);
       if (!matchNome && !matchTipo) return false;
     }
-    if (filtroEstado && r.estado_fisico !== filtroEstado) return false;
+    // O catálogo normativo usa SOLIDO/LIQUIDO; a normalização mantém filtros
+    // compatíveis com fotografias legadas que ainda exibam acentos.
+    if (filtroEstado && norm(r.estado_fisico || "") !== norm(filtroEstado)) return false;
     if (filtroNatureza && r.natureza_quimica !== filtroNatureza) return false;
     if (filtroLetra && !r.nome?.toUpperCase().startsWith(filtroLetra)) return false;
     return true;
