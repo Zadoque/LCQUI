@@ -9,6 +9,11 @@ test("FRASC-E2E-001: cadastra frasco fechado com código atômico", async ({ pag
   await expect(page.getByText("Reagente Seed")).toBeVisible();
   await page.getByText("Reagente Seed").click();
   await page.getByRole("button", { name: "+ Frasco S/ Lote" }).click();
+  const modal = page.getByRole("heading", { name: "Cadastrar Novo Frasco" }).locator("..");
+  await expect(modal.getByTestId("seletor-especificacao-frasco").getByRole("combobox")).toBeVisible();
+  await modal.getByPlaceholder("Buscar nome, estado, fabricante ou descrição...").fill("Fabricante Seed");
+  await expect(modal.getByRole("option", { name: /Fabricante Seed/ })).toHaveCount(1);
+  await modal.getByPlaceholder("Buscar nome, estado, fabricante ou descrição...").fill("");
   const antes = await listarColecao("Frasco_Reagente");
   const numeros = page.locator('input[type="number"]');
   await numeros.nth(0).fill("500");
@@ -17,10 +22,14 @@ test("FRASC-E2E-001: cadastra frasco fechado com código atômico", async ({ pag
   await page.getByRole("button", { name: "Salvar Frasco" }).click();
   const respostaReal = await resposta;
   expect(respostaReal.status()).toBe(200);
+  const resultado = await lerResultadoCallable(respostaReal);
+  expect(resultado.codigoFrasco).toMatch(/^LCQUI-\d+$/);
+  await expect(page.getByTestId("frasco-cadastro-sucesso")).toContainText(`Código do frasco: ${resultado.codigoFrasco}`);
   const depois = await listarColecao("Frasco_Reagente");
   const novo = depois.find((doc) => !antes.some((anterior) => anterior.id === doc.id));
   expect(novo).toBeTruthy();
   const frasco = novo!;
+  expect(frasco?.data.codigo_frasco).toBe(resultado.codigoFrasco);
   expect(frasco?.data).toMatchObject({ estado_fisico_frasco: "FECHADO", saldo_desconhecido: false, origem_tara: "REFERENCIA_TEORICA" });
 });
 
