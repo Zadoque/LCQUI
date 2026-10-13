@@ -105,7 +105,9 @@ export function assinarMaterias(onData: (materias: MateriaItem[]) => void): () =
 }
 
 export function assinarMateriasDoProfessor(idProfessor: string, onData: (relacoes: MateriaRelacao[]) => void): () => void {
-  const q = query(collection(db, "Professor_x_Materia"), where("id_usuario", "==", idProfessor));
+  // Contrato canônico de Professor_x_Materia: a relação é identificada por
+  // id_professor + id_materia; id_usuario era um campo redundante do seed antigo.
+  const q = query(collection(db, "Professor_x_Materia"), where("id_professor", "==", idProfessor));
   return onSnapshot(q, (snap) => onData(snap.docs.map((item) => ({ id_materia: String(item.data().id_materia ?? "") }))));
 }
 

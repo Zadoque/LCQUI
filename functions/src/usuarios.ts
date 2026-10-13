@@ -31,6 +31,12 @@ type Mutacao = {
   etapaAuthPendente?: boolean;
 };
 
+function codigoErro(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null || !("code" in error)) return undefined;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
+}
+
 /** Auth é externo à transação. Repetição reconcilia a versão corrente, sem repetir a mutação. */
 export async function reconciliarClaimsUsuario(uid: string): Promise<void> {
   const db = admin.firestore();
@@ -174,7 +180,7 @@ async function alterarPapel(dados: Mutacao, claims: ClaimsAutoridade): Promise<{
         });
         if (dados.papel === "Professor") for (const materia of new Set(dados.materias ?? [])) {
           const id = createHash("sha256").update(JSON.stringify([dados.uid, materia])).digest("hex");
-          tx.set(db.collection("Professor_x_Materia").doc(id), { id_usuario: dados.uid, id_professor: dados.uid, id_materia: materia });
+          tx.set(db.collection("Professor_x_Materia").doc(id), { id_professor: dados.uid, id_materia: materia });
         }
       } else if (!dados.conceder && atuais.includes(dados.papel)) {
         tx.delete(db.collection(dados.papel).doc(dados.uid));
@@ -227,8 +233,8 @@ export const convidarUsuario = onCall(async request => {
     try {
       identidadeAuth = await admin.auth().getUser(uid);
       contaAuthExistente = true;
-    } catch (error: any) {
-      if (error.code !== "auth/user-not-found") throw error;
+    } catch (error: unknown) {
+      if (codigoErro(error) !== "auth/user-not-found") throw error;
     }
   } else {
     try {
@@ -237,8 +243,8 @@ export const convidarUsuario = onCall(async request => {
         : await admin.auth().getUserByEmail(dados.email!);
       uid = identidadeAuth.uid;
       contaAuthExistente = true;
-    } catch (error: any) {
-      if (error.code !== "auth/user-not-found") throw error;
+    } catch (error: unknown) {
+      if (codigoErro(error) !== "auth/user-not-found") throw error;
       // UID reservado não é efeito externo: permite que o commit M9 aconteça
       // antes do provisionamento Auth.
       uid = randomUUID();
@@ -264,10 +270,10 @@ export const convidarUsuario = onCall(async request => {
   if (!contaAuthExistente) {
     try {
       await admin.auth().createUser({ uid, email: emailNormalizado, displayName: nome.trim() });
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Corrida de e-mail deixa a operação PENDENTE; retry/reconciliação
       // reconhece a intenção sem reaplicar o papel Firestore.
-      if (error.code !== "auth/email-already-exists") throw error;
+      if (codigoErro(error) !== "auth/email-already-exists") throw error;
       throw new HttpsError("unavailable", "Provisionamento Auth pendente; repetir a mesma operação.");
     }
   }
@@ -296,10 +302,12 @@ export const convidarUsuario = onCall(async request => {
 
 /** UI-02/M9: diretório mínimo para selecionar identidade já existente. */
 export const buscarUsuariosParaPapel = onCall(async request => {
-  const { termo, papel } = validatePayload(BuscarUsuariosPapelSchema, request.data);
+  const { termo, papel, letra } = validatePayload(BuscarUsuariosPapelSchema, request.data);
   await validarAutoridadePersistida(request, ["Chefe_Geral"]);
   const db = admin.firestore();
-  const usuarios = await db.collection("Usuarios").where("ativo", "==", true).limit(200).get();
+  let usuariosQuery: FirebaseFirestore.Query = db.collection("Usuarios").where("ativo", "==", true);
+  if (letra) usuariosQuery = usuariosQuery.where("letra_inicial", "==", letra);
+  const usuarios = await usuariosQuery.limit(200).get();
   const termoNormalizado = termo?.toLowerCase() ?? "";
   const papeisPorUsuario = new Map<string, string[]>();
   for (const papel of PAPEIS) {

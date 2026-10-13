@@ -54,6 +54,7 @@ export async function buscarUsuarios(params?: BuscarUsuariosParams): Promise<Pes
   const res = await fn({
     ...(params?.termo ? { termo: params.termo } : {}),
     ...(params?.papel ? { papel: params.papel } : {}),
+    ...(params?.letra ? { letra: params.letra } : {}),
   });
   return res.data.usuarios;
 }

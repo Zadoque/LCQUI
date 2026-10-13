@@ -1,6 +1,6 @@
 import type { Papel } from "@/types/usuarios";
 
-export interface BuscarUsuariosParams { termo?: string; papel?: Papel; }
+export interface BuscarUsuariosParams { termo?: string; papel?: Papel; letra?: string; }
 export interface ConcederPapelParams { idOperacao: string; papel: Papel; uidAlvo?: string; nome?: string; email?: string; }
 export interface ConcederPapelResult { uid: string; ativo: boolean; contaAuthCriada?: boolean; emailEnviado?: boolean; }
 export interface RevogarPapelParams { idOperacao: string; uidAlvo: string; papel: Papel; motivo: string; }
