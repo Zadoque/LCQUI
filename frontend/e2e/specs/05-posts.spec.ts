@@ -5,6 +5,7 @@ import {
   cartaoDoPost,
   criarPost,
   editarPost,
+  esperarCallable,
   login,
   observarConsole,
 } from "../helpers/ui";
@@ -52,15 +53,16 @@ test.describe("Posts", () => {
       await contextoAluno.close();
     }
 
-    // 3. Professor dono remove o post (com motivo).
-    // `prompt()` é síncrono no onclick; registrar o handler ANTES do click evita
-    // deadlock entre a ação de click e o diálogo modal.
+    // 3. Professor dono remove o post (com motivo). A UI corrente usa modal
+    // próprio, não prompt()/dialog nativo.
     const card = cartaoDoPost(page, titulo);
     await card.hover();
-    page.once("dialog", (dialog) => {
-      void dialog.accept("Motivo da remoção E2E-005");
-    });
     await card.getByRole("button", { name: "Remover Postagem", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Remover Postagem" })).toBeVisible();
+    await page.getByTestId("motivo-remocao-post").fill("Motivo da remoção E2E-005");
+    const respostaRemocao = esperarCallable(page, "removerPost");
+    await page.getByTestId("confirmar-remocao-post").click();
+    await respostaRemocao;
 
     // 4. Aluno participante não vê mais o post
     const contextoAluno2 = await browser.newContext();
@@ -156,11 +158,11 @@ test.describe("Posts", () => {
       .getByPlaceholder("Escreva as instruções ou recados para a turma...")
       .fill(descricao);
 
-    const dialogoPromise = page.waitForEvent("dialog");
+    const resposta = esperarCallable(page, "criarPost");
     await page.getByRole("button", { name: "Postar", exact: true }).click();
-    const dialogo = await dialogoPromise;
-    expect(dialogo.message()).toContain("Apenas o professor responsável");
-    await dialogo.accept();
+    const retorno = await resposta;
+    expect(retorno.status()).toBe(403);
+    await expect(page.getByText(/Apenas o professor responsável pela turma pode criar posts/i)).toBeVisible();
 
     // O callable foi realmente invocado e rejeitado pelo backend.
     expect(chamadas).toHaveLength(1);

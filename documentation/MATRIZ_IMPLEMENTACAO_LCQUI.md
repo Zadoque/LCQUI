@@ -12,6 +12,24 @@
 - **Regra de completude:** todas as linhas abaixo foram auditadas (`SIM`). Nenhuma conclusão foi inferida somente da existência de código, teste ou compilação.
 - **Anomalia formal M13 registrada:** o comentário do modelo Alloy (M13) afirma "os 20 valores do enum", mas o CUE `#M13Tipo`, a Seção 7 (L1456–1457) e os 21 sigs do Alloy fixam **21 valores** (incl. `AUTO_ATENDIMENTO_RETIRADA`). É comentário desatualizado; o contrato formal não deve ser alterado durante correção de implementação (rastrear como dívida).
 
+## Atualização da auditoria E2E — 13/10/2026
+
+Esta seção atualiza, com precedência sobre as descrições históricas das linhas abaixo, o diagnóstico obtido na execução da suíte Playwright com seed canônico, Emulator Suite e um worker. A classificação foi confrontada com `documentation/main.tex`, CUE e Alloy; a existência de um teste verde isolado não é tratada como prova de suíte isolada.
+
+| Grupo/feature | Resultado verificado | Classificação normativa | Ação registrada |
+|---|---|---|---|
+| Ingresso, convite arquivado e limpeza de notificações | `ALU-E2E-001`, `CONV-ARQ-E2E-001` e `NOTIF-003-E2E-005` passaram isoladamente; falhas na suíte completa foram contaminação de estado compartilhado | Conforme, com dívida de isolamento E2E | Preservar reruns isolados e separar/resetar estado por cenário antes de usar a suíte completa como evidência |
+| RBAC de Post/comentário | M12.1/Alloy exigem professor dono para Post e participação canônica para comentário; backend retornou 403 correto; testes esperavam `dialog` nativo, mas a UI corrente exibe erro inline | Teste incompatível com UI; implementação conforme | Testes atualizados para aguardar callable 403 e mensagem inline |
+| Remoção de Post | Norma exige transição completa com motivo e soft-delete; teste antigo clicava o botão e lia Firestore antes de preencher/confirmar o modal corrente | Teste não executava a transição | Teste atualizado para modal, motivo, callable e confirmação |
+| Lotes | Seção 9/UI corrente usa catálogo local materializado e a tela de detalhe usa `Estoque e Frascos`; o teste exigia `Buscar no Banco` e heading removidos | Teste incompatível com norma/UI | Teste atualizado para busca local e verificação Firestore; retry/materialização do catálogo continua cobertura separada |
+| Upload de roteiro | CUE M12.2 e Alloy exigem objeto PDF, owner, geração e snapshot; o upload browser e a validação server-side usavam defaults de bucket diferentes | Falha real de integração identificada | Default frontend alinhado a `lcqui-dev.appspot.com`; `RTR-E2E-004` passou após a correção |
+| Anexo/ownership de roteiro | Após corrigir a representação do seed (`status_roteiro` + `referencia` M12.2) e recompilar Functions, `RTR-E2E-001..003` passaram isoladamente | Conforme | Correção aplicada em `seed.ts` e leitura compatível da referência canônica em `roteiros.ts`/`posts.ts` |
+| Catálogo | Catálogo materializado e filtros passaram; o `CATALOGO_SOURCE_CHANGED` anterior não reapareceu nos reruns isolados | Conforme nos reruns isolados; suíte compartilhada ainda exige controle de rate-limit | Manter publicação serializada e não usar execução contaminada como prova negativa |
+| Estoque/patrimônio | `IMP-UI-002`, `IMP-PAT-003/PAT-001` e `IMP-PAT-006/PAT-005` passaram após corrigir locator; snapshot M8 passou isoladamente e a falha anterior foi rate-limit do gestor compartilhado | Conforme nos reruns isolados; isolamento necessário | Teste M8 usa Chefia para não consumir o limite do gestor em specs anteriores; baixa e lock conferem estado persistido |
+| Retirada/Q06/M5 | `RET-E2E-001`, `DEV-001-E2E-003`, `MET-E2E-001`, `MET-E2E-002/003`, `M5-001/002-E2E-001` e `M5-003-E2E-001` alcançaram e passaram as transições formais | Conforme nos reruns isolados | Testes atualizados para fechar o modal de cadastro, labels correntes e headings case-insensitive; estados M5/M6 foram verificados no Firestore |
+
+Regra de leitura: as linhas históricas que ainda dizem “NÃO DIVERGENTE” para esses grupos não constituem evidência atual de E2E; o quadro acima é o registro da auditoria executada nesta data.
+
 ## Sumário calculado
 
 <!-- MATRIX_COUNTS_START -->

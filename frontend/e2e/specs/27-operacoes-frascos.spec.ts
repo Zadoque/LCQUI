@@ -18,6 +18,8 @@ async function abrirFrascoSeed(page: import("@playwright/test").Page): Promise<{
   const resultado = await lerResultadoCallable(await resposta);
   const idCriado = resultado.idFrasco as string;
   if (!idCriado) throw new Error("A callable não retornou idFrasco.");
+  await expect(page.getByTestId("frasco-cadastro-sucesso")).toBeVisible();
+  await page.getByRole("button", { name: "Concluir" }).click();
   await page.reload();
   await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
   await page.locator("tbody tr").filter({ hasText: "Reagente Seed" }).first().locator("td").first().click();
@@ -51,7 +53,7 @@ test.describe("Operações de frascos UI-06/07/14/16/17/18", () => {
     guardaConsole.permitir(/status of 429/);
     const frasco = await abrirFrascoSeed(page);
     await cardDoFrasco(page, frasco.codigo).getByRole("button", { name: "Extraviar" }).click();
-    await expect(page.getByRole("heading", { name: /Registrar Extravio/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Registrar extravio/i })).toBeVisible();
     await page.getByPlaceholder(/mínimo 5 caracteres/).fill("x");
     await page.getByRole("button", { name: "Confirmar Extravio" }).click();
     await expect(page.getByText("O motivo deve conter pelo menos 5 caracteres.")).toBeVisible();
@@ -61,7 +63,7 @@ test.describe("Operações de frascos UI-06/07/14/16/17/18", () => {
     guardaConsole.permitir(/status of 429/);
     const frasco = await abrirFrascoSeed(page);
     await cardDoFrasco(page, frasco.codigo).getByRole("button", { name: "Quarentena", exact: true }).click();
-    await expect(page.getByRole("heading", { name: /Colocar Frasco em Quarentena/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Colocar frasco em quarentena/i })).toBeVisible();
     await page.getByPlaceholder(/mínimo 10 caracteres/).fill("curto");
     await page.getByRole("button", { name: "Colocar em Quarentena" }).click();
     await expect(page.getByText("A justificativa/laudo deve conter pelo menos 10 caracteres.")).toBeVisible();

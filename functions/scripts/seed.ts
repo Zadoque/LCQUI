@@ -802,7 +802,7 @@ async function writeFixture(): Promise<void> {
       geracao: String(pdfMetadata.generation),
       criado_em: new Date("2026-01-15T12:00:00.000Z").toISOString(),
     },
-    status: "PUBLICAVEL",
+    status_roteiro: "PUBLICAVEL",
     professores_compartilhados: [],
     file_url: null,
     criado_em: FIXTURE_TIME,
@@ -857,7 +857,7 @@ async function verify(): Promise<void> {
   const roteiroDoc = await firestore.collection("Roteiro_Experimento").doc("seed-roteiro-m12").get();
   assert.equal(roteiroDoc.exists, true);
   const roteiroData = roteiroDoc.data()!;
-  assert.equal(roteiroData.status, "PUBLICAVEL");
+  assert.equal(roteiroData.status_roteiro, "PUBLICAVEL");
   assert.equal(roteiroData.id_professor_upload, byId("professor.owner").uid);
   assert.equal(roteiroData.nome_arquivo, "seed-roteiro-m12.pdf");
   assert.equal(roteiroData.referencia.content_type, "application/pdf");

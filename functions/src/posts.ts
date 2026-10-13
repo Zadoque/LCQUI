@@ -21,7 +21,7 @@ import {
   EditarPostSchema,
   EditarComentarioSchema,
 } from "./schemas/posts.schema";
-import { podeAcessarRoteiro } from "./roteiros";
+import { obterReferenciaRoteiro, podeAcessarRoteiro } from "./roteiros";
 
 
 // ---------------------------------------------------------------------------
@@ -55,8 +55,9 @@ async function resolverNomeIdentidadeTx(
 
 /** Monta o snapshot imutável do anexo a partir do documento Roteiro_Experimento. */
 function montarSnapshotRoteiroAnexo(roteiro: Record<string, unknown>): Record<string, unknown> {
+  const referencia = obterReferenciaRoteiro(roteiro);
   let nomeArquivo: string;
-  const storagePath = typeof roteiro.storage_path === "string" ? roteiro.storage_path : "";
+  const storagePath = typeof referencia.storage_path === "string" ? referencia.storage_path : "";
   if (storagePath) {
     nomeArquivo = storagePath.split("/").pop() || "roteiro.pdf";
   } else {
@@ -68,9 +69,9 @@ function montarSnapshotRoteiroAnexo(roteiro: Record<string, unknown>): Record<st
   return {
     id_roteiro: roteiro.id,
     nome_arquivo: nomeArquivo,
-    tamanho_bytes: roteiro.tamanho_bytes,
-    storage_path: roteiro.storage_path,
-    geracao: roteiro.geracao,
+    tamanho_bytes: referencia.tamanho_bytes,
+    storage_path: referencia.storage_path,
+    geracao: referencia.geracao,
   };
 }
 

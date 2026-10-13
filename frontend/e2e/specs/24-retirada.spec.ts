@@ -15,6 +15,8 @@ test("RET-E2E-001: registra retirada com contrato completo", async ({ page, guar
   const resposta = esperarCallable(page, "cadastrarFrascoFechado");
   await entrada.getByRole("button", { name: "Salvar Frasco" }).click();
   await resposta;
+  await expect(page.getByTestId("frasco-cadastro-sucesso")).toBeVisible();
+  await page.getByRole("button", { name: "Concluir" }).click();
   const chave = await lerDocumento("Chaves_Unicas/Frasco_Reagente__LCQUI-1");
   expect(chave).not.toBeNull();
 
@@ -91,6 +93,8 @@ test("DEV-001-E2E-002: conclui retirada e devolução com pesagens concordantes"
   const resultado = await lerResultadoCallable(await criar);
   const frascoId = resultado.idFrasco as string;
   expect(frascoId).toBeTruthy();
+  await expect(page.getByTestId("frasco-cadastro-sucesso")).toBeVisible();
+  await page.getByRole("button", { name: "Concluir" }).click();
   const frascoCriado = await lerDocumento(`Frasco_Reagente/${frascoId}`);
   expect(frascoCriado).toBeTruthy();
   const codigoFrasco = frascoCriado!.data.codigo_frasco as string;
@@ -127,7 +131,7 @@ test("DEV-001-E2E-002: conclui retirada e devolução com pesagens concordantes"
   const emprestimosAtivos = await listarColecao("Emprestimo_Reagente");
   const emprestimoAtivo = emprestimosAtivos.find((item) => item.data.id_frasco_reagente === frascoId && item.data.status === "EM_USO");
   expect(emprestimoAtivo).toBeTruthy();
-  await devolucao.getByLabel("Frasco / empréstimo a devolver *").fill(emprestimoAtivo!.id);
+  await devolucao.getByLabel("Código do frasco ou empréstimo *").fill(emprestimoAtivo!.id);
   await devolucao.getByTestId("devolucao-abrir-seletor").click();
   await page.getByTestId("devolucao-modal-seletor").getByLabel("Letra inicial do nome").fill("P");
   const buscaDevolvente = esperarCallable(page, "buscarUsuariosParaRetirada");

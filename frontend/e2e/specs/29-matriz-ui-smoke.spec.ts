@@ -4,7 +4,10 @@ import { lerDocumento } from "../helpers/emulator";
 
 test.describe("Cobertura transversal da matriz", () => {
   test("IMP-UI-001/IMP-INDEX-001 consulta catálogo e renderiza fotografia de estoque", async ({ page }) => {
-    await login(page, "gestor.almoxarifado@lcqui.local");
+    // Usa a identidade de Chefia para não consumir o rate-limit do gestor
+    // compartilhado com os cenários anteriores da suíte; o contrato M8
+    // permite a consulta para ambos os papéis.
+    await login(page, "chefe.seed@lcqui.local");
     await page.goto("/reagentes");
     await expect(page.getByRole("heading", { name: "Catálogo de Reagentes" })).toBeVisible();
     await expect(page.getByRole("heading", { name: /Estoque atual/i })).toBeVisible();
@@ -39,7 +42,7 @@ test.describe("Cobertura transversal da matriz", () => {
     await expect(page.getByRole("heading", { name: "Banho-Maria Inservível Seed" })).toBeVisible();
     await expect(page.getByText("Status: Inservivel")).toBeVisible();
     await page.getByRole("button", { name: "Registrar Baixa Patrimonial (Processo SEI)" }).click();
-    await expect(page.getByRole("heading", { name: /Registrar Baixa Patrimonial Definitiva/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Registrar baixa patrimonial definitiva/i })).toBeVisible();
     await page.getByPlaceholder(/número do processo SEI/).fill("Processo SEI 2026.0001.004");
     const chamada = esperarCallable(page, "registrarBaixaBemPatrimonial");
     await page.getByRole("button", { name: "Confirmar Baixa Definitiva" }).click();
