@@ -14,6 +14,29 @@ A arquitetura dos helpers se divide em:
 
 A suíte de testes E2E utiliza o Firebase Emulator Suite (auth, firestore, functions, storage) e depende do seed canônico localizado em `functions/scripts/seed.ts`.
 
+### Contrato de ambiente: Emulator não é Firebase real
+
+O projeto lógico dos testes é `lcqui-dev`, mas o ID do projeto não seleciona o
+servidor. A seleção é explícita e deve permanecer assim:
+
+| Variável | Valor no E2E | Efeito |
+|---|---|---|
+| `NEXT_PUBLIC_FIREBASE_USE_EMULATORS` | `true` | Conecta Auth, Firestore, Storage e Functions a `127.0.0.1` |
+| `LCQUI_E2E_PROJECT_ID` | `lcqui-dev` | Namespace usado nas APIs REST do Emulator |
+| `FIRESTORE_EMULATOR_HOST` | `127.0.0.1:8080` | Permite o seed somente no Firestore Emulator |
+| `FIREBASE_AUTH_EMULATOR_HOST` | `127.0.0.1:9099` | Permite o seed somente no Auth Emulator |
+
+O frontend não infere o Emulator a partir de `NODE_ENV=development`, porque o
+mesmo modo `next dev` também é usado para homologação no Firebase real. O
+`playwright.config.ts` injeta `NEXT_PUBLIC_FIREBASE_USE_EMULATORS=true` no
+servidor web dos testes e não reutiliza um Next já iniciado. Assim, um processo
+de homologação real não pode ser reaproveitado acidentalmente pela suíte.
+
+Na homologação real, a flag deve estar ausente ou diferente de `true`, e as
+variáveis `NEXT_PUBLIC_FIREBASE_*` devem apontar para o projeto homologado.
+Nunca execute o seed canônico nesse modo: ele deve abortar sem os dois hosts
+obrigatórios do Emulator.
+
 O arquivo `frontend/e2e/global-setup.ts` é responsável por validar que os emuladores estão disponíveis, resetar e re-semeiar o estado antes de executar os testes.
 
 Os fixtures do seed incluem exemplos como:

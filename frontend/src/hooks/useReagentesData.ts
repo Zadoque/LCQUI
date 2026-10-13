@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   obterCatalogoReagentes,
@@ -21,7 +21,8 @@ export function useReagentesData(abaParam: string = "catalogo") {
     const proximaAba = abaParam === "movimentacoes" || abaParam === "alertas"
       ? abaParam
       : "catalogo";
-    setAbaAtiva(proximaAba);
+    const atualizacao = window.setTimeout(() => setAbaAtiva(proximaAba), 0);
+    return () => window.clearTimeout(atualizacao);
   }, [abaParam]);
 
   const [reagentes, setReagentes] = useState<ResumoReagente[]>([]);
@@ -39,7 +40,9 @@ export function useReagentesData(abaParam: string = "catalogo") {
   const [filtroLetra, setFiltroLetra] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroNatureza, setFiltroNatureza] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState("");
   const [idAlmoxarifado, setIdAlmoxarifado] = useState<string>();
+  const ultimaCargaEstoqueAutomatica = useRef<string | null>(null);
 
   const isChefe = roles.includes("Chefe_Geral");
   const isGestorAlmox = roles.includes("Gestor_Almoxarifado");
@@ -97,9 +100,12 @@ export function useReagentesData(abaParam: string = "catalogo") {
 
   useEffect(() => {
     if (hasManagementAccess) {
+      const chave = `${idAlmoxarifado ?? ""}:${isChefe ? "chefe" : "gestor"}`;
+      if (ultimaCargaEstoqueAutomatica.current === chave) return;
+      ultimaCargaEstoqueAutomatica.current = chave;
       void Promise.resolve().then(() => carregarEstoqueAtual());
     }
-  }, [hasManagementAccess, carregarEstoqueAtual]);
+  }, [hasManagementAccess, carregarEstoqueAtual, idAlmoxarifado, isChefe]);
 
   // Normalização de acentos e busca local (UI-04)
   const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -111,8 +117,11 @@ export function useReagentesData(abaParam: string = "catalogo") {
       const matchTipo = norm(r.tipo_substancia || "").includes(q);
       if (!matchNome && !matchTipo) return false;
     }
-    if (filtroEstado && r.estado_fisico !== filtroEstado) return false;
+    // O catálogo normativo usa SOLIDO/LIQUIDO; a normalização mantém filtros
+    // compatíveis com fotografias legadas que ainda exibam acentos.
+    if (filtroEstado && norm(r.estado_fisico || "") !== norm(filtroEstado)) return false;
     if (filtroNatureza && r.natureza_quimica !== filtroNatureza) return false;
+    if (filtroTipo && r.tipo_substancia !== filtroTipo) return false;
     if (filtroLetra && !r.nome?.toUpperCase().startsWith(filtroLetra)) return false;
     return true;
   });
@@ -124,6 +133,7 @@ export function useReagentesData(abaParam: string = "catalogo") {
     setFiltroLetra("");
     setFiltroEstado("");
     setFiltroNatureza("");
+    setFiltroTipo("");
   };
 
   return {
@@ -151,6 +161,8 @@ export function useReagentesData(abaParam: string = "catalogo") {
     setFiltroEstado,
     filtroNatureza,
     setFiltroNatureza,
+    filtroTipo,
+    setFiltroTipo,
     limparFiltros,
     estoqueSnapshot,
     loadingEstoque,

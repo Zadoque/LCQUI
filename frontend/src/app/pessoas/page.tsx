@@ -1,52 +1,66 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { buscarUsuarios, concederPapel, revogarPapel, obterDetalhesUsuario } from "@/services/usuarios/usuariosService";
 import type { Pessoa, DetalhesUsuario as Detalhes, Papel } from "@/types/usuarios";
 
 const PAPEIS = ["Aluno", "Bolsista", "Professor", "Gestor_Almoxarifado", "Gestor_Bens_Patrimoniais"] as const;
 
-export default function PessoasPage() {
+function PessoasContent() {
+  const searchParams = useSearchParams();
+  const papelDaUrl = searchParams.get("papel");
+  const papelInicial: Papel = PAPEIS.includes(papelDaUrl as (typeof PAPEIS)[number])
+    ? papelDaUrl as Papel
+    : "Aluno";
   const [pessoas, setPessoas] = useState<Pessoa[]>([]);
   const [busca, setBusca] = useState("");
+  const [letraInicial, setLetraInicial] = useState("");
   const [alvo, setAlvo] = useState("");
-  const [papel, setPapel] = useState<Papel>("Aluno");
+  const [papel, setPapel] = useState<Papel>(papelInicial);
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [motivo, setMotivo] = useState("");
   const [mensagem, setMensagem] = useState("");
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(false);
+  const [carregandoLista, setCarregandoLista] = useState(false);
+  const [acaoEmAndamento, setAcaoEmAndamento] = useState<string | null>(null);
+  const [carregandoDetalhes, setCarregandoDetalhes] = useState(false);
   const [detalhes, setDetalhes] = useState<Detalhes | null>(null);
   const [aba, setAba] = useState<"dados" | "papeis" | "vinculos" | "turmas" | "atividade">("dados");
   const [confirmacao, setConfirmacao] = useState(false);
 
   const carregar = useCallback(async () => {
     try {
-      const lista = await buscarUsuarios(busca ? { termo: busca } : undefined);
+      if (!letraInicial) { setPessoas([]); return; }
+      const lista = await buscarUsuarios({ papel, letra: letraInicial, ...(busca ? { termo: busca } : {}) });
       setPessoas(lista);
     } catch {
       setErro("Não foi possível carregar as pessoas.");
     }
-  }, [busca]);
+  }, [busca, letraInicial, papel]);
 
   useEffect(() => {
     let cancelado = false;
-    buscarUsuarios(busca ? { termo: busca } : undefined)
+    if (!letraInicial) return () => { cancelado = true; };
+    void Promise.resolve().then(() => { if (!cancelado) setCarregandoLista(true); });
+    buscarUsuarios({ papel, letra: letraInicial, ...(busca ? { termo: busca } : {}) })
       .then((lista) => {
         if (!cancelado) setPessoas(lista);
       })
       .catch(() => {
         if (!cancelado) setErro("Não foi possível carregar as pessoas.");
-      });
+      }).finally(() => { if (!cancelado) setCarregandoLista(false); });
     return () => {
       cancelado = true;
     };
-  }, [busca]);
+  }, [busca, letraInicial, papel]);
 
   const executar = async (acao: "conceder" | "revogar") => {
     setCarregando(true); setErro(""); setMensagem("");
+    setAcaoEmAndamento(acao);
     try {
       if (acao === "conceder") {
         await concederPapel({
@@ -62,10 +76,11 @@ export default function PessoasPage() {
       setAlvo(""); setNome(""); setEmail(""); setMotivo(""); await carregar();
     } catch (error) {
       setErro(error instanceof Error ? error.message : "Operação rejeitada pelo servidor.");
-    } finally { setCarregando(false); }
+    } finally { setCarregando(false); setAcaoEmAndamento(null); }
   };
 
   const selecionada = pessoas.find((pessoa) => pessoa.id === alvo);
+  const pessoasVisiveis = letraInicial ? pessoas : [];
   const papeisProjetados = selecionada
     ? (papel === "Bolsista" && !selecionada.papeis.includes("Aluno") && !selecionada.papeis.includes(papel)
       ? [...selecionada.papeis, papel, "Aluno"]
@@ -80,9 +95,11 @@ export default function PessoasPage() {
         : "";
   const abrirDetalhes = async (uid: string) => {
     setAlvo(uid); setAba("dados"); setErro("");
+    setCarregandoDetalhes(true);
     try {
       setDetalhes(await obterDetalhesUsuario({ uid }));
     } catch { setErro("Não foi possível carregar os detalhes autorizados."); }
+    finally { setCarregandoDetalhes(false); }
   };
   return (
     <ProtectedRoute allowedRoles={["Chefe_Geral"]}>
@@ -93,10 +110,12 @@ export default function PessoasPage() {
           {mensagem && <p role="status" className="p-3 rounded-lg bg-green-500/10 text-green-700">{mensagem}</p>}
           {erro && <p role="alert" className="p-3 rounded-lg bg-red-500/10 text-red-700">{erro}</p>}
           <section className="glass-panel rounded-2xl p-6 space-y-4">
-            <label className="block font-semibold" htmlFor="busca-pessoas">Buscar pessoa</label>
-            <input id="busca-pessoas" value={busca} onChange={(event) => setBusca(event.target.value)} placeholder="Nome" className="w-full px-3 py-2 rounded-lg bg-background border border-foreground/20" />
+            <label className="block font-semibold" htmlFor="letra-pessoas">Primeiro escolha a letra inicial</label>
+            <select id="letra-pessoas" value={letraInicial} onChange={(event) => { setLetraInicial(event.target.value); setBusca(""); }} className="w-full px-3 py-2 rounded-lg bg-background border border-foreground/20"><option value="">Selecione uma letra</option>{"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((letra) => <option key={letra} value={letra}>{letra}</option>)}</select>
+            <label className="block font-semibold" htmlFor="busca-pessoas">Filtrar resultados</label>
+            <input id="busca-pessoas" value={busca} disabled={!letraInicial} onChange={(event) => setBusca(event.target.value)} placeholder={letraInicial ? "Nome" : "Escolha uma letra primeiro"} className="w-full px-3 py-2 rounded-lg bg-background border border-foreground/20 disabled:opacity-50" />
             <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th className="py-2">Nome</th><th>Papéis</th><th>Ação</th></tr></thead><tbody>
-              {pessoas.map((pessoa) => <tr key={pessoa.id} className="border-t border-foreground/10"><td className="py-3">{pessoa.nome}</td><td>{pessoa.papeis.join(", ") || "sem papel"}</td><td className="space-x-3"><button type="button" onClick={() => setAlvo(pessoa.id)} className="text-primary underline">Selecionar</button><button type="button" onClick={() => void abrirDetalhes(pessoa.id)} className="text-primary underline">Detalhes</button></td></tr>)}
+              {carregandoLista ? <tr><td colSpan={3} className="py-8 text-center" role="status">Carregando pessoas...</td></tr> : pessoasVisiveis.map((pessoa) => <tr key={pessoa.id} className="border-t border-foreground/10"><td className="py-3">{pessoa.nome}</td><td>{pessoa.papeis.join(", ") || "sem papel"}</td><td><div className="flex flex-wrap gap-3 py-1"><button type="button" onClick={() => setAlvo(pessoa.id)} disabled={carregando} className="cursor-pointer rounded-lg border border-primary/20 px-3 py-2 text-primary transition-colors hover:bg-primary/10 disabled:cursor-wait disabled:opacity-50">{alvo === pessoa.id ? "Selecionado" : "Selecionar"}</button><button type="button" onClick={() => void abrirDetalhes(pessoa.id)} disabled={carregandoDetalhes} className="cursor-pointer rounded-lg border border-foreground/15 px-3 py-2 transition-colors hover:bg-foreground/10 disabled:cursor-wait disabled:opacity-50">{carregandoDetalhes && alvo === pessoa.id ? "Carregando..." : "Detalhes"}</button></div></td></tr>)}
             </tbody></table></div>
           </section>
           {detalhes && <section className="glass-panel rounded-2xl p-6 space-y-4" aria-label="Detalhes da pessoa">
@@ -117,11 +136,19 @@ export default function PessoasPage() {
             {!alvo && <div className="grid md:grid-cols-2 gap-3"><input aria-label="Nome da nova pessoa" value={nome} onChange={(event) => setNome(event.target.value)} placeholder="Nome" className="px-3 py-2 rounded-lg bg-background border border-foreground/20" /><input aria-label="E-mail da nova pessoa" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="E-mail" type="email" className="px-3 py-2 rounded-lg bg-background border border-foreground/20" /></div>}
             <label className="block font-semibold" htmlFor="motivo">Justificativa para revogar</label>
             <textarea id="motivo" value={motivo} onChange={(event) => setMotivo(event.target.value)} placeholder="Obrigatória para revogação" className="w-full px-3 py-2 rounded-lg bg-background border border-foreground/20" />
-            <div className="flex gap-3"><button type="button" disabled={carregando || Boolean(bloqueioProjetado) || (!alvo && (!nome || !email))} onClick={() => void executar("conceder")} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground disabled:opacity-50">Conceder papel</button><button type="button" disabled={carregando || !alvo || !motivo.trim()} onClick={() => setConfirmacao(true)} className="px-4 py-2 rounded-lg border border-red-500 text-red-700 disabled:opacity-50">Revogar papel</button></div>
+            <div className="flex gap-3"><button type="button" disabled={carregando || Boolean(bloqueioProjetado) || (!alvo && (!nome || !email))} onClick={() => void executar("conceder")} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground disabled:opacity-50">{carregando && acaoEmAndamento === "conceder" ? "Concedendo..." : "Conceder papel"}</button><button type="button" disabled={carregando || !alvo || !motivo.trim()} onClick={() => setConfirmacao(true)} className="px-4 py-2 rounded-lg border border-red-500 text-red-700 disabled:opacity-50">{carregando && acaoEmAndamento === "revogar" ? "Revogando..." : "Revogar papel"}</button></div>
             {confirmacao && <div role="dialog" aria-label="Confirmar revogação" className="border border-red-500/40 rounded-lg p-4 space-y-3"><p>Revogar <strong>{papel}</strong> de <strong>{selecionada?.nome ?? "esta pessoa"}</strong>? A operação será auditada e pode desativar a conta se for o último papel.</p><div className="flex gap-3"><button type="button" onClick={() => setConfirmacao(false)} className="px-3 py-2 rounded-lg border">Cancelar</button><button type="button" disabled={carregando} onClick={() => { setConfirmacao(false); void executar("revogar"); }} className="px-3 py-2 rounded-lg bg-red-600 text-white">Confirmar revogação</button></div></div>}
           </section>
         </div>
       </main>
     </ProtectedRoute>
+  );
+}
+
+export default function PessoasPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-background p-6" aria-busy="true">Carregando diretório de pessoas...</main>}>
+      <PessoasContent />
+    </Suspense>
   );
 }

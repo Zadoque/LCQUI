@@ -36,9 +36,8 @@ interface StorageFileMetadata {
 
 /** Verifica se um usuário tem acesso a um roteiro publicável (dono ou compartilhado). */
 export function podeAcessarRoteiro(roteiro: Record<string, unknown> | undefined, uid: string): boolean {
-  if (!roteiro || roteiro.status !== "PUBLICAVEL") return false;
-  const referencia = roteiro.referencia as Record<string, unknown> | undefined;
-  if (!referencia || !referencia.geracao) return false;
+  if (!roteiro || roteiro.status_roteiro !== "PUBLICAVEL") return false;
+  if (!roteiro.geracao || !roteiro.storage_path) return false;
   if (roteiro.id_professor_upload === uid) return true;
   const compartilhados = roteiro.professores_compartilhados as string[] | undefined;
   if (compartilhados && compartilhados.includes(uid)) return true;
@@ -140,12 +139,12 @@ export const registrarRoteiro = onCall(async (request) => {
       id_professor_upload: uid,
       nome,
       descricao,
-      nome_arquivo: nomeArquivo,
-      referencia: {
-        storage_path: storagePath,
-        owner_uid: uid,
-      },
-      status: "PROVISORIO",
+      status_roteiro: "PROVISORIO",
+      storage_path: storagePath,
+      content_type: null,
+      tamanho_bytes: null,
+      owner_uid: uid,
+      geracao: null,
       professores_compartilhados: [],
       file_url: null,
       criado_em: FieldValue.serverTimestamp(),
@@ -187,12 +186,12 @@ export const validarObjetoRoteiro = onCall(async (request) => {
       throw new HttpsError("permission-denied", "Somente o dono do roteiro pode validá-lo.");
     }
 
-    if (roteiro.status !== "PROVISORIO") {
+    if (roteiro.status_roteiro !== "PROVISORIO") {
       throw new HttpsError("failed-precondition", "Roteiro deve estar PROVISORIO para ser validado.");
     }
 
-    const storagePath = typeof roteiro.referencia?.storage_path === "string"
-      ? roteiro.referencia.storage_path
+    const storagePath = typeof roteiro.storage_path === "string"
+      ? roteiro.storage_path
       : null;
     if (!storagePath) {
       throw new HttpsError("failed-precondition", "Referência de Storage ausente.");
@@ -202,8 +201,12 @@ export const validarObjetoRoteiro = onCall(async (request) => {
     const referencia = await inspecionarObjetoRoteiro(storagePath, uid);
 
     tx.update(roteiroRef, {
-      referencia,
-      status: "VALIDADO",
+      storage_path: referencia.storage_path,
+      content_type: referencia.content_type,
+      tamanho_bytes: referencia.tamanho_bytes,
+      owner_uid: referencia.owner_uid,
+      geracao: referencia.geracao,
+      status_roteiro: "VALIDADO",
     });
 
     const resultado = { idRoteiro, geracao: referencia.geracao };
@@ -242,17 +245,17 @@ export const publicarRoteiro = onCall(async (request) => {
       throw new HttpsError("permission-denied", "Somente o dono do roteiro pode publicá-lo.");
     }
 
-    if (roteiro.status !== "VALIDADO") {
+    if (roteiro.status_roteiro !== "VALIDADO") {
       throw new HttpsError("failed-precondition", "Roteiro deve estar VALIDADO para ser publicado.");
     }
 
-    const geracao = roteiro.referencia?.geracao;
+    const geracao = roteiro.geracao;
     if (typeof geracao !== "string" || geracao.length === 0) {
       throw new HttpsError("failed-precondition", "Geração do objeto não foi fixada.");
     }
 
     tx.update(roteiroRef, {
-      status: "PUBLICAVEL",
+      status_roteiro: "PUBLICAVEL",
     });
 
     const resultado = { idRoteiro };
@@ -295,7 +298,7 @@ export const compartilharRoteiro = onCall(async (request) => {
       throw new HttpsError("permission-denied", "Somente o dono do roteiro pode compartilhá-lo.");
     }
 
-    if (roteiro.status !== "PUBLICAVEL") {
+    if (roteiro.status_roteiro !== "PUBLICAVEL") {
       throw new HttpsError("failed-precondition", "Roteiro deve estar PUBLICAVEL para ser compartilhado.");
     }
 
@@ -396,7 +399,7 @@ export const listarRoteirosProfessor = onCall(async (request) => {
     db.collection("Roteiro_Experimento").where("professores_compartilhados", "array-contains", uid).get(),
   ]);
 
-  const map = new Map<string, { id: string; nome: string; status: string; professores_compartilhados: string[] }>();
+  const map = new Map<string, { id: string; nome: string; status_roteiro: string; professores_compartilhados: string[] }>();
   for (const snap of [donosSnap, compartilhadosSnap]) {
     for (const doc of snap.docs) {
       if (map.has(doc.id)) continue;
@@ -404,7 +407,7 @@ export const listarRoteirosProfessor = onCall(async (request) => {
       map.set(doc.id, {
         id: doc.id,
         nome: typeof data.nome === "string" ? data.nome : "",
-        status: typeof data.status === "string" ? data.status : "",
+        status_roteiro: typeof data.status_roteiro === "string" ? data.status_roteiro : "",
         professores_compartilhados: Array.isArray(data.professores_compartilhados) ? data.professores_compartilhados : [],
       });
     }
@@ -446,7 +449,10 @@ export const removerRoteiro = onCall(async (request) => {
     tx.delete(roteiroRef);
     const resultado = { success: true };
     registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
-    return roteiro.referencia as Record<string, unknown> | undefined;
+    return {
+      storage_path: roteiro.storage_path,
+      geracao: roteiro.geracao,
+    };
   });
 
   const storagePath = typeof referencia?.storage_path === "string" ? referencia.storage_path : null;
@@ -506,12 +512,13 @@ export const emitirUrlDownloadRoteiro = onCall(async (request) => {
     }
 
     const roteiro = snap.data()!;
-    if (roteiro.status !== "PUBLICAVEL") {
+    if (roteiro.status_roteiro !== "PUBLICAVEL") {
       throw new HttpsError("failed-precondition", "Roteiro não está publicável.");
     }
 
-    const referencia = roteiro.referencia || {};
-    if (!referencia.storage_path || !referencia.geracao) {
+    const storagePath = roteiro.storage_path;
+    const geracao = roteiro.geracao;
+    if (!storagePath || !geracao) {
       throw new HttpsError("failed-precondition", "Referência canônica incompleta.");
     }
 
@@ -550,8 +557,8 @@ export const emitirUrlDownloadRoteiro = onCall(async (request) => {
         throw new HttpsError("permission-denied", "Post não possui o roteiro anexado.");
       }
       if (
-        roteiroAnexo.geracao !== referencia.geracao ||
-        roteiroAnexo.storage_path !== referencia.storage_path
+        roteiroAnexo.geracao !== geracao ||
+        roteiroAnexo.storage_path !== storagePath
       ) {
         throw new HttpsError("failed-precondition", "Referência canônica do anexo divergente.");
       }
@@ -560,7 +567,7 @@ export const emitirUrlDownloadRoteiro = onCall(async (request) => {
       throw new HttpsError("permission-denied", "Usuário não possui acesso ao roteiro.");
     }
 
-    const file = admin.storage().bucket().file(referencia.storage_path);
+    const file = admin.storage().bucket().file(storagePath);
 
     let url: string;
 
@@ -570,8 +577,8 @@ export const emitirUrlDownloadRoteiro = onCall(async (request) => {
     const storageEmulatorHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST;
     if (storageEmulatorHost) {
       const bucketName = admin.storage().bucket().name;
-      const encodedPath = encodeURIComponent(referencia.storage_path);
-      url = `http://${storageEmulatorHost}/v0/b/${bucketName}/o/${encodedPath}?alt=media&generation=${referencia.geracao}`;
+      const encodedPath = encodeURIComponent(storagePath);
+      url = `http://${storageEmulatorHost}/v0/b/${bucketName}/o/${encodedPath}?alt=media&generation=${geracao}`;
     } else {
       [url] = await file.getSignedUrl({
         action: "read",
@@ -582,8 +589,8 @@ export const emitirUrlDownloadRoteiro = onCall(async (request) => {
 
     const resultado = {
       id_roteiro: idRoteiro,
-      storage_path: referencia.storage_path,
-      geracao: referencia.geracao,
+      storage_path: storagePath,
+      geracao,
       url,
       emitida_em: new Date().toISOString(),
       expira_em: new Date(Date.now() + 15 * 60 * 1000).toISOString(),

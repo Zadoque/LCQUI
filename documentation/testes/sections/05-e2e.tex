@@ -33,7 +33,8 @@ As specs de hardening da matriz incluem
 reprodutíveis no Emulator Suite: retry de recuperação de senha, foto de perfil,
 lote inválido, notificações operacionais com deep links, limpeza paginada de
 105 notificações e validação do magic header \texttt{\%PDF-} de relatórios e
-etiquetas. A rodada deve ser executada com Node.js 22 e um worker.
+etiquetas. A rodada deve ser executada com \texttt{npm run test:e2e}, Node.js 20
+e um worker.
 
 Essa cobertura local não prova Scheduler, transporte/Storage publicados,
 índices compostos de produção ou provedores externos; tais verificações são
@@ -55,6 +56,15 @@ O cenário \texttt{ALM-OPERACIONAL-E2E-006} abre a especificação sem resumo
 pré-selecionado e prova a busca textual opcional no catálogo JSON, sem exigir
 a seleção simultânea dos três filtros.
 
+Na mesma vertical, a especificação independente do catálogo é verificada por
+\texttt{ALM-OPERACIONAL-E2E-008--012}: substância pura encontrada localmente por
+nome e CAS; componente de mistura encontrado localmente por nome e CAS; bloqueio
+de envio sem substância efetiva; herança de estado \texttt{SOLIDO} e unidade
+\texttt{g}; e payload contendo os IDs de resumo e substância selecionados. O
+fluxo \texttt{FRASC-E2E-002} também comprova que o código \texttt{LCQUI-N} é
+exibido no cadastro de frasco já aberto, além de persistido no Firestore
+Emulator.
+
 A retirada e a devolução usam o diretório mínimo normativo de UI-07: o operador
 informa uma letra inicial, pesquisa opcionalmente por nome e seleciona um
 Professor ou Bolsista ativo; o UID não é digitado na interface. O callable
@@ -63,7 +73,7 @@ inicial, verifica os papéis persistidos no servidor e rejeita gestor de
 almoxarifado sem papel de portador. Os fluxos permanentes estão em
 \texttt{24-retirada.spec.ts} (retirada e devolução) e a prova de autorização
 emulável está em
-\texttt{functions/src/__tests__/integration/usuarios.integration.test.ts}
+\path{functions/src/__tests__/integration/usuarios.integration.test.ts}
 (`RET-USUARIO-INT-001--003`).
 Os campos de retirante e devolvente abrem um modal de pesquisa independente;
 a devolução também exibe o identificador do frasco/empréstimo enviado ao

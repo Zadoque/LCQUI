@@ -212,9 +212,9 @@ export const gerarRelatorioPersonalizado = onCall(async (request) => {
 \end{lstlisting}
 
 \begin{lstlisting}[language=TypeScript, title={Módulo de Etiquetas em PDF: Virgens e Reimpressão}]
-// ============================================================================
-// GERACAO DE ETIQUETAS VIRGENS (NOVOS FRASCOS) - ABA 1
-// ============================================================================
+// =============================
+// ETIQUETAS VIRGENS - ABA 1
+// =============================
 interface DadosEtiquetasVirgens {
   codigoInicial: number;
   codigoFinal: number;
@@ -281,9 +281,9 @@ export const gerarPdfEtiquetasVirgens = onCall(async (request) => {
   return resultado;
 });
 
-// ============================================================================
-// REIMPRESSAO E FICHA DE CONFERENCIA (FRASCOS JA CADASTRADOS) - ABA 2
-// ============================================================================
+// =============================
+// REIMPRESSAO/FICHA - ABA 2
+// =============================
 interface DadosReimpressao {
   frascoIds: string[]; // Máximo 10 frascos
 }
@@ -326,5 +326,4 @@ export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
   return { url };
 });
 \end{lstlisting}
-
 

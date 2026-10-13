@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { buscarLocaisParaRetirada, type LocalRetirada } from "@/services/reagentes/reagentesService";
+import { buscarLocaisParaRetirada } from "@/services/reagentes/reagentesService";
+import type { LocalRetirada } from "@/types/reagentesApi";
 
 interface SeletorLocalReagenteProps {
   value: string;

@@ -2,9 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { httpsCallable } from "firebase/functions";
-import { ref, uploadBytes } from "firebase/storage";
-import { functions, storage } from "@/lib/firebase/config";
+import { criarRequisicaoAdicaoBem, enviarFotoRequisicaoPatrimonial } from "@/services/patrimonio/patrimonioService";
 import { ListaLocais } from "@/components/patrimonio/ListaLocais";
 import { NovaLocalModal } from "@/components/patrimonio/NovaLocalModal";
 
@@ -41,14 +39,8 @@ export function ModalNovoBem({ isOpen, onClose, onSuccess, uid }: ModalProps) {
       if (!foto) throw new Error("A foto do bem é obrigatória.");
       if (!foto.type.startsWith("image/")) throw new Error("A foto deve ser uma imagem.");
       if (foto.size >= 5 * 1024 * 1024) throw new Error("A foto deve ter menos de 5 MiB.");
-      const nomeSeguro = foto.name.replace(/[^A-Za-z0-9._-]/g, "_");
-      const caminhoFoto = `requisicoes/${uid}/${crypto.randomUUID()}-${nomeSeguro}`;
-      await uploadBytes(ref(storage, caminhoFoto), foto, {
-        contentType: foto.type,
-        customMetadata: { owner: uid },
-      });
-      const criar = httpsCallable(functions, "criarRequisicaoAdicaoBem");
-      await criar({
+      const caminhoFoto = await enviarFotoRequisicaoPatrimonial(uid, foto);
+      await criarRequisicaoAdicaoBem({
         idOperacao: crypto.randomUUID(),
         numeroPatrimonioProposto: numeroPatrimonio,
         estadoConservacaoProposto: estadoConservacao,

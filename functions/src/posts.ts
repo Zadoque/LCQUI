@@ -55,13 +55,12 @@ async function resolverNomeIdentidadeTx(
 
 /** Monta o snapshot imutável do anexo a partir do documento Roteiro_Experimento. */
 function montarSnapshotRoteiroAnexo(roteiro: Record<string, unknown>): Record<string, unknown> {
-  const referencia = (roteiro.referencia as Record<string, unknown>) || {};
   let nomeArquivo: string;
-  if (typeof roteiro.nome_arquivo === "string" && roteiro.nome_arquivo.length > 0) {
-    nomeArquivo = roteiro.nome_arquivo;
-  } else {
-    const storagePath = typeof referencia.storage_path === "string" ? referencia.storage_path : "";
+  const storagePath = typeof roteiro.storage_path === "string" ? roteiro.storage_path : "";
+  if (storagePath) {
     nomeArquivo = storagePath.split("/").pop() || "roteiro.pdf";
+  } else {
+    nomeArquivo = "roteiro.pdf";
   }
   if (nomeArquivo.length > 150) {
     nomeArquivo = nomeArquivo.slice(0, 150);
@@ -69,9 +68,9 @@ function montarSnapshotRoteiroAnexo(roteiro: Record<string, unknown>): Record<st
   return {
     id_roteiro: roteiro.id,
     nome_arquivo: nomeArquivo,
-    tamanho_bytes: referencia.tamanho_bytes,
-    storage_path: referencia.storage_path,
-    geracao: referencia.geracao,
+    tamanho_bytes: roteiro.tamanho_bytes,
+    storage_path: roteiro.storage_path,
+    geracao: roteiro.geracao,
   };
 }
 

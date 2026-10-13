@@ -119,6 +119,7 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
       id_lote: dados.idLote ?? null,
       id_resumo_reagente: dados.idResumoReagente,
       id_especificacao_reagente: dados.idEspecificacaoReagente,
+      codigo_frasco: codigoFrasco,
       conteudo_nominal: dados.volumeNominal ?? null,
       peso_no_cadastrado: dados.pesoTotal,
       peso_atual: dados.pesoTotal,

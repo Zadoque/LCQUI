@@ -6,6 +6,7 @@ process.env.FUNCTIONS_EMULATOR = "true";
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { Timestamp } from "firebase-admin/firestore";
+import { CallableRequest } from "firebase-functions/v2/https";
 import {
   gerarCatalogoReagentes,
   obterCatalogoReagentes,
@@ -34,7 +35,7 @@ describe("Catálogo JSON (IMP-BASE-004) e Materializações FLOW (IMP-MVIEW-001)
     testEnv.cleanup();
   });
 
-  function mockRequest(data: any, uid: string, roles: string[] = ["Gestor_Almoxarifado"]) {
+  function mockRequest(data: unknown, uid: string, roles: string[] = ["Gestor_Almoxarifado"]): CallableRequest<unknown> {
     return {
       data,
       auth: {
@@ -45,7 +46,7 @@ describe("Catálogo JSON (IMP-BASE-004) e Materializações FLOW (IMP-MVIEW-001)
         },
       },
       rawRequest: {},
-    } as any;
+    } as unknown as CallableRequest<unknown>;
   }
 
   describe("Catálogo JSON de Reagentes (IMP-BASE-004)", () => {
@@ -65,26 +66,39 @@ describe("Catálogo JSON (IMP-BASE-004) e Materializações FLOW (IMP-MVIEW-001)
       });
 
       await db.collection("Resumo_Reagente").doc(idResumo).collection("Especificacoes").doc(idEspec).set({
+        id: idEspec,
+        id_resumo_reagente: idResumo,
         descricao: "98% P.A.",
         fabricante: "Merck",
         densidade: 1.84,
         unidade_de_medida: "ml",
         estado_fisico: "LIQUIDO",
       });
+      await db.collection("Especificacao_Reagente").doc(idEspec).set({
+        id: idEspec,
+        id_resumo_reagente: idResumo,
+        descricao: "98% P.A.",
+        fabricante: "Merck",
+        densidade: 1.84,
+        unidade_de_medida: "ml",
+      });
 
       const res = await testEnv.wrap(gerarCatalogoReagentes)(mockRequest({}, uidGestor));
       expect(res.status).toBe("OK");
       expect(res.versaoPublicada).toBeGreaterThan(0);
-      expect(res.schemaVersion).toBe(1);
+      expect(res.schemaVersion).toBe(2);
 
       const estadoDoc = await db.collection("Sistema_Catalogo_Reagentes").doc("estado").get();
       expect(estadoDoc.exists).toBe(true);
       expect(estadoDoc.data()?.versao_publicada).toBe(res.versaoPublicada);
       expect(estadoDoc.data()?.versao_fonte).toBeGreaterThanOrEqual(res.versaoPublicada);
-      expect(estadoDoc.data()?.storage_path).toMatch(
-        new RegExp(`^catalogo-reagentes/v${res.versaoPublicada}-[a-f0-9]{64}\\.json$`),
+      expect(estadoDoc.data()?.catalogos.resumos.storage_path).toMatch(
+        new RegExp(`^catalogo-resumos/v${res.versaoPublicada}-[a-f0-9]{64}\\.json$`),
       );
-      expect(estadoDoc.data()?.sha256).toMatch(/^[a-f0-9]{64}$/);
+      expect(estadoDoc.data()?.catalogos.resumos.sha256).toMatch(/^[a-f0-9]{64}$/);
+      expect(estadoDoc.data()?.catalogos.especificacoes.storage_path).toMatch(/^catalogo-especificacoes\/v1-[a-f0-9]{64}\.json$/);
+      expect(estadoDoc.data()?.catalogos.substancias.storage_path).toMatch(/^catalogo-substancias\/v1-[a-f0-9]{64}\.json$/);
+      expect(estadoDoc.data()?.catalogos.materias.storage_path).toMatch(/^catalogo-materias\/v1-[a-f0-9]{64}\.json$/);
       expect(estadoDoc.data()?.gerado_em).toBeDefined();
     });
 
@@ -113,7 +127,9 @@ describe("Catálogo JSON (IMP-BASE-004) e Materializações FLOW (IMP-MVIEW-001)
       await db.collection("Gestor_Almoxarifado").doc(uidGestor).set({ id_usuario: uidGestor });
 
       const estadoRef = db.collection("Sistema_Catalogo_Reagentes").doc("estado");
-      const antesResumo = Number((await estadoRef.get()).data()?.versao_fonte ?? 0);
+      const antes = (await estadoRef.get()).data() ?? {};
+      const antesResumo = Number(antes.catalogos?.resumos?.versao_fonte ?? 0);
+      const antesEspecificacao = Number(antes.catalogos?.especificacoes?.versao_fonte ?? 0);
       const resumo = await testEnv.wrap(cadastrarResumoReagente)({
         data: {
           idOperacao: `op_cat_resumo_${Date.now()}`,
@@ -128,9 +144,11 @@ describe("Catálogo JSON (IMP-BASE-004) e Materializações FLOW (IMP-MVIEW-001)
         },
         auth: { uid: uidGestor, token: { roles: ["Gestor_Almoxarifado"], versao_permissoes: 1 } },
         rawRequest: {},
-      } as any);
-      const depoisResumo = Number((await estadoRef.get()).data()?.versao_fonte);
+      } as unknown as CallableRequest<unknown>);
+      const depoisEstadoResumo = (await estadoRef.get()).data() ?? {};
+      const depoisResumo = Number(depoisEstadoResumo.catalogos?.resumos?.versao_fonte);
       expect(depoisResumo).toBe(antesResumo + 1);
+      expect(depoisEstadoResumo.catalogos?.especificacoes?.versao_fonte).toBe(antesEspecificacao);
 
       const substanciaRef = db.collection("Substancia_Quimica").doc(`sub_cat_${Date.now()}`);
       await substanciaRef.set({ nome: "Substância de prova", ativo: true });
@@ -147,9 +165,11 @@ describe("Catálogo JSON (IMP-BASE-004) e Materializações FLOW (IMP-MVIEW-001)
         },
         auth: { uid: uidGestor, token: { roles: ["Gestor_Almoxarifado"], versao_permissoes: 1 } },
         rawRequest: {},
-      } as any);
-      const depoisEspecificacao = Number((await estadoRef.get()).data()?.versao_fonte);
-      expect(depoisEspecificacao).toBe(depoisResumo + 1);
+      } as unknown as CallableRequest<unknown>);
+      const depoisEstadoEspecificacao = (await estadoRef.get()).data() ?? {};
+      const depoisEspecificacao = Number(depoisEstadoEspecificacao.catalogos?.especificacoes?.versao_fonte);
+      expect(depoisEspecificacao).toBe(antesEspecificacao + 1);
+      expect(depoisEstadoEspecificacao.catalogos?.resumos?.versao_fonte).toBe(depoisResumo);
     });
 
     it("deve permitir download do catálogo para papéis autorizados (incluindo Aluno) e rejeitar não autorizados", async () => {
@@ -159,7 +179,16 @@ describe("Catálogo JSON (IMP-BASE-004) e Materializações FLOW (IMP-MVIEW-001)
         catalogo_embutido: null,
         storage_path: null,
         sha256: null,
-        schema_version: 1,
+        schema_version: 2,
+        catalogos: {
+          resumos: { versao_fonte: 99, versao_publicada: 0, storage_path: null, sha256: null },
+          especificacoes: { versao_fonte: 1, versao_publicada: 1, storage_path: "catalogo-especificacoes/v1-fixture.json", sha256: "fixture" },
+          substancias: { versao_fonte: 1, versao_publicada: 1, storage_path: "catalogo-substancias/v1-fixture.json", sha256: "fixture" },
+          materias: { versao_fonte: 1, versao_publicada: 1, storage_path: "catalogo-materias/v1-fixture.json", sha256: "fixture" },
+        },
+        catalogos_embutidos: {
+          especificacoes: {}, substancias: {}, materias: {},
+        },
       });
       const uidAluno = `aluno_cat_${Date.now()}`;
       await db.collection("Usuarios").doc(uidAluno).set({ ativo: true, versao_permissoes: 1 });
@@ -168,8 +197,8 @@ describe("Catálogo JSON (IMP-BASE-004) e Materializações FLOW (IMP-MVIEW-001)
       // Aluno autorizado
       const resAluno = await testEnv.wrap(obterCatalogoReagentes)(mockRequest({}, uidAluno, ["Aluno"]));
       expect(resAluno.versaoPublicada).toBeDefined();
-      expect(resAluno.schemaVersion).toBe(1);
-      expect(resAluno.storagePath).toMatch(/^catalogo-reagentes\/v99-[a-f0-9]{64}\.json$/);
+      expect(resAluno.schemaVersion).toBe(2);
+      expect(resAluno.storagePath).toMatch(/^catalogo-manifestos\/v\d+-[a-f0-9]{64}\.json$/);
       expect(resAluno.catalogo?.resumos).toBeDefined();
 
       // Usuário sem papel autorizado deve falhar fechado
@@ -193,6 +222,14 @@ describe("Catálogo JSON (IMP-BASE-004) e Materializações FLOW (IMP-MVIEW-001)
       });
 
       await db.collection("Resumo_Reagente").doc(idResumo).collection("Especificacoes").doc(idEspec).set({
+        id: idEspec,
+        id_resumo_reagente: idResumo,
+        descricao: "99.5% P.A.",
+        fabricante: "Synth",
+      });
+      await db.collection("Especificacao_Reagente").doc(idEspec).set({
+        id: idEspec,
+        id_resumo_reagente: idResumo,
         descricao: "99.5% P.A.",
         fabricante: "Synth",
       });
@@ -203,8 +240,12 @@ describe("Catálogo JSON (IMP-BASE-004) e Materializações FLOW (IMP-MVIEW-001)
         idEspecificacao: idEspec,
       }, uidProfessor, ["Professor"]));
 
-      expect((res.resumo as any).nome).toBe("Cloreto de Sódio");
-      expect((res.especificacao as any).descricao).toBe("99.5% P.A.");
+      const resolucao = res as {
+        resumo?: { nome?: unknown };
+        especificacao?: { descricao?: unknown };
+      };
+      expect(resolucao.resumo?.nome).toBe("Cloreto de Sódio");
+      expect(resolucao.especificacao?.descricao).toBe("99.5% P.A.");
 
       // Erro de integridade referencial: especificação inexistente
       await expect(testEnv.wrap(resolverCatalogoPorIds)(mockRequest({

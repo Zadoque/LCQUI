@@ -181,6 +181,34 @@ produção ou provedores externos.
 Pré-requisitos: Node.js (engine 20 no backend), Java (JRE para os emuladores),
 npm e Firebase CLI (`npm install -g firebase-tools`).
 
+### Separação obrigatória entre Firebase real e Emulator
+
+O identificador `lcqui-dev` é compartilhado pelos testes e pela homologação,
+mas ele não determina sozinho para onde o SDK envia as requisições. A regra
+única é:
+
+- `NEXT_PUBLIC_FIREBASE_USE_EMULATORS=true`: frontend isolado no Emulator
+  (`127.0.0.1`, portas 9099/8080/5001/9199);
+- ausente ou diferente de `true`: frontend conectado ao Firebase definido em
+  `NEXT_PUBLIC_FIREBASE_*` (homologação ou produção).
+
+Não use `NODE_ENV=development` como indicador de Emulator: `npm run dev` pode
+ser usado tanto para homologação no Firebase real quanto para desenvolvimento
+local. O Playwright configura a flag automaticamente e inicia um servidor
+Next exclusivo, sem reutilizar um processo anterior.
+
+Para homologação real, mantenha a flag ausente ou falsa e configure as variáveis
+`NEXT_PUBLIC_FIREBASE_*` no ambiente do frontend. Para E2E, use somente:
+
+```bash
+nix shell github:nixos/nixpkgs/nixos-25.05#nodejs_20 -c zsh -lc \
+  'cd frontend && npm run test:e2e:emulators'
+```
+
+O `functions/scripts/seed.ts` é ainda mais restritivo: exige os hosts de Auth
+e Firestore Emulator e encerra antes de qualquer escrita quando eles não estão
+presentes. Nunca execute o seed com credenciais ou hosts do Firebase real.
+
 1. Instale as dependências:
 
    ```bash
@@ -196,7 +224,7 @@ npm e Firebase CLI (`npm install -g firebase-tools`).
    ```
 
    Firestore em `8080`, Auth em `9099`, Functions em `5001`, Storage em
-   `9199`; UI em `http://localhost:4000`. O projeto padrão é `lcqui-uenf`.
+   `9199`; UI em `http://localhost:4000`. O projeto padrão é `lcqui-dev`.
 
 3. Rode o frontend (Terminal 2):
 

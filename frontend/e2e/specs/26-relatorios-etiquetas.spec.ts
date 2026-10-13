@@ -1,12 +1,12 @@
 import { test, expect } from "../fixtures";
-import { login, esperarCallable, lerResultadoCallable } from "../helpers/ui";
+import { login, esperarCallable } from "../helpers/ui";
 import { listarColecao } from "../helpers/emulator";
 
 async function criarFrascoParaReimpressao(page: import("@playwright/test").Page): Promise<string> {
   await page.goto("/reagentes");
   await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
   await page.getByText("Reagente Seed", { exact: true }).first().click();
-  await page.getByRole("button", { name: "+ Frasco S/ Lote" }).click();
+  await page.getByRole("button", { name: "+ Frasco" }).click();
   await page.getByRole("button", { name: "Já Aberto (Em Uso)" }).click();
   await page.locator('input[type="number"]').nth(0).fill("250");
   const antes = await listarColecao("Frasco_Reagente");
@@ -38,7 +38,6 @@ test.describe("Relatórios e etiquetas do almoxarifado", () => {
     await page.goto("/reagentes");
     await page.getByRole("button", { name: "Relatórios" }).click();
 
-    const modal = page.getByRole("heading", { name: "Relatórios de Reagentes" }).locator("..").locator("..").locator("..");
     await page.getByRole("button", { name: "Personalizado" }).click();
     const dates = page.locator('input[type="date"]');
     await dates.nth(0).fill("2025-01-01");
@@ -52,7 +51,6 @@ test.describe("Relatórios e etiquetas do almoxarifado", () => {
     await page.goto("/reagentes");
     await page.getByRole("button", { name: "Imprimir Etiquetas" }).click();
 
-    const modal = page.getByRole("heading", { name: "Imprimir Etiquetas" }).locator("..").locator("..").locator("..");
     const numbers = page.locator('input[type="number"]');
     await numbers.nth(0).fill("1");
     await numbers.nth(1).fill("51");
@@ -65,7 +63,6 @@ test.describe("Relatórios e etiquetas do almoxarifado", () => {
     await page.goto("/reagentes");
     await page.getByRole("button", { name: "Imprimir Etiquetas" }).click();
 
-    const modal = page.getByRole("heading", { name: "Imprimir Etiquetas" }).locator("..").locator("..").locator("..");
     await page.getByRole("button", { name: "Reimpressão / Conferência" }).click();
     await page.getByRole("button", { name: "Gerar PDF" }).click();
     await expect(page.getByText("Adicione pelo menos um frasco.")).toBeVisible();

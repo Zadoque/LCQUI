@@ -201,10 +201,11 @@ test.describe.serial("Matérias", () => {
     // Abrir modal "Novo Professor"
     await page.getByRole("button", { name: "Novo Professor" }).click();
 
-    // O ListaMaterias em modo selecao deve mostrar as matérias do seed
+    // O ListaMaterias em modo seleção começa paginada; a busca por código traz
+    // a matéria sem baixar/renderizar todas as opções em uma única tela.
     await expect(page.getByTestId("lista-materias")).toBeVisible();
+    await page.getByRole("searchbox", { name: "Buscar matéria por nome ou código" }).fill("QUI101");
     await expect(page.getByTestId("materia-item-materia-quimica-geral")).toBeVisible();
-    await expect(page.getByTestId("materia-item-materia-quimica-analitica")).toBeVisible();
 
     // Marcar o checkbox da matéria existente QUI101
     await page.getByTestId("materia-item-materia-quimica-geral").click();

@@ -22,6 +22,8 @@ import {
 } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { db } from "@/lib/firebase/config";
+import { ref, uploadBytes } from "firebase/storage";
+import { storage } from "@/lib/firebase/config";
 import {
   resolverIdOperacao,
   lerIntencao,
@@ -44,37 +46,119 @@ import type {
   MembroTurma,
   HistoricoAlunoTurmaEntry,
 } from "@/types/turmas";
+import type { MateriaItem } from "@/types/cadastros";
+import type {
+  AdicionarAlunoTurmaInput,
+  AlunosListaResponse,
+  AlterarStatusTurmaInput,
+  BuscarAlunosInput,
+  CompartilharRoteiroInput,
+  ConvidarAlunoInput,
+  CriarTurmaInput,
+  IngressarTurmaInput,
+  MateriaRelacao,
+  ProfessorListaResponse,
+  RoteiroIdInput,
+  RoteiroRegistradoResponse,
+  RoteiroUploadInput,
+  AdicionarComentarioParams,
+  ArquivarTurmaParams,
+  CriarPostParams,
+  EditarComentarioParams,
+  EditarPostParams,
+  EmitirUrlDownloadRoteiroParams,
+  ListarComentariosResult,
+  ModerarComentarioParams,
+  RemoverAlunoTurmaParams,
+  RemoverPostParams,
+} from "@/types/turmasApi";
+export type { CriarPostParams, EditarPostParams, RemoverPostParams, ArquivarTurmaParams, ListarComentariosResult, AdicionarComentarioParams, ModerarComentarioParams, EditarComentarioParams, EmitirUrlDownloadRoteiroParams, RemoverAlunoTurmaParams } from "@/types/turmasApi";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos de payload / resposta
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface CriarPostParams {
-  idOperacao: string;
-  idTurma: string;
-  titulo: string;
-  descricao: string;
-  idRoteiroExperimento?: string;
+async function chamarTurmas<TInput>(nome: string, payload: TInput): Promise<void> {
+  const fn = httpsCallable<TInput, Record<string, never>>(getFunctions(), nome);
+  await fn(payload);
 }
 
-export interface EditarPostParams {
-  idOperacao: string;
-  idTurma: string;
-  idPost: string;
-  titulo: string;
-  descricao: string;
-  idRoteiroExperimento?: string | null;
+export async function criarTurma(payload: CriarTurmaInput): Promise<void> {
+  await chamarTurmas("criarTurma", payload);
 }
 
-export interface RemoverPostParams {
-  idOperacao: string;
-  idTurma: string;
-  idPost: string;
-  motivo: string;
+export async function ingressarEmTurmaPorCodigo(payload: IngressarTurmaInput): Promise<void> {
+  await chamarTurmas("ingressarEmTurmaPorCodigo", payload);
 }
 
-export interface ArquivarTurmaParams {
-  idTurma: string;
+export async function alterarStatusTurma(payload: AlterarStatusTurmaInput): Promise<void> {
+  await chamarTurmas("alterarStatusTurma", payload);
+}
+
+export function assinarMaterias(onData: (materias: MateriaItem[]) => void): () => void {
+  const q = query(collection(db, "Materia"), orderBy("nome", "asc"));
+  return onSnapshot(q, (snap) => onData(snap.docs.map((item) => ({
+    id: item.id,
+    nome: String(item.data().nome ?? ""),
+    codigo: String(item.data().codigo_materia ?? ""),
+  }))));
+}
+
+export function assinarMateriasDoProfessor(idProfessor: string, onData: (relacoes: MateriaRelacao[]) => void): () => void {
+  // Contrato canônico de Professor_x_Materia: a relação é identificada por
+  // id_professor + id_materia; id_usuario era um campo redundante do seed antigo.
+  const q = query(collection(db, "Professor_x_Materia"), where("id_professor", "==", idProfessor));
+  return onSnapshot(q, (snap) => onData(snap.docs.map((item) => ({ id_materia: String(item.data().id_materia ?? "") }))));
+}
+
+export async function buscarProfessoresAcademicos(): Promise<ProfessorListaResponse["professores"]> {
+  const fn = httpsCallable<Record<string, never>, ProfessorListaResponse>(getFunctions(), "buscarProfessores");
+  return (await fn({})).data.professores;
+}
+
+export async function buscarAlunosAcademicos(payload: BuscarAlunosInput): Promise<AlunosListaResponse["alunos"]> {
+  const fn = httpsCallable<BuscarAlunosInput, AlunosListaResponse>(getFunctions(), "buscarAlunos");
+  return (await fn(payload)).data.alunos;
+}
+
+export async function adicionarAlunoExistenteTurma(payload: AdicionarAlunoTurmaInput): Promise<void> {
+  await chamarTurmas("adicionarAlunoExistenteTurma", payload);
+}
+
+export async function convidarAluno(payload: ConvidarAlunoInput): Promise<{ canal_entrega?: string; status_entrega?: string }> {
+  const fn = httpsCallable<ConvidarAlunoInput, { canal_entrega?: string; status_entrega?: string }>(getFunctions(), "convidarAluno");
+  return (await fn(payload)).data;
+}
+
+export async function enviarRoteiroParaStorage(uid: string, arquivo: File): Promise<string> {
+  const arquivoRef = ref(storage, `roteiros/${uid}/${Date.now()}_${arquivo.name}`);
+  await uploadBytes(arquivoRef, arquivo, { customMetadata: { owner: uid } });
+  return arquivoRef.fullPath;
+}
+
+export async function registrarRoteiro(payload: RoteiroUploadInput): Promise<string> {
+  const fn = httpsCallable<RoteiroUploadInput, RoteiroRegistradoResponse>(getFunctions(), "registrarRoteiro");
+  return (await fn(payload)).data.idRoteiro;
+}
+
+export async function validarObjetoRoteiro(payload: RoteiroIdInput): Promise<void> {
+  await chamarTurmas("validarObjetoRoteiro", payload);
+}
+
+export async function publicarRoteiro(payload: RoteiroIdInput): Promise<void> {
+  await chamarTurmas("publicarRoteiro", payload);
+}
+
+export async function removerRoteiro(payload: RoteiroIdInput): Promise<void> {
+  await chamarTurmas("removerRoteiro", payload);
+}
+
+export async function compartilharRoteiro(payload: CompartilharRoteiroInput): Promise<void> {
+  await chamarTurmas("compartilharRoteiro", payload);
+}
+
+export async function descompartilharRoteiro(payload: CompartilharRoteiroInput): Promise<void> {
+  await chamarTurmas("descompartilharRoteiro", payload);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -199,43 +283,6 @@ export async function arquivarTurma(params: ArquivarTurmaParams): Promise<void> 
 // ─────────────────────────────────────────────────────────────────────────────
 // Comentários de Posts (M12.1)
 // ─────────────────────────────────────────────────────────────────────────────
-
-export interface ListarComentariosResult {
-  comentarios: ComentarioItem[];
-  visao: VisaoComentario;
-}
-
-export interface AdicionarComentarioParams {
-  idTurma: string;
-  idPost: string;
-  texto: string;
-}
-
-export interface ModerarComentarioParams {
-  idTurma: string;
-  idPost: string;
-  idComentario: string;
-  motivo: string;
-}
-
-export interface EditarComentarioParams {
-  idTurma: string;
-  idPost: string;
-  idComentario: string;
-  texto: string;
-}
-
-export interface EmitirUrlDownloadRoteiroParams {
-  idRoteiro: string;
-  idTurma?: string | null;
-  idPost?: string | null;
-  isAlunoBolsista?: boolean;
-}
-
-export interface RemoverAlunoTurmaParams {
-  idTurma: string;
-  idAluno: string;
-}
 
 /** Lista comentários de um post considerando projeção mascarada pela visão. */
 export async function listarComentariosPost(params: {
@@ -411,5 +458,28 @@ export function assinarTurmasAtivasDoProfessor(
   return onSnapshot(q, (snap) => {
     const lista = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Turma[];
     onData(lista);
+  });
+}
+
+export function assinarTurmasArquivadasDoProfessor(
+  idProfessor: string,
+  onData: (turmas: Turma[]) => void,
+): () => void {
+  const q = query(collection(db, "Turma"), where("id_professor", "==", idProfessor), where("status", "==", "Arquivada"));
+  return onSnapshot(q, (snap) => {
+    onData(snap.docs.map((item) => ({ id: item.id, ...item.data() })) as Turma[]);
+  });
+}
+
+export function assinarTurmasAtivas(
+  isChefeGeral: boolean,
+  idProfessor: string,
+  onData: (turmas: Turma[]) => void,
+): () => void {
+  const q = isChefeGeral
+    ? query(collection(db, "Turma"), where("status", "==", "Ativo"))
+    : query(collection(db, "Turma"), where("id_professor", "==", idProfessor), where("status", "==", "Ativo"));
+  return onSnapshot(q, (snap) => {
+    onData(snap.docs.map((item) => ({ id: item.id, ...item.data() })) as Turma[]);
   });
 }

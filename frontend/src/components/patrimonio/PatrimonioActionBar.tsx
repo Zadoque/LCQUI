@@ -8,6 +8,8 @@ interface PatrimonioActionBarProps {
   onNovoBem: () => void;
   onNotificacoes: () => void;
   onRelatorios: () => void;
+  onNovoGestorPatrimonio: () => void;
+  onGerenciarGestoresPatrimonio: () => void;
 }
 
 export function PatrimonioActionBar({
@@ -17,6 +19,8 @@ export function PatrimonioActionBar({
   onNovoBem,
   onNotificacoes,
   onRelatorios,
+  onNovoGestorPatrimonio,
+  onGerenciarGestoresPatrimonio,
 }: PatrimonioActionBarProps) {
   return (
     <div className="space-y-4">
@@ -24,14 +28,14 @@ export function PatrimonioActionBar({
       {isChefe && (
         <div className="flex flex-col lg:flex-row gap-4 items-center justify-between p-5 bg-indigo-500/5 rounded-2xl border border-indigo-500/20">
           <div className="flex items-center gap-3 flex-wrap">
-            <button className="px-4 py-2 rounded-lg bg-indigo-500/10 text-indigo-400 text-sm font-medium hover:bg-indigo-500/20 transition-colors flex items-center gap-2 border border-indigo-500/20">
+            <button type="button" onClick={onNovoGestorPatrimonio} className="cursor-pointer px-4 py-2 rounded-lg bg-indigo-500/10 text-indigo-400 text-sm font-medium hover:bg-indigo-500/20 transition-colors flex items-center gap-2 border border-indigo-500/20 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
               </svg>
               Novo Gestor de Bens Patrimoniais
             </button>
             <div className="h-8 w-px bg-foreground/10 hidden sm:block" />
-            <button className="px-4 py-2 rounded-lg bg-foreground/5 text-sm font-medium hover:bg-foreground/10 transition-colors flex items-center gap-2">
+            <button type="button" onClick={onGerenciarGestoresPatrimonio} className="cursor-pointer px-4 py-2 rounded-lg bg-foreground/5 text-sm font-medium hover:bg-foreground/10 transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary/40">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>

@@ -2,7 +2,7 @@ import React from "react";
 import { Trash2, Edit, ChevronDown, ChevronUp } from "lucide-react";
 import ComentariosPost from "./ComentariosPost";
 import { RoteiroAnexoCard } from "./RoteiroAnexoCard";
-import type { Post, RoteiroAnexo, RoteiroProjecao } from "@/types/turmas";
+import type { Post, RoteiroProjecao } from "@/types/turmas";
 
 export type { Post };
 

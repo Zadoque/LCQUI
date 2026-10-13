@@ -9,7 +9,7 @@ async function abrirFrascoSeed(page: import("@playwright/test").Page): Promise<{
   await page.goto("/reagentes");
   await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
   await page.getByText("Reagente Seed", { exact: true }).first().click();
-  await page.getByRole("button", { name: "+ Frasco S/ Lote" }).click();
+  await page.getByRole("button", { name: "+ Frasco" }).click();
   await page.getByRole("button", { name: "Já Aberto (Em Uso)" }).click();
   const numeros = page.locator('input[type="number"]');
   await numeros.nth(0).fill("250");

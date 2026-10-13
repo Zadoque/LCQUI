@@ -43,7 +43,6 @@ export interface RequisicaoEdicaoBemPatrimonial {
   id_usuario_solicitante: string;                                       // FK, NOT NULL
   id_usuario_respondente?: string | null;                               // FK, NULL
   novo_nome?: string | null;                                            // VARCHAR(150), NULL
-  nova_descricao_resumo?: string | null;
   novo_id_resumo_bem_patrimonial?: string | null;
   novo_status?: "Ativo" | "Inservivel" | "Ja_dado_baixa" | null;       // ENUM, NULL
   novo_estado_conservacao?: "BOM" | "REGULAR" | "RUIM" | null;         // ENUM, NULL

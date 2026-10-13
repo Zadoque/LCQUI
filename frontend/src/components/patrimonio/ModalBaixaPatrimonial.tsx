@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebase/config";
+import { registrarBaixaBemPatrimonial } from "@/services/patrimonio/patrimonioService";
 
 export interface ModalBaixaPatrimonialProps {
   isOpen: boolean;
@@ -41,8 +40,7 @@ export function ModalBaixaPatrimonial({
     setLoading(true);
     setErrorMsg("");
     try {
-      const registrarBaixa = httpsCallable(functions, "registrarBaixaBemPatrimonial");
-      await registrarBaixa({
+      await registrarBaixaBemPatrimonial({
         idOperacao: crypto.randomUUID(),
         idBemPatrimonial,
         documentoDadoBaixaPdfUrl: pdfPath.trim(),

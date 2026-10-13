@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebase/config";
+import { confirmarEsgotamentoAposInspecao, recalibrarTaraFrascoEsgotado, repetirPesagemDevolucaoAnomala } from "@/services/reagentes/reagentesService";
 
 export interface ModalMetrologiaProps {
   isOpen: boolean;
@@ -44,8 +43,7 @@ export function ModalMetrologia({
     try {
       if (rota === "REPETIR") {
         if (!idEmprestimo) throw new Error("Não foi possível identificar o empréstimo para repetir a pesagem.");
-        const fn = httpsCallable(functions, "repetirPesagemDevolucaoAnomala");
-        await fn({
+        await repetirPesagemDevolucaoAnomala({
           idOperacao: crypto.randomUUID(),
           idEmprestimo,
           pesoNovaMedicao: Number(novoPeso),
@@ -53,8 +51,7 @@ export function ModalMetrologia({
         });
       } else if (rota === "ESGOTAMENTO") {
         if (!idEmprestimo) throw new Error("Não foi possível identificar o empréstimo para confirmar o esgotamento.");
-        const fn = httpsCallable(functions, "confirmarEsgotamentoAposInspecao");
-        await fn({
+        await confirmarEsgotamentoAposInspecao({
           idOperacao: crypto.randomUUID(),
           idEmprestimo,
           pesoVazioRealMedido: Number(novoPeso),
@@ -62,8 +59,7 @@ export function ModalMetrologia({
         });
       } else {
         if (!idFrasco) throw new Error("Não foi possível identificar o frasco para recalibrar a tara.");
-        const fn = httpsCallable(functions, "recalibrarTaraFrascoEsgotado");
-        await fn({
+        await recalibrarTaraFrascoEsgotado({
           idOperacao: crypto.randomUUID(),
           idFrasco,
           pesoVazioReal: Number(novoPeso),

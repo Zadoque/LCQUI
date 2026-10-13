@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebase/config";
+import React, { useState } from "react";
+import { criarRequisicaoEdicaoBem } from "@/services/patrimonio/patrimonioService";
 
 interface ModalPropostaAlteracaoBemProps {
   isOpen: boolean;
@@ -12,7 +11,20 @@ interface ModalPropostaAlteracaoBemProps {
   onSuccess: () => void;
 }
 
-export function ModalPropostaAlteracaoBem({
+function normalizarStatus(status?: string): "Ativo" | "Inservivel" {
+  return status === "Inservivel" || status === "Ja_dado_baixa" ? "Inservivel" : "Ativo";
+}
+
+function normalizarConservacao(status?: string): "BOM" | "REGULAR" | "RUIM" {
+  return status === "REGULAR" || status === "RUIM" ? status : "BOM";
+}
+
+export function ModalPropostaAlteracaoBem(props: ModalPropostaAlteracaoBemProps) {
+  if (!props.isOpen) return null;
+  return <ModalPropostaAlteracaoBemConteudo key={`${props.idBemPatrimonial}-${props.statusAtual}-${props.conservacaoAtual}`} {...props} />;
+}
+
+function ModalPropostaAlteracaoBemConteudo({
   isOpen,
   onClose,
   idBemPatrimonial,
@@ -21,24 +33,13 @@ export function ModalPropostaAlteracaoBem({
   responsavelAtual,
   onSuccess,
 }: ModalPropostaAlteracaoBemProps) {
-  const [novoStatus, setNovoStatus] = useState<"Ativo" | "Inservivel" | "">("");
-  const [novoResponsavel, setNovoResponsavel] = useState("");
-  const [novoConservacao, setNovoConservacao] = useState<"BOM" | "REGULAR" | "RUIM" | "">("");
+  const [novoStatus, setNovoStatus] = useState<"Ativo" | "Inservivel" | "">(normalizarStatus(statusAtual));
+  const [novoResponsavel, setNovoResponsavel] = useState(responsavelAtual || "");
+  const [novoConservacao, setNovoConservacao] = useState<"BOM" | "REGULAR" | "RUIM" | "">(normalizarConservacao(conservacaoAtual));
   const [motivo, setMotivo] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
-
-  useEffect(() => {
-    if (isOpen) {
-      setNovoStatus(statusAtual === "Ja_dado_baixa" ? "Inservivel" : (statusAtual as any) || "Ativo");
-      setNovoResponsavel(responsavelAtual || "");
-      setNovoConservacao((conservacaoAtual as any) || "BOM");
-      setMotivo("");
-      setErrorMsg("");
-      setSuccessMsg("");
-    }
-  }, [isOpen, statusAtual, responsavelAtual, conservacaoAtual]);
 
   if (!isOpen) return null;
 
@@ -49,12 +50,11 @@ export function ModalPropostaAlteracaoBem({
     setSuccessMsg("");
 
     try {
-      const criarRequisicao = httpsCallable(functions, "criarRequisicaoEdicaoBem");
-      await criarRequisicao({
+      await criarRequisicaoEdicaoBem({
         idOperacao: crypto.randomUUID(),
         idBemPatrimonial,
-        novoStatus: novoStatus !== statusAtual ? novoStatus : undefined,
-        novoEstadoConservacao: novoConservacao !== conservacaoAtual ? novoConservacao : undefined,
+        ...(novoStatus && novoStatus !== statusAtual ? { novoStatus } : {}),
+        ...(novoConservacao && novoConservacao !== conservacaoAtual ? { novoEstadoConservacao: novoConservacao } : {}),
         motivo,
       });
 

@@ -1,16 +1,14 @@
-import React, { useState, useEffect } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebase/config";
+import React, { useState } from "react";
 import { openPdfFromBase64 } from "@/lib/pdf";
+import { gerarRelatorioBensPredio } from "@/services/patrimonio/patrimonioService";
 import { FileText, Loader2, X, Download } from "lucide-react";
 
 interface ModalRelatoriosProps {
   isOpen: boolean;
   onClose: () => void;
-  uid: string;
 }
 
-export default function ModalRelatoriosPatrimonio({ isOpen, onClose, uid }: ModalRelatoriosProps) {
+export default function ModalRelatoriosPatrimonio({ isOpen, onClose }: ModalRelatoriosProps) {
   const [activeTab, setActiveTab] = useState<"mensal" | "inserviveis">("mensal");
   const [loading, setLoading] = useState(false);
 
@@ -20,8 +18,6 @@ export default function ModalRelatoriosPatrimonio({ isOpen, onClose, uid }: Moda
   const [sala, setSala] = useState("");
   const [status, setStatus] = useState("");
   
-  const [dataInicio, setDataInicio] = useState("");
-  const [dataFim, setDataFim] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
   if (!isOpen) return null;
@@ -31,25 +27,19 @@ export default function ModalRelatoriosPatrimonio({ isOpen, onClose, uid }: Moda
     setErrorMsg("");
     try {
       if (activeTab === "mensal") {
-        const gerarRelatorioBensPredio = httpsCallable(functions, "gerarRelatorioBensPredio");
-        const filtros: any = {};
+        const filtros: { predio?: string; andar?: string; sala?: string; status?: string } = {};
         if (predio) filtros.predio = predio;
         if (andar) filtros.andar = andar;
         if (sala) filtros.sala = sala;
         if (status) filtros.status = status;
         
-        const res = await gerarRelatorioBensPredio(filtros);
-        const data = res.data as { base64: string };
-        openPdfFromBase64(data.base64);
+        openPdfFromBase64(await gerarRelatorioBensPredio(filtros));
       } else if (activeTab === "inserviveis") {
-        const gerarRelatorioBensPredio = httpsCallable(functions, "gerarRelatorioBensPredio");
-        const res = await gerarRelatorioBensPredio({ status: "Inservível" });
-        const data = res.data as { base64: string };
-        openPdfFromBase64(data.base64);
+        openPdfFromBase64(await gerarRelatorioBensPredio({ status: "Inservível" }));
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      setErrorMsg("Erro ao gerar relatório: " + (error?.message || "falha na operação"));
+      setErrorMsg("Erro ao gerar relatório: " + (error instanceof Error ? error.message : "falha na operação"));
     } finally {
       setLoading(false);
     }
@@ -144,7 +134,7 @@ export default function ModalRelatoriosPatrimonio({ isOpen, onClose, uid }: Moda
             <div className="space-y-4">
               <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-600">
                 <p className="text-sm font-medium">
-                  Este relatório irá buscar todos os bens patrimoniais marcados com o status "Inservível", agrupando pelo nome do responsável SEI, pronto para ser anexado ao processo administrativo da Universidade.
+                  Este relatório irá buscar todos os bens patrimoniais marcados com o status &quot;Inservível&quot;, agrupando pelo nome do responsável SEI, pronto para ser anexado ao processo administrativo da Universidade.
                 </p>
               </div>
             </div>

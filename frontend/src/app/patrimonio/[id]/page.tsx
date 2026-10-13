@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
@@ -28,6 +29,7 @@ function BemPatrimonialDetailsContent() {
 
   const [bem, setBem] = useState<BemPatrimonial | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshVersion, setRefreshVersion] = useState(0);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isModalBaixaOpen, setIsModalBaixaOpen] = useState(false);
@@ -40,26 +42,35 @@ function BemPatrimonialDetailsContent() {
   const hasManagementAccess = isChefe || isGestorPatrimonio;
   const isPureAluno = isAluno && !hasManagementAccess && !isProfessor && !isBolsista;
 
-  const fetchBem = useCallback(async () => {
-    try {
-      if (typeof id !== "string") return;
-      const docSnap = await getDoc(doc(db, "Bem_Patrimonial", id));
-      if (docSnap.exists()) {
-        const data = { id: docSnap.id, ...docSnap.data() } as BemPatrimonial;
-        setBem(data);
-      } else {
-        router.replace("/patrimonio");
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  }, [id, router]);
-
   useEffect(() => {
-    fetchBem();
-  }, [fetchBem]);
+    let ativo = true;
+
+    async function carregarBem() {
+      if (typeof id !== "string") {
+        if (ativo) setLoading(false);
+        return;
+      }
+
+      try {
+        const docSnap = await getDoc(doc(db, "Bem_Patrimonial", id));
+        if (!ativo) return;
+        if (docSnap.exists()) {
+          setBem({ id: docSnap.id, ...docSnap.data() } as BemPatrimonial);
+        } else {
+          router.replace("/patrimonio");
+        }
+      } catch (error) {
+        if (ativo) console.error(error);
+      } finally {
+        if (ativo) setLoading(false);
+      }
+    }
+
+    void carregarBem();
+    return () => {
+      ativo = false;
+    };
+  }, [id, refreshVersion, router]);
 
   if (loading) {
     return (
@@ -98,9 +109,11 @@ function BemPatrimonialDetailsContent() {
 
             <div className="flex items-start gap-6">
               {bem.photo_url ? (
-                <img
-                  src={bem.photo_url}
-                  alt={bem.nome_equipamento}
+                <Image
+                  src={bem.photo_url!}
+                  alt={bem.nome_equipamento ?? "Bem patrimonial"}
+                  width={112}
+                  height={112}
                   className="w-28 h-28 object-cover rounded-xl border border-foreground/10 shadow-lg"
                 />
               ) : (
@@ -187,7 +200,7 @@ function BemPatrimonialDetailsContent() {
           statusAtual={bem.status}
           conservacaoAtual={bem.estado_conservacao}
           responsavelAtual={bem.nome_responsavel_sei}
-          onSuccess={fetchBem}
+          onSuccess={() => setRefreshVersion((version) => version + 1)}
         />
 
         {/* Modal de Baixa Patrimonial SEI */}
@@ -197,7 +210,7 @@ function BemPatrimonialDetailsContent() {
           idBemPatrimonial={bem.id}
           nomeEquipamento={bem.nome_equipamento}
           numeroPatrimonio={bem.numero_patrimonio}
-          onSuccess={fetchBem}
+          onSuccess={() => setRefreshVersion((version) => version + 1)}
         />
       </main>
   );

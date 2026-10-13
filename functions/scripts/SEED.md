@@ -7,7 +7,7 @@ conta própria e encerra com erro se essas variáveis não existirem.
 Em outro terminal, na raiz do repositório:
 
 ```bash
-firebase emulators:start --project lcqui-uenf --only auth,firestore
+firebase emulators:start --project lcqui-dev --only auth,firestore
 ```
 
 Depois, em `functions/`:
@@ -21,6 +21,13 @@ npm run seed:emulator:verify # somente reler e verificar invariantes
 O projeto `lcqui-dev` também é aceito porque é o ID usado pelos scripts de
 teste do repositório. O seed exige que o `GCLOUD_PROJECT` fornecido pelo CLI
 seja um desses IDs explicitamente permitidos.
+
+O `projectId` não transforma o Firebase real em Emulator nem autoriza escrita
+remota. O seed só pode rodar com `FIRESTORE_EMULATOR_HOST` e
+`FIREBASE_AUTH_EMULATOR_HOST`; sem essas variáveis ele encerra antes de criar
+qualquer dado. Para os testes de interface, o frontend também precisa receber
+`NEXT_PUBLIC_FIREBASE_USE_EMULATORS=true`, configuração aplicada
+automaticamente pelo Playwright.
 
 As credenciais e os IDs são impressos ao final. A senha comum é exclusivamente
 do Auth Emulator: `Test123456!`. O baseline não cria convites, notificações de

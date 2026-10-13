@@ -1,33 +1,44 @@
 "use client";
 
 import React, { useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
-import { ResumoReagente } from "@/types/reagentes";
+import { buscarFrascosDaEspecificacaoSemLote, buscarLotesDaEspecificacao } from "@/services/reagentes/reagentesService";
+import type { ResumoReagente, CatalogoEspecificacao, FrascoOperacional } from "@/types/reagentes";
+import type { LoteCatalogo } from "@/types/reagentesApi";
 import { LoteRow } from "./LoteRow";
 import { FrascoCard } from "./FrascoCard";
 
 export interface EspecificacaoRowProps {
-  espec: any;
+  espec: CatalogoEspecificacao;
   reagente: ResumoReagente;
-  onAction: (action: string, payload: any) => void;
+  onAction: (action: string, payload: {
+    reagente: ResumoReagente;
+    espec: CatalogoEspecificacao;
+    lote?: LoteCatalogo | null;
+  } | FrascoOperacional) => void;
   readOnly?: boolean;
 }
 
 export function EspecificacaoRow({ espec, reagente, onAction, readOnly }: EspecificacaoRowProps) {
   const [expanded, setExpanded] = useState(false);
-  const [lotesEFrascos, setLotesEFrascos] = useState<{ lotes: any[]; frascosAvulsos: any[] }>({ lotes: [], frascosAvulsos: [] });
+  const [lotesEFrascos, setLotesEFrascos] = useState<{
+    lotes: Array<{ id: string; numero_lote?: string; nome_fornecedor?: string }>;
+    frascosAvulsos: FrascoOperacional[];
+  }>({ lotes: [], frascosAvulsos: [] });
   const [loading, setLoading] = useState(false);
+
+  const handleFrascoAction = (
+    action: "quarentena" | "extravio" | "pesagem_rotina" | "descarte",
+    payload: FrascoOperacional,
+  ) => onAction(action, payload);
 
   const toggleExpand = async () => {
     if (!expanded) {
       setLoading(true);
       try {
-        const lotesSnap = await getDocs(query(collection(db, "Lote"), where("id_especificacao_reagente", "==", espec.id)));
-        const lotes = lotesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-        const frascosAvulsosSnap = await getDocs(query(collection(db, "Frasco_Reagente"), where("id_especificacao_reagente", "==", espec.id), where("id_lote", "==", null)));
-        const frascosAvulsos = frascosAvulsosSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const [lotes, frascosAvulsos] = await Promise.all([
+          buscarLotesDaEspecificacao(espec.id),
+          buscarFrascosDaEspecificacaoSemLote(espec.id),
+        ]);
 
         setLotesEFrascos({ lotes, frascosAvulsos });
       } catch (err) {
@@ -52,16 +63,18 @@ export function EspecificacaoRow({ espec, reagente, onAction, readOnly }: Especi
         {!readOnly && (
           <div className="flex gap-2">
             <button
+              type="button"
               onClick={(e) => { e.stopPropagation(); onAction("novo_lote", { reagente, espec }); }}
               className="text-xs font-semibold text-primary hover:bg-primary/10 px-2 py-1 rounded border border-primary/20"
             >
               + Novo Lote
             </button>
             <button
+              type="button"
               onClick={(e) => { e.stopPropagation(); onAction("novo_frasco", { reagente, espec, lote: null }); }}
               className="text-xs font-semibold text-primary hover:bg-primary/10 px-2 py-1 rounded border border-primary/20"
             >
-              + Frasco S/ Lote
+              + Frasco
             </button>
             <button onClick={(e) => { e.stopPropagation(); onAction("configurar_escassez", { reagente, espec }); }} className="text-xs font-semibold text-amber-600 hover:bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">Configurar escassez</button>
           </div>
@@ -81,7 +94,7 @@ export function EspecificacaoRow({ espec, reagente, onAction, readOnly }: Especi
                   <h4 className="text-xs font-bold mb-2">Frascos Avulsos (Sem Lote)</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                     {lotesEFrascos.frascosAvulsos.map(f => (
-                      <FrascoCard key={f.id} frasco={f} onAction={onAction} readOnly={readOnly} />
+                    <FrascoCard key={f.id} frasco={f} onAction={handleFrascoAction} readOnly={readOnly} />
                     ))}
                   </div>
                 </div>

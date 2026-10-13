@@ -13,6 +13,8 @@ export interface ReagentesFiltrosProps {
   onNaturezaChange: (natureza: string) => void;
   filtroLetra: string;
   onLetraChange: (letra: string) => void;
+  filtroTipo: string;
+  onTipoChange: (tipo: string) => void;
   onLimparFiltros: () => void;
   mostrarOperacional?: boolean;
 }
@@ -28,6 +30,8 @@ export function ReagentesFiltros({
   onNaturezaChange,
   filtroLetra,
   onLetraChange,
+  filtroTipo,
+  onTipoChange,
   onLimparFiltros,
   mostrarOperacional = false,
 }: ReagentesFiltrosProps) {
@@ -94,13 +98,13 @@ export function ReagentesFiltros({
       </div>
 
       {/* Filtros Opcionais de UX (UI-04) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div>
           <label className="block text-[11px] font-semibold mb-1 text-foreground/70">Estado Físico (opcional)</label>
-          <select className="w-full bg-background border border-foreground/10 rounded-lg px-3 py-2 text-xs outline-none" value={filtroEstado} onChange={(e) => onEstadoChange(e.target.value)}>
+          <select aria-label="Estado Físico" className="w-full bg-background border border-foreground/10 rounded-lg px-3 py-2 text-xs outline-none" value={filtroEstado} onChange={(e) => onEstadoChange(e.target.value)}>
             <option value="">Todos os estados</option>
-            <option value="Sólido">Sólido</option>
-            <option value="Líquido">Líquido</option>
+            <option value="SOLIDO">Sólido</option>
+            <option value="LIQUIDO">Líquido</option>
           </select>
         </div>
         <div>
@@ -118,6 +122,14 @@ export function ReagentesFiltros({
           <select className="w-full bg-background border border-foreground/10 rounded-lg px-3 py-2 text-xs outline-none" value={filtroLetra} onChange={(e) => onLetraChange(e.target.value)}>
             <option value="">Todas as letras</option>
             {alphabet.map(l => <option key={l} value={l}>{l}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-[11px] font-semibold mb-1 text-foreground/70">Tipo (opcional)</label>
+          <select aria-label="Tipo de substância" className="w-full bg-background border border-foreground/10 rounded-lg px-3 py-2 text-xs outline-none" value={filtroTipo} onChange={(e) => onTipoChange(e.target.value)}>
+            <option value="">Todos os tipos</option>
+            <option value="PURA">Pura</option>
+            <option value="MISTURA">Mistura</option>
           </select>
         </div>
       </div>

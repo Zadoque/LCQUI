@@ -1,0 +1,24 @@
+{
+  "manifesto": {
+    "schema_version": 2,
+    "manifesto_version": 4,
+    "compatibilidade": {
+      "resumos": 3,
+      "especificacoes": 7,
+      "substancias": 2,
+      "materias": 1
+    },
+    "catalogos": {
+      "resumos": {"versao_fonte": 3, "versao_publicada": 3, "storage_path": "catalogo-resumos/v3-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.json", "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"},
+      "especificacoes": {"versao_fonte": 7, "versao_publicada": 7, "storage_path": "catalogo-especificacoes/v7-abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789.json", "sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"},
+      "substancias": {"versao_fonte": 2, "versao_publicada": 2, "storage_path": "catalogo-substancias/v2-00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff.json", "sha256": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"},
+      "materias": {"versao_fonte": 1, "versao_publicada": 1, "storage_path": "catalogo-materias/v1-ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100.json", "sha256": "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100"}
+    }
+  },
+  "fontes": {
+    "resumos": 3,
+    "especificacoes": 7,
+    "substancias": 2,
+    "materias": 1
+  }
+}

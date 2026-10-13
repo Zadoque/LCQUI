@@ -24,8 +24,8 @@ async function test() {
       capacidade: 40
     });
     console.log("Sucesso:", res.data);
-  } catch (e: any) {
-    console.error("ERRO RECEBIDO:", e.message);
+  } catch (e: unknown) {
+    console.error("ERRO RECEBIDO:", e instanceof Error ? e.message : String(e));
   }
 }
 

@@ -2048,15 +2048,12 @@ describe("Módulo Acadêmico (Posts e Comentários - Baseado no main.tex)", () =
         id_professor_upload: professor,
         nome: "Roteiro Provisorio",
         descricao: "...",
-        nome_arquivo: "provisorio.pdf",
-        referencia: {
-          storage_path: storagePath,
-          tamanho_bytes: 1035,
-          geracao: "123",
-          owner_uid: professor,
-          content_type: "application/pdf",
-        },
-        status: "PROVISORIO",
+        storage_path: storagePath,
+        tamanho_bytes: 1035,
+        geracao: "123",
+        owner_uid: professor,
+        content_type: "application/pdf",
+        status_roteiro: "PROVISORIO",
         professores_compartilhados: [],
       });
 

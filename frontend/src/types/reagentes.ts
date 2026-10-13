@@ -4,7 +4,7 @@
 
 export interface SubstanciaQuimica {
   id: string;
-  cas_number: string;
+  cas_number?: string | null;
   nome_quimico: string;
   formula_quimica?: string;
   tipo_substancia: "PURA" | "MISTURA";
@@ -18,13 +18,45 @@ export interface ResumoReagente {
   natureza_quimica: "ORGANICO" | "INORGANICO" | "ELEMENTO" | "HIBRIDO";
   requer_pesagem_frequente: boolean;
   qtd_em_que_e_considerado_escasso: number;
-  frequencia_pesagem_dias?: number;
-  letra_inicial: string;
-  eh_higroscopico?: boolean;
+  frequencia_pesagem_dias: number | null;
+  eh_higroscopico: boolean;
 
   // Denormalizados para pesquisa no frontend / Firestore (UI-04)
-  estado_fisico?: "Sólido" | "Líquido" | "SOLIDO" | "LIQUIDO";
+  estado_fisico: "SOLIDO" | "LIQUIDO";
   riscos?: string[];
+  especificacoes?: Record<string, CatalogoEspecificacao>;
+}
+
+/** Projeção da especificação comercial publicada no catálogo JSON. */
+export interface CatalogoEspecificacao {
+  id: string;
+  id_resumo_reagente: string;
+  descricao?: string;
+  fabricante?: string;
+  codigo_produto_fabricante?: string;
+  grau_pureza?: string;
+  densidade?: number | null;
+  unidade_de_medida?: "ml" | "g" | string;
+  classe_inflamabilidade?: string;
+  eh_controlado_pf?: boolean;
+  eh_controlado_eb?: boolean;
+  link_fds_fispq?: string;
+  id_substancia_quimica?: string;
+  composicao?: Array<{
+    id_substancia_quimica: string;
+    valor_min: number | null;
+    valor_max: number | null;
+    tipo_concentracao: string;
+    notacao_original_fabricante: string | null;
+  }>;
+}
+
+export interface CatalogoSubstancia {
+  id: string;
+  nome: string;
+  cas_number?: string | null;
+  formula_quimica?: string | null;
+  ativo?: boolean;
 }
 
 export interface EspecificacaoReagente {
@@ -34,13 +66,20 @@ export interface EspecificacaoReagente {
   fabricante?: string;
   codigo_produto_fabricante?: string;
   grau_pureza?: string;
-  densidade?: number;
-  estado_fisico: "SOLIDO" | "LIQUIDO";
+  densidade: number | null;
   unidade_de_medida: "ml" | "g";
   classe_inflamabilidade: "NAO_INFLAMAVEL" | "CLASSE_1" | "CLASSE_2" | "CLASSE_3";
   eh_controlado_pf: boolean;
   eh_controlado_eb: boolean;
   link_fds_fispq?: string;
+  id_substancia_quimica?: string | null;
+  composicao?: Array<{
+    id_substancia_quimica: string;
+    valor_min: number | null;
+    valor_max: number | null;
+    tipo_concentracao: "M_M" | "V_V" | "M_V" | "MOL_L" | "MOL_KG" | "PPM" | "PPB";
+    notacao_original_fabricante: string | null;
+  }>;
 }
 
 export interface LoteReagente {
@@ -71,7 +110,7 @@ export interface FrascoReagente {
   medida_usada: number;
 
   estado_fisico_frasco: "FECHADO" | "ABERTO" | "VAZIO" | "QUEBRADO" | "DESCARTADO";
-  disponibilidade: "DISPONIVEL" | "EMPRESTADO";
+  disponibilidade: "DISPONIVEL" | "EMPRESTADO" | "INDISPONIVEL";
   vencido: boolean;
   em_quarentena: boolean;
   uso_vencido_autorizado: boolean;
@@ -92,7 +131,20 @@ export interface FrascoOperacional {
   situacao_localizacao?: string | null;
   disponibilidade?: FrascoReagente["disponibilidade"] | string | null;
   vencido: boolean;
+  id_ultimo_emprestimo?: string | null;
+  peso_retorno?: number | null;
+  peso_saida?: number | null;
+  peso_frasco_vazio?: number | null;
 }
+
+export type ReagenteActionPayload =
+  | ResumoReagente
+  | {
+      reagente: ResumoReagente;
+      espec: CatalogoEspecificacao;
+      lote?: { id: string; numero_lote?: string; nome_fornecedor?: string } | null;
+    }
+  | FrascoOperacional;
 
 /**
  * Snapshot de Estoque Atual calculado pelo backend M8 (UI-19 / obterEstoqueAtual).

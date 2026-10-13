@@ -1,12 +1,13 @@
+import type { ResumoReagente } from "@/types/reagentes";
+
 export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   idResumoReagente?: string;
   idEspecificacaoReagente?: string;
+  idLote?: string;
+  numeroLoteInicial?: string;
   idAlmoxarifado?: string;
   onSuccess?: () => void | Promise<void>;
-  resumoSelecionado?: {
-    tipo_substancia?: string;
-    estado_fisico?: string;
-  };
+  resumoSelecionado?: Pick<ResumoReagente, "tipo_substancia" | "estado_fisico">;
 }

@@ -15,7 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..");
 const frontendDir = path.resolve(__dirname, "..");
 
-const PROJECT_ID = process.env.LCQUI_E2E_PROJECT_ID ?? "lcqui-uenf";
+const PROJECT_ID = process.env.LCQUI_E2E_PROJECT_ID ?? "lcqui-dev";
 const PORTS = [9099, 8080, 5001, 9199];
 
 function binFirebase() {

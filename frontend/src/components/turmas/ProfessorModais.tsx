@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
-import { db, storage } from "@/lib/firebase/config";
 import { useAuth } from "@/contexts/AuthContext";
 import { X } from "lucide-react";
-import { getFunctions, httpsCallable } from "firebase/functions";
-import { ref, uploadBytes } from "firebase/storage";
 import {
   resolverIdOperacao,
   lerIntencao,
@@ -17,20 +13,33 @@ import {
   assinaturaMembro,
   chaveIntencaoConvite,
   assinaturaIntencaoConvite,
-  chaveIntencaoEmitirUrl,
-  assinaturaIntencaoEmitirUrl,
 } from "@/lib/intencaoOperacao";
 import { construirPayloadConvidarAluno } from "@/lib/convitesPayload.mjs";
 import type { Aluno } from "@/types/usuarios";
 import type { RoteiroProjecao, Turma } from "@/types/turmas";
 import type { ProfessorProjecao } from "@/types/usuarios";
+import {
+  adicionarAlunoExistenteTurma,
+  alterarStatusTurma,
+  assinarMembrosTurma,
+  assinarTurmasArquivadasDoProfessor,
+  assinarTurmasAtivas,
+  buscarAlunosAcademicos,
+  buscarProfessoresAcademicos,
+  compartilharRoteiro,
+  convidarAluno,
+  descompartilharRoteiro,
+  emitirUrlDownloadRoteiro,
+  enviarRoteiroParaStorage,
+  listarRoteirosProfessor,
+  publicarRoteiro,
+  registrarRoteiro,
+  removerRoteiro,
+  validarObjetoRoteiro,
+} from "@/services/turmas/turmasService";
 
 type TurmaLista = Pick<Turma, "id" | "nome_turma" | "codigo_turma" | "ano" | "semestre" | "nome_materia" | "nome_professor" | "status" | "id_professor">;
 type AlunoEncontrado = Pick<Aluno, "id" | "nome">;
-interface BuscarAlunosResposta {
-  alunos: AlunoEncontrado[];
-}
-
 function objeto(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? value as Record<string, unknown> : null;
 }
@@ -60,17 +69,6 @@ function normalizarTurma(id: string, value: unknown): TurmaLista | null {
   };
 }
 
-function normalizarAlunos(value: unknown): AlunoEncontrado[] {
-  const data = objeto(value);
-  if (!Array.isArray(data?.alunos)) return [];
-  return data.alunos.flatMap((item) => {
-    const aluno = objeto(item);
-    return typeof aluno?.id === "string" && typeof aluno.nome === "string"
-      ? [{ id: aluno.id, nome: aluno.nome }]
-      : [];
-  });
-}
-
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -85,15 +83,9 @@ export function TurmasArquivadasModal({ isOpen, onClose }: ModalProps) {
   useEffect(() => {
     if (!isOpen || !user) return;
 
-    const q = query(
-      collection(db, "Turma"),
-      where("id_professor", "==", user.uid),
-      where("status", "==", "Arquivada")
-    );
-
-    const unsub = onSnapshot(q, (snap) => {
-      const lista = snap.docs.flatMap(d => {
-        const turma = normalizarTurma(d.id, d.data());
+    const unsub = assinarTurmasArquivadasDoProfessor(user.uid, (turmas) => {
+      const lista = turmas.flatMap(turmaBase => {
+        const turma = normalizarTurma(turmaBase.id, turmaBase);
         return turma ? [turma] : [];
       });
       setArquivadas(lista);
@@ -112,8 +104,7 @@ export function TurmasArquivadasModal({ isOpen, onClose }: ModalProps) {
       const intencao = resolverIdOperacao(atual, assinatura, () => crypto.randomUUID());
       if (session) gravarIntencao(session, chave, intencao);
 
-      const alterarStatusFn = httpsCallable(getFunctions(), "alterarStatusTurma");
-      await alterarStatusFn({ idOperacao: intencao.idOperacao, idTurma, status });
+      await alterarStatusTurma({ idOperacao: intencao.idOperacao, idTurma, status });
       if (session) limparIntencao(session, chave);
     } catch (error) {
       console.error("Erro ao desarquivar turma:", error);
@@ -202,8 +193,6 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
   const isGestorGeral = roles.includes("Chefe_Geral");
-  const functions = getFunctions();
-
   useEffect(() => {
     if (!isOpen || !turmaPreSelecionadaId) return;
     const sincronizacao = window.setTimeout(() => setIdTurma(turmaPreSelecionadaId), 0);
@@ -212,15 +201,9 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
 
   useEffect(() => {
     if (!isOpen || !user) return;
-    let q;
-    if (isGestorGeral) {
-      q = query(collection(db, "Turma"), where("status", "==", "Ativo"));
-    } else {
-      q = query(collection(db, "Turma"), where("id_professor", "==", user.uid), where("status", "==", "Ativo"));
-    }
-    const unsub = onSnapshot(q, snap => {
-      setTurmas(snap.docs.flatMap(d => {
-        const turma = normalizarTurma(d.id, d.data());
+    const unsub = assinarTurmasAtivas(isGestorGeral, user.uid, (turmasBase) => {
+      setTurmas(turmasBase.flatMap(turmaBase => {
+        const turma = normalizarTurma(turmaBase.id, turmaBase);
         return turma ? [turma] : [];
       }));
     });
@@ -229,18 +212,15 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
 
   useEffect(() => {
     if (!isOpen || !idTurma) return;
-    const unsub = onSnapshot(collection(db, "Turma", idTurma, "Alunos"), snap => {
-      setMatriculados(new Set(snap.docs.map(d => d.id)));
-    });
+    const unsub = assinarMembrosTurma(idTurma, (membros) => setMatriculados(new Set(membros.map((membro) => membro.id))));
     return () => unsub();
   }, [isOpen, idTurma]);
 
   const handleBuscar = async () => {
     setLoadingBusca(true);
     try {
-      const buscarAlunos = httpsCallable<{ letra: string; termo: string }, BuscarAlunosResposta>(functions, "buscarAlunos");
-      const res = await buscarAlunos({ letra: letraInicial, termo: filtroTexto });
-      setAlunosEncontrados(normalizarAlunos(res.data));
+      const alunos = await buscarAlunosAcademicos({ letra: letraInicial, termo: filtroTexto });
+      setAlunosEncontrados(alunos);
     } catch (error) {
       console.error("Erro na busca:", error);
     } finally {
@@ -262,8 +242,7 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
       const intencao = session
         ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
         : { idOperacao: crypto.randomUUID(), assinatura };
-      const adicionar = httpsCallable(functions, "adicionarAlunoExistenteTurma");
-      await adicionar({ idOperacao: intencao.idOperacao, idTurma, idAluno });
+      await adicionarAlunoExistenteTurma({ idOperacao: intencao.idOperacao, idTurma, idAluno });
       if (session) limparIntencao(session, chave);
       setToast({ type: "success", msg: "Aluno adicionado com sucesso!" });
     } catch (error: unknown) {
@@ -333,8 +312,7 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
         : { idOperacao: crypto.randomUUID(), assinatura };
 
       try {
-        const convidar = httpsCallable(functions, "convidarAluno");
-        const res = await convidar(construirPayloadConvidarAluno({
+        const res = await convidarAluno(construirPayloadConvidarAluno({
           idOperacao: intencao.idOperacao,
           email: em,
           idTurma,
@@ -345,9 +323,8 @@ export function NovoAlunoModal({ isOpen, onClose, turmaPreSelecionadaId }: Modal
 
         if (session) limparIntencao(session, chave);
 
-        const dataRet = res.data as { canal_entrega?: string; status_entrega?: string };
-        const canal = dataRet?.canal_entrega;
-        const statusEntrega = dataRet?.status_entrega;
+        const canal = res.canal_entrega;
+        const statusEntrega = res.status_entrega;
 
         let msgCanal = "";
         let statusItem: "sucesso" | "erro" = "sucesso";
@@ -677,36 +654,29 @@ export function NovoRoteiroModal({ isOpen, onClose }: ModalProps) {
 
     try {
       // Upload do objeto no Storage com metadado de posse.
-      const fileRef = ref(storage, `roteiros/${user.uid}/${Date.now()}_${file.name}`);
-      await uploadBytes(fileRef, file, { customMetadata: { owner: user.uid } });
-      const storagePath = fileRef.fullPath;
+      const storagePath = await enviarRoteiroParaStorage(user.uid, file);
 
       const chaveRegistrar = `lcqui.intencao.roteiro.registrar.${storagePath}`;
       const assinaturaRegistrar = JSON.stringify(["REGISTRAR_ROTEIRO", nome, descricao, storagePath, file.name]);
       const intencaoRegistrar = resolverIdOperacaoEtapa(chaveRegistrar, assinaturaRegistrar);
 
-      const functions = getFunctions();
-      const registrar = httpsCallable(functions, "registrarRoteiro");
-      const resRegistrar = await registrar({
+      const idRoteiro = await registrarRoteiro({
         idOperacao: intencaoRegistrar.idOperacao,
         nome,
         descricao,
         storagePath,
         nomeArquivo: file.name,
       });
-      const { idRoteiro } = resRegistrar.data as { idRoteiro: string };
 
       const chaveValidar = `lcqui.intencao.roteiro.validar.${idRoteiro}`;
       const assinaturaValidar = JSON.stringify(["VALIDAR_OBJETO_ROTEIRO", idRoteiro]);
       const intencaoValidar = resolverIdOperacaoEtapa(chaveValidar, assinaturaValidar);
-      const validar = httpsCallable(functions, "validarObjetoRoteiro");
-      await validar({ idOperacao: intencaoValidar.idOperacao, idRoteiro });
+      await validarObjetoRoteiro({ idOperacao: intencaoValidar.idOperacao, idRoteiro });
 
       const chavePublicar = `lcqui.intencao.roteiro.publicar.${idRoteiro}`;
       const assinaturaPublicar = JSON.stringify(["PUBLICAR_ROTEIRO", idRoteiro]);
       const intencaoPublicar = resolverIdOperacaoEtapa(chavePublicar, assinaturaPublicar);
-      const publicar = httpsCallable(functions, "publicarRoteiro");
-      await publicar({ idOperacao: intencaoPublicar.idOperacao, idRoteiro });
+      await publicarRoteiro({ idOperacao: intencaoPublicar.idOperacao, idRoteiro });
 
       setToast({ type: "success", msg: "Roteiro adicionado com sucesso!" });
       setTimeout(() => {
@@ -806,13 +776,11 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
 
   useEffect(() => {
     if (!isOpen || !user) return;
-    const fn = getFunctions();
-    const listar = httpsCallable(fn, "listarRoteirosProfessor");
     let cancelado = false;
-    listar({})
-      .then((res) => {
+    listarRoteirosProfessor()
+      .then((lista) => {
         if (cancelado) return;
-        setRoteiros((res.data as { roteiros: RoteiroProjecao[] }).roteiros);
+        setRoteiros(lista);
       })
       .catch((err) => {
         console.error("Erro ao listar roteiros:", err);
@@ -826,10 +794,8 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
   useEffect(() => {
     if (!modalCompartilhamentoAberto || !user) return;
     let cancelado = false;
-    const buscarProfessores = httpsCallable(getFunctions(), "buscarProfessores");
-    buscarProfessores({}).then((resultado) => {
+    buscarProfessoresAcademicos().then((lista) => {
       if (cancelado) return;
-      const lista = (resultado.data as { professores: { id: string; nome: string }[] }).professores;
       setProfessores(lista.map(professor => ({ uid: professor.id, nome: professor.nome, ativo: true })));
     }).catch((erro) => console.error("Erro ao buscar professores:", erro));
     return () => { cancelado = true; };
@@ -843,15 +809,13 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
     setLoadingId(id);
     setToast(null);
     try {
-      const fn = getFunctions();
       const session = typeof window !== "undefined" ? window.sessionStorage : null;
       const chave = `lcqui.intencao.roteiro.remover.${id}`;
       const assinatura = JSON.stringify(["REMOVER_ROTEIRO", id]);
       const intencao = session
         ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
         : { idOperacao: crypto.randomUUID(), assinatura };
-      const remover = httpsCallable(fn, "removerRoteiro");
-      await remover({ idOperacao: intencao.idOperacao, idRoteiro: id });
+      await removerRoteiro({ idOperacao: intencao.idOperacao, idRoteiro: id });
       setToast({ type: "success", msg: "Roteiro removido com sucesso." });
     } catch (error: unknown) {
       console.error("Erro ao excluir roteiro:", error);
@@ -864,7 +828,7 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
   };
 
   const handleCompartilharClick = (roteiro: RoteiroProjecao) => {
-    if (roteiro.status !== "PUBLICAVEL") {
+    if (roteiro.status_roteiro !== "PUBLICAVEL") {
       setToast({ type: "error", msg: "Apenas roteiros PUBLICAVEIS podem ser compartilhados." });
       return;
     }
@@ -877,22 +841,18 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
     setCompartilhandoId(uidProfessor);
     setToast(null);
     try {
-      const fn = getFunctions();
       const session = typeof window !== "undefined" ? window.sessionStorage : null;
       const chave = `lcqui.intencao.roteiro.compartilhar.${roteiroSelecionadoParaCompartilhar.id}.${uidProfessor}`;
       const assinatura = JSON.stringify(["COMPARTILHAR_ROTEIRO", roteiroSelecionadoParaCompartilhar.id, uidProfessor]);
       const intencao = session
         ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
         : { idOperacao: crypto.randomUUID(), assinatura };
-      const compartilhar = httpsCallable(fn, "compartilharRoteiro");
-      await compartilhar({ idOperacao: intencao.idOperacao, idRoteiro: roteiroSelecionadoParaCompartilhar.id, uidProfessor });
+      await compartilharRoteiro({ idOperacao: intencao.idOperacao, idRoteiro: roteiroSelecionadoParaCompartilhar.id, uidProfessor });
       setToast({ type: "success", msg: "Roteiro compartilhado com sucesso." });
       setModalCompartilhamentoAberto(false);
       setRoteiroSelecionadoParaCompartilhar(null);
       // Recarrega a lista de roteiros
-      const listar = httpsCallable(fn, "listarRoteirosProfessor");
-      const res = await listar({});
-      setRoteiros((res.data as { roteiros: RoteiroProjecao[] }).roteiros);
+      setRoteiros(await listarRoteirosProfessor());
     } catch (error: unknown) {
       console.error("Erro ao compartilhar roteiro:", error);
       const message = error instanceof Error ? error.message : "Erro ao compartilhar roteiro.";
@@ -906,20 +866,16 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
     setCompartilhandoId(uidProfessor);
     setToast(null);
     try {
-      const fn = getFunctions();
       const session = typeof window !== "undefined" ? window.sessionStorage : null;
       const chave = `lcqui.intencao.roteiro.descompartilhar.${idRoteiro}.${uidProfessor}`;
       const assinatura = JSON.stringify(["REVOGAR_COMPARTILHAMENTO", idRoteiro, uidProfessor]);
       const intencao = session
         ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
         : { idOperacao: crypto.randomUUID(), assinatura };
-      const descompartilhar = httpsCallable(fn, "descompartilharRoteiro");
-      await descompartilhar({ idOperacao: intencao.idOperacao, idRoteiro: idRoteiro, uidProfessor });
+      await descompartilharRoteiro({ idOperacao: intencao.idOperacao, idRoteiro: idRoteiro, uidProfessor });
       setToast({ type: "success", msg: "Compartilhamento revogado." });
       // Recarrega a lista de roteiros
-      const listar = httpsCallable(fn, "listarRoteirosProfessor");
-      const res = await listar({});
-      setRoteiros((res.data as { roteiros: RoteiroProjecao[] }).roteiros);
+      setRoteiros(await listarRoteirosProfessor());
     } catch (error: unknown) {
       console.error("Erro ao revogar compartilhamento:", error);
       const message = error instanceof Error ? error.message : "Erro ao revogar compartilhamento.";
@@ -933,21 +889,9 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
     setLoadingAbrirId(idRoteiro);
     setToast(null);
     try {
-      const fn = getFunctions();
-
       // M7: idOperação estável por intenção (retry idempotente)
-      const session = typeof window !== "undefined" ? window.sessionStorage : null;
-      const chave = chaveIntencaoEmitirUrl(idRoteiro);
-      const assinatura = assinaturaIntencaoEmitirUrl(idRoteiro);
-      const intencao = session
-        ? obterIntencaoPersistida(session, chave, assinatura, () => crypto.randomUUID())
-        : { idOperacao: crypto.randomUUID(), assinatura };
-
-      const emitir = httpsCallable(fn, "emitirUrlDownloadRoteiro");
-      const res = await emitir({ idOperacao: intencao.idOperacao, idRoteiro });
-      const data = res.data as { url: string };
-      window.open(data.url, "_blank");
-      if (session) limparIntencao(session, chave);
+      const url = await emitirUrlDownloadRoteiro({ idRoteiro });
+      window.open(url, "_blank");
     } catch (error) {
       console.error("Erro ao emitir URL de download:", error);
       const message = error instanceof Error ? error.message : "Erro ao gerar link de download do roteiro.";
@@ -985,15 +929,15 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
                       <p className="font-bold text-lg">{roteiro.nome}</p>
                       <span
                         className={`px-2 py-0.5 text-xs font-bold rounded-full ${
-                          roteiro.status === "PUBLICAVEL"
+                          roteiro.status_roteiro === "PUBLICAVEL"
                             ? "bg-green-500/20 text-green-700 dark:text-green-300"
-                            : roteiro.status === "VALIDADO"
+                            : roteiro.status_roteiro === "VALIDADO"
                             ? "bg-blue-500/20 text-blue-700 dark:text-blue-300"
                             : "bg-yellow-500/20 text-yellow-700 dark:text-yellow-300"
                         }`}
                         data-testid={`status-roteiro-${roteiro.id}`}
                       >
-                        {roteiro.status}
+                        {roteiro.status_roteiro}
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-2">{roteiro.descricao}</p>
@@ -1013,13 +957,13 @@ export function GerenciarRoteirosModal({ isOpen, onClose }: ModalProps) {
                     </button>
                     <button
                       onClick={() => handleCompartilharClick(roteiro)}
-                      disabled={roteiro.status !== "PUBLICAVEL"}
+                      disabled={roteiro.status_roteiro !== "PUBLICAVEL"}
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        roteiro.status === "PUBLICAVEL"
+                        roteiro.status_roteiro === "PUBLICAVEL"
                           ? "bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20"
                           : "bg-foreground/10 text-foreground/40 cursor-not-allowed"
                       }`}
-                      title={roteiro.status !== "PUBLICAVEL" ? `Compartilhamento indisponível (status: ${roteiro.status})` : "Compartilhar roteiro"}
+                        title={roteiro.status_roteiro !== "PUBLICAVEL" ? `Compartilhamento indisponível (status: ${roteiro.status_roteiro})` : "Compartilhar roteiro"}
                     >
                       Compartilhar
                     </button>

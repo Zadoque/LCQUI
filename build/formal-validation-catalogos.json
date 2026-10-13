@@ -1,0 +1,66 @@
+{
+  "versao": 1,
+  "alloy": "6.2.0",
+  "solver": "minisat",
+  "spec_ir_sha256": "78a2adf6b5f311e1ad90f9ad9f779958d8fe5fb2ceb5ebd48b65f830c615ef41",
+  "model": "specification/alloy/operations/catalogos_v2.als",
+  "model_sha256": "5e5c7434bda23475c82f1ef1eb692329b7c7317bb7221ca0ac93bd5b1364a41c",
+  "resultados": [
+    {
+      "id": "CATALOGOS-INV-001",
+      "assertion": "ManifestoRefletePublicadas",
+      "tipo": "check",
+      "scope": "check ManifestoRefletePublicadas for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "CATALOGOS-INV-002",
+      "assertion": "MutacaoNaoVazaParaOutroCatalogo",
+      "tipo": "check",
+      "scope": "check MutacaoNaoVazaParaOutroCatalogo for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "CATALOGOS-INV-003",
+      "assertion": "EdicaoDeMateriaNaoMexeNosDemais",
+      "tipo": "check",
+      "scope": "check EdicaoDeMateriaNaoMexeNosDemais for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "CATALOGOS-INV-004",
+      "assertion": "PublicacaoNaoRegride",
+      "tipo": "check",
+      "scope": "check PublicacaoNaoRegride for 6",
+      "status": "UNSAT"
+    },
+    {
+      "id": "CATALOGOS-WIT-005",
+      "assertion": "WitnessMutacaoSomenteResumo",
+      "tipo": "run",
+      "scope": "run WitnessMutacaoSomenteResumo for 6 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "CATALOGOS-WIT-006",
+      "assertion": "WitnessMutacaoSomenteSubstancia",
+      "tipo": "run",
+      "scope": "run WitnessMutacaoSomenteSubstancia for 6 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "CATALOGOS-WIT-007",
+      "assertion": "WitnessEdicaoSomenteMateria",
+      "tipo": "run",
+      "scope": "run WitnessEdicaoSomenteMateria for 6 but exactly 2 Estado",
+      "status": "SAT"
+    },
+    {
+      "id": "CATALOGOS-WIT-008",
+      "assertion": "WitnessPublicacaoEspecificacaoSemReleitura",
+      "tipo": "run",
+      "scope": "run WitnessPublicacaoEspecificacaoSemReleitura for 6 but exactly 2 Estado",
+      "status": "SAT"
+    }
+  ]
+}

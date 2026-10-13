@@ -24,6 +24,13 @@
 \usepackage{geometry}
 \geometry{top=2.8cm,bottom=2.5cm,left=3cm,right=2.5cm}
 
+% A documentação contém caminhos, identificadores e contratos longos. A margem
+% elástica permite que o TeX distribua o espaço antes de produzir caixas que
+% ultrapassem a área de composição; os tokens realmente indivisíveis continuam
+% sendo tratados localmente com \allowbreak nas seções que os exibem.
+\emergencystretch=3em
+\sloppy
+
 % Microtype: melhora tipográfica (carregado se disponível)
 \IfFileExists{microtype.sty}{\usepackage{microtype}}{}
 

@@ -47,6 +47,8 @@ function ListaMateriasAssinatura({
   const [error, setError] = useState<string | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [stale, setStale] = useState(false);
+  const [buscaSelecao, setBuscaSelecao] = useState("");
+  const [paginaSelecao, setPaginaSelecao] = useState(0);
 
   useEffect(() => {
     const q = query(collection(db, "Materia"), orderBy("nome", "asc"));
@@ -83,6 +85,15 @@ function ListaMateriasAssinatura({
   const handleToggle = (id: string) => {
     onToggle?.(id);
   };
+
+  const termoSelecao = buscaSelecao.trim().toLocaleLowerCase("pt-BR");
+  const materiasFiltradas = modo === "selecao"
+    ? materias.filter((materia) => `${materia.nome} ${materia.codigo}`.toLocaleLowerCase("pt-BR").includes(termoSelecao))
+    : materias;
+  const totalPaginasSelecao = Math.max(1, Math.ceil(materiasFiltradas.length / 20));
+  const materiasExibidas = modo === "selecao"
+    ? materiasFiltradas.slice(paginaSelecao * 20, (paginaSelecao + 1) * 20)
+    : materias;
 
   if (loading) {
     return (
@@ -228,8 +239,13 @@ function ListaMateriasAssinatura({
           </table>
         </div>
       ) : (
-        <div className="max-h-48 overflow-y-auto border border-foreground/10 rounded-lg bg-background">
-          {materias.map((m) => (
+        <div className="space-y-3">
+          <div>
+            <label htmlFor="busca-materia-professor" className="sr-only">Buscar matéria por nome ou código</label>
+            <input id="busca-materia-professor" type="search" value={buscaSelecao} onChange={(event) => { setBuscaSelecao(event.target.value); setPaginaSelecao(0); }} placeholder="Buscar matéria por nome ou código" className="w-full rounded-lg border border-foreground/20 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          </div>
+          <div className="max-h-48 overflow-y-auto border border-foreground/10 rounded-lg bg-background">
+          {materiasExibidas.map((m) => (
             <label
               key={m.id}
               data-testid={`materia-item-${m.id}`}
@@ -247,6 +263,9 @@ function ListaMateriasAssinatura({
               </div>
             </label>
           ))}
+          {materiasExibidas.length === 0 && <p className="p-4 text-center text-sm text-foreground/60">Nenhuma matéria encontrada.</p>}
+          </div>
+          {totalPaginasSelecao > 1 && <div className="flex items-center justify-between gap-3 text-xs"><button type="button" disabled={paginaSelecao === 0} onClick={() => setPaginaSelecao((pagina) => Math.max(0, pagina - 1))} className="rounded border border-foreground/15 px-3 py-1.5 hover:bg-foreground/5 disabled:opacity-40">Anterior</button><span>Página {paginaSelecao + 1} de {totalPaginasSelecao}</span><button type="button" disabled={paginaSelecao + 1 >= totalPaginasSelecao} onClick={() => setPaginaSelecao((pagina) => Math.min(totalPaginasSelecao - 1, pagina + 1))} className="rounded border border-foreground/15 px-3 py-1.5 hover:bg-foreground/5 disabled:opacity-40">Próxima</button></div>}
         </div>
       )}
     </div>

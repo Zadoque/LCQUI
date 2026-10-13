@@ -73,6 +73,7 @@ export const BuscarUsuariosRetiradaSchema = z.object({
 export const BuscarUsuariosPapelSchema = z.object({
   termo: z.string().trim().max(150).optional(),
   papel: PapeisUsuariosSchema.optional(),
+  letra: z.string().trim().length(1).regex(/^[A-Z]$/, "Letra deve ser uma letra maiúscula de A a Z.").optional(),
 });
 
 export const DetalhesUsuarioPapelSchema = z.object({

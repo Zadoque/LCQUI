@@ -111,11 +111,16 @@ export interface RoteiroAnexo {
 export interface RoteiroProjecao {
   id: string;
   nome: string;
-  status: StatusRoteiro | string;
+  status_roteiro: StatusRoteiro | string;
   descricao?: string;
+  storage_path?: string | null;
+  content_type?: string | null;
+  tamanho_bytes?: number | null;
+  owner_uid?: string | null;
+  geracao?: string | null;
+  criado_em?: Timestamp | { toDate?: () => Date } | null;
   file_url?: string | null;
   professores_compartilhados?: string[];
-  referencia?: { storage_path?: string } | null;
 }
 
 /**

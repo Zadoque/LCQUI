@@ -49,7 +49,7 @@ test.describe("Validações E2E adicionais no Emulator Suite", () => {
     await login(page, "gestor.almoxarifado@lcqui.local");
     await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
     await page.getByText("Reagente Seed", { exact: true }).first().click();
-    await page.getByRole("button", { name: "+ Frasco S/ Lote" }).click();
+    await page.getByRole("button", { name: "+ Frasco" }).click();
     const modal = page.getByRole("heading", { name: "Cadastrar Novo Frasco" }).locator("..");
     await modal.locator('input[type="text"]').fill("lote-inexistente-e2e");
     await modal.locator('input[type="number"]').nth(0).fill("250");

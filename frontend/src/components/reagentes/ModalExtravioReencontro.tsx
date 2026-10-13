@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebase/config";
+import { registrarExtravioOuReencontro } from "@/services/reagentes/reagentesService";
 
 export interface ModalExtravioReencontroProps {
   isOpen: boolean;
@@ -36,16 +35,15 @@ export function ModalExtravioReencontro({
     setLoading(true);
     setErrorMsg("");
     try {
-      const registrar = httpsCallable(functions, "registrarExtravioOuReencontro");
       if (tipoAcao === "EXTRAVIAR") {
-        await registrar({
+        await registrarExtravioOuReencontro({
           idOperacao: crypto.randomUUID(),
           idFrasco: frascoId,
           tipoAcao: "EXTRAVIAR",
           motivo: motivo.trim(),
         });
       } else {
-        await registrar({
+        await registrarExtravioOuReencontro({
           idOperacao: crypto.randomUUID(),
           idFrasco: frascoId,
           tipoAcao: "REENCONTRAR",

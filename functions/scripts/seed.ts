@@ -5,10 +5,11 @@ import * as admin from "firebase-admin";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { chaveAlunoMatricula, chaveLocal, chaveMateria, chaveTurmaCodigo, normalizarCodigoMateria } from "../src/chaves";
+import { montarEGravarCatalogoReagentes } from "../src/catalogo";
 import { importedReagents } from "./reagentesSeedData";
 
 /** Fixture manual canônica M9/M11/M13. Recusa qualquer execução fora dos emuladores. */
-const ALLOWED_PROJECT_IDS = new Set(["lcqui-uenf", "lcqui-dev"]);
+const ALLOWED_PROJECT_IDS = new Set(["lcqui-dev"]);
 const PASSWORD = "Test123456!";
 const FIXTURE_TIME = Timestamp.fromDate(new Date("2026-01-15T12:00:00.000Z"));
 type Role = "Chefe_Geral" | "Gestor_Almoxarifado" | "Gestor_Bens_Patrimoniais" | "Professor" | "Aluno" | "Bolsista";
@@ -38,7 +39,7 @@ const beta = byId("professor.outsider").uid;
 const profMaterias = [{ professor: alpha, materia: "materia-quimica-geral" }, { professor: alpha, materia: "materia-quimica-analitica" }, { professor: beta, materia: "materia-quimica-geral" }];
 
 function projectId(): string {
-  const value = process.env.GCLOUD_PROJECT ?? process.env.GOOGLE_CLOUD_PROJECT ?? "lcqui-uenf";
+  const value = process.env.GCLOUD_PROJECT ?? process.env.GOOGLE_CLOUD_PROJECT ?? "lcqui-dev";
   if (!ALLOWED_PROJECT_IDS.has(value)) throw new Error(`SEED ABORTADO: projectId não permitido: ${value}`);
   return value;
 }
@@ -760,8 +761,23 @@ async function writeFixture(): Promise<void> {
     storage_path: null,
     sha256: null,
     gerado_em: null,
-    schema_version: 1,
+    schema_version: 2,
+    manifesto_version: 0,
+    manifesto_storage_path: null,
+    manifesto_sha256: null,
+    manifesto: null,
+    catalogos: {
+      resumos: { versao_fonte: 1, versao_publicada: 0, storage_path: null, sha256: null },
+      especificacoes: { versao_fonte: 1, versao_publicada: 0, storage_path: null, sha256: null },
+      substancias: { versao_fonte: 1, versao_publicada: 0, storage_path: null, sha256: null },
+      materias: { versao_fonte: 1, versao_publicada: 0, storage_path: null, sha256: null },
+    },
+    catalogos_embutidos: {},
   });
+  // O seed canônico deixa a fotografia publicada antes de abrir o navegador.
+  // Assim, a primeira leitura da UI é somente leitura e não disputa a
+  // transação de uma mutação de resumo/especificação iniciada logo depois.
+  await montarEGravarCatalogoReagentes();
 
   // Roteiro canônico M12.2 (PDF público de seed-professor-alpha)
   const storagePath = `roteiros/${alpha}/seed-roteiro-m12.pdf`;
@@ -830,8 +846,10 @@ async function verify(): Promise<void> {
   assert.equal((await firestore.collection("Especificacao_Reagente").get()).size, importedSpecCount + 1);
   const estadoCatalogo = await firestore.collection("Sistema_Catalogo_Reagentes").doc("estado").get();
   assert.equal(estadoCatalogo.data()?.versao_fonte, 1);
-  assert.equal(estadoCatalogo.data()?.versao_publicada, 0);
-  assert.equal(estadoCatalogo.data()?.schema_version, 1);
+  assert.equal(estadoCatalogo.data()?.versao_publicada, 1);
+  assert.equal(estadoCatalogo.data()?.schema_version, 2);
+  assert.deepEqual(Object.keys(estadoCatalogo.data()?.catalogos ?? {}).sort(), ["especificacoes", "materias", "resumos", "substancias"]);
+  assert.equal(estadoCatalogo.data()?.manifesto_version, 1);
   for (const pm of profMaterias) { const rel = await firestore.collection("Professor_x_Materia").doc(`${pm.professor}__${pm.materia}`).get(); assert.equal(rel.exists, true); assert.equal(rel.data()?.id_professor, pm.professor); assert.equal(rel.data()?.id_materia, pm.materia); assert.equal("id_usuario" in (rel.data() ?? {}), false); }
   for (const turmaDoc of (await firestore.collection("Turma").get()).docs) { const turma = turmaDoc.data(); assert.ok(["Ativo", "Arquivada"].includes(turma.status)); assert.ok([1, 2].includes(turma.semestre)); assert.ok(Number.isInteger(turma.capacidade) && turma.capacidade >= 1); assert.ok(Number.isInteger(turma.qtd_alunos) && turma.qtd_alunos >= 0); assert.ok(Number.isInteger(turma.versao) && turma.versao >= 1); assert.equal((await firestore.collection("Materia").doc(turma.id_materia).get()).exists, true); assert.equal((await firestore.collection("Professor").doc(turma.id_professor).get()).exists, true); const key = await firestore.collection("Chaves_Unicas").doc(chaveTurmaCodigo(turma.codigo_turma)).get(); assert.equal(key.data()?.id_recurso, turmaDoc.id); const links = await turmaDoc.ref.collection("Alunos").get(); assert.equal(turma.qtd_alunos, links.size, `${turmaDoc.id}: contador divergente`); for (const link of links.docs) { const value = link.data(); assert.equal(link.id, value.id_aluno); assert.equal(value.id_turma, turmaDoc.id); assert.ok(value.ingressou_em); assert.equal("email" in value, false); assert.equal("numero_matricula" in value, false); assert.equal((await firestore.collection("Usuarios").doc(link.id).collection("Turmas").doc(turmaDoc.id).get()).exists, true); } }
   const removed = byId("aluno.removed"); assert.equal((await firestore.collection("Turma").doc("seed-turma-vazia").collection("Alunos").doc(removed.uid).get()).exists, false); assert.equal((await firestore.collection("Usuarios").doc(removed.uid).collection("Turmas").doc("seed-turma-vazia").get()).exists, false); const history = await firestore.collection("Turma").doc("seed-turma-vazia").collection("HistoricoAlunos").where("id_aluno", "==", removed.uid).where("tipo", "==", "exclusao_aluno").get(); assert.equal(history.size, 1);

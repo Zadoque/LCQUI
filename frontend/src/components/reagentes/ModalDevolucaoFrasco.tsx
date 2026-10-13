@@ -1,11 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebase/config";
 import { ModalProps } from "./types";
+import { registrarDevolucao } from "@/services/reagentes/reagentesService";
 import { ModalBuscaUsuarioReagente, SeletorUsuarioReagente } from "./SeletorUsuarioReagente";
-import type { UsuarioRetirada } from "@/services/usuarios/usuariosService";
+import type { UsuarioRetirada } from "@/types/usuariosApi";
 
 export function ModalDevolucaoFrasco({
   isOpen,
@@ -40,7 +39,6 @@ export function ModalDevolucaoFrasco({
     setLoading(true);
     setErrorMsg("");
     try {
-      const registrarDevolucao = httpsCallable(functions, "registrarDevolucao");
       const payload = {
         idOperacao: crypto.randomUUID(),
         idEmprestimo: frascoOuEmprestimo.trim(),
@@ -49,9 +47,7 @@ export function ModalDevolucaoFrasco({
         idUsuarioDevolveu: usuarioDevolveu || undefined,
         ...(evaporacao.trim() ? { pesoPerdaEvaporacao: Number(evaporacao) } : {}),
       };
-      await registrarDevolucao({
-        ...payload,
-      });
+      await registrarDevolucao(payload);
       if (onSuccess) onSuccess();
       onClose();
     } catch (err: unknown) {
