@@ -17,6 +17,18 @@ test.describe("Cobertura transversal da matriz", () => {
     await expect(page.getByText("Total de Frascos", { exact: true })).toBeVisible();
   });
 
+  test("IMP-UI-001-GESTOR-E2E-001 consulta estoque com o papel Gestor de Almoxarifado", async ({ page }) => {
+    await login(page, "gestor.almoxarifado@lcqui.local");
+    await page.goto("/reagentes");
+    await expect(page.getByText(/Olá, Gestor de Almoxarifado/)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Catálogo de Reagentes" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Estoque atual/i })).toBeVisible();
+    await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
+    await expect(page.getByText("Reagente Seed", { exact: true })).toBeVisible();
+    await expect(page.getByText("Frascos Aptos", { exact: true })).toBeVisible();
+    await expect(page.getByText("Total de Frascos", { exact: true })).toBeVisible();
+  });
+
   test("IMP-UI-002 abre o catálogo patrimonial, filtros normativos e relatórios", async ({ page }) => {
     await login(page, "gestor.patrimonial@lcqui.local");
     await page.goto("/patrimonio");
