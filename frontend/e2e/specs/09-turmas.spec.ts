@@ -122,8 +122,18 @@ test("TURMA-E2E-010 painel de turmas começa recolhido no celular", async ({ pag
   await login(page, "professor.alpha@lcqui.local");
   await page.goto("/turmas");
 
+  const painelLateral = page.getByTestId("painel-lateral-turmas");
   await expect(page.getByRole("button", { name: "Expandir", exact: true })).toBeVisible();
   await expect(page.locator("#painel-minhas-turmas")).toBeHidden();
+  await expect(page.getByRole("button", { name: /Turmas Arquivadas/ })).toBeHidden();
+  await expect(painelLateral).toHaveCSS("width", "0px");
+
   await page.getByRole("button", { name: "Expandir", exact: true }).click();
   await expect(page.getByRole("button", { name: "+ Nova Turma", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Turmas Arquivadas/ })).toBeVisible();
+  await expect(painelLateral).toHaveCSS("width", "256px");
+
+  await page.getByRole("button", { name: "Recolher", exact: true }).click();
+  await expect(page.locator("#painel-minhas-turmas")).toBeHidden();
+  await expect(painelLateral).toHaveCSS("width", "0px");
 });
