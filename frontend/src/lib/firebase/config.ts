@@ -1,6 +1,12 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import {
+  connectFirestoreEmulator,
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
 import { getStorage, connectStorageEmulator } from "firebase/storage";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 
@@ -15,7 +21,24 @@ const firebaseConfig = {
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+/**
+ * Mantém as consultas já materializadas no IndexedDB entre navegações.
+ * O listener ainda é reaberto ao retornar à tela, mas o SDK pode entregar o
+ * snapshot do cache e sincronizar somente alterações; isso reduz leituras
+ * repetidas sem transformar o cache em fonte de autoridade.
+ */
+const db = (() => {
+  if (typeof window === "undefined") return getFirestore(app);
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+  } catch {
+    // HMR, navegador sem IndexedDB ou outra instância já inicializada:
+    // preservar a execução online com o cache padrão do SDK.
+    return getFirestore(app);
+  }
+})();
 const storage = getStorage(app);
 const functions = getFunctions(app);
 
