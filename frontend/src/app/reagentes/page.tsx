@@ -38,6 +38,8 @@ function ReagentesContent() {
     setFiltroEstado,
     filtroNatureza,
     setFiltroNatureza,
+    filtroTipo,
+    setFiltroTipo,
     limparFiltros,
     estoqueSnapshot,
     loadingEstoque,
@@ -80,6 +82,7 @@ function ReagentesContent() {
   // Seleções de contexto
   const [selectedResumo, setSelectedResumo] = useState<ResumoReagente | null>(null);
   const [selectedEspec, setSelectedEspec] = useState<CatalogoEspecificacao | null>(null);
+  const [selectedLote, setSelectedLote] = useState<{ id: string; numero_lote?: string } | null>(null);
 
   const isContextoEspecificacao = (payload: ReagenteActionPayload): payload is Extract<ReagenteActionPayload, { reagente: ResumoReagente }> =>
     "reagente" in payload && "espec" in payload;
@@ -96,6 +99,7 @@ function ReagentesContent() {
         if (isContextoEspecificacao(payload)) {
           setSelectedResumo(payload.reagente);
           setSelectedEspec(payload.espec);
+          setSelectedLote(payload.lote ? { id: payload.lote.id, numero_lote: payload.lote.numero_lote } : null);
         }
         setIsNovoLoteOpen(true);
         break;
@@ -103,6 +107,7 @@ function ReagentesContent() {
         if (isContextoEspecificacao(payload)) {
           setSelectedResumo(payload.reagente);
           setSelectedEspec(payload.espec);
+          setSelectedLote(payload.lote ? { id: payload.lote.id, numero_lote: payload.lote.numero_lote } : null);
         }
         setIsAdicionarFrascoOpen(true);
         break;
@@ -213,6 +218,8 @@ function ReagentesContent() {
             onEstadoChange={setFiltroEstado}
             filtroNatureza={filtroNatureza}
             onNaturezaChange={setFiltroNatureza}
+            filtroTipo={filtroTipo}
+            onTipoChange={setFiltroTipo}
             filtroLetra={filtroLetra}
             onLetraChange={setFiltroLetra}
             onLimparFiltros={limparFiltros}
@@ -273,6 +280,7 @@ function ReagentesContent() {
             almoxSelecionado={almoxSelecionado}
             selectedResumo={selectedResumo}
             selectedEspec={selectedEspec}
+            selectedLote={selectedLote}
             isQuarentenaModalOpen={isQuarentenaModalOpen}
             setIsQuarentenaModalOpen={setIsQuarentenaModalOpen}
             isExtravioModalOpen={isExtravioModalOpen}

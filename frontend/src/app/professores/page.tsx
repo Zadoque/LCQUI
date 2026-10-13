@@ -283,7 +283,7 @@ export default function ProfessoresDashboard() {
                         value={laboratorio}
                         onChange={(e) => setLaboratorio(e.target.value)}
                         className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary"
-                        placeholder="Ex: Lab de Polímeros"
+                        placeholder="Ex: LCQUI"
                       />
                     </div>
                   </div>

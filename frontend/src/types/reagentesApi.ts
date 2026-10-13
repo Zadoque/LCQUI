@@ -203,6 +203,7 @@ export interface LoteCatalogo {
   id: string;
   numero_lote?: string;
   nome_fornecedor?: string;
+  nota_fiscal?: string;
 }
 
 export interface FrascoCatalogo {

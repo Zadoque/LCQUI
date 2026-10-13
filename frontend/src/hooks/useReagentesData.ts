@@ -40,6 +40,7 @@ export function useReagentesData(abaParam: string = "catalogo") {
   const [filtroLetra, setFiltroLetra] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroNatureza, setFiltroNatureza] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState("");
   const [idAlmoxarifado, setIdAlmoxarifado] = useState<string>();
   const ultimaCargaEstoqueAutomatica = useRef<string | null>(null);
 
@@ -120,6 +121,7 @@ export function useReagentesData(abaParam: string = "catalogo") {
     // compatíveis com fotografias legadas que ainda exibam acentos.
     if (filtroEstado && norm(r.estado_fisico || "") !== norm(filtroEstado)) return false;
     if (filtroNatureza && r.natureza_quimica !== filtroNatureza) return false;
+    if (filtroTipo && r.tipo_substancia !== filtroTipo) return false;
     if (filtroLetra && !r.nome?.toUpperCase().startsWith(filtroLetra)) return false;
     return true;
   });
@@ -131,6 +133,7 @@ export function useReagentesData(abaParam: string = "catalogo") {
     setFiltroLetra("");
     setFiltroEstado("");
     setFiltroNatureza("");
+    setFiltroTipo("");
   };
 
   return {
@@ -158,6 +161,8 @@ export function useReagentesData(abaParam: string = "catalogo") {
     setFiltroEstado,
     filtroNatureza,
     setFiltroNatureza,
+    filtroTipo,
+    setFiltroTipo,
     limparFiltros,
     estoqueSnapshot,
     loadingEstoque,

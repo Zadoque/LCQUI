@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ModalRelatoriosPatrimonio from "@/components/patrimonio/ModalRelatoriosPatrimonio";
@@ -15,6 +16,7 @@ import { TabelaBensPatrimoniais } from "@/components/patrimonio/TabelaBensPatrim
 
 export default function PatrimonioDashboard() {
   const { roles, user } = useAuth();
+  const router = useRouter();
   const [isRelatoriosOpen, setIsRelatoriosOpen] = useState(false);
   const [isNovoBemOpen, setIsNovoBemOpen] = useState(false);
   const [isNotificacoesOpen, setIsNotificacoesOpen] = useState(false);
@@ -63,6 +65,8 @@ export default function PatrimonioDashboard() {
             onNovoBem={() => setIsNovoBemOpen(true)}
             onNotificacoes={() => setIsNotificacoesOpen(true)}
             onRelatorios={() => setIsRelatoriosOpen(true)}
+            onNovoGestorPatrimonio={() => router.push("/pessoas?papel=Gestor_Bens_Patrimoniais&acao=conceder")}
+            onGerenciarGestoresPatrimonio={() => router.push("/pessoas?papel=Gestor_Bens_Patrimoniais&acao=gerenciar")}
           />
 
           {/* Título da Seção */}

@@ -25,9 +25,18 @@ export default function SidebarTurmas({
   const { user, roles } = useAuth();
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [showArquivadas, setShowArquivadas] = useState(false);
+  const [painelExpandido, setPainelExpandido] = useState(true);
   const isProfessor = roles.includes("Professor") || roles.includes("Chefe_Geral");
   const isAluno = roles.includes("Aluno") || roles.includes("Bolsista");
   const turmaInicialAplicadaRef = useRef(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 639px)");
+    const atualizar = () => setPainelExpandido(!media.matches);
+    atualizar();
+    media.addEventListener("change", atualizar);
+    return () => media.removeEventListener("change", atualizar);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -83,7 +92,13 @@ export default function SidebarTurmas({
   return (
     <div className="w-64 bg-card border-r border-border h-[calc(100vh-64px)] flex flex-col">
       <div className="p-4 border-b border-border">
-        <h2 className="text-lg font-semibold mb-4">Minhas Turmas</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">Minhas Turmas</h2>
+          <button type="button" onClick={() => setPainelExpandido((aberto) => !aberto)} aria-expanded={painelExpandido} aria-controls="painel-minhas-turmas" className="sm:hidden cursor-pointer rounded-lg border border-border px-2 py-1 text-xs hover:bg-muted">
+            {painelExpandido ? "Recolher" : "Expandir"}
+          </button>
+        </div>
+        <div id="painel-minhas-turmas" className={painelExpandido ? "mt-4" : "mt-4 hidden sm:block"}>
         {isProfessor && (
           <button 
             onClick={onOpenNovaTurma}
@@ -102,9 +117,10 @@ export default function SidebarTurmas({
             Ingressar em Turma
           </button>
         )}
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className={`${painelExpandido ? "flex" : "hidden sm:flex"} flex-1 overflow-y-auto p-2`}>
         {turmas.length === 0 ? (
           <p className="text-sm text-muted-foreground p-4 text-center">Nenhuma turma encontrada.</p>
         ) : (

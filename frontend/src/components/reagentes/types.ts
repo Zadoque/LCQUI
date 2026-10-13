@@ -5,6 +5,8 @@ export interface ModalProps {
   onClose: () => void;
   idResumoReagente?: string;
   idEspecificacaoReagente?: string;
+  idLote?: string;
+  numeroLoteInicial?: string;
   idAlmoxarifado?: string;
   onSuccess?: () => void | Promise<void>;
   resumoSelecionado?: Pick<ResumoReagente, "tipo_substancia" | "estado_fisico">;

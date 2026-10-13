@@ -63,16 +63,18 @@ export function EspecificacaoRow({ espec, reagente, onAction, readOnly }: Especi
         {!readOnly && (
           <div className="flex gap-2">
             <button
+              type="button"
               onClick={(e) => { e.stopPropagation(); onAction("novo_lote", { reagente, espec }); }}
               className="text-xs font-semibold text-primary hover:bg-primary/10 px-2 py-1 rounded border border-primary/20"
             >
               + Novo Lote
             </button>
             <button
+              type="button"
               onClick={(e) => { e.stopPropagation(); onAction("novo_frasco", { reagente, espec, lote: null }); }}
               className="text-xs font-semibold text-primary hover:bg-primary/10 px-2 py-1 rounded border border-primary/20"
             >
-              + Frasco S/ Lote
+              + Frasco
             </button>
             <button onClick={(e) => { e.stopPropagation(); onAction("configurar_escassez", { reagente, espec }); }} className="text-xs font-semibold text-amber-600 hover:bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">Configurar escassez</button>
           </div>

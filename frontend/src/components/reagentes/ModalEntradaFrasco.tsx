@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { ModalProps } from "./types";
-import { cadastrarFrascoAberto, cadastrarFrascoFechado, obterCatalogoReagentes } from "@/services/reagentes/reagentesService";
+import { buscarLotesDaEspecificacao, cadastrarFrascoAberto, cadastrarFrascoFechado, obterCatalogoReagentes } from "@/services/reagentes/reagentesService";
 import type { CatalogoEspecificacao, ResumoReagente } from "@/types/reagentes";
 import type { CadastroFrascoResult } from "@/types/reagentesApi";
 
@@ -24,11 +24,17 @@ export function ModalEntradaFrasco({
   onClose,
   idResumoReagente,
   idEspecificacaoReagente,
+  idLote,
+  numeroLoteInicial,
   idAlmoxarifado,
   onSuccess,
 }: ModalProps) {
   const [condicaoInicial, setCondicaoInicial] = useState<"FECHADO" | "JA_ABERTO">("FECHADO");
   const [lote, setLote] = useState("");
+  const [loteEncontrado, setLoteEncontrado] = useState<{ numero_lote?: string; nome_fornecedor?: string; nota_fiscal?: string } | null>(null);
+  const [loteIdConfirmado, setLoteIdConfirmado] = useState<string | null>(idLote ?? null);
+  const [buscandoLote, setBuscandoLote] = useState(false);
+  const [erroLote, setErroLote] = useState("");
   const [pesoCheio, setPesoCheio] = useState("");
   const [volumeNominal, setVolumeNominal] = useState("");
   const [validade, setValidade] = useState("");
@@ -54,6 +60,10 @@ export function ModalEntradaFrasco({
       setCodigoGerado(null);
       setErrorMsg("");
       setBuscaCatalogo("");
+      setLote(numeroLoteInicial ?? "");
+      setLoteEncontrado(null);
+      setLoteIdConfirmado(idLote ?? null);
+      setErroLote("");
       setResumoSelecionadoId(idResumoReagente ?? "");
       setEspecificacaoSelecionadaId(idEspecificacaoReagente ?? "");
       setLoadingCatalogo(true);
@@ -75,11 +85,13 @@ export function ModalEntradaFrasco({
     return () => {
       cancelado = true;
     };
-  }, [isOpen, idResumoReagente, idEspecificacaoReagente]);
+  }, [isOpen, idResumoReagente, idEspecificacaoReagente, idLote, numeroLoteInicial]);
 
   const opcoesEspecificacao = useMemo<OpcaoEspecificacao[]>(
-    () => catalogo.flatMap((resumo) => Object.values(resumo.especificacoes ?? {}).map((especificacao) => ({ resumo, especificacao }))),
-    [catalogo],
+    () => catalogo
+      .filter((resumo) => resumo.id === idResumoReagente)
+      .flatMap((resumo) => Object.values(resumo.especificacoes ?? {}).map((especificacao) => ({ resumo, especificacao }))),
+    [catalogo, idResumoReagente],
   );
 
   const opcoesFiltradas = useMemo(() => {
@@ -102,6 +114,26 @@ export function ModalEntradaFrasco({
     : "SOLIDO";
   const unidade = estadoFisico === "LIQUIDO" ? "ml" : "g";
 
+  const confirmarLote = async () => {
+    setBuscandoLote(true);
+    setErroLote("");
+    setLoteEncontrado(null);
+    try {
+      const numero = lote.trim();
+      if (!numero) throw new Error("Informe o número do lote para pesquisar.");
+      if (!especificacaoSelecionadaId) throw new Error("Selecione a especificação antes de pesquisar o lote.");
+      const encontrados = await buscarLotesDaEspecificacao(especificacaoSelecionadaId);
+      const encontrado = encontrados.find((item) => item.numero_lote?.trim().toLowerCase() === numero.toLowerCase());
+      if (!encontrado) throw new Error("Nenhum lote com esse número foi encontrado para a especificação selecionada.");
+      setLoteEncontrado(encontrado);
+      setLoteIdConfirmado(encontrado.id);
+    } catch (error: unknown) {
+      setErroLote(error instanceof Error ? error.message : "Não foi possível consultar o lote.");
+    } finally {
+      setBuscandoLote(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -114,6 +146,9 @@ export function ModalEntradaFrasco({
       if (!resumoSelecionadoId || !especificacaoSelecionadaId || !especificacaoAtual) {
         throw new Error("Selecione o resumo e a especificação do reagente antes de cadastrar o frasco.");
       }
+      if (lote.trim() && !loteIdConfirmado) {
+        throw new Error("Confira o número do lote antes de cadastrar o frasco.");
+      }
       let resultado: CadastroFrascoResult;
       if (condicaoInicial === "FECHADO") {
         const resposta = await cadastrarFrascoFechado({
@@ -121,7 +156,7 @@ export function ModalEntradaFrasco({
           idResumoReagente: resumoSelecionadoId,
           idEspecificacaoReagente: especificacaoSelecionadaId,
           idAlmoxarifado,
-          idLote: lote || undefined,
+          idLote: loteIdConfirmado || undefined,
           pesoTotal: Number(pesoCheio),
           volumeNominal: volumeNominal ? Number(volumeNominal) : null,
           ...(validade ? { validadeFechado: validade } : {}),
@@ -135,7 +170,7 @@ export function ModalEntradaFrasco({
           idResumoReagente: resumoSelecionadoId,
           idEspecificacaoReagente: especificacaoSelecionadaId,
           idAlmoxarifado,
-          idLote: lote || undefined,
+          idLote: loteIdConfirmado || undefined,
           pesoTotalBalanca: Number(pesoCheio),
           volumeNominal: volumeNominal ? Number(volumeNominal) : null,
           ...(validade ? { validadeAberto: validade } : {}),
@@ -173,8 +208,8 @@ export function ModalEntradaFrasco({
           <form onSubmit={handleSubmit} className="space-y-4">
           <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3" data-testid="seletor-especificacao-frasco">
             <div>
-              <label htmlFor="busca-especificacao-frasco" className="block text-sm font-bold text-primary">Resumo e especificação do reagente</label>
-              <p className="mt-1 text-xs text-foreground/60">Pesquise por nome, estado físico, fabricante ou descrição da especificação.</p>
+              <label htmlFor="busca-especificacao-frasco" className="block text-sm font-bold text-primary">Especificação do resumo selecionado</label>
+              <p className="mt-1 text-xs text-foreground/60">Escolha uma especificação deste resumo e, se necessário, filtre por fabricante ou descrição.</p>
             </div>
             <input
               id="busca-especificacao-frasco"
@@ -186,7 +221,7 @@ export function ModalEntradaFrasco({
               className="w-full px-3 py-2 rounded-lg bg-background border border-primary/20 focus:ring-2 focus:ring-primary outline-none"
             />
             <select
-              aria-label="Resumo e especificação do reagente"
+              aria-label="Especificação do resumo selecionado"
               required
               value={especificacaoAtual ? JSON.stringify([resumoSelecionadoId, especificacaoSelecionadaId]) : ""}
               onChange={(event) => {
@@ -195,8 +230,8 @@ export function ModalEntradaFrasco({
                   setEspecificacaoSelecionadaId("");
                   return;
                 }
-                const [idResumo, idEspecificacao] = JSON.parse(event.target.value) as [string, string];
-                setResumoSelecionadoId(idResumo);
+                const [, idEspecificacao] = JSON.parse(event.target.value) as [string, string];
+                setResumoSelecionadoId(idResumoReagente ?? "");
                 setEspecificacaoSelecionadaId(idEspecificacao);
               }}
               disabled={loadingCatalogo || opcoesFiltradas.length === 0}
@@ -207,7 +242,7 @@ export function ModalEntradaFrasco({
               </option>
               {opcoesFiltradas.map(({ resumo, especificacao }) => (
                 <option key={`${resumo.id}-${especificacao.id}`} value={JSON.stringify([resumo.id, especificacao.id])}>
-                  {resumo.nome} — {especificacao.descricao || "Sem descrição"}{especificacao.fabricante ? ` — ${especificacao.fabricante}` : ""} ({rotuloEstado(resumo.estado_fisico)})
+                  {especificacao.descricao || "Sem descrição"}{especificacao.fabricante ? ` — ${especificacao.fabricante}` : ""} ({rotuloEstado(resumo.estado_fisico)})
                 </option>
               ))}
             </select>
@@ -247,13 +282,21 @@ export function ModalEntradaFrasco({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Código do lote (opcional)</label>
-            <input
-              type="text"
-              value={lote}
-              onChange={(e) => setLote(e.target.value)} 
-              className="w-full px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none"
-            />
+            <label htmlFor="numero-lote-frasco" className="block text-sm font-medium mb-1">Número do lote (opcional)</label>
+            <div className="flex gap-2">
+              <input
+                id="numero-lote-frasco"
+                type="text"
+                value={lote}
+                onChange={(e) => { setLote(e.target.value); setLoteEncontrado(null); setLoteIdConfirmado(null); setErroLote(""); }}
+                className="min-w-0 flex-1 px-3 py-2 rounded-lg bg-foreground/5 border border-foreground/10 focus:ring-2 focus:ring-primary outline-none"
+              />
+              <button type="button" onClick={() => void confirmarLote()} disabled={buscandoLote || !lote.trim()} aria-label="Pesquisar lote" className="shrink-0 rounded-lg border border-primary/30 px-3 py-2 text-primary hover:bg-primary/10 disabled:opacity-50">
+                {buscandoLote ? "Consultando..." : "✓ Conferir"}
+              </button>
+            </div>
+            {loteEncontrado && <p className="mt-2 rounded-lg bg-green-500/10 p-2 text-xs text-green-700" role="status">Lote confirmado: fornecedor <strong>{loteEncontrado.nome_fornecedor || "não informado"}</strong> · nota fiscal <strong>{loteEncontrado.nota_fiscal || "não informada"}</strong>.</p>}
+            {erroLote && <p className="mt-2 text-xs text-red-600" role="alert">{erroLote}</p>}
           </div>
           
           <div className="grid grid-cols-2 gap-4">

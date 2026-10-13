@@ -56,6 +56,7 @@ interface ReagentesModaisManagerProps {
   almoxSelecionado?: AlmoxarifadoItem;
   selectedResumo: ResumoReagente | null;
   selectedEspec: CatalogoEspecificacao | null;
+  selectedLote?: { id: string; numero_lote?: string } | null;
   isQuarentenaModalOpen: boolean;
   setIsQuarentenaModalOpen: (v: boolean) => void;
   isExtravioModalOpen: boolean;
@@ -106,6 +107,7 @@ export function ReagentesModaisManager({
   almoxSelecionado,
   selectedResumo,
   selectedEspec,
+  selectedLote,
   isQuarentenaModalOpen,
   setIsQuarentenaModalOpen,
   isExtravioModalOpen,
@@ -165,6 +167,8 @@ export function ReagentesModaisManager({
         onSuccess={() => {}}
         idResumoReagente={selectedResumo?.id}
         idEspecificacaoReagente={selectedEspec?.id}
+        idLote={selectedLote?.id}
+        numeroLoteInicial={selectedLote?.numero_lote}
       />
       <ModalEntradaFrasco
         isOpen={isAdicionarFrascoOpen}
