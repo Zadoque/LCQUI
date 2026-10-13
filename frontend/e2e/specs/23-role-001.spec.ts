@@ -6,7 +6,8 @@ test.describe("ROLE-001-E2E — UI-02 pessoas e papéis", () => {
     await login(page, "chefe.seed@lcqui.local");
     await page.goto("/pessoas");
     await expect(page.getByRole("heading", { name: "Pessoas e papéis" })).toBeVisible();
-    await expect(page.getByLabel("Buscar pessoa")).toBeVisible();
+    await page.getByLabel("Primeiro escolha a letra inicial").selectOption("A");
+    await expect(page.getByLabel("Filtrar resultados")).toBeVisible();
     const detalhes = page.getByRole("button", { name: "Detalhes" }).first();
     await expect(detalhes).toBeVisible();
     await detalhes.click();
@@ -22,7 +23,8 @@ test.describe("ROLE-001-E2E — UI-02 pessoas e papéis", () => {
     guardaConsole.permitir(/Failed to load resource: the server responded with a status of 400/);
     await login(page, "chefe.seed@lcqui.local");
     await page.goto("/pessoas");
-    await page.getByLabel("Buscar pessoa").fill("Bolsista");
+    await page.getByLabel("Primeiro escolha a letra inicial").selectOption("B");
+    await page.getByLabel("Filtrar resultados").fill("Bolsista");
     const linha = page.getByRole("row").filter({ hasText: "Bolsista" }).first();
     await expect(linha).toBeVisible();
     await linha.getByRole("button", { name: "Selecionar" }).click();

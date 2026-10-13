@@ -8,7 +8,7 @@ async function criarPendenciaQ06(page: Page) {
   await page.goto("/reagentes");
   await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
   await page.getByText("Reagente Seed", { exact: true }).first().click();
-  await page.getByRole("button", { name: "+ Frasco S/ Lote" }).click();
+  await page.getByRole("button", { name: "+ Frasco" }).click();
   const entrada = page.locator("form").filter({ hasText: "Salvar Frasco" });
   const numeros = entrada.locator('input[type="number"]');
   await numeros.nth(0).fill("500");

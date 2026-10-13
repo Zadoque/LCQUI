@@ -116,3 +116,14 @@ test.describe.serial("Turmas", () => {
     test.skip();
   });
 });
+
+test("TURMA-E2E-010 painel de turmas começa recolhido no celular", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page, "professor.alpha@lcqui.local");
+  await page.goto("/turmas");
+
+  await expect(page.getByRole("button", { name: "Expandir", exact: true })).toBeVisible();
+  await expect(page.locator("#painel-minhas-turmas")).toBeHidden();
+  await page.getByRole("button", { name: "Expandir", exact: true }).click();
+  await expect(page.getByRole("button", { name: "+ Nova Turma", exact: true })).toBeVisible();
+});

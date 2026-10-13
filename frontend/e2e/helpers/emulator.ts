@@ -73,7 +73,7 @@ export async function lerDocumento(caminho: string): Promise<DocumentoEmulado | 
 }
 
 export async function listarColecao(caminho: string): Promise<DocumentoEmulado[]> {
-  const resposta = await firestoreFetch(caminho);
+  const resposta = await firestoreFetch(`${caminho}?pageSize=300`);
   if (!resposta.ok) {
     throw new Error(`Firestore Emulator (list) ${caminho}: HTTP ${resposta.status}`);
   }

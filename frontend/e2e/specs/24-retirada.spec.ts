@@ -7,7 +7,7 @@ test("RET-E2E-001: registra retirada com contrato completo", async ({ page, guar
   await page.goto("/reagentes");
   await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
   await page.getByText("Reagente Seed", { exact: true }).first().click();
-  await page.getByRole("button", { name: "+ Frasco S/ Lote" }).click();
+  await page.getByRole("button", { name: "+ Frasco" }).click();
   const entrada = page.locator("form").filter({ hasText: "Salvar Frasco" });
   const entradaNumeros = entrada.locator('input[type="number"]');
   await entradaNumeros.nth(0).fill("500");
@@ -81,7 +81,7 @@ test("DEV-001-E2E-002: conclui retirada e devolução com pesagens concordantes"
   await page.goto("/reagentes");
   await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
   await page.getByText("Reagente Seed", { exact: true }).first().click();
-  await page.getByRole("button", { name: "+ Frasco S/ Lote" }).click();
+  await page.getByRole("button", { name: "+ Frasco" }).click();
   const entrada = page.locator("form").filter({ hasText: "Salvar Frasco" });
   const entradaNumeros = entrada.locator('input[type="number"]');
   await entradaNumeros.nth(0).fill("500");

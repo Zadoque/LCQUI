@@ -84,3 +84,18 @@ test.describe.serial("PAT-EDIT-E2E — UI-09 / IMP-PAT-004", () => {
     expect(lock).toBeNull();
   });
 });
+
+test("PAT-UI-E2E-001: ações de gestão patrimonial levam ao diretório de papéis", async ({ page }) => {
+  await login(page, "chefe.seed@lcqui.local");
+  await page.goto("/patrimonio");
+
+  await page.getByRole("button", { name: "Novo Gestor de Bens Patrimoniais", exact: true }).click();
+  await expect(page).toHaveURL(/\/pessoas\?papel=Gestor_Bens_Patrimoniais&acao=conceder/);
+  await expect(page.getByRole("heading", { name: "Pessoas e papéis" })).toBeVisible();
+  await expect(page.getByLabel("Papel")).toHaveValue("Gestor_Bens_Patrimoniais");
+
+  await page.goto("/patrimonio");
+  await page.getByRole("button", { name: "Gerenciar Gestores de Bens", exact: true }).click();
+  await expect(page).toHaveURL(/\/pessoas\?papel=Gestor_Bens_Patrimoniais&acao=gerenciar/);
+  await expect(page.getByLabel("Papel")).toHaveValue("Gestor_Bens_Patrimoniais");
+});

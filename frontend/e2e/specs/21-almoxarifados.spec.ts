@@ -98,7 +98,7 @@ test.describe("ALMOX-E2E — UI-03", () => {
 
   test("ALMOX-E2E-008: ativo não remove último gestor", async ({ page, guardaConsole }) => {
     guardaConsole.permitir(/status 400|400|failed-precondition|Gestor informado/);
-    const id = await criar(page, true, true); await page.getByTestId(`almox-btn-gerenciar-${id}`).click(); await expect(page.getByTestId("modal-gerenciar-gestores-almoxarifado")).toBeVisible(); await page.getByRole("checkbox", { name: gestorNome }).uncheck();
+    const id = await criar(page, true, true); await page.getByTestId(`almox-btn-gerenciar-${id}`).click(); await expect(page.getByTestId("modal-gerenciar-gestores-almoxarifado")).toBeVisible(); const gestor = page.getByRole("checkbox", { name: gestorNome }); await expect(gestor).toBeChecked(); await gestor.uncheck();
     const resposta = esperarCallable(page, "gerenciarAlmoxarifado"); await page.getByTestId("btn-salvar-gestores-almoxarifado").click(); await resposta; await expect(page.getByTestId("erro-gerenciar-gestores-almoxarifado")).toContainText("gestor");
   });
 
@@ -119,7 +119,8 @@ test.describe("ALMOX-E2E — UI-03", () => {
 
   test("ALMOX-E2E-012: aluno não bolsista pode receber e ser vinculado como gestor", async ({ page }) => {
     await page.goto("/pessoas");
-    await page.getByLabel("Buscar pessoa").fill("Aluno Normal");
+    await page.getByLabel("Primeiro escolha a letra inicial").selectOption("A");
+    await page.getByLabel("Filtrar resultados").fill("Aluno Normal");
     const linha = page.getByRole("row").filter({ hasText: "Aluno Normal" }).first();
     await expect(linha).toBeVisible();
     await linha.getByRole("button", { name: "Selecionar" }).click();
@@ -163,7 +164,7 @@ test.describe("ALMOX-E2E — UI-03", () => {
     const uid = resultado.uid as string;
     const papel = await lerDocumento(`Gestor_Almoxarifado/${uid}`);
     expect(papel?.data.id_usuario).toBe(uid);
-    await expect(page.getByTestId("status-novo-gestor-almoxarifado")).toContainText("e-mail oficial");
+    await expect(page.getByTestId("status-novo-gestor-almoxarifado")).toContainText("e-mail para definir a senha");
     await page.getByRole("button", { name: "Fechar" }).click();
     await ultimoOobPara(email, "PASSWORD_RESET");
   });

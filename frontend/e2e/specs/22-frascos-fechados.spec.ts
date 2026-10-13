@@ -8,7 +8,7 @@ test("FRASC-E2E-001: cadastra frasco fechado com código atômico", async ({ pag
   await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
   await expect(page.getByText("Reagente Seed")).toBeVisible();
   await page.getByText("Reagente Seed").click();
-  await page.getByRole("button", { name: "+ Frasco S/ Lote" }).click();
+  await page.getByRole("button", { name: "+ Frasco" }).click();
   const modal = page.getByRole("heading", { name: "Cadastrar Novo Frasco" }).locator("..");
   await expect(modal.getByTestId("seletor-especificacao-frasco").getByRole("combobox")).toBeVisible();
   await modal.getByPlaceholder("Buscar nome, estado, fabricante ou descrição...").fill("Fabricante Seed");
@@ -38,7 +38,7 @@ test("FRASC-E2E-002: cadastra frasco já aberto sem inventar tara ou saldo", asy
   await page.goto("/reagentes");
   await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
   await page.getByText("Reagente Seed").click();
-  await page.getByRole("button", { name: "+ Frasco S/ Lote" }).click();
+  await page.getByRole("button", { name: "+ Frasco" }).click();
   await page.getByRole("button", { name: "Já Aberto (Em Uso)" }).click();
   const antes = await listarColecao("Frasco_Reagente");
   const numeros = page.locator('input[type="number"]');
@@ -67,7 +67,7 @@ test("FRASC-E2E-003: cadastro de frasco vencido exige destino e persiste quarent
   await page.goto("/reagentes");
   await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
   await page.getByText("Reagente Seed", { exact: true }).click();
-  await page.getByRole("button", { name: "+ Frasco S/ Lote" }).click();
+  await page.getByRole("button", { name: "+ Frasco" }).click();
   await page.getByRole("button", { name: "Já Aberto (Em Uso)" }).click();
   await page.locator('input[type="number"]').nth(0).fill("250");
   await page.getByLabel("Validade do frasco").fill("2020-01-01");
