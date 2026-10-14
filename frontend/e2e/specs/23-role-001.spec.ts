@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures";
-import { login } from "../helpers/ui";
+import { capturarCallable, login } from "../helpers/ui";
 
 test.describe("ROLE-001-E2E — UI-02 pessoas e papéis", () => {
   test("ROLE-001-E2E-001: chefe acessa diretório, detalhes e confirmação de revogação", async ({ page }) => {
@@ -33,5 +33,30 @@ test.describe("ROLE-001-E2E — UI-02 pessoas e papéis", () => {
     await page.getByRole("button", { name: "Revogar papel" }).click();
     await page.getByRole("dialog", { name: "Confirmar revogação" }).getByRole("button", { name: "Confirmar revogação" }).click();
     await expect(page.locator('p[role="alert"]')).toContainText(/Bolsista|aluno/i);
+  });
+
+  test("ROLE-001-E2E-002: busca de pessoas usa debounce e cache por filtro", async ({ page }) => {
+    await login(page, "chefe.seed@lcqui.local");
+    await page.goto("/pessoas");
+    const chamadas = capturarCallable(page, "buscarUsuariosParaPapel");
+
+    await page.getByLabel("Primeiro escolha a letra inicial").selectOption("B");
+    await expect(page.getByRole("row").filter({ hasText: "Bolsista" }).first()).toBeVisible();
+    await expect.poll(() => chamadas.length).toBe(1);
+
+    const filtro = page.getByLabel("Filtrar resultados");
+    await filtro.fill("Bolsista");
+    await page.waitForTimeout(100);
+    expect(chamadas).toHaveLength(1);
+    await expect(page.getByRole("row").filter({ hasText: "Bolsista" }).first()).toBeVisible();
+    await expect.poll(() => chamadas.length).toBe(2);
+
+    await filtro.fill("");
+    await expect(page.getByRole("row").filter({ hasText: "Bolsista" }).first()).toBeVisible();
+    await expect.poll(() => chamadas.length).toBe(2);
+
+    await filtro.fill("Bolsista");
+    await expect(page.getByRole("row").filter({ hasText: "Bolsista" }).first()).toBeVisible();
+    await expect.poll(() => chamadas.length).toBe(2);
   });
 });

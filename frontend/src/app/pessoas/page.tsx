@@ -46,15 +46,18 @@ function PessoasContent() {
     let cancelado = false;
     if (!letraInicial) return () => { cancelado = true; };
     void Promise.resolve().then(() => { if (!cancelado) setCarregandoLista(true); });
-    buscarUsuarios({ papel, letra: letraInicial, ...(busca ? { termo: busca } : {}) })
-      .then((lista) => {
-        if (!cancelado) setPessoas(lista);
-      })
-      .catch(() => {
-        if (!cancelado) setErro("Não foi possível carregar as pessoas.");
-      }).finally(() => { if (!cancelado) setCarregandoLista(false); });
+    const timeout = window.setTimeout(() => {
+      buscarUsuarios({ papel, letra: letraInicial, ...(busca.trim() ? { termo: busca.trim() } : {}) })
+        .then((lista) => {
+          if (!cancelado) setPessoas(lista);
+        })
+        .catch(() => {
+          if (!cancelado) setErro("Não foi possível carregar as pessoas.");
+        }).finally(() => { if (!cancelado) setCarregandoLista(false); });
+    }, 300);
     return () => {
       cancelado = true;
+      window.clearTimeout(timeout);
     };
   }, [busca, letraInicial, papel]);
 
