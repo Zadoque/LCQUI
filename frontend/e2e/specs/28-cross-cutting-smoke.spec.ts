@@ -1,7 +1,14 @@
 import { test, expect } from "../fixtures";
 import { login } from "../helpers/ui";
+import { removerDocumentoEmulado } from "../helpers/emulator";
 
 test.describe("Smoke E2E de contratos transversais", () => {
+  test.beforeEach(async () => {
+    // O limite é por UID e o gestor seed é compartilhado entre specs; cada
+    // cenário deve provar seu contrato sem herdar chamadas do cenário anterior.
+    await removerDocumentoEmulado("Sistema_Rate_Limit_Dashboard/seed-gestor-almox");
+  });
+
   test("AUTH-002-E2E-001 exibe a entrada Google no contrato de login", async ({ page }) => {
     await page.goto("/login");
     await expect(page.getByRole("button", { name: "Google" })).toBeVisible();

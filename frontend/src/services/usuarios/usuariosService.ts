@@ -47,6 +47,10 @@ type ListenerUsuariosSelecionaveis = (usuarios: UsuarioSelecionavel[]) => void;
 
 const cacheBuscasUsuarios = new Map<string, Pessoa[]>();
 const carregamentosBuscasUsuarios = new Map<string, Promise<Pessoa[]>>();
+const cacheBuscasRetirada = new Map<string, UsuarioRetirada[]>();
+const carregamentosBuscasRetirada = new Map<string, Promise<UsuarioRetirada[]>>();
+let cacheProfessores: { data: Professor[]; expiraEmMs: number } | null = null;
+let carregamentoProfessores: Promise<Professor[]> | null = null;
 let cacheUsuariosSelecionaveis: UsuarioSelecionavel[] | null = null;
 let carregamentoUsuariosSelecionaveis: Promise<UsuarioSelecionavel[]> | null = null;
 const listenersUsuariosSelecionaveis = new Set<ListenerUsuariosSelecionaveis>();
@@ -136,6 +140,10 @@ export function invalidarCacheBuscasUsuarios(): void {
   carregamentosBuscasUsuarios.clear();
   cacheUsuariosSelecionaveis = null;
   carregamentoUsuariosSelecionaveis = null;
+  cacheBuscasRetirada.clear();
+  carregamentosBuscasRetirada.clear();
+  cacheProfessores = null;
+  carregamentoProfessores = null;
 }
 
 let uidDoCache = auth.currentUser?.uid ?? null;
@@ -229,12 +237,17 @@ export async function obterDetalhesUsuario(params: ObterDetalhesParams): Promise
  * Busca a lista de professores ativos cadastrados no sistema.
  */
 export async function buscarProfessores(): Promise<Professor[]> {
+  if (cacheProfessores && cacheProfessores.expiraEmMs > Date.now()) return cacheProfessores.data;
+  if (carregamentoProfessores) return carregamentoProfessores;
   const fn = httpsCallable<Record<string, never>, { professores: Professor[] }>(
     functions,
     "buscarProfessores"
   );
-  const res = await fn({});
-  return res.data.professores;
+  carregamentoProfessores = fn({}).then((res) => {
+    cacheProfessores = { data: res.data.professores, expiraEmMs: Date.now() + 30_000 };
+    return res.data.professores;
+  }).finally(() => { carregamentoProfessores = null; });
+  return carregamentoProfessores;
 }
 
 /**
@@ -284,13 +297,28 @@ export async function buscarAlunosPorLetraETermo(
 export async function buscarUsuariosParaRetirada(
   params: BuscarUsuariosRetiradaParams
 ): Promise<UsuarioRetirada[]> {
+  const chave = JSON.stringify({
+    uid: auth.currentUser?.uid ?? "anonymous",
+    letra: params.letra.trim().toUpperCase(),
+    termo: params.termo?.trim().toLocaleLowerCase("pt-BR") ?? null,
+  });
+  const cacheado = cacheBuscasRetirada.get(chave);
+  if (cacheado) return cacheado;
+  const carregamentoExistente = carregamentosBuscasRetirada.get(chave);
+  if (carregamentoExistente) return carregamentoExistente;
   const fn = httpsCallable<BuscarUsuariosRetiradaParams, { usuarios: UsuarioRetirada[] }>(
     functions,
     "buscarUsuariosParaRetirada"
   );
-  const res = await fn({
+  const carregamento = fn({
     letra: params.letra,
     ...(params.termo?.trim() ? { termo: params.termo.trim() } : {}),
+  }).then((res) => {
+    cacheBuscasRetirada.set(chave, res.data.usuarios);
+    return res.data.usuarios;
+  }).finally(() => {
+    if (carregamentosBuscasRetirada.get(chave) === carregamento) carregamentosBuscasRetirada.delete(chave);
   });
-  return res.data.usuarios;
+  carregamentosBuscasRetirada.set(chave, carregamento);
+  return carregamento;
 }

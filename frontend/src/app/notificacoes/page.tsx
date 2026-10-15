@@ -12,11 +12,12 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import { Clock, CheckCircle2, XCircle, AlertCircle, Loader2 } from "lucide-react";
 
 export default function NotificacoesPage() {
-  const { notificacoes, loading, dadosDesatualizados, offline, marcarDadosDesatualizados } = useNotificacoes();
+  const { notificacoes, loading, dadosDesatualizados, offline, erroLeitura } = useNotificacoes();
   const router = useRouter();
   const [abaAtiva, setAbaAtiva] = useState<"nao_lidas" | "todas">("nao_lidas");
   const [limparConfirmacao, setLimparConfirmacao] = useState(false);
   const [limparLoading, setLimparLoading] = useState(false);
+  const [erroAbertura, setErroAbertura] = useState("");
 
   const [agora, setAgora] = useState(() => Date.now());
   useEffect(() => {
@@ -54,6 +55,7 @@ export default function NotificacoesPage() {
 
   const abrirNotificacao = async (event: React.MouseEvent, notif: NotificacaoItem) => {
     event.preventDefault();
+    setErroAbertura("");
     try {
       const resolver = httpsCallable<{ idNotificacao: string }, { autorizado: boolean; url?: string }>(
         getFunctions(), "resolverDestinoNotificacao",
@@ -62,11 +64,11 @@ export default function NotificacoesPage() {
       if (resultado.data.autorizado && resultado.data.url) {
         router.push(resultado.data.url);
       } else {
-        marcarDadosDesatualizados();
+        setErroAbertura("Esta notificação não está mais disponível para sua conta.");
       }
     } catch (error) {
       console.error("Erro ao validar destino da notificação:", error);
-      marcarDadosDesatualizados();
+      setErroAbertura("Não foi possível abrir esta notificação. Tente novamente.");
     }
   };
 
@@ -88,16 +90,16 @@ export default function NotificacoesPage() {
       <div className="max-w-3xl mx-auto p-4 sm:p-6">
         <h1 className="text-2xl font-bold text-foreground mb-6">Notificações</h1>
 
-        {(offline || dadosDesatualizados) && (
+        {(offline || dadosDesatualizados || erroLeitura || erroAbertura) && (
           <div
-            className="mb-4 px-3 py-2 text-xs text-amber-800 bg-amber-100/80 rounded-lg dark:text-amber-100 dark:bg-amber-950/50"
-            role="status"
+            className={`mb-4 px-3 py-2 text-xs rounded-lg ${erroLeitura || erroAbertura ? "text-red-800 bg-red-100/80 dark:text-red-100 dark:bg-red-950/50" : "text-amber-800 bg-amber-100/80 dark:text-amber-100 dark:bg-amber-950/50"}`}
+            role={erroLeitura || erroAbertura ? "alert" : "status"}
             data-testid="notificacoes-estado-offline"
           >
-            {offline
+            {erroLeitura || erroAbertura || (offline
               ? "Você está offline. Exibindo notificações autorizadas anteriormente; ações serão validadas ao reconectar."
               : "Notificações possivelmente desatualizadas. Aguarde a reconexão para confirmar mudanças."
-            }
+            )}
           </div>
         )}
 

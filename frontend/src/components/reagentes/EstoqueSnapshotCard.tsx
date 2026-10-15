@@ -49,8 +49,10 @@ export function EstoqueSnapshotCard({
         </div>
       </div>
 
-      {rateLimited ? (
-        <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-lg text-xs">
+      {errorMsg ? (
+        <div className={`p-3 rounded-lg text-xs ${rateLimited
+          ? "bg-amber-500/10 border border-amber-500/20 text-amber-500"
+          : "bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-300"}`}>
           {errorMsg}
         </div>
       ) : snapshot ? (

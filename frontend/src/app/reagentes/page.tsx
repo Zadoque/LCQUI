@@ -13,7 +13,7 @@ import { CatalogoReagentesTable } from "@/components/reagentes/CatalogoReagentes
 import { ReagentesModaisManager } from "@/components/reagentes/ReagentesModaisManager";
 import { PainelOperacionalReagentes } from "@/components/reagentes/PainelOperacionalReagentes";
 import { useReagentesData } from "@/hooks/useReagentesData";
-import { gerarCatalogoReagentes } from "@/services/reagentes/reagentesService";
+import { gerarCatalogoReagentes, invalidarCachePainelOperacional } from "@/services/reagentes/reagentesService";
 
 function ReagentesContent() {
   const searchParams = useSearchParams();
@@ -150,6 +150,10 @@ function ReagentesContent() {
     // seus campos normativos, incluindo natureza_quimica.
     await gerarCatalogoReagentes();
     await carregarCatalogo();
+  };
+
+  const atualizarOperacao = () => {
+    invalidarCachePainelOperacional();
     setPainelRefreshToken((valor) => valor + 1);
   };
 
@@ -296,6 +300,7 @@ function ReagentesContent() {
             frascoSelecionado={frascoSelecionado}
             setFrascoSelecionado={setFrascoSelecionado}
             onSuccessCatalogo={atualizarCatalogoEOperacao}
+            onSuccessOperacional={atualizarOperacao}
           />
         </div>
       </main>

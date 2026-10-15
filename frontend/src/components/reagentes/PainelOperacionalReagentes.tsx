@@ -3,11 +3,13 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { FrascoCard } from "@/components/reagentes/FrascoCard";
 import {
+  alertasOperacionaisDeNotificacoes,
   obterPainelOperacional,
 } from "@/services/reagentes/reagentesService";
 import type { FrascoOperacional } from "@/types/reagentes";
 import type { HistoricoOperacional, PainelOperacionalData } from "@/types/reagentesApi";
 import { ROTULO_TIPO_NOTIFICACAO } from "@/types/notificacoes";
+import { useNotificacoes } from "@/contexts/NotificacoesContext";
 
 type AbaOperacional = "movimentacoes" | "alertas";
 type AcaoOperacional = "quarentena" | "extravio" | "pesagem_rotina" | "descarte";
@@ -40,11 +42,12 @@ export function PainelOperacionalReagentes({
   onAction,
   refreshToken,
 }: PainelOperacionalReagentesProps) {
+  const { notificacoes } = useNotificacoes();
   const [dados, setDados] = useState<PainelOperacionalData | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
 
-  const carregar = useCallback(async () => {
+  const carregar = useCallback(async (ignorarCache = false) => {
     if (!idAlmoxarifado || !uid) {
       setDados(null);
       setLoading(false);
@@ -53,7 +56,7 @@ export function PainelOperacionalReagentes({
     setLoading(true);
     setErro("");
     try {
-      setDados(await obterPainelOperacional(idAlmoxarifado, uid));
+      setDados(await obterPainelOperacional(idAlmoxarifado, { ignorarCache }));
     } catch (error) {
       console.error("Erro ao carregar painel operacional:", error);
       setErro("Não foi possível carregar os dados operacionais deste almoxarifado.");
@@ -61,6 +64,8 @@ export function PainelOperacionalReagentes({
       setLoading(false);
     }
   }, [idAlmoxarifado, uid]);
+
+  const alertas = alertasOperacionaisDeNotificacoes(notificacoes);
 
   useEffect(() => {
     const carregamento = window.setTimeout(() => void carregar(), 0);
@@ -103,7 +108,7 @@ export function PainelOperacionalReagentes({
               <h2 className="text-lg font-bold">Movimentações</h2>
               <p className="text-xs text-foreground/60">Histórico físico do almoxarifado, ordenado pelo instante do servidor.</p>
             </div>
-            <button type="button" onClick={() => void carregar()} className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold">Atualizar</button>
+            <button type="button" onClick={() => void carregar(true)} className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold">Atualizar</button>
           </div>
           {dados.movimentacoes.length === 0 ? (
             <p className="text-sm text-foreground/60">{estadoVazio(aba)}</p>
@@ -139,11 +144,11 @@ export function PainelOperacionalReagentes({
           <div className="glass-panel p-6 rounded-2xl border border-amber-500/20">
             <h2 className="text-lg font-bold">Alertas operacionais</h2>
             <p className="text-xs text-foreground/60 mb-4">Notificações do próprio gestor relacionadas a estoque e movimentações.</p>
-            {dados.alertas.length === 0 ? (
+            {alertas.length === 0 ? (
               <p className="text-sm text-foreground/60">Nenhum alerta operacional pendente.</p>
             ) : (
               <div className="space-y-2" data-testid="lista-alertas-operacionais">
-                {dados.alertas.map((alerta) => (
+                {alertas.map((alerta) => (
                   <article key={alerta.id} className="p-3 rounded-xl border border-foreground/10 bg-background">
                     <strong className="text-sm">{ROTULO_TIPO_NOTIFICACAO[alerta.tipo] ?? alerta.tipo}</strong>
                     {typeof alerta.quantidade === "number" && <span className="ml-2 text-xs text-foreground/60">Quantidade: {alerta.quantidade}</span>}

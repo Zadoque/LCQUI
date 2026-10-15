@@ -159,4 +159,5 @@ export interface EstoqueSnapshot {
   idadeMs?: number;
   fonte?: "cache" | "recalculado";
   calculadoEm?: Date;
+  expiraEm?: Date;
 }

@@ -45,6 +45,13 @@ test.describe.serial("Notificações UI-12 — página dedicada", () => {
     await page.context().setOffline(false);
   });
 
+  test("UI-004-E2E-003 não mantém aviso de cache após a sincronização online", async ({ page }) => {
+    await login(page, "professor.alpha@lcqui.local");
+    await page.goto("/notificacoes");
+    await expect(page.getByTestId("pagina-notificacoes")).toBeVisible();
+    await expect(page.getByTestId("notificacoes-estado-offline")).not.toBeVisible({ timeout: 10_000 });
+  });
+
   let turmaArquivada = false;
 
   test("deve exibir a página /notificacoes com aba de não lidas e todas as notificações, permitir marcar como lida e restaurar turma arquivada", async ({
