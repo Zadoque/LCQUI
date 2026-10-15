@@ -4,6 +4,7 @@ import { DirtyFormsProvider } from "@/contexts/DirtyFormContext";
 import { NotificacoesProvider } from "@/contexts/NotificacoesContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -46,6 +47,7 @@ export default function RootLayout({
             </NotificacoesProvider>
           </AuthProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
