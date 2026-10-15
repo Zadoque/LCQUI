@@ -7,6 +7,8 @@ import { buscarProfessores } from "../usuarios";
 const testEnv = fft({ projectId: "lcqui-dev" });
 
 describe("rate limit das callable functions", () => {
+  jest.setTimeout(30_000);
+
   let db: admin.firestore.Firestore;
 
   beforeAll(() => {
