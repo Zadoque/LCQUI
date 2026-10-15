@@ -79,6 +79,7 @@ service cloud.firestore {
     match /Chaves_Unicas/{document=**} { allow read, write: if false; }
     match /Sistema_Cache_Dashboard/{document=**} { allow read, write: if false; }
     match /Sistema_Rate_Limit_Dashboard/{document=**} { allow read, write: if false; }
+    match /Sistema_Rate_Limit_Callables/{document=**} { allow read, write: if false; }
     match /Pendencias_Descarte_Frasco/{idFrasco} { allow read, write: if false; }
     match /Sistema_Catalogo_Reagentes/{document=**} {
       allow read: if request.auth != null &&

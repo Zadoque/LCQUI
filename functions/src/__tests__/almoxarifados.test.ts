@@ -6,6 +6,7 @@ process.env.FUNCTIONS_EMULATOR = "true";
 import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { gerenciarAlmoxarifado } from "../almoxarifados";
+import { criarRequestDeTeste } from "../types/testing";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -29,11 +30,8 @@ describe("Cadastros base — Almoxarifado (M9 + M7)", () => {
     testEnv.cleanup();
   });
 
-  const mockRequest = (data: unknown, uid: string, roles: string[] = ["Chefe_Geral"]): any => ({
-    data,
-    auth: { uid, token: { roles, versao_permissoes: 1 } },
-    rawRequest: {},
-  });
+  const mockRequest = (data: Record<string, unknown>, uid: string, roles: string[] = ["Chefe_Geral"]) =>
+    criarRequestDeTeste(data, uid, roles);
 
   let opSeq = 0;
   const novaOperacao = (): string => `op_almox_${Date.now()}_${++opSeq}`;

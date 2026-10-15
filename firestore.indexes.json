@@ -10,6 +10,14 @@
       ]
     },
     {
+      "collectionGroup": "Notificacoes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "id_destinatario", "order": "ASCENDING" },
+        { "fieldPath": "emitida_em", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "Historico_Frasco_Reagente",
       "queryScope": "COLLECTION",
       "fields": [

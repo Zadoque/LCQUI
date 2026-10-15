@@ -1,14 +1,33 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
-  assertFails,
-  assertSucceeds,
+  assertFails as assertRulesFails,
+  assertSucceeds as assertRulesSucceeds,
   initializeTestEnvironment,
   RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
+import type { UploadTask, UploadTaskSnapshot } from "@firebase/storage-types";
 import * as fs from "fs";
 import * as path from "path";
 
 let testEnv: RulesTestEnvironment;
+
+type OperacaoStorage = Promise<unknown> | UploadTask;
+
+function normalizarOperacaoStorage(operacao: OperacaoStorage): Promise<unknown> {
+  if ("on" in operacao) {
+    return new Promise<UploadTaskSnapshot>((resolve, reject) => {
+      operacao.on("state_changed", undefined, reject, () => resolve(operacao.snapshot));
+    });
+  }
+  return operacao;
+}
+
+function assertFails(operacao: OperacaoStorage): Promise<unknown> {
+  return assertRulesFails(normalizarOperacaoStorage(operacao));
+}
+
+function assertSucceeds(operacao: OperacaoStorage): Promise<unknown> {
+  return assertRulesSucceeds(normalizarOperacaoStorage(operacao));
+}
 
 beforeAll(async () => {
   // Inicializa o ambiente de teste apontando para o emulador
@@ -41,7 +60,7 @@ describe("Storage Security Rules", () => {
     it("não deve permitir leitura ou escrita se não estiver autenticado", async () => {
       const storage = unauthedStorage();
       await assertFails(storage.ref("qualquer_coisa/arquivo.png").getDownloadURL());
-      await assertFails(storage.ref("fotos_perfil/user/foto.png").put(Buffer.from("fake image")) as any);
+      await assertFails(storage.ref("fotos_perfil/user/foto.png").put(Buffer.from("fake image")));
     });
   });
 
@@ -50,28 +69,28 @@ describe("Storage Security Rules", () => {
       const storage = authedStorage("alice");
       const ref = storage.ref("fotos_perfil/alice/minha_foto.png");
       const content = Buffer.alloc(1024); // 1KB
-      await assertSucceeds(ref.put(content, { contentType: "image/png" }) as any);
+      await assertSucceeds(ref.put(content, { contentType: "image/png" }));
     });
 
     it("não deve permitir que um usuário altere a foto de outro", async () => {
       const storage = authedStorage("bob");
       const ref = storage.ref("fotos_perfil/alice/minha_foto.png");
       const content = Buffer.alloc(1024);
-      await assertFails(ref.put(content, { contentType: "image/png" }) as any);
+      await assertFails(ref.put(content, { contentType: "image/png" }));
     });
 
     it("não deve permitir upload se não for uma imagem (ex: PDF)", async () => {
       const storage = authedStorage("alice");
       const ref = storage.ref("fotos_perfil/alice/minha_foto.pdf");
       const content = Buffer.alloc(1024);
-      await assertFails(ref.put(content, { contentType: "application/pdf" }) as any);
+      await assertFails(ref.put(content, { contentType: "application/pdf" }));
     });
 
     it("outro usuário autenticado NÃO lê a foto do dono (read escopado)", async () => {
       const aliceStorage = authedStorage("alice");
       const ref = aliceStorage.ref("fotos_perfil/alice/x.png");
       const content = Buffer.alloc(1024);
-      await assertSucceeds(ref.put(content, { contentType: "image/png" }) as any);
+      await assertSucceeds(ref.put(content, { contentType: "image/png" }));
 
       const bobStorage = authedStorage("bob");
       await assertFails(bobStorage.ref("fotos_perfil/alice/x.png").getDownloadURL());
@@ -83,21 +102,21 @@ describe("Storage Security Rules", () => {
       const storage = authedStorage("gestor1", ["Gestor_Bens_Patrimoniais"]);
       const ref = storage.ref("patrimonio/item1/foto.png");
       const content = Buffer.alloc(1024);
-      await assertSucceeds(ref.put(content, { contentType: "image/jpeg", customMetadata: { owner: "gestor1" } }) as any);
+      await assertSucceeds(ref.put(content, { contentType: "image/jpeg", customMetadata: { owner: "gestor1" } }));
     });
 
     it("não deve permitir criar patrimônio se owner no metadata for de outra pessoa", async () => {
       const storage = authedStorage("gestor1", ["Gestor_Bens_Patrimoniais"]);
       const ref = storage.ref("patrimonio/item1/foto.png");
       const content = Buffer.alloc(1024);
-      await assertFails(ref.put(content, { contentType: "image/jpeg", customMetadata: { owner: "outrapessoa" } }) as any);
+      await assertFails(ref.put(content, { contentType: "image/jpeg", customMetadata: { owner: "outrapessoa" } }));
     });
 
     it("um professor PODE fazer upload de foto nas requisições (com owner)", async () => {
       const storage = authedStorage("prof1", ["Professor"]);
       const ref = storage.ref("requisicoes/req1/foto.png");
       const content = Buffer.alloc(1024);
-      await assertSucceeds(ref.put(content, { contentType: "image/jpeg", customMetadata: { owner: "prof1" } }) as any);
+      await assertSucceeds(ref.put(content, { contentType: "image/jpeg", customMetadata: { owner: "prof1" } }));
     });
     
     it("não deve permitir alterar owner de uma foto existente (update malicioso)", async () => {
@@ -105,11 +124,11 @@ describe("Storage Security Rules", () => {
       const ref = storage.ref("patrimonio/item1/foto.png");
       const content = Buffer.alloc(1024);
       // Cria o arquivo corretamente
-      await assertSucceeds(ref.put(content, { contentType: "image/jpeg", customMetadata: { owner: "gestor1" } }) as any);
+      await assertSucceeds(ref.put(content, { contentType: "image/jpeg", customMetadata: { owner: "gestor1" } }));
       
       // Tenta dar update alterando o owner
       const hackerStorage = authedStorage("gestor1", ["Gestor_Bens_Patrimoniais"]);
-      await assertFails(hackerStorage.ref("patrimonio/item1/foto.png").put(content, { contentType: "image/jpeg", customMetadata: { owner: "hacker" } }) as any);
+      await assertFails(hackerStorage.ref("patrimonio/item1/foto.png").put(content, { contentType: "image/jpeg", customMetadata: { owner: "hacker" } }));
     });
 
     it("Aluno NÃO lê patrimônio; Professor LÊ; Gestor LÊ", async () => {
@@ -119,7 +138,7 @@ describe("Storage Security Rules", () => {
         gestorStorage.ref("patrimonio/item1/foto.png").put(
           Buffer.alloc(1024),
           { contentType: "image/jpeg", customMetadata: { owner: "gestor1" } }
-        ) as any
+)
       );
 
       const alunoStorage = authedStorage("aluno1", ["Aluno"]);
@@ -138,7 +157,7 @@ describe("Storage Security Rules", () => {
         profStorage.ref("requisicoes/req1/foto.png").put(
           Buffer.alloc(1024),
           { contentType: "image/jpeg", customMetadata: { owner: "prof1" } }
-        ) as any
+)
       );
 
       const alunoStorage = authedStorage("aluno1", ["Aluno"]);
@@ -153,8 +172,8 @@ describe("Storage Security Rules", () => {
       
       const content = Buffer.alloc(1024);
       
-      await assertFails(storageProf.ref("baixas_patrimoniais/item1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }) as any);
-      await assertSucceeds(storageGestor.ref("baixas_patrimoniais/item1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "gestor1" } }) as any);
+      await assertFails(storageProf.ref("baixas_patrimoniais/item1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }));
+      await assertSucceeds(storageGestor.ref("baixas_patrimoniais/item1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "gestor1" } }));
     });
 
     it("Gestor cria PDF OK; DELETE pelo Gestor → assertFails (retenção)", async () => {
@@ -164,7 +183,7 @@ describe("Storage Security Rules", () => {
         storageGestor.ref("baixas_patrimoniais/item1/doc.pdf").put(
           content,
           { contentType: "application/pdf", customMetadata: { owner: "gestor1" } }
-        ) as any
+)
       );
       // Delete deve falhar — comprovante não pode ser removido após vinculação (S11)
       await assertFails(storageGestor.ref("baixas_patrimoniais/item1/doc.pdf").delete());
@@ -177,7 +196,7 @@ describe("Storage Security Rules", () => {
         storageGestor.ref("baixas_patrimoniais/item1/doc.pdf").put(
           content,
           { contentType: "application/pdf", customMetadata: { owner: "gestor1" } }
-        ) as any
+)
       );
       await assertSucceeds(storageGestor.ref("baixas_patrimoniais/item1/doc.pdf").getDownloadURL());
 
@@ -194,7 +213,7 @@ describe("Storage Security Rules", () => {
         storageSemAtivo.ref("patrimonio/item1/foto.png").put(
           content,
           { contentType: "image/jpeg", customMetadata: { owner: "x" } }
-        ) as any
+)
       );
     });
   });
@@ -206,8 +225,8 @@ describe("Storage Security Rules", () => {
       
       const content = Buffer.alloc(1024);
       
-      await assertFails(storageAluno.ref("roteiros/aluno1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "aluno1" } }) as any);
-      await assertSucceeds(storageProf.ref("roteiros/prof1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }) as any);
+      await assertFails(storageAluno.ref("roteiros/aluno1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "aluno1" } }));
+      await assertSucceeds(storageProf.ref("roteiros/prof1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }));
     });
 
     it("professor NÃO cria fora do próprio namespace", async () => {
@@ -216,11 +235,11 @@ describe("Storage Security Rules", () => {
       const content = Buffer.from("%PDF-1.4\n");
 
       // Criar no próprio namespace e com owner correto é permitido.
-      await assertSucceeds(storageProf1.ref("roteiros/prof1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }) as any);
+      await assertSucceeds(storageProf1.ref("roteiros/prof1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }));
 
       // Criar no namespace de outro professor, mesmo com owner prÃ³prio, deve falhar.
-      await assertFails(storageProf1.ref("roteiros/prof2/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }) as any);
-      await assertFails(storageProf2.ref("roteiros/prof1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "prof2" } }) as any);
+      await assertFails(storageProf1.ref("roteiros/prof2/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }));
+      await assertFails(storageProf2.ref("roteiros/prof1/doc.pdf").put(content, { contentType: "application/pdf", customMetadata: { owner: "prof2" } }));
     });
 
     it("um professor não deve conseguir atualizar o roteiro de outro professor (update/sobrescrita maliciosa)", async () => {
@@ -231,7 +250,7 @@ describe("Storage Security Rules", () => {
       const ref = storageProf1.ref("roteiros/prof1/doc.pdf");
       
       // Prof1 envia seu roteiro
-      await assertSucceeds(ref.put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }) as any);
+      await assertSucceeds(ref.put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }));
       
       const ref2 = storageProf2.ref("roteiros/prof1/doc.pdf");
       // Download mediado por endpoint: leitura direta via Storage Rules deve falhar
@@ -247,14 +266,14 @@ describe("Storage Security Rules", () => {
       const storage = authedStorage("prof1", ["Professor"]);
       const ref = storage.ref("roteiros/prof1/doc.pdf");
       const content = Buffer.alloc(16 * 1024 * 1024); // 16MB
-      await assertFails(ref.put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }) as any);
+      await assertFails(ref.put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } }));
     });
 
     it("deve fechar read para TODOS, inclusive o próprio dono", async () => {
       const storageProf = authedStorage("prof1", ["Professor"]);
       const ref = storageProf.ref("roteiros/prof1/doc.pdf");
       const content = Buffer.from("%PDF-1.4\n");
-      await ref.put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } } as any);
+      await ref.put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } });
 
       // Dono não pode obter URL de download direta.
       await assertFails(ref.getDownloadURL());
@@ -268,9 +287,9 @@ describe("Storage Security Rules", () => {
       const storageProf = authedStorage("prof1", ["Professor"]);
       const ref = storageProf.ref("roteiros/prof1/doc.pdf");
       const content = Buffer.from("%PDF-1.4\n");
-      await ref.put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } } as any);
+      await ref.put(content, { contentType: "application/pdf", customMetadata: { owner: "prof1" } });
 
-      await assertFails(ref.updateMetadata({ customMetadata: { owner: "prof1" } }) as any);
+      await assertFails(ref.updateMetadata({ customMetadata: { owner: "prof1" } }));
       await assertFails(ref.delete());
     });
   });

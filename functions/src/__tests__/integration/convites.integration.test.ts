@@ -16,6 +16,7 @@ import {
   hashTokenConvite,
 } from "../../domain/convites";
 import { chaveConvitePendente, chaveAlunoMatricula } from "../../chaves";
+import { criarRequestDeTeste } from "../../types/testing";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -39,14 +40,8 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
     return `op_convite_${Date.now()}_${++opCount}`;
   }
 
-  const mockRequest = (data: any, uid: string, roles: string[] = ["Professor"]): any => ({
-    data,
-    auth: {
-      uid,
-      token: { roles, versao_permissoes: 1 },
-    },
-    rawRequest: {},
-  });
+  const mockRequest = <T>(data: T, uid: string, roles: string[] = ["Professor"]) =>
+    criarRequestDeTeste(data, uid, roles);
 
   async function semearProfessor(uid: string): Promise<void> {
     await db.collection("Usuarios").doc(uid).set({
@@ -458,9 +453,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
       }, mockRequest({}, profId), SECRET_TEST);
 
       const idOpAceite = novaOp();
-      const reqAceite: any = {
-        auth: { uid: alunoUid },
-      };
+      const reqAceite = criarRequestDeTeste({}, alunoUid);
 
       const resAceite = await executarAceitarConviteAluno({
         idOperacao: idOpAceite,
@@ -555,7 +548,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         tokenConvite: convite.tokenEfemero!,
         nomeInformado: "Aluno Global",
         matriculaInformada: "20260002",
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST);
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST);
 
       expect(resAceite.criouMatricula).toBe(false);
       expect(resAceite.idTurma).toBeNull();
@@ -598,7 +591,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         idConvite: convite.id,
         tokenConvite: convite.tokenEfemero!,
         matriculaInformada: "20260003",
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST)).rejects.toMatchObject({
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST)).rejects.toMatchObject({
         code: "permission-denied",
       });
 
@@ -608,7 +601,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         idConvite: convite.id,
         tokenConvite: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         matriculaInformada: "20260003",
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST)).rejects.toMatchObject({
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST)).rejects.toMatchObject({
         code: "permission-denied",
       });
     });
@@ -630,7 +623,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         idConvite: convite.id,
         tokenConvite: convite.tokenEfemero!,
         matriculaInformada: "20260004",
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST)).rejects.toMatchObject({
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST)).rejects.toMatchObject({
         code: "failed-precondition",
       });
     });
@@ -653,7 +646,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         idConvite: convite.id,
         tokenConvite: convite.tokenEfemero!,
         matriculaInformada: "20260005",
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST)).rejects.toMatchObject({
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST)).rejects.toMatchObject({
         code: "permission-denied",
       });
     });
@@ -683,7 +676,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         idConvite: convite.id,
         tokenConvite: convite.tokenEfemero!,
         matriculaInformada: "20260006",
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST)).rejects.toMatchObject({
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST)).rejects.toMatchObject({
         code: "failed-precondition",
       });
 
@@ -716,7 +709,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         idConvite: convite.id,
         tokenConvite: convite.tokenEfemero!,
         matriculaInformada: "20260007",
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST)).rejects.toMatchObject({
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST)).rejects.toMatchObject({
         code: "failed-precondition",
       });
     });
@@ -745,7 +738,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         idConvite: convite.id,
         tokenConvite: convite.tokenEfemero!,
         matriculaInformada: "20260008",
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST)).rejects.toMatchObject({
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST)).rejects.toMatchObject({
         code: "already-exists",
       });
     });
@@ -777,7 +770,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         idConvite: convite.id,
         tokenConvite: convite.tokenEfemero!,
         matriculaInformada: "20260009",
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST);
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST);
 
       expect(resAceite.criouMatricula).toBe(true);
 
@@ -798,7 +791,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         idOperacao: novaOp(),
         idConvite: "convite_inexistente_123",
         tokenConvite: "0".repeat(64),
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST)).rejects.toMatchObject({
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST)).rejects.toMatchObject({
         code: "not-found",
       });
     });
@@ -821,7 +814,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         idConvite: convite.id,
         tokenConvite: convite.tokenEfemero!,
         matriculaInformada: "20260010",
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST);
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST);
 
       // Segundo aceite com nova operação deve falhar
       await expect(executarAceitarConviteAluno({
@@ -829,7 +822,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         idConvite: convite.id,
         tokenConvite: convite.tokenEfemero!,
         matriculaInformada: "20260010",
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST)).rejects.toMatchObject({
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST)).rejects.toMatchObject({
         code: "failed-precondition",
       });
     });
@@ -854,7 +847,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         idConvite: convite.id,
         tokenConvite: convite.tokenEfemero!,
         matriculaInformada: "20260012",
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST)).rejects.toMatchObject({
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST)).rejects.toMatchObject({
         code: "failed-precondition",
       });
     });
@@ -877,7 +870,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         idConvite: convite.id,
         tokenConvite: convite.tokenEfemero!,
         matriculaInformada: "20260013",
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST);
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST);
 
       // Tentativa de reutilizar o mesmo idOperacao com token diferente -> already-exists
       await expect(executarAceitarConviteAluno({
@@ -885,7 +878,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         idConvite: convite.id,
         tokenConvite: "outro_token_diferente",
         matriculaInformada: "20260013",
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST)).rejects.toMatchObject({
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST)).rejects.toMatchObject({
         code: "already-exists",
       });
     });
@@ -915,7 +908,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         idConvite: convite.id,
         tokenConvite: convite.tokenEfemero!,
         matriculaInformada: "20260014",
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST)).rejects.toMatchObject({
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST)).rejects.toMatchObject({
         code: "permission-denied",
       });
     });
@@ -943,7 +936,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         idConvite: convite.id,
         tokenConvite: convite.tokenEfemero!,
         matriculaInformada: "MAT_OCUPADA",
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST)).rejects.toMatchObject({
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST)).rejects.toMatchObject({
         code: "already-exists",
       });
     });
@@ -970,7 +963,7 @@ describe("Integração ACAD-005 e ACAD-006: Ciclo de Vida de Convites e Aceite (
         idConvite: convite.id,
         tokenConvite: convite.tokenEfemero!,
         matriculaInformada: "20260016",
-      }, { auth: { uid: alunoUid } } as any, SECRET_TEST);
+      }, criarRequestDeTeste({}, alunoUid), SECRET_TEST);
 
       expect(resAceite.criouMatricula).toBe(true);
       const turmaApos = await db.collection("Turma").doc(turmaId).get();

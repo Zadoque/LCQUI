@@ -11,15 +11,7 @@ import {
   ObterEstoqueAtualSchema,
   ConfigurarLimiarEscassezSchema,
 } from "./schemas/estoque.schema";
-
-export interface M8Estoque {
-  qtd_aptos: number;
-  qtd_total: number;
-  qtd_emprestados: number;
-  qtd_saldo_desconhecido: number;
-  massa_aferida_g: number | null;
-  volume_aferido_ml: number | null;
-}
+import type { M8Estoque, ResultadoConfiguracaoEscassez } from "./types/estoque";
 
 export function frascoAptoParaUso(dados: FirebaseFirestore.DocumentData): boolean {
   if (dados.situacao_localizacao && dados.situacao_localizacao !== "LOCALIZADO") return false;
@@ -124,6 +116,8 @@ export const obterEstoqueAtual = onCall(async (request) => {
         ...cData.resultado,
         fonte: "CACHE",
         idadeMs,
+        calculado_em_ms: calculadoEm,
+        expira_em_ms: calculadoEm + 30_000,
       };
     }
   }
@@ -205,6 +199,8 @@ export const obterEstoqueAtual = onCall(async (request) => {
     ...resultado,
     fonte: "CALCULADO",
     idadeMs: 0,
+    calculado_em_ms: agora,
+    expira_em_ms: agora + 30_000,
   };
 });
 
@@ -231,7 +227,7 @@ export const configurarLimiarEscassez = onCall(async (request) => {
 
   return admin.firestore().runTransaction(async (tx) => {
     const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
-    if (decisao.estado === "REPLAY") return decisao.resultado as any;
+    if (decisao.estado === "REPLAY") return decisao.resultado as ResultadoConfiguracaoEscassez;
     if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação não concluída.");
 
     await validarGestorDoAlmoxarifadoTx(tx, claims, dados.idAlmoxarifado);

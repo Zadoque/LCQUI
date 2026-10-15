@@ -7,6 +7,7 @@ import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { CallableRequest } from "firebase-functions/v2/https";
 import { convidarUsuario, revogarUsuarioPapel, atualizarPerfil, buscarProfessores, buscarUsuariosParaPapel, buscarUsuariosParaRetirada, obterDetalhesUsuarioParaPapel } from "../../usuarios";
+import { criarRequestDeTeste } from "../../types/testing";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -24,19 +25,30 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
     testEnv.cleanup();
   });
 
-  const mockRequest = (data: any, uid: string, roles: string[] = ["Chefe_Geral"]): any => ({
-    data,
-    auth: {
-      uid,
-      token: { roles, versao_permissoes: 1 }
-    },
-    rawRequest: {}
-  });
+  const mockRequest = (data: Record<string, unknown>, uid: string, roles: string[] = ["Chefe_Geral"]) =>
+    criarRequestDeTeste(data, uid, roles);
+
+  async function prepararCenarioConcorrencia(chefesAtivos: number, gestoresPatrimoniaisAtivos: number): Promise<void> {
+    for (const colecao of ["Chefe_Geral", "Gestor_Bens_Patrimoniais"]) {
+      const snapshot = await db.collection(colecao).get();
+      await Promise.all(snapshot.docs.map(documento => documento.ref.delete()));
+    }
+    await db.collection("Controle_Papeis").doc("singleton").set({
+      chefes_ativos: chefesAtivos,
+      gestores_patrimoniais_ativos: gestoresPatrimoniaisAtivos,
+      versao: 1,
+    });
+  }
 
   // M9: o ator exige autoridade persistida (Usuarios ativo + documento de papel).
   beforeAll(async () => {
     await db.collection("Usuarios").doc("chefe123").set({ ativo: true, versao_permissoes: 1 });
     await db.collection("Chefe_Geral").doc("chefe123").set({ id_usuario: "chefe123" });
+    await db.collection("Controle_Papeis").doc("singleton").set({
+      chefes_ativos: 1,
+      gestores_patrimoniais_ativos: 1,
+      versao: 1,
+    });
     await Promise.all([
       "op-revogar-aluno-1",
       "op-m7-receipt-1",
@@ -171,7 +183,6 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
   });
 
   it("deve desativar o usuário ao revogar seu último papel e manter em Usuarios com ativo = false", async () => {
-    const { revogarUsuarioPapel } = require("../../usuarios");
     const wrapped = testEnv.wrap(revogarUsuarioPapel);
     
     const userEmail = "aluno_revogar_unico@example.com";
@@ -230,7 +241,7 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
   });
 
   it("TEST-INT-ROLE-002-001 — duas auto-revogações concorrentes não removem os dois últimos Chefes", async () => {
-    await db.collection("Chefe_Geral").doc("chefe123").delete();
+    await prepararCenarioConcorrencia(2, 0);
     const alvos = [`chefe_concorrente_a_${Date.now()}`, `chefe_concorrente_b_${Date.now()}`];
     for (const [indice, uid] of alvos.entries()) {
       const email = `${uid}@example.com`;
@@ -248,12 +259,19 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
     expect(resultados.filter(item => item.status === "rejected")).toHaveLength(1);
     const chefesAtivos = await db.collection("Chefe_Geral").get();
     expect(chefesAtivos.docs.map(doc => doc.id).filter(uid => alvos.includes(uid))).toHaveLength(1);
+    expect((await db.collection("Controle_Papeis").doc("singleton").get()).data()).toMatchObject({
+      chefes_ativos: 1,
+      gestores_patrimoniais_ativos: 0,
+    });
 
     await db.collection("Usuarios").doc("chefe123").set({ ativo: true, versao_permissoes: 1 });
     await db.collection("Chefe_Geral").doc("chefe123").set({ id_usuario: "chefe123", ativo: true });
   });
 
   it("TEST-INT-ROLE-002-002 — duas revogações concorrentes preservam o último Gestor Patrimonial", async () => {
+    await prepararCenarioConcorrencia(1, 2);
+    await db.collection("Usuarios").doc("chefe123").set({ ativo: true, versao_permissoes: 1 });
+    await db.collection("Chefe_Geral").doc("chefe123").set({ id_usuario: "chefe123", ativo: true });
     const alvos = [`gestor_concorrente_a_${Date.now()}`, `gestor_concorrente_b_${Date.now()}`];
     for (const [indice, uid] of alvos.entries()) {
       const email = `${uid}@example.com`;
@@ -271,6 +289,10 @@ describe("Integração: Múltiplos Papéis (convidarUsuario)", () => {
     expect(resultados.filter(item => item.status === "rejected")).toHaveLength(1);
     const gestoresAtivos = await db.collection("Gestor_Bens_Patrimoniais").get();
     expect(gestoresAtivos.docs.map(doc => doc.id).filter(uid => alvos.includes(uid))).toHaveLength(1);
+    expect((await db.collection("Controle_Papeis").doc("singleton").get()).data()).toMatchObject({
+      chefes_ativos: 1,
+      gestores_patrimoniais_ativos: 1,
+    });
   });
 });
 
@@ -291,6 +313,11 @@ describe("Integração: M7 em mutações de papel", () => {
   beforeEach(async () => {
     await db.collection("Usuarios").doc("chefe123").set({ ativo: true, versao_permissoes: 1 });
     await db.collection("Chefe_Geral").doc("chefe123").set({ id_usuario: "chefe123" });
+    await db.collection("Controle_Papeis").doc("singleton").set({
+      chefes_ativos: 1,
+      gestores_patrimoniais_ativos: 1,
+      versao: 1,
+    });
   });
 
   const mockRequest = (data: unknown, uid: string, roles: string[] = ["Chefe_Geral"]): CallableRequest =>

@@ -4,6 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { createHash } from "node:crypto";
 import { validarAutoridadePersistida } from "./auth";
 import { validatePayload } from "./utils/validation";
+import { verificarRateLimitCallable } from "./utils/rateLimit";
 import { ResolverCatalogoPorIdsSchema } from "./schemas/catalogo.schema";
 
 export type CatalogoNome = "resumos" | "especificacoes" | "substancias" | "materias";
@@ -380,7 +381,8 @@ async function carregarEstadoPublicado(): Promise<EstadoCatalogo> {
 }
 
 export const gerarCatalogoReagentes = onCall(async (request) => {
-  await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  const autoridade = await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await verificarRateLimitCallable(autoridade.uid, "catalogo-geracao");
   const catalogo = await montarEGravarCatalogoReagentes();
   return {
     status: "OK",
@@ -393,7 +395,8 @@ export const gerarCatalogoReagentes = onCall(async (request) => {
 });
 
 export const obterCatalogoReagentes = onCall(async (request) => {
-  await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado", "Professor", "Aluno", "Bolsista"]);
+  const autoridade = await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado", "Professor", "Aluno", "Bolsista"]);
+  await verificarRateLimitCallable(autoridade.uid, "catalogo-leitura");
   const estado = await carregarEstadoPublicado();
   const catalogo = reagentesDaEstado(estado);
   return {
@@ -407,7 +410,8 @@ export const obterCatalogoReagentes = onCall(async (request) => {
 });
 
 export const obterCatalogoSubstancias = onCall(async (request) => {
-  await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  const autoridade = await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado"]);
+  await verificarRateLimitCallable(autoridade.uid, "catalogo-leitura");
   const estado = await carregarEstadoPublicado();
   const manifesto = estado.manifesto ?? manifestoDe(estado);
   return {
@@ -420,7 +424,8 @@ export const obterCatalogoSubstancias = onCall(async (request) => {
 });
 
 export const obterCatalogoMaterias = onCall(async (request) => {
-  await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado", "Professor", "Aluno", "Bolsista"]);
+  const autoridade = await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado", "Professor", "Aluno", "Bolsista"]);
+  await verificarRateLimitCallable(autoridade.uid, "catalogo-leitura");
   const estado = await carregarEstadoPublicado();
   const manifesto = estado.manifesto ?? manifestoDe(estado);
   return {
@@ -434,7 +439,8 @@ export const obterCatalogoMaterias = onCall(async (request) => {
 
 export const resolverCatalogoPorIds = onCall(async (request) => {
   const dados = validatePayload(ResolverCatalogoPorIdsSchema, request.data);
-  await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado", "Professor", "Aluno", "Bolsista"]);
+  const autoridade = await validarAutoridadePersistida(request, ["Chefe_Geral", "Gestor_Almoxarifado", "Professor", "Aluno", "Bolsista"]);
+  await verificarRateLimitCallable(autoridade.uid, "catalogo-resolucao");
 
   const db = admin.firestore();
   const resumoRef = db.collection("Resumo_Reagente").doc(dados.idResumo);

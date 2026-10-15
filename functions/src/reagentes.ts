@@ -7,6 +7,8 @@ import {
 } from "./auth";
 import { validatePayload } from "./utils/validation";
 import { construirIdentidade, registrarOperacaoConcluidaTx, resolverOperacaoTx } from "./idempotencia";
+import { invalidarCacheEstoqueTx } from "./estoque";
+import type { ResultadoOperacaoReagente, ResultadoRegistrarDevolucao } from "./types/reagentes";
 import { 
   CadastroFrascoFechadoSchema, 
   CadastroFrascoAbertoSchema, 
@@ -22,6 +24,18 @@ import {
   ColocarFrascoEmQuarentenaSchema,
   ResolverQuarentenaFrascoSchema
 } from "./schemas/reagentes.schema";
+
+function invalidarCacheDoFrascoTx(
+  tx: FirebaseFirestore.Transaction,
+  frasco: FirebaseFirestore.DocumentData,
+): void {
+  const idAlmoxarifado = frasco.id_almoxarifado;
+  if (typeof idAlmoxarifado !== "string" || !idAlmoxarifado) return;
+  const idResumoReagente = typeof frasco.id_resumo_reagente === "string"
+    ? frasco.id_resumo_reagente
+    : undefined;
+  invalidarCacheEstoqueTx(tx, idAlmoxarifado, idResumoReagente);
+}
 
 export const cadastrarFrascoFechado = onCall(async (request) => {
   const dados = validatePayload(CadastroFrascoFechadoSchema, request.data);
@@ -145,6 +159,7 @@ export const cadastrarFrascoFechado = onCall(async (request) => {
       cadastrado_em: FieldValue.serverTimestamp(),
       cadastrado_por: request.auth!.uid,
     });
+    invalidarCacheEstoqueTx(tx, dados.idAlmoxarifado, dados.idResumoReagente);
 
     if (dados.decisaoSeJaVencido === "PENDENTE_DE_DESCARTE") {
       tx.create(admin.firestore().collection("Pendencias_Descarte_Frasco").doc(frascoRef.id), {
@@ -249,6 +264,7 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
       cadastrado_em: FieldValue.serverTimestamp(),
       cadastrado_por: request.auth!.uid,
     });
+    invalidarCacheEstoqueTx(tx, dados.idAlmoxarifado, dados.idResumoReagente);
     tx.create(admin.firestore().collection("Historico_Frasco_Reagente").doc(), { id_frasco_reagente: frascoRef.id, id_almoxarifado: dados.idAlmoxarifado, id_gestor: claims.uid, tipo: "CADASTRO", timestamp: FieldValue.serverTimestamp() });
     const resultado = { idFrasco: frascoRef.id, codigoFrasco, conteudoNominal: dados.volumeNominal ?? null, pesoVazio: null, venceuNoCadastro: jaVencido };
     registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
@@ -256,7 +272,10 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
   });
 });
 
-export function calcularValidadeEfetivaNaAbertura(frasco: any, dataAbertura: Date): Date | null {
+export function calcularValidadeEfetivaNaAbertura(
+  frasco: FirebaseFirestore.DocumentData,
+  dataAbertura: Date,
+): Date | null {
   if (frasco.validade_desconhecida) return null;
 
   const validadeFechado = frasco.validade_fechado
@@ -325,6 +344,7 @@ export const registrarAberturaFrasco = onCall(async (request) => {
           : null))
         : null,
     });
+    invalidarCacheDoFrascoTx(tx, frasco);
     tx.create(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
       id_frasco_reagente: dados.idFrasco, id_almoxarifado: frasco.id_almoxarifado,
       id_gestor: claims.uid, tipo: "ABERTURA", timestamp: FieldValue.serverTimestamp(),
@@ -443,6 +463,7 @@ export const registrarRetirada = onCall(async (request) => {
     });
 
     tx.update(frascoRef, { disponibilidade: "EMPRESTADO" });
+    invalidarCacheDoFrascoTx(tx, frasco);
 
     const historicoRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
     tx.set(historicoRef, {
@@ -490,7 +511,7 @@ export const registrarRetirada = onCall(async (request) => {
   return resultado;
 });
 
-async function resolverDensidadeDoFrasco(frasco: any): Promise<number | null> {
+async function resolverDensidadeDoFrasco(frasco: FirebaseFirestore.DocumentData): Promise<number | null> {
   let idEspec = frasco.id_especificacao_reagente;
   if (!idEspec && frasco.id_lote) {
     const loteSnap = await admin.firestore().collection("Lote").doc(frasco.id_lote).get();
@@ -518,7 +539,7 @@ export const registrarDevolucao = onCall(async (request) => {
 
   return admin.firestore().runTransaction(async (tx) => {
     const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
-    if (decisao.estado === "REPLAY") return decisao.resultado as any;
+    if (decisao.estado === "REPLAY") return decisao.resultado as ResultadoRegistrarDevolucao;
     if (decisao.estado !== "NOVA") {
       throw new HttpsError("failed-precondition", "Operação de devolução não concluída.");
     }
@@ -630,6 +651,7 @@ export const registrarDevolucao = onCall(async (request) => {
     }
 
     tx.update(frascoRef, atualizacaoFrasco);
+    invalidarCacheDoFrascoTx(tx, frasco);
 
     tx.update(emprestimoRef, {
       status: reterPorAnomalia ? "DEVOLVIDO_COM_ANOMALIA" : (atrasado ? "DEVOLVIDO_COM_ATRASO" : "DEVOLVIDO"),
@@ -748,9 +770,13 @@ export async function existePendenciaMetrologicaTx(tx: FirebaseFirestore.Transac
 async function houveMovimentacaoFisicaPosteriorTx(
   tx: FirebaseFirestore.Transaction,
   idFrasco: string,
-  desde: any
+  desde: unknown,
 ): Promise<boolean> {
-  const desdeDate = typeof desde?.toDate === "function" ? desde.toDate() : (desde instanceof Date ? desde : null);
+  const desdeDate = desde instanceof Date
+    ? desde
+    : typeof desde === "object" && desde !== null && "toDate" in desde && typeof desde.toDate === "function"
+      ? desde.toDate()
+      : null;
   let query = admin.firestore().collection("Historico_Frasco_Reagente")
     .where("id_frasco_reagente", "==", idFrasco)
     .where("tipo", "in", ["SAIU", "ENTROU", "EVAPORACAO", "INVENTARIO_ROTINA", "RECALIBRACAO_TARA"]);
@@ -764,7 +790,7 @@ async function houveMovimentacaoFisicaPosteriorTx(
 function finalizarPendenciaMetrologicaTx(
   tx: FirebaseFirestore.Transaction,
   emprestimoRef: FirebaseFirestore.DocumentReference,
-  emprestimo: any,
+  emprestimo: FirebaseFirestore.DocumentData,
   dados: { pesoRetornoEfetivo: number; medidaUtilizada: number; motivo: string; idGestor: string }
 ) {
   const historicoRef = admin.firestore().collection("Historico_Frasco_Reagente").doc();
@@ -800,7 +826,7 @@ export const repetirPesagemDevolucaoAnomala = onCall(async (request) => {
 
   return admin.firestore().runTransaction(async (tx) => {
     const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
-    if (decisao.estado === "REPLAY") return decisao.resultado as any;
+    if (decisao.estado === "REPLAY") return decisao.resultado as ResultadoOperacaoReagente;
     if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação não concluída.");
 
     const emprestimoSnap = await tx.get(emprestimoRef);
@@ -824,7 +850,7 @@ export const repetirPesagemDevolucaoAnomala = onCall(async (request) => {
         motivo: dados.motivo,
         timestamp: FieldValue.serverTimestamp(),
       });
-      const resultado = { status: "PENDENTE_SEM_EVIDENCIA_SUFICIENTE" };
+      const resultado: ResultadoOperacaoReagente = { status: "PENDENTE_SEM_EVIDENCIA_SUFICIENTE" };
       registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
       return resultado;
     }
@@ -851,8 +877,9 @@ export const repetirPesagemDevolucaoAnomala = onCall(async (request) => {
       peso_atual: efetiva,
       data_ultima_pesagem: FieldValue.serverTimestamp(),
     });
+    invalidarCacheDoFrascoTx(tx, { id_almoxarifado: emprestimo.id_almoxarifado });
 
-    const resultado = { status: "OK", pesoRetornoEfetivo: efetiva, medidaUtilizada };
+    const resultado: ResultadoOperacaoReagente = { status: "OK", pesoRetornoEfetivo: efetiva, medidaUtilizada };
     registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
     return resultado;
   });
@@ -870,7 +897,7 @@ export const confirmarEsgotamentoAposInspecao = onCall(async (request) => {
 
   return admin.firestore().runTransaction(async (tx) => {
     const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
-    if (decisao.estado === "REPLAY") return decisao.resultado as any;
+    if (decisao.estado === "REPLAY") return decisao.resultado as ResultadoOperacaoReagente;
     if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação não concluída.");
 
     const emprestimoSnap = await tx.get(emprestimoRef);
@@ -906,6 +933,7 @@ export const confirmarEsgotamentoAposInspecao = onCall(async (request) => {
         ? { peso_frasco_vazio: dados.pesoVazioRealMedido, origem_tara: "MEDIDA_REAL" }
         : {}),
     });
+    invalidarCacheDoFrascoTx(tx, frasco);
 
     if (divergente) {
       tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
@@ -924,7 +952,7 @@ export const confirmarEsgotamentoAposInspecao = onCall(async (request) => {
     }
 
     if (houveMovimentacao) {
-      const resultado = { status: "VAZIO_REGISTRADO_PENDENCIA_MANTIDA" };
+      const resultado: ResultadoOperacaoReagente = { status: "VAZIO_REGISTRADO_PENDENCIA_MANTIDA" };
       registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
       return resultado;
     }
@@ -945,7 +973,7 @@ export const confirmarEsgotamentoAposInspecao = onCall(async (request) => {
       idGestor: claims.uid,
     });
 
-    const resultado = { status: "OK", vazioConfirmado: true };
+    const resultado: ResultadoOperacaoReagente = { status: "OK", vazioConfirmado: true };
     registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
     return resultado;
   });
@@ -963,7 +991,7 @@ export const recalibrarTaraFrascoEsgotado = onCall(async (request) => {
 
   return admin.firestore().runTransaction(async (tx) => {
     const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
-    if (decisao.estado === "REPLAY") return decisao.resultado as any;
+    if (decisao.estado === "REPLAY") return decisao.resultado as ResultadoOperacaoReagente;
     if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação não concluída.");
 
     const frascoSnap = await tx.get(frascoRef);
@@ -984,6 +1012,7 @@ export const recalibrarTaraFrascoEsgotado = onCall(async (request) => {
       saldo_desconhecido: false,
       data_ultima_pesagem: FieldValue.serverTimestamp(),
     });
+    invalidarCacheDoFrascoTx(tx, frasco);
 
     tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
       id_frasco_reagente: dados.idFrasco,
@@ -1015,7 +1044,7 @@ export const registrarPesagemRotina = onCall(async (request) => {
 
   return admin.firestore().runTransaction(async (tx) => {
     const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
-    if (decisao.estado === "REPLAY") return decisao.resultado as any;
+    if (decisao.estado === "REPLAY") return decisao.resultado as ResultadoOperacaoReagente;
     if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação não concluída.");
 
     const frascoSnap = await tx.get(frascoRef);
@@ -1032,6 +1061,7 @@ export const registrarPesagemRotina = onCall(async (request) => {
       peso_atual: dados.pesoAtual,
       data_ultima_pesagem: FieldValue.serverTimestamp(),
     });
+    invalidarCacheDoFrascoTx(tx, frasco);
 
     tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
       id_frasco_reagente: dados.idFrasco,
@@ -1062,7 +1092,7 @@ export const descartarFrasco = onCall(async (request) => {
 
   return admin.firestore().runTransaction(async (tx) => {
     const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
-    if (decisao.estado === "REPLAY") return decisao.resultado as any;
+    if (decisao.estado === "REPLAY") return decisao.resultado as ResultadoOperacaoReagente;
     if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação não concluída.");
 
     const frascoSnap = await tx.get(frascoRef);
@@ -1097,6 +1127,7 @@ export const descartarFrasco = onCall(async (request) => {
       em_quarentena: false,
       detalhe_status: "Frasco descartado institucionalmente: " + dados.motivo,
     });
+    invalidarCacheDoFrascoTx(tx, frasco);
 
     if (autorizadoPorLaudo) tx.delete(authRef);
 
@@ -1129,7 +1160,7 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
 
   return admin.firestore().runTransaction(async (tx) => {
     const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
-    if (decisao.estado === "REPLAY") return decisao.resultado as any;
+    if (decisao.estado === "REPLAY") return decisao.resultado as ResultadoOperacaoReagente;
     if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação não concluída.");
 
     const frascoSnap = await tx.get(frascoRef);
@@ -1177,6 +1208,7 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
         descarte_autorizado: false,
         detalhe_status: "Frasco extraviado: " + dados.motivo,
       });
+      invalidarCacheDoFrascoTx(tx, frasco);
 
       tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
         id_frasco_reagente: dados.idFrasco,
@@ -1188,7 +1220,7 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
         timestamp: FieldValue.serverTimestamp(),
       });
 
-      const resultado = { status: "OK", idFrasco: dados.idFrasco, situacao_localizacao: "EXTRAVIADO" };
+      const resultado: ResultadoOperacaoReagente = { status: "OK", idFrasco: dados.idFrasco, situacao_localizacao: "EXTRAVIADO" };
       registrarOperacaoConcluidaTx(tx, dados.idOperacao, identidade, resultado);
       return resultado;
     } else {
@@ -1229,6 +1261,7 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
       }
 
       tx.update(frascoRef, atualizacao);
+      invalidarCacheDoFrascoTx(tx, frasco);
 
       tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
         id_frasco_reagente: dados.idFrasco,
@@ -1241,7 +1274,7 @@ export const registrarExtravioOuReencontro = onCall(async (request) => {
         timestamp: FieldValue.serverTimestamp(),
       });
 
-      const resultado = {
+      const resultado: ResultadoOperacaoReagente = {
         status: "OK",
         idFrasco: dados.idFrasco,
         situacao_localizacao: "LOCALIZADO",
@@ -1265,7 +1298,7 @@ export const colocarFrascoEmQuarentena = onCall(async (request) => {
 
   return admin.firestore().runTransaction(async (tx) => {
     const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
-    if (decisao.estado === "REPLAY") return decisao.resultado as any;
+    if (decisao.estado === "REPLAY") return decisao.resultado as ResultadoOperacaoReagente;
     if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação não concluída.");
 
     const frascoSnap = await tx.get(frascoRef);
@@ -1291,6 +1324,7 @@ export const colocarFrascoEmQuarentena = onCall(async (request) => {
       disponibilidade: "INDISPONIVEL",
       detalhe_status: "Frasco colocado em quarentena: " + dados.motivo,
     });
+    invalidarCacheDoFrascoTx(tx, frasco);
 
     tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
       id_frasco_reagente: dados.idFrasco,
@@ -1320,7 +1354,7 @@ export const resolverQuarentenaFrasco = onCall(async (request) => {
 
   return admin.firestore().runTransaction(async (tx) => {
     const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
-    if (decisao.estado === "REPLAY") return decisao.resultado as any;
+    if (decisao.estado === "REPLAY") return decisao.resultado as ResultadoOperacaoReagente;
     if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação não concluída.");
 
     const frascoSnap = await tx.get(frascoRef);
@@ -1354,6 +1388,7 @@ export const resolverQuarentenaFrasco = onCall(async (request) => {
         disponibilidade: podeFicarDisponivel ? "DISPONIVEL" : "INDISPONIVEL",
         detalhe_status: "Liberado da quarentena: " + dados.motivo,
       });
+      invalidarCacheDoFrascoTx(tx, frasco);
 
       tx.set(admin.firestore().collection("Historico_Frasco_Reagente").doc(), {
         id_frasco_reagente: dados.idFrasco,
@@ -1374,6 +1409,7 @@ export const resolverQuarentenaFrasco = onCall(async (request) => {
         descarte_autorizado: true,
         detalhe_status: "Autorizado para descarte institucional: " + dados.motivo,
       });
+      invalidarCacheDoFrascoTx(tx, frasco);
 
       tx.set(authRef, {
         id_frasco: dados.idFrasco,

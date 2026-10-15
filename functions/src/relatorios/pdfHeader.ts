@@ -2,7 +2,9 @@ import * as path from "path";
 import * as fs from "fs";
 import { COLORS, FONTS } from "./pdfStyles";
 
-export function addHeader(doc: any, title: string, subtitle: string) {
+import type { DocumentoPdf } from "../types/relatorios";
+
+export function addHeader(doc: DocumentoPdf, title: string, subtitle: string) {
   const logoPath = path.resolve(__dirname, "../../assets/logo-uenf.png");
   let hasLogo = false;
 

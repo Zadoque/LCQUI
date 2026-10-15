@@ -16,6 +16,7 @@ import {
 } from "../../idempotencia";
 import { gerenciarMateria } from "../../materias";
 import { criarRequisicaoAdicaoBem } from "../../patrimonio";
+import { criarRequestDeTeste } from "../../types/testing";
 
 const COLECAO_EFEITOS = "_M7_Teste_Efeitos";
 
@@ -201,16 +202,12 @@ describe("TEST-INT-M7-RECEIPT — receipt e replay canônicos (Seção 5/7 M7)",
 
     const idOp = idUnico("op_mat");
     const codigo = idUnico("MAT").substring(0, 10).toUpperCase();
-    const req = {
-      data: {
+    const req = criarRequestDeTeste({
         acao: "CRIAR",
         nome: "Química Orgânica I",
         codigoMateria: codigo,
         idOperacao: idOp,
-      },
-      auth: { uid, token: { roles: ["Professor"], versao_permissoes: 1 } },
-      rawRequest: {},
-    } as any;
+      }, uid, ["Professor"]);
 
     const res1 = await gerenciarMateria.run(req);
     expect(res1.id).toBeDefined();
@@ -220,10 +217,7 @@ describe("TEST-INT-M7-RECEIPT — receipt e replay canônicos (Seção 5/7 M7)",
     expect(res2.id).toBe(res1.id);
 
     // Reuso incompatível com outro payload
-    const reqIncompativel = {
-      ...req,
-      data: { ...req.data, nome: "Nome Completamente Diferente" },
-    };
+    const reqIncompativel = criarRequestDeTeste({ ...req.data, nome: "Nome Completamente Diferente" }, uid, ["Professor"]);
     await expect(gerenciarMateria.run(reqIncompativel)).rejects.toMatchObject({
       code: "already-exists",
     });
@@ -240,8 +234,7 @@ describe("TEST-INT-M7-RECEIPT — receipt e replay canônicos (Seção 5/7 M7)",
     const numPat = idUnico("PAT").substring(0, 20).toUpperCase();
     const idOp = idUnico("op_adicao");
 
-    const req = {
-      data: {
+    const req = criarRequestDeTeste({
         numeroPatrimonioProposto: numPat,
         estadoConservacaoProposto: "BOM",
         photoUrlProposta: "requisicoes/prof/foto.png",
@@ -249,10 +242,7 @@ describe("TEST-INT-M7-RECEIPT — receipt e replay canônicos (Seção 5/7 M7)",
         nomeResponsavelProposto: "Prof. Teste",
         motivo: "Equipamento novo para laboratório",
         idOperacao: idOp,
-      },
-      auth: { uid, token: { roles: ["Professor"], versao_permissoes: 1 } },
-      rawRequest: {},
-    } as any;
+      }, uid, ["Professor"]);
 
     const res1 = await criarRequisicaoAdicaoBem.run(req);
     expect(res1.idRequisicao).toBeDefined();

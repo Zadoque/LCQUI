@@ -11,6 +11,7 @@ import {
   gerarPdfEtiquetasVirgens,
   gerarPdfReimpressaoFrascos,
 } from "../relatorios";
+import { criarRequestDeTeste } from "../types/testing";
 
 describe("Relatórios e Etiquetas (IMP-REP-001, IMP-REP-002, IMP-REP-003, IMP-LABEL-001, IMP-LABEL-002)", () => {
   let db: admin.firestore.Firestore;
@@ -22,18 +23,8 @@ describe("Relatórios e Etiquetas (IMP-REP-001, IMP-REP-002, IMP-REP-003, IMP-LA
     db = admin.firestore();
   });
 
-  function mockRequest(data: any, uid: string, roles: string[] = ["Chefe_Geral"]) {
-    return {
-      data,
-      auth: {
-        uid,
-        token: {
-          roles,
-          versao_permissoes: 1,
-        },
-      },
-      rawRequest: {},
-    } as any;
+  function mockRequest(data: Record<string, unknown>, uid: string, roles: string[] = ["Chefe_Geral"]) {
+    return criarRequestDeTeste(data, uid, roles);
   }
 
   async function criarUsuario(uid: string, papel: string, ativo = true) {

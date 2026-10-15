@@ -10,6 +10,7 @@ import * as admin from "firebase-admin";
 import fft from "firebase-functions-test";
 import { criarPost, adicionarComentario, removerPost, moderarComentario, listarComentariosPost, editarPost, editarComentario } from "../../posts";
 import { registrarRoteiro, validarObjetoRoteiro, publicarRoteiro, compartilharRoteiro, descompartilharRoteiro, removerRoteiro } from "../../roteiros";
+import { criarRequestDeTeste } from "../../types/testing";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -46,15 +47,8 @@ afterAll(() => {
   testEnv.cleanup();
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockRequest = (data: any, uid: string, roles: string[] = ["Professor"], versao_permissoes = 1): any => ({
-  data,
-  auth: {
-    uid,
-    token: { roles, versao_permissoes }
-  },
-  rawRequest: {}
-});
+const mockRequest = (data: Record<string, unknown>, uid: string, roles: string[] = ["Professor"], versao_permissoes = 1) =>
+  criarRequestDeTeste(data, uid, roles, versao_permissoes);
 
 async function semearUsuario(uid: string, roles: string[], versao = 1): Promise<void> {
   await db.collection("Usuarios").doc(uid).set({ ativo: true, versao_permissoes: versao, nome: `Nome ${uid}` });

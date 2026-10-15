@@ -73,11 +73,16 @@ function claimDe(opcoes: {
 describe("TEST-INT-M9-AUTH — autoridade persistida backend (Admin SDK)", () => {
   let db: admin.firestore.Firestore;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     if (!admin.apps.length) {
       admin.initializeApp({ projectId: "lcqui-dev" });
     }
     db = admin.firestore();
+    await db.collection("Controle_Papeis").doc("singleton").set({
+      chefes_ativos: 1,
+      gestores_patrimoniais_ativos: 1,
+      versao: 1,
+    });
   });
 
   afterAll(async () => {
@@ -332,11 +337,16 @@ describe("TEST-INT-M9-AUTH — autoridade persistida backend (Admin SDK)", () =>
 describe("TEST-INT-M9-AUTH-OP — operação real protegida (revogarUsuarioPapel)", () => {
   let db: admin.firestore.Firestore;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     if (!admin.apps.length) {
       admin.initializeApp({ projectId: "lcqui-dev" });
     }
     db = admin.firestore();
+    await db.collection("Controle_Papeis").doc("singleton").set({
+      chefes_ativos: 1,
+      gestores_patrimoniais_ativos: 1,
+      versao: 1,
+    });
   });
 
   afterAll(async () => {

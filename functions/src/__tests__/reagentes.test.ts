@@ -21,6 +21,7 @@ import {
   colocarFrascoEmQuarentena,
   resolverQuarentenaFrasco
 } from "../reagentes";
+import { criarRequestDeTeste } from "../types/testing";
 import { 
   cadastrarLote,
   cadastrarSubstanciaQuimica,
@@ -47,19 +48,12 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
     testEnv.cleanup();
   });
 
-  const mockRequest = (data: any, uid: string, roles: string[] = ["Gestor_Almoxarifado"]): any => {
+  const mockRequest = (data: Record<string, unknown>, uid: string, roles: string[] = ["Gestor_Almoxarifado"]) => {
     const payload = data.idEspecificacaoReagente && !data.idResumoReagente
       ? { ...data, idResumoReagente: `resumo_${data.idEspecificacaoReagente}` }
       : data;
     const idOp = payload.idOperacao ?? `test_${createHash("sha256").update(JSON.stringify({ uid, payload })).digest("hex").slice(0, 24)}`;
-    return {
-      data: { ...payload, idOperacao: idOp },
-      auth: {
-        uid,
-        token: { roles, versao_permissoes: 1 }
-      },
-      rawRequest: {}
-    };
+    return criarRequestDeTeste({ ...payload, idOperacao: idOp }, uid, roles);
   };
 
   async function seedEspecificacao(id: string, densidade: number | null, estadoFisico: "LIQUIDO" | "SOLIDO") {
@@ -211,7 +205,8 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
       pesoTotal: 600,
       volumeNominal: 500,
     }, "gestor_claim_obsoleta");
-    req.auth.token.versao_permissoes = 2;
+    if (!req.auth) throw new Error("request de teste precisa estar autenticado");
+    (req.auth.token as Record<string, unknown>).versao_permissoes = 2;
 
     await expect(testEnv.wrap(cadastrarFrascoFechado)(req))
       .rejects.toThrow(/Permissões desatualizadas/i);
@@ -575,20 +570,13 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
       await db.collection("Gestor_Almoxarifado").doc(uid).set({ id_usuario: uid });
 
       const casValido = "7732-18-5";
-      const req: any = {
-        data: {
+      const req = criarRequestDeTeste({
           idOperacao: `op_subst_${Date.now()}`,
           nome: "Água P.A.",
           casNumber: casValido,
           formulaQuimica: "H2O",
           ativo: true,
-        },
-        auth: {
-          uid,
-          token: { roles: ["Gestor_Almoxarifado"], versao_permissoes: 1 },
-        },
-        rawRequest: {},
-      };
+        }, uid, ["Gestor_Almoxarifado"]);
 
       const res1 = await testEnv.wrap(cadastrarSubstanciaQuimica)(req);
       expect(res1.idSubstanciaQuimica).toBeDefined();
@@ -603,15 +591,11 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
       expect(chaveCas.data()?.id_recurso).toBe(res1.idSubstanciaQuimica);
 
       // Conflito de CAS com idOperacao diferente deve falhar fechado com already-exists
-      const reqColisao: any = {
-        ...req,
-        data: {
+      const reqColisao = criarRequestDeTeste({
           ...req.data,
           idOperacao: `op_subst_outro_${Date.now()}`,
           nome: "Outra Água",
-        },
-        rawRequest: {},
-      };
+        }, uid, ["Gestor_Almoxarifado"]);
       await expect(testEnv.wrap(cadastrarSubstanciaQuimica)(reqColisao)).rejects.toThrow(/Já existe uma substância química/i);
     });
 
@@ -620,8 +604,7 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
       await db.collection("Usuarios").doc(uid).set({ ativo: true, versao_permissoes: 1 });
       await db.collection("Gestor_Almoxarifado").doc(uid).set({ id_usuario: uid });
 
-      const req: any = {
-        data: {
+      const req = criarRequestDeTeste({
           idOperacao: `op_res_${Date.now()}`,
           nome: "Hidróxido de Potássio",
           tipoSubstancia: "PURA",
@@ -631,13 +614,7 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
           frequenciaPesagemDias: 15,
           ehHigroscopico: true,
           qtdEmQueEConsideradoEscasso: 3,
-        },
-        auth: {
-          uid,
-          token: { roles: ["Gestor_Almoxarifado"], versao_permissoes: 1 },
-        },
-        rawRequest: {},
-      };
+        }, uid, ["Gestor_Almoxarifado"]);
 
       const res = await testEnv.wrap(cadastrarResumoReagente)(req);
       expect(res.idResumoReagente).toBeDefined();
@@ -679,8 +656,7 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
       });
 
       // Tentar cadastrar líquido sem densidade deve falhar
-      const reqSemDensidade: any = {
-        data: {
+      const reqSemDensidade = criarRequestDeTeste({
           idOperacao: `op_esp_sem_dens_${Date.now()}`,
           idResumoReagente: resRef.id,
           descricao: "Etanol P.A. 99.5%",
@@ -688,25 +664,15 @@ describe("Módulo de Reagentes (Almoxarifado, Frascos, Estoque)", () => {
           ehControladoPf: false,
           ehControladoEb: false,
           idSubstanciaQuimica: subRef.id,
-        },
-        auth: {
-          uid,
-          token: { roles: ["Gestor_Almoxarifado"], versao_permissoes: 1 },
-        },
-        rawRequest: {},
-      };
+        }, uid, ["Gestor_Almoxarifado"]);
       await expect(testEnv.wrap(cadastrarEspecificacao)(reqSemDensidade)).rejects.toThrow(/Densidade é obrigatória/i);
 
       // Com densidade válida
-      const reqComDensidade: any = {
-        ...reqSemDensidade,
-        data: {
+      const reqComDensidade = criarRequestDeTeste({
           ...reqSemDensidade.data,
           idOperacao: `op_esp_com_dens_${Date.now()}`,
           densidade: 0.789,
-        },
-        rawRequest: {},
-      };
+        }, uid, ["Gestor_Almoxarifado"]);
       const resEsp = await testEnv.wrap(cadastrarEspecificacao)(reqComDensidade);
       expect(resEsp.idEspecificacao).toBeDefined();
 

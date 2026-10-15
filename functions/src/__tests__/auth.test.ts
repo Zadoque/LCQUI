@@ -6,6 +6,7 @@ import {
   validarGestorDoAlmoxarifado,
   atualizarCustomClaims
 } from "../auth";
+import type { RequestDeTeste } from "../types/testing";
 
 // Mocks
 jest.mock("firebase-admin", () => {
@@ -77,59 +78,58 @@ describe("Auth Module (40+ Tests)", () => {
     });
 
     it("11. deve manter itens inválidos no array se existirem (typescript array as string[])", () => {
-      // @ts-ignore
       expect(resolverPapeisDoToken({ token: { roles: [123, "Chefe_Geral"] } })).toEqual([123, "Chefe_Geral"]);
     });
   });
 
   describe("validarPermissao", () => {
     it("12. deve lançar unauthenticated se auth for undefined", () => {
-      const req = { data: {}, rawRequest: {} as any };
+      const req = { data: {}, rawRequest: {} as RequestDeTeste<Record<string, unknown>>["rawRequest"] } as unknown as RequestDeTeste<Record<string, unknown>>;
       expect(() => validarPermissao(req, ["Professor"])).toThrow(new HttpsError("unauthenticated", "Usuário não autenticado."));
     });
 
     it("13. deve lançar unauthenticated se auth.uid não existir", () => {
-      const req = { data: {}, auth: { token: {} }, rawRequest: {} as any } as any;
+      const req = { data: {}, auth: { token: {} }, rawRequest: {} as RequestDeTeste<Record<string, unknown>>["rawRequest"] } as unknown as RequestDeTeste<Record<string, unknown>>;
       expect(() => validarPermissao(req, ["Professor"])).toThrowError("Usuário não autenticado.");
     });
 
     it("14. deve lançar permission-denied se roles for ausente", () => {
-      const req = { data: {}, auth: { uid: "123", token: {} }, rawRequest: {} as any } as any;
+      const req = { data: {}, auth: { uid: "123", token: {} }, rawRequest: {} as RequestDeTeste<Record<string, unknown>>["rawRequest"] } as unknown as RequestDeTeste<Record<string, unknown>>;
       expect(() => validarPermissao(req, ["Professor"])).toThrowError("Usuário sem papel autorizado para esta ação.");
     });
 
     it("15. deve lançar permission-denied se tiver papéis mas nenhum bater", () => {
-      const req = { data: {}, auth: { uid: "123", token: { roles: ["Aluno"] } }, rawRequest: {} as any } as any;
+      const req = { data: {}, auth: { uid: "123", token: { roles: ["Aluno"] } }, rawRequest: {} as RequestDeTeste<Record<string, unknown>>["rawRequest"] } as unknown as RequestDeTeste<Record<string, unknown>>;
       expect(() => validarPermissao(req, ["Professor"])).toThrowError("Usuário sem papel");
     });
 
     it("16. deve lançar permission-denied se tiver múltiplos papéis mas nenhum bater", () => {
-      const req = { data: {}, auth: { uid: "123", token: { roles: ["Aluno", "Bolsista"] } }, rawRequest: {} as any } as any;
+      const req = { data: {}, auth: { uid: "123", token: { roles: ["Aluno", "Bolsista"] } }, rawRequest: {} as RequestDeTeste<Record<string, unknown>>["rawRequest"] } as unknown as RequestDeTeste<Record<string, unknown>>;
       expect(() => validarPermissao(req, ["Professor", "Chefe_Geral"])).toThrowError("Usuário sem papel");
     });
 
     it("17. deve passar se o usuário tiver exatamente o papel", () => {
-      const req = { data: {}, auth: { uid: "123", token: { roles: ["Professor"] } }, rawRequest: {} as any } as any;
+      const req = { data: {}, auth: { uid: "123", token: { roles: ["Professor"] } }, rawRequest: {} as RequestDeTeste<Record<string, unknown>>["rawRequest"] } as unknown as RequestDeTeste<Record<string, unknown>>;
       expect(validarPermissao(req, ["Professor"])).toEqual(["Professor"]);
     });
 
     it("18. deve passar se o usuário tiver um dos papéis permitidos", () => {
-      const req = { data: {}, auth: { uid: "123", token: { roles: ["Professor"] } }, rawRequest: {} as any } as any;
+      const req = { data: {}, auth: { uid: "123", token: { roles: ["Professor"] } }, rawRequest: {} as RequestDeTeste<Record<string, unknown>>["rawRequest"] } as unknown as RequestDeTeste<Record<string, unknown>>;
       expect(validarPermissao(req, ["Professor", "Chefe_Geral"])).toEqual(["Professor"]);
     });
 
     it("19. deve passar se o usuário tiver o papel Chefe_Geral", () => {
-      const req = { data: {}, auth: { uid: "123", token: { roles: ["Chefe_Geral"] } }, rawRequest: {} as any } as any;
+      const req = { data: {}, auth: { uid: "123", token: { roles: ["Chefe_Geral"] } }, rawRequest: {} as RequestDeTeste<Record<string, unknown>>["rawRequest"] } as unknown as RequestDeTeste<Record<string, unknown>>;
       expect(validarPermissao(req, ["Professor", "Chefe_Geral"])).toEqual(["Chefe_Geral"]);
     });
 
     it("20. deve retornar todos os papéis do usuário", () => {
-      const req = { data: {}, auth: { uid: "123", token: { roles: ["Professor", "Gestor_Almoxarifado"] } }, rawRequest: {} as any } as any;
+      const req = { data: {}, auth: { uid: "123", token: { roles: ["Professor", "Gestor_Almoxarifado"] } }, rawRequest: {} as RequestDeTeste<Record<string, unknown>>["rawRequest"] } as unknown as RequestDeTeste<Record<string, unknown>>;
       expect(validarPermissao(req, ["Professor"])).toEqual(["Professor", "Gestor_Almoxarifado"]);
     });
     
     it("21. deve falhar se papeis permitidos for array vazio", () => {
-      const req = { data: {}, auth: { uid: "123", token: { roles: ["Professor"] } }, rawRequest: {} as any } as any;
+      const req = { data: {}, auth: { uid: "123", token: { roles: ["Professor"] } }, rawRequest: {} as RequestDeTeste<Record<string, unknown>>["rawRequest"] } as unknown as RequestDeTeste<Record<string, unknown>>;
       expect(() => validarPermissao(req, [])).toThrowError("Usuário sem papel");
     });
   });
