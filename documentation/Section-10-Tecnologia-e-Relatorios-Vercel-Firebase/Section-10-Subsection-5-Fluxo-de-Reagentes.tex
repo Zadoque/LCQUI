@@ -326,7 +326,7 @@ export const cadastrarFrascoAberto = onCall(async (request) => {
 \end{lstlisting}
 
 \begin{lstlisting}[language=TypeScript, title={Abertura e cálculo de validade efetiva no servidor}]
-function calcularValidadeEfetivaNaAbertura(frasco: any, dataAbertura: Date): Date | null {
+function calcularValidadeEfetivaNaAbertura(frasco: Record<string, unknown>, dataAbertura: Date): Date | null {
   if (frasco.validade_desconhecida) return null;
 
   const validadeFechado = frasco.validade_fechado

@@ -109,3 +109,24 @@ papel; a validação normativa continua sempre no backend.
 Evidência E2E: `ROLE-001-E2E-002` comprova a consulta inicial, a consulta de
 um filtro novo e a reutilização do filtro anteriormente consultado sem uma
 quarta chamada.
+
+## Gestão patrimonial — modais, M9 e histórico
+
+Em 14/10/2026, a cobertura E2E de `21-patrimonio-requisicoes.spec.ts` foi
+ampliada com cinco cenários (`PAT-UI-E2E-001–005`) executados no Emulator
+Suite com Node.js 20 e `LCQUI_E2E_PROJECT_ID=lcqui-dev`:
+
+- abertura dos modais próprios de novo gestor e gerenciamento, com uma única
+  busca compartilhada pelo cache entre as duas superfícies;
+- filtro server-side por termo, ausência de e-mail na projeção e exclusão do
+  Chefe Geral como combinação incompatível;
+- rejeição de convite quando o e-mail já pertence a outra identidade, sem
+  criar documento de papel indevido;
+- convite de nova identidade, documento `Gestor_Bens_Patrimoniais`, OOB de
+  definição de senha e leitura do histórico no período mensal;
+- ausência das ações administrativas para uma sessão autenticada somente como
+  `Gestor_Bens_Patrimoniais`.
+
+Resultado: **5/5 aprovados**. O teste confirma cache/debounce, não um
+`onSnapshot` da coleção de papéis: as Rules permitem apenas leitura do
+documento do próprio UID e UI-02/UI-13 exigem projeção mínima server-side.
