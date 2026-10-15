@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { DirtyFormsProvider } from "@/contexts/DirtyFormContext";
 import { NotificacoesProvider } from "@/contexts/NotificacoesContext";
@@ -37,6 +38,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        <Analytics />
         <ThemeProvider>
           <AuthProvider>
             <NotificacoesProvider>
