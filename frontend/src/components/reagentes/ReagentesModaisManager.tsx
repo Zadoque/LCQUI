@@ -71,7 +71,8 @@ interface ReagentesModaisManagerProps {
   setIsEscassezModalOpen: (v: boolean) => void;
   frascoSelecionado: FrascoOperacional | null;
   setFrascoSelecionado: (v: FrascoOperacional | null) => void;
-  onSuccessCatalogo: () => void;
+  onSuccessCatalogo: () => void | Promise<void>;
+  onSuccessOperacional: () => void;
 }
 
 export function ReagentesModaisManager({
@@ -123,6 +124,7 @@ export function ReagentesModaisManager({
   frascoSelecionado,
   setFrascoSelecionado,
   onSuccessCatalogo,
+  onSuccessOperacional,
 }: ReagentesModaisManagerProps) {
   return (
     <>
@@ -147,7 +149,7 @@ export function ReagentesModaisManager({
       <ModalNovaSubstancia
         isOpen={isNovaSubstanciaOpen}
         onClose={() => setIsNovaSubstanciaOpen(false)}
-        onSuccess={() => {}}
+        onSuccess={onSuccessCatalogo}
       />
       <ModalNovoReagente
         isOpen={isNovoReagenteOpen}
@@ -157,7 +159,7 @@ export function ReagentesModaisManager({
       <ModalNovaEspecificacao
         isOpen={isNovaEspecOpen}
         onClose={() => setIsNovaEspecOpen(false)}
-        onSuccess={() => {}}
+        onSuccess={onSuccessCatalogo}
         idResumoReagente={selectedResumo?.id}
         resumoSelecionado={selectedResumo ?? undefined}
       />
@@ -208,7 +210,7 @@ export function ReagentesModaisManager({
 
       {frascoSelecionado && (
         <>
-          <ModalQuarentena
+      <ModalQuarentena
             isOpen={isQuarentenaModalOpen}
             onClose={() => {
               setIsQuarentenaModalOpen(false);
@@ -216,7 +218,7 @@ export function ReagentesModaisManager({
             }}
             frascoId={frascoSelecionado.id}
             emQuarentena={Boolean(frascoSelecionado.em_quarentena)}
-            onSuccess={onSuccessCatalogo}
+            onSuccess={onSuccessOperacional}
           />
           <ModalExtravioReencontro
             isOpen={isExtravioModalOpen}
@@ -226,7 +228,7 @@ export function ReagentesModaisManager({
             }}
             frascoId={frascoSelecionado.id}
             isExtraviado={frascoSelecionado.situacao_localizacao === "EXTRAVIADO"}
-            onSuccess={onSuccessCatalogo}
+            onSuccess={onSuccessOperacional}
           />
           <ModalMetrologia
             isOpen={isMetrologiaModalOpen}
@@ -239,7 +241,7 @@ export function ReagentesModaisManager({
             pesoRetornoOriginal={frascoSelecionado.peso_retorno ?? undefined}
             pesoSaidaOriginal={frascoSelecionado.peso_saida ?? undefined}
             tara={frascoSelecionado.peso_frasco_vazio ?? undefined}
-            onSuccess={onSuccessCatalogo}
+            onSuccess={onSuccessOperacional}
           />
           <ModalPesagemRotina
             isOpen={isPesagemRotinaModalOpen}
@@ -248,7 +250,7 @@ export function ReagentesModaisManager({
               setFrascoSelecionado(null);
             }}
             frascoId={frascoSelecionado.id}
-            onSuccess={onSuccessCatalogo}
+            onSuccess={onSuccessOperacional}
           />
       <ModalDescarteFrasco
             isOpen={isDescarteModalOpen}
@@ -257,7 +259,7 @@ export function ReagentesModaisManager({
               setFrascoSelecionado(null);
             }}
             frascoId={frascoSelecionado.id}
-        onSuccess={onSuccessCatalogo}
+        onSuccess={onSuccessOperacional}
       />
         </>
       )}
@@ -268,7 +270,7 @@ export function ReagentesModaisManager({
         idResumoReagente={selectedResumo?.id}
         idEspecificacaoReagente={selectedEspec?.id}
         descricao={selectedEspec?.descricao}
-        onSuccess={onSuccessCatalogo}
+        onSuccess={onSuccessOperacional}
       />
     </>
   );

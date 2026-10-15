@@ -10,8 +10,9 @@
  * Nunca chame httpsCallable diretamente em componentes — use este serviço.
  */
 
+import { onAuthStateChanged } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebase/config";
+import { auth, functions } from "@/lib/firebase/config";
 import type {
   Pessoa,
   DetalhesUsuario,
@@ -42,21 +43,147 @@ export type { BuscarUsuariosRetiradaParams, UsuarioRetirada } from "@/types/usua
 // Implementação
 // ─────────────────────────────────────────────────────────────────────────────
 
+type ListenerUsuariosSelecionaveis = (usuarios: UsuarioSelecionavel[]) => void;
+
+const cacheBuscasUsuarios = new Map<string, Pessoa[]>();
+const carregamentosBuscasUsuarios = new Map<string, Promise<Pessoa[]>>();
+const cacheBuscasRetirada = new Map<string, UsuarioRetirada[]>();
+const carregamentosBuscasRetirada = new Map<string, Promise<UsuarioRetirada[]>>();
+let cacheProfessores: { data: Professor[]; expiraEmMs: number } | null = null;
+let carregamentoProfessores: Promise<Professor[]> | null = null;
+let cacheUsuariosSelecionaveis: UsuarioSelecionavel[] | null = null;
+let carregamentoUsuariosSelecionaveis: Promise<UsuarioSelecionavel[]> | null = null;
+const listenersUsuariosSelecionaveis = new Set<ListenerUsuariosSelecionaveis>();
+let versaoCacheUsuarios = 0;
+
+function chaveBuscaUsuarios(params?: BuscarUsuariosParams): string {
+  return JSON.stringify({
+    uid: auth.currentUser?.uid ?? "anonymous",
+    recurso: "usuarios",
+    papel: params?.papel ?? null,
+    letra: params?.letra?.trim().toUpperCase() ?? null,
+    termo: params?.termo?.trim().toLocaleLowerCase("pt-BR") ?? null,
+  });
+}
+
+function normalizarBuscaUsuarios(params?: BuscarUsuariosParams): BuscarUsuariosParams {
+  return {
+    ...(params?.termo?.trim() ? { termo: params.termo.trim() } : {}),
+    ...(params?.papel ? { papel: params.papel } : {}),
+    ...(params?.letra?.trim() ? { letra: params.letra.trim().toUpperCase() } : {}),
+  };
+}
+
+async function carregarUsuariosSelecionaveis(): Promise<UsuarioSelecionavel[]> {
+  if (cacheUsuariosSelecionaveis) return cacheUsuariosSelecionaveis;
+  if (!carregamentoUsuariosSelecionaveis) {
+    const versaoDaBusca = versaoCacheUsuarios;
+    carregamentoUsuariosSelecionaveis = buscarUsuarios({ papel: "Professor" })
+      .then((usuarios) => {
+        if (versaoDaBusca === versaoCacheUsuarios) {
+          cacheUsuariosSelecionaveis = usuarios;
+          for (const listener of listenersUsuariosSelecionaveis) listener(usuarios);
+        }
+        return usuarios;
+      })
+      .finally(() => {
+        if (versaoDaBusca === versaoCacheUsuarios) carregamentoUsuariosSelecionaveis = null;
+      });
+  }
+  return carregamentoUsuariosSelecionaveis;
+}
+
+/**
+ * Assina a projeção autorizada de identidades que podem receber Professor.
+ *
+ * Este não é um onSnapshot intencionalmente: a norma e as Rules não permitem
+ * listar `Usuarios` no cliente. A fonte é a callable server-side; a assinatura
+ * mantém a projeção em cache entre aberturas do modal e evita chamadas
+ * duplicadas enquanto não houver invalidação. O Firestore persistentLocalCache
+ * continua reservado aos listeners Firestore autorizados.
+ */
+export function assinarUsuariosSelecionaveis(
+  onData: ListenerUsuariosSelecionaveis,
+  onError?: (error: unknown) => void,
+): () => void {
+  listenersUsuariosSelecionaveis.add(onData);
+
+  if (cacheUsuariosSelecionaveis) {
+    queueMicrotask(() => {
+      if (listenersUsuariosSelecionaveis.has(onData)) onData(cacheUsuariosSelecionaveis!);
+    });
+  } else {
+    void carregarUsuariosSelecionaveis().catch((error: unknown) => {
+      if (onError) onError(error);
+    });
+  }
+
+  return () => {
+    listenersUsuariosSelecionaveis.delete(onData);
+  };
+}
+
+export function invalidarCacheUsuariosSelecionaveis(): void {
+  versaoCacheUsuarios += 1;
+  cacheUsuariosSelecionaveis = null;
+  carregamentoUsuariosSelecionaveis = null;
+}
+
+/**
+ * Invalida as projeções administrativas de pessoas após uma mutação de papel.
+ * O cache é de sessão e não é fonte de autorização: o backend sempre relê e
+ * valida a matriz M9 antes de conceder, revogar ou detalhar um usuário.
+ */
+export function invalidarCacheBuscasUsuarios(): void {
+  versaoCacheUsuarios += 1;
+  cacheBuscasUsuarios.clear();
+  carregamentosBuscasUsuarios.clear();
+  cacheUsuariosSelecionaveis = null;
+  carregamentoUsuariosSelecionaveis = null;
+  cacheBuscasRetirada.clear();
+  carregamentosBuscasRetirada.clear();
+  cacheProfessores = null;
+  carregamentoProfessores = null;
+}
+
+let uidDoCache = auth.currentUser?.uid ?? null;
+onAuthStateChanged(auth, (usuario) => {
+  const novoUid = usuario?.uid ?? null;
+  if (novoUid === uidDoCache) return;
+  uidDoCache = novoUid;
+  invalidarCacheBuscasUsuarios();
+});
+
 /**
  * Busca usuários por termo opcional (nome/email).
  * Mapa 1:1 com Cloud Function `buscarUsuariosParaPapel`.
  */
 export async function buscarUsuarios(params?: BuscarUsuariosParams): Promise<Pessoa[]> {
+  const parametrosNormalizados = normalizarBuscaUsuarios(params);
+  const chave = chaveBuscaUsuarios(parametrosNormalizados);
+  const cacheado = cacheBuscasUsuarios.get(chave);
+  if (cacheado) return cacheado;
+
+  const carregamentoExistente = carregamentosBuscasUsuarios.get(chave);
+  if (carregamentoExistente) return carregamentoExistente;
+
   const fn = httpsCallable<BuscarUsuariosParams | Record<string, never>, { usuarios: Pessoa[] }>(
     functions,
     "buscarUsuariosParaPapel"
   );
-  const res = await fn({
-    ...(params?.termo ? { termo: params.termo } : {}),
-    ...(params?.papel ? { papel: params.papel } : {}),
-    ...(params?.letra ? { letra: params.letra } : {}),
-  });
-  return res.data.usuarios;
+  const versaoDaBusca = versaoCacheUsuarios;
+  const carregamento = fn(parametrosNormalizados)
+    .then((res) => {
+      if (versaoDaBusca === versaoCacheUsuarios) cacheBuscasUsuarios.set(chave, res.data.usuarios);
+      return res.data.usuarios;
+    })
+    .finally(() => {
+      if (carregamentosBuscasUsuarios.get(chave) === carregamento) {
+        carregamentosBuscasUsuarios.delete(chave);
+      }
+    });
+  carregamentosBuscasUsuarios.set(chave, carregamento);
+  return carregamento;
 }
 
 /**
@@ -70,6 +197,7 @@ export async function concederPapel(params: ConcederPapelParams): Promise<Conced
     papel: params.papel,
     ...(params.uidAlvo ? { uidAlvo: params.uidAlvo } : { nome: params.nome, email: params.email }),
   });
+  invalidarCacheBuscasUsuarios();
   return res.data;
 }
 
@@ -85,6 +213,7 @@ export async function revogarPapel(params: RevogarPapelParams): Promise<void> {
     papel: params.papel,
     motivo: params.motivo,
   });
+  invalidarCacheBuscasUsuarios();
 }
 
 /**
@@ -108,24 +237,24 @@ export async function obterDetalhesUsuario(params: ObterDetalhesParams): Promise
  * Busca a lista de professores ativos cadastrados no sistema.
  */
 export async function buscarProfessores(): Promise<Professor[]> {
+  if (cacheProfessores && cacheProfessores.expiraEmMs > Date.now()) return cacheProfessores.data;
+  if (carregamentoProfessores) return carregamentoProfessores;
   const fn = httpsCallable<Record<string, never>, { professores: Professor[] }>(
     functions,
     "buscarProfessores"
   );
-  const res = await fn({});
-  return res.data.professores;
+  carregamentoProfessores = fn({}).then((res) => {
+    cacheProfessores = { data: res.data.professores, expiraEmMs: Date.now() + 30_000 };
+    return res.data.professores;
+  }).finally(() => { carregamentoProfessores = null; });
+  return carregamentoProfessores;
 }
 
 /**
  * Busca usuários elegíveis para seleção ao conceder papéis.
  */
 export async function buscarUsuariosSelecionaveis(): Promise<UsuarioSelecionavel[]> {
-  const fn = httpsCallable<Record<string, never>, { usuarios: UsuarioSelecionavel[] }>(
-    functions,
-    "buscarUsuariosParaPapel"
-  );
-  const res = await fn({});
-  return res.data.usuarios;
+  return carregarUsuariosSelecionaveis();
 }
 
 /**
@@ -143,6 +272,7 @@ export async function convidarProfessor(
     laboratorio: params.laboratorio,
     materias: params.materias,
   });
+  invalidarCacheBuscasUsuarios();
   return res.data;
 }
 
@@ -167,13 +297,28 @@ export async function buscarAlunosPorLetraETermo(
 export async function buscarUsuariosParaRetirada(
   params: BuscarUsuariosRetiradaParams
 ): Promise<UsuarioRetirada[]> {
+  const chave = JSON.stringify({
+    uid: auth.currentUser?.uid ?? "anonymous",
+    letra: params.letra.trim().toUpperCase(),
+    termo: params.termo?.trim().toLocaleLowerCase("pt-BR") ?? null,
+  });
+  const cacheado = cacheBuscasRetirada.get(chave);
+  if (cacheado) return cacheado;
+  const carregamentoExistente = carregamentosBuscasRetirada.get(chave);
+  if (carregamentoExistente) return carregamentoExistente;
   const fn = httpsCallable<BuscarUsuariosRetiradaParams, { usuarios: UsuarioRetirada[] }>(
     functions,
     "buscarUsuariosParaRetirada"
   );
-  const res = await fn({
+  const carregamento = fn({
     letra: params.letra,
     ...(params.termo?.trim() ? { termo: params.termo.trim() } : {}),
+  }).then((res) => {
+    cacheBuscasRetirada.set(chave, res.data.usuarios);
+    return res.data.usuarios;
+  }).finally(() => {
+    if (carregamentosBuscasRetirada.get(chave) === carregamento) carregamentosBuscasRetirada.delete(chave);
   });
-  return res.data.usuarios;
+  carregamentosBuscasRetirada.set(chave, carregamento);
+  return carregamento;
 }

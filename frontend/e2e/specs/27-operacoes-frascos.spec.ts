@@ -18,6 +18,8 @@ async function abrirFrascoSeed(page: import("@playwright/test").Page): Promise<{
   const resultado = await lerResultadoCallable(await resposta);
   const idCriado = resultado.idFrasco as string;
   if (!idCriado) throw new Error("A callable não retornou idFrasco.");
+  await expect(page.getByTestId("frasco-cadastro-sucesso")).toBeVisible();
+  await page.getByRole("button", { name: "Concluir" }).click();
   await page.reload();
   await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
   await page.locator("tbody tr").filter({ hasText: "Reagente Seed" }).first().locator("td").first().click();
@@ -51,7 +53,7 @@ test.describe("Operações de frascos UI-06/07/14/16/17/18", () => {
     guardaConsole.permitir(/status of 429/);
     const frasco = await abrirFrascoSeed(page);
     await cardDoFrasco(page, frasco.codigo).getByRole("button", { name: "Extraviar" }).click();
-    await expect(page.getByRole("heading", { name: /Registrar Extravio/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Registrar extravio/i })).toBeVisible();
     await page.getByPlaceholder(/mínimo 5 caracteres/).fill("x");
     await page.getByRole("button", { name: "Confirmar Extravio" }).click();
     await expect(page.getByText("O motivo deve conter pelo menos 5 caracteres.")).toBeVisible();
@@ -61,7 +63,7 @@ test.describe("Operações de frascos UI-06/07/14/16/17/18", () => {
     guardaConsole.permitir(/status of 429/);
     const frasco = await abrirFrascoSeed(page);
     await cardDoFrasco(page, frasco.codigo).getByRole("button", { name: "Quarentena", exact: true }).click();
-    await expect(page.getByRole("heading", { name: /Colocar Frasco em Quarentena/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Colocar frasco em quarentena/i })).toBeVisible();
     await page.getByPlaceholder(/mínimo 10 caracteres/).fill("curto");
     await page.getByRole("button", { name: "Colocar em Quarentena" }).click();
     await expect(page.getByText("A justificativa/laudo deve conter pelo menos 10 caracteres.")).toBeVisible();
@@ -177,5 +179,59 @@ test.describe("Operações de frascos UI-06/07/14/16/17/18", () => {
       const documento = await lerDocumento(`Frasco_Reagente/${frasco.id}`);
       return [documento?.data.em_quarentena, documento?.data.disponibilidade];
     }).toEqual([false, "DISPONIVEL"]);
+  });
+
+  test("M5-FORMAL-E2E-001 preserva dimensões e estados na trajetória extravio-reencontro-quarentena", async ({ page, guardaConsole }) => {
+    guardaConsole.permitir(/status of 429/);
+    const frasco = await abrirFrascoSeed(page);
+
+    await cardDoFrasco(page, frasco.codigo).getByRole("button", { name: "Extraviar" }).click();
+    await page.getByPlaceholder(/mínimo 5 caracteres/).fill("Extravio formal para auditoria");
+    const chamadaExtravio = esperarCallable(page, "registrarExtravioOuReencontro");
+    await page.getByRole("button", { name: "Confirmar Extravio" }).click();
+    await chamadaExtravio;
+
+    const aposExtravio = await lerDocumento(`Frasco_Reagente/${frasco.id}`);
+    expect(aposExtravio?.data.situacao_localizacao).toBe("EXTRAVIADO");
+    expect(aposExtravio?.data.disponibilidade).toBe("INDISPONIVEL");
+    expect(aposExtravio?.data.estado_fisico_frasco).toBe("ABERTO");
+
+    await page.reload();
+    await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
+    await page.locator("tbody tr").filter({ hasText: "Reagente Seed" }).first().locator("td").first().click();
+    await page.getByText("Reagente Analítico 1L (Fabricante Seed)", { exact: true }).click();
+    await cardDoFrasco(page, frasco.codigo).getByRole("button", { name: "Reencontrar" }).click();
+    await page.getByPlaceholder(/mínimo 5 caracteres/).fill("Reencontro formal com inspeção");
+    const chamadaReencontro = esperarCallable(page, "registrarExtravioOuReencontro");
+    await page.getByRole("button", { name: "Confirmar Reencontro" }).click();
+    await chamadaReencontro;
+
+    const aposReencontro = await lerDocumento(`Frasco_Reagente/${frasco.id}`);
+    expect(aposReencontro?.data.situacao_localizacao).toBe("LOCALIZADO");
+    expect(aposReencontro?.data.em_quarentena).toBe(true);
+    expect(aposReencontro?.data.disponibilidade).toBe("INDISPONIVEL");
+    expect(aposReencontro?.data.estado_fisico_frasco).toBe("ABERTO");
+
+    await page.reload();
+    await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
+    await page.locator("tbody tr").filter({ hasText: "Reagente Seed" }).first().locator("td").first().click();
+    await page.getByText("Reagente Analítico 1L (Fabricante Seed)", { exact: true }).click();
+    await cardDoFrasco(page, frasco.codigo).getByRole("button", { name: "Decisão Quarentena" }).click();
+    await page.locator("select").last().selectOption("VOLTAR_A_DISPONIVEL");
+    await page.getByPlaceholder(/mínimo 10 caracteres/).fill("Laudo formal libera o frasco");
+    const chamadaDecisao = esperarCallable(page, "resolverQuarentenaFrasco");
+    await page.getByRole("button", { name: "Registrar Decisão" }).click();
+    await chamadaDecisao;
+
+    const aposDecisao = await lerDocumento(`Frasco_Reagente/${frasco.id}`);
+    expect(aposDecisao?.data.em_quarentena).toBe(false);
+    expect(aposDecisao?.data.disponibilidade).toBe("DISPONIVEL");
+    expect(aposDecisao?.data.situacao_localizacao).toBe("LOCALIZADO");
+
+    const historico = await listarColecao("Historico_Frasco_Reagente");
+    const tipos = historico
+      .filter((evento) => evento.data.id_frasco_reagente === frasco.id)
+      .map((evento) => evento.data.tipo);
+    expect(tipos).toEqual(expect.arrayContaining(["EXTRAVIO", "REENCONTRO", "LIBERADO_QUARENTENA"]));
   });
 });

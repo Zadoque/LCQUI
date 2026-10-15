@@ -9,7 +9,9 @@ import * as crypto from "crypto";
  * @param doc A instância do PDFDocument (deve ter { bufferPages: true })
  * @param payloadCanonico String determinística gerada com os dados críticos do relatório.
  */
-export function addFooterAndHash(doc: any, payloadCanonico: string) {
+import type { DocumentoPdf } from "../types/relatorios";
+
+export function addFooterAndHash(doc: DocumentoPdf, payloadCanonico: string) {
   // 1. Gera o hash do payload canônico para garantir integridade contábil
   const hash = crypto.createHash("sha256").update(payloadCanonico).digest("hex");
   const shortHash = hash.substring(0, 16).toUpperCase();

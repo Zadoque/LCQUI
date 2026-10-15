@@ -111,7 +111,7 @@ export function mensagemContextual(notif: NotificacaoItem): string {
 
 export function NotificacoesDropdown() {
   const { user } = useAuth();
-  const { notificacoes, loading, dadosDesatualizados, offline, marcarDadosDesatualizados } = useNotificacoes();
+  const { notificacoes, loading, dadosDesatualizados, offline, erroLeitura } = useNotificacoes();
   const [isOpen, setIsOpen] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState<"nao_lidas" | "todas">("nao_lidas");
   const [agora, setAgora] = useState(() => Date.now());
@@ -124,6 +124,7 @@ export function NotificacoesDropdown() {
 
   // "Marcar como lida" loading por item
   const [marcandoIds, setMarcandoIds] = useState<Set<string>>(new Set());
+  const [erroAbertura, setErroAbertura] = useState("");
 
   const handleToggle = () => {
     setAgora(Date.now());
@@ -134,6 +135,7 @@ export function NotificacoesDropdown() {
 
   const abrirNotificacao = useCallback(async (event: React.MouseEvent, notif: NotificacaoItem) => {
     event.preventDefault();
+    setErroAbertura("");
     try {
       const resolver = httpsCallable<{ idNotificacao: string }, { autorizado: boolean; url?: string }>(
         getFunctions(), "resolverDestinoNotificacao",
@@ -143,13 +145,13 @@ export function NotificacoesDropdown() {
         setIsOpen(false);
         router.push(resultado.data.url);
       } else {
-        marcarDadosDesatualizados();
+        setErroAbertura("Esta notificação não está mais disponível para sua conta.");
       }
     } catch (error) {
       console.error("Erro ao validar destino da notificação:", error);
-      marcarDadosDesatualizados();
+      setErroAbertura("Não foi possível abrir esta notificação. Tente novamente.");
     }
-  }, [marcarDadosDesatualizados, router]);
+  }, [router]);
 
   useEffect(() => {
     const relogio = window.setInterval(() => setAgora(Date.now()), 30_000);
@@ -300,16 +302,16 @@ export function NotificacoesDropdown() {
           </div>
 
           {/* Abas de filtro */}
-          {(offline || dadosDesatualizados) && (
+          {(offline || dadosDesatualizados || erroLeitura || erroAbertura) && (
             <div
-              className="px-3 py-2 text-xs text-amber-800 bg-amber-100/80 dark:text-amber-100 dark:bg-amber-950/50"
-              role="status"
+              className={`px-3 py-2 text-xs ${erroLeitura || erroAbertura ? "text-red-800 bg-red-100/80 dark:text-red-100 dark:bg-red-950/50" : "text-amber-800 bg-amber-100/80 dark:text-amber-100 dark:bg-amber-950/50"}`}
+              role={erroLeitura || erroAbertura ? "alert" : "status"}
               data-testid="notificacoes-estado-offline"
             >
-              {offline
+              {erroLeitura || erroAbertura || (offline
                 ? "Você está offline. Exibindo notificações autorizadas anteriormente; ações serão validadas ao reconectar."
                 : "Notificações possivelmente desatualizadas. Aguarde a reconexão para confirmar mudanças."
-              }
+              )}
             </div>
           )}
 

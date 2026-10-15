@@ -6,9 +6,11 @@ import { FieldValue } from "firebase-admin/firestore";
 import { extrairClaimsAutoridade, resolverAutoridadePersistidaTx, validarAutoridadePersistida } from "./auth";
 import { construirIdentidade, registrarOperacaoConcluidaTx, resolverOperacaoTx } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
+import { verificarRateLimitCallable } from "./utils/rateLimit";
 import { CriarRequisicaoEdicaoBemSchema, ResponderRequisicaoBemSchema, CriarRequisicaoAdicaoBemSchema, GerenciarLocalSchema, BuscarLocaisParaRetiradaSchema, RegistrarBaixaBemPatrimonialSchema } from "./schemas/patrimonio.schema";
 import { adicionarNotificacaoTx } from "./notificacoes";
 import { chaveLocal as derivarChaveLocal } from "./chaves";
+import type { ResultadoRespostaRequisicaoBem } from "./types/patrimonio";
 
 const STATUS_BEM = ["Ativo", "Inservivel", "Ja_dado_baixa"] as const;
 const CONSERVACOES = ["BOM", "REGULAR", "RUIM"] as const;
@@ -492,7 +494,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
 
     if (idOperacao && identidade) {
       const decisao = await resolverOperacaoTx(tx, idOperacao, identidade);
-      if (decisao.estado === "REPLAY") return decisao.resultado as any;
+      if (decisao.estado === "REPLAY") return decisao.resultado as ResultadoRespostaRequisicaoBem;
       if (decisao.estado !== "NOVA") throw new HttpsError("failed-precondition", "Operação de resposta não concluída.");
     }
 
@@ -650,7 +652,8 @@ function chaveLocal(predio: string, andar: string, sala: string) {
 /** UI-07: diretório mínimo de locais; não expõe a coleção diretamente ao gestor de almoxarifado. */
 export const buscarLocaisParaRetirada = onCall(async (request) => {
   const dados = validatePayload(BuscarLocaisParaRetiradaSchema, request.data);
-  await validarAutoridadePersistida(request, ["Gestor_Almoxarifado"]);
+  const autoridade = await validarAutoridadePersistida(request, ["Gestor_Almoxarifado"]);
+  await verificarRateLimitCallable(autoridade.uid, "busca-locais-retirada");
 
   const db = admin.firestore();
   const predio = dados.predio ?? "";

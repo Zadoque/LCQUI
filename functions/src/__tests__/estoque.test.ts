@@ -9,8 +9,10 @@ import {
   obterEstoqueAtual,
   configurarLimiarEscassez,
   frascoAptoParaUso,
+  invalidarCacheEstoqueTx,
 } from "../estoque";
 import { executarVerificacaoEscassez } from "../jobs/notificacoesReagentes";
+import { criarRequestDeTeste } from "../types/testing";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
 
@@ -28,18 +30,8 @@ describe("Módulo de Estoque, Escassez e Cache (M8 - IMP-STOCK-001, IMP-STOCK-00
     testEnv.cleanup();
   });
 
-  function mockRequest(data: any, uid: string, roles: string[] = ["Gestor_Almoxarifado"]) {
-    return {
-      data,
-      auth: {
-        uid,
-        token: {
-          roles,
-          versao_permissoes: 1,
-        },
-      },
-      rawRequest: {},
-    } as any;
+  function mockRequest(data: Record<string, unknown>, uid: string, roles: string[] = ["Gestor_Almoxarifado"]) {
+    return criarRequestDeTeste(data, uid, roles);
   }
 
   async function seedGestor(uid: string, idAlmox: string) {
@@ -198,6 +190,8 @@ describe("Módulo de Estoque, Escassez e Cache (M8 - IMP-STOCK-001, IMP-STOCK-00
       idAlmoxarifado: idAlmox,
     }, uidGestor));
     expect(res1.fonte).toBe("CALCULADO");
+    expect(typeof res1.calculado_em_ms).toBe("number");
+    expect(res1.expira_em_ms).toBe(res1.calculado_em_ms + 30_000);
 
     // 2ª chamada imediata: CACHE (< 30s)
     const res2 = await testEnv.wrap(obterEstoqueAtual)(mockRequest({
@@ -205,6 +199,33 @@ describe("Módulo de Estoque, Escassez e Cache (M8 - IMP-STOCK-001, IMP-STOCK-00
     }, uidGestor));
     expect(res2.fonte).toBe("CACHE");
     expect(res2.qtd_total).toBe(res1.qtd_total);
+    expect(res2.calculado_em_ms).toBe(res1.calculado_em_ms);
+    expect(res2.expira_em_ms).toBe(res1.expira_em_ms);
+  });
+
+  it("deve invalidar atomically o cache amplo e o cache do resumo após mutação (IMP-CACHE-001)", async () => {
+    const idAlmox = `almox_inval_${Date.now()}`;
+    const idResumo = `resumo_inval_${Date.now()}`;
+    const dbCache = db.collection("Sistema_Cache_Dashboard");
+    await dbCache.doc(`ESTOQUE__ALMOX__${idAlmox}`).set({
+      geracao: 3,
+      valido: true,
+      resultado: { qtd_total: 1 },
+    });
+    await dbCache.doc(`ESTOQUE__ALMOX__RESUMO__${idAlmox}__${idResumo}`).set({
+      geracao: 7,
+      valido: true,
+      resultado: { qtd_total: 1 },
+    });
+
+    await db.runTransaction(async (tx) => {
+      invalidarCacheEstoqueTx(tx, idAlmox, idResumo);
+    });
+
+    const amplo = (await dbCache.doc(`ESTOQUE__ALMOX__${idAlmox}`).get()).data();
+    const resumo = (await dbCache.doc(`ESTOQUE__ALMOX__RESUMO__${idAlmox}__${idResumo}`).get()).data();
+    expect(amplo).toMatchObject({ geracao: 4, valido: false, resultado: null });
+    expect(resumo).toMatchObject({ geracao: 8, valido: false, resultado: null });
   });
 
   it("deve aplicar rate limit de 5 requisições por minuto por UID no dashboard (IMP-CACHE-001)", async () => {

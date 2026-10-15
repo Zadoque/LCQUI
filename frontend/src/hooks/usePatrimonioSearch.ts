@@ -21,6 +21,7 @@ export function usePatrimonioSearch() {
   const [filtroLetraInicial, setFiltroLetraInicial] = useState("");
   const [filtroConservacao, setFiltroConservacao] = useState("");
   const deepLinkProcessado = useRef(false);
+  const ultimaConsulta = useRef<{ chave: string; bens: BemPatrimonial[]; emMs: number } | null>(null);
 
   const searchFirestore = useCallback(async (statusOverride?: string) => {
     const statusBusca = statusOverride ?? filtroStatus;
@@ -35,6 +36,20 @@ export function usePatrimonioSearch() {
     setSearchError("");
     setLoading(true);
     setHasSearched(true);
+    const chave = JSON.stringify({
+      predio: filtroPredio,
+      andar: filtroAndar,
+      sala: filtroSala,
+      status: statusBusca,
+      letraInicial: filtroLetraInicial,
+      conservacao: filtroConservacao,
+    });
+    const cacheado = ultimaConsulta.current;
+    if (cacheado?.chave === chave && Date.now() - cacheado.emMs < 10_000) {
+      setBens(cacheado.bens);
+      setLoading(false);
+      return;
+    }
     try {
       const constraints = [];
       if (filtroPredio) constraints.push(where("predio", "==", filtroPredio));
@@ -51,6 +66,7 @@ export function usePatrimonioSearch() {
         ...doc.data(),
       })) as BemPatrimonial[];
 
+      ultimaConsulta.current = { chave, bens: lista, emMs: Date.now() };
       setBens(lista);
     } catch (error) {
       console.error("Erro ao buscar patrimônios:", error);

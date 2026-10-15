@@ -188,7 +188,11 @@ export interface ObterEstoqueParams {
   idAlmoxarifado: string;
 }
 
-export type ObterEstoqueResponse = Partial<EstoqueSnapshot>;
+export interface ObterEstoqueResponse extends Omit<Partial<EstoqueSnapshot>, "fonte"> {
+  fonte?: "CACHE" | "CALCULADO";
+  calculado_em_ms?: number;
+  expira_em_ms?: number;
+}
 export interface EstoqueRateError { isRateLimit: true; message: string; }
 export type ObterEstoqueResult = { ok: true; data: EstoqueSnapshot } | { ok: false; rateLimit: boolean; message: string };
 export interface HistoricoOperacional {

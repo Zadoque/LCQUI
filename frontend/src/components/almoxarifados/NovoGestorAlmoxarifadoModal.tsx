@@ -34,14 +34,16 @@ export function NovoGestorAlmoxarifadoModal({
     // diretamente o ciclo desta operação externa.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCarregandoBusca(true);
-    buscarUsuarios({
-      ...(termo.trim() ? { termo: termo.trim() } : {}),
-      papel: "Gestor_Almoxarifado",
-    })
-      .then((resultado) => { if (!cancelado) setUsuarios(resultado); })
-      .catch(() => { if (!cancelado) setErro("Não foi possível buscar usuários existentes."); })
-      .finally(() => { if (!cancelado) setCarregandoBusca(false); });
-    return () => { cancelado = true; };
+    const timeout = window.setTimeout(() => {
+      buscarUsuarios({
+        ...(termo.trim() ? { termo: termo.trim() } : {}),
+        papel: "Gestor_Almoxarifado",
+      })
+        .then((resultado) => { if (!cancelado) setUsuarios(resultado); })
+        .catch(() => { if (!cancelado) setErro("Não foi possível buscar usuários existentes."); })
+        .finally(() => { if (!cancelado) setCarregandoBusca(false); });
+    }, 300);
+    return () => { cancelado = true; window.clearTimeout(timeout); };
   }, [isOpen, modo, termo]);
 
   if (!isOpen) return null;

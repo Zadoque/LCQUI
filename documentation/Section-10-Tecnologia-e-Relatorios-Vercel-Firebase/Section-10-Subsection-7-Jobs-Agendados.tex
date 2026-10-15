@@ -75,7 +75,7 @@ export const verificarVencimentosEAtrasos = onSchedule({
           emitida_em: admin.firestore.FieldValue.serverTimestamp(),
           expira_em: null,
         }, { merge: false });
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (err.code !== 6 && err.code !== "ALREADY_EXISTS") throw err; // Ignora apenas duplicidade
       }
     }
@@ -121,7 +121,7 @@ export const verificarVencimentosEAtrasos = onSchedule({
           emitida_em: admin.firestore.FieldValue.serverTimestamp(),
           expira_em: null,
         }, { merge: false });
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (err.code !== 6 && err.code !== "ALREADY_EXISTS") throw err;
       }
     }
@@ -313,7 +313,7 @@ export const verificarEscassezDeEstoque = onSchedule({
 
   const almoxarifados = await db.collection("Almoxarifado").where("ativo", "==", true).get();
   const bw = db.bulkWriter();
-  const promises: Promise<any>[] = [];
+  const promises: Promise<unknown>[] = [];
 
   for (const almoxDoc of almoxarifados.docs) {
     const idAlmox = almoxDoc.id;

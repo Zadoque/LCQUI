@@ -6,6 +6,7 @@ import {
   comentar,
   criarPost,
   editarComentario,
+  esperarCallable,
   login,
   observarConsole,
 } from "../helpers/ui";
@@ -191,13 +192,13 @@ test.describe("Comentários", () => {
         .getByPlaceholder("Escreva um comentário...")
         .fill(texto);
 
-      const dialogoPromise = paginaChefe.waitForEvent("dialog");
+      const resposta = esperarCallable(paginaChefe, "adicionarComentario");
       await cartaoDoPost(paginaChefe, titulo)
         .getByRole("button", { name: "Comentar", exact: true })
         .click();
-      const dialogo = await dialogoPromise;
-      expect(dialogo.message()).toContain("professor responsável");
-      await dialogo.accept();
+      const retorno = await resposta;
+      expect(retorno.status()).toBe(403);
+      await expect(paginaChefe.getByText(/professor responsável desta turma/i)).toBeVisible();
       consoleChefe.verificar();
     } finally {
       await contextoChefe.close();

@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures";
-import { esperarCallable, login, lerResultadoCallable } from "../helpers/ui";
+import { capturarCallable, esperarCallable, login, lerResultadoCallable } from "../helpers/ui";
 import { ultimoOobPara } from "../helpers/emulator";
 
 test.describe("IMP-ROLE-004 — diretório mínimo de professores", () => {
@@ -48,5 +48,27 @@ test.describe("IMP-ROLE-004 — diretório mínimo de professores", () => {
     // O transporte real do e-mail é verificável no Auth Emulator, fora da UI.
     const oob = await ultimoOobPara(email, "PASSWORD_RESET");
     expect(oob.oobLink).toContain("oobCode=");
+  });
+
+  test("ROLE-004-E2E-004: seletor de novo professor exclui Chefe Geral e reutiliza a projeção em cache", async ({ page }) => {
+    await login(page, "chefe.seed@lcqui.local");
+    await page.goto("/professores");
+
+    const chamadas = capturarCallable(page, "buscarUsuariosParaPapel");
+    const abrirModal = async () => {
+      await page.getByRole("button", { name: "Novo Professor" }).click();
+      const seletor = page.getByLabel("Usuário existente (opcional)");
+      await expect(seletor).toBeVisible();
+      await expect(seletor.locator('option[value="seed-professor-alpha"]')).toHaveCount(1);
+      await expect(seletor.locator('option[value="seed-chefe-geral"]')).toHaveCount(0);
+    };
+
+    await abrirModal();
+    await expect.poll(() => chamadas.length).toBe(1);
+    expect(chamadas[0].payload).toMatchObject({ data: { papel: "Professor" } });
+    await page.getByRole("button", { name: "Fechar novo professor" }).click();
+
+    await abrirModal();
+    await expect.poll(() => chamadas.length).toBe(1);
   });
 });

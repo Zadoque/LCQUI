@@ -1,5 +1,5 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldPath, FieldValue } from "firebase-admin/firestore";
 import * as admin from "firebase-admin";
 import { createHash, randomUUID } from "crypto";
 import {
@@ -19,6 +19,7 @@ import {
   resolverOperacaoTx,
 } from "./idempotencia";
 import { validatePayload } from "./utils/validation";
+import { verificarRateLimitCallable } from "./utils/rateLimit";
 import { ConvidarUsuarioSchema, RevogarUsuarioPapelSchema, BuscarAlunosSchema, BuscarProfessoresSchema, BuscarGestoresAlmoxarifadoSchema, BuscarUsuariosPapelSchema, BuscarUsuariosRetiradaSchema, DetalhesUsuarioPapelSchema, AtualizarPerfilSchema } from "./schemas/usuarios.schema";
 import { dispararPasswordResetFirebaseAuth } from "./firebaseAuthEmail";
 
@@ -101,6 +102,16 @@ async function alterarPapel(dados: Mutacao, claims: ClaimsAutoridade): Promise<{
   try {
     return await db.runTransaction(async tx => {
       const controle = await tx.get(controleRef);
+      if (!controle.exists) {
+        throw new HttpsError("failed-precondition", "Reconciliar contadores antes da concessão/revogação.");
+      }
+      const controleData = controle.data();
+      const chefesAtivos = controleData?.chefes_ativos;
+      const gestoresPatrimoniaisAtivos = controleData?.gestores_patrimoniais_ativos;
+      if (!Number.isInteger(chefesAtivos) || chefesAtivos < 0
+        || !Number.isInteger(gestoresPatrimoniaisAtivos) || gestoresPatrimoniaisAtivos < 0) {
+        throw new HttpsError("failed-precondition", "Reconciliar contadores antes da concessão/revogação.");
+      }
       // M7: replay devolve o resultado persistido; reuso incompatível falha fechado.
       const decisao = await resolverOperacaoTx(tx, dados.idOperacao, identidade);
       if (decisao.estado === "REPLAY") {
@@ -133,18 +144,16 @@ async function alterarPapel(dados: Mutacao, claims: ClaimsAutoridade): Promise<{
       const posteriores = dados.conceder ? [...new Set([...atuais, dados.papel])] : atuais.filter(p => p !== dados.papel);
       validarMatrizPapeis(posteriores);
       const ativo = posteriores.length > 0;
-      // Recontagem transacional evita confiar em contador legado ausente/desatualizado.
-      const chefes = await tx.get(db.collection("Chefe_Geral"));
-      const gestores = await tx.get(db.collection("Gestor_Bens_Patrimoniais"));
-      const ids = [...new Set([...chefes.docs, ...gestores.docs].map(d => d.id))];
-      const identidades = ids.length ? await tx.getAll(...ids.map(id => db.collection("Usuarios").doc(id))) : [];
-      const ativos = new Set(identidades.filter(d => d.data()?.ativo === true).map(d => d.id));
-      const contar = (lista: FirebaseFirestore.QuerySnapshot, papel: string) =>
-        lista.docs.filter(d => d.id !== dados.uid && ativos.has(d.id)).length + (ativo && posteriores.includes(papel) ? 1 : 0);
-      const chefesDepois = contar(chefes, "Chefe_Geral");
-      const gestoresDepois = contar(gestores, "Gestor_Bens_Patrimoniais");
-      if (chefesDepois < 1) throw new HttpsError("failed-precondition", "O sistema deve conservar outro Chefe Geral ativo.");
-      if (!dados.conceder && dados.papel === "Gestor_Bens_Patrimoniais" && atuais.includes(dados.papel) && gestoresDepois < 1)
+      // M9: os contadores do singleton são a fonte canônica da concorrência.
+      // A transação já leu o singleton; qualquer operação concorrente que o
+      // altere será abortada/reprocessada pelo Firestore antes desta decisão.
+      const mutacaoReal = dados.conceder ? !atuais.includes(dados.papel) : atuais.includes(dados.papel);
+      const delta = mutacaoReal ? (dados.conceder ? 1 : -1) : 0;
+      const chefesDepois = chefesAtivos + (dados.papel === "Chefe_Geral" ? delta : 0);
+      const gestoresDepois = gestoresPatrimoniaisAtivos + (dados.papel === "Gestor_Bens_Patrimoniais" ? delta : 0);
+      if (!dados.conceder && dados.papel === "Chefe_Geral" && mutacaoReal && chefesDepois < 1)
+        throw new HttpsError("failed-precondition", "O sistema deve conservar outro Chefe Geral ativo.");
+      if (!dados.conceder && dados.papel === "Gestor_Bens_Patrimoniais" && mutacaoReal && gestoresDepois < 1)
         throw new HttpsError("failed-precondition", "Não revogar o último gestor patrimonial ativo.");
       const vinculos = !dados.conceder && dados.papel === "Gestor_Almoxarifado"
         ? await tx.get(db.collection("Gestor_Almoxarifado_x_Almoxarifado").where("id_gestor_almoxarifado", "==", dados.uid)) : null;
@@ -186,8 +195,13 @@ async function alterarPapel(dados: Mutacao, claims: ClaimsAutoridade): Promise<{
         tx.delete(db.collection(dados.papel).doc(dados.uid));
         vinculos?.docs.forEach(v => tx.delete(v.ref));
       }
-      tx.set(controleRef, { chefes_ativos: chefesDepois, gestores_patrimoniais_ativos: gestoresDepois,
-        versao: (controle.data()?.versao ?? 0) + 1 }, { merge: true });
+      if (dados.papel === "Chefe_Geral" && delta !== 0) {
+        tx.update(controleRef, { chefes_ativos: FieldValue.increment(delta), versao: FieldValue.increment(1) });
+      } else if (dados.papel === "Gestor_Bens_Patrimoniais" && delta !== 0) {
+        tx.update(controleRef, { gestores_patrimoniais_ativos: FieldValue.increment(delta), versao: FieldValue.increment(1) });
+      } else {
+        tx.update(controleRef, { versao: FieldValue.increment(1) });
+      }
       const resultado = { uid: dados.uid, ativo };
       if (dados.etapaAuthPendente) {
         registrarOperacaoPendenteTx(tx, dados.idOperacao, identidade, resultado);
@@ -303,16 +317,25 @@ export const convidarUsuario = onCall(async request => {
 /** UI-02/M9: diretório mínimo para selecionar identidade já existente. */
 export const buscarUsuariosParaPapel = onCall(async request => {
   const { termo, papel, letra } = validatePayload(BuscarUsuariosPapelSchema, request.data);
-  await validarAutoridadePersistida(request, ["Chefe_Geral"]);
+  const autoridade = await validarAutoridadePersistida(request, ["Chefe_Geral"]);
+  await verificarRateLimitCallable(autoridade.uid, "busca-usuarios-papel");
   const db = admin.firestore();
   let usuariosQuery: FirebaseFirestore.Query = db.collection("Usuarios").where("ativo", "==", true);
   if (letra) usuariosQuery = usuariosQuery.where("letra_inicial", "==", letra);
   const usuarios = await usuariosQuery.limit(200).get();
+  if (usuarios.empty) return { usuarios: [] };
   const termoNormalizado = termo?.toLowerCase() ?? "";
   const papeisPorUsuario = new Map<string, string[]>();
-  for (const papel of PAPEIS) {
-    const docs = await db.collection(papel).limit(200).get();
-    for (const doc of docs.docs) {
+  const ids = usuarios.docs.map((doc) => doc.id);
+  const lotesIds = Array.from({ length: Math.ceil(ids.length / 30) }, (_, indice) => ids.slice(indice * 30, indice * 30 + 30));
+  const papeisDosCandidatos = await Promise.all(PAPEIS.flatMap((papel) => lotesIds.map((loteIds) => (
+    db.collection(papel)
+      .where(FieldPath.documentId(), "in", loteIds)
+      .get()
+      .then((snap) => ({ papel, snap }))
+  ))));
+  for (const { papel, snap } of papeisDosCandidatos) {
+    for (const doc of snap.docs) {
       const papeis = papeisPorUsuario.get(doc.id) ?? [];
       papeis.push(papel);
       papeisPorUsuario.set(doc.id, papeis);
@@ -342,7 +365,8 @@ export const buscarUsuariosParaPapel = onCall(async request => {
 /** UI-02: detalhes autorizados por abas, sem usar a lista para baixar identidades. */
 export const obterDetalhesUsuarioParaPapel = onCall(async request => {
   const { uid } = validatePayload(DetalhesUsuarioPapelSchema, request.data);
-  await validarAutoridadePersistida(request, ["Chefe_Geral"]);
+  const autoridade = await validarAutoridadePersistida(request, ["Chefe_Geral"]);
+  await verificarRateLimitCallable(autoridade.uid, "detalhes-usuario-papel");
   const db = admin.firestore();
   const usuario = await db.collection("Usuarios").doc(uid).get();
   if (!usuario.exists) throw new HttpsError("not-found", "Usuário não encontrado.");
@@ -388,7 +412,8 @@ export const buscarAlunos = onCall(async request => {
   const { letra, termo } = validatePayload(BuscarAlunosSchema, request.data);
 
   // M9: autoridade persistida (Professor ou Chefe_Geral).
-  await validarAutoridadePersistida(request, ["Professor", "Chefe_Geral"]);
+  const autoridade = await validarAutoridadePersistida(request, ["Professor", "Chefe_Geral"]);
+  await verificarRateLimitCallable(autoridade.uid, "busca-alunos");
 
   const db = admin.firestore();
 
@@ -439,7 +464,8 @@ export const buscarProfessores = onCall(async request => {
   const { termo } = validatePayload(BuscarProfessoresSchema, request.data);
 
   // M9: autoridade persistida (Professor ou Chefe_Geral).
-  await validarAutoridadePersistida(request, ["Professor", "Chefe_Geral"]);
+  const autoridade = await validarAutoridadePersistida(request, ["Professor", "Chefe_Geral"]);
+  await verificarRateLimitCallable(autoridade.uid, "busca-professores");
 
   const db = admin.firestore();
 
@@ -467,7 +493,8 @@ export const buscarProfessores = onCall(async request => {
 /** UI-03/M9: projeção mínima de gestores ativos de almoxarifado. */
 export const buscarGestoresAlmoxarifado = onCall(async request => {
   const { termo } = validatePayload(BuscarGestoresAlmoxarifadoSchema, request.data);
-  await validarAutoridadePersistida(request, ["Chefe_Geral"]);
+  const autoridade = await validarAutoridadePersistida(request, ["Chefe_Geral"]);
+  await verificarRateLimitCallable(autoridade.uid, "busca-gestores-almoxarifado");
   const db = admin.firestore();
   const papeis = await db.collection("Gestor_Almoxarifado").limit(200).get();
   if (papeis.empty) return { gestores: [] };
@@ -492,7 +519,8 @@ export const buscarGestoresAlmoxarifado = onCall(async request => {
  */
 export const buscarUsuariosParaRetirada = onCall(async request => {
   const { letra, termo } = validatePayload(BuscarUsuariosRetiradaSchema, request.data);
-  await validarAutoridadePersistida(request, ["Gestor_Almoxarifado"]);
+  const autoridade = await validarAutoridadePersistida(request, ["Gestor_Almoxarifado"]);
+  await verificarRateLimitCallable(autoridade.uid, "busca-usuarios-retirada");
 
   const db = admin.firestore();
   const usuariosSnap = await db.collection("Usuarios")
@@ -504,19 +532,26 @@ export const buscarUsuariosParaRetirada = onCall(async request => {
 
   const candidatos = usuariosSnap.docs;
   const papeisPorUsuario = new Map<string, string[]>();
-  const perfilSnaps = await Promise.all(candidatos.flatMap(doc => [
-    db.collection("Professor").doc(doc.id).get(),
-    db.collection("Bolsista").doc(doc.id).get(),
-    db.collection("Gestor_Almoxarifado").doc(doc.id).get(),
-  ]));
-  for (let i = 0; i < candidatos.length; i++) {
-    const papeis: string[] = [];
-    if (perfilSnaps[i * 3].exists) papeis.push("Professor");
-    if (perfilSnaps[i * 3 + 1].exists) papeis.push("Bolsista");
-    if (perfilSnaps[i * 3 + 2].exists) papeis.push("Gestor_Almoxarifado");
+  const ids = candidatos.map((doc) => doc.id);
+  const lotesIds = Array.from({ length: Math.ceil(ids.length / 30) }, (_, indice) => ids.slice(indice * 30, indice * 30 + 30));
+  const perfis = await Promise.all(["Professor", "Bolsista", "Gestor_Almoxarifado"].flatMap((papel) => lotesIds.map((loteIds) => (
+    db.collection(papel)
+      .where(FieldPath.documentId(), "in", loteIds)
+      .get()
+      .then((snap) => ({ papel, snap }))
+  ))));
+  for (const { papel, snap } of perfis) {
+    for (const doc of snap.docs) {
+      const papeis = papeisPorUsuario.get(doc.id) ?? [];
+      papeis.push(papel);
+      papeisPorUsuario.set(doc.id, papeis);
+    }
+  }
+  for (const candidato of candidatos) {
+    const papeis = papeisPorUsuario.get(candidato.id) ?? [];
     // Gestor puro é operador, não portador elegível. Só retorna quando também
     // possui Professor/Bolsista, caso de autoatendimento normativo.
-    if (papeis.includes("Professor") || papeis.includes("Bolsista")) papeisPorUsuario.set(candidatos[i].id, papeis);
+    if (!(papeis.includes("Professor") || papeis.includes("Bolsista"))) papeisPorUsuario.delete(candidato.id);
   }
 
   const termoNormalizado = termo?.toLowerCase() ?? "";

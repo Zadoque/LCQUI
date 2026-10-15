@@ -88,7 +88,7 @@ describe("Schemas e Contratos de Reagentes Base (IMP-REAG-001)", () => {
         nome: "Gás Cloro",
         tipoSubstancia: "PURA",
         naturezaQuimica: "INORGANICO",
-        estadoFisico: "GASOSO" as any,
+        estadoFisico: "GASOSO",
         requerPesagemFrequente: false,
         qtdEmQueEConsideradoEscasso: 2,
       });

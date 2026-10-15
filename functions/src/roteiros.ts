@@ -34,10 +34,25 @@ interface StorageFileMetadata {
   timeCreated?: string;
 }
 
+/**
+ * Lê a referência canônica M12.2. Documentos novos gravados pelas Functions
+ * ainda mantêm os campos materializados para compatibilidade, enquanto o seed
+ * e o contrato CUE representam a mesma referência dentro de `referencia`.
+ * A autorização deve aceitar somente os valores da referência canônica.
+ */
+export function obterReferenciaRoteiro(roteiro: Record<string, unknown>): Record<string, unknown> {
+  const referencia = roteiro.referencia;
+  if (referencia && typeof referencia === "object" && !Array.isArray(referencia)) {
+    return referencia as Record<string, unknown>;
+  }
+  return roteiro;
+}
+
 /** Verifica se um usuário tem acesso a um roteiro publicável (dono ou compartilhado). */
 export function podeAcessarRoteiro(roteiro: Record<string, unknown> | undefined, uid: string): boolean {
   if (!roteiro || roteiro.status_roteiro !== "PUBLICAVEL") return false;
-  if (!roteiro.geracao || !roteiro.storage_path) return false;
+  const referencia = obterReferenciaRoteiro(roteiro);
+  if (!referencia.geracao || !referencia.storage_path) return false;
   if (roteiro.id_professor_upload === uid) return true;
   const compartilhados = roteiro.professores_compartilhados as string[] | undefined;
   if (compartilhados && compartilhados.includes(uid)) return true;
@@ -249,7 +264,7 @@ export const publicarRoteiro = onCall(async (request) => {
       throw new HttpsError("failed-precondition", "Roteiro deve estar VALIDADO para ser publicado.");
     }
 
-    const geracao = roteiro.geracao;
+    const geracao = obterReferenciaRoteiro(roteiro).geracao;
     if (typeof geracao !== "string" || geracao.length === 0) {
       throw new HttpsError("failed-precondition", "Geração do objeto não foi fixada.");
     }
@@ -450,8 +465,7 @@ export const removerRoteiro = onCall(async (request) => {
     const resultado = { success: true };
     registrarOperacaoConcluidaTx(tx, idOperacao, identidade, resultado);
     return {
-      storage_path: roteiro.storage_path,
-      geracao: roteiro.geracao,
+      ...obterReferenciaRoteiro(roteiro),
     };
   });
 
@@ -516,8 +530,9 @@ export const emitirUrlDownloadRoteiro = onCall(async (request) => {
       throw new HttpsError("failed-precondition", "Roteiro não está publicável.");
     }
 
-    const storagePath = roteiro.storage_path;
-    const geracao = roteiro.geracao;
+    const referencia = obterReferenciaRoteiro(roteiro);
+    const storagePath = typeof referencia.storage_path === "string" ? referencia.storage_path : null;
+    const geracao = typeof referencia.geracao === "string" ? referencia.geracao : null;
     if (!storagePath || !geracao) {
       throw new HttpsError("failed-precondition", "Referência canônica incompleta.");
     }

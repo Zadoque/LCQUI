@@ -305,7 +305,7 @@ export const responderRequisicaoAdicaoBem = onCall(async (request) => {
 
     let chaveUnicaRef: FirebaseFirestore.DocumentReference | null = null;
     let resumoNome = req.nome\_resumo\_proposto ?? "";
-    let localSnapData: any = null;
+    let localSnapData: Record<string, unknown> | null = null;
     let letraInicial = "";
 
     // PASSO B: Decisão e validações adicionais (leituras antes das escritas mantidas)

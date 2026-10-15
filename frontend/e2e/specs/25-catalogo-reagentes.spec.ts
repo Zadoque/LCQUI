@@ -1,8 +1,14 @@
 import { test, expect } from "../fixtures";
 import { login, esperarCallable, lerResultadoCallable } from "../helpers/ui";
-import { lerDocumento } from "../helpers/emulator";
+import { lerDocumento, removerDocumentoEmulado } from "../helpers/emulator";
 
 test.describe("Catálogo e cadastro de reagentes", () => {
+  test.beforeEach(async () => {
+    // Isola o rate limit normativo entre cenários que reutilizam o gestor seed;
+    // não altera o limite de produção nem mascara uma resposta 429 da UI.
+    await removerDocumentoEmulado("Sistema_Rate_Limit_Dashboard/seed-gestor-almox");
+  });
+
   test("BASE-004-E2E-001 e STOCK-001-E2E-001 exibem catálogo e fotografia de estoque", async ({ page }) => {
     await login(page, "gestor.almoxarifado@lcqui.local");
     await page.goto("/reagentes");

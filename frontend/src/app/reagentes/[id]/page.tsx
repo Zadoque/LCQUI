@@ -78,16 +78,19 @@ export default function ReagenteDetailsPage() {
         query(collection(db, "Frasco_Reagente"), where("id_resumo_reagente", "==", id))
       );
       const podeConsultarTodosEmprestimos = roles.includes("Chefe_Geral") || roles.includes("Gestor_Almoxarifado");
-      const emprestimosQuery = podeConsultarTodosEmprestimos
-        ? query(collection(db, "Emprestimo_Reagente"))
-        : query(
-            collection(db, "Emprestimo_Reagente"),
-            where("id_usuario_retirou", "==", userUid),
-          );
-      const emprestimosSnap = await getDocs(emprestimosQuery);
       const idsFrascosDoReagente = new Set(frascosSnap.docs.map((frasco) => frasco.id));
+      const idsFrascos = [...idsFrascosDoReagente];
+      const lotesIdsFrascos = Array.from({ length: Math.ceil(idsFrascos.length / 30) }, (_, indice) => (
+        idsFrascos.slice(indice * 30, indice * 30 + 30)
+      ));
+      const emprestimosSnaps = await Promise.all(lotesIdsFrascos.map((loteIds) => {
+        const constraints = [where("id_frasco_reagente", "in", loteIds)];
+        if (!podeConsultarTodosEmprestimos) constraints.push(where("id_usuario_retirou", "==", userUid));
+        return getDocs(query(collection(db, "Emprestimo_Reagente"), ...constraints));
+      }));
+      const emprestimosDocs = emprestimosSnaps.flatMap((snapshot) => snapshot.docs);
       setEmprestimosProprios(
-        emprestimosSnap.docs
+        emprestimosDocs
           .map((emprestimo) => ({ id: emprestimo.id, data: emprestimo.data() as EmprestimoReagenteDetalhe }))
           .filter((emprestimo) => idsFrascosDoReagente.has(emprestimo.data.id_frasco_reagente))
           .sort((a, b) => {
@@ -97,7 +100,7 @@ export default function ReagenteDetailsPage() {
           })
       );
       const emprestimosPorFrasco = new Map<string, { id: string; data: EmprestimoReagenteDetalhe }>();
-      for (const emprestimo of emprestimosSnap.docs) {
+      for (const emprestimo of emprestimosDocs) {
         const dados = emprestimo.data() as EmprestimoReagenteDetalhe;
         const anterior = emprestimosPorFrasco.get(dados.id_frasco_reagente);
         const atual = dados.data_devolucao_efetuada?.toMillis?.() ?? dados.data_retirada?.toMillis?.() ?? 0;

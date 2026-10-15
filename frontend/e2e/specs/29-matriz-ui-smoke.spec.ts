@@ -4,8 +4,23 @@ import { lerDocumento } from "../helpers/emulator";
 
 test.describe("Cobertura transversal da matriz", () => {
   test("IMP-UI-001/IMP-INDEX-001 consulta catálogo e renderiza fotografia de estoque", async ({ page }) => {
+    // Usa a identidade de Chefia para não consumir o rate-limit do gestor
+    // compartilhado com os cenários anteriores da suíte; o contrato M8
+    // permite a consulta para ambos os papéis.
+    await login(page, "chefe.seed@lcqui.local");
+    await page.goto("/reagentes");
+    await expect(page.getByRole("heading", { name: "Catálogo de Reagentes" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Estoque atual/i })).toBeVisible();
+    await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
+    await expect(page.getByText("Reagente Seed", { exact: true })).toBeVisible();
+    await expect(page.getByText("Frascos Aptos", { exact: true })).toBeVisible();
+    await expect(page.getByText("Total de Frascos", { exact: true })).toBeVisible();
+  });
+
+  test("IMP-UI-001-GESTOR-E2E-001 consulta estoque com o papel Gestor de Almoxarifado", async ({ page }) => {
     await login(page, "gestor.almoxarifado@lcqui.local");
     await page.goto("/reagentes");
+    await expect(page.getByText(/Olá, Gestor de Almoxarifado/)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Catálogo de Reagentes" })).toBeVisible();
     await expect(page.getByRole("heading", { name: /Estoque atual/i })).toBeVisible();
     await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
@@ -39,7 +54,7 @@ test.describe("Cobertura transversal da matriz", () => {
     await expect(page.getByRole("heading", { name: "Banho-Maria Inservível Seed" })).toBeVisible();
     await expect(page.getByText("Status: Inservivel")).toBeVisible();
     await page.getByRole("button", { name: "Registrar Baixa Patrimonial (Processo SEI)" }).click();
-    await expect(page.getByRole("heading", { name: /Registrar Baixa Patrimonial Definitiva/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Registrar baixa patrimonial definitiva/i })).toBeVisible();
     await page.getByPlaceholder(/número do processo SEI/).fill("Processo SEI 2026.0001.004");
     const chamada = esperarCallable(page, "registrarBaixaBemPatrimonial");
     await page.getByRole("button", { name: "Confirmar Baixa Definitiva" }).click();

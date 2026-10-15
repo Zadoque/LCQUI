@@ -95,10 +95,25 @@ describe("Catálogo JSON (IMP-BASE-004) e Materializações FLOW (IMP-MVIEW-001)
       expect(estadoDoc.data()?.catalogos.resumos.storage_path).toMatch(
         new RegExp(`^catalogo-resumos/v${res.versaoPublicada}-[a-f0-9]{64}\\.json$`),
       );
-      expect(estadoDoc.data()?.catalogos.resumos.sha256).toMatch(/^[a-f0-9]{64}$/);
-      expect(estadoDoc.data()?.catalogos.especificacoes.storage_path).toMatch(/^catalogo-especificacoes\/v1-[a-f0-9]{64}\.json$/);
-      expect(estadoDoc.data()?.catalogos.substancias.storage_path).toMatch(/^catalogo-substancias\/v1-[a-f0-9]{64}\.json$/);
-      expect(estadoDoc.data()?.catalogos.materias.storage_path).toMatch(/^catalogo-materias\/v1-[a-f0-9]{64}\.json$/);
+      const catalogos = (estadoDoc.data()?.catalogos ?? {}) as Record<string, {
+        versao_publicada?: unknown;
+        storage_path?: unknown;
+        sha256?: unknown;
+      }>;
+      for (const [nome, prefixo] of [
+        ["resumos", "catalogo-resumos"],
+        ["especificacoes", "catalogo-especificacoes"],
+        ["substancias", "catalogo-substancias"],
+        ["materias", "catalogo-materias"],
+      ] as const) {
+        const descritor = catalogos[nome];
+        const versaoPublicada = Number(descritor?.versao_publicada);
+        expect(versaoPublicada).toBeGreaterThan(0);
+        expect(String(descritor?.storage_path)).toMatch(
+          new RegExp(`^${prefixo}/v${versaoPublicada}-[a-f0-9]{64}\\.json$`),
+        );
+        expect(String(descritor?.sha256)).toMatch(/^[a-f0-9]{64}$/);
+      }
       expect(estadoDoc.data()?.gerado_em).toBeDefined();
     });
 

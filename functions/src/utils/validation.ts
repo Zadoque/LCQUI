@@ -13,12 +13,10 @@ import { ZodSchema, ZodError } from "zod";
 export function validatePayload<T>(schema: ZodSchema<T>, data: unknown): T {
   try {
     return schema.parse(data);
-  } catch (error: any) {
-    if (error instanceof ZodError || (error && error.name === "ZodError")) {
-      // ZodError exposes .issues or .errors
-      const issues = error.issues || error.errors || [];
-      const detalhes = issues.length > 0 
-        ? issues.map((err: any) => `${err.path.join('.')}: ${err.message}`).join(" | ")
+  } catch (error: unknown) {
+    if (error instanceof ZodError) {
+      const detalhes = error.issues.length > 0
+        ? error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join(" | ")
         : error.message;
       throw new HttpsError("invalid-argument", `Erro de validação: ${detalhes}`);
     }

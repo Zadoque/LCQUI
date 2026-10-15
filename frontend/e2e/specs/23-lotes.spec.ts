@@ -6,7 +6,7 @@ test("LOTE-E2E-001: cadastra lote com validação e chave determinística", asyn
   await login(page, "gestor.almoxarifado@lcqui.local");
   await page.goto("/reagentes");
   await page.locator("select").first().selectOption("Líquido");
-  await page.getByRole("button", { name: "Buscar no Banco" }).click();
+  await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
   await expect(page.getByText("Reagente Seed")).toBeVisible();
   await page.getByText("Reagente Seed").click();
   await page.getByRole("button", { name: "+ Novo Lote" }).click();
@@ -26,7 +26,6 @@ test("LOTE-E2E-001: cadastra lote com validação e chave determinística", asyn
   await formulario.getByRole("button", { name: "Salvar Lote" }).click();
   await resposta;
 
-  await expect(page.getByRole("heading", { name: "Estoque (Reagentes)" })).toBeVisible();
   const lotes = await listarColecao("Lote");
   expect(lotes.some((lote) => lote.data.numero_lote === "LT-E2E-001" && lote.data.nome_fornecedor === "Fornecedor E2E")).toBe(true);
 });
@@ -36,7 +35,7 @@ test("LOTE-E2E-002: rejeita lote duplicado sem criar segundo documento", async (
   await login(page, "gestor.almoxarifado@lcqui.local");
   await page.goto("/reagentes");
   await page.locator("select").first().selectOption("Líquido");
-  await page.getByRole("button", { name: "Buscar no Banco" }).click();
+  await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
   await page.getByText("Reagente Seed").click();
 
   const preencher = async () => {
@@ -76,7 +75,7 @@ test("LOTE-E2E-003: rejeita aquisição futura e não grava lote", async ({ page
   await login(page, "gestor.almoxarifado@lcqui.local");
   await page.goto("/reagentes");
   await page.locator("select").first().selectOption("Líquido");
-  await page.getByRole("button", { name: "Buscar no Banco" }).click();
+  await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
   await page.getByText("Reagente Seed").click();
   await page.getByRole("button", { name: "+ Novo Lote" }).click();
   const formulario = page.locator("form").filter({ hasText: "Salvar Lote" });

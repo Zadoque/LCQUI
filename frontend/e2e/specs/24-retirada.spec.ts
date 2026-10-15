@@ -1,8 +1,10 @@
 import { test, expect } from "../fixtures";
-import { login, esperarCallable, lerResultadoCallable } from "../helpers/ui";
+import { capturarCallable, login, esperarCallable, lerResultadoCallable } from "../helpers/ui";
 import { lerDocumento, listarColecao } from "../helpers/emulator";
 
 test("RET-E2E-001: registra retirada com contrato completo", async ({ page, guardaConsole }) => {
+  const chamadasBuscaRetirante = capturarCallable(page, "buscarUsuariosParaRetirada");
+  const chamadasBuscaLocal = capturarCallable(page, "buscarLocaisParaRetirada");
   await login(page, "gestor.almoxarifado@lcqui.local");
   await page.goto("/reagentes");
   await page.getByPlaceholder("Pesquisar reagente por nome ou tipo químico (começa no 1º caractere)...").fill("Reagente Seed");
@@ -15,6 +17,8 @@ test("RET-E2E-001: registra retirada com contrato completo", async ({ page, guar
   const resposta = esperarCallable(page, "cadastrarFrascoFechado");
   await entrada.getByRole("button", { name: "Salvar Frasco" }).click();
   await resposta;
+  await expect(page.getByTestId("frasco-cadastro-sucesso")).toBeVisible();
+  await page.getByRole("button", { name: "Concluir" }).click();
   const chave = await lerDocumento("Chaves_Unicas/Frasco_Reagente__LCQUI-1");
   expect(chave).not.toBeNull();
 
@@ -26,12 +30,14 @@ test("RET-E2E-001: registra retirada com contrato completo", async ({ page, guar
   const buscaRetirante = esperarCallable(page, "buscarUsuariosParaRetirada");
   await page.getByTestId("retirada-modal-seletor").getByTestId("retirada-buscar").click();
   await buscaRetirante;
+  await expect.poll(() => chamadasBuscaRetirante).toHaveLength(1);
   await page.getByTestId("retirada-modal-seletor").getByTestId("retirada-usuario-seed-professor-alpha").click();
   await formulario.getByTestId("retirada-abrir-local").click();
   await page.getByTestId("retirada-modal-local").getByLabel("Prédio do local").fill("Bloco de Química");
   const buscaLocal = esperarCallable(page, "buscarLocaisParaRetirada");
   await page.getByTestId("retirada-buscar-local").click();
   await buscaLocal;
+  await expect.poll(() => chamadasBuscaLocal).toHaveLength(1);
   await page.getByTestId("retirada-local-seed-local-almox-frascos").click();
   await formulario.locator('input[type="number"]').fill("500");
   await formulario.locator('input[type="date"]').fill("2099-01-01");
@@ -55,15 +61,13 @@ test("RET-E2E-001: registra retirada com contrato completo", async ({ page, guar
   await segunda.getByLabel("Código do frasco (LCQUI-)").fill(chave!.data.id_recurso as string);
   await segunda.getByTestId("retirada-abrir-seletor").click();
   await page.getByTestId("retirada-modal-seletor").getByLabel("Letra inicial do nome").fill("P");
-  const segundaBusca = esperarCallable(page, "buscarUsuariosParaRetirada");
   await page.getByTestId("retirada-modal-seletor").getByTestId("retirada-buscar").click();
-  await segundaBusca;
+  await expect.poll(() => chamadasBuscaRetirante).toHaveLength(1);
   await page.getByTestId("retirada-modal-seletor").getByTestId("retirada-usuario-seed-professor-alpha").click();
   await segunda.getByTestId("retirada-abrir-local").click();
   await page.getByTestId("retirada-modal-local").getByLabel("Prédio do local").fill("Bloco de Química");
-  const segundaBuscaLocal = esperarCallable(page, "buscarLocaisParaRetirada");
   await page.getByTestId("retirada-buscar-local").click();
-  await segundaBuscaLocal;
+  await expect.poll(() => chamadasBuscaLocal).toHaveLength(1);
   await page.getByTestId("retirada-local-seed-local-almox-frascos").click();
   await segunda.locator('input[type="number"]').fill("500");
   await segunda.locator('input[type="date"]').fill("2099-01-01");
@@ -91,6 +95,8 @@ test("DEV-001-E2E-002: conclui retirada e devolução com pesagens concordantes"
   const resultado = await lerResultadoCallable(await criar);
   const frascoId = resultado.idFrasco as string;
   expect(frascoId).toBeTruthy();
+  await expect(page.getByTestId("frasco-cadastro-sucesso")).toBeVisible();
+  await page.getByRole("button", { name: "Concluir" }).click();
   const frascoCriado = await lerDocumento(`Frasco_Reagente/${frascoId}`);
   expect(frascoCriado).toBeTruthy();
   const codigoFrasco = frascoCriado!.data.codigo_frasco as string;
@@ -127,7 +133,7 @@ test("DEV-001-E2E-002: conclui retirada e devolução com pesagens concordantes"
   const emprestimosAtivos = await listarColecao("Emprestimo_Reagente");
   const emprestimoAtivo = emprestimosAtivos.find((item) => item.data.id_frasco_reagente === frascoId && item.data.status === "EM_USO");
   expect(emprestimoAtivo).toBeTruthy();
-  await devolucao.getByLabel("Frasco / empréstimo a devolver *").fill(emprestimoAtivo!.id);
+  await devolucao.getByLabel("Código do frasco ou empréstimo *").fill(emprestimoAtivo!.id);
   await devolucao.getByTestId("devolucao-abrir-seletor").click();
   await page.getByTestId("devolucao-modal-seletor").getByLabel("Letra inicial do nome").fill("P");
   const buscaDevolvente = esperarCallable(page, "buscarUsuariosParaRetirada");

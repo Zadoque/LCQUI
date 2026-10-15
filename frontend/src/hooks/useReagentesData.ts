@@ -82,13 +82,16 @@ export function useReagentesData(abaParam: string = "catalogo") {
   }, [authLoading, user, carregarCatalogo]);
 
   // Carrega snapshot de estoque atual M8 (UI-19)
-  const carregarEstoqueAtual = useCallback(async () => {
+  const carregarEstoqueAtual = useCallback(async (ignorarCache = false) => {
     if (!idAlmoxarifado && !isChefe) return;
     const almoxTarget = idAlmoxarifado || "almoxarifado-central";
     setLoadingEstoque(true);
     setErroEstoque("");
     setRateLimited(false);
-    const resultado = await obterEstoqueAtual({ idAlmoxarifado: almoxTarget });
+    const resultado = await obterEstoqueAtual(
+      { idAlmoxarifado: almoxTarget },
+      { ignorarCache },
+    );
     if (resultado.ok) {
       setEstoqueSnapshot(resultado.data);
     } else {

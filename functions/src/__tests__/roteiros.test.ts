@@ -18,6 +18,7 @@ import {
   removerRoteiro,
   emitirUrlDownloadRoteiro,
 } from "../roteiros";
+import { criarRequestDeTeste } from "../types/testing";
 import { criarPost, removerPost } from "../posts";
 
 const testEnv = fft({ projectId: "lcqui-dev" });
@@ -39,15 +40,8 @@ describe("Módulo de Roteiros", () => {
     testEnv.cleanup();
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mockRequest = (data: any, uid: string, roles: string[] = ["Professor"], versao_permissoes = 1): any => ({
-    data,
-    auth: {
-      uid,
-      token: { roles, versao_permissoes }
-    },
-    rawRequest: {}
-  });
+  const mockRequest = (data: Record<string, unknown>, uid: string, roles: string[] = ["Professor"]) =>
+    criarRequestDeTeste(data, uid, roles);
 
   let operacaoSeq = 0;
   const novaOperacao = (): string => `op_rtr_${Date.now()}_${++operacaoSeq}`;

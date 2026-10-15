@@ -10,6 +10,7 @@ import { criarTurma, ingressarEmTurmaPorCodigo, removerAlunoTurma, alterarStatus
 import { executarConvidarAluno } from "../convites";
 import { chaveTurmaCodigo, chaveConvitePendente } from "../chaves";
 import { derivarChavePendenciaConvite } from "../domain/convites";
+import { criarRequestDeTeste } from "../types/testing";
 
 interface EmulatorOobCode {
   email?: string;
@@ -47,15 +48,8 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
     testEnv.cleanup();
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mockRequest = (data: any, uid: string, roles: string[] = ["Professor"], versao_permissoes = 1): any => ({
-    data,
-    auth: {
-      uid,
-      token: { roles, versao_permissoes }
-    },
-    rawRequest: {}
-  });
+  const mockRequest = <T>(data: T, uid: string, roles: string[] = ["Professor"], versao_permissoes = 1) =>
+    criarRequestDeTeste(data, uid, roles, versao_permissoes);
 
   async function semearChefeGeral(uid: string, ativo = true, versao = 1): Promise<void> {
     await db.collection("Usuarios").doc(uid).set({ ativo, versao_permissoes: versao });
@@ -1693,8 +1687,7 @@ describe("Módulo Acadêmico (Turmas, Alunos, Convites e Roteiros - Baseado no m
       const wrappedDetalhes = testEnv.wrap(obterDetalhesConviteAluno);
 
       // 1. Visitante não autenticado falha
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await expect(wrappedDetalhes({ data: { idConvite: resConvidar.id } } as any)).rejects.toMatchObject({
+      await expect(wrappedDetalhes(criarRequestDeTeste({ idConvite: resConvidar.id }))).rejects.toMatchObject({
         code: "unauthenticated",
       });
 

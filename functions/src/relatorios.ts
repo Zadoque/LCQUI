@@ -22,6 +22,12 @@ import {
   DadosEtiquetasVirgensSchema, 
   DadosReimpressaoSchema 
 } from "./schemas/relatorios.schema";
+import type {
+  DocumentoPdf,
+  EventoHistoricoRelatorio,
+  FrascoFichaRelatorio,
+  RegistroFirestore,
+} from "./types/relatorios";
 
 // -------------------------------------------------------------
 // LIMITES E RATE LIMITING (IMP-REP-003)
@@ -63,7 +69,7 @@ function gerarHashCanonico(partes: string[]): string {
   return createHash("sha256").update(partes.join("|")).digest("hex");
 }
 
-async function buildPdfBuffer(doc: any, builderCallback: (doc: any) => Promise<void> | void): Promise<Buffer> {
+async function buildPdfBuffer(doc: DocumentoPdf, builderCallback: (doc: DocumentoPdf) => Promise<void> | void): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const buffers: Buffer[] = [];
     doc.on('data', buffers.push.bind(buffers));
@@ -75,7 +81,7 @@ async function buildPdfBuffer(doc: any, builderCallback: (doc: any) => Promise<v
     try {
       const result = builderCallback(doc);
       if (result instanceof Promise) {
-        result.then(() => doc.end()).catch((err: any) => reject(err));
+        result.then(() => doc.end()).catch((err: unknown) => reject(err));
       } else {
         doc.end();
       }
@@ -173,8 +179,8 @@ export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
       .get()
   ]);
 
-  const devolucoes = devolucoesSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
-  const historicos = historicoSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+  const devolucoes = devolucoesSnap.docs.map(d => ({ id: d.id, ...d.data() } as RegistroFirestore));
+  const historicos = historicoSnap.docs.map(d => ({ id: d.id, ...d.data() } as RegistroFirestore));
 
   // Se não houver materializações suficientes (ex: dias correntes ou dados anteriores ao job),
   // complementar os totais a partir dos fatos crus
@@ -191,13 +197,13 @@ export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
   devolucoes.forEach(d => { if (d.id_frasco_reagente) frascoIds.add(d.id_frasco_reagente); });
   historicos.forEach(h => { if (h.id_frasco_reagente) frascoIds.add(h.id_frasco_reagente); });
 
-  const frascosMap = new Map<string, any>();
+  const frascosMap = new Map<string, RegistroFirestore>();
   if (frascoIds.size > 0) {
     const frascoRefs = Array.from(frascoIds).map(id => db.collection("Frasco_Reagente").doc(id));
     const frascoChunks = chunkArray(frascoRefs, 200);
     const frascoSnapsNested = await Promise.all(frascoChunks.map(chunk => db.getAll(...chunk)));
     const frascoSnaps = frascoSnapsNested.flat();
-    frascoSnaps.forEach(snap => { if (snap.exists) frascosMap.set(snap.id, snap.data()); });
+    frascoSnaps.forEach(snap => { if (snap.exists) frascosMap.set(snap.id, snap.data() ?? {}); });
   }
 
   const especIds = new Set<string>();
@@ -205,20 +211,20 @@ export const gerarRelatorioAlmoxarifado = onCall(async (request) => {
     if (f.id_especificacao_reagente) especIds.add(f.id_especificacao_reagente);
   });
 
-  const especMap = new Map<string, any>();
+  const especMap = new Map<string, RegistroFirestore>();
   if (especIds.size > 0) {
     const especRefs = Array.from(especIds).map(id => db.collection("Especificacao_Reagente").doc(id));
     const especChunks = chunkArray(especRefs, 200);
     const especSnapsNested = await Promise.all(especChunks.map(chunk => db.getAll(...chunk)));
     const especSnaps = especSnapsNested.flat();
-    especSnaps.forEach(snap => { if (snap.exists) especMap.set(snap.id, snap.data()); });
+    especSnaps.forEach(snap => { if (snap.exists) especMap.set(snap.id, snap.data() ?? {}); });
   }
 
   const ocorrenciasCriticas = historicos.filter(h => 
     ["QUEBROU", "FOI_DESCARTADO", "ENTROU_EM_QUARENTENA", "VENCEU", "EXTRAVIO"].includes(h.tipo)
   );
 
-  const movimentacoesControladas: any[] = [];
+  const movimentacoesControladas: Array<{ h: RegistroFirestore; frasco: RegistroFirestore; espec: RegistroFirestore }> = [];
   historicos.forEach(h => {
     const frasco = frascosMap.get(h.id_frasco_reagente);
     if (frasco && frasco.id_especificacao_reagente) {
@@ -387,7 +393,7 @@ export const gerarRelatorioBensPredio = onCall(async (request) => {
   if (filtros.status) query = query.where("status", "==", filtros.status);
 
   const bensSnapshot = await query.get();
-  const bens = bensSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+  const bens = bensSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RegistroFirestore));
 
   // Hash Canônico Determinístico
   const canonicalParts = [
@@ -524,7 +530,7 @@ export const gerarRelatorioPersonalizado = onCall(async (request) => {
         .where("timestamp", "<=", dataFimObj)
         .get();
         
-      const registros = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as any));
+      const registros = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as RegistroFirestore));
       totalRegistros = registros.length;
       const canonicalParts = [entidade, dataInicio, dataFim, registros.map(r => r.id).sort().join(",")];
       canonicalString = canonicalParts.join("|");
@@ -552,7 +558,7 @@ export const gerarRelatorioPersonalizado = onCall(async (request) => {
         .where("data_devolucao_efetuada", "<=", dataFimObj)
         .get();
         
-      const registros = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as any));
+      const registros = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as RegistroFirestore));
       totalRegistros = registros.length;
       const canonicalParts = [entidade, dataInicio, dataFim, registros.map(r => r.id).sort().join(",")];
       canonicalString = canonicalParts.join("|");
@@ -629,7 +635,7 @@ async function gerarBufferBarcode(texto: string) {
   });
 }
 
-async function renderBarcodesGrid(doc: any, codigos: string[], startRow: number, startCol: number) {
+async function renderBarcodesGrid(doc: DocumentoPdf, codigos: string[], startRow: number, startCol: number) {
   let slotAtual = (startRow - 1) * GRID_A4_VIRGEM.cols + (startCol - 1);
 
   for (const codigo of codigos) {
@@ -797,7 +803,7 @@ export const gerarPdfEtiquetasVirgens = onCall(async (request) => {
 // ============================================================================
 // REIMPRESSÃO E FICHA DE CONFERÊNCIA POR FRASCO (IMP-LABEL-002)
 // ============================================================================
-async function desenharEtiquetaReposicao(doc: any, x: number, y: number, frasco: any) {
+async function desenharEtiquetaReposicao(doc: DocumentoPdf, x: number, y: number, frasco: FrascoFichaRelatorio) {
   const labelWidth = mmToPt(65.0);
   const labelHeight = mmToPt(26.5);
   const paddingX = mmToPt(2.5);
@@ -807,7 +813,7 @@ async function desenharEtiquetaReposicao(doc: any, x: number, y: number, frasco:
   doc.rect(x, y, labelWidth, labelHeight).lineWidth(0.5).strokeColor("#B0B0B0").stroke();
 
   doc.font("Helvetica-Bold").fontSize(9.5).fillColor("#000000");
-  doc.text(frasco.codigo_frasco, x + paddingX, y + paddingY, {
+  doc.text(frasco.codigo_frasco ?? frasco.id, x + paddingX, y + paddingY, {
     width: printableWidth * 0.55,
     align: "left",
     lineBreak: false,
@@ -829,7 +835,7 @@ async function desenharEtiquetaReposicao(doc: any, x: number, y: number, frasco:
     ellipsis: true,
   });
 
-  const barcodeBuffer = await gerarBufferBarcode(frasco.codigo_frasco);
+  const barcodeBuffer = await gerarBufferBarcode(frasco.codigo_frasco ?? frasco.id);
   const barcodeWidth = mmToPt(42);
   const barcodeHeight = mmToPt(7.5);
   const barcodeX = x + (labelWidth - barcodeWidth) / 2;
@@ -841,7 +847,7 @@ async function desenharEtiquetaReposicao(doc: any, x: number, y: number, frasco:
   });
 }
 
-async function gerarBufferFichaConferencia(frascos: any[]): Promise<Buffer> {
+async function gerarBufferFichaConferencia(frascos: FrascoFichaRelatorio[]): Promise<Buffer> {
   const pdfDoc = new PDFDocument({
     size: "A4",
     margin: 36,
@@ -971,7 +977,7 @@ async function gerarBufferFichaConferencia(frascos: any[]): Promise<Buffer> {
           doc.font("Helvetica-Oblique").fontSize(7.5).fillColor("#718096").text("Nenhuma movimentação registrada no histórico.", margin, y + 6, { align: "center", width: contentWidth });
           y += 24;
         } else {
-          eventos.forEach((ev: any, idx: number) => {
+          eventos.forEach((ev: EventoHistoricoRelatorio, idx: number) => {
             const bg = idx % 2 === 0 ? "#FFFFFF" : "#F7FAFC";
             doc.rect(margin, y, contentWidth, rowHeight).fill(bg);
             let rowX = margin + 4;
@@ -1047,7 +1053,7 @@ export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
   }
 
   // 1. FAIL CLOSED: Buscar e validar existência E escopo de CADA frasco
-  const frascosEnriquecidos: any[] = [];
+  const frascosEnriquecidos: FrascoFichaRelatorio[] = [];
   const ehChefeGeral = autoridade.papeis.includes("Chefe_Geral");
 
   for (const frascoId of frascoIds) {
@@ -1055,7 +1061,7 @@ export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
     if (!snap.exists) {
       throw new HttpsError("not-found", `Frasco com ID '${frascoId}' não foi encontrado.`);
     }
-    const frasco = { id: snap.id, ...snap.data() } as any;
+    const frasco = { id: snap.id, ...snap.data() } as FrascoFichaRelatorio;
 
     // Se o usuário não for Chefe Geral, deve ter escopo de gestor no almoxarifado do frasco
     if (!ehChefeGeral) {
@@ -1104,9 +1110,9 @@ export const gerarPdfReimpressaoFrascos = onCall(async (request) => {
       };
     }
 
-    frasco.cadastrado_em = frasco.cadastrado_em?.toDate 
+    frasco.cadastrado_em = typeof frasco.cadastrado_em !== "string" && frasco.cadastrado_em?.toDate
       ? frasco.cadastrado_em.toDate().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
-      : "";
+      : frasco.cadastrado_em ?? "";
     if (frasco.validade_efetiva?.toDate) {
       frasco.validade_efetiva = frasco.validade_efetiva.toDate().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
     }

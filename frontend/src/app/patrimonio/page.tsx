@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ModalRelatoriosPatrimonio from "@/components/patrimonio/ModalRelatoriosPatrimonio";
@@ -13,13 +12,15 @@ import { usePatrimonioSearch } from "@/hooks/usePatrimonioSearch";
 import { PatrimonioActionBar } from "@/components/patrimonio/PatrimonioActionBar";
 import { PatrimonioFiltros } from "@/components/patrimonio/PatrimonioFiltros";
 import { TabelaBensPatrimoniais } from "@/components/patrimonio/TabelaBensPatrimoniais";
+import { GerenciarGestoresPatrimonioModal, NovoGestorPatrimonioModal } from "@/components/patrimonio/GestoresPatrimonioModais";
 
 export default function PatrimonioDashboard() {
   const { roles, user } = useAuth();
-  const router = useRouter();
   const [isRelatoriosOpen, setIsRelatoriosOpen] = useState(false);
   const [isNovoBemOpen, setIsNovoBemOpen] = useState(false);
   const [isNotificacoesOpen, setIsNotificacoesOpen] = useState(false);
+  const [isNovoGestorPatrimonioOpen, setIsNovoGestorPatrimonioOpen] = useState(false);
+  const [isGerenciarGestoresPatrimonioOpen, setIsGerenciarGestoresPatrimonioOpen] = useState(false);
 
   // Gestão de locais
   const [isNovoLocalOpen, setIsNovoLocalOpen] = useState(false);
@@ -65,8 +66,8 @@ export default function PatrimonioDashboard() {
             onNovoBem={() => setIsNovoBemOpen(true)}
             onNotificacoes={() => setIsNotificacoesOpen(true)}
             onRelatorios={() => setIsRelatoriosOpen(true)}
-            onNovoGestorPatrimonio={() => router.push("/pessoas?papel=Gestor_Bens_Patrimoniais&acao=conceder")}
-            onGerenciarGestoresPatrimonio={() => router.push("/pessoas?papel=Gestor_Bens_Patrimoniais&acao=gerenciar")}
+            onNovoGestorPatrimonio={() => setIsNovoGestorPatrimonioOpen(true)}
+            onGerenciarGestoresPatrimonio={() => setIsGerenciarGestoresPatrimonioOpen(true)}
           />
 
           {/* Título da Seção */}
@@ -154,6 +155,15 @@ export default function PatrimonioDashboard() {
           <ModalNotificacoesPatrimonio
             isOpen={isNotificacoesOpen}
             onClose={() => setIsNotificacoesOpen(false)}
+          />
+
+          <NovoGestorPatrimonioModal
+            isOpen={isNovoGestorPatrimonioOpen}
+            onClose={() => setIsNovoGestorPatrimonioOpen(false)}
+          />
+          <GerenciarGestoresPatrimonioModal
+            isOpen={isGerenciarGestoresPatrimonioOpen}
+            onClose={() => setIsGerenciarGestoresPatrimonioOpen(false)}
           />
         </div>
       </main>

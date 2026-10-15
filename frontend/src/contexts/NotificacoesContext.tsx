@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase/config";
 import type { NotificacaoItem } from "@/types/notificacoes";
@@ -11,7 +11,7 @@ interface NotificacoesContextValue {
   loading: boolean;
   dadosDesatualizados: boolean;
   offline: boolean;
-  marcarDadosDesatualizados: () => void;
+  erroLeitura: string | null;
 }
 
 const NotificacoesContext = createContext<NotificacoesContextValue | null>(null);
@@ -22,6 +22,7 @@ export function NotificacoesProvider({ children }: { children: React.ReactNode }
   const [loading, setLoading] = useState(true);
   const [dadosDesatualizados, setDadosDesatualizados] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [erroLeitura, setErroLeitura] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -30,6 +31,7 @@ export function NotificacoesProvider({ children }: { children: React.ReactNode }
         setLoading(false);
         setDadosDesatualizados(false);
         setOffline(false);
+        setErroLeitura(null);
       });
       return;
     }
@@ -39,6 +41,7 @@ export function NotificacoesProvider({ children }: { children: React.ReactNode }
       setLoading(true);
       setDadosDesatualizados(false);
       setOffline(typeof navigator !== "undefined" && !navigator.onLine);
+      setErroLeitura(null);
     });
 
     const atualizarConectividade = () => setOffline(!navigator.onLine);
@@ -47,9 +50,17 @@ export function NotificacoesProvider({ children }: { children: React.ReactNode }
 
     const colRef = collection(db, "Usuarios", user.uid, "Notificacoes");
     // M13 exige que a caixa consultada corresponda ao destinatário autenticado.
-    const notificacoesQuery = query(colRef, where("id_destinatario", "==", user.uid));
+    // UI-12 exibe a janela operacional mais recente; "Limpar todas" continua
+    // paginado no backend e não depende de baixar o histórico inteiro.
+    const notificacoesQuery = query(
+      colRef,
+      where("id_destinatario", "==", user.uid),
+      orderBy("emitida_em", "desc"),
+      limit(100),
+    );
     const unsubscribe = onSnapshot(
       notificacoesQuery,
+      { includeMetadataChanges: true },
       (snapshot) => {
         const itens: NotificacaoItem[] = [];
         snapshot.forEach((item) => {
@@ -65,6 +76,7 @@ export function NotificacoesProvider({ children }: { children: React.ReactNode }
         setLoading(false);
         setDadosDesatualizados(snapshot.metadata.fromCache === true);
         setOffline(!navigator.onLine);
+        setErroLeitura(null);
       },
       (error) => {
         if (error.code === "permission-denied") {
@@ -73,7 +85,12 @@ export function NotificacoesProvider({ children }: { children: React.ReactNode }
           console.error("Erro ao ouvir notificações:", error);
         }
         setLoading(false);
-        setDadosDesatualizados(true);
+        setDadosDesatualizados(false);
+        setErroLeitura(
+          error.code === "permission-denied"
+            ? "Não foi possível atualizar suas notificações. Verifique sua sessão e tente novamente."
+            : "Não foi possível atualizar suas notificações. Aguarde a reconexão e tente novamente.",
+        );
         setOffline(!navigator.onLine);
       },
     );
@@ -92,7 +109,7 @@ export function NotificacoesProvider({ children }: { children: React.ReactNode }
         loading,
         dadosDesatualizados,
         offline,
-        marcarDadosDesatualizados: () => setDadosDesatualizados(true),
+        erroLeitura,
       }}
     >
       {children}

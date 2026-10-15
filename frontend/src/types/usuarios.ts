@@ -68,7 +68,11 @@ export interface DetalhesUsuario {
   };
   papeis: string[];
   turmas: Array<{ id: string; [key: string]: unknown }>;
-  atividade: Array<{ id: string; acao?: string }>;
+  atividade: Array<{
+    id: string;
+    acao?: string;
+    instante?: string | number | { _seconds?: number; _nanoseconds?: number; seconds?: number; nanoseconds?: number } | null;
+  }>;
 }
 
 /**

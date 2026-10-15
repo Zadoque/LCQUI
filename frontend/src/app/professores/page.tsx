@@ -6,7 +6,7 @@ import { NovaMateriaModal } from "@/components/materias/NovaMateriaModal";
 import { ListaMaterias } from "@/components/materias/ListaMaterias";
 import {
   buscarProfessores,
-  buscarUsuariosSelecionaveis,
+  assinarUsuariosSelecionaveis,
   convidarProfessor,
 } from "@/services/usuarios/usuariosService";
 import type { Professor, UsuarioSelecionavel } from "@/types/usuarios";
@@ -32,12 +32,22 @@ export default function ProfessoresDashboard() {
   useEffect(() => {
     if (!isModalOpen) return;
     let cancelado = false;
-    buscarUsuariosSelecionaveis()
-      .then((usuarios) => {
-        if (!cancelado) setUsuariosSelecionaveis(usuarios);
-      })
-      .catch((error) => console.error("Erro ao buscar identidades existentes:", error));
-    return () => { cancelado = true; };
+    const unsubscribe = assinarUsuariosSelecionaveis(
+      (usuarios) => {
+        if (!cancelado) {
+          setUsuariosSelecionaveis(usuarios);
+        }
+      },
+      (error) => {
+        if (!cancelado) {
+          console.error("Erro ao buscar identidades existentes:", error);
+        }
+      },
+    );
+    return () => {
+      cancelado = true;
+      unsubscribe();
+    };
   }, [isModalOpen]);
 
   useEffect(() => {
@@ -198,7 +208,7 @@ export default function ProfessoresDashboard() {
               <div className="bg-background rounded-2xl border border-foreground/10 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 <div className="p-6 border-b border-foreground/10 flex justify-between items-center shrink-0">
                   <h2 className="text-xl font-bold">Novo Professor</h2>
-                  <button onClick={() => setIsModalOpen(false)} className="text-foreground/50 hover:text-foreground">
+                  <button type="button" aria-label="Fechar novo professor" onClick={() => setIsModalOpen(false)} className="text-foreground/50 hover:text-foreground">
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
                   </button>
                 </div>
